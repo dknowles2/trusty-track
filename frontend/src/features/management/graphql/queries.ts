@@ -244,6 +244,45 @@ export const CONFIRM_GPRM_IMPORT = gql`
   }
 `;
 
+// The DerbyNet twin of the pair above (#661) -- a sibling mutation pair
+// rather than a `source` argument on the GPRM one, so adding a second
+// importer did not mean renaming an already-shipped mutation. Same shape:
+// preview writes nothing, confirm re-parses and writes the identical
+// upload.
+export const PREVIEW_DERBYNET_IMPORT = gql`
+  mutation PreviewDerbynetImport($raceId: Int!, $fileData: String!) {
+    previewDerbynetImport(raceId: $raceId, fileData: $fileData) {
+      canImport
+      groups {
+        name
+        division
+      }
+      racers {
+        firstName
+        lastName
+        carNumber
+        carName
+        carWeight
+        passedInspection
+        group
+        excludedFromStandings
+        sourceId
+      }
+      problems {
+        message
+        blocking
+        sourceId
+      }
+    }
+  }
+`;
+
+export const CONFIRM_DERBYNET_IMPORT = gql`
+  mutation ConfirmDerbynetImport($raceId: Int!, $fileData: String!) {
+    confirmDerbynetImport(raceId: $raceId, fileData: $fileData)
+  }
+`;
+
 export const CREATE_RACING_GROUP = gql`
   mutation CreateRacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) {
     createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) {

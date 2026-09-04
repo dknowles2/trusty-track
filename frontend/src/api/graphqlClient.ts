@@ -72,6 +72,11 @@ export const EMBEDDED_TYPES = [
   'GprmImportPreview',
   'GprmImportProblem',
   'GprmImportRacer',
+  // The DerbyNet twin of the four above (#661) -- same reason, same shape.
+  'DerbynetImportGroup',
+  'DerbynetImportPreview',
+  'DerbynetImportProblem',
+  'DerbynetImportRacer',
   'HeatHighlight',
   'HeatLane',
   'HeatReorderResponse',

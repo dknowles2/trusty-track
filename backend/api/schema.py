@@ -43,6 +43,7 @@ from backend.services import displays as displays_service
 from backend.services import network, scoring
 from backend.services import records as records_service
 from backend.services.image_processing import convert_to_browser_safe_png
+from backend.services.importers.derbynet import parse_derbynet_database
 from backend.services.importers.gprm import parse_gprm_database
 from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE, NO_TIMER
 from backend.services.timer.devices import by_key as _profile_by_key
@@ -3159,11 +3160,16 @@ class GprmImportPreview:
     can_import: bool
 
 
-def _decode_upload(file_data: str, max_bytes: int) -> bytes:
+def _decode_upload(
+    file_data: str, max_bytes: int, program_name: str = "GrandPrix Race Manager"
+) -> bytes:
     """A base64 data URL — the same shape `uploadImage`'s `dataUrl` takes —
     to raw bytes, refusing anything absurdly large before it is written
-    anywhere. Shared by preview and confirm so the two cannot disagree about
-    what counts as too big.
+    anywhere. Shared by every importer's preview and confirm so none of them
+    can disagree about what counts as too big.
+
+    `program_name` reaches the one message that names a program (#661) —
+    the same reason `domain.gprm.roster_from_tables` takes it.
     """
     if "," not in file_data:
         raise ValueError("That file could not be read.")
@@ -3174,8 +3180,8 @@ def _decode_upload(file_data: str, max_bytes: int) -> bytes:
         raise ValueError("That file could not be read.") from error
     if len(raw) > max_bytes:
         raise ValueError(
-            "That file is larger than GrandPrix Race Manager writes for a "
-            "roster database — it is probably not one."
+            f"That file is larger than {program_name} writes for a roster "
+            "database — it is probably not one."
         )
     return raw
 
@@ -3255,6 +3261,131 @@ def _gprm_import_preview(
         ],
         problems=[
             GprmImportProblem(
+                message=problem.message,
+                blocking=problem.blocking,
+                source_id=problem.source_id,
+            )
+            for problem in problems
+        ],
+        can_import=not any(problem.blocking for problem in problems),
+    )
+
+
+#: DerbyNet's own database is the same table family GPRM's is (see
+#: `domain.derbynet`'s docstring), and keeps photographs as separate files
+#: the same way GPRM does — so the same headroom applies for the same
+#: reason `MAX_GPRM_IMPORT_BYTES` gives above.
+MAX_DERBYNET_IMPORT_BYTES = MAX_GPRM_IMPORT_BYTES
+
+
+@strawberry.type
+class DerbynetImportGroup:
+    """A racing group `domain.derbynet.roster_from_derbynet_tables` found,
+    before it is written."""
+
+    name: str
+    division: str | None
+
+
+@strawberry.type
+class DerbynetImportRacer:
+    """A racer `domain.derbynet.roster_from_derbynet_tables` found, before
+    it is written."""
+
+    first_name: str
+    last_name: str
+    car_number: int | None
+    car_name: str | None
+    car_weight: float | None
+    passed_inspection: bool
+    group: str | None
+    excluded_from_standings: bool
+    #: DerbyNet's own id, so a problem naming this racer (below) can be
+    #: matched back to the row it is about — see `ImportedRacer.source_id`.
+    source_id: str | None
+
+
+@strawberry.type
+class DerbynetImportProblem:
+    """One sentence about what will not import as the operator might expect."""
+
+    message: str
+    blocking: bool
+    source_id: str | None
+
+
+@strawberry.type
+class DerbynetImportPreview:
+    """Everything an uploaded DerbyNet database would import (#661), without
+    writing any of it.
+
+    The same shape as `GprmImportPreview` — a sibling type rather than a
+    shared one, so the schema names which program a caller is previewing
+    rather than a caller reading `previewDerbynetImport: GprmImportPreview`
+    and wondering whether that is a typo. `confirmDerbynetImport` re-parses
+    the same upload rather than trusting this value back from the client,
+    for the identical reason `GprmImportPreview`'s own docstring gives.
+    """
+
+    groups: list[DerbynetImportGroup]
+    racers: list[DerbynetImportRacer]
+    problems: list[DerbynetImportProblem]
+    can_import: bool
+
+
+def _parse_derbynet_upload(
+    db: Session, race: models.Race, file_data: str
+) -> tuple[roster_import.ParsedRoster, str]:
+    """Decode an uploaded DerbyNet database and parse it (#661).
+
+    The DerbyNet twin of `_parse_gprm_upload` — see its own docstring for
+    why the bytes land in a temporary file rather than a buffer, and why a
+    `RosterImportError` is re-raised as a plain `ValueError`.
+    """
+    raw = _decode_upload(file_data, MAX_DERBYNET_IMPORT_BYTES, program_name="DerbyNet")
+    vehicle_word = _race_vehicle_word(db, race)
+    with tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False) as handle:
+        handle.write(raw)
+        temp_path = Path(handle.name)
+    try:
+        try:
+            roster = parse_derbynet_database(temp_path, vehicle_word=vehicle_word)
+        except roster_import.RosterImportError as error:
+            raise ValueError(str(error)) from error
+        return roster, vehicle_word
+    finally:
+        os.unlink(temp_path)
+
+
+def _derbynet_import_preview(
+    db: Session, race_id: int, roster: roster_import.ParsedRoster, vehicle_word: str
+) -> DerbynetImportPreview:
+    existing_holders = crud.existing_car_number_holders(db, race_id)
+    extra_problems = roster_import.existing_number_problems(
+        roster.racers, existing_holders, vehicle_word
+    )
+    problems = list(roster.problems) + extra_problems
+    return DerbynetImportPreview(
+        groups=[
+            DerbynetImportGroup(name=group.name, division=group.division)
+            for group in roster.groups
+        ],
+        racers=[
+            DerbynetImportRacer(
+                first_name=racer.first_name,
+                last_name=racer.last_name,
+                car_number=racer.car_number,
+                car_name=racer.car_name,
+                car_weight=racer.car_weight,
+                passed_inspection=racer.passed_inspection,
+                group=racer.group,
+                excluded_from_standings=racer.excluded_from_standings,
+                source_id=racer.source_id,
+            )
+            for racer in roster.racers
+        ],
+        problems=[
+            DerbynetImportProblem(
                 message=problem.message,
                 blocking=problem.blocking,
                 source_id=problem.source_id,
@@ -4962,6 +5093,50 @@ class Mutation:
         # Same arrival #343 fixed for the CSV path: a GPRM roster can carry
         # already-checked-in racers (`PassedInspection`), and admission is
         # the batch's job, once, not per racer.
+        await _admit_late_racers(info, race_id)
+        await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
+        return count
+
+    @strawberry.mutation
+    async def preview_derbynet_import(
+        self, info: Info, race_id: int, file_data: str
+    ) -> DerbynetImportPreview:
+        """Parse an uploaded DerbyNet database without writing anything (#661).
+
+        The DerbyNet twin of `previewGprmImport` — a sibling mutation rather
+        than the same one taking a source argument, so that renaming an
+        already-shipped, documented mutation is not the cost of adding a
+        second importer (see `domain.derbynet`'s own docstring for why the
+        parser itself needed almost nothing DerbyNet-specific; this pair is
+        the "almost").
+        """
+        db = info.context["db"]
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        if not race:
+            raise ValueError("Race not found")
+        roster, vehicle_word = _parse_derbynet_upload(db, race, file_data)
+        return _derbynet_import_preview(db, race_id, roster, vehicle_word)
+
+    @strawberry.mutation
+    async def confirm_derbynet_import(
+        self, info: Info, race_id: int, file_data: str
+    ) -> int:
+        """Write the roster from a DerbyNet database (#661).
+
+        Re-parses `fileData` rather than trusting a preview handed back from
+        the client, the same reason `confirmGprmImport` does. Returns the
+        number of racers created, the same contract every importer here has.
+        """
+        db = info.context["db"]
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        if not race:
+            raise ValueError("Race not found")
+        roster, _ = _parse_derbynet_upload(db, race, file_data)
+        count = crud.write_imported_roster(db, race_id, roster)
+
+        # Same arrival #343 fixed for the CSV and GPRM paths: a DerbyNet
+        # roster can carry already-checked-in racers (`passedinspection`),
+        # and admission is the batch's job, once, not per racer.
         await _admit_late_racers(info, race_id)
         await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
         return count

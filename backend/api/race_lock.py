@@ -273,6 +273,9 @@ LOCKED_MUTATION_RESOLVERS: dict[str, Callable[[Session, dict[str, Any]], bool]] 
     # docstring says stays reachable ("everything not named below"). Its
     # write half is named here like every other roster-changing mutation.
     "confirmGprmImport": _direct_locked,
+    # Same shape, same reason (#661): `previewDerbynetImport` writes nothing
+    # and is deliberately absent; `confirmDerbynetImport` writes racers.
+    "confirmDerbynetImport": _direct_locked,
     "populateRace": _direct_locked,
     "applyMasterRunningOrder": _direct_locked,
     "startFreeRaceHeat": _direct_locked,

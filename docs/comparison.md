@@ -145,12 +145,13 @@ built-in vehicle names (car, truck, rocket, boat) — the difference here is
 that the words are free text rather than a fixed list, and the racing group
 and organization can be renamed alongside the vehicle.
 
-If your pack is moving from GrandPrix Race Manager, its database can be read
-directly — dens, car numbers and passed-inspection status all come across in
-one import from the roster's **Import from GrandPrix Race Manager** button,
-rather than exporting to CSV and remapping columns by hand. GPRM keeps
-photographs as separate files outside the database, so those still need
-adding again afterwards. See [Adding racers](race-setup.md#adding-racers).
+If your pack is moving from GrandPrix Race Manager or DerbyNet, its database
+can be read directly — dens, car numbers and passed-inspection status all
+come across in one import from the roster's **Import from GrandPrix Race
+Manager** or **Import from DerbyNet** button, rather than exporting to CSV
+and remapping columns by hand. Both programs keep photographs as separate
+files outside the database, so those still need adding again afterwards. See
+[Adding racers](race-setup.md#adding-racers).
 
 ## Sources
 

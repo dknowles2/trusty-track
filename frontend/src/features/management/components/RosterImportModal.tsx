@@ -1,42 +1,133 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import Modal from '../../../components/ui/Modal';
 import { useMutation } from 'urql';
-import { PREVIEW_GPRM_IMPORT, CONFIRM_GPRM_IMPORT } from '../graphql/queries';
+import type { TypedDocumentNode } from 'urql';
+import {
+    PREVIEW_GPRM_IMPORT,
+    CONFIRM_GPRM_IMPORT,
+    PREVIEW_DERBYNET_IMPORT,
+    CONFIRM_DERBYNET_IMPORT,
+} from '../graphql/queries';
 import { errorText } from '../../../utils/errors';
 import { useTerminology } from '../../../context/TerminologyContext';
-import type { PreviewGprmImportMutation } from '../../../gql/operations';
 
-interface GprmImportModalProps {
+export type RosterImportSource = 'gprm' | 'derbynet';
+
+interface RosterImportModalProps {
     isOpen: boolean;
     onClose: () => void;
     raceId: number;
     onImportSuccess: () => void;
+    source: RosterImportSource;
 }
 
-type Preview = PreviewGprmImportMutation['previewGprmImport'];
+/**
+ * The shape both `previewGprmImport` and `previewDerbynetImport` return —
+ * codegen gives each its own operation type, but the two are structurally
+ * identical (both are `domain.roster_import.ParsedRoster`, read through
+ * either program's own parser), which is exactly why one modal can read
+ * either result through one type rather than a union.
+ */
+interface RosterImportPreview {
+    canImport: boolean;
+    groups: Array<{ name: string; division: string | null }>;
+    racers: Array<{
+        firstName: string;
+        lastName: string;
+        carNumber: number | null;
+        carName: string | null;
+        carWeight: number | null;
+        passedInspection: boolean;
+        group: string | null;
+        excludedFromStandings: boolean;
+        sourceId: string | null;
+    }>;
+    problems: Array<{ message: string; blocking: boolean; sourceId: string | null }>;
+}
+
+interface SourceConfig {
+    title: string;
+    help: ReactNode;
+    fileInputId: string;
+    fileButtonLabel: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- urql's mutation doc type varies per operation; the field this modal reads is picked below by name, not by the doc's own generated shape.
+    previewDoc: TypedDocumentNode<any, { raceId: number; fileData: string }>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    confirmDoc: TypedDocumentNode<any, { raceId: number; fileData: string }>;
+    previewField: string;
+    confirmField: string;
+}
+
+/**
+ * Import a roster from another derby program's database — GrandPrix Race
+ * Manager (#618) or DerbyNet (#661). Both write the same table family
+ * (`RegistrationInfo`/`Classes`/`Ranks` — see `domain/gprm.py`'s and
+ * `domain/derbynet.py`'s own docstrings), and both preview-then-confirm
+ * mutations share this exact shape, so one modal reads a `source` prop
+ * rather than each program growing its own copy of this screen.
+ *
+ * Unlike the CSV importer there is no column mapping here — the file is a
+ * database, not a spreadsheet, and the mapping already happened
+ * server-side. So the flow is shorter: pick a file, the server previews
+ * what it found without writing anything, and a second click writes it.
+ * Both calls send the same file data — there is no session on the server
+ * holding the upload in between, so what gets written can never drift from
+ * what the preview showed.
+ */
+const SOURCE_CONFIG: Record<RosterImportSource, SourceConfig> = {
+    gprm: {
+        title: 'Import from GrandPrix Race Manager',
+        help: (
+            <>
+                GrandPrix Race Manager (version 18 or later) keeps its data as a single
+                SQLite file, usually under Documents &gt; Lisano Enterprises &gt; GrandPrix
+                Race Manager &gt; Data. Select it below and check the preview before
+                importing — the mapping from its tables to a roster here is inferred from
+                its schema, not confirmed against a real GPRM install, so it is worth a
+                second look rather than assumed correct.
+            </>
+        ),
+        fileInputId: 'gprm-upload-input',
+        fileButtonLabel: 'Select GPRM Database',
+        previewDoc: PREVIEW_GPRM_IMPORT,
+        confirmDoc: CONFIRM_GPRM_IMPORT,
+        previewField: 'previewGprmImport',
+        confirmField: 'confirmGprmImport',
+    },
+    derbynet: {
+        title: 'Import from DerbyNet',
+        help: (
+            <>
+                DerbyNet keeps its data as a single SQLite file — from its Administer
+                Race page&apos;s Backup Database link, or the file in its own data
+                directory. Select it below and check the preview before importing — the
+                mapping from its tables to a roster here is inferred from its schema, not
+                confirmed against a real DerbyNet install, so it is worth a second look
+                rather than assumed correct.
+            </>
+        ),
+        fileInputId: 'derbynet-upload-input',
+        fileButtonLabel: 'Select DerbyNet Database',
+        previewDoc: PREVIEW_DERBYNET_IMPORT,
+        confirmDoc: CONFIRM_DERBYNET_IMPORT,
+        previewField: 'previewDerbynetImport',
+        confirmField: 'confirmDerbynetImport',
+    },
+};
 
 const PREVIEW_ROWS = 5;
 
-/**
- * Import a roster from a GrandPrix Race Manager database (#618).
- *
- * Unlike the CSV importer there is no column mapping here — the file is a
- * database, not a spreadsheet, and the mapping from GPRM's tables to a
- * roster already happened server-side in `domain/gprm.py`. So the flow is
- * shorter: pick a file, the server previews what it found without writing
- * anything, and a second click writes it. Both calls send the same file
- * data — there is no session on the server holding the upload in between,
- * so what gets written can never drift from what the preview showed.
- */
-export default function GprmImportModal({ isOpen, onClose, raceId, onImportSuccess }: GprmImportModalProps) {
+export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuccess, source }: RosterImportModalProps) {
+    const config = SOURCE_CONFIG[source];
     const { group, vehicle, groupLower, groupsLower } = useTerminology();
     const [fileName, setFileName] = useState<string | null>(null);
     const [fileData, setFileData] = useState<string | null>(null);
-    const [preview, setPreview] = useState<Preview | null>(null);
+    const [preview, setPreview] = useState<RosterImportPreview | null>(null);
     const [confirming, setConfirming] = useState(false);
     const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-    const [previewResult, previewMutation] = useMutation(PREVIEW_GPRM_IMPORT);
-    const [, confirmMutation] = useMutation(CONFIRM_GPRM_IMPORT);
+    const [previewResult, previewMutation] = useMutation(config.previewDoc);
+    const [, confirmMutation] = useMutation(config.confirmDoc);
 
     const reset = () => {
         setFileName(null);
@@ -51,7 +142,8 @@ export default function GprmImportModal({ isOpen, onClose, raceId, onImportSucce
         try {
             const result = await previewMutation({ raceId, fileData: dataUrl });
             if (result.error) throw result.error;
-            setPreview(result.data?.previewGprmImport ?? null);
+            const data = result.data as Record<string, RosterImportPreview> | null | undefined;
+            setPreview(data?.[config.previewField] ?? null);
         } catch (error: unknown) {
             setStatus({
                 type: 'error',
@@ -86,7 +178,8 @@ export default function GprmImportModal({ isOpen, onClose, raceId, onImportSucce
             const result = await confirmMutation({ raceId, fileData });
             if (result.error) throw result.error;
 
-            const imported = result.data?.confirmGprmImport ?? 0;
+            const data = result.data as Record<string, number> | null | undefined;
+            const imported = data?.[config.confirmField] ?? 0;
             setStatus({
                 type: 'success',
                 message: `Imported ${imported} racer${imported === 1 ? '' : 's'}.`,
@@ -113,15 +206,10 @@ export default function GprmImportModal({ isOpen, onClose, raceId, onImportSucce
     const ready = preview !== null && preview.canImport && !previewing;
 
     return (
-        <Modal isOpen={isOpen} onClose={handleClose} title="Import from GrandPrix Race Manager" maxWidth="720px">
+        <Modal isOpen={isOpen} onClose={handleClose} title={config.title} maxWidth="720px">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <p style={{ color: 'var(--text-muted-color)', lineHeight: '1.5', margin: 0 }}>
-                    GrandPrix Race Manager (version 18 or later) keeps its data as a single
-                    SQLite file, usually under Documents &gt; Lisano Enterprises &gt; GrandPrix
-                    Race Manager &gt; Data. Select it below and check the preview before
-                    importing — the mapping from its tables to a roster here is inferred from
-                    its schema, not confirmed against a real GPRM install, so it is worth a
-                    second look rather than assumed correct.
+                    {config.help}
                 </p>
 
                 <div style={{ border: '2px dashed var(--input-border-color)', padding: '1.5rem', borderRadius: '8px', textAlign: 'center' }}>
@@ -129,10 +217,10 @@ export default function GprmImportModal({ isOpen, onClose, raceId, onImportSucce
                         type="file"
                         onChange={handleFileChange}
                         style={{ display: 'none' }}
-                        id="gprm-upload-input"
+                        id={config.fileInputId}
                     />
-                    <label htmlFor="gprm-upload-input" className="secondary-btn" style={{ cursor: 'pointer', display: 'inline-block' }}>
-                        {fileName ?? 'Select GPRM Database'}
+                    <label htmlFor={config.fileInputId} className="secondary-btn" style={{ cursor: 'pointer', display: 'inline-block' }}>
+                        {fileName ?? config.fileButtonLabel}
                     </label>
                     {previewing && (
                         <p style={{ margin: '0.75rem 0 0', color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
