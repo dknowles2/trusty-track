@@ -8,6 +8,8 @@ import { errorText } from '../../../utils/errors';
 import { ScheduleManagement } from '../components/ScheduleManagement';
 import DisplaysPanel from '../../observation/components/DisplaysPanel';
 import { RaceExecution } from '../components/RaceExecution';
+import LaneBadge from '../../../components/ui/LaneBadge';
+import { colorForLane } from '../../settings/laneColors';
 import IntermissionControl from '../components/IntermissionControl';
 import ReadinessStrip from '../components/ReadinessStrip';
 import { FreeRaceTab } from '../components/FreeRaceTab';
@@ -754,6 +756,7 @@ export default function RaceControl() {
               scoringStrategy={race?.scoringStrategy}
               timerType={race?.track?.timerType}
               trackId={race?.track?.id ?? null}
+              laneColors={race?.track?.laneColors ?? []}
               racers={racers}
               roundSummary={roundSummary}
               autoAdvanceHeat={race?.autoAdvanceHeat ?? false}
@@ -829,7 +832,12 @@ export default function RaceControl() {
                                 fontSize: '0.75rem',
                                 flexShrink: 0
                               }}>{r.place ?? '–'}</span>
-                              <span style={{ color: 'var(--text-subtle-color)', minWidth: '52px', fontSize: '0.85rem' }}>Lane {r.lane}</span>
+                              <LaneBadge
+                                  color={colorForLane(race?.track?.laneColors ?? [], r.lane)}
+                                  style={{ color: 'var(--text-subtle-color)', minWidth: '52px', fontSize: '0.85rem' }}
+                              >
+                                  Lane {r.lane}
+                              </LaneBadge>
                               <span style={{ flex: 1, fontWeight: r.place === 1 ? 600 : 'normal' }}>{laneRacerName(r, slowestRoundIds.has(heat.roundId))}</span>
                               <span style={{ fontFamily: 'monospace', color: 'var(--text-heading-alt-color)', flexShrink: 0 }}>{r.time != null ? `${Number(r.time).toFixed(4)}s` : '–'}</span>
                             </div>
@@ -863,6 +871,7 @@ export default function RaceControl() {
           onApplyMasterRunningOrder={handleApplyMasterRunningOrder}
           getRacerName={getRacerName}
           laneCount={race?.track?.laneCount || 4}
+          laneColors={race?.track?.laneColors ?? []}
           racerCount={race?.racers?.length || 0}
           racingGroupCount={race?.racingGroups?.length || 0}
           championshipTrophies={race?.championshipTrophies || 3}

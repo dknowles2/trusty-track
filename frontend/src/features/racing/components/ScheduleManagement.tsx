@@ -31,6 +31,8 @@ import type { Heat, Lane } from '../types';
 import { hasRun, hasTimes } from '../lanes';
 import { executionComparator } from '../runningOrder';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
+import LaneBadge from '../../../components/ui/LaneBadge';
+import { colorForLane } from '../../settings/laneColors';
 
 // Re-exported rather than redeclared: this used to be a hand-written copy that
 // nothing tied to the schema, and it drifted the moment `lanes` was added.
@@ -97,6 +99,11 @@ interface ScheduleManagementProps {
   onApplyMasterRunningOrder?: () => Promise<void>;
   getRacerName: (id: number) => string;
   laneCount: number;
+  /** This track's configured lane colours (#611), index 0 meaning lane 1 —
+   * the dot beside each "Lane N" column header, matching what the physical
+   * track is painted. Absent or short means no colour for that lane, and
+   * the header shows exactly what it always has. */
+  laneColors?: readonly string[];
   racerCount: number;
   racingGroupCount: number;
   championshipTrophies: number;
@@ -293,6 +300,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   onApplyMasterRunningOrder,
   getRacerName,
   laneCount,
+  laneColors = [],
   racerCount,
   racingGroupCount,
   championshipTrophies,
@@ -821,7 +829,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                             <th style={{ padding: '12px 8px', width: '40px' }}></th>
                             <th style={{ padding: '12px', width: '100px', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Heat</th>
                             {Array.from({ length: laneCount }).map((_, i) => (
-                              <th key={i} style={{ padding: '12px', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Lane {i + 1}</th>
+                              <th key={i} style={{ padding: '12px', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                                <LaneBadge color={colorForLane(laneColors, i + 1)}>Lane {i + 1}</LaneBadge>
+                              </th>
                             ))}
                             <th style={{ padding: '12px', width: '120px', textAlign: 'right', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Actions</th>
                           </tr>

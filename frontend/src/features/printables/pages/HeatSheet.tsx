@@ -22,6 +22,8 @@ import { formatEventDate } from '../documents';
 import { GET_HEAT_SHEET } from '../graphql/queries';
 import { printablesThemeRootProps } from '../printablesTheme';
 import { useTerminology } from '../../../context/TerminologyContext';
+import LaneBadge from '../../../components/ui/LaneBadge';
+import { colorForLane } from '../../settings/laneColors';
 import '../PrintSheet.css';
 
 export default function HeatSheet() {
@@ -36,12 +38,18 @@ export default function HeatSheet() {
     });
 
     const race = data?.race;
+    const track = useMemo(
+        () => data?.tracks?.find((t: { id: number }) => t.id === race?.trackId),
+        [data, race],
+    );
+    // This track's configured lane colours (#611) — a swatch beside each
+    // lane's header, alongside the lane number rather than replacing it: a
+    // mono printer renders every hue as a similar grey, and the number is
+    // what still says which physical lane this column is on paper.
+    const laneColors: readonly string[] = track?.laneColors ?? [];
 
     const sections = useMemo(() => {
         if (!race) return [];
-        const track = data?.tracks?.find(
-            (t: { id: number }) => t.id === race.trackId,
-        );
         // Every lane the track has. A lane out of service has no column, and
         // that comes from the schedule rather than from here — a heat simply
         // has no lane there, and `buildHeatSheet` fills the gap.
@@ -54,7 +62,7 @@ export default function HeatSheet() {
             lanes,
             race.resolvedNameDisplay ?? 'FULL',
         );
-    }, [race, data]);
+    }, [race, track]);
 
     if (fetching && !data) return <p style={{ padding: '2rem' }}>Loading…</p>;
     if (error) return <p style={{ padding: '2rem' }}>Could not load this race.</p>;
@@ -127,7 +135,11 @@ export default function HeatSheet() {
                                     <tr>
                                         <th className="heat-sheet-num">Heat</th>
                                         {laneColumns.map((cell) => (
-                                            <th key={cell.lane}>Lane {cell.lane}</th>
+                                            <th key={cell.lane}>
+                                                <LaneBadge color={colorForLane(laneColors, cell.lane)} style={{ justifyContent: 'center' }}>
+                                                    Lane {cell.lane}
+                                                </LaneBadge>
+                                            </th>
                                         ))}
                                         <th className="heat-sheet-result">Result</th>
                                     </tr>

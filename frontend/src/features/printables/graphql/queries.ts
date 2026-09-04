@@ -80,6 +80,11 @@ export const GET_HEAT_SHEET = gql`
     tracks {
       id
       laneCount
+      # This track's configured lane colours — a small swatch beside
+      # each lane header, so the announcer's printed table matches the
+      # colour painted on the track in front of them. Empty when nobody has
+      # opened the picker on the track's card.
+      laneColors
     }
   }
 `;

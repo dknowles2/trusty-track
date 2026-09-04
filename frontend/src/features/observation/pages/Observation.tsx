@@ -3,6 +3,8 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useSubscription, useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import RacerAvatar from '../../management/components/RacerAvatar';
+import LaneBadge from '../../../components/ui/LaneBadge';
+import { colorForLane } from '../../settings/laneColors';
 import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline, mdiVideo } from '@mdi/js';
 import { TimerStatusBadge } from '../../racing/components/TimerStatusBadge';
 import PhotoSlideshow from '../components/PhotoSlideshow';
@@ -47,6 +49,11 @@ const GET_INITIAL_DATA = `
       }
       track {
         id
+        # This track's configured lane colours, for the badge beside every
+        # lane number on the Now Racing / On Deck cards and in projector
+        # mode. Empty when the operator has never opened the picker on the
+        # track's card.
+        laneColors
       }
       racers {
         id
@@ -368,6 +375,11 @@ export default function Observation() {
   // is exactly what every install showed before this setting existed, so
   // there is nothing to do while the query is still in flight.
   const nameDisplay = initialData?.race?.resolvedNameDisplay ?? 'FULL';
+  // This track's configured lane colours (#611) — read once here and passed
+  // to both `renderHeatCard` and `renderProjectorRacers` rather than each
+  // re-deriving it, the same "resolve once, pass down" shape `nameDisplay`
+  // itself uses on this page.
+  const laneColors = initialData?.race?.track?.laneColors ?? [];
   const scoreLabel = scoringStrategy === 'TIMED' ? 'Avg Time' : 'Points';
   const formatScore = (score: number) =>
     scoringStrategy === 'TIMED' ? `${score.toFixed(4)}s` : score.toString();
@@ -510,7 +522,13 @@ export default function Observation() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px' }}>
             {entries.map(({ lane, racer }: LaneEntry) => (
               <div key={lane} className="heat-card-racer" style={{ textAlign: 'center', padding: '10px', background: 'var(--display-card-bg-color)', borderRadius: '8px' }}>
-                <div className="heat-card-lane" style={{ fontWeight: 'bold', marginBottom: '5px', color: 'var(--display-text-subtle-color)' }}>Lane {lane}</div>
+                <LaneBadge
+                  color={colorForLane(laneColors, lane)}
+                  className="heat-card-lane"
+                  style={{ justifyContent: 'center', fontWeight: 'bold', marginBottom: '5px', color: 'var(--display-text-subtle-color)' }}
+                >
+                  Lane {lane}
+                </LaneBadge>
                 <RacerAvatar
                   racer={{
                     id: racer.id,
@@ -964,9 +982,12 @@ export default function Observation() {
 
             {/* Priority 3: Lane Number (Only prominent for Now Racing, very small or omitted for On Deck) */}
             <div className="projector-racer-lane-car" style={{ marginTop: '1.5vmin', display: 'flex', flexDirection: 'column', gap: '0.5vmin' }}>
-              <div style={{ color: isNowRacing ? 'var(--display-text-dim-color)' : 'var(--display-placeholder-color)', fontSize: isNowRacing ? '2.5vmin' : '1.8vmin', fontWeight: isNowRacing ? 'bold' : 'normal' }}>
+              <LaneBadge
+                color={colorForLane(laneColors, lane)}
+                style={{ justifyContent: 'center', color: isNowRacing ? 'var(--display-text-dim-color)' : 'var(--display-placeholder-color)', fontSize: isNowRacing ? '2.5vmin' : '1.8vmin', fontWeight: isNowRacing ? 'bold' : 'normal' }}
+              >
                 Lane {lane}
-              </div>
+              </LaneBadge>
               {racer.carNumber && (
                 <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
                   {vehicle} #{racer.carNumber}

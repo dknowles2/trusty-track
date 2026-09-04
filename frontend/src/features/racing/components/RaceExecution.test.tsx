@@ -142,6 +142,29 @@ describe('RaceExecution', () => {
         expect(screen.getByText('1st')).toBeInTheDocument();
     });
 
+    it('shows no lane colour dot when the track has none configured (#611)', () => {
+        const { container } = render(
+            <RaceExecution
+                {...defaultProps}
+            />
+        );
+        expect(container.querySelector('.lane-badge-dot')).toBeNull();
+    });
+
+    it("shows a lane colour dot matching the track's configured colour (#611)", () => {
+        render(
+            <RaceExecution
+                {...defaultProps}
+                laneColors={['#E53935', '#1E88E5']}
+            />
+        );
+        // Lane 1 is red, lane 2 is blue — both lanes are in the active
+        // heat's own rendering, and each dot names its colour for anyone
+        // hovering, the same pairing `LaneColor` carries on the backend.
+        expect(screen.getByTitle('Red lane')).toBeInTheDocument();
+        expect(screen.getByTitle('Blue lane')).toBeInTheDocument();
+    });
+
     it('shows Edit button when heat is completed', () => {
         render(
             <RaceExecution
