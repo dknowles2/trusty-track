@@ -17,7 +17,7 @@ import RaceForm, { RaceFormData } from '../components/RaceForm';
 import DeleteLockedRaceModal from '../components/DeleteLockedRaceModal';
 import LockedBadge from '../../core/components/LockedBadge';
 import ImportRacersModal from '../components/ImportRacersModal';
-import GprmImportModal from '../components/GprmImportModal';
+import RosterImportModal from '../components/RosterImportModal';
 import SetupChecklist from '../components/SetupChecklist';
 import CheckInProgress from '../components/CheckInProgress';
 import SortableHeader from '../components/SortableHeader';
@@ -204,6 +204,7 @@ export default function RaceDetails() {
   const [showRacerForm, setShowRacerForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showGprmImportModal, setShowGprmImportModal] = useState(false);
+  const [showDerbynetImportModal, setShowDerbynetImportModal] = useState(false);
   const [showRacingGroupManager, setShowRacingGroupManager] = useState(false);
   const [editingRacer, setEditingRacer] = useState<Racer | undefined>(undefined);
   const [racerFormTitle, setRacerFormTitle] = useState('Add New Racer');
@@ -884,6 +885,15 @@ export default function RaceDetails() {
                             >
                                 <Icon path={mdiDatabaseImport} size={0.7} /> Import from GrandPrix Race Manager
                             </button>
+                            <button
+                                onClick={() => {
+                                    setShowDerbynetImportModal(true);
+                                    setIsAddRacerDropdownOpen(false);
+                                }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <Icon path={mdiDatabaseImport} size={0.7} /> Import from DerbyNet
+                            </button>
                         </div>
                     )}
                 </div>
@@ -1422,9 +1432,21 @@ export default function RaceDetails() {
 
       {/* GrandPrix Race Manager Import Modal (#618) */}
       {race && (
-          <GprmImportModal
+          <RosterImportModal
+            source="gprm"
             isOpen={showGprmImportModal}
             onClose={() => setShowGprmImportModal(false)}
+            raceId={race.id}
+            onImportSuccess={refreshData}
+          />
+      )}
+
+      {/* DerbyNet Import Modal (#661) */}
+      {race && (
+          <RosterImportModal
+            source="derbynet"
+            isOpen={showDerbynetImportModal}
+            onClose={() => setShowDerbynetImportModal(false)}
             raceId={race.id}
             onImportSuccess={refreshData}
           />

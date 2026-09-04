@@ -82,6 +82,36 @@ type AwardVoteTally {
   racer: Racer
 }
 
+type DerbynetImportGroup {
+  name: String!
+  division: String
+}
+
+type DerbynetImportPreview {
+  groups: [DerbynetImportGroup!]!
+  racers: [DerbynetImportRacer!]!
+  problems: [DerbynetImportProblem!]!
+  canImport: Boolean!
+}
+
+type DerbynetImportProblem {
+  message: String!
+  blocking: Boolean!
+  sourceId: String
+}
+
+type DerbynetImportRacer {
+  firstName: String!
+  lastName: String!
+  carNumber: Int
+  carName: String
+  carWeight: Float
+  passedInspection: Boolean!
+  group: String
+  excludedFromStandings: Boolean!
+  sourceId: String
+}
+
 type Display {
   displayId: String!
   name: String!
@@ -411,6 +441,8 @@ type Mutation {
   importRacers(raceId: Int!, csvData: String!): Int!
   previewGprmImport(raceId: Int!, fileData: String!): GprmImportPreview!
   confirmGprmImport(raceId: Int!, fileData: String!): Int!
+  previewDerbynetImport(raceId: Int!, fileData: String!): DerbynetImportPreview!
+  confirmDerbynetImport(raceId: Int!, fileData: String!): Int!
   createRound(raceId: Int!, roundData: RoundCreateInput!): [Round!]!
   reorderHeats(heatUpdates: [HeatReorderItemInput!]!): HeatReorderResponse!
   applyMasterRunningOrder(raceId: Int!): HeatReorderResponse!

@@ -93,6 +93,36 @@ export type AwardVoteTally = {
   voteCount: Scalars['Int']['output'];
 };
 
+export type DerbynetImportGroup = {
+  division?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+};
+
+export type DerbynetImportPreview = {
+  canImport: Scalars['Boolean']['output'];
+  groups: Array<DerbynetImportGroup>;
+  problems: Array<DerbynetImportProblem>;
+  racers: Array<DerbynetImportRacer>;
+};
+
+export type DerbynetImportProblem = {
+  blocking: Scalars['Boolean']['output'];
+  message: Scalars['String']['output'];
+  sourceId?: Maybe<Scalars['String']['output']>;
+};
+
+export type DerbynetImportRacer = {
+  carName?: Maybe<Scalars['String']['output']>;
+  carNumber?: Maybe<Scalars['Int']['output']>;
+  carWeight?: Maybe<Scalars['Float']['output']>;
+  excludedFromStandings: Scalars['Boolean']['output'];
+  firstName: Scalars['String']['output'];
+  group?: Maybe<Scalars['String']['output']>;
+  lastName: Scalars['String']['output'];
+  passedInspection: Scalars['Boolean']['output'];
+  sourceId?: Maybe<Scalars['String']['output']>;
+};
+
 export type Display = {
   assigned: Scalars['Boolean']['output'];
   connected: Scalars['Boolean']['output'];
@@ -370,6 +400,7 @@ export type Mutation = {
   bulkSetExcludedFromStandings: Scalars['Boolean']['output'];
   castVote?: Maybe<Scalars['String']['output']>;
   checkInRacer?: Maybe<Racer>;
+  confirmDerbynetImport: Scalars['Int']['output'];
   confirmGprmImport: Scalars['Int']['output'];
   createAward: Award;
   createInitialConfig: InitialConfigStatus;
@@ -403,6 +434,7 @@ export type Mutation = {
   pauseIntermission: Race;
   populateRace: Scalars['String']['output'];
   prepareHeat: Scalars['Boolean']['output'];
+  previewDerbynetImport: DerbynetImportPreview;
   previewGprmImport: GprmImportPreview;
   reconnectTimer: Scalars['Boolean']['output'];
   recordFreeRaceResult?: Maybe<FreeRaceHeat>;
@@ -510,6 +542,12 @@ export type MutationCheckInRacerArgs = {
   passedInspection: Scalars['Boolean']['input'];
   racerImageUrl?: InputMaybe<Scalars['String']['input']>;
   weight?: InputMaybe<Scalars['Float']['input']>;
+};
+
+
+export type MutationConfirmDerbynetImportArgs = {
+  fileData: Scalars['String']['input'];
+  raceId: Scalars['Int']['input'];
 };
 
 
@@ -689,6 +727,12 @@ export type MutationPopulateRaceArgs = {
 export type MutationPrepareHeatArgs = {
   heatId: Scalars['Int']['input'];
   isFreeRace?: Scalars['Boolean']['input'];
+};
+
+
+export type MutationPreviewDerbynetImportArgs = {
+  fileData: Scalars['String']['input'];
+  raceId: Scalars['Int']['input'];
 };
 
 

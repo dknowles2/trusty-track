@@ -44,11 +44,11 @@ The overflow menu holds the things you do once before an event — managing dens
 
 ## Adding Racers
 
-You can add racers one by one for small events or late registrations, or bulk-import a full roster from a CSV file or a GrandPrix Race Manager database.
+You can add racers one by one for small events or late registrations, or bulk-import a full roster from a CSV file, a GrandPrix Race Manager database, or a DerbyNet database.
 
 ### Manual Addition
 
-1. Click the **Add Racer** button. (The arrow beside it is for the other ways in — **Import from CSV**, **Import from GrandPrix Race Manager**, and **Populate Test Data**.)
+1. Click the **Add Racer** button. (The arrow beside it is for the other ways in — **Import from CSV**, **Import from GrandPrix Race Manager**, **Import from DerbyNet**, and **Populate Test Data**.)
 2. Enter the racer's **First Name** and **Last Name**.
 3. Enter a **Car Number** (if not using **Auto number** later).
 4. Select the appropriate **Den**. **Car Name**, **Car Weight** and a photo can all be filled in now or left until check-in. A photo taken or uploaded here can be straightened and cropped the same way as at check-in — see [Straightening a Photo](race-day.md#straightening-a-photo).
@@ -99,6 +99,21 @@ If your pack has run past events in GrandPrix Race Manager (GPRM), you do not ha
 The mapping from GPRM's own tables to a Trusty Track roster is worked out from GPRM's database structure, not confirmed against every version of GPRM in the field — so it is worth checking the preview against what you expect before importing, the same as you would with a CSV. Dens named in the file are created automatically, matched to an existing den of the same name where one already exists.
 
 GPRM keeps racer and car photographs as separate files rather than inside the database, so they do not come across with the import — you will need to add photos again through **Add Racer**, editing a racer, or the roster's photo upload tool, the same as with a CSV import.
+
+---
+
+### Importing from DerbyNet
+
+If your pack has run past events in DerbyNet, its database can be read the same way — DerbyNet and GrandPrix Race Manager share the same underlying table structure, so dens, car numbers and passed-inspection status all come across in one step.
+
+1. From the arrow beside **Add Racer**, choose **Import from DerbyNet**.
+2. Click **Select DerbyNet Database** and choose the file — a single SQLite file, from DerbyNet's Administer Race page's Backup Database link, or the file in its own data directory.
+3. Trusty Track reads the file and shows you a preview — every den and racer it found, and any car numbers already used twice, either within the file or by someone already on your roster — before anything is saved.
+4. Click **Import _N_ Racers**.
+
+The mapping from DerbyNet's own tables to a Trusty Track roster is worked out from DerbyNet's database structure, not confirmed against a real DerbyNet installation — so it is worth checking the preview against what you expect before importing, the same as you would with a CSV or a GPRM database. Dens named in the file are created automatically, matched to an existing den of the same name where one already exists.
+
+DerbyNet keeps racer and car photographs as separate files rather than inside the database, so they do not come across with the import — you will need to add photos again through **Add Racer**, editing a racer, or the roster's photo upload tool, the same as with a CSV import.
 
 ---
 

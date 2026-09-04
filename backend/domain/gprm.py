@@ -58,6 +58,16 @@ class is the broader label the den sits under. Two adjustments:
 
 A class with no ranks at all still becomes a group, and a racer whose rank
 no longer exists falls back to their class rather than to no group.
+
+## Shared with DerbyNet (#661)
+
+Everything above reads the table family both programs write, so
+`domain/derbynet.py` calls `roster_from_tables` directly rather than
+duplicating it — see that module for what DerbyNet adds (a `Partitions`
+table naming its own dens) and why the mapping above already gets a
+DerbyNet database's groups right without reading it. `program_name` below
+exists only so the one problem message naming a program says the right
+one.
 """
 
 from __future__ import annotations
@@ -233,13 +243,22 @@ def _weight(row: dict[str, object]) -> float | None:
     return None
 
 
-def roster_from_tables(tables: TableSet, vehicle_word: str = "Car") -> ParsedRoster:
+def roster_from_tables(
+    tables: TableSet,
+    vehicle_word: str = "Car",
+    program_name: str = "GrandPrix Race Manager",
+) -> ParsedRoster:
     """The roster these tables describe.
 
     Raises nothing: a table that is missing means an empty roster with no
     groups, and `looks_like_gprm` is the caller's question to ask first. Row
     problems come out in the order an operator scrolling the racers would
     meet them, then the duplicates, then one line about photographs.
+
+    `program_name` names whoever wrote the file, for the one problem message
+    that says so (#661) — DerbyNet's own importer passes its own name
+    through here rather than this module growing a second, near-identical
+    copy of the photo-warning sentence for a table family it already reads.
     """
     classes = _read_classes(tables)
     class_name = dict(classes)
@@ -385,8 +404,8 @@ def roster_from_tables(tables: TableSet, vehicle_word: str = "Car") -> ParsedRos
         problems.append(
             ImportProblem(
                 message=(
-                    f"{with_photos} {noun} photos in GrandPrix Race Manager that are "
-                    "stored as separate files, not in the database — they will need "
+                    f"{with_photos} {noun} photos in {program_name} that are stored "
+                    "as separate files, not in the database — they will need "
                     "uploading again after the import."
                 )
             )

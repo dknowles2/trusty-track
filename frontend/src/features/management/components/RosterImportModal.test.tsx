@@ -4,8 +4,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useMutation } from 'urql';
-import GprmImportModal from './GprmImportModal';
-import { PREVIEW_GPRM_IMPORT } from '../graphql/queries';
+import RosterImportModal, { RosterImportSource } from './RosterImportModal';
+import {
+    PREVIEW_GPRM_IMPORT,
+    PREVIEW_DERBYNET_IMPORT,
+} from '../graphql/queries';
 
 vi.mock('urql', async (importOriginal) => {
     const actual = await importOriginal<typeof import('urql')>();
@@ -37,32 +40,73 @@ const PREVIEW_RESULT = {
 };
 
 /**
- * `useMutation` is called twice by this component -- once for the preview
- * document, once for the confirm document -- and urql's document identity
- * is stable across imports, so the mock tells the two apart by which
- * document it was given, the same way the component itself never confuses
- * them.
+ * The two sources share every behaviour below `RosterImportModal` itself,
+ * so the whole suite runs once per source rather than being duplicated --
+ * the same reasoning the component itself is built on. Each entry names the
+ * document its own preview mutation is called with (urql's document
+ * identity is stable across imports, which is how the mock in
+ * `mockMutations` tells preview and confirm apart), the field name its
+ * mutations reply under, the upload input's id, and the file-not-recognised
+ * sentence its own parser would actually send.
  */
-function mockGprmMutations({
-    preview = vi.fn().mockResolvedValue({ data: { previewGprmImport: PREVIEW_RESULT } }),
-    confirm = vi.fn().mockResolvedValue({ data: { confirmGprmImport: 1 } }),
-    previewing = false,
-} = {}) {
+const SOURCES: Record<
+    RosterImportSource,
+    {
+        previewDoc: typeof PREVIEW_GPRM_IMPORT;
+        previewField: string;
+        confirmField: string;
+        fileInputId: string;
+        refusalMessage: string;
+        titleFragment: string;
+    }
+> = {
+    gprm: {
+        previewDoc: PREVIEW_GPRM_IMPORT,
+        previewField: 'previewGprmImport',
+        confirmField: 'confirmGprmImport',
+        fileInputId: 'gprm-upload-input',
+        refusalMessage:
+            'That file is not a GrandPrix Race Manager database. GPRM keeps its data as a single SQLite file.',
+        titleFragment: 'GrandPrix Race Manager',
+    },
+    derbynet: {
+        previewDoc: PREVIEW_DERBYNET_IMPORT,
+        previewField: 'previewDerbynetImport',
+        confirmField: 'confirmDerbynetImport',
+        fileInputId: 'derbynet-upload-input',
+        refusalMessage: 'That file is not a DerbyNet database.',
+        titleFragment: 'DerbyNet',
+    },
+};
+
+function mockMutations(
+    source: RosterImportSource,
+    {
+        preview = vi.fn().mockResolvedValue({
+            data: { [SOURCES[source].previewField]: PREVIEW_RESULT },
+        }),
+        confirm = vi.fn().mockResolvedValue({
+            data: { [SOURCES[source].confirmField]: 1 },
+        }),
+        previewing = false,
+    } = {},
+) {
     (useMutation as unknown as ReturnType<typeof vi.fn>).mockImplementation((doc: unknown) => {
-        if (doc === PREVIEW_GPRM_IMPORT) return [{ fetching: previewing }, preview];
+        if (doc === SOURCES[source].previewDoc) return [{ fetching: previewing }, preview];
         return [{}, confirm];
     });
     return { preview, confirm };
 }
 
-async function selectFile(name = 'GPRM Data.sqlite') {
-    const input = document.getElementById('gprm-upload-input') as HTMLInputElement;
+async function selectFile(source: RosterImportSource, name: string) {
+    const input = document.getElementById(SOURCES[source].fileInputId) as HTMLInputElement;
     await userEvent.upload(input, new File(['sqlite bytes'], name));
 }
 
-const open = (onImportSuccess = vi.fn()) =>
+const open = (source: RosterImportSource, onImportSuccess = vi.fn()) =>
     render(
-        <GprmImportModal
+        <RosterImportModal
+            source={source}
             isOpen
             onClose={vi.fn()}
             raceId={1}
@@ -70,12 +114,14 @@ const open = (onImportSuccess = vi.fn()) =>
         />,
     );
 
-describe('GprmImportModal', () => {
-    it('previews a selected file without writing anything', async () => {
-        const { preview, confirm } = mockGprmMutations();
-        open();
+describe.each(Object.keys(SOURCES) as RosterImportSource[])('RosterImportModal (%s)', (source) => {
+    const { refusalMessage } = SOURCES[source];
 
-        await selectFile();
+    it('previews a selected file without writing anything', async () => {
+        const { preview, confirm } = mockMutations(source);
+        open(source);
+
+        await selectFile(source, 'roster.sqlite');
 
         await waitFor(() => expect(screen.getByText('Alex Rivera')).toBeInTheDocument());
         expect(preview).toHaveBeenCalledWith({ raceId: 1, fileData: expect.stringContaining('base64,') });
@@ -83,11 +129,11 @@ describe('GprmImportModal', () => {
     });
 
     it('sends the same file data again on confirm', async () => {
-        const { confirm } = mockGprmMutations();
+        const { confirm } = mockMutations(source);
         const onSuccess = vi.fn();
-        open(onSuccess);
+        open(source, onSuccess);
 
-        await selectFile();
+        await selectFile(source, 'roster.sqlite');
         await waitFor(() => expect(screen.getByText('Alex Rivera')).toBeInTheDocument());
 
         await userEvent.click(screen.getByRole('button', { name: /Import 1 Racer/ }));
@@ -102,10 +148,10 @@ describe('GprmImportModal', () => {
     });
 
     it('shows the warnings a preview comes back with, without blocking import', async () => {
-        mockGprmMutations({
+        mockMutations(source, {
             preview: vi.fn().mockResolvedValue({
                 data: {
-                    previewGprmImport: {
+                    [SOURCES[source].previewField]: {
                         ...PREVIEW_RESULT,
                         problems: [
                             { message: 'Car number 7 is already used by Sam Okafor.', blocking: false, sourceId: '1' },
@@ -114,9 +160,9 @@ describe('GprmImportModal', () => {
                 },
             }),
         });
-        open();
+        open(source);
 
-        await selectFile();
+        await selectFile(source, 'roster.sqlite');
 
         await waitFor(() =>
             expect(screen.getByText('Car number 7 is already used by Sam Okafor.')).toBeInTheDocument(),
@@ -125,42 +171,42 @@ describe('GprmImportModal', () => {
     });
 
     it('reports a file the parser refuses, using its own sentence', async () => {
-        mockGprmMutations({
+        mockMutations(source, {
             preview: vi.fn().mockResolvedValue({
-                error: {
-                    graphQLErrors: [
-                        {
-                            message:
-                                'That file is not a GrandPrix Race Manager database. GPRM keeps its data as a single SQLite file.',
-                        },
-                    ],
-                },
+                error: { graphQLErrors: [{ message: refusalMessage }] },
             }),
         });
-        open();
+        open(source);
 
-        await selectFile('roster.csv');
+        await selectFile(source, 'roster.csv');
 
         await waitFor(() =>
-            expect(
-                screen.getByText(/That file is not a GrandPrix Race Manager database/),
-            ).toBeInTheDocument(),
+            expect(screen.getByText(new RegExp(refusalMessage.split('.')[0]))).toBeInTheDocument(),
         );
         expect(screen.queryByRole('button', { name: /Import/ })).toBeDisabled();
     });
 
     it('surfaces a GraphQL error from confirm', async () => {
-        mockGprmMutations({
+        mockMutations(source, {
             confirm: vi.fn().mockResolvedValue({
                 error: { graphQLErrors: [{ message: 'Race not found' }] },
             }),
         });
-        open();
+        open(source);
 
-        await selectFile();
+        await selectFile(source, 'roster.sqlite');
         await waitFor(() => expect(screen.getByText('Alex Rivera')).toBeInTheDocument());
         await userEvent.click(screen.getByRole('button', { name: /Import 1 Racer/ }));
 
         await waitFor(() => expect(screen.getByText('Race not found')).toBeInTheDocument());
+    });
+
+    it('names the right program in its title', async () => {
+        mockMutations(source);
+        open(source);
+        // `getByRole('heading')` rather than `getByText` -- the help
+        // paragraph names the same program too, so a plain text match would
+        // find both and throw on the ambiguity.
+        expect(screen.getByRole('heading')).toHaveTextContent(SOURCES[source].titleFragment);
     });
 });

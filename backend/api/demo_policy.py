@@ -82,6 +82,11 @@ REFUSED_MUTATIONS = frozenset(
         # visitor exploring the preview screen costs the demo nothing an
         # ordinary read does not.
         "confirmGprmImport",
+        # Same reasoning again, same shape (#661): a DerbyNet database can
+        # carry years of a real pack's roster too. `previewDerbynetImport`
+        # is deliberately *not* here, for the identical reason
+        # `previewGprmImport` is absent above.
+        "confirmDerbynetImport",
     }
 )
 
