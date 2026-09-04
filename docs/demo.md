@@ -170,5 +170,6 @@ That, and not an abstraction layer, is what makes moving cheap.
 
 ## For maintainers
 
-The rules an agent needs are in `CLAUDE.md` under "The public demo", which
-records what was built, what was measured and decided against, and why.
+The rules an agent needs are in `.claude/rules/auth-and-demo.md` under "The
+public demo", which records what was built, what was measured and decided
+against, and why. `CLAUDE.md` indexes it.
