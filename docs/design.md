@@ -171,14 +171,24 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `display_id` — **not** a foreign key: a `Display` is presence, held only in the in-memory registry, and there is no row here for it to reference.
     -   `display_name` — a snapshot of the display's name when this row was last written, so a scene can still say something about a screen the registry has since forgotten (a restart, or one that never reconnected).
     -   `view`, `cycle_seconds`, `scroll_behavior`, `show_checked_in`, `qr_target`, `show_standings_ticker` — a whole `Assignment` (#174's own vocabulary), not the view alone: a scene's point is putting a screen into a fully-known state in one click, and a saved view with no saved riders could point a `QRCODE` screen at the wrong page depending on what it happened to be showing before.
+-   **`AuditEntry`**: One thing somebody did, and when (#219).
+    -   `id` (PK), `at` (ISO 8601 UTC), `action`, `role`, `outcome`, `source_ip`, `race_id`, `details`
+    -   `action` is a mutation's field name, or one of `heatResultRecorded` / `backupDownloaded` / `backupRestored` for the seams that are not mutations.
+    -   `role` is `VIEWER` / `CHECKIN` / `OPERATOR` / `SYSTEM`, not a person: this app has no user accounts, and a shared PIN cannot tell two volunteers apart. `SYSTEM` is the app acting with no request behind it — the timer recording a heat it just ran.
+    -   `outcome` is `OK` / `REFUSED` / `FAILED`. A refusal is recorded with the same weight as a success; "the check-in tablet tried to delete a round" is the most interesting line the log holds.
+    -   `details` is a small JSON object of scalars, filtered by `domain.audit.redact` — PINs and image data are never written, under any spelling of the argument name.
+    -   `race_id` is a **plain integer, not a foreign key**, and is the one place the schema deliberately declines a cascade (#125): deleting a race must not take the record of what was done to it.
+    -   Append-only. Trimmed to the newest `crud.AUDIT_LOG_MAX_ENTRIES` at startup.
 
 **Authentication** is implemented — see `backend/api/auth.py` and issue #15.
 Three roles (`VIEWER`, `CHECKIN`, `OPERATOR`) derived from a PIN, enforced by a
 Strawberry extension on every mutation field and by explicit checks on the
 non-GraphQL routes. It is **off until an operator PIN is set**, which is what
-every install did before it existed. There is no `User` entity and no audit
-trail: one shared PIN per role, which is the right size of solution for a pack
-derby and would not be for anything larger.
+every install did before it existed. There is no `User` entity: one shared PIN
+per role, which is the right size of solution for a pack derby and would not
+be for anything larger. There **is** an audit trail (`AuditEntry`, above,
+#219) — it records the role that acted rather than a person, since one shared
+PIN cannot tell two volunteers apart.
 
 ### 3.3. API Design
 
@@ -282,14 +292,6 @@ The frontend will be built using React, providing a dynamic and responsive user 
 
 ### 4.1. Technology Stack
 
--   **`AuditEntry`**: One thing somebody did, and when (#219).
-    -   `id` (PK), `at` (ISO 8601 UTC), `action`, `role`, `outcome`, `source_ip`, `race_id`, `details`
-    -   `action` is a mutation's field name, or one of `heatResultRecorded` / `backupDownloaded` / `backupRestored` for the seams that are not mutations.
-    -   `role` is `VIEWER` / `CHECKIN` / `OPERATOR` / `SYSTEM`, not a person: this app has no user accounts, and a shared PIN cannot tell two volunteers apart. `SYSTEM` is the app acting with no request behind it — the timer recording a heat it just ran.
-    -   `outcome` is `OK` / `REFUSED` / `FAILED`. A refusal is recorded with the same weight as a success; "the check-in tablet tried to delete a round" is the most interesting line the log holds.
-    -   `details` is a small JSON object of scalars, filtered by `domain.audit.redact` — PINs and image data are never written, under any spelling of the argument name.
-    -   `race_id` is a **plain integer, not a foreign key**, and is the one place the schema deliberately declines a cascade (#125): deleting a race must not take the record of what was done to it.
-    -   Append-only. Trimmed to the newest `crud.AUDIT_LOG_MAX_ENTRIES` at startup.
 -   **Framework:** React 19
 -   **Language:** TypeScript
 -   **Build Tool:** Vite
