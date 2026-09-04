@@ -26,6 +26,7 @@ import { AlertProvider } from '../../../context/AlertContext';
 const RACERS = [
     { id: 1, first_name: 'Alex', last_name: 'Rivera', car_number: 3 },
     { id: 2, first_name: 'Sam', last_name: 'Okafor', car_number: 7 },
+    { id: 3, first_name: 'Jamie', last_name: 'Lee', car_number: 9, racer_image_url: '/static/jamie.jpg' },
 ];
 
 /** A file whose bytes are exactly `body`, so identical bodies collide. */
@@ -98,5 +99,30 @@ describe('picking several photos at once', () => {
 
         await waitFor(() => expect(assignBoxes()).toHaveLength(2));
         expect(uploads).toEqual([expect.stringContaining('base64')]);
+    });
+});
+
+/**
+ * The picker is the shared `RacerCombobox` (#693), not a private copy that
+ * had drifted to show no portraits. This is the visible point of that
+ * change, so it is asserted directly rather than trusted from the diff.
+ */
+describe('the racer picker shares RacerCombobox with the rest of the app', () => {
+    it('shows each racer\'s portrait — a photo where one is on file, initials otherwise', async () => {
+        const { input } = renderModal();
+
+        fireEvent.change(input, { target: { files: [image('a.jpg', 'AAA')] } });
+        await waitFor(() => expect(assignBoxes()).toHaveLength(1));
+
+        fireEvent.focus(assignBoxes()[0]);
+
+        // Jamie has a photo on file: RacerCombobox renders it through
+        // RacerAvatar as an <img>, alt-texted with the racer's name.
+        expect(await screen.findByAltText('Jamie Lee')).toBeInTheDocument();
+
+        // Alex and Sam have none: RacerAvatar falls back to an initials
+        // roundel, titled with the racer's name rather than alt-texted.
+        expect(screen.getByTitle('Alex Rivera')).toBeInTheDocument();
+        expect(screen.getByTitle('Sam Okafor')).toBeInTheDocument();
     });
 });
