@@ -3125,11 +3125,26 @@ def _apply_terminology(organization: Any, config: "InitialConfigInput") -> None:
     Scouting words *are* the null state, so `clearTerminology` is the explicit
     way back to it, the same trap `clear_weight_limit` (#205) and the PIN's
     removal control (#192) already solved.
+
+    This is the one door the organization-level words go through —
+    `InitialConfigInput` is a plain strawberry input with no validation of
+    its own (unlike the per-race override, built through the pydantic
+    `schemas.RaceUpdate`), so a blank word is checked right here rather than
+    left to reach the database. `domain_terminology.reject_blank_word` is
+    the same rule `schemas.py`'s validators call, shared so the two layers
+    cannot silently disagree about what counts as blank (#704). Checked
+    before anything is written, not field by field as it goes, so a blank
+    fourth word does not leave the first three set on an `organization` this
+    function's caller may still be about to abandon.
     """
     if config.clear_terminology:
         for field in _TERMINOLOGY_FIELDS:
             setattr(organization, field, None)
         return
+    for field in domain_terminology.TERMINOLOGY_WORD_FIELDS:
+        value = getattr(config, field, None)
+        if value is not None:
+            domain_terminology.reject_blank_word(field, value)
     for field in _TERMINOLOGY_FIELDS:
         value = getattr(config, field, None)
         if value is None:
