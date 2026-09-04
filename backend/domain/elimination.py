@@ -37,7 +37,7 @@ import random
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
-from backend.domain.lanes import Lane
+from backend.domain.lanes import Lane, is_finished
 
 
 def losses_by_racer(heats_lanes: Iterable[Sequence[Lane]]) -> dict[int, int]:
@@ -189,3 +189,145 @@ def standings(
             e.racer_id,
         ),
     )
+
+
+# --- The chart ---------------------------------------------------------------
+#
+# A tournament bracket is a *prediction*: it draws the matchups that have not
+# happened yet. This format refuses to do that on purpose — the next wave is
+# drawn from the loss counts once the current one is finished, and a corrected
+# result redraws it — so the only bracket-shaped thing that can be shown
+# truthfully is the record of what *has* happened: which heats each wave held,
+# who won each, whose losses mounted, and who is still standing (#710).
+#
+# Nothing here reaches past the heats that exist. A pending wave is real (its
+# rows have been written) and is shown; the wave after it is not drawn,
+# because nobody knows who will be in it.
+
+#: A lane's outcome in a finished heat. ``None`` means no result was counted
+#: for it — the heat has not run, or this lane held no finisher — so it is
+#: neither a win nor a loss, the same rule `losses_by_racer` follows.
+OUTCOME_WON = "WON"
+OUTCOME_LOST = "LOST"
+OUTCOME_SKIPPED = "SKIPPED"
+
+
+@dataclass(frozen=True)
+class ChartLane:
+    """One lane of one heat, as the chart shows it."""
+
+    lane: int
+    racer_id: int | None
+    outcome: str | None
+    #: The racer's losses once this heat is counted — what the chart draws as
+    #: the loss pips beside the name. For a heat yet to run, the losses so far.
+    losses_after: int
+    #: Reached the loss limit at or before this heat.
+    out: bool
+
+
+@dataclass(frozen=True)
+class ChartHeat:
+    """One heat, by its index into the sequence the chart was built from.
+
+    An index rather than an id: the domain knows nothing about rows, and the
+    caller that supplied the lanes in order is the one that can map it back.
+    """
+
+    index: int
+    finished: bool
+    lanes: tuple[ChartLane, ...]
+
+
+@dataclass(frozen=True)
+class ChartWave:
+    """One set of heats the schedule grew at once."""
+
+    number: int
+    heats: tuple[ChartHeat, ...]
+
+
+def waves_of(heats_lanes: Sequence[Sequence[Lane]]) -> list[list[int]]:
+    """Group heat indices into the waves the schedule grew in.
+
+    No row records which wave a heat belongs to, and it does not need to:
+    every wave fields each car at most once (`next_wave` chunks every alive
+    car exactly once, and the first wave is drawn the same way), so a new
+    wave starts at the first heat in which a car *reappears*. A heat holding
+    nobody — every lane vacated by a deleted racer — stays with the wave
+    before it rather than starting one.
+
+    This reads the heats in the order given, which is the round's own heat
+    order; `_write_elimination_wave` appends each wave after the last, and the
+    master running order preserves a round's internal order (#549), so that
+    order is wave order.
+    """
+    waves: list[list[int]] = []
+    seen: set[int] = set()
+    for index, lanes in enumerate(heats_lanes):
+        racers = {lane.racer_id for lane in lanes if lane.racer_id is not None}
+        if not waves or racers & seen:
+            waves.append([index])
+            seen = set(racers)
+        else:
+            waves[-1].append(index)
+            seen |= racers
+    return waves
+
+
+def chart(heats_lanes: Sequence[Sequence[Lane]], max_losses: int) -> list[ChartWave]:
+    """The record of the round so far, wave by wave.
+
+    Every loss here comes from `losses_by_racer` applied one heat at a time,
+    so the chart cannot disagree with the loss counts that drive the next
+    wave: a lane marked ``LOST`` is exactly a lane that cost a loss there.
+    The winner is the one finisher in a counted heat charged nothing; a heat
+    with a lone finisher charges nobody and so names no winner either, the
+    same as `losses_by_racer` — a one-car heat on a timer is a meaningless
+    win, and the chart says nothing rather than something false.
+    """
+    running: dict[int, int] = {}
+    heats: list[ChartHeat] = []
+    for index, lanes in enumerate(heats_lanes):
+        finished = is_finished(lanes)
+        heat_losses = losses_by_racer([lanes]) if finished else {}
+        counted = [
+            lane.racer_id
+            for lane in lanes
+            if lane.racer_id is not None
+            and (lane.seconds is not None or lane.place is not None)
+        ]
+        names_a_winner = len(counted) >= 2
+        chart_lanes: list[ChartLane] = []
+        for lane in lanes:
+            racer_id = lane.racer_id
+            outcome: str | None = None
+            if racer_id is not None and finished:
+                if lane.skipped and lane.seconds is None and lane.place is None:
+                    outcome = OUTCOME_SKIPPED
+                elif heat_losses.get(racer_id, 0) > 0:
+                    outcome = OUTCOME_LOST
+                elif racer_id in counted and names_a_winner:
+                    outcome = OUTCOME_WON
+            if racer_id is not None:
+                running[racer_id] = running.get(racer_id, 0) + heat_losses.get(
+                    racer_id, 0
+                )
+            losses_after = running.get(racer_id, 0) if racer_id is not None else 0
+            chart_lanes.append(
+                ChartLane(
+                    lane=lane.lane,
+                    racer_id=racer_id,
+                    outcome=outcome,
+                    losses_after=losses_after,
+                    out=racer_id is not None and losses_after >= max_losses,
+                )
+            )
+        heats.append(
+            ChartHeat(index=index, finished=finished, lanes=tuple(chart_lanes))
+        )
+
+    return [
+        ChartWave(number=number, heats=tuple(heats[i] for i in indices))
+        for number, indices in enumerate(waves_of(heats_lanes), start=1)
+    ]

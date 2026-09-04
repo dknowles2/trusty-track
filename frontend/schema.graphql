@@ -19,6 +19,7 @@ type AdvancementStatus {
   fromBottom: Boolean!
   fieldIsStale: Boolean!
   contestedCut: Boolean!
+  fieldIsPinned: Boolean!
 }
 
 type ApplySceneResult {
@@ -150,6 +151,39 @@ enum DisplayView {
   CHECKIN
   QRCODE
   OVERLAY
+}
+
+type EliminationChart {
+  maxLosses: Int!
+  decided: Boolean!
+  waves: [EliminationWave!]!
+  standings: [EliminationStandingEntry!]!
+}
+
+type EliminationChartHeat {
+  heatId: Int!
+  heatNumber: Int!
+  finished: Boolean!
+  lanes: [EliminationChartLane!]!
+}
+
+type EliminationChartLane {
+  lane: Int!
+  racerId: Int
+  outcome: String
+  lossesAfter: Int!
+  out: Boolean!
+}
+
+type EliminationStandingEntry {
+  racerId: Int!
+  losses: Int!
+  alive: Boolean!
+}
+
+type EliminationWave {
+  number: Int!
+  heats: [EliminationChartHeat!]!
 }
 
 type FreeRaceHeat {
@@ -437,6 +471,8 @@ type Mutation {
   createRunOffHeat(raceId: Int!, racerIds: [Int!]!, settlesRoundId: Int = null): RunOffHeat!
   deleteRunOffHeat(heatId: Int!): Boolean!
   advanceRound(raceId: Int!, roundId: Int!): Int!
+  pinRoundField(raceId: Int!, roundId: Int!, racerIds: [Int!]!): Round!
+  unpinRoundField(raceId: Int!, roundId: Int!): Round!
   reconnectTimer(trackId: Int!): Boolean!
   abortHeat(trackId: Int!): Boolean!
   forceResults(trackId: Int!): Boolean!
@@ -756,12 +792,14 @@ type Round {
   advancementSource: String
   advancementNumRacers: Int
   advancementFromBottom: Boolean!
+  fieldPinned: Boolean!
   eliminationLosses: Int
   balancedPhases: Int
   disrupted: Boolean!
   racingGroupId: Int
   heats: [Heat!]!
   advancementStatus: AdvancementStatus!
+  eliminationChart: EliminationChart
 }
 
 input RoundCreateInput {

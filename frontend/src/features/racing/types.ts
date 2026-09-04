@@ -78,3 +78,13 @@ export type HeatSession = NonNullable<HeatSessionSubscription['heatSession']>;
  * loses it, so the screen must not present it as final.
  */
 export type LiveLane = HeatSession['lanes'][number];
+
+/**
+ * An elimination round's record so far, wave by wave (#710) — the schedule
+ * screen's chart. Null on every other round style, which is what the
+ * toggle offering it keys off.
+ */
+export type EliminationChart = NonNullable<Round['eliminationChart']>;
+export type EliminationWave = EliminationChart['waves'][number];
+export type EliminationChartHeat = EliminationWave['heats'][number];
+export type EliminationChartLane = EliminationChartHeat['lanes'][number];

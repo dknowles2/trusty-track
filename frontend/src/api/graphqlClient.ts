@@ -81,6 +81,14 @@ export const EMBEDDED_TYPES = [
   'DerbynetImportPreview',
   'DerbynetImportProblem',
   'DerbynetImportRacer',
+  // An elimination round's chart (#710) — recomputed on every read from the
+  // heats it draws from (`domain/elimination.chart`), the same "computed
+  // row, not a record" shape as `LeaderboardEntry` and `AdvancementRacer`.
+  'EliminationChart',
+  'EliminationChartHeat',
+  'EliminationChartLane',
+  'EliminationStandingEntry',
+  'EliminationWave',
   'HeatHighlight',
   'HeatLane',
   'HeatReorderResponse',

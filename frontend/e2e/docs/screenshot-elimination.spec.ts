@@ -159,4 +159,16 @@ test('screenshot elimination racing', async ({ page }) => {
     await page.screenshot({
         path: path.join(SCREENSHOT_DIR, '28-elimination-standings.png'),
     });
+
+    // The chart view (#710) — a record of the whole decided round, wave by
+    // wave. Not a bracket: the last wave is the one that settled it, and the
+    // caption on this picture says so.
+    await page.goto(`/race/${raceId}/control`);
+    await expect(page.getByText('Elimination Round').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Show Elimination Round as a chart' }).click();
+    await expect(page.getByTestId('elimination-chart')).toBeVisible();
+    await expect(page.getByText('Decided after')).toBeVisible();
+    await page.screenshot({
+        path: path.join(SCREENSHOT_DIR, '29-elimination-chart.png'),
+    });
 });

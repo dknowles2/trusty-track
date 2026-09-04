@@ -72,41 +72,84 @@ ALL_OPERATIONS = sorted(
 )
 
 
-def _names(operation: str) -> re.Pattern:
-    """Matches how each document actually writes an operation.
+#: A list entry's name: a backticked identifier, optionally with call
+#: arguments (`` `race(raceId)` ``, `` `subscription onDeck(raceId)` ``).
+_ENTRY = re.compile(r"`(?:subscription )?(\w+)(?:\([^`]*\))?`")
 
-    `race`, `race(raceId)` and `subscription onDeck(raceId)` are all the same
-    claim; only the first form is a bare name.
+#: What separates one list entry from the next, once any annotation on the
+#: entry before it has been skipped: a comma or semicolon (the ordinary
+#: case), or a slash (`` `previewGprmImport(...)` / `confirmGprmImport(...)` ``
+#: — a preview/confirm pair written side by side).
+_ENTRY_SEP = re.compile(r"\s*[,;/]\s*")
+
+_LEADING_WS = re.compile(r"\s*")
+
+
+def _skip_parenthetical(line: str, pos: int) -> int:
+    """If a `(` sits at ``pos``, return the index just past its matching `)`.
+
+    Parens may nest (`` `Award` (all take/return `Award`, whose `recipient`
+    is resolved from the standings ...) `` never does, but nothing here
+    should have to assume it never will). Otherwise returns ``pos`` unchanged,
+    which is how the caller notices there was nothing to skip. An unterminated
+    paren consumes to the end of the line rather than looping.
     """
-    return re.compile(rf"`(?:subscription )?{re.escape(operation)}[(`]")
+    if pos >= len(line) or line[pos] != "(":
+        return pos
+    depth = 0
+    for i in range(pos, len(line)):
+        if line[i] == "(":
+            depth += 1
+        elif line[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+    return len(line)
 
 
-@pytest.mark.parametrize("operation", ALL_OPERATIONS)
-def test_the_design_document_names_every_operation(operation):
-    """§3.3 is the API reference; an operation absent from it is undocumented."""
-    assert _names(operation).search(DESIGN.read_text()), (
-        f"`{operation}` is in the schema and not in docs/design.md. "
-        "Add it to the query, mutation or subscription list in §3.3."
-    )
+def _names_in(line: str) -> set[str]:
+    """The operations a single list-entry line actually lists.
 
+    A list entry is a backticked name, optionally followed by one or more
+    parenthetical annotations, then a separator to the next entry. Reading
+    stops the instant that shape breaks — a period ending the list, a
+    sentence of surrounding prose — so a name mentioned only in passing
+    ("the one mutation `VIEWER` may run") is never read as a further entry.
 
-@pytest.mark.parametrize("operation", ALL_OPERATIONS)
-def test_the_agent_guide_names_every_operation(operation):
-    """`CLAUDE.md`'s lists are what an agent reads instead of the SDL."""
-    assert _names(operation).search(AGENT_GUIDE.read_text()), (
-        f"`{operation}` is in the schema and not in CLAUDE.md. "
-        "Add it to the GraphQL API section."
-    )
+    Parens are *skipped*, not treated as a boundary: an entry's own
+    annotation routinely contains one (`` `updateRace` (absent means leave
+    alone throughout ... `isLocked` toggles the lock, #585 — while the race
+    is locked ...) ``), and truncating there was how five of ten entries on
+    one `CLAUDE.md` line went unread — the bug this function exists to fix.
+    An annotation's own contents (its backticked asides, its em dashes) are
+    never scanned for names; only the entries between separators are.
+    """
+    first = _ENTRY.search(line)
+    if not first:
+        return set()
+    names: set[str] = set()
+    pos = first.start()
+    while True:
+        entry = _ENTRY.match(line, pos)
+        if not entry:
+            break
+        names.add(entry.group(1))
+        pos = entry.end()
+        while True:
+            after_ws = _LEADING_WS.match(line, pos).end()
+            skipped = _skip_parenthetical(line, after_ws)
+            if skipped == after_ws:
+                break
+            pos = skipped
+        sep = _ENTRY_SEP.match(line, pos)
+        if not sep:
+            break
+        pos = sep.end()
+    return names
 
 
 def _listed_names(text: str, start: int) -> set[str]:
     """The operations a list under ``start`` actually lists.
-
-    Only the leading run of backticked names on each line, because these lists
-    annotate themselves: "`createAward`, ..., `reorderAwards` (all take/return
-    `Award`, whose `recipient` is ...)". `Award` and `recipient` are prose about
-    the entry, not further entries, and a whole-line scan reports them as
-    mutations the schema has lost.
 
     The anchor's own line counts, because `CLAUDE.md` writes its queries and
     subscriptions inline rather than as a list. Everything stops at the next
@@ -131,17 +174,17 @@ def _listed_names(text: str, start: int) -> set[str]:
     return names
 
 
-def _names_in(line: str) -> set[str]:
-    head = re.split(r" — | \(", line)[0]
-    return set(re.findall(r"`(?:subscription )?(\w+)[(`]", head))
-
-
 def _documented_operations(text: str, anchors: list[str]) -> set[str]:
     """Backticked names inside the blocks that list operations.
 
     Scoped to those blocks rather than the whole file: both documents discuss
     plenty of names that are not operations — Python functions, columns, and
-    `laneResults`, which is named precisely because it was *removed*.
+    `laneResults`, which is named precisely because it was *removed* — and an
+    operation mentioned only in prose *outside* these blocks (a design aside
+    in a completely different section, say) does not count as documented.
+    `previewDerbynetImport` and `confirmDerbynetImport` shipped exactly that
+    way once: named only in the roster-import prose, absent from this list,
+    and the old whole-file forward check could not tell the difference.
     """
     found: set[str] = set()
     for anchor in anchors:
@@ -155,17 +198,47 @@ def _documented_operations(text: str, anchors: list[str]) -> set[str]:
     return found
 
 
-def test_no_operation_named_in_the_design_document_has_been_removed():
-    text = DESIGN.read_text()
-    documented = _documented_operations(
-        text,
-        [
-            "**GraphQL Queries:**",
-            "**GraphQL Mutations:**",
-            "**GraphQL Subscriptions (real-time observation):**",
-        ],
+DESIGN_ANCHORS = [
+    "**GraphQL Queries:**",
+    "**GraphQL Mutations:**",
+    "**GraphQL Subscriptions (real-time observation):**",
+]
+AGENT_GUIDE_ANCHORS = ["**Queries:**", "**Mutations:**", "**Subscriptions:**"]
+
+#: Computed once at collection time — both directions read the same blocks,
+#: so there is one parse of each file rather than one per operation.
+DESIGN_OPERATIONS = _documented_operations(DESIGN.read_text(), DESIGN_ANCHORS)
+AGENT_GUIDE_OPERATIONS = _documented_operations(
+    AGENT_GUIDE.read_text(), AGENT_GUIDE_ANCHORS
+)
+
+
+@pytest.mark.parametrize("operation", ALL_OPERATIONS)
+def test_the_design_document_names_every_operation(operation):
+    """§3.3 is the API reference; an operation absent from its lists is
+    undocumented — even if the schema's own name for it turns up elsewhere
+    in the file, in a paragraph explaining some other feature.
+    """
+    assert operation in DESIGN_OPERATIONS, (
+        f"`{operation}` is in the schema and not in docs/design.md §3.3's "
+        "query, mutation or subscription list. Add it there."
     )
-    stale = sorted(documented - set(ALL_OPERATIONS))
+
+
+@pytest.mark.parametrize("operation", ALL_OPERATIONS)
+def test_the_agent_guide_names_every_operation(operation):
+    """`CLAUDE.md`'s lists are what an agent reads instead of the SDL — being
+    named somewhere else in the file, in the course of explaining a
+    different rule, does not put an operation in that list.
+    """
+    assert operation in AGENT_GUIDE_OPERATIONS, (
+        f"`{operation}` is in the schema and not in CLAUDE.md's "
+        "Queries/Mutations/Subscriptions list. Add it there."
+    )
+
+
+def test_no_operation_named_in_the_design_document_has_been_removed():
+    stale = sorted(DESIGN_OPERATIONS - set(ALL_OPERATIONS))
     assert not stale, (
         f"docs/design.md lists operations the schema no longer has: {stale}. "
         "An entry that outlives its operation sends a reader hunting for it."
@@ -173,11 +246,7 @@ def test_no_operation_named_in_the_design_document_has_been_removed():
 
 
 def test_no_operation_named_in_the_agent_guide_has_been_removed():
-    text = AGENT_GUIDE.read_text()
-    documented = _documented_operations(
-        text, ["**Queries:**", "**Mutations:**", "**Subscriptions:**"]
-    )
-    stale = sorted(documented - set(ALL_OPERATIONS))
+    stale = sorted(AGENT_GUIDE_OPERATIONS - set(ALL_OPERATIONS))
     assert not stale, f"CLAUDE.md lists operations the schema no longer has: {stale}."
 
 

@@ -28,7 +28,7 @@ import {
 } from '../graphql/queries';
 import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple, mdiPencil } from '@mdi/js';
-import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane } from '../types';
+import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane, EliminationChart } from '../types';
 import { hasRun, hasTimes, byPlace, cleared, assignPlaces, shouldDerivePlaces } from '../lanes';
 import { executionComparator } from '../runningOrder';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
@@ -395,6 +395,21 @@ export default function RaceControl() {
       });
       return labels;
   }, [race?.racingGroups, race?.rounds]);
+
+  // An elimination round's record so far, wave by wave (#710), by round id.
+  // `Round.eliminationChart` is already null for every other scheduling
+  // strategy, so this map only ever holds elimination rounds — which is what
+  // `ScheduleManagement` uses to decide which rounds offer the chart toggle
+  // at all.
+  const eliminationCharts = useMemo(() => {
+      const charts: Record<number, EliminationChart> = {};
+      (race?.rounds ?? []).forEach((round: Round) => {
+          if (round.eliminationChart) {
+              charts[round.id] = round.eliminationChart;
+          }
+      });
+      return charts;
+  }, [race?.rounds]);
 
   // Recomputes the whole interleave from scratch — a deliberate, re-runnable
   // operator action from the Schedule screen, not the automatic mid-event
@@ -870,6 +885,7 @@ export default function RaceControl() {
           raceLocked={race?.isLocked ?? false}
           championshipRoundIds={championshipRoundIds}
           roundGroupLabel={roundGroupLabel}
+          eliminationCharts={eliminationCharts}
           onApplyMasterRunningOrder={handleApplyMasterRunningOrder}
           getRacerName={getRacerName}
           laneCount={race?.track?.laneCount || 4}

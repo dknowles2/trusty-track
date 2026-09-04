@@ -1348,6 +1348,96 @@ def populate_round_field(db: Session, round_id: int, racer_ids: list[int]) -> No
         resolve_round_placeholders(db, round_id, racer_ids)
 
 
+def pin_round_field(db: Session, round_id: int, racer_ids: list[int]) -> models.Round:
+    """Give a championship round exactly this line-up, and keep it (#711).
+
+    The one door for a hand-picked field. The round is reset to as many
+    placeholder slots as there are picks — in place where the count matches,
+    so an armed heat keeps its id (#50) — and filled through
+    :func:`populate_round_field` like any other advancement; then the pin is
+    set, which is what keeps the recorded-result cascade from re-fielding it
+    (:func:`backend.domain.advancement.rounds_to_invalidate`) and
+    :func:`populate_round_if_decided` from filling it from the standings.
+
+    Refused, as a ``ValueError`` carrying the sentence for the operator:
+
+    - for a general round — its field is the roster, not a pick;
+    - once the round has been raced — a hand-pick would wipe results people
+      ran, the same line invalidation will not cross; clear the results
+      first if that is really the intent;
+    - and for the picks :func:`backend.domain.advancement.hand_pick_problem`
+      rejects: fewer than two, a duplicate, or a racer who is not checked in
+      to this race (#228 — the pick does not override check-in; the
+      operator checks the car in first).
+
+    ``advancement_num_racers`` is a suggestion here, not a constraint: the
+    field is exactly as large as the pick, and the round is rebuilt to that
+    size rather than held to the request — the same answer
+    :func:`backend.domain.advancement.field_is_short` gives a computed field
+    that came up short, from the other direction too.
+    """
+    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    if round_obj is None:
+        raise ValueError("Round not found.")
+    if not round_obj.advancement_source:
+        raise ValueError("Only a championship round's line-up can be picked by hand.")
+    round_lanes = _round_heat_lanes(db, round_id)
+    if not advancement.may_rebuild(round_lanes):
+        raise ValueError(
+            "This round has already been raced. Clear its results before "
+            "choosing a different line-up."
+        )
+    eligible = {
+        r.id
+        for r in db.query(models.Racer)
+        .filter(
+            models.Racer.race_id == round_obj.race_id,
+            models.Racer.car_passed_inspection,
+        )
+        .all()
+    }
+    problem = advancement.hand_pick_problem(racer_ids, eligible)
+    if problem is not None:
+        raise ValueError(problem)
+
+    usable = usable_lanes_for_race(db, round_obj.race_id)
+    _reset_round_to_placeholders(db, round_id, len(racer_ids), usable)
+    populate_round_field(db, round_id, racer_ids)
+    round_obj.field_pinned = True
+    db.commit()
+    db.refresh(round_obj)
+    return round_obj
+
+
+def unpin_round_field(db: Session, round_id: int) -> models.Round:
+    """Hand a round's line-up back to the standings (#711).
+
+    The pin comes off and, if nothing has been raced, the round is reset to
+    the slots its own rule asks for and filled from the standings as they
+    stand *now* — through :func:`populate_round_if_decided`, the one asker
+    (#248), so a round whose source is not yet decided goes back to
+    placeholders and fills on the next cascade like any other. A round that
+    has been raced only loses the pin: the results stand, and the **Line-up
+    out of date** badge (#229) says so if the hand-picked field differs from
+    who would advance today.
+    """
+    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    if round_obj is None:
+        raise ValueError("Round not found.")
+    if not round_obj.field_pinned:
+        return round_obj
+    round_obj.field_pinned = False
+    db.commit()
+    if advancement.may_rebuild(_round_heat_lanes(db, round_id)):
+        usable = usable_lanes_for_race(db, round_obj.race_id)
+        _reset_round_to_placeholders(
+            db, round_id, round_field_size(db, round_obj), usable
+        )
+        populate_round_if_decided(db, round_obj)
+    db.refresh(round_obj)
+    return round_obj
+
+
 def _round_heat_lanes(db: Session, round_id: int) -> list[list[lanes.Lane]]:
     """Lanes for every heat in a round, read from ``heat_lanes`` (#72).
 
@@ -1813,7 +1903,7 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
         if not withdrawn:
             continue
 
-        if round_obj.advancement_source is not None:
+        if round_obj.advancement_source is not None and not round_obj.field_pinned:
             # A championship field with a withdrawn racer in it: re-advance if
             # nothing has been raced, so the next qualifier steps up. The
             # local import matches `trigger_auto_advancements`; `services`
@@ -1825,12 +1915,7 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
             size = round_field_size(db, round_obj)
             if size <= 0:
                 continue
-            if not _reset_heats_in_place(
-                db, round_obj.id, scheduling.placeholder_ids(size), usable
-            ):
-                generate_heats_for_round(
-                    db, round_obj.id, num_placeholders=size, clear_existing=True
-                )
+            _reset_round_to_placeholders(db, round_obj.id, size, usable)
             winner_ids = scoring.get_advancing_racers(
                 db,
                 race_id,
@@ -1843,7 +1928,14 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
             changed_round_ids.append(round_obj.id)
             continue
 
-        if advancement.may_rebuild(heat_lanes):
+        # A hand-picked championship field (#711) has no "next qualifier" to
+        # step up — the operator's list is the list — so it is neither
+        # re-advanced from the standings nor regenerated from the roster the
+        # way a general round is. It falls through to the vacate loop below:
+        # the withdrawn car's lane empties, everybody else's stays, the pin
+        # stays, and the heat ids stay (#50). The schedule shows the lane as
+        # open, and filling it is a re-pick.
+        if round_obj.advancement_source is None and advancement.may_rebuild(heat_lanes):
             eligible = eligible_racer_ids(db, race_id, round_obj.racing_group_id)
             if len(eligible) >= 2:
                 generate_heats_for_round(db, round_obj.id, clear_existing=True)
@@ -2014,17 +2106,25 @@ def invalidate_future_rounds(db: Session, race_id: int, current_round_number: in
     for r in advancement.rounds_to_invalidate(all_rounds, current_round_number):
         if not advancement.may_rebuild(_round_heat_lanes(db, r.id)):
             continue
-        size = round_field_size(db, r)
-        if size > 0 and _reset_heats_in_place(
-            db, r.id, scheduling.placeholder_ids(size), usable_lanes
-        ):
-            continue
-        generate_heats_for_round(
-            db,
-            r.id,
-            num_placeholders=size,
-            clear_existing=True,
-        )
+        _reset_round_to_placeholders(db, r.id, round_field_size(db, r), usable_lanes)
+
+
+def _reset_round_to_placeholders(
+    db: Session, round_id: int, size: int, usable_lanes: Sequence[int]
+) -> None:
+    """Put an unraced championship round back to ``size`` placeholder slots.
+
+    In place where the shape allows, so heat ids survive (#50), and a full
+    regeneration otherwise. The caller has already checked ``may_rebuild``.
+    Three paths reset a round this way — the recorded-result cascade, a
+    withdrawal, and a hand-picked line-up (#711) — and the first two each
+    carried their own copy of these five lines until the third arrived.
+    """
+    if size > 0 and _reset_heats_in_place(
+        db, round_id, scheduling.placeholder_ids(size), usable_lanes
+    ):
+        return
+    generate_heats_for_round(db, round_id, num_placeholders=size, clear_existing=True)
 
 
 def is_round_complete(db: Session, round_id: int) -> bool:
@@ -2077,6 +2177,13 @@ def populate_round_if_decided(db: Session, round_obj: models.Round) -> bool:
     has no completion event left to wait for (#248).
     """
     if not round_obj.advancement_source:
+        return False
+    if round_obj.field_pinned:
+        # The operator chose this field by hand (#711); the standings are
+        # not consulted. Belt and braces — `rounds_to_invalidate` already
+        # keeps a pinned round out of the cascade's list — but `createRound`
+        # and the mutations reach here directly, and the pin is the one rule
+        # this whole feature exists to protect.
         return False
 
     rule = advancement.AdvancementRule(

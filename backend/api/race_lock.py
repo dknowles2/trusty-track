@@ -271,6 +271,8 @@ LOCKED_MUTATION_RESOLVERS: dict[str, Callable[[Session, dict[str, Any]], bool]] 
     "reorderAwards": _direct_locked,
     "createRunOffHeat": _direct_locked,
     "advanceRound": _direct_locked,
+    "pinRoundField": _direct_locked,
+    "unpinRoundField": _direct_locked,
     "createRoundWizard": _direct_locked,
     "createRound": _direct_locked,
     "importRacers": _direct_locked,

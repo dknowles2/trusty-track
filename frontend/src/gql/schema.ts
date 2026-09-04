@@ -24,6 +24,7 @@ export type AdvancementStatus = {
   advancingRacers: Array<AdvancementRacer>;
   alreadyAdvanced: Scalars['Boolean']['output'];
   contestedCut: Scalars['Boolean']['output'];
+  fieldIsPinned: Scalars['Boolean']['output'];
   fieldIsStale: Scalars['Boolean']['output'];
   fromBottom: Scalars['Boolean']['output'];
   isReady: Scalars['Boolean']['output'];
@@ -161,6 +162,39 @@ export type DisplayView =
   | 'STANDINGS'
   | 'STANDINGS_ONLY'
   | 'TIMING';
+
+export type EliminationChart = {
+  decided: Scalars['Boolean']['output'];
+  maxLosses: Scalars['Int']['output'];
+  standings: Array<EliminationStandingEntry>;
+  waves: Array<EliminationWave>;
+};
+
+export type EliminationChartHeat = {
+  finished: Scalars['Boolean']['output'];
+  heatId: Scalars['Int']['output'];
+  heatNumber: Scalars['Int']['output'];
+  lanes: Array<EliminationChartLane>;
+};
+
+export type EliminationChartLane = {
+  lane: Scalars['Int']['output'];
+  lossesAfter: Scalars['Int']['output'];
+  out: Scalars['Boolean']['output'];
+  outcome?: Maybe<Scalars['String']['output']>;
+  racerId?: Maybe<Scalars['Int']['output']>;
+};
+
+export type EliminationStandingEntry = {
+  alive: Scalars['Boolean']['output'];
+  losses: Scalars['Int']['output'];
+  racerId: Scalars['Int']['output'];
+};
+
+export type EliminationWave = {
+  heats: Array<EliminationChartHeat>;
+  number: Scalars['Int']['output'];
+};
 
 export type FreeRaceHeat = {
   createdAt: Scalars['String']['output'];
@@ -449,6 +483,7 @@ export type Mutation = {
   identifyDisplay?: Maybe<Display>;
   importRacers: Scalars['Int']['output'];
   pauseIntermission: Race;
+  pinRoundField: Round;
   populateRace: Scalars['String']['output'];
   prepareHeat: Scalars['Boolean']['output'];
   previewDerbynetImport: DerbynetImportPreview;
@@ -468,6 +503,7 @@ export type Mutation = {
   startFreeRaceHeat: FreeRaceHeat;
   startIntermission: Race;
   startTimerTest: Scalars['Boolean']['output'];
+  unpinRoundField: Round;
   updateAward?: Maybe<Award>;
   updateHeatResult?: Maybe<Heat>;
   updateInitialConfig: InitialConfigStatus;
@@ -763,6 +799,13 @@ export type MutationPauseIntermissionArgs = {
 };
 
 
+export type MutationPinRoundFieldArgs = {
+  raceId: Scalars['Int']['input'];
+  racerIds: Array<Scalars['Int']['input']>;
+  roundId: Scalars['Int']['input'];
+};
+
+
 export type MutationPopulateRaceArgs = {
   config: PopulateTestDataInput;
   raceId: Scalars['Int']['input'];
@@ -868,6 +911,12 @@ export type MutationStartIntermissionArgs = {
 
 export type MutationStartTimerTestArgs = {
   trackId: Scalars['Int']['input'];
+};
+
+
+export type MutationUnpinRoundFieldArgs = {
+  raceId: Scalars['Int']['input'];
+  roundId: Scalars['Int']['input'];
 };
 
 
@@ -1313,7 +1362,9 @@ export type Round = {
   advancementStatus: AdvancementStatus;
   balancedPhases?: Maybe<Scalars['Int']['output']>;
   disrupted: Scalars['Boolean']['output'];
+  eliminationChart?: Maybe<EliminationChart>;
   eliminationLosses?: Maybe<Scalars['Int']['output']>;
+  fieldPinned: Scalars['Boolean']['output'];
   heats: Array<Heat>;
   id: Scalars['Int']['output'];
   name?: Maybe<Scalars['String']['output']>;
