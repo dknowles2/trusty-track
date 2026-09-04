@@ -353,6 +353,14 @@ class AdvancementStatus:
     #: slot (the provisional pick, so the round stays runnable), and this is
     #: what says the pick is not the whole story.
     contested_cut: bool = False
+    #: The field was chosen by hand (#711) — `Round.fieldPinned`, carried
+    #: here too so a screen reading this status alone can tell "these four
+    #: were picked" from "these four are the current top four". When set,
+    #: `advancingRacers.isAdvancing` marks the *picked* field rather than the
+    #: computed one, and `fieldIsStale` and `contestedCut` are both false:
+    #: a hand-picked field is meant to differ from the standings, and the
+    #: operator settled any tie by picking.
+    field_is_pinned: bool = False
 
 
 def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementStatus:
@@ -407,6 +415,9 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
     adv_source = round_obj.advancement_source
     adv_num = round_obj.advancement_num_racers
     adv_from_bottom = round_obj.advancement_from_bottom
+    # The round whose field this status describes — this one, or the next
+    # championship round when a general round previews who is on track.
+    fielded_round = round_obj
 
     if not requires_advancement:
         # A general round shows the field for whichever championship round comes
@@ -425,10 +436,23 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
             adv_source = next_round.advancement_source
             adv_num = next_round.advancement_num_racers
             adv_from_bottom = next_round.advancement_from_bottom
+            fielded_round = next_round
 
     winner_ids: set[int] = set()
     contested_cut = False
-    if requires_advancement:
+    field_is_pinned = bool(fielded_round.field_pinned)
+    if field_is_pinned:
+        # A hand-picked field (#711): who advances is who was picked, read
+        # off the round's own lanes — not the standings, which it is meant
+        # to be free to differ from. Off the loaders' existing per-race
+        # batch, so this costs no query the computed path does not.
+        winner_ids = {
+            lane.racer_id
+            for heat in loaders.heats_for_round(race_id, fielded_round.id)
+            for lane in loaders.lane_values_for_heat(race_id, heat.id)
+            if lane.racer_id is not None
+        }
+    elif requires_advancement:
         pick = scoring.pick_advancing_racers(
             db, race_id, adv_source, adv_num, from_bottom=adv_from_bottom
         )
@@ -455,7 +479,12 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
     # mismatch there is a bug, not a state. See domain.advancement.field_is_stale
     # for the rule itself (#433).
     field_is_stale = False
-    if round_obj.advancement_source is not None and already_advanced and winner_ids:
+    if (
+        round_obj.advancement_source is not None
+        and not round_obj.field_pinned
+        and already_advanced
+        and winner_ids
+    ):
         round_lanes = [
             loaders.lane_values_for_heat(race_id, heat.id)
             for heat in loaders.heats_for_round(race_id, round_id)
@@ -472,6 +501,7 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
         from_bottom=adv_from_bottom,
         field_is_stale=field_is_stale,
         contested_cut=contested_cut,
+        field_is_pinned=field_is_pinned,
     )
 
 
@@ -492,6 +522,10 @@ class Round:
     #: standings instead of the top, and cars with no recorded result are
     #: left out. Everything else about a championship round is unchanged.
     advancement_from_bottom: bool
+    #: The line-up was chosen by hand and the cascade leaves it alone (#711).
+    #: `pinRoundField` sets it; `unpinRoundField` hands the round back to
+    #: the standings. Always false for a general round.
+    field_pinned: bool
     #: Ladderless elimination only: how many heats a car may lose before it
     #: is out. Null for every other scheduling strategy.
     elimination_losses: int | None
@@ -4371,6 +4405,48 @@ class Mutation:
             race_id, kind=RaceChangeKind.SCHEDULE, round_id=round_id
         )
         return len(winner_ids)
+
+    @strawberry.mutation
+    async def pin_round_field(
+        self, info: Info, race_id: int, round_id: int, racer_ids: list[int]
+    ) -> Round:
+        """Choose a championship round's line-up by hand, and keep it (#711).
+
+        The round is rebuilt for exactly these racers and pinned, so the
+        recorded-result cascade — which otherwise re-fields every unraced
+        championship round on every result — leaves it alone. Refused for a
+        general round, for a round already raced, and for a pick
+        `domain.advancement.hand_pick_problem` rejects (fewer than two, a
+        duplicate, a racer not checked in), each reaching the caller as an
+        ordinary GraphQL error carrying the sentence, the same shape
+        `createRunOffHeat` takes.
+
+        Timers are revalidated because this re-fields heats an operator may
+        have armed (#50).
+        """
+        db = info.context["db"]
+        round_obj = crud.pin_round_field(db, round_id, racer_ids)
+        await _revalidate_timers(info)
+        await _publish_race_state(
+            race_id, kind=RaceChangeKind.SCHEDULE, round_id=round_id
+        )
+        return typing.cast(Any, round_obj)
+
+    @strawberry.mutation
+    async def unpin_round_field(self, info: Info, race_id: int, round_id: int) -> Round:
+        """Hand a hand-picked line-up back to the standings (#711).
+
+        An unraced round is re-fielded from the standings as they stand now;
+        a raced one only loses the pin, and shows **Line-up out of date** if
+        the picked field differs from who would advance today.
+        """
+        db = info.context["db"]
+        round_obj = crud.unpin_round_field(db, round_id)
+        await _revalidate_timers(info)
+        await _publish_race_state(
+            race_id, kind=RaceChangeKind.SCHEDULE, round_id=round_id
+        )
+        return typing.cast(Any, round_obj)
 
     # Timer Mutations
 

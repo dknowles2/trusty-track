@@ -16,6 +16,7 @@ from backend.domain.advancement import (
     field_is_short,
     field_is_stale,
     field_size,
+    hand_pick_problem,
     is_round_complete,
     may_rebuild,
     placeholder_slots,
@@ -28,10 +29,11 @@ from backend.domain.lanes import Lane
 
 @dataclass
 class FakeRound:
-    """Just the two attributes `rounds_to_invalidate` reads."""
+    """Just the three attributes `rounds_to_invalidate` reads."""
 
     round_number: int
     advancement_source: str | None = None
+    field_pinned: bool = False
 
 
 def _standings(*pairs) -> list[Standing]:
@@ -255,6 +257,40 @@ def test_only_later_championship_rounds_are_invalidated():
 def test_the_changed_round_invalidates_nothing_at_or_before_itself():
     rounds = [FakeRound(1, "ALL"), FakeRound(2, "ALL")]
     assert rounds_to_invalidate(rounds, changed_round_number=2) == []
+
+
+def test_a_pinned_round_is_never_invalidated():
+    """A hand-picked field (#711) is not drawn from the standings, so the
+    standings moving says nothing about it — and this list is what the
+    cascade both resets and re-populates from."""
+    rounds = [
+        FakeRound(1),
+        FakeRound(2, "ALL", field_pinned=True),
+        FakeRound(3, "ROUND:2"),
+    ]
+    affected = rounds_to_invalidate(rounds, changed_round_number=1)
+    assert [r.round_number for r in affected] == [3]
+
+
+class TestHandPickProblem:
+    def test_a_good_pick_has_no_problem(self):
+        assert hand_pick_problem([1, 2, 3], {1, 2, 3, 4}) is None
+
+    def test_fewer_than_two_is_not_a_race(self):
+        assert hand_pick_problem([1], {1, 2}) is not None
+        assert hand_pick_problem([], {1, 2}) is not None
+
+    def test_a_duplicate_is_refused_rather_than_folded(self):
+        assert hand_pick_problem([1, 1], {1, 2}) is not None
+
+    def test_a_racer_who_is_not_eligible_is_refused(self):
+        """Not checked in, or not in this race — the caller decides which
+        set is eligible; this only holds the pick to it (#228)."""
+        assert hand_pick_problem([1, 9], {1, 2}) is not None
+
+    def test_the_count_is_not_held_to_any_request(self):
+        """`advancement_num_racers` is a suggestion here, not a ceiling."""
+        assert hand_pick_problem([1, 2, 3, 4, 5, 6], set(range(1, 10))) is None
 
 
 def test_a_round_that_has_been_raced_may_not_be_rebuilt():

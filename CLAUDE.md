@@ -274,7 +274,7 @@ Defined entirely in `backend/api/schema.py`.
 - RacingGroup: `createRacingGroup`, `updateRacingGroup`, `deleteRacingGroup`
 - Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages`
 - Track records: `createTrackRecord`, `updateTrackRecord`, `deleteTrackRecord`
-- Round/Heat: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `updateHeatResult`, `reorderHeats`, `applyMasterRunningOrder`
+- Round/Heat: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `pinRoundField`, `unpinRoundField`, `updateHeatResult`, `reorderHeats`, `applyMasterRunningOrder`
 - Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `startTimerTest`, `fakeTimerStart`, `fakeTimerFinish`
 - Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards`
 - Voting: `castVote` — the one mutation `VIEWER` may run

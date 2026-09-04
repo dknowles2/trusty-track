@@ -19,6 +19,7 @@ type AdvancementStatus {
   fromBottom: Boolean!
   fieldIsStale: Boolean!
   contestedCut: Boolean!
+  fieldIsPinned: Boolean!
 }
 
 type AuditLogEntry {
@@ -423,6 +424,8 @@ type Mutation {
   createRunOffHeat(raceId: Int!, racerIds: [Int!]!, settlesRoundId: Int = null): RunOffHeat!
   deleteRunOffHeat(heatId: Int!): Boolean!
   advanceRound(raceId: Int!, roundId: Int!): Int!
+  pinRoundField(raceId: Int!, roundId: Int!, racerIds: [Int!]!): Round!
+  unpinRoundField(raceId: Int!, roundId: Int!): Round!
   reconnectTimer(trackId: Int!): Boolean!
   abortHeat(trackId: Int!): Boolean!
   forceResults(trackId: Int!): Boolean!
@@ -740,6 +743,7 @@ type Round {
   advancementSource: String
   advancementNumRacers: Int
   advancementFromBottom: Boolean!
+  fieldPinned: Boolean!
   eliminationLosses: Int
   balancedPhases: Int
   disrupted: Boolean!

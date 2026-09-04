@@ -700,6 +700,19 @@ class Round(Base):
     advancement_from_bottom: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    #: The field was chosen by hand, and the cascade must leave it alone
+    #: (#711). Championship fields are otherwise recomputed on *every*
+    #: recorded or cleared result — `invalidate_future_rounds` resets an
+    #: unraced round to placeholders and `populate_round_if_decided` fills it
+    #: from the standings again — so a hand-picked line-up written into the
+    #: lanes alone would not survive the next preliminary heat. A pin rather
+    #: than a fourth `advancement_source`: the source and count stay what they
+    #: were, describing the *suggestion* the picker starts from, and clearing
+    #: the pin is the way back to it. The lanes themselves are the record of
+    #: who was picked; nothing is stored twice.
+    field_pinned: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     #: Ladderless elimination only: how many heats a car may lose before it
     #: is out. Null for every other scheduling strategy — the column has no
     #: meaning without one, and a value nothing reads would be free to rot.
