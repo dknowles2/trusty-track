@@ -191,6 +191,7 @@ class DisplayRegistry:
         view: DisplayView,
         cycle_seconds: int | None = None,
         scroll_behavior: ScrollBehavior | None = None,
+        show_checked_in: bool | None = None,
     ) -> Display | None:
         """Tell a display what to show. Returns None for one nobody has seen."""
         display = self._displays.get(display_id)
@@ -204,6 +205,9 @@ class DisplayRegistry:
             ),
             scroll_behavior=(
                 current.scroll_behavior if scroll_behavior is None else scroll_behavior
+            ),
+            show_checked_in=(
+                current.show_checked_in if show_checked_in is None else show_checked_in
             ),
         )
         display.assigned = True

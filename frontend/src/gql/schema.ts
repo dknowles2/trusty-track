@@ -135,6 +135,7 @@ export type Display = {
   pacedByAPerson: Scalars['Boolean']['output'];
   raceId: Scalars['Int']['output'];
   scrollBehavior: ScrollBehavior;
+  showCheckedIn: Scalars['Boolean']['output'];
   slideDelta: Scalars['Int']['output'];
   slideSeq: Scalars['Int']['output'];
   view: DisplayView;
@@ -142,6 +143,7 @@ export type Display = {
 
 export type DisplayView =
   | 'AWARDS'
+  | 'CHECKIN'
   | 'CYCLE'
   | 'PROJECTOR'
   | 'SLIDESHOW'
@@ -487,6 +489,7 @@ export type MutationAssignDisplayArgs = {
   cycleSeconds?: InputMaybe<Scalars['Int']['input']>;
   displayId: Scalars['String']['input'];
   scrollBehavior?: InputMaybe<ScrollBehavior>;
+  showCheckedIn?: InputMaybe<Scalars['Boolean']['input']>;
   view: DisplayView;
 };
 

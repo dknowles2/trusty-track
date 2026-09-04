@@ -36,7 +36,14 @@ import {
     RENAME_DISPLAY,
     SUGGEST_DISPLAY_NAME,
 } from '../graphql/queries';
-import { viewCycles, viewOptionsFor, viewScrolls, type DisplayView, type ScrollBehavior } from '../displayView';
+import {
+    viewCycles,
+    viewHasCheckedInToggle,
+    viewOptionsFor,
+    viewScrolls,
+    type DisplayView,
+    type ScrollBehavior,
+} from '../displayView';
 import { newDisplayWindowUrl } from '../displayIdentity';
 
 interface DisplayRow {
@@ -45,6 +52,7 @@ interface DisplayRow {
     view: DisplayView;
     cycleSeconds: number;
     scrollBehavior: ScrollBehavior;
+    showCheckedIn: boolean;
     description: string;
     pacedByAPerson: boolean;
     connected: boolean;
@@ -293,6 +301,28 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                         >
                             <option value="PAGING">Page cycling</option>
                             <option value="SMOOTH">Auto-scroll</option>
+                        </select>
+                    )}
+
+                    {/* Check-in progress (#612): whether an already-checked-in
+                        racer's row is still listed, or only the ones still
+                        pending — a large pack's screen can drop the former to
+                        make more room. */}
+                    {viewHasCheckedInToggle(display.view) && (
+                        <select
+                            aria-label={`Who ${display.name} lists`}
+                            value={display.showCheckedIn ? 'ALL' : 'PENDING'}
+                            onChange={(e) =>
+                                assignDisplay({
+                                    displayId: display.displayId,
+                                    view: display.view,
+                                    showCheckedIn: e.target.value === 'ALL',
+                                })
+                            }
+                            style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+                        >
+                            <option value="ALL">List everybody</option>
+                            <option value="PENDING">Pending only</option>
                         </select>
                     )}
 

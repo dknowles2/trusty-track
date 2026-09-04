@@ -18,7 +18,8 @@ export type DisplayView =
     | 'PROJECTOR'
     | 'AWARDS'
     | 'SLIDESHOW'
-    | 'STANDINGS_ONLY';
+    | 'STANDINGS_ONLY'
+    | 'CHECKIN';
 
 /**
  * How the `STANDINGS_ONLY` view gets through a list too long for one screen
@@ -29,6 +30,11 @@ export type ScrollBehavior = 'PAGING' | 'SMOOTH';
 
 /** Paging over smooth-scrolling — the more familiar of the two. */
 export const DEFAULT_SCROLL_BEHAVIOR: ScrollBehavior = 'PAGING';
+
+/** Whether `CHECKIN` lists everybody or only the racers still pending —
+ * `CHECKIN`'s own rider, the same shape as `ScrollBehavior` for
+ * `STANDINGS_ONLY`. Defaults to listing everybody. */
+export const DEFAULT_SHOW_CHECKED_IN = true;
 
 /** What the observation page actually does, once everything is resolved. */
 export interface ViewBehaviour {
@@ -42,9 +48,16 @@ export interface ViewBehaviour {
      * Racing / On Deck panels.
      */
     standingsOnly: boolean;
+    /**
+     * Who has checked in and who has not, grouped by racing group (#612) —
+     * the "Please Check-In" kiosk.
+     */
+    checkin: boolean;
     cycleMs: number;
     /** How `standingsOnly` gets through a list too long for one screen. */
     scrollBehavior: ScrollBehavior;
+    /** Whether `checkin` lists everybody, or only who is still pending. */
+    showCheckedIn: boolean;
     /** The ceremony is its own route, so the page redirects rather than renders. */
     redirectTo: string | null;
 }
@@ -56,6 +69,7 @@ export interface UrlIntent {
     cycle: boolean;
     cycleMs: number;
     scrollBehavior: ScrollBehavior;
+    showCheckedIn: boolean;
 }
 
 export function readUrl(params: URLSearchParams): UrlIntent {
@@ -65,6 +79,7 @@ export function readUrl(params: URLSearchParams): UrlIntent {
         cycle: params.get('cycle') === 'true',
         cycleMs: parseInt(params.get('cycle_interval') || '10000'),
         scrollBehavior: params.get('scroll') === 'smooth' ? 'SMOOTH' : DEFAULT_SCROLL_BEHAVIOR,
+        showCheckedIn: params.get('checkin_show') !== 'pending',
     };
 }
 
@@ -73,14 +88,17 @@ export function behaviourFor(
     cycleSeconds: number,
     raceId: number,
     scrollBehavior: ScrollBehavior = DEFAULT_SCROLL_BEHAVIOR,
+    showCheckedIn: boolean = DEFAULT_SHOW_CHECKED_IN,
 ): ViewBehaviour {
     const base = {
         projector: false,
         cycle: false,
         slideshow: false,
         standingsOnly: false,
+        checkin: false,
         cycleMs: cycleSeconds * 1000,
         scrollBehavior,
+        showCheckedIn,
         redirectTo: null,
     };
     switch (view) {
@@ -94,6 +112,8 @@ export function behaviourFor(
             return { ...base, tab: 'standings', slideshow: true };
         case 'STANDINGS_ONLY':
             return { ...base, tab: 'standings', standingsOnly: true };
+        case 'CHECKIN':
+            return { ...base, tab: 'standings', checkin: true };
         case 'AWARDS':
             return { ...base, tab: 'standings', redirectTo: `/race/${raceId}/awards/present` };
         case 'STANDINGS':
@@ -117,7 +137,12 @@ export function behaviourFor(
  * exactly the behaviour of a display nobody ever assigns.
  */
 export function resolveView(
-    assignment: { view: DisplayView; cycleSeconds: number; scrollBehavior?: ScrollBehavior } | null,
+    assignment: {
+        view: DisplayView;
+        cycleSeconds: number;
+        scrollBehavior?: ScrollBehavior;
+        showCheckedIn?: boolean;
+    } | null,
     url: UrlIntent,
     raceId: number,
 ): ViewBehaviour {
@@ -127,6 +152,7 @@ export function resolveView(
             assignment.cycleSeconds,
             raceId,
             assignment.scrollBehavior ?? DEFAULT_SCROLL_BEHAVIOR,
+            assignment.showCheckedIn ?? DEFAULT_SHOW_CHECKED_IN,
         );
     }
     return {
@@ -138,8 +164,10 @@ export function resolveView(
         // only the operator's list can select.
         slideshow: url.view === 'slideshow',
         standingsOnly: url.view === 'standings_only',
+        checkin: url.view === 'checkin',
         cycleMs: url.cycleMs,
         scrollBehavior: url.scrollBehavior,
+        showCheckedIn: url.showCheckedIn,
         redirectTo: null,
     };
 }
@@ -164,6 +192,7 @@ export const VIEW_OPTIONS: readonly {
     { view: 'PROJECTOR', label: 'Projector', cycles: false },
     { view: 'SLIDESHOW', label: 'Racer photos', cycles: true },
     { view: 'STANDINGS_ONLY', label: 'Standings only', cycles: true },
+    { view: 'CHECKIN', label: 'Check-in progress', cycles: false },
     { view: 'AWARDS', label: 'Awards ceremony', cycles: false },
 ];
 
@@ -178,6 +207,14 @@ export function viewCycles(view: DisplayView): boolean {
  * other cycling view already fits in one screenful and just alternates. */
 export function viewScrolls(view: DisplayView): boolean {
     return view === 'STANDINGS_ONLY';
+}
+
+/** Whether a view offers the "list everybody / pending only" choice (#612).
+ * Only `CHECKIN` does — it is the one view a large pack might want trimmed
+ * to save screen room, the same reasoning `viewScrolls` gives
+ * `STANDINGS_ONLY`. */
+export function viewHasCheckedInToggle(view: DisplayView): boolean {
+    return view === 'CHECKIN';
 }
 
 /**
@@ -199,9 +236,10 @@ export function viewScrolls(view: DisplayView): boolean {
  * awards; a second copy of the rule on the server would be one more thing to
  * keep in step for no gain.
  *
- * `STANDINGS_ONLY` needs no such gating — unlike the ceremony it has nothing
- * it can be missing (there is always a leaderboard to show, even an empty
- * one), so it is offered unconditionally like every other ordinary view.
+ * `STANDINGS_ONLY` and `CHECKIN` need no such gating — unlike the ceremony
+ * neither has anything it can be missing (there is always a leaderboard, and
+ * always a roster, even an empty one), so both are offered unconditionally
+ * like every other ordinary view.
  */
 export function viewOptionsFor(
     hasAwards: boolean,

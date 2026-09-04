@@ -19,6 +19,7 @@ export type AwardInput = {
 
 export type DisplayView =
   | 'AWARDS'
+  | 'CHECKIN'
   | 'CYCLE'
   | 'PROJECTOR'
   | 'SLIDESHOW'
@@ -601,21 +602,21 @@ export type DisplayAssignmentSubscriptionVariables = Exact<{
 }>;
 
 
-export type DisplayAssignmentSubscription = { displayAssignment: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number, displayThemeSetting: string } };
+export type DisplayAssignmentSubscription = { displayAssignment: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number, displayThemeSetting: string } };
 
 export type DisplaysSubscriptionVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type DisplaysSubscription = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
+export type DisplaysSubscription = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
 
 export type GetDisplaysQueryVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type GetDisplaysQuery = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
+export type GetDisplaysQuery = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
 
 export type RaceAwardCountQueryVariables = Exact<{
   raceId: number;
@@ -637,10 +638,11 @@ export type AssignDisplayMutationVariables = Exact<{
   view: Types.DisplayView;
   cycleSeconds?: number | null | undefined;
   scrollBehavior?: Types.ScrollBehavior | null | undefined;
+  showCheckedIn?: boolean | null | undefined;
 }>;
 
 
-export type AssignDisplayMutation = { assignDisplay: { displayId: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, description: string, pacedByAPerson: boolean, connected: boolean, name: string, raceId: number } | null };
+export type AssignDisplayMutation = { assignDisplay: { displayId: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, description: string, pacedByAPerson: boolean, connected: boolean, name: string, raceId: number } | null };
 
 export type AdvanceDisplayMutationVariables = Exact<{
   displayId: string;
@@ -663,7 +665,7 @@ export type RenameDisplayMutationVariables = Exact<{
 }>;
 
 
-export type RenameDisplayMutation = { renameDisplay: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number } | null };
+export type RenameDisplayMutation = { renameDisplay: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number } | null };
 
 export type ForgetDisplayMutationVariables = Exact<{
   displayId: string;

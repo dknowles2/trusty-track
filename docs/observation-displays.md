@@ -112,12 +112,36 @@ headshot, the car, the name, car number and den.
 It goes in car number order, so every family knows their child is coming
 round once per cycle. Racers with no photo are skipped rather than shown
 blank. More in
-[Audience display views](reference/displays.md#the-seven-views).
+[Audience display views](reference/displays.md#the-eight-views).
 
 > [!TIP]
 > This is the view to leave up during check-in and between rounds. Set the
 > interval on the same row in **Race Control → Displays** — about five seconds
 > per racer suits a small pack, longer for a big one.
+
+---
+
+### Check-in progress
+
+The question a coordinator ends up shouting across the gym — "are there any
+more Wolves who haven't checked in?" — answered on a screen instead. One card
+per den, a progress bar and a count, and the cars still to come listed by
+number and name underneath. It updates the moment the check-in desk flips a
+racer's status, on every screen assigned to it.
+
+![Check-in progress](assets/screenshots/observation/12-checkin-progress.png)
+_The Bears are all through; the Wolves still have two cars to come, listed by number and name._
+
+A large pack can switch a screen's row in **Race Control → Displays** to
+**Pending only**, which drops the already-checked-in rows and keeps a den's
+card down to just the cars still needed at the scale. More in
+[Check-in progress](reference/displays.md#check-in-progress).
+
+> [!TIP]
+> This is the natural screen for the entrance or the table by the door — put
+> it up before check-in opens and it keeps working, quieter, once racing
+> starts too: a car that arrives after the first heat can still join the
+> schedule (see [Mid-race changes](reference/mid-race-changes.md)).
 
 ---
 
@@ -151,7 +175,7 @@ Two things worth knowing:
   — that is how you find out the projector at the back has dropped off the
   wifi. Clear the row with the ✕.
 
-The seven views a screen can show, and how assignment behaves, are in
+The eight views a screen can show, and how assignment behaves, are in
 [Audience display views](reference/displays.md).
 
 > [!TIP]

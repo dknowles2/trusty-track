@@ -115,6 +115,7 @@ export const DisplayAssignmentSubscription = gql`
       view
       cycleSeconds
       scrollBehavior
+      showCheckedIn
       description
       pacedByAPerson
       connected
@@ -137,6 +138,7 @@ export const DisplaysSubscription = gql`
       view
       cycleSeconds
       scrollBehavior
+      showCheckedIn
       description
       pacedByAPerson
       connected
@@ -157,6 +159,7 @@ export const DISPLAYS_QUERY = gql`
       view
       cycleSeconds
       scrollBehavior
+      showCheckedIn
       description
       pacedByAPerson
       connected
@@ -211,17 +214,20 @@ export const ASSIGN_DISPLAY = gql`
     $view: DisplayView!
     $cycleSeconds: Int
     $scrollBehavior: ScrollBehavior
+    $showCheckedIn: Boolean
   ) {
     assignDisplay(
       displayId: $displayId
       view: $view
       cycleSeconds: $cycleSeconds
       scrollBehavior: $scrollBehavior
+      showCheckedIn: $showCheckedIn
     ) {
       displayId
       view
       cycleSeconds
       scrollBehavior
+      showCheckedIn
       description
       pacedByAPerson
       connected
@@ -263,6 +269,7 @@ export const RENAME_DISPLAY = gql`
       view
       cycleSeconds
       scrollBehavior
+      showCheckedIn
       description
       pacedByAPerson
       connected

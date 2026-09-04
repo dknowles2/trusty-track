@@ -2224,6 +2224,10 @@ class Display:
     #: the same reasoning as `cycle_seconds`: a screen switched away from
     #: `STANDINGS_ONLY` and back keeps the choice it was given.
     scroll_behavior: ScrollBehaviorEnum  # type: ignore[valid-type]
+    #: `CHECKIN`'s own rider (#612) — whether it lists every racer, checked
+    #: in or not, or only the ones still pending. Carried regardless of
+    #: `view`, the same reasoning as `scroll_behavior`.
+    show_checked_in: bool
     connected: bool
     #: Whether an operator has told this display anything. False means it is
     #: still following its own URL, which is what every display did before
@@ -2277,6 +2281,7 @@ def _display(
         view=display.assignment.view,
         cycle_seconds=display.assignment.cycle_seconds,
         scroll_behavior=display.assignment.scroll_behavior,
+        show_checked_in=display.assignment.show_checked_in,
         connected=display.connected,
         assigned=display.assigned,
         description=domain_displays.describe(display.assignment),
@@ -3553,6 +3558,7 @@ class Mutation:
         display_id: str,
         cycle_seconds: int | None = None,
         scroll_behavior: ScrollBehaviorEnum | None = None,  # type: ignore[valid-type]
+        show_checked_in: bool | None = None,
     ) -> Display | None:
         """Tell an audience display what to show (#174).
 
@@ -3564,7 +3570,7 @@ class Mutation:
         if cycle_seconds is not None and cycle_seconds < 1:
             raise ValueError("cycle_seconds must be at least 1")
         display = displays_service.registry.assign(
-            display_id, view, cycle_seconds, scroll_behavior
+            display_id, view, cycle_seconds, scroll_behavior, show_checked_in
         )
         if display is None:
             return None

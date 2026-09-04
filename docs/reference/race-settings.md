@@ -183,7 +183,7 @@ It needs both the checkbox on **and** a length recorded — a track with no
 length shows no speed however the checkbox is set, since there is nothing to
 convert from. Once both are set, the speed appears beside a heat's time on
 the [projector view and the Last heat's times
-view](displays.md#the-seven-views), and the fastest heat of the race gets its
+view](displays.md#the-eight-views), and the fastest heat of the race gets its
 own line on the [Stats page](stats-and-exports.md#top-moments).
 
 ### No timer
