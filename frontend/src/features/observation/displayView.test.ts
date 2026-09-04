@@ -7,6 +7,7 @@ import {
     viewCycles,
     viewHasCheckedInToggle,
     viewHasQrTargetToggle,
+    viewHasStandingsTickerToggle,
     viewOptionsFor,
     viewScrolls,
 } from './displayView';
@@ -23,6 +24,7 @@ describe('readUrl', () => {
             scrollBehavior: 'PAGING',
             showCheckedIn: true,
             qrTarget: 'STANDINGS',
+            showStandingsTicker: true,
         });
     });
 
@@ -35,6 +37,7 @@ describe('readUrl', () => {
             scrollBehavior: 'PAGING',
             showCheckedIn: true,
             qrTarget: 'STANDINGS',
+            showStandingsTicker: true,
         });
     });
 
@@ -60,6 +63,14 @@ describe('readUrl', () => {
 
     it('defaults the QR target to this races own standings', () => {
         expect(url('view=qrcode').qrTarget).toBe('STANDINGS');
+    });
+
+    it('reads a hidden standings ticker off the URL', () => {
+        expect(url('view=overlay&overlay_standings=hidden').showStandingsTicker).toBe(false);
+    });
+
+    it('defaults the broadcast overlay to showing its standings ticker', () => {
+        expect(url('view=overlay').showStandingsTicker).toBe(true);
     });
 });
 
@@ -139,6 +150,23 @@ describe('behaviourFor', () => {
             expect(behaviourFor(view, 10, 1).qrcode).toBe(false);
         }
     });
+
+    it('shows the broadcast overlay view', () => {
+        expect(behaviourFor('OVERLAY', 10, 1)).toMatchObject({ tab: 'standings', overlay: true });
+    });
+
+    it('carries showStandingsTicker through, defaulting to true', () => {
+        expect(behaviourFor('OVERLAY', 10, 1).showStandingsTicker).toBe(true);
+        expect(
+            behaviourFor('OVERLAY', 10, 1, 'PAGING', true, 'STANDINGS', false).showStandingsTicker,
+        ).toBe(false);
+    });
+
+    it('marks overlay false for every other view', () => {
+        for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'OVERLAY')) {
+            expect(behaviourFor(view, 10, 1).overlay).toBe(false);
+        }
+    });
 });
 
 describe('resolveView', () => {
@@ -181,10 +209,12 @@ describe('resolveView', () => {
             standingsOnly: false,
             checkin: false,
             qrcode: false,
+            overlay: false,
             cycleMs: 4000,
             scrollBehavior: 'PAGING',
             showCheckedIn: true,
             qrTarget: 'STANDINGS',
+            showStandingsTicker: true,
             redirectTo: null,
         });
     });
@@ -207,6 +237,10 @@ describe('resolveView', () => {
 
     it('reaches the QR code view by URL as well as by assignment', () => {
         expect(resolveView(null, url('view=qrcode'), 1)).toMatchObject({ qrcode: true });
+    });
+
+    it('reaches the broadcast overlay by URL as well as by assignment', () => {
+        expect(resolveView(null, url('view=overlay'), 1)).toMatchObject({ overlay: true });
     });
 
     it('carries a scroll behavior for a display nobody assigns', () => {
@@ -264,6 +298,22 @@ describe('resolveView', () => {
         ).toBe('VOTE');
     });
 
+    it('defaults showStandingsTicker to true when an assignment omits it', () => {
+        expect(
+            resolveView({ view: 'OVERLAY', cycleSeconds: 10 }, url(), 1).showStandingsTicker,
+        ).toBe(true);
+    });
+
+    it('lets an assignment carry its own showStandingsTicker', () => {
+        expect(
+            resolveView(
+                { view: 'OVERLAY', cycleSeconds: 10, showStandingsTicker: false },
+                url(),
+                1,
+            ).showStandingsTicker,
+        ).toBe(false);
+    });
+
     it('ignores an assignment nobody made', () => {
         // The caller passes null for an unassigned display; this asserts the
         // consequence, which the end-to-end spec caught the hard way: every
@@ -284,6 +334,7 @@ describe('VIEW_OPTIONS', () => {
                 'AWARDS',
                 'CHECKIN',
                 'CYCLE',
+                'OVERLAY',
                 'PROJECTOR',
                 'QRCODE',
                 'SLIDESHOW',
@@ -321,6 +372,9 @@ describe('VIEW_OPTIONS', () => {
         expect(viewCycles('PROJECTOR')).toBe(false);
         expect(viewCycles('CHECKIN')).toBe(false);
         expect(viewCycles('QRCODE')).toBe(false);
+        // The overlay's finish banner and its ticker both run on their own
+        // logic, not an operator-set seconds control.
+        expect(viewCycles('OVERLAY')).toBe(false);
     });
 });
 
@@ -347,6 +401,15 @@ describe('viewHasQrTargetToggle', () => {
         expect(viewHasQrTargetToggle('QRCODE')).toBe(true);
         for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'QRCODE')) {
             expect(viewHasQrTargetToggle(view)).toBe(false);
+        }
+    });
+});
+
+describe('viewHasStandingsTickerToggle', () => {
+    it('offers the standings-ticker choice only for the broadcast overlay', () => {
+        expect(viewHasStandingsTickerToggle('OVERLAY')).toBe(true);
+        for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'OVERLAY')) {
+            expect(viewHasStandingsTickerToggle(view)).toBe(false);
         }
     });
 });
@@ -394,5 +457,10 @@ describe('viewOptionsFor', () => {
         // voting has ever been turned on.
         expect(views(false, 'STANDINGS')).toContain('QRCODE');
         expect(views(true, 'STANDINGS')).toContain('QRCODE');
+    });
+
+    it('offers the broadcast overlay unconditionally too', () => {
+        expect(views(false, 'STANDINGS')).toContain('OVERLAY');
+        expect(views(true, 'STANDINGS')).toContain('OVERLAY');
     });
 });

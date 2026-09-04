@@ -35,6 +35,7 @@ function renderPanel(
     scrollBehavior = 'PAGING',
     showCheckedIn = true,
     qrTarget = 'STANDINGS',
+    showStandingsTicker = true,
 ) {
     // Two queries, and they answer different questions: the list of screens,
     // and whether the race has any awards to announce.
@@ -70,6 +71,7 @@ function renderPanel(
                             scrollBehavior,
                             showCheckedIn,
                             qrTarget,
+                            showStandingsTicker,
                             description: 'Standings',
                             pacedByAPerson: view === 'AWARDS',
                             connected,
@@ -231,6 +233,38 @@ describe('the QR target control (#614)', () => {
     });
 });
 
+describe('the standings ticker control (#616)', () => {
+    it('is offered for the broadcast overlay view', () => {
+        renderPanel('OVERLAY');
+        expect(screen.getByLabelText('Whether Gym north shows the standings ticker')).toBeTruthy();
+    });
+
+    it('is absent for every other view', () => {
+        renderPanel('STANDINGS');
+        expect(screen.queryByLabelText('Whether Gym north shows the standings ticker')).toBeNull();
+    });
+
+    it('reflects the display’s current choice', () => {
+        renderPanel('OVERLAY', 10, true, 2, true, 'PAGING', true, 'STANDINGS', false);
+        const select = screen.getByLabelText(
+            'Whether Gym north shows the standings ticker',
+        ) as HTMLSelectElement;
+        expect(select.value).toBe('OFF');
+    });
+
+    it('sends the choice, keeping the row on the broadcast overlay', () => {
+        renderPanel('OVERLAY');
+        fireEvent.change(screen.getByLabelText('Whether Gym north shows the standings ticker'), {
+            target: { value: 'OFF' },
+        });
+        expect(assignDisplay).toHaveBeenCalledWith({
+            displayId: 'd-1',
+            view: 'OVERLAY',
+            showStandingsTicker: false,
+        });
+    });
+});
+
 describe('driving a ceremony from the operator’s list', () => {
     it('offers Next and Previous for a screen showing the ceremony', () => {
         renderPanel('AWARDS');
@@ -296,6 +330,7 @@ describe('offering the ceremony as a view', () => {
             'Standings only',
             'Check-in progress',
             'QR code',
+            'Broadcast overlay (OBS)',
         ]);
     });
 

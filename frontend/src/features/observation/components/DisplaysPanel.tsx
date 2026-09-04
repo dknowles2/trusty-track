@@ -40,6 +40,7 @@ import {
     viewCycles,
     viewHasCheckedInToggle,
     viewHasQrTargetToggle,
+    viewHasStandingsTickerToggle,
     viewOptionsFor,
     viewScrolls,
     type DisplayView,
@@ -56,6 +57,7 @@ interface DisplayRow {
     scrollBehavior: ScrollBehavior;
     showCheckedIn: boolean;
     qrTarget: QRTarget;
+    showStandingsTicker: boolean;
     description: string;
     pacedByAPerson: boolean;
     connected: boolean;
@@ -346,6 +348,28 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                         >
                             <option value="STANDINGS">Live standings</option>
                             <option value="VOTE">Voting ballot</option>
+                        </select>
+                    )}
+
+                    {/* Broadcast overlay (#616): whether the compact top-5
+                        ticker shows alongside the lower-third bar — off for
+                        a streamer who wants the bar alone and nothing else
+                        filling the screen between heats. */}
+                    {viewHasStandingsTickerToggle(display.view) && (
+                        <select
+                            aria-label={`Whether ${display.name} shows the standings ticker`}
+                            value={display.showStandingsTicker ? 'ON' : 'OFF'}
+                            onChange={(e) =>
+                                assignDisplay({
+                                    displayId: display.displayId,
+                                    view: display.view,
+                                    showStandingsTicker: e.target.value === 'ON',
+                                })
+                            }
+                            style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+                        >
+                            <option value="ON">With standings ticker</option>
+                            <option value="OFF">Heat only</option>
                         </select>
                     )}
 

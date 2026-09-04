@@ -4,7 +4,7 @@ What a screen on the wall can show, and how telling it what to show works.
 For the setup walkthrough, see the
 [Observation Displays guide](../observation-displays.md).
 
-## The nine views
+## The ten views
 
 Every screen with the Live page open can be switched between these, from
 **Race Control → Displays** or by its own URL:
@@ -19,6 +19,7 @@ Every screen with the Live page open can be switched between these, from
 | **Standings only** | The leaderboard alone, filling the whole screen — no Now Racing / On Deck panels. For a pack whose standings are too long to share the screen with anything else |
 | **Check-in progress** | Who has checked in and who has not, grouped by den, on a screen at the entrance or the gym wall — see [below](#check-in-progress) |
 | **QR code** | A large, scannable code that opens this race on a phone — see [below](#qr-code) |
+| **Broadcast overlay** | A transparent graphic for streaming this race on OBS Studio — see [below](#broadcast-overlay) |
 | **Awards ceremony** | The [ceremony](../awards.md#announcing-them), one award at a time. Unlike every other view, it only moves when a person does — either at the screen, or with the **‹** and **›** buttons on its row in the operator's list |
 
 **The ceremony only appears once you have awards.** A race with none is not
@@ -69,7 +70,7 @@ in System Settings, not a fixed palette.
 
 A break called from Race Control (see
 [Taking a Break](../race-day.md#taking-a-break)) takes over every screen
-showing this race, whichever of the eight views above it was on — a break is
+showing this race, whichever of the nine views above it was on — a break is
 a fact about the race, not about which view a display happened to be
 assigned.
 Each screen shows a countdown, the break's name (or "Intermission" if none
@@ -82,7 +83,7 @@ if the operator clicks **End now** — there is nothing to acknowledge on the
 display's own end. A paused break shows the time it was paused at rather than
 counting down.
 
-Notes on five of them:
+Notes on six of them:
 
 - **Racer photos** goes in car number order rather than shuffling. Families
   are watching for their own child, and in order everybody comes round once
@@ -104,6 +105,9 @@ Notes on five of them:
 - **QR code** points a phone at this race's own Live page by default, or at
   the [voting ballot](../awards.md#letting-people-vote) if you switch its row to **Voting
   ballot** — see the section after Check-in progress below.
+- **Broadcast overlay** has a transparent background rather than a solid
+  one, so it disappears everywhere it is not actively drawing a bar or a
+  banner — see [below](#broadcast-overlay).
 
 ## Check-in progress
 
@@ -180,6 +184,50 @@ form (**Edit race** from Home, or **Edit Details** on the Roster page):
 button opens a brand-new display window already pointed at the ballot — for
 when the screen you want to use is not already open, or you would rather not
 hunt for it in the Displays list first.
+
+## Broadcast overlay
+
+Every other view on this page is meant to fill a screen on its own — a wall,
+a projector, a phone. This one is meant to sit *on top of* something else:
+camera video, in a streaming program like [OBS Studio](https://obsproject.com/),
+for packs streaming the event to family who cannot be there. Step-by-step
+setup instructions are in
+[Access and your network](../access-and-network.md#streaming-your-event-with-obs-studio);
+this section is what the overlay actually shows.
+
+**Its background is transparent, not merely dark.** Every other full-screen
+view paints a solid colour behind everything it draws; this one does not
+paint anything behind its own panels at all, so whatever your streaming
+software is compositing underneath it — the track, the crowd, a starting
+gate camera — shows through everywhere the overlay itself is not actively
+drawing something.
+
+**A lower-third bar names the current heat and its line-up.** Round and
+heat number (or, for a run-off, what it is racing off to decide), each
+lane's car number and racer name, and a live status badge — *Ready*,
+*Staged*, *Racing…* — the same one the operator's own screen shows.
+Nothing is armed between heats, so the bar says **Between heats** rather
+than sitting empty.
+
+**A compact standings ticker, on by default.** The top five, by rank, along
+the top of the screen — what fills the gap between heats a bar alone would
+leave blank. Turn it off on the display's own row in **Race Control →
+Displays** (**Heat only**) if you would rather the overlay showed nothing
+but the bar.
+
+**A finish banner reveals the result and lingers for ten seconds.** Longer
+than the Projector view's own version of this (five seconds) — someone
+watching a stream has had none of the lead-up a person standing at the
+track has had, so the banner gets more time to actually be read. A broken
+[track record](stats-and-exports.md#the-track-record) is called out on it
+the same way it is everywhere else.
+
+**No racer photographs.** Every other panel here is text — names, numbers,
+times — by design: this is meant to be read at a glance over moving video,
+and a stream is not the place to spend bandwidth on a picture nobody asked
+for. Names still respect
+[names on public screens](race-settings.md#names-on-public-screens) exactly
+like every other view — a stream reaches further than a gym wall.
 
 ## Names, and telling one screen from another
 

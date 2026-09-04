@@ -112,7 +112,7 @@ headshot, the car, the name, car number and den.
 It goes in car number order, so every family knows their child is coming
 round once per cycle. Racers with no photo are skipped rather than shown
 blank. More in
-[Audience display views](reference/displays.md#the-nine-views).
+[Audience display views](reference/displays.md#the-ten-views).
 
 > [!TIP]
 > This is the view to leave up during check-in and between rounds. Set the
@@ -170,6 +170,23 @@ its own with nothing under it. More in
 
 ---
 
+### Broadcast overlay
+
+If you stream the event for family who cannot be there, this view is built
+for it. Unlike every other screen on this page it has no background of its
+own — nothing to screenshot, since it disappears everywhere it is not
+actively drawing something — so your camera feed shows through it in
+whatever streaming program you composite it with. It draws a bar naming the
+current heat and its line-up, an optional top-5 standings ticker, and a
+banner that reveals each heat's result and lingers for ten seconds.
+
+Setting it up in OBS Studio is step-by-step in
+[Streaming your event with OBS Studio](access-and-network.md#streaming-your-event-with-obs-studio);
+what it shows in full is in
+[Broadcast overlay](reference/displays.md#broadcast-overlay).
+
+---
+
 ## Changing what a screen shows, from where you are
 
 With four screens taped around a gym, changing one used to mean finding it and
@@ -200,7 +217,7 @@ Two things worth knowing:
   — that is how you find out the projector at the back has dropped off the
   wifi. Clear the row with the ✕.
 
-The eight views a screen can show, and how assignment behaves, are in
+The ten views a screen can show, and how assignment behaves, are in
 [Audience display views](reference/displays.md).
 
 > [!TIP]

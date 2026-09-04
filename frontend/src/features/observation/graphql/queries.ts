@@ -117,6 +117,7 @@ export const DisplayAssignmentSubscription = gql`
       scrollBehavior
       showCheckedIn
       qrTarget
+      showStandingsTicker
       description
       pacedByAPerson
       connected
@@ -141,6 +142,7 @@ export const DisplaysSubscription = gql`
       scrollBehavior
       showCheckedIn
       qrTarget
+      showStandingsTicker
       description
       pacedByAPerson
       connected
@@ -163,6 +165,7 @@ export const DISPLAYS_QUERY = gql`
       scrollBehavior
       showCheckedIn
       qrTarget
+      showStandingsTicker
       description
       pacedByAPerson
       connected
@@ -233,6 +236,7 @@ export const ASSIGN_DISPLAY = gql`
     $scrollBehavior: ScrollBehavior
     $showCheckedIn: Boolean
     $qrTarget: QRTarget
+    $showStandingsTicker: Boolean
   ) {
     assignDisplay(
       displayId: $displayId
@@ -241,6 +245,7 @@ export const ASSIGN_DISPLAY = gql`
       scrollBehavior: $scrollBehavior
       showCheckedIn: $showCheckedIn
       qrTarget: $qrTarget
+      showStandingsTicker: $showStandingsTicker
     ) {
       displayId
       view
@@ -248,6 +253,7 @@ export const ASSIGN_DISPLAY = gql`
       scrollBehavior
       showCheckedIn
       qrTarget
+      showStandingsTicker
       description
       pacedByAPerson
       connected
@@ -291,6 +297,7 @@ export const RENAME_DISPLAY = gql`
       scrollBehavior
       showCheckedIn
       qrTarget
+      showStandingsTicker
       description
       pacedByAPerson
       connected

@@ -71,6 +71,16 @@ class DisplayView(str, Enum):
     #: address" that shouting an IP address never was. See ``QRTarget`` for
     #: the one thing specific to it: which page the code actually opens.
     QRCODE = "QRCODE"
+    #: A transparent broadcast graphic for an OBS Studio Browser Source
+    #: (#616): a lower-third bar (round/heat, the lane line-up, a live
+    #: status badge) plus a finish banner that reveals and lingers once a
+    #: heat completes. Unlike every other view, this one's consumer is
+    #: streaming software rather than a person in the room — nothing here
+    #: paints the screen's own background, so a camera feed composited
+    #: underneath it in OBS shows through everywhere this view does not
+    #: draw a panel of its own. See ``Assignment.show_standings_ticker`` for
+    #: the one thing specific to it.
+    OVERLAY = "OVERLAY"
 
 
 class ScrollBehavior(str, Enum):
@@ -149,6 +159,14 @@ class Assignment:
     #: above: carried regardless of the current view, so a screen switched
     #: away from ``QRCODE`` and back keeps whichever page it was pointed at.
     qr_target: QRTarget = DEFAULT_QR_TARGET
+    #: ``OVERLAY``'s own rider (#616), the same shape as ``show_checked_in``
+    #: and ``qr_target`` above: carried regardless of the current view, so a
+    #: screen switched away from ``OVERLAY`` and back keeps whichever choice
+    #: the operator made. Defaults to on — a compact top-5 ticker is what
+    #: fills the screen between heats, the gaps a lower-third bar alone
+    #: leaves empty; a streamer who wants the bar and nothing else turns it
+    #: off deliberately rather than the reverse.
+    show_standings_ticker: bool = True
 
     def __post_init__(self) -> None:
         if self.cycle_seconds < 1:
@@ -189,6 +207,10 @@ def describe(assignment: Assignment) -> str:
         if assignment.qr_target is QRTarget.VOTE:
             return "QR code — voting ballot"
         return "QR code — live standings"
+    if assignment.view is DisplayView.OVERLAY:
+        if assignment.show_standings_ticker:
+            return "Broadcast overlay — with standings ticker"
+        return "Broadcast overlay — heat only"
     return {
         DisplayView.STANDINGS: "Standings",
         DisplayView.TIMING: "Last heat's times",

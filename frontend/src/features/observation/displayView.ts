@@ -20,7 +20,8 @@ export type DisplayView =
     | 'SLIDESHOW'
     | 'STANDINGS_ONLY'
     | 'CHECKIN'
-    | 'QRCODE';
+    | 'QRCODE'
+    | 'OVERLAY';
 
 /**
  * Which page `QRCODE` points a phone at (#614) — mirrors
@@ -48,6 +49,12 @@ export const DEFAULT_SCROLL_BEHAVIOR: ScrollBehavior = 'PAGING';
  * `STANDINGS_ONLY`. Defaults to listing everybody. */
 export const DEFAULT_SHOW_CHECKED_IN = true;
 
+/** Whether `OVERLAY` shows its compact top-5 standings ticker alongside
+ * its lower-third bar (#616) — `OVERLAY`'s own rider, the same shape as
+ * `DEFAULT_SHOW_CHECKED_IN`. Defaults to on: a lower-third bar alone
+ * leaves the screen blank between heats, and the ticker is what fills it. */
+export const DEFAULT_SHOW_STANDINGS_TICKER = true;
+
 /** What the observation page actually does, once everything is resolved. */
 export interface ViewBehaviour {
     tab: 'standings' | 'timing';
@@ -71,6 +78,12 @@ export interface ViewBehaviour {
      * right address" that shouting an IP address never was.
      */
     qrcode: boolean;
+    /**
+     * A transparent broadcast graphic for an OBS Studio Browser Source
+     * (#616) — a lower-third bar plus a finish banner, meant to be
+     * composited over camera video rather than shown on its own.
+     */
+    overlay: boolean;
     cycleMs: number;
     /** How `standingsOnly` gets through a list too long for one screen. */
     scrollBehavior: ScrollBehavior;
@@ -78,6 +91,8 @@ export interface ViewBehaviour {
     showCheckedIn: boolean;
     /** Which page `qrcode` points a phone at. */
     qrTarget: QRTarget;
+    /** Whether `overlay` shows its compact top-5 standings ticker. */
+    showStandingsTicker: boolean;
     /** The ceremony is its own route, so the page redirects rather than renders. */
     redirectTo: string | null;
 }
@@ -91,6 +106,7 @@ export interface UrlIntent {
     scrollBehavior: ScrollBehavior;
     showCheckedIn: boolean;
     qrTarget: QRTarget;
+    showStandingsTicker: boolean;
 }
 
 export function readUrl(params: URLSearchParams): UrlIntent {
@@ -102,6 +118,9 @@ export function readUrl(params: URLSearchParams): UrlIntent {
         scrollBehavior: params.get('scroll') === 'smooth' ? 'SMOOTH' : DEFAULT_SCROLL_BEHAVIOR,
         showCheckedIn: params.get('checkin_show') !== 'pending',
         qrTarget: params.get('qr_target') === 'vote' ? 'VOTE' : DEFAULT_QR_TARGET,
+        // Named after what it hides, the same shape as `checkin_show=pending`
+        // above — a streamer who wants the bar alone types one word.
+        showStandingsTicker: params.get('overlay_standings') !== 'hidden',
     };
 }
 
@@ -112,6 +131,7 @@ export function behaviourFor(
     scrollBehavior: ScrollBehavior = DEFAULT_SCROLL_BEHAVIOR,
     showCheckedIn: boolean = DEFAULT_SHOW_CHECKED_IN,
     qrTarget: QRTarget = DEFAULT_QR_TARGET,
+    showStandingsTicker: boolean = DEFAULT_SHOW_STANDINGS_TICKER,
 ): ViewBehaviour {
     const base = {
         projector: false,
@@ -120,10 +140,12 @@ export function behaviourFor(
         standingsOnly: false,
         checkin: false,
         qrcode: false,
+        overlay: false,
         cycleMs: cycleSeconds * 1000,
         scrollBehavior,
         showCheckedIn,
         qrTarget,
+        showStandingsTicker,
         redirectTo: null,
     };
     switch (view) {
@@ -141,6 +163,8 @@ export function behaviourFor(
             return { ...base, tab: 'standings', checkin: true };
         case 'QRCODE':
             return { ...base, tab: 'standings', qrcode: true };
+        case 'OVERLAY':
+            return { ...base, tab: 'standings', overlay: true };
         case 'AWARDS':
             return { ...base, tab: 'standings', redirectTo: `/race/${raceId}/awards/present` };
         case 'STANDINGS':
@@ -170,6 +194,7 @@ export function resolveView(
         scrollBehavior?: ScrollBehavior;
         showCheckedIn?: boolean;
         qrTarget?: QRTarget;
+        showStandingsTicker?: boolean;
     } | null,
     url: UrlIntent,
     raceId: number,
@@ -182,6 +207,7 @@ export function resolveView(
             assignment.scrollBehavior ?? DEFAULT_SCROLL_BEHAVIOR,
             assignment.showCheckedIn ?? DEFAULT_SHOW_CHECKED_IN,
             assignment.qrTarget ?? DEFAULT_QR_TARGET,
+            assignment.showStandingsTicker ?? DEFAULT_SHOW_STANDINGS_TICKER,
         );
     }
     return {
@@ -195,10 +221,12 @@ export function resolveView(
         standingsOnly: url.view === 'standings_only',
         checkin: url.view === 'checkin',
         qrcode: url.view === 'qrcode',
+        overlay: url.view === 'overlay',
         cycleMs: url.cycleMs,
         scrollBehavior: url.scrollBehavior,
         showCheckedIn: url.showCheckedIn,
         qrTarget: url.qrTarget,
+        showStandingsTicker: url.showStandingsTicker,
         redirectTo: null,
     };
 }
@@ -225,6 +253,7 @@ export const VIEW_OPTIONS: readonly {
     { view: 'STANDINGS_ONLY', label: 'Standings only', cycles: true },
     { view: 'CHECKIN', label: 'Check-in progress', cycles: false },
     { view: 'QRCODE', label: 'QR code', cycles: false },
+    { view: 'OVERLAY', label: 'Broadcast overlay (OBS)', cycles: false },
     { view: 'AWARDS', label: 'Awards ceremony', cycles: false },
 ];
 
@@ -255,6 +284,13 @@ export function viewHasQrTargetToggle(view: DisplayView): boolean {
     return view === 'QRCODE';
 }
 
+/** Whether a view offers the "show the standings ticker" choice (#616). Only
+ * `OVERLAY` does — it is the one view whose lower-third bar leaves room
+ * between heats for something else to fill. */
+export function viewHasStandingsTickerToggle(view: DisplayView): boolean {
+    return view === 'OVERLAY';
+}
+
 /**
  * The views to offer for one screen.
  *
@@ -274,11 +310,12 @@ export function viewHasQrTargetToggle(view: DisplayView): boolean {
  * awards; a second copy of the rule on the server would be one more thing to
  * keep in step for no gain.
  *
- * `STANDINGS_ONLY`, `CHECKIN` and `QRCODE` need no such gating — unlike the
- * ceremony none of the three has anything it can be missing (there is
- * always a leaderboard, always a roster, and this race's own address always
- * resolves to something, even before voting is ever turned on), so all
- * three are offered unconditionally like every other ordinary view.
+ * `STANDINGS_ONLY`, `CHECKIN`, `QRCODE` and `OVERLAY` need no such gating —
+ * unlike the ceremony none of the four has anything it can be missing (there
+ * is always a leaderboard, always a roster, this race's own address always
+ * resolves to something even before voting is ever turned on, and a heat can
+ * always be armed even before the first one has run), so all four are
+ * offered unconditionally like every other ordinary view.
  */
 export function viewOptionsFor(
     hasAwards: boolean,
