@@ -1,6 +1,13 @@
 /**
- * Turning the browser's own address into one a phone in the room can open,
- * for the voting page's share step ([#414](https://github.com/dknowles2/trusty-track/issues/414)).
+ * Turning the browser's own address into one a phone in the room can open —
+ * first written for the voting page's share step
+ * ([#414](https://github.com/dknowles2/trusty-track/issues/414)), and now
+ * also what the full-screen QR code display view encodes
+ * ([#614](https://github.com/dknowles2/trusty-track/issues/614)). Lives
+ * under `features/core/` rather than `features/awards/`, its original home,
+ * for `displayName.ts`'s reason: this is read from two features with no
+ * single natural owner between them, and a second copy free to drift was
+ * worse than one shared file with two importers.
  *
  * `window.location.origin` names the machine from its own point of view. On
  * the documented setup — one machine at the venue, the operator's own
@@ -69,14 +76,17 @@ export function shareUrl(
 }
 
 /**
- * Where the ballot QR code comes from, for a given (already-substituted)
- * share URL.
+ * Where a QR code image comes from, for a given (already-substituted) share
+ * URL — the ballot's own address, or (#614) the audience display's.
  *
  * The URL travels as a query parameter rather than being recomputed on the
  * backend from `raceId` alone: this page already worked out the one address
  * a phone can actually reach, and asking the server to redo that would be
- * two copies of the same rule free to disagree with each other.
+ * two copies of the same rule free to disagree with each other. The route
+ * itself is still named `vote-qr` — it shipped with the ballot first — but
+ * `backend/api/main.py::voting_qr` now accepts either page's address; see
+ * that function's docstring for why it was widened rather than duplicated.
  */
-export function voteQrSrc(raceId: number, url: string): string {
+export function qrCodeSrc(raceId: number, url: string): string {
   return `/api/printables/vote-qr/${raceId}.png?url=${encodeURIComponent(url)}`;
 }

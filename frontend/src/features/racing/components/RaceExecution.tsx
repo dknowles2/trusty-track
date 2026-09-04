@@ -5,11 +5,14 @@ import { FakeTimerMole } from './FakeTimerMole';
 import { HardwareTimerMole } from './HardwareTimerMole';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { SerialProxyConnector } from './SerialProxyConnector';
-import { HEAT_SESSION_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS } from '../graphql/queries';
+import { HEAT_SESSION_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS, START_INTERMISSION_MUTATION } from '../graphql/queries';
+import { INTERMISSION_PRESETS } from '../intermission';
 import { heatsEstimate } from '../../../utils/duration';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { estimatedFinishTime, formatClockTime, paceLabel, type PaceEstimate } from '../pace';
 import RacerAvatar from '../../management/components/RacerAvatar';
+import LaneBadge from '../../../components/ui/LaneBadge';
+import { colorForLane } from '../../settings/laneColors';
 import { Icon } from '@mdi/react';
 import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange, mdiPlay } from '@mdi/js';
 
@@ -30,8 +33,10 @@ import { chimeEnabled, playChime, setChimeEnabled, shouldChime } from '../chime'
 import { isTypingTarget, shortcutFor, SHORTCUT_HINTS } from '../shortcuts';
 import { useRaceFlow } from '../useRaceFlow';
 import { useAlert } from '../../../context/AlertContext';
+import { errorText } from '../../../utils/errors';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { advancingFromLabel } from '../roundSummaryText';
+import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
 /**
  * A lane being edited by hand. `time` is held as text while the operator types
@@ -64,6 +69,9 @@ const KBD_STYLE: React.CSSProperties = {
 };
 
 interface RaceExecutionProps {
+    /** For the round-summary modal's "Take a break" row (#592) — the only
+     * thing here that calls an intermission mutation directly. */
+    raceId: number;
     activeExecutionHeat: Heat | null;
     nextExecutionHeat: Heat | null;
     activeHeatId: number | null;
@@ -79,6 +87,11 @@ interface RaceExecutionProps {
     scoringStrategy?: string | null;
     timerType?: string | null;
     trackId?: number | null;
+    /** This track's configured lane colours (#611), index 0 meaning lane 1.
+     * Absent or short means "no colour configured for that lane" — see
+     * `colorForLane` — and every lane badge falls back to the plain numbered
+     * label every track has always shown. */
+    laneColors?: readonly string[];
     racers: Record<number, Racer>;
     roundSummary: AdvancementStatus | null;
     autoAdvanceHeat: boolean;
@@ -95,9 +108,16 @@ interface RaceExecutionProps {
      * line-up rather than announcing "End of Round" between every heat. */
     masterRunningOrder?: boolean;
     debugMode?: boolean;
+    /**
+     * The race is locked against further edits (#585). Disables every
+     * control here that would arm the timer, record, edit or skip a
+     * result — the operator can still watch the heat, only not change it.
+     */
+    raceLocked?: boolean;
 }
 
 export const RaceExecution: React.FC<RaceExecutionProps> = ({
+    raceId,
     activeExecutionHeat,
     nextExecutionHeat,
     onRunHeat,
@@ -108,6 +128,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     scoringStrategy,
     timerType,
     trackId,
+    laneColors = [],
     racers,
     roundSummary,
     autoAdvanceHeat,
@@ -118,12 +139,14 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     upcomingRounds,
     masterRunningOrder,
     debugMode,
+    raceLocked = false,
 }) => {
+    const lockedTitle = RACE_LOCKED_MESSAGE;
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingResults, setEditingResults] = useState<EditableLane[]>([]);
     const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
     const [showAutoAdvanceTooltip, setShowAutoAdvanceTooltip] = useState(false);
-    const { showConfirm } = useAlert();
+    const { showConfirm, showAlert } = useAlert();
     const { orgLower, groupLower, vehicle, vehiclesLower } = useTerminology();
 
     // The live view, assembled by the server (#7). What used to be here was a
@@ -139,6 +162,14 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [, prepareHeat] = useMutation(PREPARE_HEAT);
     const [, abortHeat] = useMutation(ABORT_HEAT);
     const [, forceResults] = useMutation(FORCE_RESULTS);
+    const [, startIntermission] = useMutation(START_INTERMISSION_MUTATION);
+
+    const handleTakeABreak = async (seconds: number) => {
+        const result = await startIntermission({ raceId, durationSeconds: seconds, label: null });
+        if (result.error) {
+            showAlert(errorText(result.error, 'The intermission could not be started.'), 'Error');
+        }
+    };
 
     // What is saved. Editing and skipping write against this, not against the
     // live view — an operator overriding a result is changing the record.
@@ -483,7 +514,12 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 const racer = racers[r.racerId || 0];
                                 return (
                                     <div key={r.lane} style={{ display: 'flex', alignItems: 'center', padding: '15px', background: 'var(--surface-tint-color)', borderRadius: '8px', borderLeft: '5px solid var(--border-color)' }}>
-                                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: 'var(--text-muted-color)' }}>Lane {r.lane}</div>
+                                        <LaneBadge
+                                            color={colorForLane(laneColors, r.lane)}
+                                            style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: 'var(--text-muted-color)' }}
+                                        >
+                                            Lane {r.lane}
+                                        </LaneBadge>
 
                                         <div style={{
                                             flex: 1,
@@ -560,6 +596,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     <>
                                         <button
                                             onClick={handleEditOpen}
+                                            disabled={raceLocked}
+                                            title={raceLocked ? lockedTitle : undefined}
                                             style={{
                                                 padding: '6px 14px',
                                                 fontSize: '0.9rem',
@@ -580,6 +618,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         </button>
                                         <button
                                             onClick={() => onRunHeat(activeExecutionHeat, false)}
+                                            disabled={raceLocked}
+                                            title={raceLocked ? lockedTitle : undefined}
                                             style={{
                                                 padding: '6px 14px',
                                                 fontSize: '0.9rem',
@@ -603,6 +643,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <button
                                             onClick={() => prepareHeat({ heatId: activeExecutionHeat.id })}
                                             className="secondary-btn"
+                                            disabled={raceLocked}
+                                            title={raceLocked ? lockedTitle : undefined}
                                             style={{ padding: '6px 14px', fontSize: '0.9rem', background: 'var(--background-color)', color: 'var(--text-emphasis-color)', border: '1px solid var(--input-border-color)', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                         >
                                             <Icon path={mdiRefresh} size={0.7} /> Reset Heat
@@ -611,6 +653,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             <button
                                                 onClick={() => forceResults({ trackId })}
                                                 className="secondary-btn"
+                                                disabled={raceLocked}
+                                                title={raceLocked ? lockedTitle : undefined}
                                                 style={{ padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                             >
                                                 <Icon path={mdiAlertCircleOutline} size={0.7} /> Force Results
@@ -619,6 +663,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <button
                                             onClick={handleSkipHeat}
                                             className="secondary-btn"
+                                            disabled={raceLocked}
+                                            title={raceLocked ? lockedTitle : undefined}
                                             style={{ padding: '6px 14px', fontSize: '0.9rem', background: 'var(--danger-bg-color)', color: 'var(--danger-strong-color)', border: '1px solid var(--danger-border-color)', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                         >
                                             <Icon path={mdiCloseOctagon} size={0.7} /> Skip Heat
@@ -633,6 +679,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <button
                                             onClick={handleEditOpen}
                                             className={hasTimer ? 'secondary-btn' : 'primary-btn'}
+                                            disabled={raceLocked}
+                                            title={raceLocked ? lockedTitle : undefined}
                                             style={hasTimer ? {
                                                 padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px'
                                             } : {
@@ -645,6 +693,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <button
                                             onClick={handleSkipHeat}
                                             className="secondary-btn"
+                                            disabled={raceLocked}
+                                            title={raceLocked ? lockedTitle : undefined}
                                             style={{ padding: '6px 14px', fontSize: '0.9rem', background: 'var(--danger-bg-color)', color: 'var(--danger-strong-color)', border: '1px solid var(--danger-border-color)', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                         >
                                             <Icon path={mdiCloseOctagon} size={0.7} /> Skip Heat
@@ -765,7 +815,12 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         const racer = racers[r.racerId || 0];
                                         return (
                                                                                         <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingBottom: '12px', borderBottom: '1px solid var(--background-color)' }}>
-                                                                                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-faint-color)', width: '30px' }}>L{r.lane}</div>
+                                                                                            <LaneBadge
+                                                                                                color={colorForLane(laneColors, r.lane)}
+                                                                                                style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-faint-color)', width: '30px' }}
+                                                                                            >
+                                                                                                L{r.lane}
+                                                                                            </LaneBadge>
 
                                                                                             <div style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                                                 <RacerAvatar
@@ -916,6 +971,28 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     >
                         Start Next Round <Icon path={mdiArrowRight} size={1} />
                     </button>
+                </div>
+
+                {/* A round finishing is exactly when a break is most often
+                    called (#592) — this is a button on the modal already
+                    here, not new machine state in `raceFlow.ts`: nothing
+                    about "a round just ended" needs to survive a refresh
+                    that `IntermissionControl` on the Race tab does not
+                    already cover. */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--divider-color)' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>Or take a break:</span>
+                    {INTERMISSION_PRESETS.map((preset) => (
+                        <button
+                            key={preset.seconds}
+                            type="button"
+                            className="secondary-btn"
+                            data-testid={`round-summary-break-${preset.seconds}`}
+                            onClick={() => handleTakeABreak(preset.seconds)}
+                            style={{ padding: '5px 10px', fontSize: '0.8rem' }}
+                        >
+                            {preset.label}
+                        </button>
+                    ))}
                 </div>
             </Modal>
 

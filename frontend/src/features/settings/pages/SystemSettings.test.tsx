@@ -25,7 +25,7 @@ import { useQuery, useMutation } from 'urql';
  * (the first run does not — it is a wizard, and shows the lot). So a test
  * about a track, a lane or the backup panel has to say where it is looking.
  */
-const openSection = async (id: 'general' | 'appearance' | 'access' | 'tracks' | 'backup') => {
+const openSection = async (id: 'general' | 'appearance' | 'access' | 'tracks' | 'advanced' | 'backup') => {
     const user = (await import('@testing-library/user-event')).default.setup();
     await user.click(await screen.findByTestId(`settings-nav-${id}`));
 };
@@ -192,8 +192,8 @@ describe('SystemSettings', () => {
                     // travelling with one would linger unseen if the operator switched back.
                     // Neither track has an id yet — both were added on this screen, before
                     // ever being saved (#318).
-                    { id: null, name: 'Fast Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, reverseLanes: false, scaleRatio: 25, showScaleSpeed: true },
-                    { id: null, name: 'Slow Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, reverseLanes: false, scaleRatio: 25, showScaleSpeed: true }
+                    { id: null, name: 'Fast Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, reverseLanes: false, scaleRatio: 25, showScaleSpeed: true, laneColors: [] },
+                    { id: null, name: 'Slow Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, reverseLanes: false, scaleRatio: 25, showScaleSpeed: true, laneColors: [] }
                 ]
             }
         });
@@ -632,14 +632,18 @@ describe('the settings sections', () => {
         ],
     };
 
-    it('shows the whole form at once on the first run', async () => {
+    it('shows the whole form at once on the first run, Debugging Mode included', async () => {
         // A wizard is not sectioned. Somebody who has never seen the app is
-        // not going to go looking for the two fields they have not filled in.
+        // not going to go looking for the two fields they have not filled in
+        // — and that includes Debugging Mode (#659), which still has to
+        // appear somewhere in the one-page wizard even though it now lives
+        // in its own section on a configured install.
         renderWith({ initialized: false, organizationName: '', tracks: [] });
 
         expect(await screen.findByLabelText('Organization Name')).toBeInTheDocument();
         expect(screen.getByPlaceholderText('e.g. Main Track')).toBeInTheDocument();
         expect(screen.getByLabelText('Operator PIN')).toBeInTheDocument();
+        expect(screen.getByLabelText('Debugging Mode')).toBeInTheDocument();
         expect(screen.queryByTestId('settings-nav')).toBeNull();
     });
 
@@ -655,6 +659,23 @@ describe('the settings sections', () => {
         await openSection('tracks');
         expect(screen.getByLabelText('Track Name')).toBeInTheDocument();
         expect(screen.queryByLabelText('Organization Name')).toBeNull();
+    });
+
+    it('keeps Debugging Mode out of General, in its own Advanced section (#659)', async () => {
+        // It used to sit at the foot of General, which put it near the top
+        // of the whole page once the page was sectioned — an operator opening
+        // Settings landed on the one control most likely to confuse them.
+        renderWith(configured);
+
+        expect(await screen.findByTestId('settings-nav')).toBeInTheDocument();
+        expect(screen.getByTestId('settings-nav-advanced')).toBeInTheDocument();
+        // General is on screen (it is where the nav opens) and does not hold it.
+        expect(screen.getByTestId('general-panel')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Debugging Mode')).toBeNull();
+
+        await openSection('advanced');
+        expect(screen.getByLabelText('Debugging Mode')).toBeInTheDocument();
+        expect(screen.queryByTestId('general-panel')).toBeNull();
     });
 
     it('keeps an edit made in a section that is no longer on screen', async () => {
@@ -1268,5 +1289,102 @@ describe('Scale speed (#610 stage 3)', () => {
             await screen.findByText(/Main Track needs a scale ratio greater than zero/i),
         ).toBeInTheDocument();
         expect(mockUpdate).not.toHaveBeenCalled();
+    });
+});
+
+describe('Lane colours (#611 stage 3)', () => {
+    afterEach(cleanup);
+
+    const configuredWith = (tracks: unknown[]) => {
+        (useQuery as any).mockReturnValue([{
+            data: {
+                initialConfig: {
+                    initialized: true,
+                    organizationName: 'Pack 42',
+                    debugMode: false,
+                    tracks,
+                },
+            },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+    };
+
+    const saved = (over: Record<string, unknown> = {}) => ({
+        id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE',
+        serialPort: null, timerProfile: null, remoteStartInstalled: false,
+        scaleRatio: 25, showScaleSpeed: true, laneColors: [], ...over,
+    });
+
+    it('renders the stored colours, one control per lane', async () => {
+        configuredWith([saved({ laneColors: ['#E53935', '', '#1E88E5', ''] })]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('tracks');
+
+        expect(await screen.findByLabelText('Lane 1 colour')).toHaveValue('#e53935');
+        expect(screen.getByLabelText('Lane 3 colour')).toHaveValue('#1e88e5');
+        // A lane past the end of the array, or a blank entry, renders as
+        // "no colour configured" rather than crashing on a missing index.
+        expect(screen.getByLabelText('Lane 2 colour')).toHaveValue('#ffffff');
+    });
+
+    it('reports an edited colour and the standard preset into the submitted TrackInput', async () => {
+        configuredWith([saved()]);
+        const mockUpdate = vi.fn().mockResolvedValue({ data: { updateInitialConfig: { initialized: true } } });
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('tracks');
+        await user.click(await screen.findByRole('button', { name: /use standard colours/i }));
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+        expect(mockUpdate.mock.calls[0][0].config.tracks[0]).toMatchObject({
+            laneColors: ['#E53935', '#FAFAFA', '#1E88E5', '#FDD835'],
+        });
+    });
+
+    it('sends an empty list for a track nobody has coloured', async () => {
+        configuredWith([saved()]);
+        const mockUpdate = vi.fn().mockResolvedValue({ data: { updateInitialConfig: { initialized: true } } });
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await user.click(await screen.findByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+        expect(mockUpdate.mock.calls[0][0].config.tracks[0]).toMatchObject({
+            laneColors: [],
+        });
     });
 });

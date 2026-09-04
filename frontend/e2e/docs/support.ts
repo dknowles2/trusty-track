@@ -116,6 +116,35 @@ export async function docsTrackId(page: Page): Promise<number> {
     return track.id;
 }
 
+/**
+ * Step past the setup wizard's opening choice, if it is there (#662).
+ *
+ * The wizard opens on "start from scratch or copy a previous race" only when
+ * *some* race exists — and the docs specs run at once against one backend,
+ * so whether another spec's race exists at the moment this one opens the
+ * dialog is not something a spec can know. Either way, this lands on the
+ * questions step, which is the same for everyone.
+ */
+export async function passSetupStart(page: Page): Promise<void> {
+    const start = page.getByTestId('setup-step-start');
+    const kind = page.getByTestId('setup-step-kind');
+    await expect(start.or(kind)).toBeVisible();
+    if (await start.isVisible()) {
+        await page.getByTestId('setup-next').click();
+    }
+    await expect(kind).toBeVisible();
+}
+
+/** Through the wizard on its default answers — a pack's six dens — to the
+ * create-race form, for a spec that only wants a race. */
+export async function skipToRaceForm(page: Page): Promise<void> {
+    await passSetupStart(page);
+    await page.getByTestId('setup-next').click();
+    await expect(page.getByTestId('setup-step-groups')).toBeVisible();
+    await page.getByTestId('setup-next').click();
+    await expect(page.getByLabel('Event Name')).toBeVisible();
+}
+
 export async function organizationId(page: Page): Promise<number> {
     const config = await gql<{ organizations: Array<{ id: number }> }>(
         page,
@@ -138,11 +167,12 @@ export async function ownTrack(
     name: string,
     laneCount = 4,
     timerType = 'FAKE',
+    lengthFeet?: number,
 ): Promise<number> {
     const created = await gql<{ createTrack: { id: number } }>(
         page,
         `mutation OwnTrack($track: TrackInput!) { createTrack(track: $track) { id } }`,
-        { track: { name, laneCount, timerType } },
+        { track: { name, laneCount, timerType, lengthFeet } },
     );
     return created.createTrack.id;
 }
@@ -160,6 +190,9 @@ export interface RaceSeed {
     location?: string;
     scoringStrategy?: string;
     carNumberingStrategy?: string;
+    /** The QR code display view's own text (#614). */
+    qrHeadline?: string;
+    qrWifiNote?: string;
 }
 
 /** A race of this spec's own. `races.name` is unique — never reuse one. */
@@ -210,6 +243,12 @@ export interface RacerSeed {
     car: number;
     carName: string;
     racingGroup?: string;
+    /** Whether this racer has passed inspection / checked in. Defaults to
+     * `true` — every existing caller seeds a race that is past check-in, so
+     * changing the default would change every screenshot that already
+     * exists. `screenshot-checkin.spec.ts` is the one caller that sets this
+     * to `false`, to picture check-in still under way. */
+    checkedIn?: boolean;
 }
 
 /** The first heat of `raceId` that nothing has recorded a time in. */
@@ -392,7 +431,7 @@ export async function seedRacers(
                     lastName: racer.last,
                     carNumber: racer.car,
                     carName: racer.carName,
-                    carPassedInspection: true,
+                    carPassedInspection: racer.checkedIn ?? true,
                     ...(await photosFor(page, index)),
                 },
             },

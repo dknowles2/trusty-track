@@ -21,8 +21,12 @@ from enum import Enum
 
 __all__ = [
     "DisplayView",
+    "ScrollBehavior",
+    "QRTarget",
     "Assignment",
     "DEFAULT_VIEW",
+    "DEFAULT_SCROLL_BEHAVIOR",
+    "DEFAULT_QR_TARGET",
     "is_paced_by_a_person",
     "describe",
 ]
@@ -51,6 +55,57 @@ class DisplayView(str, Enum):
     #: between heats, and the audience is mostly families looking for their own
     #: child.
     SLIDESHOW = "SLIDESHOW"
+    #: The leaderboard alone, filling the whole screen — no Now Racing / On
+    #: Deck panels (#663). For a pack big enough that the standings need the
+    #: room those panels would otherwise take, on a screen dedicated to
+    #: nothing else. See ``ScrollBehavior`` for how it gets through a list
+    #: longer than one screen can hold at once.
+    STANDINGS_ONLY = "STANDINGS_ONLY"
+    #: Who has checked in and who has not, grouped by racing group — a
+    #: "Please Check In" kiosk for the gym wall or the entrance before racing
+    #: starts (#612). See ``Assignment.show_checked_in`` for the one setting
+    #: specific to it.
+    CHECKIN = "CHECKIN"
+    #: A large, high-contrast QR code that opens this race on a phone (#614)
+    #: — the answer to "how do I get fifty parents in a gym onto the right
+    #: address" that shouting an IP address never was. See ``QRTarget`` for
+    #: the one thing specific to it: which page the code actually opens.
+    QRCODE = "QRCODE"
+
+
+class ScrollBehavior(str, Enum):
+    """How ``STANDINGS_ONLY`` works through a list too long for one screen.
+
+    A ``str`` enum for the same reason as ``DisplayView``: it crosses into
+    GraphQL and the client unchanged. Carried on the assignment the same way
+    ``cycle_seconds`` is — set once, and it survives a screen being switched
+    away from ``STANDINGS_ONLY`` and back.
+    """
+
+    #: The list in pages, advancing to the next one every ``cycle_seconds``.
+    PAGING = "PAGING"
+    #: One continuous pass from top to bottom, timed to take ``cycle_seconds``.
+    SMOOTH = "SMOOTH"
+
+
+class QRTarget(str, Enum):
+    """Which page ``QRCODE`` points a phone at.
+
+    A screen full of `#614 <https://github.com/dknowles2/trusty-track/issues/614>`_
+    scans to somewhere, and "somewhere" is the one genuine choice this view
+    has — everything else about it (rendering a code, showing the address as
+    text) is the same regardless. Two rather than a general URL: opening this
+    up to an arbitrary address would make the display list a way to point a
+    kiosk at anything, which is not a control a screen with no PIN should be
+    handed.
+    """
+
+    #: This race's own audience display (``/race/{id}/observation``) — live
+    #: standings and the current heat, on a phone rather than a wall.
+    STANDINGS = "STANDINGS"
+    #: The voting ballot (``/race/{id}/vote``), for the one screen a
+    #: `VIEWER` may act through at all (#305).
+    VOTE = "VOTE"
 
 
 #: What a display shows when nobody has told it anything. Standings rather than
@@ -58,18 +113,42 @@ class DisplayView(str, Enum):
 #: a blank one reads as broken.
 DEFAULT_VIEW = DisplayView.STANDINGS
 
+#: Paging over smooth-scrolling, because it is the more familiar of the two —
+#: closer to what "flip to the next page" already means on every other paced
+#: view here.
+DEFAULT_SCROLL_BEHAVIOR = ScrollBehavior.PAGING
+
+#: The live audience display over the voting ballot: every race has
+#: standings to point at, and only some ever turn voting on.
+DEFAULT_QR_TARGET = QRTarget.STANDINGS
+
 
 @dataclass(frozen=True)
 class Assignment:
     """What one display has been told to show.
 
-    ``cycle_seconds`` applies to ``CYCLE`` and is carried regardless, so an
-    operator flipping a screen to standings and back does not lose the interval
-    they chose.
+    ``cycle_seconds`` applies to ``CYCLE``, ``SLIDESHOW`` and
+    ``STANDINGS_ONLY``, and is carried regardless, so an operator flipping a
+    screen to standings and back does not lose the interval they chose.
+    ``scroll_behavior`` is the same shape, for ``STANDINGS_ONLY`` alone.
+    ``show_checked_in`` is ``CHECKIN``'s own rider, for the same reason: a
+    large pack's screen switched away from ``CHECKIN`` and back keeps
+    whichever choice the operator made.
     """
 
     view: DisplayView = DEFAULT_VIEW
     cycle_seconds: int = 10
+    scroll_behavior: ScrollBehavior = DEFAULT_SCROLL_BEHAVIOR
+    #: Whether ``CHECKIN`` lists a group's already-checked-in racers or only
+    #: the ones still pending. Defaults to listing everybody — DerbyNet's own
+    #: kiosk does, and a pack small enough to fit is the common case; a pack
+    #: big enough that the full roster does not fit one screen is what the
+    #: pending-only mode is for (#612).
+    show_checked_in: bool = True
+    #: ``QRCODE``'s own rider (#614), the same shape as ``show_checked_in``
+    #: above: carried regardless of the current view, so a screen switched
+    #: away from ``QRCODE`` and back keeps whichever page it was pointed at.
+    qr_target: QRTarget = DEFAULT_QR_TARGET
 
     def __post_init__(self) -> None:
         if self.cycle_seconds < 1:
@@ -98,6 +177,18 @@ def describe(assignment: Assignment) -> str:
         return f"Standings and timing, every {assignment.cycle_seconds}s"
     if assignment.view is DisplayView.SLIDESHOW:
         return f"Racer photos, every {assignment.cycle_seconds}s"
+    if assignment.view is DisplayView.STANDINGS_ONLY:
+        if assignment.scroll_behavior is ScrollBehavior.SMOOTH:
+            return f"Standings only, scrolling every {assignment.cycle_seconds}s"
+        return f"Standings only, paging every {assignment.cycle_seconds}s"
+    if assignment.view is DisplayView.CHECKIN:
+        if assignment.show_checked_in:
+            return "Check-in progress"
+        return "Check-in progress — pending only"
+    if assignment.view is DisplayView.QRCODE:
+        if assignment.qr_target is QRTarget.VOTE:
+            return "QR code — voting ballot"
+        return "QR code — live standings"
     return {
         DisplayView.STANDINGS: "Standings",
         DisplayView.TIMING: "Last heat's times",

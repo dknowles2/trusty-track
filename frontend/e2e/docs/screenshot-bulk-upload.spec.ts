@@ -14,7 +14,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as zlib from 'zlib';
 import { fileURLToPath } from 'url';
-import { BACKEND_URL, ensureConfigured } from './support';
+import { BACKEND_URL, ensureConfigured, skipToRaceForm } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/race-day');
@@ -114,6 +114,8 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
         await ensureConfigured(page);
 
         await page.getByRole('button', { name: /Create New Race/i }).click();
+    // Through the setup wizard (#662) on its default answers to the form.
+    await skipToRaceForm(page);
     await page.getByPlaceholder('e.g. 2024 Pinewood Derby').fill('Bulk Upload Race');
     await page.getByRole('button', { name: 'Create Race' }).click();
     // Creating a race opens it; this used to have to click through from Home.
@@ -209,16 +211,23 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
     // per the docs' "wait for the settled content, not just an element" rule.
     // #606 asked whether the bare-text rows were an avatar-loading race, the
     // same shape as the readiness-strip and roster-count races that rule was
-    // written for — they are not: this modal's combobox is a second,
-    // avatar-less implementation (defined inline in `BulkPhotoUploadModal.tsx`),
-    // distinct from `RacerCombobox.tsx`'s shared one that Free Race uses and
-    // that does render `RacerAvatar`. There is no image here to wait on, so
-    // this waits for every racer's row to exist instead — the actual thing
-    // the caption is showing ("full racer list").
+    // written for — they were not, at the time: this modal held a second,
+    // avatar-less combobox rather than the shared `RacerCombobox.tsx` Free
+    // Race already used. #693 replaced it with the shared one, so the rows
+    // now do carry a portrait (or an initials roundel where a racer has none)
+    // — real ones here, since `populateRace` assigns racer photos by default.
+    // The `page.screenshot` override in `screenshots-setup.ts` already waits
+    // for every `<img>` on the page to finish loading before it snapshots, so
+    // that race is covered there rather than needing a second wait here; this
+    // still waits for every racer's own row to exist first, which is the
+    // actual thing the caption is showing ("full racer list"). The shared
+    // combobox also prepends an "— Empty —" row for clearing an assignment,
+    // which this modal's own combobox never offered — one more racer's worth
+    // of rows than before.
     const firstCombobox = page.locator('input[placeholder="— Assign to racer —"]').first();
     await firstCombobox.click();
     const firstDropdown = firstCombobox.locator('xpath=following-sibling::ul');
-    await expect(firstDropdown.locator('li')).toHaveCount(roster.length);
+    await expect(firstDropdown.locator('li')).toHaveCount(roster.length + 1);
 
     // ── Screenshot 4: combobox open, showing full racer list ────────────────
     await page.screenshot({

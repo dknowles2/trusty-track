@@ -60,13 +60,14 @@ const models: TimerModel[] = [standardModel, undetectableModel];
 
 function renderCard(
     trackOverrides: Partial<TrackFields> = {},
-    cardOverrides: { canRemove?: boolean; timerModels?: TimerModel[] } = {},
+    cardOverrides: { canRemove?: boolean; timerModels?: TimerModel[]; demoMode?: boolean } = {},
 ) {
     mockMutations();
     const onChange = vi.fn();
     const onRemove = vi.fn();
     const onLaneOutages = vi.fn();
     const onRecords = vi.fn();
+    const onLaneColors = vi.fn();
     render(
         <MemoryRouter>
             <AlertProvider>
@@ -75,15 +76,17 @@ function renderCard(
                     track={{ ...baseTrack, ...trackOverrides }}
                     timerModels={cardOverrides.timerModels ?? models}
                     canRemove={cardOverrides.canRemove ?? true}
+                    demoMode={cardOverrides.demoMode}
                     onChange={onChange}
                     onRemove={onRemove}
                     onLaneOutages={onLaneOutages}
                     onRecords={onRecords}
+                    onLaneColors={onLaneColors}
                 />
             </AlertProvider>
         </MemoryRouter>,
     );
-    return { onChange, onRemove, onLaneOutages, onRecords };
+    return { onChange, onRemove, onLaneOutages, onRecords, onLaneColors };
 }
 
 afterEach(() => vi.clearAllMocks());
@@ -168,6 +171,79 @@ describe('TrackCard', () => {
         });
     });
 
+    describe('lane colours', () => {
+        it('is present even for a track that has not been saved yet (no id)', () => {
+            // Unlike lanes in service and track records, lane colours save
+            // with the rest of the form rather than on click, so there is no
+            // row to hang the colour on and no reason to gate it on an id.
+            renderCard({ id: undefined });
+            expect(screen.getByText('Lane colours (optional)')).toBeInTheDocument();
+        });
+
+        it('renders one control per lane, from the track\'s own lane count', () => {
+            renderCard({ laneCount: 3 });
+            expect(screen.getByLabelText('Lane 1 colour')).toBeInTheDocument();
+            expect(screen.getByLabelText('Lane 2 colour')).toBeInTheDocument();
+            expect(screen.getByLabelText('Lane 3 colour')).toBeInTheDocument();
+            expect(screen.queryByLabelText('Lane 4 colour')).not.toBeInTheDocument();
+        });
+
+        it('reports a colour edit through onLaneColors, keyed to the lane', () => {
+            const { onLaneColors } = renderCard({ laneCount: 4, laneColors: [] });
+            fireEvent.change(screen.getByLabelText('Lane 2 colour'), {
+                target: { value: '#1e88e5' },
+            });
+            expect(onLaneColors).toHaveBeenCalledWith(['', '#1e88e5']);
+        });
+
+        it('offers a clear button only for a lane with a colour set', () => {
+            renderCard({ laneCount: 2, laneColors: ['#E53935', ''] });
+            expect(screen.getByLabelText('Clear lane 1 colour')).toBeInTheDocument();
+            expect(screen.queryByLabelText('Clear lane 2 colour')).not.toBeInTheDocument();
+        });
+
+        it('clears one lane without touching the others', async () => {
+            const { onLaneColors } = renderCard({
+                laneCount: 2,
+                laneColors: ['#E53935', '#1E88E5'],
+            });
+            await userEvent.click(screen.getByLabelText('Clear lane 1 colour'));
+            expect(onLaneColors).toHaveBeenCalledWith(['', '#1E88E5']);
+        });
+
+        it('offers the standard preset for a lane count it covers', async () => {
+            const { onLaneColors } = renderCard({ laneCount: 4, laneColors: [] });
+            await userEvent.click(screen.getByRole('button', { name: /use standard colours/i }));
+            expect(onLaneColors).toHaveBeenCalledWith(['#E53935', '#FAFAFA', '#1E88E5', '#FDD835']);
+        });
+
+        it('offers no preset button past six lanes', () => {
+            renderCard({ laneCount: 7, laneColors: [] });
+            expect(
+                screen.queryByRole('button', { name: /use standard colours/i }),
+            ).not.toBeInTheDocument();
+        });
+
+        it('hides Clear all when no lane has a colour', () => {
+            renderCard({ laneCount: 4, laneColors: [] });
+            expect(screen.queryByRole('button', { name: /clear all/i })).not.toBeInTheDocument();
+        });
+
+        it('offers Clear all once some lane has a colour', () => {
+            renderCard({ laneCount: 4, laneColors: ['#E53935', '', '', ''] });
+            expect(screen.getByRole('button', { name: /clear all/i })).toBeInTheDocument();
+        });
+
+        it('clears every lane at once', async () => {
+            const { onLaneColors } = renderCard({
+                laneCount: 4,
+                laneColors: ['#E53935', '#FAFAFA', '#1E88E5', '#FDD835'],
+            });
+            await userEvent.click(screen.getByRole('button', { name: /clear all/i }));
+            expect(onLaneColors).toHaveBeenCalledWith([]);
+        });
+    });
+
     describe('"Check this timer" link', () => {
         it('is absent for a track that has not been saved yet (no id)', () => {
             renderCard();
@@ -227,6 +303,62 @@ describe('TrackCard', () => {
         it('shows the serial port field only for the backend-direct timer', () => {
             renderCard({ timerType: 'AUTO_DETECT_BACKEND' });
             expect(screen.getByLabelText(/Serial Port/)).toBeInTheDocument();
+        });
+
+        it('offers all four options when not in the cloud demo', () => {
+            renderCard({}, { demoMode: false });
+            const options = within(screen.getByLabelText('Timer Type'))
+                .getAllByRole('option')
+                .map((o) => (o as HTMLOptionElement).value);
+            expect(options).toEqual(['FAKE', 'AUTO_DETECT_BACKEND', 'AUTO_DETECT_PROXY', 'NONE']);
+        });
+
+        it('omits both auto-detect options in the cloud demo, leaving Fake and No timer with an explanation', () => {
+            renderCard({ timerType: 'FAKE' }, { demoMode: true });
+            const options = within(screen.getByLabelText('Timer Type'))
+                .getAllByRole('option')
+                .map((o) => (o as HTMLOptionElement).value);
+            expect(options).toEqual(['FAKE', 'NONE']);
+            expect(
+                screen.queryByText(/not available in the cloud demo/i),
+            ).not.toBeInTheDocument();
+            expect(
+                screen.getByText(/shared cloud demo has no hardware timer/i),
+            ).toBeInTheDocument();
+        });
+
+        it('keeps the backend option, with an unavailable note, when a track is already set to it in the demo', () => {
+            renderCard({ timerType: 'AUTO_DETECT_BACKEND' }, { demoMode: true });
+            const options = within(screen.getByLabelText('Timer Type'))
+                .getAllByRole('option')
+                .map((o) => (o as HTMLOptionElement).value);
+            expect(options).toEqual(['FAKE', 'AUTO_DETECT_BACKEND', 'NONE']);
+            expect(screen.getByText(/not available in the cloud demo/i)).toBeInTheDocument();
+            // The specific note already says the option is unavailable; the
+            // general "here's what's left" explanation would be redundant.
+            expect(
+                screen.queryByText(/shared cloud demo has no hardware timer/i),
+            ).not.toBeInTheDocument();
+        });
+
+        it('keeps the browser-proxy option, with an unavailable note, when a track is already set to it in the demo', () => {
+            renderCard({ timerType: 'AUTO_DETECT_PROXY' }, { demoMode: true });
+            const options = within(screen.getByLabelText('Timer Type'))
+                .getAllByRole('option')
+                .map((o) => (o as HTMLOptionElement).value);
+            expect(options).toEqual(['FAKE', 'AUTO_DETECT_PROXY', 'NONE']);
+            expect(screen.getByText(/not available in the cloud demo/i)).toBeInTheDocument();
+        });
+
+        it('offers no auto-detect option, and its own explanation, for NONE in the cloud demo', () => {
+            renderCard({ timerType: 'NONE' }, { demoMode: true });
+            const options = within(screen.getByLabelText('Timer Type'))
+                .getAllByRole('option')
+                .map((o) => (o as HTMLOptionElement).value);
+            expect(options).toEqual(['FAKE', 'NONE']);
+            expect(
+                screen.getByText(/shared cloud demo has no hardware timer/i),
+            ).toBeInTheDocument();
         });
     });
 

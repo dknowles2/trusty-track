@@ -3,13 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, gql } from 'urql';
 import { CREATE_PRACTICE_RACE, CREATE_RACE } from '../graphql/queries';
 import Modal from '../../../components/ui/Modal';
-import RaceForm, { RaceFormData } from '../components/RaceForm';
-import { buildCreateRaceInput } from '../raceInput';
+import RaceSetupWizard from '../components/RaceSetupWizard';
+import { buildCreateRaceInput, type RaceSetupData } from '../raceInput';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { Icon } from '@mdi/react';
 import { mdiPlus, mdiFlagCheckered, mdiVideo, mdiSchool, mdiDotsHorizontal, mdiAccountGroup, mdiPencil } from '@mdi/js';
 import logoFullUrl from '../../../assets/logo_full_transparent.png';
+import LockedBadge from '../../core/components/LockedBadge';
 
 const GET_RACES = gql`
     query GetRaces {
@@ -20,6 +21,9 @@ const GET_RACES = gql`
             location
             registeredCount
             checkedInCount
+            # Whether the race is locked against further edits — the row's
+            # "Locked" badge (issue 585).
+            isLocked
         }
         practiceRace {
             id
@@ -35,6 +39,7 @@ interface Race {
     location: string;
     registeredCount: number;
     checkedInCount: number;
+    isLocked: boolean;
 }
 
 interface PracticeRace {
@@ -74,7 +79,7 @@ export default function Home() {
     const [, createRace] = useMutation(CREATE_RACE);
     const [practiceResult, createPracticeRace] = useMutation(CREATE_PRACTICE_RACE);
 
-    const handleCreate = async (formData: RaceFormData) => {
+    const handleCreate = async (formData: RaceSetupData) => {
         try {
             const raceInput = buildCreateRaceInput(formData);
             const result = await createRace({ race: raceInput });
@@ -184,15 +189,18 @@ export default function Home() {
             </div>
 
             {/* Create Race Modal */}
+            {/* The setup wizard (#662): a few questions and a ready-made list
+                of groups in front of the same create form as before, which is
+                its last step. Wider than the form alone, for the groups table. */}
             <Modal
                 isOpen={showCreate}
                 onClose={() => setShowCreate(false)}
                 title="Create New Race Event"
+                maxWidth="680px"
             >
-                <RaceForm
+                <RaceSetupWizard
                     onSubmit={handleCreate}
                     onCancel={() => setShowCreate(false)}
-                    submitLabel="Create Race"
                 />
             </Modal>
 
@@ -241,13 +249,16 @@ export default function Home() {
                                             entry below names explicitly (#589). The title attribute
                                             says so on hover for anyone who expected this to open
                                             race settings instead. */}
-                                        <Link
-                                            to={`/race/${race.id}`}
-                                            title="Go to the roster & check-in"
-                                            style={{ fontWeight: 'bold', color: 'var(--scouting-blue)', textDecoration: 'none', fontSize: '1.1rem' }}
-                                        >
-                                            {race.name}
-                                        </Link>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <Link
+                                                to={`/race/${race.id}`}
+                                                title="Go to the roster & check-in"
+                                                style={{ fontWeight: 'bold', color: 'var(--scouting-blue)', textDecoration: 'none', fontSize: '1.1rem' }}
+                                            >
+                                                {race.name}
+                                            </Link>
+                                            {race.isLocked && <LockedBadge />}
+                                        </span>
                                     </td>
                                     <td className="mobile-hide" style={{ padding: '15px' }}>
                                         {race.dateTime ? new Date(race.dateTime).toLocaleString() : '-'}

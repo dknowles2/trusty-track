@@ -5,14 +5,25 @@ import {
     resolveView,
     VIEW_OPTIONS,
     viewCycles,
+    viewHasCheckedInToggle,
+    viewHasQrTargetToggle,
     viewOptionsFor,
+    viewScrolls,
 } from './displayView';
 
 const url = (query = '') => readUrl(new URLSearchParams(query));
 
 describe('readUrl', () => {
     it('reads nothing from an empty query', () => {
-        expect(url()).toEqual({ view: null, projector: false, cycle: false, cycleMs: 10000 });
+        expect(url()).toEqual({
+            view: null,
+            projector: false,
+            cycle: false,
+            cycleMs: 10000,
+            scrollBehavior: 'PAGING',
+            showCheckedIn: true,
+            qrTarget: 'STANDINGS',
+        });
     });
 
     it('reads the flags a display was launched with', () => {
@@ -21,7 +32,34 @@ describe('readUrl', () => {
             projector: true,
             cycle: true,
             cycleMs: 5000,
+            scrollBehavior: 'PAGING',
+            showCheckedIn: true,
+            qrTarget: 'STANDINGS',
         });
+    });
+
+    it('reads a smooth scroll off the URL', () => {
+        expect(url('view=standings_only&scroll=smooth').scrollBehavior).toBe('SMOOTH');
+    });
+
+    it('defaults to paging when the URL says nothing about it', () => {
+        expect(url('view=standings_only').scrollBehavior).toBe('PAGING');
+    });
+
+    it('reads pending-only check-in off the URL', () => {
+        expect(url('view=checkin&checkin_show=pending').showCheckedIn).toBe(false);
+    });
+
+    it('defaults check-in to showing everybody', () => {
+        expect(url('view=checkin').showCheckedIn).toBe(true);
+    });
+
+    it('reads the vote target off the URL', () => {
+        expect(url('view=qrcode&qr_target=vote').qrTarget).toBe('VOTE');
+    });
+
+    it('defaults the QR target to this races own standings', () => {
+        expect(url('view=qrcode').qrTarget).toBe('STANDINGS');
     });
 });
 
@@ -51,6 +89,54 @@ describe('behaviourFor', () => {
     it('never redirects for anything else', () => {
         for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'AWARDS')) {
             expect(behaviourFor(view, 10, 1).redirectTo).toBeNull();
+        }
+    });
+
+    it('fills the screen with the leaderboard alone', () => {
+        expect(behaviourFor('STANDINGS_ONLY', 10, 1)).toMatchObject({
+            tab: 'standings',
+            standingsOnly: true,
+        });
+    });
+
+    it('carries the scroll behavior through, defaulting to paging', () => {
+        expect(behaviourFor('STANDINGS_ONLY', 10, 1).scrollBehavior).toBe('PAGING');
+        expect(behaviourFor('STANDINGS_ONLY', 10, 1, 'SMOOTH').scrollBehavior).toBe('SMOOTH');
+    });
+
+    it('marks standingsOnly false for every other view', () => {
+        for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'STANDINGS_ONLY')) {
+            expect(behaviourFor(view, 10, 1).standingsOnly).toBe(false);
+        }
+    });
+
+    it('shows the check-in view', () => {
+        expect(behaviourFor('CHECKIN', 10, 1)).toMatchObject({ tab: 'standings', checkin: true });
+    });
+
+    it('carries showCheckedIn through, defaulting to true', () => {
+        expect(behaviourFor('CHECKIN', 10, 1).showCheckedIn).toBe(true);
+        expect(behaviourFor('CHECKIN', 10, 1, 'PAGING', false).showCheckedIn).toBe(false);
+    });
+
+    it('marks checkin false for every other view', () => {
+        for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'CHECKIN')) {
+            expect(behaviourFor(view, 10, 1).checkin).toBe(false);
+        }
+    });
+
+    it('shows the QR code view', () => {
+        expect(behaviourFor('QRCODE', 10, 1)).toMatchObject({ tab: 'standings', qrcode: true });
+    });
+
+    it('carries qrTarget through, defaulting to standings', () => {
+        expect(behaviourFor('QRCODE', 10, 1).qrTarget).toBe('STANDINGS');
+        expect(behaviourFor('QRCODE', 10, 1, 'PAGING', true, 'VOTE').qrTarget).toBe('VOTE');
+    });
+
+    it('marks qrcode false for every other view', () => {
+        for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'QRCODE')) {
+            expect(behaviourFor(view, 10, 1).qrcode).toBe(false);
         }
     });
 });
@@ -92,7 +178,13 @@ describe('resolveView', () => {
             projector: false,
             cycle: true,
             slideshow: false,
+            standingsOnly: false,
+            checkin: false,
+            qrcode: false,
             cycleMs: 4000,
+            scrollBehavior: 'PAGING',
+            showCheckedIn: true,
+            qrTarget: 'STANDINGS',
             redirectTo: null,
         });
     });
@@ -101,6 +193,75 @@ describe('resolveView', () => {
         // The fallback stays complete: a view only the operator's list could
         // select would be unreachable on a display nobody assigns.
         expect(resolveView(null, url('view=slideshow'), 1)).toMatchObject({ slideshow: true });
+    });
+
+    it('reaches standings-only by URL as well as by assignment', () => {
+        expect(resolveView(null, url('view=standings_only'), 1)).toMatchObject({
+            standingsOnly: true,
+        });
+    });
+
+    it('reaches check-in by URL as well as by assignment', () => {
+        expect(resolveView(null, url('view=checkin'), 1)).toMatchObject({ checkin: true });
+    });
+
+    it('reaches the QR code view by URL as well as by assignment', () => {
+        expect(resolveView(null, url('view=qrcode'), 1)).toMatchObject({ qrcode: true });
+    });
+
+    it('carries a scroll behavior for a display nobody assigns', () => {
+        expect(
+            resolveView(null, url('view=standings_only&scroll=smooth'), 1).scrollBehavior,
+        ).toBe('SMOOTH');
+    });
+
+    it('defaults scroll behavior to paging when an assignment omits it', () => {
+        // Older payloads / a display type without the field yet.
+        expect(
+            resolveView({ view: 'STANDINGS_ONLY', cycleSeconds: 10 }, url(), 1).scrollBehavior,
+        ).toBe('PAGING');
+    });
+
+    it('lets an assignment carry its own scroll behavior', () => {
+        expect(
+            resolveView(
+                { view: 'STANDINGS_ONLY', cycleSeconds: 10, scrollBehavior: 'SMOOTH' },
+                url(),
+                1,
+            ).scrollBehavior,
+        ).toBe('SMOOTH');
+    });
+
+    it('defaults showCheckedIn to true when an assignment omits it', () => {
+        expect(
+            resolveView({ view: 'CHECKIN', cycleSeconds: 10 }, url(), 1).showCheckedIn,
+        ).toBe(true);
+    });
+
+    it('lets an assignment carry its own showCheckedIn', () => {
+        expect(
+            resolveView(
+                { view: 'CHECKIN', cycleSeconds: 10, showCheckedIn: false },
+                url(),
+                1,
+            ).showCheckedIn,
+        ).toBe(false);
+    });
+
+    it('defaults qrTarget to standings when an assignment omits it', () => {
+        expect(
+            resolveView({ view: 'QRCODE', cycleSeconds: 10 }, url(), 1).qrTarget,
+        ).toBe('STANDINGS');
+    });
+
+    it('lets an assignment carry its own qrTarget', () => {
+        expect(
+            resolveView(
+                { view: 'QRCODE', cycleSeconds: 10, qrTarget: 'VOTE' },
+                url(),
+                1,
+            ).qrTarget,
+        ).toBe('VOTE');
     });
 
     it('ignores an assignment nobody made', () => {
@@ -119,7 +280,17 @@ describe('resolveView', () => {
 describe('VIEW_OPTIONS', () => {
     it('offers every view the display understands', () => {
         expect(VIEW_OPTIONS.map((o) => o.view).sort()).toEqual(
-            ['AWARDS', 'CYCLE', 'PROJECTOR', 'SLIDESHOW', 'STANDINGS', 'TIMING'].sort(),
+            [
+                'AWARDS',
+                'CHECKIN',
+                'CYCLE',
+                'PROJECTOR',
+                'QRCODE',
+                'SLIDESHOW',
+                'STANDINGS',
+                'STANDINGS_ONLY',
+                'TIMING',
+            ].sort(),
         );
     });
 
@@ -130,22 +301,53 @@ describe('VIEW_OPTIONS', () => {
     it('marks exactly the views that advance on a settable timer', () => {
         // The seconds control on the Displays panel follows this flag. The
         // slideshow missing from it was the bug: it cycled at an interval
-        // nothing offered to change.
+        // nothing offered to change. Check-in progress is not a rotation —
+        // it just reflects the roster live.
         expect(
             VIEW_OPTIONS.filter((o) => o.cycles)
                 .map((o) => o.view)
                 .sort(),
-        ).toEqual(['CYCLE', 'SLIDESHOW']);
+        ).toEqual(['CYCLE', 'SLIDESHOW', 'STANDINGS_ONLY']);
     });
 
     it('viewCycles reads the same flag', () => {
         expect(viewCycles('SLIDESHOW')).toBe(true);
         expect(viewCycles('CYCLE')).toBe(true);
+        expect(viewCycles('STANDINGS_ONLY')).toBe(true);
         expect(viewCycles('STANDINGS')).toBe(false);
         // The ceremony is paced by a person; the projector's overlay timing
         // is its own, not the operator's.
         expect(viewCycles('AWARDS')).toBe(false);
         expect(viewCycles('PROJECTOR')).toBe(false);
+        expect(viewCycles('CHECKIN')).toBe(false);
+        expect(viewCycles('QRCODE')).toBe(false);
+    });
+});
+
+describe('viewScrolls', () => {
+    it('offers the paging/smooth-scroll choice only for standings-only', () => {
+        expect(viewScrolls('STANDINGS_ONLY')).toBe(true);
+        for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'STANDINGS_ONLY')) {
+            expect(viewScrolls(view)).toBe(false);
+        }
+    });
+});
+
+describe('viewHasCheckedInToggle', () => {
+    it('offers the everybody/pending-only choice only for check-in', () => {
+        expect(viewHasCheckedInToggle('CHECKIN')).toBe(true);
+        for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'CHECKIN')) {
+            expect(viewHasCheckedInToggle(view)).toBe(false);
+        }
+    });
+});
+
+describe('viewHasQrTargetToggle', () => {
+    it('offers the which-page choice only for the QR code view', () => {
+        expect(viewHasQrTargetToggle('QRCODE')).toBe(true);
+        for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'QRCODE')) {
+            expect(viewHasQrTargetToggle(view)).toBe(false);
+        }
     });
 });
 
@@ -171,5 +373,26 @@ describe('viewOptionsFor', () => {
         // Deleting the last award while a ceremony is up. A row whose current
         // view is missing from its own list shows nothing as chosen.
         expect(views(false, 'AWARDS')).toContain('AWARDS');
+    });
+
+    it('offers standings-only unconditionally, unlike the ceremony', () => {
+        // There is always a leaderboard to show, even an empty one — nothing
+        // about a race can make this option disappoint the way the ceremony
+        // would for a race with no awards.
+        expect(views(false, 'STANDINGS')).toContain('STANDINGS_ONLY');
+        expect(views(true, 'STANDINGS')).toContain('STANDINGS_ONLY');
+    });
+
+    it('offers check-in progress unconditionally too', () => {
+        // There is always a roster to show, even an empty one.
+        expect(views(false, 'STANDINGS')).toContain('CHECKIN');
+        expect(views(true, 'STANDINGS')).toContain('CHECKIN');
+    });
+
+    it('offers the QR code view unconditionally too', () => {
+        // This race's own address resolves to something whether or not
+        // voting has ever been turned on.
+        expect(views(false, 'STANDINGS')).toContain('QRCODE');
+        expect(views(true, 'STANDINGS')).toContain('QRCODE');
     });
 });

@@ -1,15 +1,18 @@
 import asyncio
 import base64
+import binascii
 import csv
 import enum
 import io
 import json
 import logging
 import os
+import tempfile
 import typing
 import uuid
 from collections.abc import AsyncGenerator, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated, Any, Optional
 
 import pillow_heif
@@ -24,19 +27,24 @@ from backend.api.auth import AuditExtension, RolePolicyExtension
 from backend.api.demo_policy import DemoPolicyExtension
 from backend.api.loaders import RequestLoaders
 from backend.api.pubsub import pubsub
+from backend.api.race_lock import RaceLockExtension
 from backend.db import crud, models, schemas
 from backend.db.database import UPLOAD_DIR
-from backend.domain import advancement, audit, lanes
+from backend.domain import advancement, audit, lanes, roster_import
 from backend.domain import displays as domain_displays
 from backend.domain import heat_session as domain_heat_session
+from backend.domain import intermission as domain_intermission
 from backend.domain import name_display as domain_name_display
 from backend.domain import scoring as domain_scoring
 from backend.domain import terminology as domain_terminology
 from backend.domain.scale_speed import DEFAULT_SCALE
+from backend.domain.scale_speed import scale_mph as domain_scale_mph
 from backend.services import displays as displays_service
 from backend.services import network, scoring
 from backend.services import records as records_service
 from backend.services.image_processing import convert_to_browser_safe_png
+from backend.services.importers.derbynet import parse_derbynet_database
+from backend.services.importers.gprm import parse_gprm_database
 from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE, NO_TIMER
 from backend.services.timer.devices import by_key as _profile_by_key
 from backend.services.timer.devices import fake as fake_timer
@@ -822,6 +830,36 @@ class RaceInput:
     #: column defaults to, so a race created with no opinion on this behaves
     #: exactly as one created before the column existed.
     drop_worst_runs: int = 0
+    #: Custom call-to-action text for the `QRCODE` display view (#614), e.g.
+    #: "Scan to Vote for Best in Show!". Null uses a sensible default derived
+    #: from what the code points at — see
+    #: `frontend/src/features/observation/qrCode.ts`'s `resolveQrHeadline`.
+    qr_headline: str | None = None
+    #: Optional venue Wi-Fi guidance shown under the code, e.g. "Connect to
+    #: Pack 123 Guest Wi-Fi". Null shows nothing — most venues have open wifi
+    #: or none worth mentioning.
+    qr_wifi_note: str | None = None
+    #: The racing groups to create alongside the race (#662) — the setup
+    #: wizard's scaffolded dens, or a previous race's structure copied over.
+    #: One mutation rather than a `createRace` followed by N
+    #: `createRacingGroup` round trips, for #201's reason: a setup that fails
+    #: half way leaves the operator with a half-built race to tidy up. Empty
+    #: (the default) creates none, which is exactly what every caller before
+    #: this field existed got.
+    racing_groups: list[RacingGroupInput] = strawberry.field(default_factory=list)
+    #: A per-race terminology override, settable at creation (#662) — the
+    #: wizard's "what is raced / who is holding it" answers land here, so a
+    #: Space Derby reads "Rocket" from its first screen rather than after a
+    #: second trip through the edit form. Null means inherit, the same as on
+    #: `RaceUpdateInput`; there is no `clearTerminology` here because a race
+    #: being created has nothing set yet to clear.
+    racing_group_singular: str | None = None
+    racing_group_plural: str | None = None
+    organization_singular: str | None = None
+    organization_plural: str | None = None
+    vehicle_singular: str | None = None
+    vehicle_plural: str | None = None
+    vehicle_artwork_key: str | None = None
 
 
 @strawberry.input
@@ -903,6 +941,28 @@ class RaceUpdateInput:
     #: the same reason `clear_terminology` exists: absent already means
     #: leave alone, so nothing else can ask for null.
     clear_name_display: bool = False
+    #: Locking or unlocking the race (#585). Absent means leave alone, same
+    #: as every other field here; `false` is an ordinary value (the unlock),
+    #: not a sentinel needing its own clear flag. `api.race_lock` is what
+    #: actually restricts what an *update_race* carrying this may also
+    #: change while the race is currently locked — see
+    #: `race_lock.is_lock_only_update`.
+    is_locked: bool | None = None
+    #: At most one trophy per racer (#615). Absent means leave alone, same as
+    #: every other field here; `false` is an ordinary value, not a sentinel
+    #: needing its own clear flag — the same shape `master_running_order`
+    #: and `voting_open` already use.
+    one_trophy_per_racer: bool | None = None
+    #: Custom call-to-action text for the `QRCODE` display view (#614).
+    #: Absent means leave alone; an empty string is how the operator clears a
+    #: custom headline back to the derived default — there is no other
+    #: string this field could legitimately hold that means "unset", so
+    #: unlike `weight_limit_oz` there is no separate clear flag.
+    qr_headline: str | None = None
+    #: Optional venue Wi-Fi guidance for the `QRCODE` view (#614). Same
+    #: absent-means-leave-alone, empty-string-means-clear shape as
+    #: `qr_headline` above.
+    qr_wifi_note: str | None = None
 
 
 @strawberry.input
@@ -933,6 +993,10 @@ class TrackInput:
     #: Whether scale speed is offered on this track's surfaces at all. See
     #: `models.Track.show_scale_speed`.
     show_scale_speed: bool = True
+    #: The colour painted on each physical lane, if any (#611). One hex
+    #: string per lane, index 0 meaning lane 1. See `models.Track.lane_colors`
+    #: and `domain.lane_colors`.
+    lane_colors: list[str] = strawberry.field(default_factory=list)
 
 
 @strawberry.input
@@ -1141,6 +1205,11 @@ class RaceStats:
     racing_group_stats: list[RacingGroupStat]
     heat_results: list[HeatResultRow]
     track_records: list[TrackRecord]
+    #: The fastest heat's time (`highlights`' `FASTEST_HEAT` entry) converted
+    #: to scale speed (#610), or null under the same conditions as
+    #: `TimingStatsLane.scaleMph` — the track's scale speed turned off, no
+    #: configured length, or no heat has finished yet to be fastest.
+    top_scale_mph: float | None
 
 
 @strawberry.type
@@ -1365,6 +1434,77 @@ class Award:
             for racer_id, count in pairs
         ]
 
+    @strawberry.field
+    def position(self, info: Info) -> int | None:
+        """The 1-based row this award's recipient actually held in its own
+        narrowed standings (#615) — equal to `place` when nothing rolled
+        down, greater when a racer ranked above them already held a trophy
+        on another podium. Null for a `SPECIAL` award, and for a `SPEED`
+        award with no recipient. See `domain/roll_down.py`.
+        """
+        resolution = _loaders(info).award_resolutions(self.race_id).get(self.id)
+        return resolution.position if resolution is not None else None
+
+    @strawberry.field
+    def passed_over(self, info: Info) -> list["AwardPassedOver"]:
+        """Every racer ranked above `position` who was skipped because they
+        already held a trophy on another podium (#615), best-first — the
+        roll-down's own explanation for a screen to turn into "Liam (2nd in
+        Wolves; Jordan won Pack Champion)". Empty when nothing rolled, for a
+        judged award, and whenever `Race.oneTrophyPerRacer` is off.
+        """
+        resolution = _loaders(info).award_resolutions(self.race_id).get(self.id)
+        if resolution is None:
+            return []
+        return [
+            AwardPassedOver(
+                race_id=self.race_id, racer_id=p.racer_id, award_id=p.award_key
+            )
+            for p in resolution.passed_over
+        ]
+
+    @strawberry.field
+    def duplicate_of(self, info: Info) -> "Award | None":
+        """Set on a **judged** award only, and only while
+        `Race.oneTrophyPerRacer` is on (#615): the award its chosen racer
+        already holds. A judged award keeps its racer regardless — a
+        computed rule does not override a person's choice — this is the
+        signal for the screen to warn about the collision rather than hide
+        it. Null the rest of the time, including for a `SPEED` award, which
+        cannot collide with itself.
+        """
+        resolution = _loaders(info).award_resolutions(self.race_id).get(self.id)
+        if resolution is None or resolution.duplicate_of is None:
+            return None
+        for award in _loaders(info).awards_for_race(self.race_id):
+            if award.id == resolution.duplicate_of:
+                return typing.cast(Any, award)
+        return None
+
+
+@strawberry.type
+class AwardPassedOver:
+    """A racer who ranked above an award's actual recipient, but already held
+    a trophy on another podium (#615) — one line of `Award.passedOver`'s
+    explanation for a roll-down.
+    """
+
+    race_id: strawberry.Private[int]
+    racer_id: int
+    #: The award this racer already holds — the one that caused the roll.
+    award_id: int
+
+    @strawberry.field
+    def racer(self, info: Info) -> "Racer | None":
+        return typing.cast(Any, _loaders(info).racer_by_id(self.race_id, self.racer_id))
+
+    @strawberry.field
+    def award(self, info: Info) -> "Award | None":
+        for award in _loaders(info).awards_for_race(self.race_id):
+            if award.id == self.award_id:
+                return typing.cast(Any, award)
+        return None
+
 
 @strawberry.type
 class AwardVoteTally:
@@ -1411,6 +1551,42 @@ class AwardInput:
     #: (#305), the same "form defaults on, storage defaults conservative"
     #: shape the weight limit uses (#205).
     votable: bool = True
+
+
+@strawberry.type
+class Intermission:
+    """A race-scoped break, resolved (#592) — see `domain/intermission.py`.
+
+    ``endsAt`` is carried through unresolved (an ISO 8601 timestamp, or null
+    while paused or inactive) so a client computes its own live countdown
+    from its own clock rather than polling; ``remainingSeconds`` is a
+    snapshot at the moment this was resolved, for a caller with no interest
+    in re-deriving it.
+    """
+
+    active: bool
+    remaining_seconds: int
+    paused: bool
+    label: str | None
+    ends_at: str | None
+
+
+def _intermission_type(race: models.Race, now: datetime) -> Intermission:
+    resolved = domain_intermission.resolve(
+        domain_intermission.State(
+            ends_at=race.intermission_ends_at,
+            paused_remaining_seconds=race.intermission_paused_remaining_seconds,
+            label=race.intermission_label,
+        ),
+        now,
+    )
+    return Intermission(
+        active=resolved.active,
+        remaining_seconds=resolved.remaining_seconds,
+        paused=resolved.paused,
+        label=resolved.label,
+        ends_at=resolved.ends_at,
+    )
 
 
 @strawberry.type
@@ -1474,6 +1650,35 @@ class Race:
     #: organization's setting (#552) — what the race edit form reads back to
     #: populate its picker, distinct from `resolvedNameDisplay` below.
     name_display: str | None
+    #: Whether the race is locked against further edits (#585) — set from
+    #: Race Control or the race edit form once an event has concluded.
+    #: Enforced by `api.race_lock.RaceLockExtension`, not by anything a
+    #: resolver checks; this is a plain field like any other.
+    is_locked: bool
+    #: At most one trophy per racer (#615) — off by default, so an upgraded
+    #: install keeps resolving every award in isolation exactly as it
+    #: always has. See `domain/roll_down.py` for the whole rule; `Award`'s
+    #: `position`, `passedOver` and `duplicateOf` below carry its answer.
+    one_trophy_per_racer: bool
+    #: Custom call-to-action text for the `QRCODE` display view (#614), null
+    #: or empty where the operator has not set one — the screen falls back
+    #: to a default derived from what the code points at.
+    qr_headline: str | None
+    #: Optional venue Wi-Fi guidance for the `QRCODE` view (#614), shown
+    #: under the code when set.
+    qr_wifi_note: str | None
+
+    @strawberry.field
+    def intermission(self) -> Intermission:
+        """Whether this race is on a break right now, and for how long
+        (#592). Resolved against the current moment on every read — the
+        same "computed on demand" rule the standings and awards follow — so
+        a countdown that ran out is simply inactive with no cleanup step
+        needed. See `domain/intermission.py`.
+        """
+        return _intermission_type(
+            typing.cast(models.Race, self), datetime.now(timezone.utc)
+        )
 
     @strawberry.field
     def resolved_name_display(self, info: Info) -> str:
@@ -1646,6 +1851,13 @@ class Track:
     #: Stage 4's renderers AND this with a positive `length_feet` — this
     #: flag alone does not promise a length exists to compute from.
     show_scale_speed: bool
+    #: The colour painted on each physical lane, if any (#611). One hex
+    #: string per lane, index 0 meaning lane 1 — see `domain.lane_colors`
+    #: for the lookup rule, and that module's docstring for why no
+    #: `reverse_lanes` translation belongs here. An empty list (every
+    #: track before this column existed) means no lane has a configured
+    #: colour; a renderer falls back to the plain numbered badge.
+    lane_colors: list[str]
 
     @strawberry.field
     def lane_outages(self, info: Info) -> list[int]:
@@ -1949,6 +2161,16 @@ HeatPhase = strawberry.enum(domain_heat_session.Phase, name="HeatPhase")
 #: cannot be forgotten here.
 DisplayViewEnum = strawberry.enum(domain_displays.DisplayView, name="DisplayView")
 
+#: How the `STANDINGS_ONLY` view gets through a list too long for one screen
+#: (#663) — wrapped for the same reason as `DisplayViewEnum`.
+ScrollBehaviorEnum = strawberry.enum(
+    domain_displays.ScrollBehavior, name="ScrollBehavior"
+)
+
+#: Which page `QRCODE` points a phone at (#614) — wrapped for the same
+#: reason as `DisplayViewEnum` above.
+QRTargetEnum = strawberry.enum(domain_displays.QRTarget, name="QRTarget")
+
 
 def _require_operator_role(info: Info) -> None:
     """Refuse anything but an operator.
@@ -2048,6 +2270,19 @@ class Display:
     race_id: int
     view: DisplayViewEnum  # type: ignore[valid-type]
     cycle_seconds: int
+    #: How `STANDINGS_ONLY` gets through a list too long for one screen
+    #: (#663) — paging or a continuous scroll. Carried regardless of `view`,
+    #: the same reasoning as `cycle_seconds`: a screen switched away from
+    #: `STANDINGS_ONLY` and back keeps the choice it was given.
+    scroll_behavior: ScrollBehaviorEnum  # type: ignore[valid-type]
+    #: `CHECKIN`'s own rider (#612) — whether it lists every racer, checked
+    #: in or not, or only the ones still pending. Carried regardless of
+    #: `view`, the same reasoning as `scroll_behavior`.
+    show_checked_in: bool
+    #: `QRCODE`'s own rider (#614) — which page the code opens. Carried
+    #: regardless of `view`, the same reasoning as `scroll_behavior` and
+    #: `show_checked_in`.
+    qr_target: QRTargetEnum  # type: ignore[valid-type]
     connected: bool
     #: Whether an operator has told this display anything. False means it is
     #: still following its own URL, which is what every display did before
@@ -2100,6 +2335,9 @@ def _display(
         race_id=display.race_id,
         view=display.assignment.view,
         cycle_seconds=display.assignment.cycle_seconds,
+        scroll_behavior=display.assignment.scroll_behavior,
+        show_checked_in=display.assignment.show_checked_in,
+        qr_target=display.assignment.qr_target,
         connected=display.connected,
         assigned=display.assigned,
         description=domain_displays.describe(display.assignment),
@@ -2722,6 +2960,7 @@ class Query:
             ],
             heat_results=[HeatResultRow(**hr) for hr in data["heat_results"]],
             track_records=[TrackRecord(**tr) for tr in data["track_records"]],
+            top_scale_mph=data["top_scale_mph"],
         )
 
 
@@ -2907,16 +3146,330 @@ def _apply_terminology(organization: Any, config: "InitialConfigInput") -> None:
     Scouting words *are* the null state, so `clearTerminology` is the explicit
     way back to it, the same trap `clear_weight_limit` (#205) and the PIN's
     removal control (#192) already solved.
+
+    This is the one door the organization-level words go through —
+    `InitialConfigInput` is a plain strawberry input with no validation of
+    its own (unlike the per-race override, built through the pydantic
+    `schemas.RaceUpdate`), so a blank word is checked right here rather than
+    left to reach the database. `domain_terminology.reject_blank_word` is
+    the same rule `schemas.py`'s validators call, shared so the two layers
+    cannot silently disagree about what counts as blank (#704). Checked
+    before anything is written, not field by field as it goes, so a blank
+    fourth word does not leave the first three set on an `organization` this
+    function's caller may still be about to abandon.
     """
     if config.clear_terminology:
         for field in _TERMINOLOGY_FIELDS:
             setattr(organization, field, None)
         return
+    for field in domain_terminology.TERMINOLOGY_WORD_FIELDS:
+        value = getattr(config, field, None)
+        if value is not None:
+            domain_terminology.reject_blank_word(field, value)
     for field in _TERMINOLOGY_FIELDS:
         value = getattr(config, field, None)
         if value is None:
             continue
         setattr(organization, field, value)
+
+
+#: A GPRM database is a roster, not a photo library — GPRM keeps pictures as
+#: separate files it never puts in the database (see `domain.gprm`'s own
+#: docstring) — so even years of history stays a few megabytes. This is
+#: headroom for an operator who hands over the wrong file, not a real budget;
+#: `MAX_UPLOAD_BYTES` in `api/main.py` is the same idea for `POST /upload/`.
+MAX_GPRM_IMPORT_BYTES = 64 * 1024 * 1024
+
+
+@strawberry.type
+class GprmImportGroup:
+    """A racing group `domain.gprm.roster_from_tables` found, before it is written."""
+
+    name: str
+    division: str | None
+
+
+@strawberry.type
+class GprmImportRacer:
+    """A racer `domain.gprm.roster_from_tables` found, before it is written."""
+
+    first_name: str
+    last_name: str
+    car_number: int | None
+    car_name: str | None
+    car_weight: float | None
+    passed_inspection: bool
+    group: str | None
+    excluded_from_standings: bool
+    #: The other program's own id, so a problem naming this racer (below) can
+    #: be matched back to the row it is about — see `ImportedRacer.source_id`.
+    source_id: str | None
+
+
+@strawberry.type
+class GprmImportProblem:
+    """One sentence about what will not import as the operator might expect."""
+
+    message: str
+    blocking: bool
+    source_id: str | None
+
+
+@strawberry.type
+class GprmImportPreview:
+    """Everything an uploaded GrandPrix Race Manager database would import
+    (#618), without writing any of it.
+
+    `confirmGprmImport` re-parses the same upload rather than trusting this
+    value back from the client — there is no session on the server holding
+    the file between the two calls, so what gets written can never drift
+    from what this preview showed.
+    """
+
+    groups: list[GprmImportGroup]
+    racers: list[GprmImportRacer]
+    #: In-file duplicates (`domain.roster_import.duplicate_number_problems`)
+    #: and collisions with a racer already on this race's roster
+    #: (`domain.roster_import.existing_number_problems`) are both here,
+    #: in that order — the reader has no reason to care which rule found it.
+    problems: list[GprmImportProblem]
+    can_import: bool
+
+
+def _decode_upload(
+    file_data: str, max_bytes: int, program_name: str = "GrandPrix Race Manager"
+) -> bytes:
+    """A base64 data URL — the same shape `uploadImage`'s `dataUrl` takes —
+    to raw bytes, refusing anything absurdly large before it is written
+    anywhere. Shared by every importer's preview and confirm so none of them
+    can disagree about what counts as too big.
+
+    `program_name` reaches the one message that names a program (#661) —
+    the same reason `domain.gprm.roster_from_tables` takes it.
+    """
+    if "," not in file_data:
+        raise ValueError("That file could not be read.")
+    _, encoded = file_data.split(",", 1)
+    try:
+        raw = base64.b64decode(encoded)
+    except (ValueError, binascii.Error) as error:
+        raise ValueError("That file could not be read.") from error
+    if len(raw) > max_bytes:
+        raise ValueError(
+            f"That file is larger than {program_name} writes for a roster "
+            "database — it is probably not one."
+        )
+    return raw
+
+
+def _race_vehicle_word(db: Session, race: models.Race) -> str:
+    """This race's own resolved vehicle word (#551), for the parser's
+    problem sentences — the same layering `Race.terminology` resolves,
+    computed here because a mutation has no GraphQL field resolver to read
+    it from.
+    """
+    organization = (
+        db.query(models.Organization)
+        .filter(models.Organization.id == race.organization_id)
+        .first()
+    )
+    resolved = domain_terminology.resolve_terminology(
+        organization=_terminology_overrides(organization) if organization else None,
+        race=_terminology_overrides(race),
+    )
+    return resolved.vehicle_singular
+
+
+def _parse_gprm_upload(
+    db: Session, race: models.Race, file_data: str
+) -> tuple[roster_import.ParsedRoster, str]:
+    """Decode an uploaded GPRM database and parse it (#618).
+
+    `sqlite3` opens files, not buffers (see `services/importers/gprm.py`), so
+    the decoded bytes are written to a temporary file — removed in a
+    `finally` — before `parse_gprm_database` ever sees them, the same shape
+    `services/backup.py`'s restore uses for an uploaded archive. Raises
+    `ValueError` rather than `RosterImportError`, so every failure reaching
+    the operator through this mutation is the same shape as `importRacers`'
+    own "Race not found": a GraphQL error carrying the sentence to show.
+    """
+    raw = _decode_upload(file_data, MAX_GPRM_IMPORT_BYTES)
+    vehicle_word = _race_vehicle_word(db, race)
+    with tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False) as handle:
+        handle.write(raw)
+        temp_path = Path(handle.name)
+    try:
+        try:
+            roster = parse_gprm_database(temp_path, vehicle_word=vehicle_word)
+        except roster_import.RosterImportError as error:
+            raise ValueError(str(error)) from error
+        return roster, vehicle_word
+    finally:
+        os.unlink(temp_path)
+
+
+def _gprm_import_preview(
+    db: Session, race_id: int, roster: roster_import.ParsedRoster, vehicle_word: str
+) -> GprmImportPreview:
+    existing_holders = crud.existing_car_number_holders(db, race_id)
+    extra_problems = roster_import.existing_number_problems(
+        roster.racers, existing_holders, vehicle_word
+    )
+    problems = list(roster.problems) + extra_problems
+    return GprmImportPreview(
+        groups=[
+            GprmImportGroup(name=group.name, division=group.division)
+            for group in roster.groups
+        ],
+        racers=[
+            GprmImportRacer(
+                first_name=racer.first_name,
+                last_name=racer.last_name,
+                car_number=racer.car_number,
+                car_name=racer.car_name,
+                car_weight=racer.car_weight,
+                passed_inspection=racer.passed_inspection,
+                group=racer.group,
+                excluded_from_standings=racer.excluded_from_standings,
+                source_id=racer.source_id,
+            )
+            for racer in roster.racers
+        ],
+        problems=[
+            GprmImportProblem(
+                message=problem.message,
+                blocking=problem.blocking,
+                source_id=problem.source_id,
+            )
+            for problem in problems
+        ],
+        can_import=not any(problem.blocking for problem in problems),
+    )
+
+
+#: DerbyNet's own database is the same table family GPRM's is (see
+#: `domain.derbynet`'s docstring), and keeps photographs as separate files
+#: the same way GPRM does — so the same headroom applies for the same
+#: reason `MAX_GPRM_IMPORT_BYTES` gives above.
+MAX_DERBYNET_IMPORT_BYTES = MAX_GPRM_IMPORT_BYTES
+
+
+@strawberry.type
+class DerbynetImportGroup:
+    """A racing group `domain.derbynet.roster_from_derbynet_tables` found,
+    before it is written."""
+
+    name: str
+    division: str | None
+
+
+@strawberry.type
+class DerbynetImportRacer:
+    """A racer `domain.derbynet.roster_from_derbynet_tables` found, before
+    it is written."""
+
+    first_name: str
+    last_name: str
+    car_number: int | None
+    car_name: str | None
+    car_weight: float | None
+    passed_inspection: bool
+    group: str | None
+    excluded_from_standings: bool
+    #: DerbyNet's own id, so a problem naming this racer (below) can be
+    #: matched back to the row it is about — see `ImportedRacer.source_id`.
+    source_id: str | None
+
+
+@strawberry.type
+class DerbynetImportProblem:
+    """One sentence about what will not import as the operator might expect."""
+
+    message: str
+    blocking: bool
+    source_id: str | None
+
+
+@strawberry.type
+class DerbynetImportPreview:
+    """Everything an uploaded DerbyNet database would import (#661), without
+    writing any of it.
+
+    The same shape as `GprmImportPreview` — a sibling type rather than a
+    shared one, so the schema names which program a caller is previewing
+    rather than a caller reading `previewDerbynetImport: GprmImportPreview`
+    and wondering whether that is a typo. `confirmDerbynetImport` re-parses
+    the same upload rather than trusting this value back from the client,
+    for the identical reason `GprmImportPreview`'s own docstring gives.
+    """
+
+    groups: list[DerbynetImportGroup]
+    racers: list[DerbynetImportRacer]
+    problems: list[DerbynetImportProblem]
+    can_import: bool
+
+
+def _parse_derbynet_upload(
+    db: Session, race: models.Race, file_data: str
+) -> tuple[roster_import.ParsedRoster, str]:
+    """Decode an uploaded DerbyNet database and parse it (#661).
+
+    The DerbyNet twin of `_parse_gprm_upload` — see its own docstring for
+    why the bytes land in a temporary file rather than a buffer, and why a
+    `RosterImportError` is re-raised as a plain `ValueError`.
+    """
+    raw = _decode_upload(file_data, MAX_DERBYNET_IMPORT_BYTES, program_name="DerbyNet")
+    vehicle_word = _race_vehicle_word(db, race)
+    with tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False) as handle:
+        handle.write(raw)
+        temp_path = Path(handle.name)
+    try:
+        try:
+            roster = parse_derbynet_database(temp_path, vehicle_word=vehicle_word)
+        except roster_import.RosterImportError as error:
+            raise ValueError(str(error)) from error
+        return roster, vehicle_word
+    finally:
+        os.unlink(temp_path)
+
+
+def _derbynet_import_preview(
+    db: Session, race_id: int, roster: roster_import.ParsedRoster, vehicle_word: str
+) -> DerbynetImportPreview:
+    existing_holders = crud.existing_car_number_holders(db, race_id)
+    extra_problems = roster_import.existing_number_problems(
+        roster.racers, existing_holders, vehicle_word
+    )
+    problems = list(roster.problems) + extra_problems
+    return DerbynetImportPreview(
+        groups=[
+            DerbynetImportGroup(name=group.name, division=group.division)
+            for group in roster.groups
+        ],
+        racers=[
+            DerbynetImportRacer(
+                first_name=racer.first_name,
+                last_name=racer.last_name,
+                car_number=racer.car_number,
+                car_name=racer.car_name,
+                car_weight=racer.car_weight,
+                passed_inspection=racer.passed_inspection,
+                group=racer.group,
+                excluded_from_standings=racer.excluded_from_standings,
+                source_id=racer.source_id,
+            )
+            for racer in roster.racers
+        ],
+        problems=[
+            DerbynetImportProblem(
+                message=problem.message,
+                blocking=problem.blocking,
+                source_id=problem.source_id,
+            )
+            for problem in problems
+        ],
+        can_import=not any(problem.blocking for problem in problems),
+    )
 
 
 @strawberry.type
@@ -2994,6 +3547,80 @@ class Mutation:
             await _publish_races_list()
         return deleted
 
+    # Intermission Mutations (#592)
+    #
+    # All five publish `race_state:{race_id}` with `kind=INTERMISSION` and the
+    # freshly resolved state, which is the display's own leash (see "Telling
+    # an audience display what to show" in CLAUDE.md) — no new channel, and
+    # the observation page merges the payload directly rather than treating
+    # it as a signal to refetch. Refusals from `domain.intermission` (extend/
+    # pause/resume against nothing active) surface as an ordinary GraphQL
+    # error, the same shape `createRunOffHeat`'s validation takes.
+
+    @strawberry.mutation
+    async def start_intermission(
+        self,
+        info: Info,
+        race_id: int,
+        duration_seconds: int,
+        label: str | None = None,
+    ) -> Race:
+        """Begin (or restart) a break.
+
+        No precondition on the current state — a fresh click while one is
+        already running restarts it with the new duration and label, which
+        covers both an on-the-fly change of mind and the round-summary
+        modal's "Take a break" row offering the same presets after a round
+        finishes.
+        """
+        db = info.context["db"]
+        race = crud.start_intermission(db, race_id, duration_seconds, label)
+        await _publish_race_state(
+            race_id, kind=RaceChangeKind.INTERMISSION, intermission_race=race
+        )
+        return typing.cast(Race, race)
+
+    @strawberry.mutation
+    async def extend_intermission(self, info: Info, race_id: int, seconds: int) -> Race:
+        """Add time to the break under way, running or paused."""
+        db = info.context["db"]
+        race = crud.extend_intermission(db, race_id, seconds)
+        await _publish_race_state(
+            race_id, kind=RaceChangeKind.INTERMISSION, intermission_race=race
+        )
+        return typing.cast(Race, race)
+
+    @strawberry.mutation
+    async def pause_intermission(self, info: Info, race_id: int) -> Race:
+        """Freeze the countdown where it stands."""
+        db = info.context["db"]
+        race = crud.pause_intermission(db, race_id)
+        await _publish_race_state(
+            race_id, kind=RaceChangeKind.INTERMISSION, intermission_race=race
+        )
+        return typing.cast(Race, race)
+
+    @strawberry.mutation
+    async def resume_intermission(self, info: Info, race_id: int) -> Race:
+        """Start the countdown again from wherever it was paused."""
+        db = info.context["db"]
+        race = crud.resume_intermission(db, race_id)
+        await _publish_race_state(
+            race_id, kind=RaceChangeKind.INTERMISSION, intermission_race=race
+        )
+        return typing.cast(Race, race)
+
+    @strawberry.mutation
+    async def end_intermission(self, info: Info, race_id: int) -> Race:
+        """End the break now. Idempotent — ending one that has already
+        expired on its own is an ordinary click, not a race to catch."""
+        db = info.context["db"]
+        race = crud.end_intermission(db, race_id)
+        await _publish_race_state(
+            race_id, kind=RaceChangeKind.INTERMISSION, intermission_race=race
+        )
+        return typing.cast(Race, race)
+
     # Racer Mutations
     @strawberry.mutation
     async def assign_display(
@@ -3001,6 +3628,9 @@ class Mutation:
         view: DisplayViewEnum,  # type: ignore[valid-type]
         display_id: str,
         cycle_seconds: int | None = None,
+        scroll_behavior: ScrollBehaviorEnum | None = None,  # type: ignore[valid-type]
+        show_checked_in: bool | None = None,
+        qr_target: QRTargetEnum | None = None,  # type: ignore[valid-type]
     ) -> Display | None:
         """Tell an audience display what to show (#174).
 
@@ -3011,7 +3641,14 @@ class Mutation:
         """
         if cycle_seconds is not None and cycle_seconds < 1:
             raise ValueError("cycle_seconds must be at least 1")
-        display = displays_service.registry.assign(display_id, view, cycle_seconds)
+        display = displays_service.registry.assign(
+            display_id,
+            view,
+            cycle_seconds,
+            scroll_behavior,
+            show_checked_in,
+            qr_target,
+        )
         if display is None:
             return None
         await pubsub.publish(f"display_assignment:{display_id}", None)
@@ -4495,6 +5132,99 @@ class Mutation:
         return count
 
     @strawberry.mutation
+    async def preview_gprm_import(
+        self, info: Info, race_id: int, file_data: str
+    ) -> GprmImportPreview:
+        """Parse an uploaded GrandPrix Race Manager database without writing
+        anything (#618, stage 3).
+
+        The upload-preview-confirm shape the issue asked for: this call
+        writes nothing, and `confirmGprmImport` is the only door that does.
+        `GprmImportPreview.canImport` mirrors `ParsedRoster.can_import` —
+        false only were a *blocking* problem to appear, which nothing this
+        parser produces today does (a row problem here is always a warning,
+        the racer is simply skipped or a field left blank) — kept anyway so
+        a future blocking rule needs no frontend change to be honoured.
+        """
+        db = info.context["db"]
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        if not race:
+            raise ValueError("Race not found")
+        roster, vehicle_word = _parse_gprm_upload(db, race, file_data)
+        return _gprm_import_preview(db, race_id, roster, vehicle_word)
+
+    @strawberry.mutation
+    async def confirm_gprm_import(
+        self, info: Info, race_id: int, file_data: str
+    ) -> int:
+        """Write the roster from a GrandPrix Race Manager database (#618,
+        stage 3).
+
+        Re-parses `fileData` rather than trusting a preview handed back from
+        the client — there is no session on the server holding the earlier
+        upload, so what gets written can never drift from what the preview
+        showed. Returns the number of racers created, the same contract
+        `importRacers` (CSV) already has.
+        """
+        db = info.context["db"]
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        if not race:
+            raise ValueError("Race not found")
+        roster, _ = _parse_gprm_upload(db, race, file_data)
+        count = crud.write_imported_roster(db, race_id, roster)
+
+        # Same arrival #343 fixed for the CSV path: a GPRM roster can carry
+        # already-checked-in racers (`PassedInspection`), and admission is
+        # the batch's job, once, not per racer.
+        await _admit_late_racers(info, race_id)
+        await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
+        return count
+
+    @strawberry.mutation
+    async def preview_derbynet_import(
+        self, info: Info, race_id: int, file_data: str
+    ) -> DerbynetImportPreview:
+        """Parse an uploaded DerbyNet database without writing anything (#661).
+
+        The DerbyNet twin of `previewGprmImport` — a sibling mutation rather
+        than the same one taking a source argument, so that renaming an
+        already-shipped, documented mutation is not the cost of adding a
+        second importer (see `domain.derbynet`'s own docstring for why the
+        parser itself needed almost nothing DerbyNet-specific; this pair is
+        the "almost").
+        """
+        db = info.context["db"]
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        if not race:
+            raise ValueError("Race not found")
+        roster, vehicle_word = _parse_derbynet_upload(db, race, file_data)
+        return _derbynet_import_preview(db, race_id, roster, vehicle_word)
+
+    @strawberry.mutation
+    async def confirm_derbynet_import(
+        self, info: Info, race_id: int, file_data: str
+    ) -> int:
+        """Write the roster from a DerbyNet database (#661).
+
+        Re-parses `fileData` rather than trusting a preview handed back from
+        the client, the same reason `confirmGprmImport` does. Returns the
+        number of racers created, the same contract every importer here has.
+        """
+        db = info.context["db"]
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        if not race:
+            raise ValueError("Race not found")
+        roster, _ = _parse_derbynet_upload(db, race, file_data)
+        count = crud.write_imported_roster(db, race_id, roster)
+
+        # Same arrival #343 fixed for the CSV and GPRM paths: a DerbyNet
+        # roster can carry already-checked-in racers (`passedinspection`),
+        # and admission is the batch's job, once, not per racer.
+        await _admit_late_racers(info, race_id)
+        await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
+        return count
+
+    @strawberry.mutation
     async def create_round(
         self, info: Info, race_id: int, round_data: RoundCreateInput
     ) -> list[Round]:
@@ -4785,6 +5515,10 @@ class RaceChangeKind(enum.Enum):
     SCHEDULE = "SCHEDULE"
     #: Race-level settings changed — name, scoring strategy, trophies.
     RACE_SETTINGS = "RACE_SETTINGS"
+    #: A break started, was extended, paused, resumed or ended (#592).
+    #: Carries ``intermission``, the fully resolved current state — a
+    #: subscriber applies it directly rather than re-querying `Race`.
+    INTERMISSION = "INTERMISSION"
     #: Something changed that has not been classified yet. Treat as "refetch".
     OTHER = "OTHER"
 
@@ -4887,6 +5621,10 @@ class RaceStateChangedEvent:
     heat: Heat | None = None
     racer: Racer | None = None
     round_id: int | None = None
+    #: The fully resolved current state, for ``INTERMISSION`` (#592) — the
+    #: same shape ``Race.intermission`` reads, so a subscriber applies it
+    #: directly rather than treating this as a signal to refetch.
+    intermission: Intermission | None = None
 
 
 @strawberry.type
@@ -4899,6 +5637,10 @@ class TimingStatsLane:
     time: float | None
     place: int | None
     racer_image_url: str | None
+    #: The scale speed this lane's time converts to (#610), or null when the
+    #: track has scale speed turned off, has no configured length, or this
+    #: lane has no time to convert. See `domain.scale_speed.scale_mph`.
+    scale_mph: float | None
 
 
 @strawberry.type
@@ -4947,6 +5689,7 @@ async def _publish_race_state(
     heat: models.Heat | None = None,
     racer: models.Racer | None = None,
     round_id: int | None = None,
+    intermission_race: models.Race | None = None,
 ) -> None:
     """Publish a RaceStateChangedEvent for *race_id* on the pub/sub bus.
 
@@ -4960,6 +5703,9 @@ async def _publish_race_state(
         heat: The heat that changed, for ``HEAT_RESULT``.
         racer: The racer that changed, for ``RACER``.
         round_id: The round affected, where one is identifiable.
+        intermission_race: The race row to resolve `Intermission` from, for
+            ``INTERMISSION`` (#592) — resolved at the same instant as
+            ``changed_at`` so the two never disagree.
     """
     await pubsub.publish(
         f"race_state:{race_id}",
@@ -4972,6 +5718,11 @@ async def _publish_race_state(
             if racer is not None
             else None,
             round_id=round_id,
+            intermission=(
+                _intermission_type(intermission_race, datetime.now(timezone.utc))
+                if intermission_race is not None
+                else None
+            ),
         ),
     )
 
@@ -5314,6 +6065,23 @@ class Subscription:
                     race=race_row.name_display if race_row else None,
                 )
 
+                # Loaded once, through the same per-operation cache the
+                # record-break baseline's `race_row.track_id` lookup could
+                # have used — a lane count's worth of tracks is one query,
+                # not one per lane (#610, `test_query_counts.py`).
+                track_row = (
+                    _loaders(info).track_by_id(race_row.track_id)
+                    if race_row and race_row.track_id
+                    else None
+                )
+
+                def _scale_mph(seconds: float | None) -> float | None:
+                    if track_row is None or not track_row.show_scale_speed:
+                        return None
+                    return domain_scale_mph(
+                        track_row.length_feet, seconds, track_row.scale_ratio
+                    )
+
                 lane_stats = []
                 for lane in heat_lanes:
                     racer = racer_map.get(lane.racer_id)
@@ -5330,6 +6098,7 @@ class Subscription:
                             car_name=racer.car_name if racer else None,
                             time=lane.seconds,
                             place=lane.place,
+                            scale_mph=_scale_mph(lane.seconds),
                             racer_image_url=racer.racer_image_url if racer else None,
                         )
                     )
@@ -5503,17 +6272,30 @@ schema = strawberry.Schema(
     # it covers the WebSocket as well as HTTP — see `api/auth.py` for why the
     # second layer the design sketch proposed is not here.
     # Order is load-bearing and reads backwards: a later extension *wraps* an
-    # earlier one, so `AuditExtension` has to come second to see the
-    # `PermissionDeniedError` the policy raises — otherwise a refused mutation
-    # is turned away with nothing recorded, which is the line the log most
-    # wants (#219). Measured rather than assumed; the first draft had these the
-    # other way round and recorded no refusals at all.
+    # earlier one, so `AuditExtension` has to come last to see the
+    # `PermissionDeniedError` any of the three policies raise — otherwise a
+    # refused mutation is turned away with nothing recorded, which is the line
+    # the log most wants (#219). Measured rather than assumed; the first draft
+    # had these the other way round and recorded no refusals at all.
     # `test_audit_log.py::TestRefusals` fails if they are swapped back.
-    # `DemoPolicyExtension` sits between them, and both neighbours matter:
-    # before `AuditExtension` so a demo refusal is recorded like any other, and
-    # after `RolePolicyExtension` so it runs *first* — on a demo no PIN is set,
-    # so every caller is `OPERATOR` and the role policy would have allowed the
-    # mutation and reported the wrong reason. Inert unless `TRUSTYTRACK_DEMO_MODE`
-    # is set; see `api/demo_policy.py`.
-    extensions=[RolePolicyExtension, DemoPolicyExtension, AuditExtension],
+    # `DemoPolicyExtension` sits between the role policy and the audit log,
+    # and both neighbours matter: before `AuditExtension` so a demo refusal is
+    # recorded like any other, and after `RolePolicyExtension` so it runs
+    # *first* — on a demo no PIN is set, so every caller is `OPERATOR` and the
+    # role policy would have allowed the mutation and reported the wrong
+    # reason. Inert unless `TRUSTYTRACK_DEMO_MODE` is set; see
+    # `api/demo_policy.py`.
+    # `RaceLockExtension` sits at the *other* end, innermost of all four — it
+    # runs last, immediately before the real resolver, so `test_race_lock.py`
+    # and #585's own reasoning both depend on the role policy having already
+    # let the mutation through: a `VIEWER` denied `updateHeatResult` outright
+    # should hear that, not that the race happens to be locked. Still inside
+    # `AuditExtension`'s wrap, so a lock refusal is recorded exactly like any
+    # other. See `api/race_lock.py` for the allowed-while-locked list.
+    extensions=[
+        RaceLockExtension,
+        RolePolicyExtension,
+        DemoPolicyExtension,
+        AuditExtension,
+    ],
 )

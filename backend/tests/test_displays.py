@@ -51,6 +51,63 @@ class TestTheVocabulary:
             with pytest.raises(ValueError):
                 domain.Assignment(view=domain.DisplayView.CYCLE, cycle_seconds=bad)
 
+    def test_standings_only_defaults_to_paging(self):
+        assert domain.Assignment().scroll_behavior is domain.DEFAULT_SCROLL_BEHAVIOR
+        assert domain.DEFAULT_SCROLL_BEHAVIOR is domain.ScrollBehavior.PAGING
+
+    def test_standings_only_says_how_it_scrolls(self):
+        paging = domain.describe(
+            domain.Assignment(
+                view=domain.DisplayView.STANDINGS_ONLY,
+                cycle_seconds=15,
+                scroll_behavior=domain.ScrollBehavior.PAGING,
+            )
+        )
+        assert "15s" in paging
+        assert "paging" in paging.lower()
+
+        smooth = domain.describe(
+            domain.Assignment(
+                view=domain.DisplayView.STANDINGS_ONLY,
+                cycle_seconds=15,
+                scroll_behavior=domain.ScrollBehavior.SMOOTH,
+            )
+        )
+        assert "15s" in smooth
+        assert "scrolling" in smooth.lower()
+
+    def test_checkin_says_whether_it_lists_everybody_or_only_the_missing(self):
+        everybody = domain.describe(
+            domain.Assignment(view=domain.DisplayView.CHECKIN, show_checked_in=True)
+        )
+        assert "pending" not in everybody.lower()
+
+        pending_only = domain.describe(
+            domain.Assignment(view=domain.DisplayView.CHECKIN, show_checked_in=False)
+        )
+        assert "pending" in pending_only.lower()
+
+    def test_qr_target_defaults_to_this_races_own_standings(self):
+        # Every race has standings to point at; only some ever turn voting
+        # on, so the live display is the safer default.
+        assert domain.DEFAULT_QR_TARGET is domain.QRTarget.STANDINGS
+        assert domain.Assignment().qr_target is domain.QRTarget.STANDINGS
+
+    def test_qrcode_says_which_page_it_points_at(self):
+        standings = domain.describe(
+            domain.Assignment(
+                view=domain.DisplayView.QRCODE, qr_target=domain.QRTarget.STANDINGS
+            )
+        )
+        assert "standings" in standings.lower()
+
+        vote = domain.describe(
+            domain.Assignment(
+                view=domain.DisplayView.QRCODE, qr_target=domain.QRTarget.VOTE
+            )
+        )
+        assert "vot" in vote.lower()
+
 
 class TestPresence:
     def test_a_display_appears_when_it_connects(self, registry):
@@ -205,6 +262,68 @@ class TestAssignment:
 
     def test_an_unassigned_display_reports_the_default(self, registry):
         assert registry.assignment_for("never-seen").view is domain.DEFAULT_VIEW
+
+    def test_the_scroll_behavior_survives_a_change_of_view(self, registry):
+        # Same shape as the cycle interval above: an operator flipping a
+        # screen away from STANDINGS_ONLY and back should not lose the choice
+        # they made.
+        registry.connect("abc", race_id=1)
+        registry.assign(
+            "abc",
+            domain.DisplayView.STANDINGS_ONLY,
+            scroll_behavior=domain.ScrollBehavior.SMOOTH,
+        )
+
+        registry.assign("abc", domain.DisplayView.STANDINGS)
+        registry.assign("abc", domain.DisplayView.STANDINGS_ONLY)
+
+        assert (
+            registry.get("abc").assignment.scroll_behavior
+            is domain.ScrollBehavior.SMOOTH
+        )
+
+    def test_a_new_display_defaults_to_paging(self, registry):
+        registry.connect("abc", race_id=1)
+
+        assert (
+            registry.get("abc").assignment.scroll_behavior
+            is domain.DEFAULT_SCROLL_BEHAVIOR
+        )
+
+    def test_a_new_display_defaults_to_showing_everybody_checked_in(self, registry):
+        registry.connect("abc", race_id=1)
+
+        assert registry.get("abc").assignment.show_checked_in is True
+
+    def test_show_checked_in_survives_a_change_of_view(self, registry):
+        # Same shape as the cycle interval and the scroll behaviour above: a
+        # screen flipped away from CHECKIN and back should not lose the
+        # pending-only choice a large pack made to save room.
+        registry.connect("abc", race_id=1)
+        registry.assign("abc", domain.DisplayView.CHECKIN, show_checked_in=False)
+
+        registry.assign("abc", domain.DisplayView.STANDINGS)
+        registry.assign("abc", domain.DisplayView.CHECKIN)
+
+        assert registry.get("abc").assignment.show_checked_in is False
+
+    def test_a_new_display_defaults_to_the_standings_qr_target(self, registry):
+        registry.connect("abc", race_id=1)
+
+        assert registry.get("abc").assignment.qr_target is domain.DEFAULT_QR_TARGET
+
+    def test_qr_target_survives_a_change_of_view(self, registry):
+        # Same shape as `show_checked_in` above: a screen flipped away from
+        # QRCODE and back should not lose which page it was pointed at.
+        registry.connect("abc", race_id=1)
+        registry.assign(
+            "abc", domain.DisplayView.QRCODE, qr_target=domain.QRTarget.VOTE
+        )
+
+        registry.assign("abc", domain.DisplayView.STANDINGS)
+        registry.assign("abc", domain.DisplayView.QRCODE)
+
+        assert registry.get("abc").assignment.qr_target is domain.QRTarget.VOTE
 
 
 class TestNaming:

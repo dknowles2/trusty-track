@@ -78,7 +78,7 @@ After a specific race has been initialized, we now need to know *who* is racing.
   - (optional) Car Name
     - We don't expect this to be known when initially configuring racer details, but we want to allow the option
   - (optinal) Racer Picture
-    - Allow uploading a headshot of the racer. We should auto-crop this as appropriate.
+    - Allow uploading a headshot of the racer. We should auto-crop this as appropriate. ✅ *Cropping is implemented, but by the operator rather than automatically — a browser-side rotate/crop tool ([#619](https://github.com/dknowles2/trusty-track/issues/619)) opens after a camera capture, and reopens on an existing photo through the **⟳ Rotate / Recrop** button. See [Straightening a Photo](race-day.md#straightening-a-photo).*
   - (optional) Car Picture
     - Allow uploading a picture of the car itself.
   - Car Passed Inspection (bool)
@@ -88,6 +88,7 @@ We need to allow multiple modes of racer import:
 
 1.  Bulk-import - Allow the user to upload a CSV of participants. We should suggest a suitable format that matches the required text fields, but also allow an arbitrary CSV to be uploaded and then allow the user to map the columns in the CSV to the specific fields we need to consume.
 2.  Manual import - Allow the user to import racers individually  This could happen either before the race, or on race-day. In either case, the input form is likely very similar.
+3.  Import from another derby program's database — GrandPrix Race Manager ([#618](https://github.com/dknowles2/trusty-track/issues/618)) and DerbyNet ([#661](https://github.com/dknowles2/trusty-track/issues/661)). 🚧 *The GPRM parser (`backend/domain/gprm.py`, `backend/services/importers/gprm.py`) is implemented; the mutation and the upload/preview screen are not yet.*
 
 #### Printables
 

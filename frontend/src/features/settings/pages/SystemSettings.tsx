@@ -27,6 +27,7 @@ const GET_INITIAL_CONFIG = `
       pinRequired
       checkinPinSet
       isOperator
+      demoMode
       displayTheme
       printablesTheme
       racingGroupSingular
@@ -49,6 +50,7 @@ const GET_INITIAL_CONFIG = `
         reverseLanes
         scaleRatio
         showScaleSpeed
+        laneColors
         laneOutages
         historicalRecords { id timeSeconds racerName carNumber raceName raceDate }
       }
@@ -292,6 +294,7 @@ export default function SystemConfig() {
             reverseLanes?: boolean;
             scaleRatio?: number;
             showScaleSpeed?: boolean;
+            laneColors?: string[];
             laneOutages?: number[];
             historicalRecords?: HistoricalRecord[];
           }) => ({
@@ -313,6 +316,7 @@ export default function SystemConfig() {
             // fallback only covers a fixture or a build that predates them.
             scaleRatio: t.scaleRatio ?? DEFAULT_SCALE_RATIO,
             showScaleSpeed: t.showScaleSpeed ?? true,
+            laneColors: t.laneColors ?? [],
             laneOutages: t.laneOutages ?? [],
             historicalRecords: t.historicalRecords ?? []
           })));
@@ -397,7 +401,7 @@ export default function SystemConfig() {
                 vehicleArtworkKey,
               }
             : { clearTerminology: true }),
-          tracks: tracks.map(({ id, name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled, reverseLanes, scaleRatio, showScaleSpeed }) => ({
+          tracks: tracks.map(({ id, name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled, reverseLanes, scaleRatio, showScaleSpeed, laneColors }) => ({
             // Absent for a track just added on this screen, which has no row
             // yet; present for a saved one, so the server matches it to its
             // database row by id rather than by its position in this list
@@ -417,7 +421,10 @@ export default function SystemConfig() {
             remoteStartInstalled,
             reverseLanes,
             scaleRatio,
-            showScaleSpeed
+            showScaleSpeed,
+            // Absent means an empty list on the server (`TrackInput`'s own
+            // default), same as a track that has never had one set.
+            laneColors: laneColors ?? []
           }))
         }
       };
@@ -491,7 +498,18 @@ export default function SystemConfig() {
 
       <div className={sectioned ? 'settings-layout' : undefined}>
         {sectioned && (
-          <SettingsNav sections={navSections} current={section} onSelect={setSection} />
+          <SettingsNav sections={navSections} current={section} onSelect={setSection}>
+            {/* Two links out, at the foot of the nav rather than buried at
+                the bottom of a section, because the documentation sends
+                people to them by this route — "Settings → Check the timer
+                connection", "Settings → See what has happened". */}
+            <Link to="/timer-check">Check the timer connection &rarr;</Link>
+            {/* The activity log (#219) spans every race and answers a
+                question nobody asks until something has already gone wrong,
+                which is why it sits with the diagnostics rather than in the
+                race navigation. */}
+            <Link to="/activity">See what has happened &rarr;</Link>
+          </SettingsNav>
         )}
 
         <div className="settings-section">
@@ -651,18 +669,6 @@ export default function SystemConfig() {
                       ))}
                     </div>
                   </fieldset>
-
-                  <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <input
-                      type="checkbox"
-                      id="debug_mode"
-                      checked={debugMode}
-                      onChange={(e) => setDebugMode(e.target.checked)}
-                      style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
-                    />
-                    <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
-                    <small style={{ color: 'var(--text-muted-color)', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
-                  </div>
                 </section>
               )}
 
@@ -759,6 +765,7 @@ export default function SystemConfig() {
                       track={track}
                       timerModels={timerModels}
                       canRemove={tracks.length > 1}
+                      demoMode={!!data?.initialConfig?.demoMode}
                       onChange={(field, value) => handleTrackChange(index, field, value)}
                       onRemove={() => removeTrack(index)}
                       onLaneOutages={(laneOutages) =>
@@ -769,6 +776,11 @@ export default function SystemConfig() {
                       onRecords={(historicalRecords) =>
                         setTracks((current) =>
                           current.map((t, i) => (i === index ? { ...t, historicalRecords } : t)),
+                        )
+                      }
+                      onLaneColors={(laneColors) =>
+                        setTracks((current) =>
+                          current.map((t, i) => (i === index ? { ...t, laneColors } : t)),
                         )
                       }
                     />
@@ -782,6 +794,32 @@ export default function SystemConfig() {
                   >
                     + Add Another Track
                   </button>
+                </section>
+              )}
+
+              {/* Advanced (#659) — last of the form sections, and ordinary
+                  form state rather than pulled out of the form the way Backup
+                  is: nothing here is destructive, so there is no misclick to
+                  guard against, only clutter to keep out of an operator's
+                  first look. Debugging Mode used to sit at the foot of
+                  General, which put it near the *top* of the page once the
+                  page was sectioned — this is the one control that lives
+                  here today, and the section exists so a later troubleshooting
+                  control has somewhere to go that is not General. */}
+              {shows('advanced') && (
+                <section aria-labelledby="settings-advanced" data-testid="advanced-panel">
+                  {sectioned ? <SectionHeading id="advanced" sectioned={sectioned} /> : <h2 style={{ marginBottom: '0.5rem' }}>Advanced</h2>}
+                  <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <input
+                      type="checkbox"
+                      id="debug_mode"
+                      checked={debugMode}
+                      onChange={(e) => setDebugMode(e.target.checked)}
+                      style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
+                    <small style={{ color: 'var(--text-muted-color)', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
+                  </div>
                 </section>
               )}
 

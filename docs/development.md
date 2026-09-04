@@ -102,20 +102,22 @@ The application uses **SQLite**. The database file `trusty-track.db` is created 
 
 Schema changes are managed with **Alembic**. `init_db()` runs `alembic upgrade head` on startup, so a running app always has an up-to-date schema. If migrations fail, startup fails — a half-migrated database that appears to start normally is worse than a clear error.
 
+**Run Alembic through `./scripts/migrate.sh`, not `uv run alembic` directly.** The bare CLI opens whatever `TRUSTYTRACK_DATA_DIR` resolves to, which is `~/.trustytrack` for anyone who has not set it — your own real install, if this machine has ever run the app, complete with its database and every uploaded photograph. `scripts/migrate.sh` runs Alembic against a disposable scratch directory instead, migrated to head first so `--autogenerate` diffs against a realistic (if empty) schema.
+
 **After changing anything in `models.py`, generate a migration:**
 
 ```bash
-uv run alembic revision --autogenerate -m "describe the change"
+./scripts/migrate.sh revision --autogenerate -m "describe the change"
 ```
 
 Review the generated file before committing — autogenerate is a good first draft, not a finished migration. Then apply it and verify there is no remaining drift:
 
 ```bash
-uv run alembic upgrade head
+./scripts/migrate.sh upgrade head
 ```
 
 ```bash
-uv run alembic check
+./scripts/migrate.sh check
 ```
 
 `alembic check` compares the models against the **target database**, so it reports `Target database is not up to date` if you have not upgraded first.
@@ -125,16 +127,18 @@ uv run alembic check
 Other useful commands:
 
 ```bash
-uv run alembic current
+./scripts/migrate.sh current
 ```
 
 ```bash
-uv run alembic history
+./scripts/migrate.sh history
 ```
 
 ```bash
-uv run alembic downgrade -1
+./scripts/migrate.sh downgrade -1
 ```
+
+**If you run `uv run alembic` by hand anyway**, a backstop in `backend/migrations/env.py` refuses to touch the default `~/.trustytrack` once it already holds a configured race, unless `TRUSTYTRACK_DATA_DIR` is set explicitly or `TRUSTYTRACK_ALLOW_UNSAFE_MIGRATION=1` is — it never applies to the app's own startup migration, which keeps running against the real data directory regardless. See `CLAUDE.md`'s "Database migrations" section for the reasoning.
 
 **Databases created before Alembic was adopted** are detected on startup (application tables present, no `alembic_version` table), stamped at `0001_baseline`, and then upgraded forward. Migration `0002` checks whether `groups.debug_mode` already exists before adding it, because the old hand-rolled `ALTER TABLE` may or may not have succeeded on any given install.
 
@@ -306,7 +310,7 @@ a renamed page leaves the front door on a 404. Deployment is written up in
 | **CORS Errors**           | The backend is configured to allow `*` origins in development. Ensure you are accessing the frontend via `localhost` matching the CORS config. |
 | **Database Locks**        | SQLite can occasionally lock if a process crashes. Restart the backend server.                                                                 |
 | **Missing Dependencies**  | Re-run `uv sync` (backend) or `npm install` (frontend).                                                                |
-| **`alembic` hits your real database** | `uv run alembic …` uses `~/.trustytrack` unless you set `TRUSTYTRACK_DATA_DIR`. Point it at a scratch directory when generating or testing migrations. |
+| **`alembic` hits your real database** | Use `./scripts/migrate.sh` instead of `uv run alembic …` — it points Alembic at a scratch directory automatically. If you use the bare CLI anyway, it refuses on its own once your default database holds a configured race (#689); set `TRUSTYTRACK_DATA_DIR` or `TRUSTYTRACK_ALLOW_UNSAFE_MIGRATION=1` if you mean it. |
 
 ## 📸 Regenerating Documentation Screenshots
 
@@ -396,7 +400,7 @@ Docs are part of the change, not a follow-up. When you land something:
 | --- | --- |
 | A screen the guides describe | The relevant `docs/*.md`, and re-run its screenshot spec |
 | The GraphQL schema or a REST endpoint | `docs/design.md` |
-| Anything an agent needs to know | `CLAUDE.md` |
+| Anything an agent needs to know | `CLAUDE.md`, or the file it indexes under `.claude/rules/` |
 
 `mkdocs build --strict` catches broken links and missing images. It cannot
 catch prose that is merely **wrong**, which is the failure that actually

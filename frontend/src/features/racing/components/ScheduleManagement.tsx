@@ -30,6 +30,9 @@ import { estimatePace } from '../pace';
 import type { Heat, Lane } from '../types';
 import { hasRun, hasTimes } from '../lanes';
 import { executionComparator } from '../runningOrder';
+import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
+import LaneBadge from '../../../components/ui/LaneBadge';
+import { colorForLane } from '../../settings/laneColors';
 
 // Re-exported rather than redeclared: this used to be a hand-written copy that
 // nothing tied to the schema, and it drifted the moment `lanes` was added.
@@ -71,6 +74,15 @@ interface ScheduleManagementProps {
    */
   masterRunningOrder?: boolean;
   /**
+   * The race is locked against further edits (#585). Off for every race
+   * until an operator locks it, same shape as `masterRunningOrder` above —
+   * disables every scheduling control on this screen (add/regenerate/delete
+   * a round, delete a heat, reorder by drag, Run/Re-Run, apply the master
+   * running order) rather than hiding them, so the operator sees what
+   * unlocking would restore.
+   */
+  raceLocked?: boolean;
+  /**
    * A round's own racing group, by round id — what labels a heat below with
    * the group whose cars are on the track. Absent for a round scoped to no
    * single group (a combined general round, a championship round drawing
@@ -87,6 +99,11 @@ interface ScheduleManagementProps {
   onApplyMasterRunningOrder?: () => Promise<void>;
   getRacerName: (id: number) => string;
   laneCount: number;
+  /** This track's configured lane colours (#611), index 0 meaning lane 1 —
+   * the dot beside each "Lane N" column header, matching what the physical
+   * track is painted. Absent or short means no colour for that lane, and
+   * the header shows exactly what it always has. */
+  laneColors?: readonly string[];
   racerCount: number;
   racingGroupCount: number;
   championshipTrophies: number;
@@ -121,6 +138,7 @@ interface SortableHeatRowProps {
   isReordering: boolean;
   isUpcoming: boolean;
   masterRunningOrder: boolean;
+  raceLocked: boolean;
   getRacerName: (id: number) => string;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
   onDeleteHeat: (heatId: number) => Promise<void>;
@@ -139,6 +157,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   isReordering,
   isUpcoming,
   masterRunningOrder,
+  raceLocked,
   getRacerName,
   onRunHeat,
   onDeleteHeat,
@@ -152,8 +171,9 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
 
   // Disable dragging if heat is running, reordering is in progress, or heat
   // has results — or the race runs a master running order, where a drag's
-  // 1..N renumbering would silently pull this round out of the interleave.
-  const isDraggingDisabled = isRunning || isReordering || hasRecordedTimes || masterRunningOrder;
+  // 1..N renumbering would silently pull this round out of the interleave —
+  // or the race is locked (#585).
+  const isDraggingDisabled = isRunning || isReordering || hasRecordedTimes || masterRunningOrder || raceLocked;
 
   const {
     attributes,
@@ -175,12 +195,14 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
     borderLeft: isRunning ? '5px solid orange' : (isSkipped && !hasRecordedTimes) ? '5px solid var(--danger-accent-color)' : isCompleted ? '5px solid green' : '5px solid transparent',
   };
 
-  const isRunDisabled = isRunning || hasPlaceholders || isUpcoming;
-  const runBtnTitle = hasPlaceholders
-    ? "Racers not yet determined for this round"
-    : isUpcoming
-      ? "Complete previous rounds first"
-      : "";
+  const isRunDisabled = isRunning || hasPlaceholders || isUpcoming || raceLocked;
+  const runBtnTitle = raceLocked
+    ? RACE_LOCKED_MESSAGE
+    : hasPlaceholders
+      ? "Racers not yet determined for this round"
+      : isUpcoming
+        ? "Complete previous rounds first"
+        : "";
 
   return (
     <tr ref={setNodeRef} style={style}>
@@ -226,7 +248,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
       })}
       <td style={{ padding: '12px', textAlign: 'right', width: '120px' }}>
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
-          {!isCompleted && !isRunning && (
+          {!isCompleted && !isRunning && !raceLocked && (
             <button
               onClick={() => onDeleteHeat(heat.id)}
               className="icon-btn-delete"
@@ -273,10 +295,12 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   onRunHeat,
   onReorderHeats,
   masterRunningOrder = false,
+  raceLocked = false,
   roundGroupLabel = {},
   onApplyMasterRunningOrder,
   getRacerName,
   laneCount,
+  laneColors = [],
   racerCount,
   racingGroupCount,
   championshipTrophies,
@@ -506,7 +530,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             <button
                 className="primary-btn"
                 onClick={() => setIsModalOpen(true)}
-                disabled={generating || reordering}
+                disabled={generating || reordering || raceLocked}
+                title={raceLocked ? RACE_LOCKED_MESSAGE : undefined}
                 style={{
                   boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
                   whiteSpace: 'nowrap',
@@ -555,7 +580,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
               <button
                 className="secondary-btn"
                 onClick={handleApplyMasterRunningOrder}
-                disabled={generating || reordering || applyingOrder || !onApplyMasterRunningOrder}
+                disabled={generating || reordering || applyingOrder || raceLocked || !onApplyMasterRunningOrder}
                 data-testid="apply-master-running-order"
                 style={{ whiteSpace: 'nowrap' }}
               >
@@ -747,7 +772,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                         <button
                           onClick={() => onRegenerateRound(roundId)}
                           className="secondary-btn"
-                          disabled={generating || reordering}
+                          disabled={generating || reordering || raceLocked}
                           aria-label={`Regenerate ${roundHeats[0]?.roundName || `Round ${roundNum}`}`}
                           style={{
                             padding: '6px 16px',
@@ -764,14 +789,16 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                         <button
                           onClick={() => onDeleteRound(roundId)}
                           className="secondary-btn"
-                          disabled={generating || reordering || isAnyStarted || roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))}
+                          disabled={generating || reordering || raceLocked || isAnyStarted || roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))}
                           aria-label={`Delete ${roundHeats[0]?.roundName || `Round ${roundNum}`}`}
                           title={
-                              isAnyStarted
-                                ? "Cannot delete round: it has heats with results"
-                                : roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))
-                                  ? "Cannot delete general round: championship rounds are already scheduled"
-                                  : undefined
+                              raceLocked
+                                ? RACE_LOCKED_MESSAGE
+                                : isAnyStarted
+                                  ? "Cannot delete round: it has heats with results"
+                                  : roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))
+                                    ? "Cannot delete general round: championship rounds are already scheduled"
+                                    : undefined
                           }
                           style={{
                             padding: '6px 16px',
@@ -802,7 +829,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                             <th style={{ padding: '12px 8px', width: '40px' }}></th>
                             <th style={{ padding: '12px', width: '100px', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Heat</th>
                             {Array.from({ length: laneCount }).map((_, i) => (
-                              <th key={i} style={{ padding: '12px', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Lane {i + 1}</th>
+                              <th key={i} style={{ padding: '12px', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                                <LaneBadge color={colorForLane(laneColors, i + 1)}>Lane {i + 1}</LaneBadge>
+                              </th>
                             ))}
                             <th style={{ padding: '12px', width: '120px', textAlign: 'right', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Actions</th>
                           </tr>
@@ -824,6 +853,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                 // this group's round is still open (#549).
                                 isUpcoming={masterRunningOrder ? false : roundNum > firstUncompletedRoundNumber}
                                 masterRunningOrder={masterRunningOrder}
+                                raceLocked={raceLocked}
                                 getRacerName={getRacerName}
                                 onRunHeat={onRunHeat}
                                 onDeleteHeat={onDeleteHeat}

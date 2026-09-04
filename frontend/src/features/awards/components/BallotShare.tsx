@@ -3,18 +3,20 @@
  *
  * `window.location.origin` names the machine running Trusty Track from its
  * own point of view — `localhost` on the documented setup — which is not an
- * address a phone on the venue wifi can open. `shareAddress.ts` (pure) works
- * out what to show instead from the backend's own `networkAddresses`; this
- * component is only the fetch, the copy button and the QR code around it.
+ * address a phone on the venue wifi can open. `features/core/shareAddress.ts`
+ * (pure, shared with the QR code display view — #614) works out what to show
+ * instead from the backend's own `networkAddresses`; this component is only
+ * the fetch, the copy button and the QR code around it.
  */
 
 import { useState } from 'react';
 import { useQuery } from 'urql';
 import { Icon } from '@mdi/react';
-import { mdiAlertOutline, mdiCheck, mdiContentCopy } from '@mdi/js';
+import { mdiAlertOutline, mdiCheck, mdiContentCopy, mdiOpenInNew, mdiQrcode } from '@mdi/js';
 import { copyText } from '../../../utils/clipboard';
 import { NETWORK_ADDRESSES_QUERY } from '../graphql/queries';
-import { shareUrl, voteQrSrc } from '../shareAddress';
+import { shareUrl, qrCodeSrc } from '../../core/shareAddress';
+import { qrCodeWindowUrl } from '../../observation/displayIdentity';
 
 interface BallotShareProps {
   raceId: number;
@@ -76,13 +78,30 @@ export default function BallotShare({ raceId }: BallotShareProps) {
       )}
       {reachable && (
         <img
-          src={voteQrSrc(raceId, url)}
+          src={qrCodeSrc(raceId, url)}
           alt="QR code that opens the voting page"
           width={120}
           height={120}
           style={{ border: '1px solid var(--border-color)', borderRadius: '8px' }}
         />
       )}
+      {/* The full-screen answer to this whole panel (#614): rather than
+          holding a laptop up, project the same code on a gym-wall screen.
+          Opens a fresh display window already pointed at the QR code view —
+          the URL fallback `displayView.ts` gives an unassigned screen — so
+          there is nothing to configure from the operator's list first. */}
+      <button
+        type="button"
+        className="secondary-btn"
+        onClick={() =>
+          window.open(qrCodeWindowUrl(raceId, 'VOTE'), '_blank', 'noopener')
+        }
+        style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+      >
+        <Icon path={mdiQrcode} size={0.7} />
+        Project QR code
+        <Icon path={mdiOpenInNew} size={0.6} />
+      </button>
     </div>
   );
 }

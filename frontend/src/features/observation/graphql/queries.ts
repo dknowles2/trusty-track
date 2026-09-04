@@ -74,6 +74,7 @@ export const TimingStatsSubscription = gql`
         time
         place
         racerImageUrl
+        scaleMph
       }
       recordBreak {
         newSeconds
@@ -113,6 +114,9 @@ export const DisplayAssignmentSubscription = gql`
       name
       view
       cycleSeconds
+      scrollBehavior
+      showCheckedIn
+      qrTarget
       description
       pacedByAPerson
       connected
@@ -134,6 +138,9 @@ export const DisplaysSubscription = gql`
       name
       view
       cycleSeconds
+      scrollBehavior
+      showCheckedIn
+      qrTarget
       description
       pacedByAPerson
       connected
@@ -153,6 +160,9 @@ export const DISPLAYS_QUERY = gql`
       name
       view
       cycleSeconds
+      scrollBehavior
+      showCheckedIn
+      qrTarget
       description
       pacedByAPerson
       connected
@@ -162,6 +172,20 @@ export const DISPLAYS_QUERY = gql`
       slideDelta
       identifySeq
     }
+  }
+`;
+
+/**
+ * This machine's own LAN address(es), for the `QRCODE` display view (#614) —
+ * the same query the Awards page's ballot share step already asks, under a
+ * distinct operation name since every document in the app needs one.
+ * `window.location.origin` is `localhost` on the machine running Trusty
+ * Track, which no phone in the room can open; see
+ * `features/core/shareAddress.ts`.
+ */
+export const NETWORK_ADDRESSES_QUERY = gql`
+  query ObservationNetworkAddresses {
+    networkAddresses
   }
 `;
 
@@ -202,11 +226,28 @@ export const SUGGEST_DISPLAY_NAME = gql`
 `;
 
 export const ASSIGN_DISPLAY = gql`
-  mutation AssignDisplay($displayId: String!, $view: DisplayView!, $cycleSeconds: Int) {
-    assignDisplay(displayId: $displayId, view: $view, cycleSeconds: $cycleSeconds) {
+  mutation AssignDisplay(
+    $displayId: String!
+    $view: DisplayView!
+    $cycleSeconds: Int
+    $scrollBehavior: ScrollBehavior
+    $showCheckedIn: Boolean
+    $qrTarget: QRTarget
+  ) {
+    assignDisplay(
+      displayId: $displayId
+      view: $view
+      cycleSeconds: $cycleSeconds
+      scrollBehavior: $scrollBehavior
+      showCheckedIn: $showCheckedIn
+      qrTarget: $qrTarget
+    ) {
       displayId
       view
       cycleSeconds
+      scrollBehavior
+      showCheckedIn
+      qrTarget
       description
       pacedByAPerson
       connected
@@ -247,6 +288,9 @@ export const RENAME_DISPLAY = gql`
       name
       view
       cycleSeconds
+      scrollBehavior
+      showCheckedIn
+      qrTarget
       description
       pacedByAPerson
       connected

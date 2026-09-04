@@ -1,5 +1,5 @@
 /**
- * The list of settings sections, down the left.
+ * The list of a sectioned form's sections, down the left.
  *
  * Down the left rather than across the top because there is already a
  * navigation row across the top, and this project has retired a second one
@@ -7,42 +7,55 @@
  * same page had two names. A column beside the content cannot be mistaken for
  * the app's own navigation.
  *
- * The two links at the foot go somewhere else, and are separated from the
- * sections for that reason. They are here rather than buried at the bottom of
- * a section because the documentation sends people to them by this route —
- * "Settings → Check the timer connection", "Settings → See what has happened".
+ * Written for System Settings and generic over the section id since #587,
+ * when the race form was sectioned the same way: one nav component, one
+ * stylesheet, so the two forms cannot drift apart in how a section is
+ * chosen. Anything that goes *somewhere else* — the settings page's two
+ * links out — is passed as children and rendered at the foot, separated
+ * from the sections, so a link cannot be mistaken for one.
  */
 
-import { Link } from 'react-router-dom';
-import type { Section, SectionId } from '../sections';
+import type { ReactNode } from 'react';
 
-interface Props {
-  sections: readonly Section[];
-  current: SectionId;
-  onSelect: (id: SectionId) => void;
+interface NavSection<Id extends string> {
+  id: Id;
+  label: string;
 }
 
-export default function SettingsNav({ sections, current, onSelect }: Props) {
+interface Props<Id extends string> {
+  sections: readonly NavSection<Id>[];
+  current: Id;
+  onSelect: (id: Id) => void;
+  /** What a screen reader calls the list. */
+  label?: string;
+  /** Prefix for the nav's and each button's test id: `<prefix>` and `<prefix>-<id>`. */
+  testIdPrefix?: string;
+  /** Links out, at the foot. */
+  children?: ReactNode;
+}
+
+export default function SettingsNav<Id extends string>({
+  sections,
+  current,
+  onSelect,
+  label = 'Settings sections',
+  testIdPrefix = 'settings-nav',
+  children,
+}: Props<Id>) {
   return (
-    <nav className="settings-nav" aria-label="Settings sections" data-testid="settings-nav">
+    <nav className="settings-nav" aria-label={label} data-testid={testIdPrefix}>
       {sections.map((section) => (
         <button
           key={section.id}
           type="button"
-          data-testid={`settings-nav-${section.id}`}
+          data-testid={`${testIdPrefix}-${section.id}`}
           aria-current={section.id === current ? 'page' : undefined}
           onClick={() => onSelect(section.id)}
         >
           {section.label}
         </button>
       ))}
-      <div className="settings-nav-links">
-        <Link to="/timer-check">Check the timer connection &rarr;</Link>
-        {/* The activity log (#219) spans every race and answers a question
-            nobody asks until something has already gone wrong, which is why it
-            sits with the diagnostics rather than in the race navigation. */}
-        <Link to="/activity">See what has happened &rarr;</Link>
-      </div>
+      {children && <div className="settings-nav-links">{children}</div>}
     </nav>
   );
 }

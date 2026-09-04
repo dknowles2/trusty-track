@@ -50,6 +50,9 @@ type Award {
   placeContested: Boolean!
   racingGroup: RacingGroup
   voteTally: [AwardVoteTally!]!
+  position: Int
+  passedOver: [AwardPassedOver!]!
+  duplicateOf: Award
 }
 
 input AwardInput {
@@ -65,11 +68,48 @@ input AwardInput {
   votable: Boolean! = true
 }
 
+type AwardPassedOver {
+  racerId: Int!
+  awardId: Int!
+  racer: Racer
+  award: Award
+}
+
 type AwardVoteTally {
   raceId: Int!
   racerId: Int!
   voteCount: Int!
   racer: Racer
+}
+
+type DerbynetImportGroup {
+  name: String!
+  division: String
+}
+
+type DerbynetImportPreview {
+  groups: [DerbynetImportGroup!]!
+  racers: [DerbynetImportRacer!]!
+  problems: [DerbynetImportProblem!]!
+  canImport: Boolean!
+}
+
+type DerbynetImportProblem {
+  message: String!
+  blocking: Boolean!
+  sourceId: String
+}
+
+type DerbynetImportRacer {
+  firstName: String!
+  lastName: String!
+  carNumber: Int
+  carName: String
+  carWeight: Float
+  passedInspection: Boolean!
+  group: String
+  excludedFromStandings: Boolean!
+  sourceId: String
 }
 
 type Display {
@@ -78,6 +118,9 @@ type Display {
   raceId: Int!
   view: DisplayView!
   cycleSeconds: Int!
+  scrollBehavior: ScrollBehavior!
+  showCheckedIn: Boolean!
+  qrTarget: QRTarget!
   connected: Boolean!
   assigned: Boolean!
   description: String!
@@ -95,6 +138,9 @@ enum DisplayView {
   PROJECTOR
   AWARDS
   SLIDESHOW
+  STANDINGS_ONLY
+  CHECKIN
+  QRCODE
 }
 
 type FreeRaceHeat {
@@ -113,6 +159,36 @@ type FreeRaceLaneAssignment {
 input FreeRaceLaneAssignmentInput {
   lane: Int!
   racerId: Int = null
+}
+
+type GprmImportGroup {
+  name: String!
+  division: String
+}
+
+type GprmImportPreview {
+  groups: [GprmImportGroup!]!
+  racers: [GprmImportRacer!]!
+  problems: [GprmImportProblem!]!
+  canImport: Boolean!
+}
+
+type GprmImportProblem {
+  message: String!
+  blocking: Boolean!
+  sourceId: String
+}
+
+type GprmImportRacer {
+  firstName: String!
+  lastName: String!
+  carNumber: Int
+  carName: String
+  carWeight: Float
+  passedInspection: Boolean!
+  group: String
+  excludedFromStandings: Boolean!
+  sourceId: String
 }
 
 type Heat {
@@ -256,6 +332,14 @@ type InitialConfigStatus {
   resolvedNameDisplay: String!
 }
 
+type Intermission {
+  active: Boolean!
+  remainingSeconds: Int!
+  paused: Boolean!
+  label: String
+  endsAt: String
+}
+
 type LaneResult {
   lane: Int!
   racerId: Int
@@ -300,7 +384,12 @@ type Mutation {
   createRace(race: RaceInput!): Race!
   updateRace(id: Int!, race: RaceUpdateInput!): Race
   deleteRace(id: Int!): Boolean!
-  assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null): Display
+  startIntermission(raceId: Int!, durationSeconds: Int!, label: String = null): Race!
+  extendIntermission(raceId: Int!, seconds: Int!): Race!
+  pauseIntermission(raceId: Int!): Race!
+  resumeIntermission(raceId: Int!): Race!
+  endIntermission(raceId: Int!): Race!
+  assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null, scrollBehavior: ScrollBehavior = null, showCheckedIn: Boolean = null, qrTarget: QRTarget = null): Display
   advanceDisplay(displayId: String!, delta: Int!): Display
   identifyDisplay(displayId: String!): Display
   renameDisplay(displayId: String!, name: String!): Display
@@ -354,6 +443,10 @@ type Mutation {
   populateRace(raceId: Int!, config: PopulateTestDataInput!): String!
   createPracticeRace(startNew: Boolean! = false): Race!
   importRacers(raceId: Int!, csvData: String!): Int!
+  previewGprmImport(raceId: Int!, fileData: String!): GprmImportPreview!
+  confirmGprmImport(raceId: Int!, fileData: String!): Int!
+  previewDerbynetImport(raceId: Int!, fileData: String!): DerbynetImportPreview!
+  confirmDerbynetImport(raceId: Int!, fileData: String!): Int!
   createRound(raceId: Int!, roundData: RoundCreateInput!): [Round!]!
   reorderHeats(heatUpdates: [HeatReorderItemInput!]!): HeatReorderResponse!
   applyMasterRunningOrder(raceId: Int!): HeatReorderResponse!
@@ -390,6 +483,11 @@ input PopulateTestDataInput {
   addCarPhotos: Boolean! = true
   assignRacingGroups: Boolean! = true
   checkIn: Boolean! = false
+}
+
+enum QRTarget {
+  STANDINGS
+  VOTE
 }
 
 type Query {
@@ -443,6 +541,11 @@ type Race {
   dropWorstRuns: Int!
   excludeRoundWinnersFromQualifyingStandings: Boolean!
   nameDisplay: String
+  isLocked: Boolean!
+  oneTrophyPerRacer: Boolean!
+  qrHeadline: String
+  qrWifiNote: String
+  intermission: Intermission!
   resolvedNameDisplay: String!
   terminology: Terminology!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
@@ -465,6 +568,7 @@ enum RaceChangeKind {
   ROSTER
   SCHEDULE
   RACE_SETTINGS
+  INTERMISSION
   OTHER
 }
 
@@ -481,6 +585,16 @@ input RaceInput {
   championshipTrophies: Int! = 3
   weightLimitOz: Float = null
   dropWorstRuns: Int! = 0
+  qrHeadline: String = null
+  qrWifiNote: String = null
+  racingGroups: [RacingGroupInput!]! = []
+  racingGroupSingular: String = null
+  racingGroupPlural: String = null
+  organizationSingular: String = null
+  organizationPlural: String = null
+  vehicleSingular: String = null
+  vehiclePlural: String = null
+  vehicleArtworkKey: String = null
 }
 
 type RaceStateChangedEvent {
@@ -490,6 +604,7 @@ type RaceStateChangedEvent {
   heat: Heat
   racer: Racer
   roundId: Int
+  intermission: Intermission
 }
 
 type RaceStats {
@@ -505,6 +620,7 @@ type RaceStats {
   racingGroupStats: [RacingGroupStat!]!
   heatResults: [HeatResultRow!]!
   trackRecords: [TrackRecord!]!
+  topScaleMph: Float
 }
 
 input RaceUpdateInput {
@@ -534,6 +650,10 @@ input RaceUpdateInput {
   excludeRoundWinnersFromQualifyingStandings: Boolean = null
   nameDisplay: String = null
   clearNameDisplay: Boolean! = false
+  isLocked: Boolean = null
+  oneTrophyPerRacer: Boolean = null
+  qrHeadline: String = null
+  qrWifiNote: String = null
 }
 
 type Racer {
@@ -648,6 +768,11 @@ type RunOffHeat {
   placement: Int
 }
 
+enum ScrollBehavior {
+  PAGING
+  SMOOTH
+}
+
 type SerialLogEntry {
   direction: String!
   data: String!
@@ -737,6 +862,7 @@ type TimingStatsLane {
   time: Float
   place: Int
   racerImageUrl: String
+  scaleMph: Float
 }
 
 type Track {
@@ -751,6 +877,7 @@ type Track {
   reverseLanes: Boolean!
   scaleRatio: Float!
   showScaleSpeed: Boolean!
+  laneColors: [String!]!
   laneOutages: [Int!]!
   historicalRecords: [HistoricalTrackRecord!]!
   races: [Race!]!
@@ -768,6 +895,7 @@ input TrackInput {
   reverseLanes: Boolean! = false
   scaleRatio: Float! = 25
   showScaleSpeed: Boolean! = true
+  laneColors: [String!]! = []
 }
 
 type TrackRecord {

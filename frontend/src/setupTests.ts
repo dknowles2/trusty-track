@@ -44,3 +44,32 @@ if (typeof globalThis !== 'undefined' && !globalThis.localStorage) {
         writable: false,
     });
 }
+
+// jsdom's Blob has no `stream()`. `fetch`/`Response` in vitest's jsdom
+// environment are Node's own (built on undici), and vitest's jsdom
+// environment replaces `globalThis.Blob` with jsdom's — so a `new
+// Response(someBlob)` reaches Node's fetch internals, which recognise the
+// object as a Blob (it checks `instanceof globalThis.Blob`) and read its body
+// through `.stream()`, same as a browser's Response would for a real Blob. A
+// real browser's Blob and Response always come from the same implementation
+// and so never hit this gap.
+//
+// Confirmed present under Node 22.23.1 with the jsdom and vitest versions
+// this project pins as of #690, and absent under the Node 24 CI pins — the
+// exact difference on the Node 24 side was not tracked down, only that the
+// suite is green there. A single-chunk ReadableStream over the Blob's own
+// bytes is a faithful `stream()` for anything a test does with the result —
+// reading the body's length or its full content — which is all any test here
+// needs. Delete this once the project's minimum supported Node version no
+// longer needs it (or jsdom implements `stream()` itself).
+if (typeof Blob !== 'undefined' && !Blob.prototype.stream) {
+    Blob.prototype.stream = function (this: Blob) {
+        return new ReadableStream({
+            start: async (controller) => {
+                const buffer = await this.arrayBuffer();
+                controller.enqueue(new Uint8Array(buffer));
+                controller.close();
+            },
+        });
+    } as Blob['stream'];
+}

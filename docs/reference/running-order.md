@@ -15,8 +15,8 @@ current den races.
 
 Tick **Interleave heats across every den** on the race form. It is not
 offered while creating a race — there is nothing yet to interleave — so
-create the race first and turn it on afterwards from the edit form on the
-Roster page. See [Race and track settings](race-settings.md#the-race).
+create the race first and turn it on afterwards from the **Event** section of
+the race's edit form, under the track. See [Race and track settings](race-settings.md#the-race).
 
 Turning it on renumbers nothing by itself — clicking **Apply master order**,
 below, is what weaves the heats together. What it does switch straight away

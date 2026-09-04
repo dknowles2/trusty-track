@@ -20,7 +20,7 @@ import { useRunMutation } from '../../../context/runMutation';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { errorText } from '../../../utils/errors';
 import AwardArtwork from '../artwork';
-import { carLabel, describeSpeedAward, racerLabel } from '../awardText';
+import { carLabel, describeSpeedAward, duplicateOfNote, racerLabel, rollDownNote } from '../awardText';
 import AwardForm, { AwardDraft } from '../components/AwardForm';
 import BallotShare from '../components/BallotShare';
 import {
@@ -33,6 +33,7 @@ import {
 } from '../graphql/queries';
 import { readAppTheme } from '../../../theming/appTheme';
 import { themeByKey } from '../../../theming/themes';
+import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
 type VoteTallyRow = {
   racerId: number;
@@ -61,6 +62,15 @@ type AwardRow = {
     carNumber?: number | null;
     racerImageUrl?: string | null;
   } | null;
+  /** The roll-down's own provenance (#615) — see `awardText.rollDownNote`
+   * and `duplicateOfNote`. All three are the isolated per-award answer
+   * (no explanation) whenever `Race.oneTrophyPerRacer` is off. */
+  position?: number | null;
+  passedOver?: {
+    racer?: { firstName: string; lastName: string; carNumber?: number | null } | null;
+    award?: { name: string } | null;
+  }[] | null;
+  duplicateOf?: { id: number; name: string } | null;
 };
 
 export default function Awards() {
@@ -99,6 +109,8 @@ export default function Awards() {
   const racingGroups = race?.racingGroups ?? [];
   const racers = race?.racers ?? [];
   const votingOpen = race?.votingOpen ?? false;
+  const raceLocked = race?.isLocked ?? false;
+  const lockedTitle = RACE_LOCKED_MESSAGE;
   // The ballot shows every car's photo (or a gray placeholder where there is
   // none) beside a name and number — for an award about the car's looks, a
   // room of placeholders is worse than no ballot at all (#419). The operator
@@ -237,11 +249,23 @@ export default function Awards() {
           <Link to={`/race/${id}/print/certificates`} className="secondary-btn">
             Print certificates
           </Link>
-          <button type="button" className="primary-btn" onClick={() => setAdding(true)}>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => setAdding(true)}
+            disabled={raceLocked}
+            title={raceLocked ? lockedTitle : undefined}
+          >
             Add an award
           </button>
         </div>
       </div>
+
+      {raceLocked && (
+        <StatusBanner tone="neutral" style={{ marginBottom: '1.5rem' }}>
+          {lockedTitle}
+        </StatusBanner>
+      )}
 
       {awards.length > 0 && (
         <StatusBanner tone={votingOpen ? 'active' : 'neutral'} style={{ marginBottom: '1.5rem' }}>
@@ -249,6 +273,8 @@ export default function Awards() {
             type="button"
             className={votingOpen ? 'secondary-btn' : 'primary-btn'}
             onClick={toggleVoting}
+            disabled={raceLocked}
+            title={raceLocked ? lockedTitle : undefined}
           >
             {votingOpen ? 'Close voting' : 'Open voting'}
           </button>
@@ -301,7 +327,7 @@ export default function Awards() {
                 type="button"
                 className="secondary-btn"
                 aria-label={`Move ${award.name} earlier`}
-                disabled={index === 0}
+                disabled={index === 0 || raceLocked}
                 onClick={() => move(index, -1)}
                 style={{ padding: '2px 6px' }}
               >
@@ -311,7 +337,7 @@ export default function Awards() {
                 type="button"
                 className="secondary-btn"
                 aria-label={`Move ${award.name} later`}
-                disabled={index === awards.length - 1}
+                disabled={index === awards.length - 1 || raceLocked}
                 onClick={() => move(index, 1)}
                 style={{ padding: '2px 6px' }}
               >
@@ -334,6 +360,22 @@ export default function Awards() {
                   ? describeSpeedAward(award, rounds, racingGroups, groupLower)
                   : 'Chosen by the judges'}
               </div>
+              {/* The roll-down's own explanation (#615) — a trophy that
+                  did not go to the standings' own Nth place, or a judged
+                  pick that collides with a speed trophy the same racer
+                  already holds. Neither fires while
+                  `Race.oneTrophyPerRacer` is off. */}
+              {(() => {
+                const note =
+                  award.kind === 'SPEED'
+                    ? rollDownNote(award, award.position, award.passedOver ?? [])
+                    : duplicateOfNote(award.duplicateOf);
+                return note ? (
+                  <div style={{ color: 'var(--warning-soft-color)', fontSize: '0.8rem', marginTop: '0.15rem' }}>
+                    {note}
+                  </div>
+                ) : null;
+              })()}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
@@ -386,6 +428,8 @@ export default function Awards() {
               className="secondary-btn"
               aria-label={`Edit ${award.name}`}
               onClick={() => setEditing(award)}
+              disabled={raceLocked}
+              title={raceLocked ? lockedTitle : undefined}
             >
               <Icon path={mdiPencil} size={0.8} />
             </button>
@@ -394,6 +438,8 @@ export default function Awards() {
               className="secondary-btn"
               aria-label={`Delete ${award.name}`}
               onClick={() => handleDelete(award)}
+              disabled={raceLocked}
+              title={raceLocked ? lockedTitle : undefined}
             >
               <Icon path={mdiTrashCan} size={0.8} />
             </button>
@@ -420,6 +466,8 @@ export default function Awards() {
                       className="secondary-btn"
                       style={{ marginLeft: '0.4rem', padding: '0.1rem 0.4rem' }}
                       onClick={() => applyTallyWinner(award, row.racerId)}
+                      disabled={raceLocked}
+                      title={raceLocked ? lockedTitle : undefined}
                     >
                       Use this result
                     </button>
@@ -437,6 +485,7 @@ export default function Awards() {
           rounds={rounds}
           racingGroups={racingGroups}
           racers={racers}
+          awards={awards}
           submitLabel="Add award"
           onSubmit={handleCreate}
           onCancel={() => setAdding(false)}
@@ -464,6 +513,8 @@ export default function Awards() {
             rounds={rounds}
             racingGroups={racingGroups}
             racers={racers}
+            awards={awards}
+            excludeAwardId={editing.id}
             submitLabel="Save changes"
             onSubmit={handleUpdate}
             onCancel={() => setEditing(null)}

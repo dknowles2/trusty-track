@@ -2,6 +2,7 @@ import enum
 from typing import Optional
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Float,
     ForeignKey,
@@ -332,6 +333,20 @@ class Track(Base):
     show_scale_speed: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
     )
+    #: The colour painted on each physical lane, if any (#611). One hex
+    #: string per lane, index 0 meaning lane 1 — see
+    #: `domain.lane_colors.color_for_lane`, which is the only rule that
+    #: reads this column; the module docstring there explains why no
+    #: `reverse_lanes` translation belongs at this lookup. A JSON array
+    #: rather than a comma-separated string in a `String` column — the
+    #: shape issue #5 spent a release removing — so SQLAlchemy's `JSON`
+    #: type round-trips a plain `list[str]` with no hand-rolled
+    #: (de)serialization. The default empty list means no lane has a
+    #: configured colour, matching every track before this column existed;
+    #: a blank entry at a given index means the same for that one lane.
+    lane_colors: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=list, server_default="[]"
+    )
 
     races: Mapped[list["Race"]] = relationship("Race", back_populates="track")
     lane_outages: Mapped[list["LaneOutage"]] = relationship(
@@ -522,6 +537,72 @@ class Race(Base):
     #: (#17): a corrected final-round time has to move who is excluded, not
     #: leave a stale answer behind.
     exclude_round_winners_from_qualifying_standings: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    #: The near-universal pack rule: a racer who already holds a trophy is
+    #: skipped when resolving a later one, so a den speed trophy "rolls
+    #: down" to the next fastest car once its own winner has already taken
+    #: the pack championship (#615). See `domain/roll_down.py` for the whole
+    #: rule and why it is computed fresh on every read rather than stored —
+    #: the same reasoning as every other award and standing in this file.
+    #: Off by default, so an upgraded install keeps resolving every award in
+    #: isolation exactly as it always has.
+    one_trophy_per_racer: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    #: Custom call-to-action text for the full-screen `QRCODE` audience
+    #: display view (#614), e.g. "Scan to Vote for Best in Show!". Null or
+    #: empty means no override — the screen falls back to a default derived
+    #: from what the code points at (`qrCode.ts`'s `resolveQrHeadline`).
+    #: No server default: a race created before this column existed has
+    #: nothing to fall back from but the derived default, which is exactly
+    #: what it should show.
+    qr_headline: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: Optional venue Wi-Fi guidance shown under the QR code (#614), e.g.
+    #: "Connect to Pack 123 Guest Wi-Fi" — a plain free-text line, not a
+    #: separate SSID/password pair, since the operator is typing a sentence
+    #: for a phone screen to read, not configuring a router. Null shows
+    #: nothing, which is most venues: open wifi, or none worth mentioning.
+    qr_wifi_note: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: A race-scoped break, on the fly or from the round-summary modal's
+    #: "Take a break" row (#592). Stored, not in-memory like a `Display`
+    #: `Assignment` — an intermission describes the *race*, and every screen
+    #: watching it (including the operator's own laptop) has to agree after a
+    #: refresh. See `domain/intermission.py` for the whole rule; these three
+    #: columns are exactly its `State`.
+    #:
+    #: `ends_at` is set while the countdown is running, ISO 8601 UTC like
+    #: `Heat.recorded_at` — a plain string rather than a DateTime column, for
+    #: the same reason: it matches every other timestamp already stored this
+    #: way, and a client computes its own live countdown from it rather than
+    #: polling. Null means either "no intermission" or "paused" — which one
+    #: is `paused_remaining_seconds` below.
+    intermission_ends_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: What the break is called ("Snack break", "Track maintenance"),
+    #: optional either way. Cleared whenever the intermission ends, so a
+    #: stale label cannot resurface on the next one.
+    intermission_label: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: Set instead of `intermission_ends_at` while paused: there is nothing
+    #: counting down for a client to compute against, so the remaining time
+    #: is stored directly. Exactly one of the two is ever non-null while an
+    #: intermission is in progress; both are null when there is none. See
+    #: `domain.intermission` for why this is a second representation rather
+    #: than a boolean flag beside `ends_at`.
+    intermission_paused_remaining_seconds: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    #: Once an event has concluded, the operator can lock its race to guard
+    #: against an accidental edit — a stray tap on a shared tablet weeks
+    #: later, not a person with something to hide (#585). Enforced by
+    #: `api.race_lock.RaceLockExtension`, a third schema extension beside the
+    #: role policy and the demo policy: reads and the handful of mutations
+    #: that are about screens rather than the record (`castVote`, the display
+    #: mutations) stay open, and `updateRace` itself is allowed only when the
+    #: payload does nothing but flip this flag back off — see that module for
+    #: the full allowed-while-locked list and why. Off by default, so every
+    #: race that existed before this column did reads exactly as it did
+    #: before.
+    is_locked: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
 

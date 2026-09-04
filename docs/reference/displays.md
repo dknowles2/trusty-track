@@ -4,7 +4,7 @@ What a screen on the wall can show, and how telling it what to show works.
 For the setup walkthrough, see the
 [Observation Displays guide](../observation-displays.md).
 
-## The six views
+## The nine views
 
 Every screen with the Live page open can be switched between these, from
 **Race Control → Displays** or by its own URL:
@@ -16,6 +16,9 @@ Every screen with the Live page open can be switched between these, from
 | **Cycle between both** | Standings and last heat's times, alternating on a timer you set |
 | **Projector** | The full-screen, high-contrast layout: the live heat large on the left, top five standings on the right, and a brief results overlay after each heat |
 | **Racer photos** | A slideshow of the check-in photos: headshot, car, name, number, den |
+| **Standings only** | The leaderboard alone, filling the whole screen — no Now Racing / On Deck panels. For a pack whose standings are too long to share the screen with anything else |
+| **Check-in progress** | Who has checked in and who has not, grouped by den, on a screen at the entrance or the gym wall — see [below](#check-in-progress) |
+| **QR code** | A large, scannable code that opens this race on a phone — see [below](#qr-code) |
 | **Awards ceremony** | The [ceremony](../awards.md#announcing-them), one award at a time. Unlike every other view, it only moves when a person does — either at the screen, or with the **‹** and **›** buttons on its row in the operator's list |
 
 **The ceremony only appears once you have awards.** A race with none is not
@@ -37,11 +40,49 @@ carry a banner, in the [theme](themes.md)'s own accent colour, naming the new
 time and the record it beat. It fires only for a record that stood before
 today's race.
 
+When a track has [scale speed](race-settings.md#scale-speed) turned on, the
+Projector view's results overlay and the Last heat's times view show it
+too — a rough real-world MPH beside each recorded time, worked out from the
+track's own length and scale ratio. A track with no length recorded, or
+with scale speed turned off, shows the time alone.
+
+### Lane colours
+
+Set [lane colours](race-settings.md#lane-colours) on the track's own card in
+System Settings and a small coloured dot appears beside every "Lane N" label
+on these screens — the Standings view's Now Racing / On Deck / After That
+cards, and the Projector view's own line-up. It matches whatever a lane is
+called in the app, not the timer's own wiring: on a track whose timer cable
+is [reversed](timers.md#reverse-lane-numbering), the dot still follows the
+track's own lane number, the one painted on the ground.
+
+The dot is always beside the lane number, never a fill behind it — a filled
+badge would fight whichever [theme](themes.md) a screen is set to, so the
+number stays readable either way. A track with no colours configured shows
+the lane number alone, exactly as every track always has.
+
 The colours every screen here uses — including the projector's high-contrast
 dark background — come from whichever [theme](themes.md) Display is set to
 in System Settings, not a fixed palette.
 
-Notes on two of them:
+## Taking a break
+
+A break called from Race Control (see
+[Taking a Break](../race-day.md#taking-a-break)) takes over every screen
+showing this race, whichever of the eight views above it was on — a break is
+a fact about the race, not about which view a display happened to be
+assigned.
+Each screen shows a countdown, the break's name (or "Intermission" if none
+was given), and a faint preview of the next heat's line-up, so a room that
+has wandered off to the snack table still knows roughly when to come back and
+for what.
+
+The overlay clears itself the instant the countdown reaches zero, or sooner
+if the operator clicks **End now** — there is nothing to acknowledge on the
+display's own end. A paused break shows the time it was paused at rather than
+counting down.
+
+Notes on five of them:
 
 - **Racer photos** goes in car number order rather than shuffling. Families
   are watching for their own child, and in order everybody comes round once
@@ -50,8 +91,50 @@ Notes on two of them:
   display's row — about five suits a small pack.
 - **Projector** hides the app's navigation entirely, whichever way it was
   reached.
+- **Standings only** moves through a leaderboard too long for one screen in
+  one of two ways, chosen on the display's own row next to the seconds
+  control: **Page cycling** flips to the next page after that many seconds,
+  and **Auto-scroll** scrolls the whole list smoothly from top to bottom,
+  pausing briefly at each end, over that many seconds per pass. Both keep
+  going for as long as the screen is left open — walking away for an hour
+  and coming back does not leave the list stuck partway through or drifted
+  off schedule.
+- **Check-in progress** groups the roster by den, each with a progress bar
+  and the count of cars still to come — see the next section.
+- **QR code** points a phone at this race's own Live page by default, or at
+  the [voting ballot](../awards.md#letting-people-vote) if you switch its row to **Voting
+  ballot** — see the section after Check-in progress below.
 
-## Shortening a racer's name
+## Check-in progress
+
+The gym-wall answer to "are there any more Wolves who haven't checked in?" —
+one card per den, a progress bar and a count for each, and the cars still
+pending listed by number and name underneath. It reads live off the same
+check-in status the roster's own **Checked In / Edit** button sets, so a car
+checked in at the desk drops off this screen within a second or two, on
+every screen assigned to it.
+
+**List everybody, or pending only.** By default a den's card lists every
+car, a small ✓ against the ones already through. A large pack can switch a
+screen to **Pending only** on its row in the Displays panel — the same
+control **Standings only**'s paging/auto-scroll choice sits next to — which
+drops the checked-in rows entirely and keeps the card down to the cars still
+needed at the scale.
+
+**Before anyone is registered, it says so** rather than showing an empty
+grid of dens. Once every registered car is through, it says that too — "All
+42 checked in!" — instead of leaving an empty list where the missing names
+used to be.
+
+**It keeps working once racing starts, quieter rather than gone.** A car
+can arrive after the first heat and still join the schedule (see
+[Mid-race changes](mid-race-changes.md)), so this screen has no reason to
+disappear the moment racing begins — nothing on it could switch itself away
+even if it should, since a display holds no PIN and can be told what to show
+only from Race Control (see "How assignment works" below). Once the first
+heat is recorded it shows a small note that racing is underway and cars can
+still check in at the desk, and shrinks its own type a little to say, without
+words, that the room's attention has moved on.
 
 These screens are on a gym wall, in a room open to whoever walked in — worth
 knowing if a child's full name showing there is a concern. **Names on public
@@ -61,6 +144,42 @@ every view above, and the same choice hides a racer's own photo when it is
 set to anything but the default — see
 [Race and track settings](race-settings.md#names-on-public-screens) for the
 three choices and exactly where each one reaches.
+
+## QR code
+
+The answer to getting fifty parents in a crowded gym onto the right address
+without walking around holding up a laptop screen: a large, high-contrast
+code they can scan from their own seats, with the address printed underneath
+for anyone whose camera cannot read it.
+
+**Points at this race's own Live page by default.** Switch a screen's row to
+**Voting ballot** instead and it points at the [voting page](../awards.md#letting-people-vote)
+— the same address the Awards page's own **Copy** button and QR code share
+— so a screen at the entrance can invite people to follow along, and the
+same screen (or a second one) can be switched over once judging opens.
+
+**The address is worked out the same way the Awards page's ballot share
+step already does it.** The browser running Trusty Track usually shows
+`localhost`, which means nothing to a phone on the venue wifi — Trusty Track
+substitutes this machine's own network address instead, and says so plainly
+if it could not find one to substitute (try typing the printed address into
+a phone's browser to check it works before relying on it).
+
+**A headline and a Wi-Fi line, both optional**, set on the race's own edit
+form (**Edit race** from Home, or **Edit Details** on the Roster page):
+
+- **QR code headline** — the call-to-action above the code, e.g. *"Scan to
+  Vote for Best in Show!"* or *"See Live Results on Your Phone"*. Left
+  blank, the screen shows a sensible default depending on which page the
+  code opens.
+- **Venue Wi-Fi guidance** — a line under the address, e.g. *"Connect to the
+  guest Wi-Fi first"*. Left blank, nothing is shown — most venues have open
+  wifi or none worth mentioning.
+
+**A shortcut from the Awards page.** The Voting panel's **Project QR code**
+button opens a brand-new display window already pointed at the ballot — for
+when the screen you want to use is not already open, or you would rather not
+hunt for it in the Displays list first.
 
 ## Names, and telling one screen from another
 

@@ -3,18 +3,33 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useSubscription, useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import RacerAvatar from '../../management/components/RacerAvatar';
+import LaneBadge from '../../../components/ui/LaneBadge';
+import { colorForLane } from '../../settings/laneColors';
 import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline, mdiVideo } from '@mdi/js';
 import { TimerStatusBadge } from '../../racing/components/TimerStatusBadge';
 import PhotoSlideshow from '../components/PhotoSlideshow';
+import StandingsOnlyView from '../components/StandingsOnlyView';
+import CheckInDisplayView from '../components/CheckInDisplayView';
+import QRCodeDisplayView from '../components/QRCodeDisplayView';
 import { displayId, startDeviceClaimHeartbeat } from '../displayIdentity';
 import { useChrome } from '../../../context/ChromeContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { formatDisplayName, shouldShowRacerPhoto } from '../../core/displayName';
-import { readUrl, resolveView } from '../displayView';
+import {
+  readUrl,
+  resolveView,
+  DEFAULT_SCROLL_BEHAVIOR,
+  DEFAULT_SHOW_CHECKED_IN,
+  DEFAULT_QR_TARGET,
+} from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
+import { formatScaleMph } from '../scaleSpeed';
 import { runOffAnnouncement } from '../../racing/runOff';
 import IdentifyPresence from '../IdentifyPresence';
+import IntermissionOverlay from '../components/IntermissionOverlay';
+import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
+import { isLiveActive, NONE as NO_INTERMISSION, type IntermissionData } from '../../racing/intermission';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 import { resolveDisplayTheme } from '../../../theming/applyTheme';
 import type { SurfaceThemeSetting } from '../../../theming/themes';
@@ -33,8 +48,22 @@ const GET_INITIAL_DATA = `
       id
       scoringStrategy
       resolvedNameDisplay
+      qrHeadline
+      qrWifiNote
+      intermission {
+        active
+        remainingSeconds
+        paused
+        label
+        endsAt
+      }
       track {
         id
+        # This track's configured lane colours, for the badge beside every
+        # lane number on the Now Racing / On Deck cards and in projector
+        # mode. Empty when the operator has never opened the picker on the
+        # track's card.
+        laneColors
       }
       racers {
         id
@@ -45,6 +74,7 @@ const GET_INITIAL_DATA = `
         carImageUrl
         carName
         racingGroupId
+        carPassedInspection
       }
       racingGroups {
         id
@@ -76,7 +106,7 @@ export default function Observation() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const id = parseInt(raceId || '0');
-  const { vehicle } = useTerminology();
+  const { vehicle, group } = useTerminology();
 
   // This screen's identity, and what it has been told to show (#174). The
   // subscription is also how the display registers itself: it holds no PIN and
@@ -104,7 +134,13 @@ export default function Observation() {
         // as an instruction overrides the URL on every screen the moment it
         // connects — which is the fallback this feature depends on.
         assignment?.assigned
-          ? { view: assignment.view, cycleSeconds: assignment.cycleSeconds }
+          ? {
+              view: assignment.view,
+              cycleSeconds: assignment.cycleSeconds,
+              scrollBehavior: assignment.scrollBehavior ?? DEFAULT_SCROLL_BEHAVIOR,
+              showCheckedIn: assignment.showCheckedIn ?? DEFAULT_SHOW_CHECKED_IN,
+              qrTarget: assignment.qrTarget ?? DEFAULT_QR_TARGET,
+            }
           : null,
         urlIntent,
         id,
@@ -127,6 +163,7 @@ export default function Observation() {
       racerImageUrl?: string;
       carName?: string;
       time: number | null;
+      scaleMph?: number | null;
     }[];
     recordBreak?: RecordBreak | null;
   } | null>(null);
@@ -164,7 +201,12 @@ export default function Observation() {
   // one of them (#175) — it fills the viewport, and a scrollbar down the side
   // of a photo on a projector is exactly the sort of thing nobody notices
   // until the room is full.
-  const isFullScreenView = isProjectorMode || behaviour.slideshow;
+  const isFullScreenView =
+    isProjectorMode ||
+    behaviour.slideshow ||
+    behaviour.standingsOnly ||
+    behaviour.checkin ||
+    behaviour.qrcode;
 
   // Tell the app's furniture to get out of the way. `Navigation` cannot work
   // this out for itself any more: an assigned view changes no URL, so before
@@ -186,13 +228,33 @@ export default function Observation() {
   }, [isFullScreenView]);
 
   // Initial query for static-ish data (racers)
-  const [initialResult] = useQuery({
+  const [initialResult, reExecuteInitial] = useQuery({
     query: GET_INITIAL_DATA,
     variables: { id },
     pause: !id || isNaN(id),
   });
 
   const { data: initialData } = initialResult;
+
+  // Intermissions (#592) ride the same `race_state:{raceId}` channel every
+  // other race-level change already publishes on — no new subscription
+  // socket for this screen, just this page's usual "something changed,
+  // re-read" hook pointed at the query that already carries `intermission`.
+  useRaceStateChanged(id, () => reExecuteInitial({ requestPolicy: 'network-only' }));
+
+  const intermission: IntermissionData = initialData?.race?.intermission ?? NO_INTERMISSION;
+
+  // Ticks the overlay's countdown once a second while it is actually
+  // running — not while paused, where nothing is counting down and there
+  // is nothing to re-render for.
+  const [, setIntermissionTick] = useState(0);
+  useEffect(() => {
+    if (!intermission.active || intermission.paused) return;
+    const timer = setInterval(() => setIntermissionTick((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, [intermission.active, intermission.paused, intermission.endsAt]);
+
+  const intermissionActive = isLiveActive(intermission, new Date());
 
   // The Display surface's theme (#498) — this whole page, projector mode or
   // not, is the audience-facing surface the spec means by "Display". Every
@@ -289,6 +351,7 @@ export default function Observation() {
     racerImageUrl?: string;
     carName?: string;
     racingGroupId?: number | null;
+    carPassedInspection?: boolean;
   }
 
   const racersMap = useMemo(() => {
@@ -331,6 +394,11 @@ export default function Observation() {
   // is exactly what every install showed before this setting existed, so
   // there is nothing to do while the query is still in flight.
   const nameDisplay = initialData?.race?.resolvedNameDisplay ?? 'FULL';
+  // This track's configured lane colours (#611) — read once here and passed
+  // to both `renderHeatCard` and `renderProjectorRacers` rather than each
+  // re-deriving it, the same "resolve once, pass down" shape `nameDisplay`
+  // itself uses on this page.
+  const laneColors = initialData?.race?.track?.laneColors ?? [];
   const scoreLabel = scoringStrategy === 'TIMED' ? 'Avg Time' : 'Points';
   const formatScore = (score: number) =>
     scoringStrategy === 'TIMED' ? `${score.toFixed(4)}s` : score.toString();
@@ -397,6 +465,30 @@ export default function Observation() {
 
   if (!id || isNaN(id)) return <div className="container" style={{ padding: '20px' }}>Invalid Race ID</div>;
 
+  // The break screen takes over the whole display, whatever view it was
+  // assigned (#592) — a break is a fact about the race, not about which of
+  // standings/timing/projector/slideshow/standings-only a screen happened to
+  // be showing when the operator called it. `IdentifyPresence` is skipped
+  // here: flashing a display's name over a countdown the room is trying to
+  // read is a second-order concern this issue does not cover.
+  if (intermissionActive) {
+    return (
+      <div className="container projector-mode" data-theme={displayThemeKey} style={displayThemeStyle}>
+        <IntermissionOverlay
+          intermission={intermission}
+          nextUpRacers={nextHeatRacers.map(({ lane, racer }) => ({
+            lane,
+            firstName: racer.firstName,
+            lastName: racer.lastName,
+            carNumber: racer.carNumber,
+          }))}
+          nextUpInfo={onDeckHeat ? `Round ${onDeckHeat.roundNumber}, Heat ${onDeckHeat.globalHeatNumber ?? onDeckHeat.heatNumber}` : null}
+          vehicleLabel={vehicle}
+        />
+      </div>
+    );
+  }
+
   const renderHeatCard = (title: string, entries: LaneEntry[], isNext: boolean = false, iconPath?: string, heatInfo?: string, exhibition?: boolean) => {
     const isEmpty = entries.length === 0;
 
@@ -449,7 +541,13 @@ export default function Observation() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px' }}>
             {entries.map(({ lane, racer }: LaneEntry) => (
               <div key={lane} className="heat-card-racer" style={{ textAlign: 'center', padding: '10px', background: 'var(--display-card-bg-color)', borderRadius: '8px' }}>
-                <div className="heat-card-lane" style={{ fontWeight: 'bold', marginBottom: '5px', color: 'var(--display-text-subtle-color)' }}>Lane {lane}</div>
+                <LaneBadge
+                  color={colorForLane(laneColors, lane)}
+                  className="heat-card-lane"
+                  style={{ justifyContent: 'center', fontWeight: 'bold', marginBottom: '5px', color: 'var(--display-text-subtle-color)' }}
+                >
+                  Lane {lane}
+                </LaneBadge>
                 <RacerAvatar
                   racer={{
                     id: racer.id,
@@ -530,6 +628,9 @@ export default function Observation() {
               </div>
               <div className="overlay-time">
                 {lane.time?.toFixed(3)}s
+                {formatScaleMph(lane.scaleMph) && (
+                  <span className="overlay-scale-mph"> · {formatScaleMph(lane.scaleMph)}</span>
+                )}
               </div>
             </div>
           ))}
@@ -556,6 +657,113 @@ export default function Observation() {
           intervalMs={behaviour.cycleMs}
           loading={initialResult.fetching && !initialData}
           nameDisplay={nameDisplay}
+        />
+      </div>
+    );
+  }
+
+  // --- STANDINGS ONLY (#663) ---
+  // The leaderboard, full-screen — no Now Racing / On Deck panels, for a pack
+  // whose standings do not fit alongside them. Ahead of the standard mode
+  // render for the same reason the slideshow is: this is a view of its own,
+  // not a tab within the usual layout.
+  if (behaviour.standingsOnly) {
+    return (
+      <div
+        className="container projector-mode"
+        data-theme={displayThemeKey}
+        style={{
+          maxWidth: '100%',
+          padding: 0,
+          background: 'var(--display-bg-color)',
+          color: 'var(--display-text-color)',
+          ...displayThemeStyle,
+        }}
+      >
+        <IdentifyPresence assignment={assignment} />
+        <StandingsOnlyView
+          standings={standings}
+          racersMap={racersMap}
+          nameDisplay={nameDisplay}
+          scoreLabel={scoreLabel}
+          formatScore={formatScore}
+          vehicle={vehicle}
+          scrollBehavior={behaviour.scrollBehavior}
+          cycleMs={behaviour.cycleMs}
+        />
+      </div>
+    );
+  }
+
+  // --- CHECK-IN (#612) ---
+  // Who has checked in and who has not, grouped by racing group — for the
+  // entrance or the gym wall before racing starts. Ahead of the standard mode
+  // render for the same reason every other full-screen view here is: this is
+  // a view of its own, not a tab within the usual layout.
+  if (behaviour.checkin) {
+    return (
+      <div
+        className="container projector-mode"
+        data-theme={displayThemeKey}
+        style={{
+          maxWidth: '100%',
+          padding: 0,
+          background: 'var(--display-bg-color)',
+          color: 'var(--display-text-color)',
+          ...displayThemeStyle,
+        }}
+      >
+        <IdentifyPresence assignment={assignment} />
+        <CheckInDisplayView
+          racers={(initialData?.race?.racers ?? []).map((r: Racer) => ({
+            id: r.id,
+            firstName: r.firstName,
+            lastName: r.lastName,
+            carNumber: r.carNumber ?? null,
+            carPassedInspection: !!r.carPassedInspection,
+            racingGroupId: r.racingGroupId,
+          }))}
+          racingGroups={initialData?.race?.racingGroups ?? []}
+          nameDisplay={nameDisplay}
+          groupWord={group}
+          showCheckedIn={behaviour.showCheckedIn}
+          // Racing "beginning" is the first heat's result landing — the same
+          // signal `timingStats` (`lastHeatResults`) already carries for the
+          // Last Heat's Times tab, so this costs no extra query. Once true
+          // the screen de-emphasizes itself rather than hiding: a latecomer
+          // can still check in (#172), and nothing on a VIEWER-held screen
+          // can call `assignDisplay` to switch itself away (#15).
+          racingHasBegun={!!lastHeatResults}
+          loading={initialResult.fetching && !initialData}
+        />
+      </div>
+    );
+  }
+
+  // --- QR CODE (#614) ---
+  // A large, scannable code that opens this race on a phone — for a gym wall
+  // or an auxiliary TV during check-in or intermission. Ahead of the standard
+  // mode render for the same reason every other full-screen view here is:
+  // this is a view of its own, not a tab within the usual layout.
+  if (behaviour.qrcode) {
+    return (
+      <div
+        className="container projector-mode"
+        data-theme={displayThemeKey}
+        style={{
+          maxWidth: '100%',
+          padding: 0,
+          background: 'var(--display-bg-color)',
+          color: 'var(--display-text-color)',
+          ...displayThemeStyle,
+        }}
+      >
+        <IdentifyPresence assignment={assignment} />
+        <QRCodeDisplayView
+          raceId={id}
+          target={behaviour.qrTarget}
+          headline={initialData?.race?.qrHeadline}
+          wifiNote={initialData?.race?.qrWifiNote}
         />
       </div>
     );
@@ -808,6 +1016,15 @@ export default function Observation() {
                       </div>
                       <div className="timing-time" style={{ fontSize: '2.5rem', fontWeight: 'bold', fontFamily: 'monospace' }}>
                         {lane.time?.toFixed(3)}s
+                        {formatScaleMph(lane.scaleMph) && (
+                          <span
+                            className="timing-scale-mph"
+                            style={{ fontSize: '1.2rem', fontWeight: 'normal', color: 'var(--display-text-muted-color)' }}
+                          >
+                            {' '}
+                            · {formatScaleMph(lane.scaleMph)}
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -858,9 +1075,12 @@ export default function Observation() {
 
             {/* Priority 3: Lane Number (Only prominent for Now Racing, very small or omitted for On Deck) */}
             <div className="projector-racer-lane-car" style={{ marginTop: '1.5vmin', display: 'flex', flexDirection: 'column', gap: '0.5vmin' }}>
-              <div style={{ color: isNowRacing ? 'var(--display-text-dim-color)' : 'var(--display-placeholder-color)', fontSize: isNowRacing ? '2.5vmin' : '1.8vmin', fontWeight: isNowRacing ? 'bold' : 'normal' }}>
+              <LaneBadge
+                color={colorForLane(laneColors, lane)}
+                style={{ justifyContent: 'center', color: isNowRacing ? 'var(--display-text-dim-color)' : 'var(--display-placeholder-color)', fontSize: isNowRacing ? '2.5vmin' : '1.8vmin', fontWeight: isNowRacing ? 'bold' : 'normal' }}
+              >
                 Lane {lane}
-              </div>
+              </LaneBadge>
               {racer.carNumber && (
                 <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
                   {vehicle} #{racer.carNumber}

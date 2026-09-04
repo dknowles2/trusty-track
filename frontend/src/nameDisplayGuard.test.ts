@@ -67,6 +67,8 @@ const ABBREVIATING_SURFACES: Record<string, string> = {
         'The certificates.',
     'features/stats/standingsExport.ts':
         "The standings CSV export — named explicitly as the issue's one export.",
+    'features/observation/components/CheckInDisplayView.tsx':
+        'The check-in progress kiosk (#612) — a screen for the entrance or the gym wall, on the same public display route as the rest of Observation.tsx.',
 };
 
 /**

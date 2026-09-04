@@ -13,6 +13,9 @@ export const RACE_AWARDS_QUERY = gql`
       id
       name
       votingOpen
+      # Whether the race is locked against further edits (#585) — disables
+      # the award editor.
+      isLocked
       resolvedNameDisplay
       awards {
         id
@@ -45,6 +48,28 @@ export const RACE_AWARDS_QUERY = gql`
             carNumber
             carName
           }
+        }
+        # The roll-down's own provenance (#615) — null/empty whenever
+        # oneTrophyPerRacer is off, since then this is the isolated
+        # per-award answer with nothing to explain.
+        position
+        passedOver {
+          racerId
+          awardId
+          racer {
+            id
+            firstName
+            lastName
+            carNumber
+          }
+          award {
+            id
+            name
+          }
+        }
+        duplicateOf {
+          id
+          name
         }
       }
       rounds {
@@ -156,7 +181,7 @@ export const CAST_VOTE_MUTATION = gql`
  * `window.location.origin` is `localhost` on the machine running Trusty
  * Track, which no phone in the room can open — the backend is the thing
  * bound to the network, so it is asked instead. See
- * `features/awards/shareAddress.ts`.
+ * `features/core/shareAddress.ts`.
  */
 export const NETWORK_ADDRESSES_QUERY = gql`
   query NetworkAddresses {

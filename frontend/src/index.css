@@ -936,6 +936,16 @@ input:checked + .slider:before {
   color: var(--display-accent-color);
 }
 
+/* The scale speed riding alongside a lane's time (#610) — a fraction of the
+   time's own size, since the time is the number this overlay exists to
+   announce and the speed is the fact that makes it fun. */
+.overlay-scale-mph {
+  font-size: 2.2vmin;
+  font-weight: 700;
+  font-family: sans-serif;
+  color: var(--display-text-muted-color);
+}
+
 /* Overlay Avatar */
 .overlay-result-item img,
 .overlay-result-item div[style*="border-radius: 50%"] {
@@ -1205,4 +1215,27 @@ input:checked + .slider:before {
   font-size: 1.1rem;
   line-height: 1;
   color: var(--text-muted-color);
+}
+
+/*
+ * The race form's own use of the settings layout (#587). The same nav and
+ * the same one-section-at-a-time rule as System Settings, but inside a modal
+ * rather than a page: there is less room, so the nav column is narrower and
+ * the gap tighter, and the content column takes whatever is left rather
+ * than the page's 600px cap.
+ */
+.race-form-layout {
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.race-form-layout .settings-section {
+  max-width: none;
+}
+
+@media screen and (max-width: 768px) {
+  .race-form-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
 }

@@ -18,6 +18,10 @@ export const GET_RACE_DETAILS = gql`
       globalStartNumber
       championshipTrophies
       weightLimitOz
+      # The full-screen QR code display view's own text (#614) —
+      # RaceForm's optional headline/Wi-Fi-note inputs read these back.
+      qrHeadline
+      qrWifiNote
       # One interleaved running order across racing groups, rather than a
       # block per group (#549 stage 4) — RaceForm's checkbox for it.
       masterRunningOrder
@@ -32,12 +36,17 @@ export const GET_RACE_DETAILS = gql`
       # toward the standings they qualified from (#548) — the race form's
       # checkbox for it.
       excludeRoundWinnersFromQualifyingStandings
+      # At most one trophy per racer (#615) — RaceForm's checkbox for it.
+      oneTrophyPerRacer
       # A per-race override of how much of a racer's name a public screen
       # may show (#552), null where this race inherits the organization's
       # setting — the raw column RaceForm's checkbox reads, mirroring the
       # terminology overrides above.
       nameDisplay
       resolvedNameDisplay
+      # Whether the race is locked against further edits (#585) — gates the
+      # roster toolbar and drives the "Locked" badge.
+      isLocked
       registeredCount
       checkedInCount
       racingGroups {
@@ -120,6 +129,8 @@ export const UPDATE_RACE = gql`
       globalStartNumber
       championshipTrophies
       weightLimitOz
+      qrHeadline
+      qrWifiNote
       masterRunningOrder
       racingGroupSingular
       racingGroupPlural
@@ -129,6 +140,7 @@ export const UPDATE_RACE = gql`
       vehiclePlural
       vehicleArtworkKey
       excludeRoundWinnersFromQualifyingStandings
+      oneTrophyPerRacer
       # Same shape and same reason as the terminology pair below (#552):
       # the raw column is what the form edits, and resolvedNameDisplay is
       # what every abbreviating surface actually reads — without it,
@@ -199,6 +211,84 @@ export const IMPORT_RACERS = gql`
   }
 `;
 
+// A GrandPrix Race Manager database import (#618). Preview parses an
+// uploaded file and writes nothing; confirm re-parses the identical upload
+// and writes it -- there is no session on the server holding the file
+// between the two calls, so `fileData` is sent again rather than trusted
+// back from a previous response.
+export const PREVIEW_GPRM_IMPORT = gql`
+  mutation PreviewGprmImport($raceId: Int!, $fileData: String!) {
+    previewGprmImport(raceId: $raceId, fileData: $fileData) {
+      canImport
+      groups {
+        name
+        division
+      }
+      racers {
+        firstName
+        lastName
+        carNumber
+        carName
+        carWeight
+        passedInspection
+        group
+        excludedFromStandings
+        sourceId
+      }
+      problems {
+        message
+        blocking
+        sourceId
+      }
+    }
+  }
+`;
+
+export const CONFIRM_GPRM_IMPORT = gql`
+  mutation ConfirmGprmImport($raceId: Int!, $fileData: String!) {
+    confirmGprmImport(raceId: $raceId, fileData: $fileData)
+  }
+`;
+
+// The DerbyNet twin of the pair above (#661) -- a sibling mutation pair
+// rather than a `source` argument on the GPRM one, so adding a second
+// importer did not mean renaming an already-shipped mutation. Same shape:
+// preview writes nothing, confirm re-parses and writes the identical
+// upload.
+export const PREVIEW_DERBYNET_IMPORT = gql`
+  mutation PreviewDerbynetImport($raceId: Int!, $fileData: String!) {
+    previewDerbynetImport(raceId: $raceId, fileData: $fileData) {
+      canImport
+      groups {
+        name
+        division
+      }
+      racers {
+        firstName
+        lastName
+        carNumber
+        carName
+        carWeight
+        passedInspection
+        group
+        excludedFromStandings
+        sourceId
+      }
+      problems {
+        message
+        blocking
+        sourceId
+      }
+    }
+  }
+`;
+
+export const CONFIRM_DERBYNET_IMPORT = gql`
+  mutation ConfirmDerbynetImport($raceId: Int!, $fileData: String!) {
+    confirmDerbynetImport(raceId: $raceId, fileData: $fileData)
+  }
+`;
+
 export const CREATE_RACING_GROUP = gql`
   mutation CreateRacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) {
     createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) {
@@ -263,6 +353,73 @@ export const CREATE_RACE = gql`
   mutation CreateRace($race: RaceInput!) {
     createRace(race: $race) {
       id
+    }
+  }
+`;
+
+/**
+ * What the race setup wizard (#662) needs before its first screen: which
+ * races exist, to offer "copy settings from a previous race", and the
+ * install's own resolved words, which is what a chosen vocabulary is
+ * compared against to decide whether the new race needs an override at
+ * all. The words come from `initialConfig` rather than `useTerminology()`
+ * because inside a race route that context already holds *that race's*
+ * override — see `raceSetup.raceOverrideFor`.
+ */
+export const GET_RACE_SETUP_CONTEXT = gql`
+  query GetRaceSetupContext {
+    races {
+      id
+      name
+      dateTime
+    }
+    initialConfig {
+      terminology {
+        racingGroupSingular
+        racingGroupPlural
+        organizationSingular
+        organizationPlural
+        vehicleSingular
+        vehiclePlural
+        vehicleArtworkKey
+      }
+    }
+  }
+`;
+
+/**
+ * A previous race's structure and settings, for the wizard to copy (#662):
+ * its racing groups exactly as they are, and the settings the details step
+ * is prefilled from. The raw terminology columns rather than the resolved
+ * words, so a race that inherited stays inheriting when copied.
+ */
+export const GET_RACE_SETUP_SOURCE = gql`
+  query GetRaceSetupSource($raceId: Int!) {
+    race(raceId: $raceId) {
+      id
+      location
+      scoringStrategy
+      tiebreaker
+      dropWorstRuns
+      carNumberingStrategy
+      globalStartNumber
+      championshipTrophies
+      weightLimitOz
+      racingGroupSingular
+      racingGroupPlural
+      organizationSingular
+      organizationPlural
+      vehicleSingular
+      vehiclePlural
+      vehicleArtworkKey
+      racingGroups {
+        id
+        name
+        color
+        division
+        carNumberRangeStart
+        carNumberRangeEnd
+      }
     }
   }
 `;

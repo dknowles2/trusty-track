@@ -19,6 +19,7 @@ export const GET_RACE_STATS = gql`
       racingGroupStats { racingGroupId racingGroupName racingGroupColor racerCount avgScore bestRacerName }
       heatResults { roundName heatNumber globalHeatNumber lane carNumber racerFirstName racerLastName time place }
       trackRecords { timeSeconds racerName carNumber raceId raceName raceDate }
+      topScaleMph
     }
   }
 `;

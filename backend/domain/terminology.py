@@ -49,10 +49,12 @@ from dataclasses import dataclass
 
 __all__ = [
     "DEFAULT_TERMINOLOGY",
+    "TERMINOLOGY_WORD_FIELDS",
     "VEHICLE_ARTWORK_KEYS",
     "Terminology",
     "TerminologyOverrides",
     "overrides_from_row",
+    "reject_blank_word",
     "resolve_terminology",
 ]
 
@@ -64,6 +66,38 @@ __all__ = [
 #: and a settings-picker vocabulary, not an enforced constraint — the same
 #: relationship `services/timer` has with `TimerProfile.key`.
 VEHICLE_ARTWORK_KEYS = ("car", "rocket", "boat")
+
+#: The six override columns that hold an actual *word*, as opposed to
+#: `vehicle_artwork_key`, which names a picture rather than vocabulary and is
+#: deliberately left out — see `reject_blank_word`. Shared by
+#: `backend.db.schemas` (the per-race and per-organization pydantic
+#: validators) and `backend.api.schema._apply_terminology` (the
+#: organization-level write path, which bypasses pydantic entirely) so the
+#: set of fields being checked cannot drift from the rule checking them
+#: (#704).
+TERMINOLOGY_WORD_FIELDS = (
+    "racing_group_singular",
+    "racing_group_plural",
+    "organization_singular",
+    "organization_plural",
+    "vehicle_singular",
+    "vehicle_plural",
+)
+
+
+def reject_blank_word(field: str, value: str) -> None:
+    """Refuse an empty or whitespace-only override word.
+
+    Null is a different question — it means "inherit from the layer
+    beneath" (`resolve_terminology`), and `clearTerminology` is the
+    explicit route back to it (#496); this only refuses the *string* a
+    caller sent, never `None`. A blank word is not a judgment call the way
+    the weight limit (#205) is — it renders as nothing everywhere it
+    reaches: labels, headings, printed documents, the audience displays —
+    so there is no legitimate reason to store one (#704).
+    """
+    if not value.strip():
+        raise ValueError(f"{field} cannot be blank")
 
 
 @dataclass(frozen=True)

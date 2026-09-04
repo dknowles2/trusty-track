@@ -30,10 +30,12 @@ lane dies on the morning of the event.
 
 ## Which timers work
 
-Eight models, led by the **Micro Wizard K1 / K2 / K3** — the timer Trusty
-Track has been built against. Seven of the eight are found automatically;
-the NewBold family has to be picked by hand. The full list, and how well
-each has been tested, is in [the timer reference](reference/timers.md#which-timers-work).
+Thirteen models, led by the **Micro Wizard K1 / K2 / K3** — the timer Trusty
+Track has been built against. Ten of the thirteen are found automatically;
+the NewBold family, the Derby Magic at 9600 baud, and the FastTrack
+P-series have to be picked by hand. The full list, and how well each has
+been tested, is in
+[the timer reference](reference/timers.md#which-timers-work).
 
 > [!WARNING]
 > **None of these has run a real heat on real hardware yet** — including the
@@ -198,8 +200,8 @@ Two things have to be true first:
 1. **The track has the hardware** — tick **This track has a remote start
    gate** on the track's card in System Settings. Only tick it if the
    release is actually fitted.
-2. **The timer model has a command for it.** The Micro Wizard and the PDT
-   do; the other six do not.
+2. **The timer model has a command for it.** The Micro Wizard, the PDT and
+   both Derby Magic profiles do; the other nine do not.
 
 More in [the timer reference](reference/timers.md#the-remote-start-gate).
 

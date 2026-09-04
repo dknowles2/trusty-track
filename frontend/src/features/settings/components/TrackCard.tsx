@@ -11,13 +11,20 @@
  * Everything here saves with **Save Settings** except the two panels that say
  * otherwise: lanes in service and track records each save on click, because
  * both are race-day facts rather than configuration you would batch with
- * renaming a track.
+ * renaming a track. Lane colours (#611) are the opposite case and say so —
+ * which physical lane is painted which colour is a fact about the track
+ * itself, set once when it is configured (or never), not something that
+ * changes mid-event the way a connector coming loose does — so they save
+ * with the rest of this card, beside the scale ratio and reverse-lanes
+ * checkbox.
  */
 
 import { Link } from 'react-router-dom';
 import TrackLanes from './TrackLanes';
 import TrackRecords, { type HistoricalRecord } from './TrackRecords';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { lanesOf } from '../laneOutages';
+import { colorForLane, presetColors, presetForLaneCount, presetNameForColor, setLaneColor } from '../laneColors';
 
 export interface TrackFields {
   // Absent until the track has been saved, which is also when it can first
@@ -38,6 +45,9 @@ export interface TrackFields {
   showScaleSpeed: boolean;
   laneOutages?: number[];
   historicalRecords?: HistoricalRecord[];
+  // The colour painted on each physical lane, if any (#611). One hex
+  // string per lane, index 0 meaning lane 1 — see `../laneColors`.
+  laneColors?: string[];
 }
 
 export interface TimerModel {
@@ -56,10 +66,21 @@ interface Props {
   track: TrackFields;
   timerModels: readonly TimerModel[];
   canRemove: boolean;
+  // True on the public cloud demo (`initialConfig.demoMode`). The proxy
+  // timer needs a browser to hold the serial port open for the whole race,
+  // and the backend already refuses that WebSocket on a demo — this only
+  // stops the settings page offering a control that cannot work.
+  demoMode?: boolean;
   onChange: (field: string, value: string | number | boolean) => void;
   onRemove: () => void;
   onLaneOutages: (outages: number[]) => void;
   onRecords: (records: HistoricalRecord[]) => void;
+  // Unlike `onLaneOutages` and `onRecords`, this does not talk to a
+  // mutation of its own — lane colours save with the rest of the card, on
+  // **Save Settings** (see the module docstring for why), so this is
+  // ordinary form state exactly like `onChange` above, just for a field
+  // `onChange`'s string/number/boolean signature cannot carry.
+  onLaneColors: (colors: string[]) => void;
 }
 
 const subheading: React.CSSProperties = {
@@ -88,13 +109,31 @@ export default function TrackCard({
   track,
   timerModels,
   canRemove,
+  demoMode,
   onChange,
   onRemove,
   onLaneOutages,
   onRecords,
+  onLaneColors,
 }: Props) {
   const { vehicleLower } = useTerminology();
   const chosen = timerModels.find((m) => m.key === track.timerProfile);
+  // Hidden on the demo, following `displayView.viewOptionsFor`'s rule for
+  // the awards view: an option that can only disappoint is worse than one
+  // that is absent. But kept when it is *already* this track's own value —
+  // a seed archive can carry a track saved with it, and a `<select>` whose
+  // current value is missing from its own options renders with nothing
+  // chosen, telling the operator nothing about what is actually set.
+  //
+  // Backend auto-detect gets the identical treatment, for the identical
+  // reason (#691): `initialize_timer_managers` coerces *every* non-fake
+  // track type to `FAKE` in demo mode, not just the proxy one, so a
+  // "Plugged into this machine" track would probe USB serial ports on a
+  // container that has none.
+  const proxyUnavailable = !!demoMode && track.timerType === 'AUTO_DETECT_PROXY';
+  const showProxyOption = !demoMode || track.timerType === 'AUTO_DETECT_PROXY';
+  const backendUnavailable = !!demoMode && track.timerType === 'AUTO_DETECT_BACKEND';
+  const showBackendOption = !demoMode || track.timerType === 'AUTO_DETECT_BACKEND';
   const unusualFraming =
     chosen &&
     (chosen.baudRate !== 9600 ||
@@ -177,6 +216,89 @@ export default function TrackCard({
         </div>
       </div>
 
+      {/* Matching a lane's colour on screen to the paint on the physical
+          track (#611) — "put car #12 in the blue lane." Every physical
+          lane gets a control, not just the ones currently in service:
+          colours are indexed by the track's own lane number and do not
+          shift when a lane goes out of service or the count is lowered
+          (see `../laneColors`'s docstring). Optional throughout — with
+          nothing set here every lane renders exactly as it always has. */}
+      <div style={{ marginBottom: '1rem' }}>
+        <span style={fieldLabel}>Lane colours (optional)</span>
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          {lanesOf(track.laneCount).map((lane) => {
+            const hex = colorForLane(track.laneColors ?? [], lane);
+            const name = hex ? presetNameForColor(hex) : null;
+            return (
+              <span
+                key={lane}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: '20px',
+                  border: '1px solid var(--input-border-color)',
+                }}
+              >
+                <input
+                  type="color"
+                  id={`track-lane-color-${index}-${lane}`}
+                  value={hex ?? '#ffffff'}
+                  title={name ? `Lane ${lane}: ${name}` : `Lane ${lane} colour`}
+                  aria-label={`Lane ${lane} colour`}
+                  onChange={(e) =>
+                    onLaneColors(setLaneColor(track.laneColors ?? [], lane, e.target.value))
+                  }
+                  style={{ width: '1.75rem', height: '1.75rem', padding: 0, border: 'none', background: 'none' }}
+                />
+                <span style={{ fontSize: '0.9rem' }}>{lane}</span>
+                {hex && (
+                  <button
+                    type="button"
+                    aria-label={`Clear lane ${lane} colour`}
+                    onClick={() => onLaneColors(setLaneColor(track.laneColors ?? [], lane, ''))}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text-muted-color)',
+                      fontSize: '0.9rem',
+                      lineHeight: 1,
+                      padding: 0,
+                    }}
+                  >
+                    &times;
+                  </button>
+                )}
+              </span>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
+          {presetForLaneCount(track.laneCount) && (
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => onLaneColors(presetColors(track.laneCount))}
+            >
+              Use standard colours
+            </button>
+          )}
+          {(track.laneColors ?? []).some(Boolean) && (
+            <button type="button" className="secondary-btn" onClick={() => onLaneColors([])}>
+              Clear all
+            </button>
+          )}
+        </div>
+        <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.25rem' }}>
+          Matches a lane number to the colour painted on the physical track — for
+          example &quot;put {vehicleLower} #12 in the blue lane.&quot; &quot;Use
+          standard colours&quot; is a starting point, not a lock-in: pick any
+          lane&apos;s own colour afterwards to match your track exactly.
+        </small>
+      </div>
+
       {/* Beside Length (feet), because scale speed is nothing without a
           length to compute from (#610) — the flag below is ANDed with a
           positive length wherever a speed is actually rendered, so a track
@@ -253,8 +375,12 @@ export default function TrackCard({
           style={{ ...textInput, marginBottom: track.timerType === 'FAKE' || track.timerType === 'NONE' ? '0' : '1rem' }}
         >
           <option value="FAKE">Fake Timer (Manual Control)</option>
-          <option value="AUTO_DETECT_BACKEND">Plugged into this machine</option>
-          <option value="AUTO_DETECT_PROXY">Plugged into the laptop running the browser</option>
+          {showBackendOption && (
+            <option value="AUTO_DETECT_BACKEND">Plugged into this machine</option>
+          )}
+          {showProxyOption && (
+            <option value="AUTO_DETECT_PROXY">Plugged into the laptop running the browser</option>
+          )}
           <option value="NONE">No timer — I'll enter results by hand</option>
         </select>
       </div>
@@ -263,6 +389,32 @@ export default function TrackCard({
         <p style={{ color: 'var(--text-muted-color)', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
           Race Execution won't try to arm a timer. Enter Results becomes the main way
           to record a heat's result — times for a Timed race, finishing order for Points.
+        </p>
+      )}
+
+      {backendUnavailable && (
+        <p style={{ color: 'var(--warning-color)', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
+          Not available in the cloud demo — the shared instance has no USB serial ports
+          to detect. Choose another timer type.
+        </p>
+      )}
+
+      {proxyUnavailable && (
+        <p style={{ color: 'var(--warning-color)', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
+          Not available in the cloud demo — a browser tab cannot hold a timer's serial
+          port open for a shared instance. Choose another timer type.
+        </p>
+      )}
+
+      {/* With both auto-detect options hidden above, Fake Timer and No Timer
+          are what remain — a real choice about how to see the app work,
+          not a picker quietly missing two-thirds of itself. Said explicitly
+          only when neither of the "kept because it's already set" notes
+          above is already saying something about why an option is absent. */}
+      {!!demoMode && !backendUnavailable && !proxyUnavailable && (
+        <p style={{ color: 'var(--text-muted-color)', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
+          The shared cloud demo has no hardware timer to connect to. Pick Fake Timer to
+          watch heats run on their own, or No timer to try entering results by hand.
         </p>
       )}
 

@@ -26,7 +26,16 @@ const renameDisplay = vi.fn().mockResolvedValue({ data: {} });
 // display's name, which a component-local list could never see.
 const suggestDisplayName = vi.fn();
 
-function renderPanel(view: string, cycleSeconds = 10, connected = true, awards = 2, hasDisplay = true) {
+function renderPanel(
+    view: string,
+    cycleSeconds = 10,
+    connected = true,
+    awards = 2,
+    hasDisplay = true,
+    scrollBehavior = 'PAGING',
+    showCheckedIn = true,
+    qrTarget = 'STANDINGS',
+) {
     // Two queries, and they answer different questions: the list of screens,
     // and whether the race has any awards to announce.
     type QueryArgs = { query: { definitions: { name?: { value?: string } }[] } };
@@ -58,6 +67,9 @@ function renderPanel(view: string, cycleSeconds = 10, connected = true, awards =
                             name: 'Gym north',
                             view,
                             cycleSeconds,
+                            scrollBehavior,
+                            showCheckedIn,
+                            qrTarget,
                             description: 'Standings',
                             pacedByAPerson: view === 'AWARDS',
                             connected,
@@ -119,6 +131,103 @@ describe('the seconds control on a display row', () => {
     it('is absent for a view with no timer to set', () => {
         renderPanel('STANDINGS');
         expect(screen.queryByLabelText('Cycle interval for Gym north')).toBeNull();
+    });
+
+    it('is offered for standings-only, which uses it as the page duration or scroll pass length', () => {
+        renderPanel('STANDINGS_ONLY', 5);
+        expect(screen.getByLabelText('Cycle interval for Gym north')).toBeTruthy();
+    });
+});
+
+describe('the paging/auto-scroll control (#663)', () => {
+    it('is offered for standings-only', () => {
+        renderPanel('STANDINGS_ONLY');
+        expect(screen.getByLabelText('How Gym north moves through the standings')).toBeTruthy();
+    });
+
+    it('is absent for every other view', () => {
+        renderPanel('STANDINGS');
+        expect(screen.queryByLabelText('How Gym north moves through the standings')).toBeNull();
+    });
+
+    it('reflects the display’s current choice', () => {
+        renderPanel('STANDINGS_ONLY', 10, true, 2, true, 'SMOOTH');
+        const select = screen.getByLabelText(
+            'How Gym north moves through the standings',
+        ) as HTMLSelectElement;
+        expect(select.value).toBe('SMOOTH');
+    });
+
+    it('sends the choice, keeping the row on standings-only', () => {
+        renderPanel('STANDINGS_ONLY');
+        fireEvent.change(screen.getByLabelText('How Gym north moves through the standings'), {
+            target: { value: 'SMOOTH' },
+        });
+        expect(assignDisplay).toHaveBeenCalledWith({
+            displayId: 'd-1',
+            view: 'STANDINGS_ONLY',
+            scrollBehavior: 'SMOOTH',
+        });
+    });
+});
+
+describe('the everybody/pending-only control (#612)', () => {
+    it('is offered for check-in progress', () => {
+        renderPanel('CHECKIN');
+        expect(screen.getByLabelText('Who Gym north lists')).toBeTruthy();
+    });
+
+    it('is absent for every other view', () => {
+        renderPanel('STANDINGS');
+        expect(screen.queryByLabelText('Who Gym north lists')).toBeNull();
+    });
+
+    it('reflects the display’s current choice', () => {
+        renderPanel('CHECKIN', 10, true, 2, true, 'PAGING', false);
+        const select = screen.getByLabelText('Who Gym north lists') as HTMLSelectElement;
+        expect(select.value).toBe('PENDING');
+    });
+
+    it('sends the choice, keeping the row on check-in', () => {
+        renderPanel('CHECKIN');
+        fireEvent.change(screen.getByLabelText('Who Gym north lists'), {
+            target: { value: 'PENDING' },
+        });
+        expect(assignDisplay).toHaveBeenCalledWith({
+            displayId: 'd-1',
+            view: 'CHECKIN',
+            showCheckedIn: false,
+        });
+    });
+});
+
+describe('the QR target control (#614)', () => {
+    it('is offered for the QR code view', () => {
+        renderPanel('QRCODE');
+        expect(screen.getByLabelText("What Gym north's QR code opens")).toBeTruthy();
+    });
+
+    it('is absent for every other view', () => {
+        renderPanel('STANDINGS');
+        expect(screen.queryByLabelText("What Gym north's QR code opens")).toBeNull();
+    });
+
+    it('reflects the display’s current choice', () => {
+        renderPanel('QRCODE', 10, true, 2, true, 'PAGING', true, 'VOTE');
+        const select = screen.getByLabelText("What Gym north's QR code opens") as HTMLSelectElement;
+        expect(select.value).toBe('VOTE');
+    });
+
+    it('sends the choice, keeping the row on the QR code view', () => {
+        renderPanel('QRCODE');
+        fireEvent.change(screen.getByLabelText("What Gym north's QR code opens"), {
+            target: { value: 'VOTE' },
+        });
+        expect(assignDisplay).toHaveBeenCalledWith({
+            displayId: 'd-1',
+            view: 'QRCODE',
+            qrTarget: 'VOTE',
+        });
     });
 });
 
@@ -184,6 +293,9 @@ describe('offering the ceremony as a view', () => {
             'Cycle between both',
             'Projector',
             'Racer photos',
+            'Standings only',
+            'Check-in progress',
+            'QR code',
         ]);
     });
 

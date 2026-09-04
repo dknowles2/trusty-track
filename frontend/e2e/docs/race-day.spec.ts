@@ -37,6 +37,7 @@ import {
     expandFakeTimer,
     gql,
     nextUnrunHeatId,
+    passSetupStart,
     runFakeHeat,
     type Heat,
     type Round,
@@ -56,6 +57,19 @@ test('take screenshots', async ({ page }) => {
 
     await page.getByRole('button', { name: /Create New Race/i }).click();
     await expect(page.getByRole('heading', { name: 'Create New Race Event' })).toBeVisible();
+
+    // The setup wizard (#662) in front of the form: the questions, the dens
+    // it scaffolds from the answers, and then the form itself. The dens are
+    // the six ranks with their rank colours — the same six `populateRace`
+    // hands a test roster — so the pictures further down are unchanged by
+    // the race having dens before the roster arrives.
+    await passSetupStart(page);
+    await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/03-new-race-questions.png') });
+    await page.getByTestId('setup-next').click();
+    await expect(page.getByTestId('setup-step-groups')).toBeVisible();
+    await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/03-new-race-groups.png') });
+    await page.getByTestId('setup-next').click();
+    await expect(page.getByLabel('Event Name')).toBeVisible();
     // The Track / Timer field says "Loading tracks..." until the tracks query
     // answers, and whether the picture catches that depends on the run.
     await expect(page.getByText('Loading tracks...')).toBeHidden();
@@ -234,6 +248,23 @@ test('take screenshots', async ({ page }) => {
 
     // 03: the same modal, with the racer's photo from the populated data.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/03-check-in-modal-with-photo.png') });
+
+    // 33: the crop/rotate tool (#619), reached from the photo's own
+    // "⟳ Rotate / Recrop" button — populated data gives this racer both a
+    // portrait and a car photo, so `.last()` reaches the car one. Its 4:3
+    // aspect against a square upload leaves the crop box inset from the top
+    // and bottom edges without dragging anything, which is what makes the
+    // picture deterministic: no pointer drag to land the same way twice.
+    await page.getByRole('button', { name: '⟳ Rotate / Recrop' }).last().click();
+    const cropDialog = page.getByRole('dialog', { name: 'Rotate / recrop photo' });
+    await expect(cropDialog).toBeVisible();
+    // The image loads asynchronously; the modal shows "Loading photo…" until
+    // it has, and the crop box (with its corner handles) only exists once it
+    // is gone.
+    await expect(cropDialog.getByText('Loading photo…')).toBeHidden();
+    await page.screenshot({ path: path.join(screenshotsDir, 'race-day/33-crop-photo-modal.png') });
+    await cropDialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(cropDialog).toBeHidden();
 
     await page.getByRole('button', { name: 'Save Check-in' }).click();
     await expect(page.getByRole('heading', { name: 'Racer Check In' })).toBeHidden();

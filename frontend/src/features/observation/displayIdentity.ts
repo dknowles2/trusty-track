@@ -178,3 +178,22 @@ export function startDeviceClaimHeartbeat(id: string): () => void {
 export function newDisplayWindowUrl(raceId: number): string {
     return `/race/${raceId}/observation?displayId=${encodeURIComponent(randomId())}`;
 }
+
+/**
+ * The address of a brand-new screen showing the `QRCODE` view pointed at
+ * `target`, for the "Project QR code" shortcuts (#614) on the Awards Voting
+ * panel and the race-day checklist. Same shape as `newDisplayWindowUrl`
+ * above — a fresh id, so the new tab is unambiguously a second screen — with
+ * `view`/`qr_target` appended so it needs no assignment from the operator's
+ * list to already be pointed at the right thing. The URL fallback carrying
+ * the view at all is what `displayView.ts`'s `readUrl` already reaches for a
+ * display nobody has assigned.
+ */
+export function qrCodeWindowUrl(raceId: number, target: 'STANDINGS' | 'VOTE'): string {
+    const params = new URLSearchParams({
+        displayId: randomId(),
+        view: 'qrcode',
+    });
+    if (target === 'VOTE') params.set('qr_target', 'vote');
+    return `/race/${raceId}/observation?${params.toString()}`;
+}

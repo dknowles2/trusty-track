@@ -327,18 +327,38 @@ def check_in_barcode(racer_id: int, db: Session = Depends(get_db)) -> Response:
     )
 
 
+#: Every page this endpoint is willing to render a QR code for, keyed by the
+#: fragment of the URL that identifies it. Widened for #614's full-screen
+#: `QRCODE` display view, which points at the same audience observation page
+#: spectators already reach from a phone, alongside #414's original ballot.
+#: This route stays a *scoped* renderer rather than a general-purpose one —
+#: `race_id` is still checked against the URL below — so the set is closed
+#: rather than "anything containing `/race/{race_id}/`": a display holds no
+#: PIN (#15), and the point of checking at all is that this is not a way to
+#: point a kiosk at an arbitrary address.
+_QR_ALLOWED_PATHS = ("/vote", "/observation")
+
+
 @app.get("/printables/vote-qr/{race_id}.png")
 @app.get("/api/printables/vote-qr/{race_id}.png")
 def voting_qr(race_id: int, url: str, db: Session = Depends(get_db)) -> Response:
-    """A QR code a phone can scan to reach this race's ballot (#414).
+    """A QR code a phone can scan to reach this race, on the ballot or the
+    audience display (#414, #614).
 
-    `url` is supplied by the caller rather than built here: the Awards page
+    Named for the feature it shipped with first; it now backs both the
+    Awards page's ballot QR code and the full-screen `QRCODE` display view,
+    which is why the guard below checks a *set* of paths rather than one.
+    Renaming the route was considered and skipped — nothing about the path
+    is client-visible API surface worth documenting twice, and the two
+    existing callers (and their tests) would have needed nothing but churn.
+
+    `url` is supplied by the caller rather than built here: the frontend
     already works out the one address a phone can actually reach —
     substituting a LAN address for `localhost` when the browser's own origin
-    would not do — and encoding a second copy of that logic here would be the
+    would not do — and encoding a second copy of that logic here would be
     two ways of getting a share address disagreeing with each other. Scoped
-    to `race_id` only to reject a code for an obviously unrelated URL; this is
-    not a general-purpose QR generator.
+    to `race_id` only to reject a code for an obviously unrelated URL; this
+    is not a general-purpose QR generator.
 
     Not cached `immutable` like the check-in code above: the address depends
     on the machine's current network, which can change between requests in a
@@ -347,9 +367,9 @@ def voting_qr(race_id: int, url: str, db: Session = Depends(get_db)) -> Response
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if race is None:
         raise HTTPException(status_code=404, detail="Race not found")
-    if f"/race/{race_id}/vote" not in url:
+    if not any(f"/race/{race_id}{path}" in url for path in _QR_ALLOWED_PATHS):
         raise HTTPException(
-            status_code=400, detail="Not a ballot address for this race"
+            status_code=400, detail="Not an audience-facing address for this race"
         )
 
     return Response(

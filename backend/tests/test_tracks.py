@@ -341,6 +341,141 @@ class TestScaleSpeed:
         assert track.scale_ratio == 25
 
 
+class TestLaneColors:
+    """#611 stage 2: `laneColors` round-trips on a track and is validated."""
+
+    def test_create_track_defaults_to_no_colors(self, client):
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    createTrack(track: {name: "No Colors Track"}) {
+                        laneColors
+                    }
+                }
+                """
+            },
+        ).json()
+        assert "errors" not in resp, resp
+        assert resp["data"]["createTrack"]["laneColors"] == []
+
+    def test_create_and_update_round_trip(self, client):
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    createTrack(track: {
+                        name: "Painted Track",
+                        laneCount: 4,
+                        laneColors: ["#E53935", "#FAFAFA", "#1E88E5", "#FDD835"]
+                    }) {
+                        id
+                        laneColors
+                    }
+                }
+                """
+            },
+        ).json()
+        assert "errors" not in resp, resp
+        created = resp["data"]["createTrack"]
+        assert created["laneColors"] == ["#E53935", "#FAFAFA", "#1E88E5", "#FDD835"]
+        track_id = created["id"]
+
+        # A blank entry means "not configured for this lane", not an error
+        # (see `domain.lane_colors.color_for_lane`) — clearing one lane's
+        # colour while keeping the rest is an ordinary update.
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateTrack(id: {track_id}, track: {{
+                        name: "Painted Track",
+                        laneColors: ["#E53935", "", "#1E88E5", "#FDD835"]
+                    }}) {{
+                        laneColors
+                    }}
+                }}
+                """
+            },
+        ).json()
+        assert "errors" not in resp, resp
+        assert resp["data"]["updateTrack"]["laneColors"] == [
+            "#E53935",
+            "",
+            "#1E88E5",
+            "#FDD835",
+        ]
+
+        # Reading back through the query path agrees with what the mutation
+        # returned — the two must not disagree about what was stored.
+        resp = client.post(
+            "/graphql",
+            json={"query": "query { tracks { id laneColors } }"},
+        ).json()
+        row = next(t for t in resp["data"]["tracks"] if int(t["id"]) == int(track_id))
+        assert row["laneColors"] == ["#E53935", "", "#1E88E5", "#FDD835"]
+
+    def test_create_track_refuses_an_invalid_color(self, client, db):
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    createTrack(track: {
+                        name: "Bad Color Track",
+                        laneColors: ["not-a-color"]
+                    }) {
+                        id
+                    }
+                }
+                """
+            },
+        ).json()
+        assert "errors" in resp
+        assert "hex value" in str(resp["errors"])
+        assert crud.get_tracks(db) == []
+
+    def test_create_track_refuses_a_named_css_color(self, client, db):
+        # Deliberately not accepted — see `is_valid_lane_color`'s own test
+        # for why a preset's *name* is not a storable value.
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    createTrack(track: {name: "Bad Color Track", laneColors: ["red"]}) {
+                        id
+                    }
+                }
+                """
+            },
+        ).json()
+        assert "errors" in resp
+        assert crud.get_tracks(db) == []
+
+    def test_update_track_refuses_an_invalid_color(self, client, db):
+        track = crud.create_track(db, schemas.TrackCreate(name="Good Track"))
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateTrack(id: {track.id}, track: {{laneColors: ["#zzz"]}}) {{
+                        laneColors
+                    }}
+                }}
+                """
+            },
+        ).json()
+        assert "errors" in resp
+        db.refresh(track)
+        assert track.lane_colors == []
+
+
 class TestLaneCountBounds:
     """#320: a lane count nothing downstream can act on is refused at the edge.
 

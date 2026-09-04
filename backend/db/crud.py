@@ -16,9 +16,11 @@ from backend.domain import (
     awards,
     balanced,
     elimination,
+    intermission,
     lanes,
     latecomers,
     practice,
+    roster_import,
     running_order,
     scheduling,
     terminology,
@@ -188,9 +190,21 @@ def get_races(db: Session, skip: int = 0, limit: int = 100) -> list[models.Race]
 
 
 def create_race(db: Session, race: schemas.RaceCreate) -> models.Race:
+    """Create a race, and any racing groups sent along with it (#662).
+
+    The groups go in the same commit as the race, in the order they were
+    given — the setup wizard scaffolds a pack's dens in rank order, and
+    `get_racing_groups` orders by id, so creation order is display order.
+    One transaction rather than a race followed by N group inserts is #201's
+    reasoning: a setup that fails half way must not leave a half-built race.
+    """
     race_data = race.model_dump()
+    racing_groups = race_data.pop("racing_groups", [])
     db_race = models.Race(**race_data)
     db.add(db_race)
+    db.flush()
+    for racing_group in racing_groups:
+        db.add(models.RacingGroup(**racing_group, race_id=db_race.id))
     db.commit()
     db.refresh(db_race)
     return db_race
@@ -257,6 +271,101 @@ def delete_race(db: Session, race_id: int) -> bool:
     db.delete(race)
     db.commit()
     return True
+
+
+# --------------------------------------------------------------------------- #
+# Intermission (#592)                                                         #
+# --------------------------------------------------------------------------- #
+#
+# Five thin wrappers around `domain/intermission.py`'s pure functions: read
+# the race's three columns into an `intermission.State`, call the rule, write
+# the result back. All the actual decisions — what counts as active, what a
+# pause freezes, what "extend" adds to — live in the domain module and are
+# tested there with no database; this is only the I/O half of that split.
+
+
+def _intermission_state(race: models.Race) -> intermission.State:
+    return intermission.State(
+        ends_at=race.intermission_ends_at,
+        paused_remaining_seconds=race.intermission_paused_remaining_seconds,
+        label=race.intermission_label,
+    )
+
+
+def _write_intermission_state(race: models.Race, state: intermission.State) -> None:
+    race.intermission_ends_at = state.ends_at
+    race.intermission_paused_remaining_seconds = state.paused_remaining_seconds
+    race.intermission_label = state.label
+
+
+def start_intermission(
+    db: Session, race_id: int, duration_seconds: int, label: str | None
+) -> models.Race:
+    """Begin (or restart) a break. See `domain.intermission.start`."""
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None:
+        raise ValueError("Race not found")
+    _write_intermission_state(
+        race,
+        intermission.start(duration_seconds, label, datetime.now(timezone.utc)),
+    )
+    db.commit()
+    db.refresh(race)
+    return race
+
+
+def extend_intermission(db: Session, race_id: int, seconds: int) -> models.Race:
+    """Add time to the break under way. See `domain.intermission.extend`."""
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None:
+        raise ValueError("Race not found")
+    _write_intermission_state(
+        race,
+        intermission.extend(
+            _intermission_state(race), seconds, datetime.now(timezone.utc)
+        ),
+    )
+    db.commit()
+    db.refresh(race)
+    return race
+
+
+def pause_intermission(db: Session, race_id: int) -> models.Race:
+    """Freeze the countdown. See `domain.intermission.pause`."""
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None:
+        raise ValueError("Race not found")
+    _write_intermission_state(
+        race, intermission.pause(_intermission_state(race), datetime.now(timezone.utc))
+    )
+    db.commit()
+    db.refresh(race)
+    return race
+
+
+def resume_intermission(db: Session, race_id: int) -> models.Race:
+    """Start the countdown again. See `domain.intermission.resume`."""
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None:
+        raise ValueError("Race not found")
+    _write_intermission_state(
+        race,
+        intermission.resume(_intermission_state(race), datetime.now(timezone.utc)),
+    )
+    db.commit()
+    db.refresh(race)
+    return race
+
+
+def end_intermission(db: Session, race_id: int) -> models.Race:
+    """Clear the break, idempotently. See `domain.intermission.end`."""
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None:
+        raise ValueError("Race not found")
+    _write_intermission_state(race, intermission.end())
+    db.commit()
+    db.refresh(race)
+    return race
 
 
 def get_tracks(db: Session) -> list[models.Track]:
@@ -383,6 +492,82 @@ def create_racer(db: Session, racer: schemas.RacerCreate) -> models.Racer | None
     db.commit()
     db.refresh(db_racer)
     return db_racer
+
+
+def existing_car_number_holders(db: Session, race_id: int) -> dict[int, str]:
+    """`{car_number: "First Last"}` for every racer already in this race who
+    has one. The I/O half of `domain.roster_import.existing_number_problems`
+    (#618) — that rule needs no database, and this is the query that feeds it.
+    """
+    holders = (
+        db.query(models.Racer)
+        .filter(models.Racer.race_id == race_id, models.Racer.car_number.isnot(None))
+        .all()
+    )
+    return {
+        holder.car_number: f"{holder.first_name} {holder.last_name}".strip()
+        for holder in holders
+        if holder.car_number is not None
+    }
+
+
+def write_imported_roster(
+    db: Session, race_id: int, roster: roster_import.ParsedRoster
+) -> int:
+    """Write a `ParsedRoster` (#618) into this race's roster.
+
+    The one door every future importer's confirm step writes through —
+    `roster_from_tables` (GPRM today, DerbyNet at #661) and anything upstream
+    of it stays program-specific; this only knows the shared vocabulary. A
+    group already on the roster by name is reused rather than duplicated,
+    the same match `import_racers`'s CSV loop already makes; a new one is
+    created grey (`#808080`), same as that loop's own auto-created groups,
+    since neither import has a colour to offer. Returns the number of racers
+    created — late-racer admission and publishing race state are the
+    caller's job, once for the whole batch (#343), not once per racer here.
+    """
+    group_ids: dict[str, int] = {}
+    for group in roster.groups:
+        existing_group = (
+            db.query(models.RacingGroup)
+            .filter(
+                models.RacingGroup.race_id == race_id,
+                models.RacingGroup.name == group.name,
+            )
+            .first()
+        )
+        if existing_group is not None:
+            group_ids[group.name] = existing_group.id
+            continue
+        created_group = create_racing_group(
+            db,
+            schemas.RacingGroupCreate(
+                name=group.name, color="#808080", division=group.division
+            ),
+            race_id,
+        )
+        group_ids[group.name] = created_group.id
+
+    count = 0
+    for imported in roster.racers:
+        create_racer(
+            db,
+            schemas.RacerCreate(
+                first_name=imported.first_name,
+                last_name=imported.last_name,
+                car_number=imported.car_number,
+                car_name=imported.car_name,
+                car_weight=imported.car_weight,
+                car_passed_inspection=imported.passed_inspection,
+                racing_group_id=(
+                    group_ids.get(imported.group) if imported.group else None
+                ),
+                excluded_from_standings=imported.excluded_from_standings,
+                race_id=race_id,
+            ),
+        )
+        count += 1
+    return count
 
 
 def update_racer(

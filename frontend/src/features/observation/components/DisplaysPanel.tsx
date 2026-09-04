@@ -36,7 +36,16 @@ import {
     RENAME_DISPLAY,
     SUGGEST_DISPLAY_NAME,
 } from '../graphql/queries';
-import { viewCycles, viewOptionsFor, type DisplayView } from '../displayView';
+import {
+    viewCycles,
+    viewHasCheckedInToggle,
+    viewHasQrTargetToggle,
+    viewOptionsFor,
+    viewScrolls,
+    type DisplayView,
+    type QRTarget,
+    type ScrollBehavior,
+} from '../displayView';
 import { newDisplayWindowUrl } from '../displayIdentity';
 
 interface DisplayRow {
@@ -44,6 +53,9 @@ interface DisplayRow {
     name: string;
     view: DisplayView;
     cycleSeconds: number;
+    scrollBehavior: ScrollBehavior;
+    showCheckedIn: boolean;
+    qrTarget: QRTarget;
     description: string;
     pacedByAPerson: boolean;
     connected: boolean;
@@ -270,6 +282,71 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                             />{' '}
                             s
                         </label>
+                    )}
+
+                    {/* Standings only (#663): how it gets through a list too
+                        long for one screen — flip through fixed pages, or
+                        scroll continuously. The seconds control above sets
+                        the page duration or the length of one scroll pass,
+                        whichever this is set to. */}
+                    {viewScrolls(display.view) && (
+                        <select
+                            aria-label={`How ${display.name} moves through the standings`}
+                            value={display.scrollBehavior}
+                            onChange={(e) =>
+                                assignDisplay({
+                                    displayId: display.displayId,
+                                    view: display.view,
+                                    scrollBehavior: e.target.value as ScrollBehavior,
+                                })
+                            }
+                            style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+                        >
+                            <option value="PAGING">Page cycling</option>
+                            <option value="SMOOTH">Auto-scroll</option>
+                        </select>
+                    )}
+
+                    {/* Check-in progress (#612): whether an already-checked-in
+                        racer's row is still listed, or only the ones still
+                        pending — a large pack's screen can drop the former to
+                        make more room. */}
+                    {viewHasCheckedInToggle(display.view) && (
+                        <select
+                            aria-label={`Who ${display.name} lists`}
+                            value={display.showCheckedIn ? 'ALL' : 'PENDING'}
+                            onChange={(e) =>
+                                assignDisplay({
+                                    displayId: display.displayId,
+                                    view: display.view,
+                                    showCheckedIn: e.target.value === 'ALL',
+                                })
+                            }
+                            style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+                        >
+                            <option value="ALL">List everybody</option>
+                            <option value="PENDING">Pending only</option>
+                        </select>
+                    )}
+
+                    {/* QR code (#614): which page the code opens — this
+                        race's own audience display, or the voting ballot. */}
+                    {viewHasQrTargetToggle(display.view) && (
+                        <select
+                            aria-label={`What ${display.name}'s QR code opens`}
+                            value={display.qrTarget}
+                            onChange={(e) =>
+                                assignDisplay({
+                                    displayId: display.displayId,
+                                    view: display.view,
+                                    qrTarget: e.target.value as QRTarget,
+                                })
+                            }
+                            style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+                        >
+                            <option value="STANDINGS">Live standings</option>
+                            <option value="VOTE">Voting ballot</option>
+                        </select>
                     )}
 
                     {/* The ceremony waits for a person, and until now that

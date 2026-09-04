@@ -61,15 +61,29 @@ export function closeLiveConnection(): void {
 export const EMBEDDED_TYPES = [
   'AdvancementRacer',
   'AdvancementStatus',
+  'AwardPassedOver',
   'AwardVoteTally',
   'RacingGroupStat',
   'FreeRaceLaneAssignment',
+  // A GrandPrix Race Manager import preview (#618) -- parsed fresh on every
+  // call to `previewGprmImport` and never fetched independently, the same
+  // shape as `AdvancementRacer`.
+  'GprmImportGroup',
+  'GprmImportPreview',
+  'GprmImportProblem',
+  'GprmImportRacer',
+  // The DerbyNet twin of the four above (#661) -- same reason, same shape.
+  'DerbynetImportGroup',
+  'DerbynetImportPreview',
+  'DerbynetImportProblem',
+  'DerbynetImportRacer',
   'HeatHighlight',
   'HeatLane',
   'HeatReorderResponse',
   'HeatResultRow',
   'HeatSession',
   'InitialConfigStatus',
+  'Intermission',
   'LaneResult',
   'LaneTimeStat',
   'LeaderboardEntry',

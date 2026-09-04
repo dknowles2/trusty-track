@@ -103,7 +103,10 @@ walking the cars around with a clipboard.
    QR code beside it for handing to someone across the room. If it says it
    could not find a working address, see
    [finding this machine's address](access-and-network.md#finding-this-machines-address)
-   and check the phone can reach it before relying on it.
+   and check the phone can reach it before relying on it. **Project QR
+   code** opens the same code full-screen on a fresh display window, for a
+   gym-wall screen or an auxiliary TV instead of walking a phone around —
+   see [Audience display views](reference/displays.md#qr-code).
 3. Click **Close voting** before the ceremony. Nothing does this
    for you — it is your call, the same way starting the ceremony itself is.
 
@@ -141,6 +144,39 @@ announced.
 Awards are listed in the order you will announce them, and the arrows on the
 left move one up or down. Most packs put the speed awards last, because that is
 the one everyone is waiting for.
+
+## At most one trophy per racer
+
+Many packs run by the rule that a scout who wins the pack championship
+should not *also* take home their den's trophy — the den trophy should roll
+down to the next-fastest scout in it, so more children leave holding
+something. Turn on **At most one trophy per racer**, in
+[race settings](reference/race-settings.md), and Trusty Track does this for
+you: a car that already holds one award is skipped when a later award is
+worked out. Off by default — nothing changes until you turn it on.
+
+**Which trophy a fast racer keeps depends on the running order above.**
+Whole-pack awards are decided before den awards, so the overall champion's
+den trophy is what rolls, never the other way round. Among awards of the
+same reach — two den trophies, say — the one you have placed *later* in the
+list is decided first, on the theory that a ceremony builds to its biggest
+trophy and the last one announced is the one nobody hands back. Put your
+pack-wide trophies at the bottom of the list and the den trophies above
+them, and the ordinary run of a ceremony already does the right thing.
+
+**The list says so when a trophy has rolled down** — *"Rolled down from
+Fastest — Jordan Mitchell (#7) already won Fastest Car."* — so you are never
+looking at an unexplained winner.
+
+**A judged award like Best Paint is never part of the roll-down, in either
+direction.** Choosing Best Paint is a person's decision, and a computed rule
+never overrides it — turning this setting on will never move a judged
+award's winner, and a judged award never bumps a speed trophy out from
+under its own winner either. If the racer you pick for a judged award
+already holds another trophy, the list just says so — *"Also holds
+'Fastest Car.'"* — and the same warning appears right on the picker while
+you are choosing, whether or not this setting is on. It is a nudge, not a
+refusal: award it anyway if that is what your pack wants.
 
 ## Reading the list
 

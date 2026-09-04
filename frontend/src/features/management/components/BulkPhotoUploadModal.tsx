@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation } from 'urql';
 import Modal from '../../../components/ui/Modal';
 import { UPLOAD_IMAGE, BULK_ASSIGN_PHOTOS } from '../graphql/queries';
 import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { RacerCombobox } from './RacerCombobox';
 
 type UploadStatus = 'uploading' | 'done' | 'error';
 
@@ -22,6 +23,7 @@ interface RacerOption {
     first_name: string;
     last_name: string;
     car_number?: number | null;
+    racer_image_url?: string | null;
 }
 
 interface Props {
@@ -29,169 +31,6 @@ interface Props {
     onClose: () => void;
     onSuccess: () => void;
     racers: RacerOption[];
-}
-
-function racerLabel(r: RacerOption) {
-    return r.car_number != null ? `#${r.car_number} ${r.first_name} ${r.last_name}` : `${r.first_name} ${r.last_name}`;
-}
-
-// ---------- Combobox ----------
-
-interface ComboboxProps {
-    racers: RacerOption[];
-    value?: number;
-    onChange: (racerId: number | undefined) => void;
-}
-
-function RacerCombobox({ racers, value, onChange }: ComboboxProps) {
-    const assigned = racers.find(r => r.id === value);
-    const [inputValue, setInputValue] = useState(assigned ? racerLabel(assigned) : '');
-    const [isOpen, setIsOpen] = useState(false);
-    const [activeIndex, setActiveIndex] = useState(-1);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
-    const listRef = useRef<HTMLUListElement>(null);
-    const [prevValue, setPrevValue] = useState(value);
-
-    // Keep input text in sync when external value changes (e.g. on initial render)
-    if (value !== prevValue) {
-        setPrevValue(value);
-        if (!isOpen) {
-            setInputValue(assigned ? racerLabel(assigned) : '');
-        }
-    }
-
-    const query = inputValue.trim().toLowerCase();
-    const filtered = query
-        ? racers.filter(r => racerLabel(r).toLowerCase().includes(query))
-        : racers;
-
-    const handleFocus = () => {
-        setInputValue('');
-        setIsOpen(true);
-        setActiveIndex(-1);
-    };
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setInputValue(e.target.value);
-        setIsOpen(true);
-        setActiveIndex(-1);
-    };
-
-    const commit = (racer: RacerOption | undefined) => {
-        onChange(racer?.id);
-        setInputValue(racer ? racerLabel(racer) : '');
-        setIsOpen(false);
-        setActiveIndex(-1);
-    };
-
-    const handleBlur = (e: React.FocusEvent) => {
-        // Ignore blur when focus moves to the dropdown list
-        if (containerRef.current?.contains(e.relatedTarget as Node)) return;
-        // If user typed something but didn't select, restore previous value
-        setInputValue(assigned ? racerLabel(assigned) : '');
-        setIsOpen(false);
-        setActiveIndex(-1);
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (!isOpen) {
-            if (e.key === 'ArrowDown' || e.key === 'Enter') { setIsOpen(true); return; }
-            return;
-        }
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            setActiveIndex(i => Math.min(i + 1, filtered.length - 1));
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setActiveIndex(i => Math.max(i - 1, -1));
-        } else if (e.key === 'Enter') {
-            e.preventDefault();
-            if (activeIndex >= 0 && filtered[activeIndex]) commit(filtered[activeIndex]);
-            else if (filtered.length === 1) commit(filtered[0]);
-        } else if (e.key === 'Escape') {
-            setInputValue(assigned ? racerLabel(assigned) : '');
-            setIsOpen(false);
-            setActiveIndex(-1);
-        } else if (e.key === 'Backspace' && inputValue === '') {
-            commit(undefined);
-        }
-    };
-
-    // Scroll active item into view
-    useEffect(() => {
-        if (activeIndex >= 0 && listRef.current) {
-            const item = listRef.current.children[activeIndex] as HTMLElement | undefined;
-            item?.scrollIntoView({ block: 'nearest' });
-        }
-    }, [activeIndex]);
-
-    return (
-        <div ref={containerRef} style={{ position: 'relative', marginBottom: '6px', zIndex: isOpen ? 100 : 1 }}>
-            <input
-                ref={inputRef}
-                type="text"
-                value={inputValue}
-                placeholder="— Assign to racer —"
-                onFocus={handleFocus}
-                onChange={handleInputChange}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                autoComplete="off"
-                style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    fontSize: '0.85rem',
-                    padding: '4px 7px',
-                    borderRadius: '4px',
-                    border: `1px solid ${isOpen ? 'var(--scouting-blue)' : 'var(--input-border-color)'}`,
-                    outline: 'none',
-                }}
-            />
-            {isOpen && (
-                <ul
-                    ref={listRef}
-                    style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        right: 0,
-                        zIndex: 200,
-                        margin: '2px 0 0',
-                        padding: 0,
-                        listStyle: 'none',
-                        background: 'var(--surface-color)',
-                        border: '1px solid var(--input-border-color)',
-                        borderRadius: '4px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-                        maxHeight: '180px',
-                        overflowY: 'auto',
-                    }}
-                >
-                    {filtered.length === 0 ? (
-                        <li style={{ padding: '6px 8px', color: 'var(--text-subtle-color)', fontSize: '0.85rem' }}>No matches</li>
-                    ) : (
-                        filtered.map((r, i) => (
-                            <li
-                                key={r.id}
-                                onMouseDown={(e) => { e.preventDefault(); commit(r); }}
-                                onMouseEnter={() => setActiveIndex(i)}
-                                style={{
-                                    padding: '5px 8px',
-                                    fontSize: '0.85rem',
-                                    cursor: 'pointer',
-                                    background: i === activeIndex ? 'var(--scouting-blue)' : 'var(--surface-color)',
-                                    color: i === activeIndex ? 'var(--on-primary-color)' : 'inherit',
-                                }}
-                            >
-                                {racerLabel(r)}
-                            </li>
-                        ))
-                    )}
-                </ul>
-            )}
-        </div>
-    );
 }
 
 // ---------- Helpers ----------
@@ -413,6 +252,17 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
         return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
     });
 
+    // `RacerCombobox` (shared with the roster form and free race lane setup)
+    // takes camelCase fields and a portrait, neither of which this modal's
+    // own `RacerOption` carries in the shape the roster query hands it.
+    const comboboxRacers = sortedRacers.map(r => ({
+        id: r.id,
+        firstName: r.first_name,
+        lastName: r.last_name,
+        carNumber: r.car_number,
+        racerImageUrl: r.racer_image_url,
+    }));
+
     const assignedCount = photos.filter(p => p.status === 'done' && p.assignedRacerId).length;
     const isAnyUploading = photos.some(p => p.status === 'uploading');
 
@@ -492,11 +342,13 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
                                 {entry.status === 'done' && (
                                     <>
                                         <RacerCombobox
-                                            racers={sortedRacers}
+                                            racers={comboboxRacers}
                                             value={entry.assignedRacerId}
                                             onChange={racerId => setPhotos(prev => prev.map(p =>
                                                 p.localId === entry.localId ? { ...p, assignedRacerId: racerId } : p
                                             ))}
+                                            placeholder="— Assign to racer —"
+                                            style={{ marginBottom: '6px' }}
                                         />
                                         <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem' }}>
                                             <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>

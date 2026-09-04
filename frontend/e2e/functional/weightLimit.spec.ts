@@ -95,6 +95,9 @@ test('the check can be turned off from the race form', async ({ page }) => {
     await page.getByRole('button', { name: /Edit Details/ }).click();
 
     const form = page.locator('form');
+    // The edit form is sectioned (#587) and opens on Event; the weight check
+    // is under "Check-in".
+    await form.getByTestId('race-settings-nav-checkin').click();
     await form.getByLabel('Check car weights at inspection').uncheck();
     await form.getByRole('button', { name: /Save Changes/ }).click();
     await expect(form).toBeHidden();

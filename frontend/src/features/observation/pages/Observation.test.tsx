@@ -105,6 +105,42 @@ describe('Observation Page', () => {
         expect(screen.getAllByText('Mater Tow').length).toBeGreaterThan(0);
     });
 
+    it("shows the track's configured lane colours beside a lane number (#611)", async () => {
+        setupMocks(
+            {
+                currentlyRacing: {
+                    id: 2, roundNumber: 1, heatNumber: 2,
+                    lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
+                },
+                onDeck: [{
+                    id: 3, roundNumber: 1, heatNumber: 3,
+                    lanes: [{ lane: 1, racerId: 3, placeholderSlot: null }],
+                }],
+            },
+            {
+                race: {
+                    ...mockRacersData.race,
+                    track: { id: 1, laneColors: ['#E53935'] },
+                },
+            },
+        );
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        // Lane 1 is red on both cards — Now Racing and On Deck each render a
+        // heat card through the same `renderHeatCard`, and both put their
+        // single racer in lane 1.
+        await waitFor(() => {
+            expect(screen.getAllByTitle('Red lane').length).toBe(2);
+        });
+    });
+
     it('shows a second heat so cars can be staged a heat early (#209)', async () => {
         // The child named on screen is in the bleachers rather than watching
         // it, so a display that names only the next heat names them at the
@@ -664,6 +700,116 @@ describe('Observation Page', () => {
         vi.useRealTimers();
     });
 
+    describe('scale speed beside a lane\'s time (#610)', () => {
+        it('shows the scale speed on the timing view when the lane carries one', async () => {
+            setupMocks({
+                timingStats: {
+                    heatId: 1,
+                    roundName: 'Round 1',
+                    heatNumber: 1,
+                    lanes: [
+                        { laneNumber: 1, racerName: 'Speedy McQueen', carName: '95', time: 3.2, place: 1, scaleMph: 213.1 },
+                    ]
+                }
+            });
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            screen.getByText('Timing Stats').click();
+
+            await waitFor(() => {
+                expect(screen.getByText('3.200s')).toBeInTheDocument();
+            });
+            expect(screen.getByText('· 213 mph')).toBeInTheDocument();
+        });
+
+        it('shows nothing extra when the lane carries no scale speed', async () => {
+            setupMocks({
+                timingStats: {
+                    heatId: 1,
+                    roundName: 'Round 1',
+                    heatNumber: 1,
+                    lanes: [
+                        { laneNumber: 1, racerName: 'Speedy McQueen', carName: '95', time: 3.2, place: 1, scaleMph: null },
+                    ]
+                }
+            });
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            screen.getByText('Timing Stats').click();
+
+            await waitFor(() => {
+                expect(screen.getByText('3.200s')).toBeInTheDocument();
+            });
+            expect(screen.queryByText(/mph/)).not.toBeInTheDocument();
+        });
+
+        it('shows the scale speed in the projector results overlay', async () => {
+            // Same shape as "shows the overlay for a heat that finishes after
+            // the page has loaded" above: the opening payload (heat 1) is
+            // history, and heat 2 finishing afterwards is news that pops the
+            // overlay (#335).
+            let timingStats: any = {
+                heatId: 1,
+                recordedAt: '2026-01-01T00:00:00Z',
+                roundName: 'Round 1',
+                heatNumber: 1,
+                lanes: [
+                    { laneNumber: 1, racerName: 'Speedy McQueen', carName: '95', time: 3.6, place: 1, racerImageUrl: null, scaleMph: null },
+                ]
+            };
+
+            (useQuery as any).mockReturnValue([{ data: mockRacersData, fetching: false, error: null }]);
+            (useSubscription as any).mockImplementation(({ query }: { query: any }) => {
+                if (query === LeaderboardSubscription) return [{ data: { leaderboard: [] } }];
+                if (query === OnDeckSubscription) return [{ data: { onDeck: [] } }];
+                if (query === CurrentlyRacingSubscription) return [{ data: { currentlyRacing: null } }];
+                if (query === TimingStatsSubscription) return [{ data: { timingStats } }];
+                if (query === ActiveFreeRaceHeatSubscription) return [{ data: { activeFreeRaceHeat: null } }];
+                if (query === TIMER_STATUS_SUBSCRIPTION) return [{ data: { timerStatus: { status: { activeHeatId: null } } } }];
+                return [{ data: null }];
+            });
+
+            const renderTree = () => (
+                <MemoryRouter initialEntries={['/race/1/observation?projector=true']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+            const { rerender } = render(renderTree());
+            expect(screen.queryByText('Heat Results')).not.toBeInTheDocument();
+
+            timingStats = {
+                ...timingStats,
+                heatId: 2,
+                recordedAt: '2026-01-01T00:05:00Z',
+                lanes: [
+                    { laneNumber: 1, racerName: 'Speedy McQueen', carName: '95', time: 3.2, place: 1, racerImageUrl: null, scaleMph: 213.1 },
+                ],
+            };
+            act(() => {
+                rerender(renderTree());
+            });
+
+            expect(screen.getByText('Heat Results')).toBeInTheDocument();
+            expect(screen.getByText('· 213 mph')).toBeInTheDocument();
+        });
+    });
+
     describe('naming this screen (#495)', () => {
         const renderTree = () => (
             <MemoryRouter initialEntries={['/race/1/observation']}>
@@ -795,6 +941,392 @@ describe('Observation Page', () => {
             });
 
             expect(document.querySelector('.container')).toHaveAttribute('data-theme', 'newsprint');
+        });
+    });
+
+    describe('intermission overlay (#592)', () => {
+        const withIntermission = (intermission: any) => ({
+            race: { ...mockRacersData.race, intermission },
+        });
+
+        it('takes over the screen while a break is active', async () => {
+            setupMocks({}, withIntermission({
+                active: true,
+                remainingSeconds: 272,
+                paused: false,
+                label: 'Snack break',
+                endsAt: new Date(Date.now() + 272_000).toISOString(),
+            }));
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+            });
+            expect(screen.getByTestId('intermission-label')).toHaveTextContent('Snack break');
+            // The ordinary Now Racing / On Deck cards must not render
+            // underneath the break screen.
+            expect(screen.queryByText('Now Racing')).toBeNull();
+        });
+
+        it('shows the ordinary page once nothing is active', async () => {
+            setupMocks({}, withIntermission({
+                active: false,
+                remainingSeconds: 0,
+                paused: false,
+                label: null,
+                endsAt: null,
+            }));
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByText('Now Racing')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('intermission-overlay')).toBeNull();
+        });
+
+        it('falls back to the ordinary page once a locally-ticked countdown has run out', async () => {
+            // No new event arrived to say the break ended — the payload is
+            // stale — but the deadline (a few seconds ago) has passed, and
+            // isLiveActive is what catches that without a server round trip.
+            setupMocks({}, withIntermission({
+                active: true,
+                remainingSeconds: 5,
+                paused: false,
+                label: 'Snack break',
+                endsAt: new Date(Date.now() - 5_000).toISOString(),
+            }));
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByText('Now Racing')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('intermission-overlay')).toBeNull();
+        });
+    });
+
+    describe('standings only (#663)', () => {
+        const renderTree = () => (
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        it('hides Now Racing and On Deck, and shows the leaderboard full-screen', async () => {
+            setupMocks({
+                displayAssignment: {
+                    name: 'Plucky Puffin',
+                    identifySeq: 0,
+                    assigned: true,
+                    view: 'STANDINGS_ONLY',
+                    cycleSeconds: 10,
+                    scrollBehavior: 'PAGING',
+                },
+                leaderboard: [{ racerId: 1, score: 3.2, heatsCompleted: 2, rank: 1 }],
+                currentlyRacing: {
+                    id: 2,
+                    roundNumber: 1,
+                    heatNumber: 2,
+                    lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
+                },
+                onDeck: [
+                    {
+                        id: 3,
+                        roundNumber: 1,
+                        heatNumber: 3,
+                        lanes: [{ lane: 1, racerId: 3, placeholderSlot: null }],
+                    },
+                ],
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('standings-only-view')).toBeInTheDocument();
+            });
+            expect(screen.queryByText('Now Racing')).not.toBeInTheDocument();
+            expect(screen.queryByText('On Deck')).not.toBeInTheDocument();
+            expect(screen.getByText('Speedy McQueen')).toBeInTheDocument();
+        });
+
+        it('hides the app chrome, the same as projector mode and the slideshow', async () => {
+            setupMocks({
+                displayAssignment: {
+                    name: 'Plucky Puffin',
+                    identifySeq: 0,
+                    assigned: true,
+                    view: 'STANDINGS_ONLY',
+                    cycleSeconds: 10,
+                    scrollBehavior: 'PAGING',
+                },
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('standings-only-view')).toBeInTheDocument();
+            });
+            expect(document.querySelector('.container.projector-mode')).toBeInTheDocument();
+        });
+
+        it('carries the operator’s chosen scroll behavior through to the view', async () => {
+            setupMocks({
+                displayAssignment: {
+                    name: 'Plucky Puffin',
+                    identifySeq: 0,
+                    assigned: true,
+                    view: 'STANDINGS_ONLY',
+                    cycleSeconds: 10,
+                    scrollBehavior: 'SMOOTH',
+                },
+                leaderboard: Array.from({ length: 30 }, (_, i) => ({
+                    racerId: i + 1,
+                    score: 3 + i,
+                    heatsCompleted: 1,
+                    rank: i + 1,
+                })),
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('standings-only-view')).toBeInTheDocument();
+            });
+            // Smooth scrolling has nothing to page through, so it never shows
+            // a page indicator — paging's own control.
+            expect(screen.queryByTestId('standings-only-page-indicator')).not.toBeInTheDocument();
+        });
+
+        it('yields to an intermission (#592) — a break is a fact about the race, not the assigned view', async () => {
+            // Same rule the standard, slideshow and projector modes already
+            // follow: an operator calling a break must reach every screen
+            // regardless of what it was showing, including one dedicated
+            // entirely to the leaderboard.
+            setupMocks(
+                {
+                    displayAssignment: {
+                        name: 'Plucky Puffin',
+                        identifySeq: 0,
+                        assigned: true,
+                        view: 'STANDINGS_ONLY',
+                        cycleSeconds: 10,
+                        scrollBehavior: 'PAGING',
+                    },
+                },
+                {
+                    race: {
+                        ...mockRacersData.race,
+                        intermission: {
+                            active: true,
+                            remainingSeconds: 120,
+                            paused: false,
+                            label: 'Snack break',
+                            endsAt: new Date(Date.now() + 120_000).toISOString(),
+                        },
+                    },
+                },
+            );
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('standings-only-view')).not.toBeInTheDocument();
+        });
+    });
+
+    describe('check-in progress (#612)', () => {
+        const renderTree = () => (
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        const checkinRacersData = {
+            race: {
+                id: 1,
+                racers: [
+                    { id: 1, firstName: 'Speedy', lastName: 'McQueen', carNumber: 95, racerImageUrl: null, racingGroupId: 1, carPassedInspection: true },
+                    { id: 2, firstName: 'Doc', lastName: 'Hudson', carNumber: 51, racerImageUrl: null, racingGroupId: 1, carPassedInspection: false },
+                ],
+                racingGroups: [{ id: 1, name: 'Wolves', color: '#f00', division: null }],
+            },
+        };
+
+        it('hides Now Racing and On Deck, and shows check-in progress by racing group', async () => {
+            setupMocks(
+                {
+                    displayAssignment: {
+                        name: 'Plucky Puffin',
+                        identifySeq: 0,
+                        assigned: true,
+                        view: 'CHECKIN',
+                        cycleSeconds: 10,
+                        scrollBehavior: 'PAGING',
+                        showCheckedIn: true,
+                    },
+                    currentlyRacing: {
+                        id: 2,
+                        roundNumber: 1,
+                        heatNumber: 2,
+                        lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
+                    },
+                },
+                checkinRacersData,
+            );
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('checkin-view')).toBeInTheDocument();
+            });
+            expect(screen.queryByText('Now Racing')).not.toBeInTheDocument();
+            expect(screen.queryByText('On Deck')).not.toBeInTheDocument();
+            expect(screen.getByText('1 of 2 checked in')).toBeInTheDocument();
+            expect(screen.getByTestId('checkin-group-1')).toHaveTextContent('Doc Hudson');
+        });
+
+        it('hides the app chrome, the same as projector mode and the slideshow', async () => {
+            setupMocks(
+                {
+                    displayAssignment: {
+                        name: 'Plucky Puffin',
+                        identifySeq: 0,
+                        assigned: true,
+                        view: 'CHECKIN',
+                        cycleSeconds: 10,
+                        scrollBehavior: 'PAGING',
+                        showCheckedIn: true,
+                    },
+                },
+                checkinRacersData,
+            );
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('checkin-view')).toBeInTheDocument();
+            });
+            expect(document.querySelector('.container.projector-mode')).toBeInTheDocument();
+        });
+
+        it('drops already-checked-in racers when the operator sets pending-only', async () => {
+            setupMocks(
+                {
+                    displayAssignment: {
+                        name: 'Plucky Puffin',
+                        identifySeq: 0,
+                        assigned: true,
+                        view: 'CHECKIN',
+                        cycleSeconds: 10,
+                        scrollBehavior: 'PAGING',
+                        showCheckedIn: false,
+                    },
+                },
+                checkinRacersData,
+            );
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('checkin-view')).toBeInTheDocument();
+            });
+            const wolves = screen.getByTestId('checkin-group-1');
+            expect(wolves).not.toHaveTextContent('Speedy McQueen');
+            expect(wolves).toHaveTextContent('Doc Hudson');
+        });
+
+        it('says racing is underway once a heat has been recorded, without hiding the roster', async () => {
+            setupMocks(
+                {
+                    displayAssignment: {
+                        name: 'Plucky Puffin',
+                        identifySeq: 0,
+                        assigned: true,
+                        view: 'CHECKIN',
+                        cycleSeconds: 10,
+                        scrollBehavior: 'PAGING',
+                        showCheckedIn: true,
+                    },
+                    timingStats: {
+                        heatId: 1,
+                        roundName: 'All Pack',
+                        heatNumber: 1,
+                        globalHeatNumber: null,
+                        recordedAt: new Date().toISOString(),
+                        lanes: [{ laneNumber: 1, place: 1, racerName: 'Speedy McQueen', time: 3.2 }],
+                    },
+                },
+                checkinRacersData,
+            );
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('checkin-racing-underway')).toBeInTheDocument();
+            });
+            expect(screen.getByTestId('checkin-view')).toBeInTheDocument();
+            expect(screen.getByTestId('checkin-group-1')).toHaveTextContent('Doc Hudson');
+        });
+
+        it('yields to an intermission (#592) — a break is a fact about the race, not the assigned view', async () => {
+            setupMocks(
+                {
+                    displayAssignment: {
+                        name: 'Plucky Puffin',
+                        identifySeq: 0,
+                        assigned: true,
+                        view: 'CHECKIN',
+                        cycleSeconds: 10,
+                        scrollBehavior: 'PAGING',
+                        showCheckedIn: true,
+                    },
+                },
+                {
+                    race: {
+                        ...checkinRacersData.race,
+                        intermission: {
+                            active: true,
+                            remainingSeconds: 120,
+                            paused: false,
+                            label: 'Snack break',
+                            endsAt: new Date(Date.now() + 120_000).toISOString(),
+                        },
+                    },
+                },
+            );
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('checkin-view')).not.toBeInTheDocument();
         });
     });
 });

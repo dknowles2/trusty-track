@@ -47,12 +47,15 @@ export type AuditLogEntry = {
 
 export type Award = {
   artworkKey?: Maybe<Scalars['String']['output']>;
+  duplicateOf?: Maybe<Award>;
   fromBottom: Scalars['Boolean']['output'];
   id: Scalars['Int']['output'];
   kind: Scalars['String']['output'];
   name: Scalars['String']['output'];
+  passedOver: Array<AwardPassedOver>;
   place?: Maybe<Scalars['Int']['output']>;
   placeContested: Scalars['Boolean']['output'];
+  position?: Maybe<Scalars['Int']['output']>;
   raceId: Scalars['Int']['output'];
   racingGroup?: Maybe<RacingGroup>;
   racingGroupId?: Maybe<Scalars['Int']['output']>;
@@ -76,11 +79,48 @@ export type AwardInput = {
   votable?: Scalars['Boolean']['input'];
 };
 
+export type AwardPassedOver = {
+  award?: Maybe<Award>;
+  awardId: Scalars['Int']['output'];
+  racer?: Maybe<Racer>;
+  racerId: Scalars['Int']['output'];
+};
+
 export type AwardVoteTally = {
   raceId: Scalars['Int']['output'];
   racer?: Maybe<Racer>;
   racerId: Scalars['Int']['output'];
   voteCount: Scalars['Int']['output'];
+};
+
+export type DerbynetImportGroup = {
+  division?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+};
+
+export type DerbynetImportPreview = {
+  canImport: Scalars['Boolean']['output'];
+  groups: Array<DerbynetImportGroup>;
+  problems: Array<DerbynetImportProblem>;
+  racers: Array<DerbynetImportRacer>;
+};
+
+export type DerbynetImportProblem = {
+  blocking: Scalars['Boolean']['output'];
+  message: Scalars['String']['output'];
+  sourceId?: Maybe<Scalars['String']['output']>;
+};
+
+export type DerbynetImportRacer = {
+  carName?: Maybe<Scalars['String']['output']>;
+  carNumber?: Maybe<Scalars['Int']['output']>;
+  carWeight?: Maybe<Scalars['Float']['output']>;
+  excludedFromStandings: Scalars['Boolean']['output'];
+  firstName: Scalars['String']['output'];
+  group?: Maybe<Scalars['String']['output']>;
+  lastName: Scalars['String']['output'];
+  passedInspection: Scalars['Boolean']['output'];
+  sourceId?: Maybe<Scalars['String']['output']>;
 };
 
 export type Display = {
@@ -93,7 +133,10 @@ export type Display = {
   identifySeq: Scalars['Int']['output'];
   name: Scalars['String']['output'];
   pacedByAPerson: Scalars['Boolean']['output'];
+  qrTarget: QrTarget;
   raceId: Scalars['Int']['output'];
+  scrollBehavior: ScrollBehavior;
+  showCheckedIn: Scalars['Boolean']['output'];
   slideDelta: Scalars['Int']['output'];
   slideSeq: Scalars['Int']['output'];
   view: DisplayView;
@@ -101,10 +144,13 @@ export type Display = {
 
 export type DisplayView =
   | 'AWARDS'
+  | 'CHECKIN'
   | 'CYCLE'
   | 'PROJECTOR'
+  | 'QRCODE'
   | 'SLIDESHOW'
   | 'STANDINGS'
+  | 'STANDINGS_ONLY'
   | 'TIMING';
 
 export type FreeRaceHeat = {
@@ -123,6 +169,36 @@ export type FreeRaceLaneAssignment = {
 export type FreeRaceLaneAssignmentInput = {
   lane: Scalars['Int']['input'];
   racerId?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type GprmImportGroup = {
+  division?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+};
+
+export type GprmImportPreview = {
+  canImport: Scalars['Boolean']['output'];
+  groups: Array<GprmImportGroup>;
+  problems: Array<GprmImportProblem>;
+  racers: Array<GprmImportRacer>;
+};
+
+export type GprmImportProblem = {
+  blocking: Scalars['Boolean']['output'];
+  message: Scalars['String']['output'];
+  sourceId?: Maybe<Scalars['String']['output']>;
+};
+
+export type GprmImportRacer = {
+  carName?: Maybe<Scalars['String']['output']>;
+  carNumber?: Maybe<Scalars['Int']['output']>;
+  carWeight?: Maybe<Scalars['Float']['output']>;
+  excludedFromStandings: Scalars['Boolean']['output'];
+  firstName: Scalars['String']['output'];
+  group?: Maybe<Scalars['String']['output']>;
+  lastName: Scalars['String']['output'];
+  passedInspection: Scalars['Boolean']['output'];
+  sourceId?: Maybe<Scalars['String']['output']>;
 };
 
 export type Heat = {
@@ -265,6 +341,14 @@ export type InitialConfigStatus = {
   version: Scalars['String']['output'];
 };
 
+export type Intermission = {
+  active: Scalars['Boolean']['output'];
+  endsAt?: Maybe<Scalars['String']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  paused: Scalars['Boolean']['output'];
+  remainingSeconds: Scalars['Int']['output'];
+};
+
 export type LaneResult = {
   lane: Scalars['Int']['output'];
   place?: Maybe<Scalars['Int']['output']>;
@@ -320,6 +404,8 @@ export type Mutation = {
   bulkSetExcludedFromStandings: Scalars['Boolean']['output'];
   castVote?: Maybe<Scalars['String']['output']>;
   checkInRacer?: Maybe<Racer>;
+  confirmDerbynetImport: Scalars['Int']['output'];
+  confirmGprmImport: Scalars['Int']['output'];
   createAward: Award;
   createInitialConfig: InitialConfigStatus;
   createPracticeRace: Race;
@@ -341,14 +427,19 @@ export type Mutation = {
   deleteRunOffHeat: Scalars['Boolean']['output'];
   deleteTrack: Scalars['Boolean']['output'];
   deleteTrackRecord: Scalars['Boolean']['output'];
+  endIntermission: Race;
+  extendIntermission: Race;
   fakeTimerFinish: Scalars['Boolean']['output'];
   fakeTimerStart: Scalars['Boolean']['output'];
   forceResults: Scalars['Boolean']['output'];
   forgetDisplay: Scalars['Boolean']['output'];
   identifyDisplay?: Maybe<Display>;
   importRacers: Scalars['Int']['output'];
+  pauseIntermission: Race;
   populateRace: Scalars['String']['output'];
   prepareHeat: Scalars['Boolean']['output'];
+  previewDerbynetImport: DerbynetImportPreview;
+  previewGprmImport: GprmImportPreview;
   reconnectTimer: Scalars['Boolean']['output'];
   recordFreeRaceResult?: Maybe<FreeRaceHeat>;
   regenerateRound: Array<Heat>;
@@ -357,8 +448,10 @@ export type Mutation = {
   reorderAwards: Array<Award>;
   reorderHeats: HeatReorderResponse;
   resetTimer: Scalars['Boolean']['output'];
+  resumeIntermission: Race;
   setLaneOutages: Array<Scalars['Int']['output']>;
   startFreeRaceHeat: FreeRaceHeat;
+  startIntermission: Race;
   startTimerTest: Scalars['Boolean']['output'];
   updateAward?: Maybe<Award>;
   updateHeatResult?: Maybe<Heat>;
@@ -397,6 +490,9 @@ export type MutationApplyMasterRunningOrderArgs = {
 export type MutationAssignDisplayArgs = {
   cycleSeconds?: InputMaybe<Scalars['Int']['input']>;
   displayId: Scalars['String']['input'];
+  qrTarget?: InputMaybe<QrTarget>;
+  scrollBehavior?: InputMaybe<ScrollBehavior>;
+  showCheckedIn?: InputMaybe<Scalars['Boolean']['input']>;
   view: DisplayView;
 };
 
@@ -452,6 +548,18 @@ export type MutationCheckInRacerArgs = {
   passedInspection: Scalars['Boolean']['input'];
   racerImageUrl?: InputMaybe<Scalars['String']['input']>;
   weight?: InputMaybe<Scalars['Float']['input']>;
+};
+
+
+export type MutationConfirmDerbynetImportArgs = {
+  fileData: Scalars['String']['input'];
+  raceId: Scalars['Int']['input'];
+};
+
+
+export type MutationConfirmGprmImportArgs = {
+  fileData: Scalars['String']['input'];
+  raceId: Scalars['Int']['input'];
 };
 
 
@@ -567,6 +675,17 @@ export type MutationDeleteTrackRecordArgs = {
 };
 
 
+export type MutationEndIntermissionArgs = {
+  raceId: Scalars['Int']['input'];
+};
+
+
+export type MutationExtendIntermissionArgs = {
+  raceId: Scalars['Int']['input'];
+  seconds: Scalars['Int']['input'];
+};
+
+
 export type MutationFakeTimerFinishArgs = {
   heatId: Scalars['Int']['input'];
   isFreeRace?: Scalars['Boolean']['input'];
@@ -600,6 +719,11 @@ export type MutationImportRacersArgs = {
 };
 
 
+export type MutationPauseIntermissionArgs = {
+  raceId: Scalars['Int']['input'];
+};
+
+
 export type MutationPopulateRaceArgs = {
   config: PopulateTestDataInput;
   raceId: Scalars['Int']['input'];
@@ -609,6 +733,18 @@ export type MutationPopulateRaceArgs = {
 export type MutationPrepareHeatArgs = {
   heatId: Scalars['Int']['input'];
   isFreeRace?: Scalars['Boolean']['input'];
+};
+
+
+export type MutationPreviewDerbynetImportArgs = {
+  fileData: Scalars['String']['input'];
+  raceId: Scalars['Int']['input'];
+};
+
+
+export type MutationPreviewGprmImportArgs = {
+  fileData: Scalars['String']['input'];
+  raceId: Scalars['Int']['input'];
 };
 
 
@@ -655,6 +791,11 @@ export type MutationResetTimerArgs = {
 };
 
 
+export type MutationResumeIntermissionArgs = {
+  raceId: Scalars['Int']['input'];
+};
+
+
 export type MutationSetLaneOutagesArgs = {
   lanes: Array<Scalars['Int']['input']>;
   trackId: Scalars['Int']['input'];
@@ -663,6 +804,13 @@ export type MutationSetLaneOutagesArgs = {
 
 export type MutationStartFreeRaceHeatArgs = {
   laneAssignments: Array<FreeRaceLaneAssignmentInput>;
+  raceId: Scalars['Int']['input'];
+};
+
+
+export type MutationStartIntermissionArgs = {
+  durationSeconds: Scalars['Int']['input'];
+  label?: InputMaybe<Scalars['String']['input']>;
   raceId: Scalars['Int']['input'];
 };
 
@@ -752,6 +900,10 @@ export type PopulateTestDataInput = {
   checkIn?: Scalars['Boolean']['input'];
   count?: Scalars['Int']['input'];
 };
+
+export type QrTarget =
+  | 'STANDINGS'
+  | 'VOTE';
 
 export type Query = {
   activeFreeRaceHeat?: Maybe<FreeRaceHeat>;
@@ -876,15 +1028,20 @@ export type Race = {
   globalStartNumber: Scalars['Int']['output'];
   heats: Array<Heat>;
   id: Scalars['Int']['output'];
+  intermission: Intermission;
+  isLocked: Scalars['Boolean']['output'];
   leaderboard: Array<LeaderboardEntry>;
   location?: Maybe<Scalars['String']['output']>;
   masterRunningOrder: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
   nameDisplay?: Maybe<Scalars['String']['output']>;
+  oneTrophyPerRacer: Scalars['Boolean']['output'];
   organization: Organization;
   organizationId: Scalars['Int']['output'];
   organizationPlural?: Maybe<Scalars['String']['output']>;
   organizationSingular?: Maybe<Scalars['String']['output']>;
+  qrHeadline?: Maybe<Scalars['String']['output']>;
+  qrWifiNote?: Maybe<Scalars['String']['output']>;
   racers: Array<Racer>;
   racingGroupPlural?: Maybe<Scalars['String']['output']>;
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
@@ -914,6 +1071,7 @@ export type RaceLeaderboardArgs = {
 
 export type RaceChangeKind =
   | 'HEAT_RESULT'
+  | 'INTERMISSION'
   | 'OTHER'
   | 'RACER'
   | 'RACE_SETTINGS'
@@ -929,15 +1087,26 @@ export type RaceInput = {
   location?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
   organizationId?: Scalars['Int']['input'];
+  organizationPlural?: InputMaybe<Scalars['String']['input']>;
+  organizationSingular?: InputMaybe<Scalars['String']['input']>;
+  qrHeadline?: InputMaybe<Scalars['String']['input']>;
+  qrWifiNote?: InputMaybe<Scalars['String']['input']>;
+  racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
+  racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
+  racingGroups?: Array<RacingGroupInput>;
   scoringStrategy?: Scalars['String']['input'];
   tiebreaker?: Scalars['String']['input'];
   trackId: Scalars['Int']['input'];
+  vehicleArtworkKey?: InputMaybe<Scalars['String']['input']>;
+  vehiclePlural?: InputMaybe<Scalars['String']['input']>;
+  vehicleSingular?: InputMaybe<Scalars['String']['input']>;
   weightLimitOz?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type RaceStateChangedEvent = {
   changedAt: Scalars['String']['output'];
   heat?: Maybe<Heat>;
+  intermission?: Maybe<Intermission>;
   kind: RaceChangeKind;
   raceId: Scalars['Int']['output'];
   racer?: Maybe<Racer>;
@@ -953,6 +1122,7 @@ export type RaceStats = {
   racerStats: Array<RacerStat>;
   racingGroupStats: Array<RacingGroupStat>;
   scoringStrategy: Scalars['String']['output'];
+  topScaleMph?: Maybe<Scalars['Float']['output']>;
   totalHeatsCompleted: Scalars['Int']['output'];
   totalHeatsScheduled: Scalars['Int']['output'];
   totalRacers: Scalars['Int']['output'];
@@ -970,12 +1140,16 @@ export type RaceUpdateInput = {
   dropWorstRuns?: InputMaybe<Scalars['Int']['input']>;
   excludeRoundWinnersFromQualifyingStandings?: InputMaybe<Scalars['Boolean']['input']>;
   globalStartNumber?: InputMaybe<Scalars['Int']['input']>;
+  isLocked?: InputMaybe<Scalars['Boolean']['input']>;
   location?: InputMaybe<Scalars['String']['input']>;
   masterRunningOrder?: InputMaybe<Scalars['Boolean']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
   nameDisplay?: InputMaybe<Scalars['String']['input']>;
+  oneTrophyPerRacer?: InputMaybe<Scalars['Boolean']['input']>;
   organizationPlural?: InputMaybe<Scalars['String']['input']>;
   organizationSingular?: InputMaybe<Scalars['String']['input']>;
+  qrHeadline?: InputMaybe<Scalars['String']['input']>;
+  qrWifiNote?: InputMaybe<Scalars['String']['input']>;
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
   racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
   scoringStrategy?: InputMaybe<Scalars['String']['input']>;
@@ -1099,6 +1273,10 @@ export type RunOffHeat = {
   recorded: Scalars['Boolean']['output'];
   settlesRoundId?: Maybe<Scalars['Int']['output']>;
 };
+
+export type ScrollBehavior =
+  | 'PAGING'
+  | 'SMOOTH';
 
 export type SerialLogEntry = {
   data: Scalars['String']['output'];
@@ -1251,12 +1429,14 @@ export type TimingStatsLane = {
   place?: Maybe<Scalars['Int']['output']>;
   racerImageUrl?: Maybe<Scalars['String']['output']>;
   racerName: Scalars['String']['output'];
+  scaleMph?: Maybe<Scalars['Float']['output']>;
   time?: Maybe<Scalars['Float']['output']>;
 };
 
 export type Track = {
   historicalRecords: Array<HistoricalTrackRecord>;
   id: Scalars['Int']['output'];
+  laneColors: Array<Scalars['String']['output']>;
   laneCount: Scalars['Int']['output'];
   laneOutages: Array<Scalars['Int']['output']>;
   lengthFeet?: Maybe<Scalars['Int']['output']>;
@@ -1273,6 +1453,7 @@ export type Track = {
 
 export type TrackInput = {
   id?: InputMaybe<Scalars['Int']['input']>;
+  laneColors?: Array<Scalars['String']['input']>;
   laneCount?: Scalars['Int']['input'];
   lengthFeet?: InputMaybe<Scalars['Int']['input']>;
   name?: Scalars['String']['input'];

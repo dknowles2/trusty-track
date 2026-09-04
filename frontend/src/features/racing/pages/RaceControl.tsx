@@ -8,6 +8,9 @@ import { errorText } from '../../../utils/errors';
 import { ScheduleManagement } from '../components/ScheduleManagement';
 import DisplaysPanel from '../../observation/components/DisplaysPanel';
 import { RaceExecution } from '../components/RaceExecution';
+import LaneBadge from '../../../components/ui/LaneBadge';
+import { colorForLane } from '../../settings/laneColors';
+import IntermissionControl from '../components/IntermissionControl';
 import ReadinessStrip from '../components/ReadinessStrip';
 import { FreeRaceTab } from '../components/FreeRaceTab';
 import {
@@ -31,6 +34,8 @@ import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompl
 import { shouldShowReadiness } from '../readiness';
 import { estimatePace } from '../pace';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
+import LockedBadge from '../../core/components/LockedBadge';
+import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
 export default function RaceControl() {
   const { showAlert, showConfirm, showToast } = useAlert();
@@ -571,7 +576,10 @@ export default function RaceControl() {
   return (
     <div className="container" style={{ padding: '20px' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ margin: 0 }}>Race Control</h1>
+        <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+          Race Control
+          {race?.isLocked && <LockedBadge />}
+        </h1>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1, minWidth: '300px', justifyContent: 'center' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', background: 'var(--surface-strong-color)', padding: '5px', borderRadius: '25px' }}>
@@ -675,6 +683,26 @@ export default function RaceControl() {
         </div>
       </div>
 
+      {/* The lock (#585). Scheduling and result entry below are disabled
+          rather than hidden — see ScheduleManagement's and RaceExecution's
+          own `raceLocked` prop — and this is the one sentence saying why. */}
+      {race?.isLocked && (
+        <div
+          data-testid="race-locked-banner"
+          style={{
+            background: 'var(--warning-bg-color)',
+            color: 'var(--warning-strong-color)',
+            border: '1px solid var(--warning-strong-border-color)',
+            borderRadius: '8px',
+            padding: '10px 16px',
+            marginBottom: '16px',
+            fontSize: '0.9rem',
+          }}
+        >
+          {RACE_LOCKED_MESSAGE}
+        </div>
+      )}
+
       {/* Pre-flight (#200). Not on the Free Race tab, where an exhibition run
           does not care whether the championship schedule exists, and not on
           Displays, which is itself one of the four answers. */}
@@ -710,7 +738,13 @@ export default function RaceControl() {
           </div>
         ) : (
           <>
+            {/* The Race tab is where the operator is standing when a break
+                is called or ends (#592) — the same reasoning that put the
+                displays registry on its own tab rather than in System
+                Settings. */}
+            <IntermissionControl raceId={id} />
             <RaceExecution
+              raceId={id}
               activeExecutionHeat={activeExecutionHeat || null}
               nextExecutionHeat={nextExecutionHeat}
               activeHeatId={activeHeatId}
@@ -722,6 +756,7 @@ export default function RaceControl() {
               scoringStrategy={race?.scoringStrategy}
               timerType={race?.track?.timerType}
               trackId={race?.track?.id ?? null}
+              laneColors={race?.track?.laneColors ?? []}
               racers={racers}
               roundSummary={roundSummary}
               autoAdvanceHeat={race?.autoAdvanceHeat ?? false}
@@ -731,6 +766,7 @@ export default function RaceControl() {
               pace={pace}
               upcomingRounds={upcomingRounds}
               debugMode={data?.initialConfig?.debugMode ?? false}
+              raceLocked={race?.isLocked ?? false}
               onToggleAutoAdvance={async (value) => {
                 await updateRaceMutation({ id, race: { autoAdvanceHeat: value } });
                 reExecute({ requestPolicy: 'network-only' });
@@ -796,7 +832,12 @@ export default function RaceControl() {
                                 fontSize: '0.75rem',
                                 flexShrink: 0
                               }}>{r.place ?? '–'}</span>
-                              <span style={{ color: 'var(--text-subtle-color)', minWidth: '52px', fontSize: '0.85rem' }}>Lane {r.lane}</span>
+                              <LaneBadge
+                                  color={colorForLane(race?.track?.laneColors ?? [], r.lane)}
+                                  style={{ color: 'var(--text-subtle-color)', minWidth: '52px', fontSize: '0.85rem' }}
+                              >
+                                  Lane {r.lane}
+                              </LaneBadge>
                               <span style={{ flex: 1, fontWeight: r.place === 1 ? 600 : 'normal' }}>{laneRacerName(r, slowestRoundIds.has(heat.roundId))}</span>
                               <span style={{ fontFamily: 'monospace', color: 'var(--text-heading-alt-color)', flexShrink: 0 }}>{r.time != null ? `${Number(r.time).toFixed(4)}s` : '–'}</span>
                             </div>
@@ -824,11 +865,13 @@ export default function RaceControl() {
           onRunHeat={handleRunHeat}
           onReorderHeats={handleReorderHeats}
           masterRunningOrder={masterRunningOrder}
+          raceLocked={race?.isLocked ?? false}
           championshipRoundIds={championshipRoundIds}
           roundGroupLabel={roundGroupLabel}
           onApplyMasterRunningOrder={handleApplyMasterRunningOrder}
           getRacerName={getRacerName}
           laneCount={race?.track?.laneCount || 4}
+          laneColors={race?.track?.laneColors ?? []}
           racerCount={race?.racers?.length || 0}
           racingGroupCount={race?.racingGroups?.length || 0}
           championshipTrophies={race?.championshipTrophies || 3}

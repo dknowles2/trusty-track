@@ -48,10 +48,26 @@ _The Roster page at the start of race day. Every racer has a gold **Check In** b
 _The check-in modal for a racer, with "Passed Inspection / Checked In" toggled on._
 
 ![Check-In Modal — With Photo](assets/screenshots/race-day/03-check-in-modal-with-photo.png)
-_A racer photo loaded in the check-in modal. Photos appear on the live audience display during the race._
+_A racer photo loaded in the check-in modal. Photos appear on the live audience display during the race. Once a photo is on file, a **⟳ Rotate / Recrop** button appears beneath it — see below._
 
 ![Racer List After Check-In](assets/screenshots/race-day/04-racer-list-after-check-in.png)
 _After saving, that racer's button turns green and reads **Checked In / Edit**. Clicking it again reopens the same form._
+
+---
+
+### Straightening a Photo
+
+Photos taken at the check-in table are rarely framed well — snapped sideways, off to one side, or with the car lost in a corner of the shot while table clutter fills the rest. Every racer and car photo can be rotated and recropped right in the browser, with no need to retake the picture.
+
+- **A photo taken with the Camera button** goes straight into this step after you tap **Capture** — straighten and crop it before it is ever attached to the racer.
+- **A photo already on file** — uploaded from disk, or captured earlier — gets a **⟳ Rotate / Recrop** button beneath it. Click it to reopen the same tool on the existing photo.
+
+![Crop and Rotate Tool](assets/screenshots/race-day/33-crop-photo-modal.png)
+_The crop tool open on a car photo. The blue box is the crop, with a gold handle at each corner to resize it; everything outside it is dimmed. Drag the box to reposition it. The two rotate buttons and the Cancel / Use this photo buttons sit below._
+
+Drag the crop box to reposition it, or drag a corner to resize it — the arrow keys nudge it a little at a time. **⟲ Rotate left** / **⟳ Rotate right** turn the photo a quarter turn. A racer's own portrait crops to a square, matching the round photo used elsewhere in the app and on the pit pass; a car photo crops to a wider, landscape shape. Click **Use this photo** to keep the result, or **Cancel** (or press Escape) to leave the photo as it was.
+
+All of this happens in your browser — nothing is uploaded until you confirm the crop, so a shot you decide not to use never leaves the device.
 
 ---
 
@@ -86,6 +102,16 @@ families arrive.
 
 ![Racer List Showing Inspection Status](assets/screenshots/race-day/05-check-in-progress.png)
 _The roster part-way through check-in — green for done, gold for still to come, and the count beside the heading saying how far there is to go._
+
+This view is behind the check-in desk's own screen, though — nobody else in
+the room can see it. Put it up where families can, instead: assign a screen
+to the [**Check-in progress**](reference/displays.md#check-in-progress) view
+from **Race Control → Displays**, and the same question ("is my car through
+yet?") is answered by looking at the wall rather than asking the desk.
+
+A second screen with the [**QR code**](reference/displays.md#qr-code) view up
+at the entrance turns "here's our website, look us up later" into everyone
+having the live standings on their own phone before check-in even finishes.
 
 ---
 
@@ -129,7 +155,7 @@ Photos that are uploaded but not assigned to any racer are silently skipped — 
 > If an upload fails (for example, due to a slow network), a **Retry** link appears on that card. Other cards are not affected — you can assign and apply the successful uploads while retrying the failed ones.
 
 > [!NOTE]
-> Photos can also be added individually through each racer's check-in form (see [Checking In a Racer](#checking-in-a-racer) above). The bulk upload tool is most useful when photos were taken as a batch outside the app and you want to assign them all at once.
+> Photos can also be added individually through each racer's check-in form (see [Checking In a Racer](#checking-in-a-racer) above). The bulk upload tool is most useful when photos were taken as a batch outside the app and you want to assign them all at once. A photo assigned this way has no rotate or crop step of its own — if one needs straightening, open that racer's check-in form afterward and use [**⟳ Rotate / Recrop**](#straightening-a-photo).
 
 ---
 
@@ -493,6 +519,26 @@ _The Stats page part-way through the race, with heats completed and lane fairnes
 
 ---
 
+### Taking a Break
+
+Real race nights have real breaks — a snack table, a stuck sprinkler, the gap
+before the championship round starts. **Take a break** on the Race tab starts
+a countdown (5, 10, 15 minutes, or a custom length) that every audience
+display picks up automatically: whatever a screen was showing switches to a
+full-screen countdown with the break's name and a faint preview of who races
+next, until the time runs out or you end it early.
+
+The same presets also appear on the **Round Complete!** summary, since a
+round finishing is exactly when a break is most often called.
+
+While a break is running, its bar shows the time remaining and three
+controls: **+5 min** to extend it, **Pause**/**Resume** to freeze and restart
+the countdown, and **End now** to clear it immediately. See
+[Audience display views](reference/displays.md#taking-a-break) for what the
+wall displays show.
+
+---
+
 ## Part 4: Championship Rounds (Optional)
 
 When the last qualifying heat is recorded, Trusty Track works out who has made the championship round and shows a summary of them. Click **Start Next Round** to move on. The summary appears because a championship round was waiting to be filled — if you did not configure one, there is nothing to decide and no summary appears.
@@ -550,6 +596,10 @@ _The standings show rank, car number, name, den — with the den's category in p
 > in a final, a speed trophy — reporting rather than guessing when the data
 > cannot support an answer. See
 > [ties](scoring-and-championships.md#when-two-cars-tie).
+
+Once the results are final, **lock the race** from **Edit race** so nothing gets
+changed by accident on the way out the door — see
+[locking a race](reference/race-settings.md#locking-a-race).
 
 ---
 

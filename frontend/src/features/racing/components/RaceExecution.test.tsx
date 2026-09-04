@@ -75,6 +75,7 @@ describe('RaceExecution', () => {
     const mockMutationFn = vi.fn();
 
     const defaultProps = {
+        raceId: 1,
         activeExecutionHeat: mockHeat,
         nextExecutionHeat: null,
         upcomingHeats: [],
@@ -139,6 +140,29 @@ describe('RaceExecution', () => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
         expect(screen.getByText('3.5000s')).toBeInTheDocument();
         expect(screen.getByText('1st')).toBeInTheDocument();
+    });
+
+    it('shows no lane colour dot when the track has none configured (#611)', () => {
+        const { container } = render(
+            <RaceExecution
+                {...defaultProps}
+            />
+        );
+        expect(container.querySelector('.lane-badge-dot')).toBeNull();
+    });
+
+    it("shows a lane colour dot matching the track's configured colour (#611)", () => {
+        render(
+            <RaceExecution
+                {...defaultProps}
+                laneColors={['#E53935', '#1E88E5']}
+            />
+        );
+        // Lane 1 is red, lane 2 is blue — both lanes are in the active
+        // heat's own rendering, and each dot names its colour for anyone
+        // hovering, the same pairing `LaneColor` carries on the backend.
+        expect(screen.getByTitle('Red lane')).toBeInTheDocument();
+        expect(screen.getByTitle('Blue lane')).toBeInTheDocument();
     });
 
     it('shows Edit button when heat is completed', () => {
@@ -541,6 +565,39 @@ describe('RaceExecution', () => {
         const modal = screen.getByTestId('mock-modal');
         expect(within(modal).getByText('Round Complete!')).toBeInTheDocument();
         expect(within(modal).getByText('Top 1 racers advance to the next round.')).toBeInTheDocument();
+    });
+
+    it('offers to take a break from the round summary (#592)', async () => {
+        const mockSummary = {
+            isReady: true,
+            requiresAdvancement: true,
+            alreadyAdvanced: false,
+            roundId: 2,
+            advancingRacers: [
+                { racerId: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, racingGroupName: 'Lions', score: 3.5, rank: 1, isAdvancing: true }
+            ],
+            source: 'ALL',
+            numRacers: 1,
+            fromBottom: false,
+            fieldIsStale: false,
+            contestedCut: false
+        };
+
+        render(
+            <RaceExecution
+                {...defaultProps}
+                roundSummary={mockSummary}
+            />
+        );
+
+        const modal = screen.getByTestId('mock-modal');
+        fireEvent.click(within(modal).getByTestId('round-summary-break-600'));
+
+        expect(mockMutationFn).toHaveBeenCalledWith({
+            raceId: defaultProps.raceId,
+            durationSeconds: 600,
+            label: null,
+        });
     });
 
     it('says who is advancing from, in the built-in words (#532)', () => {

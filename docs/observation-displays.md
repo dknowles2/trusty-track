@@ -69,7 +69,7 @@ _Mid-round: the heat on the track, the one on deck, and the one after that. Each
 
 The **Standings** tab shows the current leaderboard for all racers, updated after each completed heat. It is deliberately narrow for reading at a distance — rank, racer, average time or points (whichever the race scores by), and runs. A racer's den category shows beneath their name when their den has one. The fuller table, with car number and den, is on the Standings page — the **Standings** tab in the race navigation bar.
 
-Switch to the **Timing Stats** tab to see the results of the most recently recorded heat: every car that ran it, in finishing order, with its place and its time.
+Switch to the **Timing Stats** tab to see the results of the most recently recorded heat: every car that ran it, in finishing order, with its place and its time — plus a rough real-world scale speed beside it, on a track that has [scale speed](reference/race-settings.md#scale-speed) turned on.
 
 ### When the track record falls
 
@@ -112,12 +112,61 @@ headshot, the car, the name, car number and den.
 It goes in car number order, so every family knows their child is coming
 round once per cycle. Racers with no photo are skipped rather than shown
 blank. More in
-[Audience display views](reference/displays.md#the-six-views).
+[Audience display views](reference/displays.md#the-nine-views).
 
 > [!TIP]
 > This is the view to leave up during check-in and between rounds. Set the
 > interval on the same row in **Race Control → Displays** — about five seconds
 > per racer suits a small pack, longer for a big one.
+
+---
+
+### Check-in progress
+
+The question a coordinator ends up shouting across the gym — "are there any
+more Wolves who haven't checked in?" — answered on a screen instead. One card
+per den, a progress bar and a count, and the cars still to come listed by
+number and name underneath. It updates the moment the check-in desk flips a
+racer's status, on every screen assigned to it.
+
+![Check-in progress](assets/screenshots/observation/12-checkin-progress.png)
+_The Bears are all through; the Wolves still have two cars to come, listed by number and name._
+
+A large pack can switch a screen's row in **Race Control → Displays** to
+**Pending only**, which drops the already-checked-in rows and keeps a den's
+card down to just the cars still needed at the scale. More in
+[Check-in progress](reference/displays.md#check-in-progress).
+
+> [!TIP]
+> This is the natural screen for the entrance or the table by the door — put
+> it up before check-in opens and it keeps working, quieter, once racing
+> starts too: a car that arrives after the first heat can still join the
+> schedule (see [Mid-race changes](reference/mid-race-changes.md)).
+
+---
+
+### QR code
+
+Instead of shouting an IP address across the gym or walking a laptop around,
+put up a screen with a large, scannable code on it. By default it opens this
+race's own Live page on whichever phone scans it; switch its row in **Race
+Control → Displays** to **Voting ballot** and it opens the
+[voting page](awards.md#letting-people-vote) instead.
+
+![The QR code display view](assets/screenshots/observation/13-qrcode.png)
+_A large code, the address printed underneath, and an optional headline and Wi-Fi line set on the race's edit form._
+
+Set an optional headline (*"Scan for Live Results"*, *"Scan to Vote for Best
+in Show!"*) and a line of Wi-Fi guidance on the race's own edit form — both
+are blank by default, and the screen falls back to a sensible headline of
+its own with nothing under it. More in
+[QR code](reference/displays.md#qr-code).
+
+> [!TIP]
+> This is a good screen for the entrance during check-in, or for an
+> auxiliary TV during an intermission — anywhere the audience has a moment
+> to reach for their phones. The Awards page's **Project QR code** button
+> opens one already pointed at the ballot, with nothing to configure first.
 
 ---
 
@@ -151,7 +200,7 @@ Two things worth knowing:
   — that is how you find out the projector at the back has dropped off the
   wifi. Clear the row with the ✕.
 
-The six views a screen can show, and how assignment behaves, are in
+The eight views a screen can show, and how assignment behaves, are in
 [Audience display views](reference/displays.md).
 
 > [!TIP]
@@ -205,11 +254,11 @@ Projector Mode fills the entire screen with a dark background and large, high-vi
 - **Right side (35% of screen)**: Top 5 standings with large rank numbers, racer avatars, and each racer's average time or points
 
 ![Projector Mode — Full View](assets/screenshots/observation/07-projector-mode-full.png)
-_Projector Mode, caught with the heat-results overlay up — here celebrating a broken track record. Large text and high contrast make it easy to read from across a room._
+_Projector Mode, caught with the heat-results overlay up — here celebrating a broken track record, with each time's scale speed alongside it. Large text and high contrast make it easy to read from across a room._
 
 ### Heat Results Overlay
 
-After each heat finishes, a brief **results overlay** appears over the full screen for about 5 seconds, showing each racer's name, photo, placement, and finish time. It then fades away automatically, returning to the standing leaderboard view.
+After each heat finishes, a brief **results overlay** appears over the full screen for about 5 seconds, showing each racer's name, photo, placement, and finish time — with a scale speed alongside it wherever the track has [that](reference/race-settings.md#scale-speed) turned on. It then fades away automatically, returning to the standing leaderboard view.
 
 If the heat [broke the track record](#when-the-track-record-falls), a gold
 banner tops the overlay with the new time and the record it beat.

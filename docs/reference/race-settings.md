@@ -9,28 +9,135 @@ afterwards from the Roster page's **Edit Details** button — or, without going
 there first, from **Edit race** in a race row's **⋯** menu on Home, or from
 the **Edit race** button on Race Control. All three open the same form.
 
+**The edit form is in four sections**, listed down its left: **Event**,
+**Scoring**, **Check-in** and **Words and names**. Pick the one holding the
+setting you came for; **Save Changes** saves every section at once, whichever
+is up. If something in a section that is not on screen would stop the save —
+a blank name, say — the form switches to that section and says what is wrong,
+rather than refusing over a field you cannot see. The **+ Create New Race**
+form is the same fields on one page under the same headings, since the first
+time through you are filling everything in anyway — it is the last step of
+the setup wizard, described next.
+
+## Creating a race: the setup wizard
+
+**+ Create New Race** opens a short wizard rather than the bare form, so a
+race arrives with its dens already made and its words already chosen. **Next**
+and **Back** move between the steps; nothing is saved until **Create Race** on
+the last one.
+
+| Step | What it asks |
+| --- | --- |
+| **Start** | Only once a race already exists: **Start from scratch**, or **Copy settings from a previous race** (below). |
+| **Kind of event** | What is being raced — **Pinewood Derby** (cars), **Space Derby** (rockets) or **Raingutter Regatta** (boats). Who is holding it — **Cub Scouts**, **Awana**, **A school**, or **Something else**. For Cub Scouts, whether it is **one pack's own derby** or **a district or council derby**. The line at the bottom says which three words the race will use. |
+| **Dens** | A ready-made list from those answers, to adjust: the six Cub Scout ranks (Lion through Arrow of Light, each in its rank colour, each with a Category to match) for a pack or a district; Awana's Cubbies, Sparks, T&T, Trek and Journey; nothing yet for a school or anyone else, since their groups are their own. Rename, recolour, add or remove; each is offered the next free block of a hundred car numbers, which you can clear. An empty list is fine for a race that does not group racers. |
+| **Details** | The race form — everything under [The race](#the-race) above. |
+
+**The answers become words, and only the words that differ are stored.** A
+pack's Pinewood Derby on an ordinary install answers to "Pack", "Den" and
+"Car" already, so the wizard stores no override for it and the race simply
+inherits the install's words — changing them later in System Settings still
+reaches it. A Space Derby, a school, a district derby: those store the
+seven-word override described under [The words on screen](#the-words-on-screen),
+exactly as though you had ticked **Use different words for this race**
+afterwards, and the edit form's **Words and names** section shows it that way.
+
+| Answer | Organization | Racing group | Vehicle |
+| --- | --- | --- | --- |
+| Cub Scouts, one pack's own derby | Pack | Den | — |
+| Cub Scouts, a district or council derby | District | Rank | — |
+| Awana | Club | Group | — |
+| A school | School | Grade | — |
+| Something else | Organization | Group | — |
+| Pinewood Derby | — | — | Car |
+| Space Derby | — | — | Rocket (with the rocket picture) |
+| Raingutter Regatta | — | — | Boat (with the boat picture) |
+
+These are starting points, not rules: every word can be changed on the edit
+form afterwards, and every den on the **Dens** step or from **Manage Dens**.
+
+### Copying a previous race
+
+Once any race exists, the wizard's first step offers **Copy settings from a
+previous race**. Pick one from the list and the questions are skipped — the
+previous race is the answer — and you go straight to its dens, with its
+settings filled in on the form.
+
+**Copied:** every den, with its name, colour, Category and car number range;
+the scoring method, **Drop worst run(s)**, **Ties** and **Championship
+Trophies**; the car numbering strategy and start number; the weight limit (or
+no weight check, if it had none); the race's own words, if it had any; and
+the location.
+
+**Not copied:** the name and date, which are what make it a new race; the
+roster, check-in, photos, rounds, heats, results, awards and votes; the QR
+code display text; the running-order, trophy and name-display settings the
+edit form offers only after a race exists; and the lock. A race that
+inherited the install's words stays inheriting when copied, rather than
+freezing whatever they resolved to that day.
+
+![The Start step with Copy settings from a previous race chosen and last year's derby picked, listing the six dens it will copy](../assets/screenshots/getting-started/03-new-race-copy.png)
+_Copying last year's derby: its six dens come across, and the form opens on
+its scoring and numbering. The roster does not — that is this year's._
+
+![The Edit Race Details dialog, with the section list down the left and the Scoring section up](../assets/screenshots/race-setup/11-edit-race-settings.png)
+_The edit form open on **Scoring**. The other three sections are one click
+away in the list on the left; **Save Changes** saves them all._
+
+### Event
+
+What the race is called, when and where it runs, and which track it runs on.
+
 | Field | What it does |
 | --- | --- |
+| **Lock race** | Not offered until the race is created. Guards a concluded race against an accidental edit — see [locking a race](#locking-a-race) below. First in the form, since a finished event is the usual reason to open it again |
 | **Event Name** | Names the race everywhere. Must be unique |
 | **Date & Time / Location** | Shown on the Home page and printed on pit passes |
+| **Track / Timer** | Which track this race runs on. The track's own lanes, timer and records live in [System Settings](#the-track), not here — a track is hardware in the room, shared by every race run on it |
+| **Interleave heats across every den** | Off by default; only offered once the race exists. One running order across every den instead of a block per den — see [Running order across groups](running-order.md) |
+
+### Scoring
+
+How the standings are worked out, how ties are settled, and who takes which
+trophy.
+
+| Field | What it does |
+| --- | --- |
 | **Scoring** | **Timed**, **Points**, **Cumulative time**, or **Fastest single run** — see [Scoring](scoring.md). Choose before racing starts. Every option shows its one-line description underneath it, not only the one currently picked |
 | **Drop worst run(s)** | `0` is off. Drops each racer's worst counted results before scoring — only once everyone who has raced has the same number of runs to drop from, with one to spare; otherwise nothing is dropped and the standings say so. See [Drop the worst run](scoring.md#drop-the-worst-run) |
-| **Championship Trophies** | How many cars the wizard puts into the final. About the racing, not the physical trophies — those live on the [Awards](../awards.md) page |
 | **Ties** | How a tied score gets settled where it decides something — see [Ties](#ties) below |
-| **Check car weights at inspection** | See [the weight check](#the-weight-check) below |
-| **Interleave heats across every den** | Off by default; only offered once the race exists, from the edit form on the Roster page. One running order across every den instead of a block per den — see [Running order across groups](running-order.md) |
+| **Championship Trophies** | How many cars the wizard puts into the final. About the racing, not the physical trophies — those live on the [Awards](../awards.md) page |
 | **Exclude Grand Finals winners from qualifying standings** | Off by default; only offered once the race exists. Once a championship round has a winner, that car stops counting toward the standings it qualified from, so the pack champion does not also keep their own den's trophy — see [Racing without being ranked](scoring.md#the-grand-finals-winner) |
-| **Track / Timer** | Which track this race runs on |
+| **At most one trophy per racer** | Off by default; only offered once the race exists. A racer who already holds an award is skipped when a later one is worked out, so a den trophy rolls down to the next-fastest car once its own winner has already taken the overall trophy — see [At most one trophy per racer](../awards.md#at-most-one-trophy-per-racer) |
+
+### Check-in
+
+How numbers are handed out, and what the scale checks.
+
+| Field | What it does |
+| --- | --- |
 | **Car Numbering** | See [car numbering](#car-numbering) below |
-| **Use different words for this race** | Not offered until the race is created — edit it afterwards from the Roster page. See [the words on screen](#the-words-on-screen) below |
+| **Check car weights at inspection** | See [the weight check](#the-weight-check) below |
+
+### Words and names
+
+What this race calls things, and how much of a racer's name a public screen
+shows. Neither control is offered until the race is created — both override
+an install-wide default, and there is nothing to override until the race
+exists.
+
+| Field | What it does |
+| --- | --- |
+| **Use different words for this race** | See [the words on screen](#the-words-on-screen) below |
+| **Override names on public screens for this race** | See [names on public screens](#names-on-public-screens) below |
 
 **Auto-advance**, on the race screen itself, is also remembered per race:
 when on, the screen moves to the next heat ten seconds after results land.
 
 ### Ties
 
-Set once, when the race is created, and editable afterwards from the same
-place as every other race field. Five choices, in a fieldset next to
+Set once, when the race is created, and editable afterwards from the
+**Scoring** section of the edit form. Five choices, in a fieldset next to
 Scoring — every option shows its one-line description underneath it, not
 only the one currently picked:
 
@@ -71,6 +178,16 @@ the limit is typed at check-in, the box turns red and says so.
   warning.
 - Turn the check off entirely if your pack does not weigh cars.
 
+### QR code display
+
+Two optional text fields on the race's own edit form — a headline (e.g.
+*"Scan to Vote for Best in Show!"*) and a line of venue Wi-Fi guidance (e.g.
+*"Connect to the guest Wi-Fi first"*) — shown on the full-screen **QR code**
+audience display view. Both are blank by default: the screen falls back to
+a sensible headline of its own and shows no Wi-Fi line at all. See [Audience
+display views](displays.md#qr-code) for what the screen actually shows and
+which page the code opens.
+
 ### Car numbering
 
 | Choice | How numbers are handed out |
@@ -78,6 +195,35 @@ the limit is typed at check-in, the box turns red and says so.
 | **Per Den** | **Auto number** fills from each den's own range — 100–199 for the first den, 200–299 for the next. The ranges are on each den in Manage Dens, and can be changed or cleared |
 | **Global** | Sequentially from one starting number, den regardless |
 | **Manual** | You type every number yourself; **Auto number** leaves the race alone. Duplicates are allowed — which is why the check-in scanner's car number box only matches when exactly one racer holds the number |
+
+### Locking a race
+
+Once an event has concluded, **Lock race** — the first control in the edit
+form's **Event** section — guards against an
+accidental edit — a stray tap on a shared laptop weeks later, not a control for
+keeping anyone out. It is not offered while creating a race, only afterwards.
+
+While a race is locked:
+
+- Scheduling, results, racer registrations and awards cannot be changed. Every
+  screen that would change one of those shows a **Locked** badge and explains
+  why its controls are disabled.
+- The race stays fully readable — the roster, standings, stats and every
+  audience display keep working exactly as before.
+- **Voting** and the audience displays are unaffected — a display is told what
+  to show separately from the race's own record, and a vote is gated by its
+  own **Voting is open** switch, not by the lock.
+- **Deleting the race is still allowed.** A locked race is exactly the one an
+  operator might delete without reading every word of a confirmation, so
+  deleting one asks for the race's exact name to be typed first, rather than
+  the ordinary yes/no confirmation every other race gets.
+- Unlocking is the one change a locked race still accepts — from the same
+  **Lock race** checkbox, now labelled **Unlock race**, at the top of the edit
+  form's **Event** section, reached from the Roster page, from Race Control,
+  or from a race row's **⋯** menu on Home.
+
+A locked race is marked with a **Locked** badge on Home's race list, in the
+race picker at the top of every screen, and on Race Control's own header.
 
 ## The track
 
@@ -89,14 +235,73 @@ both.
 | --- | --- |
 | **Track Name** | Names it in race forms and settings |
 | **Lanes** | How many lanes the track has. Schedules are built for this — lowering it mid-event brings existing heats into line, see [turning down a track's lane count](mid-race-changes.md#turning-down-a-tracks-lane-count) |
-| **Length (Feet)** | Recorded for reference |
+| **Length (Feet)** | How far a car travels down the track — used to work out [scale speed](#scale-speed), if that's turned on |
 | **Timer Type** | Fake, plugged into this machine, plugged into the laptop running the browser, or no timer at all — see [Timers](timers.md#the-four-timer-types) and [No timer](#no-timer) below |
 | **Serial Port** | Almost always blank. Fill it only to force a specific port; it is then used exactly as typed |
 | **Timer Model** | Almost always *Detect automatically*. See [the model picker](timers.md#the-timer-model-picker) |
 | **This track has a remote start gate** | Enables the on-screen gate release, if the timer supports it — see [the remote start gate](timers.md#the-remote-start-gate) |
 | **The timer's cable is wired backwards** | Flips every result so the timer's lane 1 matches the track's highest lane, instead of rewiring the timer or renumbering the track — see [reverse lane numbering](timers.md#reverse-lane-numbering) |
 | **Lanes in service** | Untick a lane that has stopped working. Unlike the rest of the card, this **saves the moment you click it** — see [a lane stops working](mid-race-changes.md#a-lane-stops-working) |
+| **Lane colours (optional)** | Match each lane to the colour painted or taped on the physical track — see [Lane colours](#lane-colours) below |
 | **Track records from past years** | Records from before Trusty Track, entered by hand for the Stats page's record board. Saves as soon as you add one — see [the track record](stats-and-exports.md#the-track-record) |
+
+### Lane colours
+
+Most physical pinewood derby tracks — aluminum, wood, or a kit like BestTrack
+or Freedom Track — paint or sleeve each lane a different colour, and the
+wranglers, staging crew and even the announcer end up calling cars by it:
+"put car #12 in the blue lane." Trusty Track only ever knew lanes by number,
+so nothing on screen matched what was painted on the ground.
+
+A small colour picker sits under **Lane colours** on the track's own card,
+one per physical lane — not just the lanes currently in service, since a
+colour is a fact about the physical lane and does not move when one goes out
+of service or the lane count is turned down. **Use standard colours** fills
+in the usual red/white/blue/yellow (and green/orange for a six-lane track) as
+a starting point; pick any lane's own colour afterwards to match your track
+exactly, or **Clear all** to go back to plain numbers. This is an ordinary
+field on the track's card, like Length (Feet) — it saves with the page's
+**Save Settings** button, not on click the way Lanes in service does.
+
+Leave every lane blank and nothing changes: this is entirely optional, and a
+track with no colours configured looks exactly as it always has.
+
+Once set, a small coloured dot appears beside the lane number wherever a lane
+is shown — the Race screen, On Deck, the audience displays, and the printed
+heat sheet. It is always a dot beside the number, never a colour filled in
+behind it: a filled badge would fight whichever [theme](themes.md) is active,
+and the lane number itself is always there too, since a dot alone means
+nothing on a black-and-white printout or to someone who cannot tell two hues
+apart. See [Audience display views](displays.md#lane-colours) for what a
+screen shows, and [Printed documents](printing.md#the-heat-sheet) for the
+heat sheet.
+
+If the timer's cable is wired backwards (see the row above), lane colours
+still follow the track's own numbering, not the timer's — a colour is
+painted on the ground, and correcting the cable does not move the paint.
+
+### Scale speed
+
+The question every scout asks after a heat is how fast that was, in *real*
+miles per hour. A pinewood derby car is a scale model — about 7 inches long
+against a full-size car's roughly 175 — so its heat time and the track's
+length are enough to work out how fast the full-size car would have to go to
+cover the same ground in the same time. A typical 3-second run down a
+40-foot track comes out to around 200 MPH.
+
+**Show scale speed**, beside Length (Feet) on the track's card, turns it on.
+A **Scale** field appears beneath it once it is, already filled in with
+**25** — the standard 1:25 ratio a BSA pinewood derby car is built to. That
+ratio is a fact about the car, not the app, so change it for anything built
+differently: a Space Derby rocket or a Raingutter Regatta boat is not 1:25.
+Leave the checkbox off if scale speed does not suit your event at all.
+
+It needs both the checkbox on **and** a length recorded — a track with no
+length shows no speed however the checkbox is set, since there is nothing to
+convert from. Once both are set, the speed appears beside a heat's time on
+the [projector view and the Last heat's times
+view](displays.md#the-nine-views), and the fastest heat of the race gets its
+own line on the [Stats page](stats-and-exports.md#top-moments).
 
 ### No timer
 
@@ -165,9 +370,10 @@ names, not read by a stranger on a wall.
 
 **Set install-wide** in **System Settings → General**, under **Names on
 public screens**. **A race can override that default of its own** — tick
-**Override names on public screens for this race** on the race's edit form
-(not offered on the **+ Create New Race** form, since there is nothing to
-override until the race exists) and choose a value, including Full name
+**Override names on public screens for this race** in the **Words and names**
+section of the race's edit form (not offered on the **+ Create New Race**
+form, since there is nothing to override until the race exists) and choose a
+value, including Full name
 itself if the organization default abbreviates and this one race should not.
 Unticking the checkbox returns to inheriting the organization's setting.
 
@@ -200,15 +406,21 @@ and a plural for each word — plus the vehicle picture below them._
 
 **A race can override that default of its own** — one venue running a pack
 derby in March and a school's own derby in May, on the same install, without
-either one showing the other's words. Create the race first with the default
-words, then open it from the **Roster** page's edit form and tick **Use
-different words for this race**; the checkbox is not offered on the **+
-Create New Race** form, because there is nothing to override until the race
-exists.
+either one showing the other's words. The setup wizard's **Kind of event**
+step is where a new race's words are chosen — a Space Derby held by a school
+says "Rocket", "Grade" and "School" from its first screen — and it stores
+them as this override only where they differ from the install's own words
+(see [Creating a race](#creating-a-race-the-setup-wizard)). To change them
+afterwards, or for a race created before the wizard existed, open the edit
+form, go to **Words and names**, and tick **Use different words for this
+race**. The seven boxes are not on the create form itself, because the
+wizard's questions are where a new race's words come from.
 
 **Unticking the checkbox returns to inheriting** — the organization's own
 words if it has set any, the built-in Scouting words otherwise. It does not
-leave the fields blank; there is no way to save an empty word.
+leave the fields blank; there is no way to save an empty word — a blank box
+stops the save and the form says which section to look in, and the server
+refuses one too if it is ever asked to save one some other way.
 
 **The vehicle word has a picture to go with it: a car, a rocket, or a
 boat.** The **Vehicle picture** dropdown sits under the vehicle word's two

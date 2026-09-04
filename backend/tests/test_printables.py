@@ -242,6 +242,31 @@ class TestVotingQrEndpoint:
 
         assert response.status_code == 400
 
+    def test_it_also_serves_the_observation_page(self, client, race):
+        """Widened for #614's full-screen `QRCODE` display view, which points
+        at this race's own audience display rather than the ballot — the
+        endpoint is shared rather than duplicated (#414's original docstring
+        called it "not a general-purpose QR generator", and it still is not:
+        the set of allowed pages is closed, just no longer one page long)."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"http://192.168.1.42:8000/race/{race.id}/observation"},
+        )
+
+        assert response.status_code == 200
+        assert response.content.startswith(PNG_MAGIC)
+
+    def test_an_unlisted_page_for_the_same_race_is_still_refused(self, client, race):
+        """Widening the guard to a second page must not widen it to *every*
+        page — the roster, say, which is not a page a display holding no PIN
+        should be handed a code for."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"http://192.168.1.42:8000/race/{race.id}"},
+        )
+
+        assert response.status_code == 400
+
     def test_the_response_is_not_cached_as_immutable(self, client, race):
         """Unlike the check-in code, the encoded address depends on the
         machine's current network and can change between requests."""

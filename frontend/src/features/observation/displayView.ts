@@ -17,7 +17,36 @@ export type DisplayView =
     | 'CYCLE'
     | 'PROJECTOR'
     | 'AWARDS'
-    | 'SLIDESHOW';
+    | 'SLIDESHOW'
+    | 'STANDINGS_ONLY'
+    | 'CHECKIN'
+    | 'QRCODE';
+
+/**
+ * Which page `QRCODE` points a phone at (#614) — mirrors
+ * `backend/domain/displays.py::QRTarget` exactly, the same relationship
+ * `DisplayView` has with its own backend enum.
+ */
+export type QRTarget = 'STANDINGS' | 'VOTE';
+
+/** The live audience display over the voting ballot — every race has
+ * standings to point at, and only some ever turn voting on. */
+export const DEFAULT_QR_TARGET: QRTarget = 'STANDINGS';
+
+/**
+ * How the `STANDINGS_ONLY` view gets through a list too long for one screen
+ * (#663) — mirrors `backend/domain/displays.py::ScrollBehavior` exactly, the
+ * same relationship `DisplayView` has with its own backend enum.
+ */
+export type ScrollBehavior = 'PAGING' | 'SMOOTH';
+
+/** Paging over smooth-scrolling — the more familiar of the two. */
+export const DEFAULT_SCROLL_BEHAVIOR: ScrollBehavior = 'PAGING';
+
+/** Whether `CHECKIN` lists everybody or only the racers still pending —
+ * `CHECKIN`'s own rider, the same shape as `ScrollBehavior` for
+ * `STANDINGS_ONLY`. Defaults to listing everybody. */
+export const DEFAULT_SHOW_CHECKED_IN = true;
 
 /** What the observation page actually does, once everything is resolved. */
 export interface ViewBehaviour {
@@ -26,7 +55,29 @@ export interface ViewBehaviour {
     cycle: boolean;
     /** The racers' photographs, rotating (#175). */
     slideshow: boolean;
+    /**
+     * The leaderboard alone, filling the whole screen (#663) — no Now
+     * Racing / On Deck panels.
+     */
+    standingsOnly: boolean;
+    /**
+     * Who has checked in and who has not, grouped by racing group (#612) —
+     * the "Please Check-In" kiosk.
+     */
+    checkin: boolean;
+    /**
+     * A large, high-contrast QR code that opens this race on a phone
+     * (#614) — the answer to "how do I get fifty parents in a gym onto the
+     * right address" that shouting an IP address never was.
+     */
+    qrcode: boolean;
     cycleMs: number;
+    /** How `standingsOnly` gets through a list too long for one screen. */
+    scrollBehavior: ScrollBehavior;
+    /** Whether `checkin` lists everybody, or only who is still pending. */
+    showCheckedIn: boolean;
+    /** Which page `qrcode` points a phone at. */
+    qrTarget: QRTarget;
     /** The ceremony is its own route, so the page redirects rather than renders. */
     redirectTo: string | null;
 }
@@ -37,6 +88,9 @@ export interface UrlIntent {
     projector: boolean;
     cycle: boolean;
     cycleMs: number;
+    scrollBehavior: ScrollBehavior;
+    showCheckedIn: boolean;
+    qrTarget: QRTarget;
 }
 
 export function readUrl(params: URLSearchParams): UrlIntent {
@@ -45,15 +99,31 @@ export function readUrl(params: URLSearchParams): UrlIntent {
         projector: params.get('projector') === 'true',
         cycle: params.get('cycle') === 'true',
         cycleMs: parseInt(params.get('cycle_interval') || '10000'),
+        scrollBehavior: params.get('scroll') === 'smooth' ? 'SMOOTH' : DEFAULT_SCROLL_BEHAVIOR,
+        showCheckedIn: params.get('checkin_show') !== 'pending',
+        qrTarget: params.get('qr_target') === 'vote' ? 'VOTE' : DEFAULT_QR_TARGET,
     };
 }
 
-export function behaviourFor(view: DisplayView, cycleSeconds: number, raceId: number): ViewBehaviour {
+export function behaviourFor(
+    view: DisplayView,
+    cycleSeconds: number,
+    raceId: number,
+    scrollBehavior: ScrollBehavior = DEFAULT_SCROLL_BEHAVIOR,
+    showCheckedIn: boolean = DEFAULT_SHOW_CHECKED_IN,
+    qrTarget: QRTarget = DEFAULT_QR_TARGET,
+): ViewBehaviour {
     const base = {
         projector: false,
         cycle: false,
         slideshow: false,
+        standingsOnly: false,
+        checkin: false,
+        qrcode: false,
         cycleMs: cycleSeconds * 1000,
+        scrollBehavior,
+        showCheckedIn,
+        qrTarget,
         redirectTo: null,
     };
     switch (view) {
@@ -65,6 +135,12 @@ export function behaviourFor(view: DisplayView, cycleSeconds: number, raceId: nu
             return { ...base, tab: 'standings', projector: true };
         case 'SLIDESHOW':
             return { ...base, tab: 'standings', slideshow: true };
+        case 'STANDINGS_ONLY':
+            return { ...base, tab: 'standings', standingsOnly: true };
+        case 'CHECKIN':
+            return { ...base, tab: 'standings', checkin: true };
+        case 'QRCODE':
+            return { ...base, tab: 'standings', qrcode: true };
         case 'AWARDS':
             return { ...base, tab: 'standings', redirectTo: `/race/${raceId}/awards/present` };
         case 'STANDINGS':
@@ -88,12 +164,25 @@ export function behaviourFor(view: DisplayView, cycleSeconds: number, raceId: nu
  * exactly the behaviour of a display nobody ever assigns.
  */
 export function resolveView(
-    assignment: { view: DisplayView; cycleSeconds: number } | null,
+    assignment: {
+        view: DisplayView;
+        cycleSeconds: number;
+        scrollBehavior?: ScrollBehavior;
+        showCheckedIn?: boolean;
+        qrTarget?: QRTarget;
+    } | null,
     url: UrlIntent,
     raceId: number,
 ): ViewBehaviour {
     if (assignment) {
-        return behaviourFor(assignment.view, assignment.cycleSeconds, raceId);
+        return behaviourFor(
+            assignment.view,
+            assignment.cycleSeconds,
+            raceId,
+            assignment.scrollBehavior ?? DEFAULT_SCROLL_BEHAVIOR,
+            assignment.showCheckedIn ?? DEFAULT_SHOW_CHECKED_IN,
+            assignment.qrTarget ?? DEFAULT_QR_TARGET,
+        );
     }
     return {
         tab: url.view === 'timing' ? 'timing' : 'standings',
@@ -103,7 +192,13 @@ export function resolveView(
         // photo kiosk — the fallback stays complete rather than gaining a view
         // only the operator's list can select.
         slideshow: url.view === 'slideshow',
+        standingsOnly: url.view === 'standings_only',
+        checkin: url.view === 'checkin',
+        qrcode: url.view === 'qrcode',
         cycleMs: url.cycleMs,
+        scrollBehavior: url.scrollBehavior,
+        showCheckedIn: url.showCheckedIn,
+        qrTarget: url.qrTarget,
         redirectTo: null,
     };
 }
@@ -112,9 +207,10 @@ export function resolveView(
  * The choices the operator is offered, in the order they are offered.
  *
  * `cycles` marks the views that advance on a timer the operator can set —
- * the tab cycle and the photo slideshow. The seconds control on the
- * Displays panel reads this rather than naming views, so a future view
- * that cycles gets its control by declaring it here.
+ * the tab cycle, the photo slideshow, and the standings-only view. The
+ * seconds control on the Displays panel reads this rather than naming
+ * views, so a future view that cycles gets its control by declaring it
+ * here.
  */
 export const VIEW_OPTIONS: readonly {
     view: DisplayView;
@@ -126,12 +222,37 @@ export const VIEW_OPTIONS: readonly {
     { view: 'CYCLE', label: 'Cycle between both', cycles: true },
     { view: 'PROJECTOR', label: 'Projector', cycles: false },
     { view: 'SLIDESHOW', label: 'Racer photos', cycles: true },
+    { view: 'STANDINGS_ONLY', label: 'Standings only', cycles: true },
+    { view: 'CHECKIN', label: 'Check-in progress', cycles: false },
+    { view: 'QRCODE', label: 'QR code', cycles: false },
     { view: 'AWARDS', label: 'Awards ceremony', cycles: false },
 ];
 
 /** Whether a view advances on a timer whose interval the operator can set. */
 export function viewCycles(view: DisplayView): boolean {
     return VIEW_OPTIONS.some((option) => option.view === view && option.cycles);
+}
+
+/** Whether a view offers the paging/smooth-scroll choice (#663). Only
+ * `STANDINGS_ONLY` does today — a list that fills the whole screen is the
+ * one place "how do I get through more than fits" is a real question; every
+ * other cycling view already fits in one screenful and just alternates. */
+export function viewScrolls(view: DisplayView): boolean {
+    return view === 'STANDINGS_ONLY';
+}
+
+/** Whether a view offers the "list everybody / pending only" choice (#612).
+ * Only `CHECKIN` does — it is the one view a large pack might want trimmed
+ * to save screen room, the same reasoning `viewScrolls` gives
+ * `STANDINGS_ONLY`. */
+export function viewHasCheckedInToggle(view: DisplayView): boolean {
+    return view === 'CHECKIN';
+}
+
+/** Whether a view offers the "which page does it open" choice (#614). Only
+ * `QRCODE` does — it is the one view with a page to choose between. */
+export function viewHasQrTargetToggle(view: DisplayView): boolean {
+    return view === 'QRCODE';
 }
 
 /**
@@ -152,6 +273,12 @@ export function viewCycles(view: DisplayView): boolean {
  * assignment, and the ceremony page still says for itself when a race has no
  * awards; a second copy of the rule on the server would be one more thing to
  * keep in step for no gain.
+ *
+ * `STANDINGS_ONLY`, `CHECKIN` and `QRCODE` need no such gating — unlike the
+ * ceremony none of the three has anything it can be missing (there is
+ * always a leaderboard, always a roster, and this race's own address always
+ * resolves to something, even before voting is ever turned on), so all
+ * three are offered unconditionally like every other ordinary view.
  */
 export function viewOptionsFor(
     hasAwards: boolean,

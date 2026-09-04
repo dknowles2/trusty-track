@@ -14,7 +14,7 @@
 
 import { DEFAULT_TERMINOLOGY } from './terminologyDefaults';
 
-export type SectionId = 'general' | 'appearance' | 'access' | 'tracks' | 'backup';
+export type SectionId = 'general' | 'appearance' | 'access' | 'tracks' | 'advanced' | 'backup';
 
 export interface Section {
   id: SectionId;
@@ -52,14 +52,35 @@ export const SECTIONS: readonly Section[] = [
     blurb: 'Each track, its lanes, and the timer at the end of it.',
   },
   {
+    id: 'advanced',
+    label: 'Advanced',
+    blurb: "Not for a first look — troubleshooting controls, off by default.",
+  },
+  {
     id: 'backup',
     label: 'Backup',
     blurb: 'The whole event in one file, and putting it back.',
   },
 ];
 
-/** The sections that are part of the settings form, and so of one Save. */
-export const FORM_SECTIONS: readonly SectionId[] = ['general', 'appearance', 'access', 'tracks'];
+/**
+ * The sections that are part of the settings form, and so of one Save.
+ *
+ * Advanced is last among them, on purpose: unlike Backup, nothing it holds
+ * is destructive (see `isFormSection`'s own note below), so there is no
+ * reason to pull it out of the form the way Backup is pulled out — it is
+ * ordinary form state, saved by the same "Save Settings" button as the
+ * organization name. It sorts after Tracks and before Backup, which is
+ * what "last" means for a field this ordinary: nothing not already offered
+ * a section of its own is more advanced than this.
+ */
+export const FORM_SECTIONS: readonly SectionId[] = [
+  'general',
+  'appearance',
+  'access',
+  'tracks',
+  'advanced',
+];
 
 export const isFormSection = (id: SectionId): boolean => FORM_SECTIONS.includes(id);
 
