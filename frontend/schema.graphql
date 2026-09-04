@@ -587,6 +587,14 @@ input RaceInput {
   dropWorstRuns: Int! = 0
   qrHeadline: String = null
   qrWifiNote: String = null
+  racingGroups: [RacingGroupInput!]! = []
+  racingGroupSingular: String = null
+  racingGroupPlural: String = null
+  organizationSingular: String = null
+  organizationPlural: String = null
+  vehicleSingular: String = null
+  vehiclePlural: String = null
+  vehicleArtworkKey: String = null
 }
 
 type RaceStateChangedEvent {

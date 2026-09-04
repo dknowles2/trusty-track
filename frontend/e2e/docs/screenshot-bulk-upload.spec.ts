@@ -14,7 +14,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as zlib from 'zlib';
 import { fileURLToPath } from 'url';
-import { BACKEND_URL, ensureConfigured } from './support';
+import { BACKEND_URL, ensureConfigured, skipToRaceForm } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/race-day');
@@ -114,6 +114,8 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
         await ensureConfigured(page);
 
         await page.getByRole('button', { name: /Create New Race/i }).click();
+    // Through the setup wizard (#662) on its default answers to the form.
+    await skipToRaceForm(page);
     await page.getByPlaceholder('e.g. 2024 Pinewood Derby').fill('Bulk Upload Race');
     await page.getByRole('button', { name: 'Create Race' }).click();
     // Creating a race opens it; this used to have to click through from Home.

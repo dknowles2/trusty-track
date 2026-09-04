@@ -359,6 +359,93 @@ class TestBlankWordIsRefused:
         db.refresh(race)
         assert race.racing_group_singular is None
 
+    def test_createrace_refuses_a_blank_override(self, client, db):
+        """`createRace` takes the seven override fields since #662 — a write
+        path that did not exist when #704 was closed, and one that would
+        otherwise let a race be *created* with a blank word on day one."""
+        organization = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Blank Create Organization")
+        )
+        track = crud.create_track(
+            db, schemas.TrackCreate(name="Blank Create Track", lane_count=4)
+        )
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation Create($race: RaceInput!) {
+                    createRace(race: $race) { id }
+                }
+                """,
+                "variables": {
+                    "race": {
+                        "name": "Blank Create Race",
+                        "organizationId": organization.id,
+                        "trackId": track.id,
+                        "racingGroupSingular": "   ",
+                    }
+                },
+            },
+        )
+
+        res = response.json()
+        assert "errors" in res
+        assert "racing_group_singular cannot be blank" in str(res["errors"])
+        # Refused whole: no race was written, not a race with a blank word.
+        assert (
+            db.query(models.Race)
+            .filter(models.Race.name == "Blank Create Race")
+            .first()
+            is None
+        )
+
+    def test_createrace_still_takes_null_as_inherit_and_a_blank_artwork_key(
+        self, client, db
+    ):
+        """Null stays valid on the create path for the reason it does
+        everywhere else — it means inherit — and `vehicle_artwork_key` is
+        outside `TERMINOLOGY_WORD_FIELDS` on purpose: it names a picture,
+        and an unrecognised key renders nothing rather than crashing."""
+        organization = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Null Create Organization")
+        )
+        track = crud.create_track(
+            db, schemas.TrackCreate(name="Null Create Track", lane_count=4)
+        )
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation Create($race: RaceInput!) {
+                    createRace(race: $race) {
+                        id
+                        terminology { racingGroupSingular vehicleSingular }
+                    }
+                }
+                """,
+                "variables": {
+                    "race": {
+                        "name": "Null Create Race",
+                        "organizationId": organization.id,
+                        "trackId": track.id,
+                        "racingGroupSingular": None,
+                        "vehicleSingular": "Rocket",
+                        "vehiclePlural": "Rockets",
+                        "vehicleArtworkKey": "",
+                    }
+                },
+            },
+        )
+
+        res = response.json()
+        assert "errors" not in res, res
+        assert res["data"]["createRace"]["terminology"] == {
+            "racingGroupSingular": "Den",
+            "vehicleSingular": "Rocket",
+        }
+
     def test_updaterace_refuses_a_whitespace_only_override(self, client, db):
         race = _race(db, "Whitespace Override Race")
 

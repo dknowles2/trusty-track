@@ -103,11 +103,19 @@ export type RaceInput = {
   location?: string | null | undefined;
   name: string;
   organizationId?: number;
+  organizationPlural?: string | null | undefined;
+  organizationSingular?: string | null | undefined;
   qrHeadline?: string | null | undefined;
   qrWifiNote?: string | null | undefined;
+  racingGroupPlural?: string | null | undefined;
+  racingGroupSingular?: string | null | undefined;
+  racingGroups?: Array<RacingGroupInput>;
   scoringStrategy?: string;
   tiebreaker?: string;
   trackId: number;
+  vehicleArtworkKey?: string | null | undefined;
+  vehiclePlural?: string | null | undefined;
+  vehicleSingular?: string | null | undefined;
   weightLimitOz?: number | null | undefined;
 };
 
@@ -535,6 +543,18 @@ export type CreateRaceMutationVariables = Exact<{
 
 
 export type CreateRaceMutation = { createRace: { id: number } };
+
+export type GetRaceSetupContextQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetRaceSetupContextQuery = { races: Array<{ id: number, name: string, dateTime: string | null }>, initialConfig: { terminology: { racingGroupSingular: string, racingGroupPlural: string, organizationSingular: string, organizationPlural: string, vehicleSingular: string, vehiclePlural: string, vehicleArtworkKey: string } } };
+
+export type GetRaceSetupSourceQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type GetRaceSetupSourceQuery = { race: { id: number, location: string | null, scoringStrategy: string, tiebreaker: string, dropWorstRuns: number, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, vehicleArtworkKey: string | null, racingGroups: Array<{ id: number, name: string, color: string, division: string | null, carNumberRangeStart: number | null, carNumberRangeEnd: number | null }> } | null };
 
 export type PopulateRaceMutationVariables = Exact<{
   raceId: number;

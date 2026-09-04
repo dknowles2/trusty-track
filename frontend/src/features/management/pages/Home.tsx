@@ -3,8 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, gql } from 'urql';
 import { CREATE_PRACTICE_RACE, CREATE_RACE } from '../graphql/queries';
 import Modal from '../../../components/ui/Modal';
-import RaceForm, { RaceFormData } from '../components/RaceForm';
-import { buildCreateRaceInput } from '../raceInput';
+import RaceSetupWizard from '../components/RaceSetupWizard';
+import { buildCreateRaceInput, type RaceSetupData } from '../raceInput';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { Icon } from '@mdi/react';
@@ -79,7 +79,7 @@ export default function Home() {
     const [, createRace] = useMutation(CREATE_RACE);
     const [practiceResult, createPracticeRace] = useMutation(CREATE_PRACTICE_RACE);
 
-    const handleCreate = async (formData: RaceFormData) => {
+    const handleCreate = async (formData: RaceSetupData) => {
         try {
             const raceInput = buildCreateRaceInput(formData);
             const result = await createRace({ race: raceInput });
@@ -189,15 +189,18 @@ export default function Home() {
             </div>
 
             {/* Create Race Modal */}
+            {/* The setup wizard (#662): a few questions and a ready-made list
+                of groups in front of the same create form as before, which is
+                its last step. Wider than the form alone, for the groups table. */}
             <Modal
                 isOpen={showCreate}
                 onClose={() => setShowCreate(false)}
                 title="Create New Race Event"
+                maxWidth="680px"
             >
-                <RaceForm
+                <RaceSetupWizard
                     onSubmit={handleCreate}
                     onCancel={() => setShowCreate(false)}
-                    submitLabel="Create Race"
                 />
             </Modal>
 

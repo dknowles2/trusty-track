@@ -12,7 +12,7 @@ What is left is what `crud` takes: a `*Create` or `*Update` per entity, and the
 check that something actually constructs it.
 """
 
-from pydantic import BaseModel, ValidationInfo, field_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from backend.domain.lane_colors import is_valid_lane_color
 from backend.domain.scale_speed import DEFAULT_SCALE
@@ -297,6 +297,36 @@ class RaceCreate(RaceBase):
     name: str
     date_time: str | None = None
     location: str | None = None
+    #: Racing groups created in the same transaction as the race (#662) —
+    #: `crud.create_race` pops this off before building the `Race` row.
+    racing_groups: list[RacingGroupCreate] = Field(default_factory=list)
+    #: A per-race terminology override set at creation (#662), null meaning
+    #: inherit — the same seven columns `RaceUpdate` below accepts.
+    racing_group_singular: str | None = None
+    racing_group_plural: str | None = None
+    organization_singular: str | None = None
+    organization_plural: str | None = None
+    vehicle_singular: str | None = None
+    vehicle_plural: str | None = None
+    vehicle_artwork_key: str | None = None
+
+    @field_validator(*TERMINOLOGY_WORD_FIELDS)
+    @classmethod
+    def terminology_word_is_not_blank(
+        cls, value: str | None, info: ValidationInfo
+    ) -> str | None:
+        """The create path is a write path too (#704, via #662).
+
+        Same rule as `RaceUpdate` below, through the same shared helper: a
+        blank word is refused, `None` (inherit) is not. Without this a race
+        could be *created* with an empty word for its racing groups on day
+        one, and #704's hole would be back through a door that did not exist
+        when it was closed.
+        """
+        if value is not None:
+            assert info.field_name is not None
+            reject_blank_word(info.field_name, value)
+        return value
 
 
 class RaceUpdate(BaseModel):

@@ -839,6 +839,27 @@ class RaceInput:
     #: Pack 123 Guest Wi-Fi". Null shows nothing — most venues have open wifi
     #: or none worth mentioning.
     qr_wifi_note: str | None = None
+    #: The racing groups to create alongside the race (#662) — the setup
+    #: wizard's scaffolded dens, or a previous race's structure copied over.
+    #: One mutation rather than a `createRace` followed by N
+    #: `createRacingGroup` round trips, for #201's reason: a setup that fails
+    #: half way leaves the operator with a half-built race to tidy up. Empty
+    #: (the default) creates none, which is exactly what every caller before
+    #: this field existed got.
+    racing_groups: list[RacingGroupInput] = strawberry.field(default_factory=list)
+    #: A per-race terminology override, settable at creation (#662) — the
+    #: wizard's "what is raced / who is holding it" answers land here, so a
+    #: Space Derby reads "Rocket" from its first screen rather than after a
+    #: second trip through the edit form. Null means inherit, the same as on
+    #: `RaceUpdateInput`; there is no `clearTerminology` here because a race
+    #: being created has nothing set yet to clear.
+    racing_group_singular: str | None = None
+    racing_group_plural: str | None = None
+    organization_singular: str | None = None
+    organization_plural: str | None = None
+    vehicle_singular: str | None = None
+    vehicle_plural: str | None = None
+    vehicle_artwork_key: str | None = None
 
 
 @strawberry.input

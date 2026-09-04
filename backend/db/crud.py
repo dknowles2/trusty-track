@@ -190,9 +190,21 @@ def get_races(db: Session, skip: int = 0, limit: int = 100) -> list[models.Race]
 
 
 def create_race(db: Session, race: schemas.RaceCreate) -> models.Race:
+    """Create a race, and any racing groups sent along with it (#662).
+
+    The groups go in the same commit as the race, in the order they were
+    given — the setup wizard scaffolds a pack's dens in rank order, and
+    `get_racing_groups` orders by id, so creation order is display order.
+    One transaction rather than a race followed by N group inserts is #201's
+    reasoning: a setup that fails half way must not leave a half-built race.
+    """
     race_data = race.model_dump()
+    racing_groups = race_data.pop("racing_groups", [])
     db_race = models.Race(**race_data)
     db.add(db_race)
+    db.flush()
+    for racing_group in racing_groups:
+        db.add(models.RacingGroup(**racing_group, race_id=db_race.id))
     db.commit()
     db.refresh(db_race)
     return db_race

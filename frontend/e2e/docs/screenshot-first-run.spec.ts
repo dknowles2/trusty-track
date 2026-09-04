@@ -81,6 +81,47 @@ test('screenshot the first run', async ({ page }) => {
     // 01: the home page of an install with no races on it.
     await page.screenshot({ path: path.join(GETTING_STARTED_DIR, '01-home-page.png') });
 
+    // 03 (copy): the setup wizard's "copy settings from a previous race"
+    // choice (#662). It is offered only once a race exists, and it lists every
+    // race there is — so it is photographed here, the one place that can
+    // promise exactly one race exists and that it is this spec's own. Made
+    // through the API with the six dens the wizard itself would scaffold, so
+    // the summary line has something to name, and deleted again afterwards so
+    // the parallel phase starts from the install 01 shows.
+    const lastYear = await gql<{ createRace: { id: number } }>(
+        page,
+        `mutation FirstRunLastYear($race: RaceInput!) { createRace(race: $race) { id } }`,
+        {
+            race: {
+                name: '2025 Pinewood Derby',
+                dateTime: '2025-03-07T18:00',
+                location: 'School Gym',
+                trackId: await docsTrackId(page),
+                racingGroups: [
+                    { name: 'Lion', color: '#F4D03F', division: 'Lion', carNumberRangeStart: 100, carNumberRangeEnd: 199 },
+                    { name: 'Tiger', color: '#E67E22', division: 'Tiger', carNumberRangeStart: 200, carNumberRangeEnd: 299 },
+                    { name: 'Wolf', color: '#AAB7B8', division: 'Wolf', carNumberRangeStart: 300, carNumberRangeEnd: 399 },
+                    { name: 'Bear', color: '#85C1E9', division: 'Bear', carNumberRangeStart: 400, carNumberRangeEnd: 499 },
+                    { name: 'Webelos', color: '#2E86C1', division: 'Webelos', carNumberRangeStart: 500, carNumberRangeEnd: 599 },
+                    { name: 'Arrow of Light', color: '#CB4335', division: 'Arrow of Light', carNumberRangeStart: 600, carNumberRangeEnd: 699 },
+                ],
+            },
+        },
+    );
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('button', { name: /Create New Race/i }).click();
+    await expect(page.getByTestId('setup-step-start')).toBeVisible();
+    await page.getByRole('radio', { name: /^Copy settings from a previous race/ }).click();
+    await page.getByLabel('Previous race', { exact: true }).selectOption(String(lastYear.createRace.id));
+    await expect(page.getByTestId('setup-source-summary')).toContainText('Arrow of Light');
+    await page.screenshot({ path: path.join(GETTING_STARTED_DIR, '03-new-race-copy.png') });
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('heading', { name: 'Create New Race Event' })).toBeHidden();
+    await gql(page, `mutation FirstRunDropLastYear($id: Int!) { deleteRace(id: $id) }`, {
+        id: lastYear.createRace.id,
+    });
+
     // The Access panel, with a PIN set so the Remove control is on screen — it
     // is only offered for a PIN that exists, and it is the whole subject of the
     // "changing or removing a PIN" section (#192).

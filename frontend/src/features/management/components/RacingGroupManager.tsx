@@ -8,6 +8,7 @@ import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js';
 import { useMutation, useQuery } from 'urql';
 import { CREATE_RACING_GROUP, UPDATE_RACING_GROUP, DELETE_RACING_GROUP, GET_RACE_DETAILS } from '../graphql/queries';
 import { CATEGORY_PRESETS } from '../categoryPresets';
+import { suggestedRange } from '../numberRanges';
 
 const RACING_GROUP_COLORS = COMMON_COLORS;
 
@@ -162,37 +163,8 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
         setEditingRacingGroupId(null);
     };
 
-    const getSuggestedRange = (racingGroups: RacingGroup[]) => {
-        if (racingGroups.length === 0) {
-            return { start: 100, end: 199 };
-        }
-
-        // Find the maximum end number
-        let maxEnd = 0;
-        racingGroups.forEach(d => {
-            if (d.car_number_range_end && d.car_number_range_end > maxEnd) {
-                maxEnd = d.car_number_range_end;
-            }
-        });
-
-        // If no ranges set, start at 100
-        if (maxEnd === 0) {
-             return { start: 100, end: 199 };
-        }
-
-        // Start at the next 100 block
-        const nextStart = Math.ceil((maxEnd + 1) / 100) * 100;
-        // If simply maxEnd is 199, nextStart is 200.
-        // If maxEnd is 150, (151/100) = 1.51 => ceil = 2 => 200.
-
-        // However, if maxEnd is exactly 199, (200/100)=2 => 200. Correct.
-        // If maxEnd is 200 (weird but possible), (201/100)=2.01 => 3 => 300. Correct.
-
-        return { start: nextStart, end: nextStart + 99 };
-    };
-
     const handleAddRacingGroupClick = () => {
-        const { start, end } = getSuggestedRange(racingGroups);
+        const { start, end } = suggestedRange(racingGroups);
         setNewRacingGroupStart(start);
         setNewRacingGroupEnd(end);
         setIsAddingRacingGroup(true);
