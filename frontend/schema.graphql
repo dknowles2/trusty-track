@@ -810,6 +810,7 @@ type Track {
   reverseLanes: Boolean!
   scaleRatio: Float!
   showScaleSpeed: Boolean!
+  laneColors: [String!]!
   laneOutages: [Int!]!
   historicalRecords: [HistoricalTrackRecord!]!
   races: [Race!]!
@@ -827,6 +828,7 @@ input TrackInput {
   reverseLanes: Boolean! = false
   scaleRatio: Float! = 25
   showScaleSpeed: Boolean! = true
+  laneColors: [String!]! = []
 }
 
 type TrackRecord {
