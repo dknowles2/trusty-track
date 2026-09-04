@@ -30,6 +30,7 @@ from backend.services.timer.devices.base import (
 from backend.services.timer.devices.derbynet import (
     BERT_DRAKE,
     CHAMP,
+    CHAMP_SRM,
     DERBY_MAGIC,
     DERBY_MAGIC_9600,
     DERBY_TIMER,
@@ -77,6 +78,11 @@ def one(result) -> object:
         # The Champ letters its lanes, like the MicroWizard.
         (CHAMP, b"A=3.456", 1, 3.456),
         (CHAMP, b"C=3.456", 3, 3.456),
+        # ChampSRM is a newer Champ firmware that numbers its lanes instead --
+        # DerbyNet's own pattern, ` *(\d)=(\d\.\d+)([^ ]?)`, taken verbatim
+        # from ChampSRM.java.
+        (CHAMP_SRM, b"1=3.456", 1, 3.456),
+        (CHAMP_SRM, b"3=3.456", 3, 3.456),
         # Derby Magic numbers its lanes, and an optional place character can
         # trail the time -- DerbyNet's own pattern, `([1-8])=(\d\.\d+)([!-/:-@])?
         # *`, taken verbatim from DerbyMagic.java.
@@ -117,6 +123,14 @@ def test_the_fasttrack_p_series_reports_every_lane_on_one_line():
     assert [e.lane for e in events] == [1, 2, 3]
 
 
+def test_the_champ_srm_reports_every_lane_on_one_line():
+    """Same shape as the Champ's own, but numbered rather than lettered."""
+    events = CHAMP_SRM.parse_line(b' 1=3.001! 2=3.002" 3=3.003#')
+
+    assert isinstance(events, list)
+    assert [e.lane for e in events] == [1, 2, 3]
+
+
 def test_derby_magic_reports_every_lane_on_one_line():
     """Same shape as the Champ's, but numbered rather than lettered."""
     events = DERBY_MAGIC.parse_line(b'1=3.001! 2=3.002" 3=3.003#')
@@ -149,6 +163,10 @@ def test_a_dnf_on_the_judge_is_an_ordinary_result():
         (THE_JUDGE, b"GO!"),
         (DERBY_MAGIC, b"B"),
         (DERBY_MAGIC_9600, b"B"),
+        # Unlike the plain Champ, which has no start matcher of its own and
+        # relies on a polled gate opening, the SRM firmware sends this
+        # explicitly.
+        (CHAMP_SRM, b"S"),
     ],
 )
 def test_the_start_signal_is_read(profile: TimerProfile, line: bytes):
@@ -361,6 +379,19 @@ def test_the_fasttrack_p_series_has_no_prober_at_all():
     assert not FASTTRACK_P_SERIES.identification
 
 
+def test_the_champ_srm_is_an_ordinary_probeable_profile():
+    """Unlike either judgment call above, this one turned out to need none.
+
+    It shares CHAMP's probe command (a lowercase `v`) but answers with a
+    genuinely different banner, so a prober tells the two apart the same way
+    it tells any other pair of models apart -- it does not have to be chosen
+    by hand."""
+    assert CHAMP_SRM.probe == (b"v",)
+    assert CHAMP_SRM.probe == CHAMP.probe
+    assert CHAMP_SRM.identification != CHAMP.identification
+    assert CHAMP_SRM.identification[0].pattern != CHAMP.identification[0].pattern
+
+
 def test_lane_masking_uses_each_timers_own_lane_naming():
     # Numbered from '1'...
     assert DERBY_TIMER.prepare_heat_commands(0b101)[:1] == [b"C"]
@@ -423,6 +454,7 @@ def test_the_adapted_profiles_are_registered():
         PDT,
         THE_JUDGE,
         CHAMP,
+        CHAMP_SRM,
         JIT_RACEMASTER,
         DERBY_MAGIC,
         DERBY_MAGIC_9600,
@@ -469,6 +501,7 @@ def test_the_replayed_ones_say_which_evidence_they_have():
         BERT_DRAKE,
         THE_JUDGE,
         CHAMP,
+        CHAMP_SRM,
         DERBY_MAGIC,
         DERBY_MAGIC_9600,
         FASTTRACK_P_SERIES,

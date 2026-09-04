@@ -6,13 +6,20 @@ import {
     VIEW_OPTIONS,
     viewCycles,
     viewOptionsFor,
+    viewScrolls,
 } from './displayView';
 
 const url = (query = '') => readUrl(new URLSearchParams(query));
 
 describe('readUrl', () => {
     it('reads nothing from an empty query', () => {
-        expect(url()).toEqual({ view: null, projector: false, cycle: false, cycleMs: 10000 });
+        expect(url()).toEqual({
+            view: null,
+            projector: false,
+            cycle: false,
+            cycleMs: 10000,
+            scrollBehavior: 'PAGING',
+        });
     });
 
     it('reads the flags a display was launched with', () => {
@@ -21,7 +28,16 @@ describe('readUrl', () => {
             projector: true,
             cycle: true,
             cycleMs: 5000,
+            scrollBehavior: 'PAGING',
         });
+    });
+
+    it('reads a smooth scroll off the URL', () => {
+        expect(url('view=standings_only&scroll=smooth').scrollBehavior).toBe('SMOOTH');
+    });
+
+    it('defaults to paging when the URL says nothing about it', () => {
+        expect(url('view=standings_only').scrollBehavior).toBe('PAGING');
     });
 });
 
@@ -51,6 +67,24 @@ describe('behaviourFor', () => {
     it('never redirects for anything else', () => {
         for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'AWARDS')) {
             expect(behaviourFor(view, 10, 1).redirectTo).toBeNull();
+        }
+    });
+
+    it('fills the screen with the leaderboard alone', () => {
+        expect(behaviourFor('STANDINGS_ONLY', 10, 1)).toMatchObject({
+            tab: 'standings',
+            standingsOnly: true,
+        });
+    });
+
+    it('carries the scroll behavior through, defaulting to paging', () => {
+        expect(behaviourFor('STANDINGS_ONLY', 10, 1).scrollBehavior).toBe('PAGING');
+        expect(behaviourFor('STANDINGS_ONLY', 10, 1, 'SMOOTH').scrollBehavior).toBe('SMOOTH');
+    });
+
+    it('marks standingsOnly false for every other view', () => {
+        for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'STANDINGS_ONLY')) {
+            expect(behaviourFor(view, 10, 1).standingsOnly).toBe(false);
         }
     });
 });
@@ -92,7 +126,9 @@ describe('resolveView', () => {
             projector: false,
             cycle: true,
             slideshow: false,
+            standingsOnly: false,
             cycleMs: 4000,
+            scrollBehavior: 'PAGING',
             redirectTo: null,
         });
     });
@@ -101,6 +137,35 @@ describe('resolveView', () => {
         // The fallback stays complete: a view only the operator's list could
         // select would be unreachable on a display nobody assigns.
         expect(resolveView(null, url('view=slideshow'), 1)).toMatchObject({ slideshow: true });
+    });
+
+    it('reaches standings-only by URL as well as by assignment', () => {
+        expect(resolveView(null, url('view=standings_only'), 1)).toMatchObject({
+            standingsOnly: true,
+        });
+    });
+
+    it('carries a scroll behavior for a display nobody assigns', () => {
+        expect(
+            resolveView(null, url('view=standings_only&scroll=smooth'), 1).scrollBehavior,
+        ).toBe('SMOOTH');
+    });
+
+    it('defaults scroll behavior to paging when an assignment omits it', () => {
+        // Older payloads / a display type without the field yet.
+        expect(
+            resolveView({ view: 'STANDINGS_ONLY', cycleSeconds: 10 }, url(), 1).scrollBehavior,
+        ).toBe('PAGING');
+    });
+
+    it('lets an assignment carry its own scroll behavior', () => {
+        expect(
+            resolveView(
+                { view: 'STANDINGS_ONLY', cycleSeconds: 10, scrollBehavior: 'SMOOTH' },
+                url(),
+                1,
+            ).scrollBehavior,
+        ).toBe('SMOOTH');
     });
 
     it('ignores an assignment nobody made', () => {
@@ -119,7 +184,7 @@ describe('resolveView', () => {
 describe('VIEW_OPTIONS', () => {
     it('offers every view the display understands', () => {
         expect(VIEW_OPTIONS.map((o) => o.view).sort()).toEqual(
-            ['AWARDS', 'CYCLE', 'PROJECTOR', 'SLIDESHOW', 'STANDINGS', 'TIMING'].sort(),
+            ['AWARDS', 'CYCLE', 'PROJECTOR', 'SLIDESHOW', 'STANDINGS', 'STANDINGS_ONLY', 'TIMING'].sort(),
         );
     });
 
@@ -135,17 +200,27 @@ describe('VIEW_OPTIONS', () => {
             VIEW_OPTIONS.filter((o) => o.cycles)
                 .map((o) => o.view)
                 .sort(),
-        ).toEqual(['CYCLE', 'SLIDESHOW']);
+        ).toEqual(['CYCLE', 'SLIDESHOW', 'STANDINGS_ONLY']);
     });
 
     it('viewCycles reads the same flag', () => {
         expect(viewCycles('SLIDESHOW')).toBe(true);
         expect(viewCycles('CYCLE')).toBe(true);
+        expect(viewCycles('STANDINGS_ONLY')).toBe(true);
         expect(viewCycles('STANDINGS')).toBe(false);
         // The ceremony is paced by a person; the projector's overlay timing
         // is its own, not the operator's.
         expect(viewCycles('AWARDS')).toBe(false);
         expect(viewCycles('PROJECTOR')).toBe(false);
+    });
+});
+
+describe('viewScrolls', () => {
+    it('offers the paging/smooth-scroll choice only for standings-only', () => {
+        expect(viewScrolls('STANDINGS_ONLY')).toBe(true);
+        for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'STANDINGS_ONLY')) {
+            expect(viewScrolls(view)).toBe(false);
+        }
     });
 });
 
@@ -171,5 +246,13 @@ describe('viewOptionsFor', () => {
         // Deleting the last award while a ceremony is up. A row whose current
         // view is missing from its own list shows nothing as chosen.
         expect(views(false, 'AWARDS')).toContain('AWARDS');
+    });
+
+    it('offers standings-only unconditionally, unlike the ceremony', () => {
+        // There is always a leaderboard to show, even an empty one — nothing
+        // about a race can make this option disappoint the way the ceremony
+        // would for a race with no awards.
+        expect(views(false, 'STANDINGS')).toContain('STANDINGS_ONLY');
+        expect(views(true, 'STANDINGS')).toContain('STANDINGS_ONLY');
     });
 });

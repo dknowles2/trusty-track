@@ -21,8 +21,10 @@ from enum import Enum
 
 __all__ = [
     "DisplayView",
+    "ScrollBehavior",
     "Assignment",
     "DEFAULT_VIEW",
+    "DEFAULT_SCROLL_BEHAVIOR",
     "is_paced_by_a_person",
     "describe",
 ]
@@ -51,6 +53,27 @@ class DisplayView(str, Enum):
     #: between heats, and the audience is mostly families looking for their own
     #: child.
     SLIDESHOW = "SLIDESHOW"
+    #: The leaderboard alone, filling the whole screen — no Now Racing / On
+    #: Deck panels (#663). For a pack big enough that the standings need the
+    #: room those panels would otherwise take, on a screen dedicated to
+    #: nothing else. See ``ScrollBehavior`` for how it gets through a list
+    #: longer than one screen can hold at once.
+    STANDINGS_ONLY = "STANDINGS_ONLY"
+
+
+class ScrollBehavior(str, Enum):
+    """How ``STANDINGS_ONLY`` works through a list too long for one screen.
+
+    A ``str`` enum for the same reason as ``DisplayView``: it crosses into
+    GraphQL and the client unchanged. Carried on the assignment the same way
+    ``cycle_seconds`` is — set once, and it survives a screen being switched
+    away from ``STANDINGS_ONLY`` and back.
+    """
+
+    #: The list in pages, advancing to the next one every ``cycle_seconds``.
+    PAGING = "PAGING"
+    #: One continuous pass from top to bottom, timed to take ``cycle_seconds``.
+    SMOOTH = "SMOOTH"
 
 
 #: What a display shows when nobody has told it anything. Standings rather than
@@ -58,18 +81,25 @@ class DisplayView(str, Enum):
 #: a blank one reads as broken.
 DEFAULT_VIEW = DisplayView.STANDINGS
 
+#: Paging over smooth-scrolling, because it is the more familiar of the two —
+#: closer to what "flip to the next page" already means on every other paced
+#: view here.
+DEFAULT_SCROLL_BEHAVIOR = ScrollBehavior.PAGING
+
 
 @dataclass(frozen=True)
 class Assignment:
     """What one display has been told to show.
 
-    ``cycle_seconds`` applies to ``CYCLE`` and is carried regardless, so an
-    operator flipping a screen to standings and back does not lose the interval
-    they chose.
+    ``cycle_seconds`` applies to ``CYCLE``, ``SLIDESHOW`` and
+    ``STANDINGS_ONLY``, and is carried regardless, so an operator flipping a
+    screen to standings and back does not lose the interval they chose.
+    ``scroll_behavior`` is the same shape, for ``STANDINGS_ONLY`` alone.
     """
 
     view: DisplayView = DEFAULT_VIEW
     cycle_seconds: int = 10
+    scroll_behavior: ScrollBehavior = DEFAULT_SCROLL_BEHAVIOR
 
     def __post_init__(self) -> None:
         if self.cycle_seconds < 1:
@@ -98,6 +128,10 @@ def describe(assignment: Assignment) -> str:
         return f"Standings and timing, every {assignment.cycle_seconds}s"
     if assignment.view is DisplayView.SLIDESHOW:
         return f"Racer photos, every {assignment.cycle_seconds}s"
+    if assignment.view is DisplayView.STANDINGS_ONLY:
+        if assignment.scroll_behavior is ScrollBehavior.SMOOTH:
+            return f"Standings only, scrolling every {assignment.cycle_seconds}s"
+        return f"Standings only, paging every {assignment.cycle_seconds}s"
     return {
         DisplayView.STANDINGS: "Standings",
         DisplayView.TIMING: "Last heat's times",

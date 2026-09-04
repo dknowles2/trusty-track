@@ -112,7 +112,7 @@ headshot, the car, the name, car number and den.
 It goes in car number order, so every family knows their child is coming
 round once per cycle. Racers with no photo are skipped rather than shown
 blank. More in
-[Audience display views](reference/displays.md#the-six-views).
+[Audience display views](reference/displays.md#the-seven-views).
 
 > [!TIP]
 > This is the view to leave up during check-in and between rounds. Set the
@@ -151,7 +151,7 @@ Two things worth knowing:
   — that is how you find out the projector at the back has dropped off the
   wifi. Clear the row with the ✕.
 
-The six views a screen can show, and how assignment behaves, are in
+The seven views a screen can show, and how assignment behaves, are in
 [Audience display views](reference/displays.md).
 
 > [!TIP]

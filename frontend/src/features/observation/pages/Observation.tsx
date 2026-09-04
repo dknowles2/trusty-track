@@ -6,11 +6,12 @@ import RacerAvatar from '../../management/components/RacerAvatar';
 import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline, mdiVideo } from '@mdi/js';
 import { TimerStatusBadge } from '../../racing/components/TimerStatusBadge';
 import PhotoSlideshow from '../components/PhotoSlideshow';
+import StandingsOnlyView from '../components/StandingsOnlyView';
 import { displayId, startDeviceClaimHeartbeat } from '../displayIdentity';
 import { useChrome } from '../../../context/ChromeContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { formatDisplayName, shouldShowRacerPhoto } from '../../core/displayName';
-import { readUrl, resolveView } from '../displayView';
+import { readUrl, resolveView, DEFAULT_SCROLL_BEHAVIOR } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
 import { formatScaleMph } from '../scaleSpeed';
@@ -115,7 +116,11 @@ export default function Observation() {
         // as an instruction overrides the URL on every screen the moment it
         // connects — which is the fallback this feature depends on.
         assignment?.assigned
-          ? { view: assignment.view, cycleSeconds: assignment.cycleSeconds }
+          ? {
+              view: assignment.view,
+              cycleSeconds: assignment.cycleSeconds,
+              scrollBehavior: assignment.scrollBehavior ?? DEFAULT_SCROLL_BEHAVIOR,
+            }
           : null,
         urlIntent,
         id,
@@ -176,7 +181,7 @@ export default function Observation() {
   // one of them (#175) — it fills the viewport, and a scrollbar down the side
   // of a photo on a projector is exactly the sort of thing nobody notices
   // until the room is full.
-  const isFullScreenView = isProjectorMode || behaviour.slideshow;
+  const isFullScreenView = isProjectorMode || behaviour.slideshow || behaviour.standingsOnly;
 
   // Tell the app's furniture to get out of the way. `Navigation` cannot work
   // this out for itself any more: an assigned view changes no URL, so before
@@ -431,10 +436,10 @@ export default function Observation() {
 
   // The break screen takes over the whole display, whatever view it was
   // assigned (#592) — a break is a fact about the race, not about which of
-  // standings/timing/projector/slideshow a screen happened to be showing
-  // when the operator called it. `IdentifyPresence` is skipped here: flashing
-  // a display's name over a countdown the room is trying to read is a
-  // second-order concern this issue does not cover.
+  // standings/timing/projector/slideshow/standings-only a screen happened to
+  // be showing when the operator called it. `IdentifyPresence` is skipped
+  // here: flashing a display's name over a countdown the room is trying to
+  // read is a second-order concern this issue does not cover.
   if (intermissionActive) {
     return (
       <div className="container projector-mode" data-theme={displayThemeKey} style={displayThemeStyle}>
@@ -615,6 +620,39 @@ export default function Observation() {
           intervalMs={behaviour.cycleMs}
           loading={initialResult.fetching && !initialData}
           nameDisplay={nameDisplay}
+        />
+      </div>
+    );
+  }
+
+  // --- STANDINGS ONLY (#663) ---
+  // The leaderboard, full-screen — no Now Racing / On Deck panels, for a pack
+  // whose standings do not fit alongside them. Ahead of the standard mode
+  // render for the same reason the slideshow is: this is a view of its own,
+  // not a tab within the usual layout.
+  if (behaviour.standingsOnly) {
+    return (
+      <div
+        className="container projector-mode"
+        data-theme={displayThemeKey}
+        style={{
+          maxWidth: '100%',
+          padding: 0,
+          background: 'var(--display-bg-color)',
+          color: 'var(--display-text-color)',
+          ...displayThemeStyle,
+        }}
+      >
+        <IdentifyPresence assignment={assignment} />
+        <StandingsOnlyView
+          standings={standings}
+          racersMap={racersMap}
+          nameDisplay={nameDisplay}
+          scoreLabel={scoreLabel}
+          formatScore={formatScore}
+          vehicle={vehicle}
+          scrollBehavior={behaviour.scrollBehavior}
+          cycleMs={behaviour.cycleMs}
         />
       </div>
     );

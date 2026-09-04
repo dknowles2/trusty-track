@@ -104,6 +104,7 @@ export type Display = {
   name: Scalars['String']['output'];
   pacedByAPerson: Scalars['Boolean']['output'];
   raceId: Scalars['Int']['output'];
+  scrollBehavior: ScrollBehavior;
   slideDelta: Scalars['Int']['output'];
   slideSeq: Scalars['Int']['output'];
   view: DisplayView;
@@ -115,6 +116,7 @@ export type DisplayView =
   | 'PROJECTOR'
   | 'SLIDESHOW'
   | 'STANDINGS'
+  | 'STANDINGS_ONLY'
   | 'TIMING';
 
 export type FreeRaceHeat = {
@@ -420,6 +422,7 @@ export type MutationApplyMasterRunningOrderArgs = {
 export type MutationAssignDisplayArgs = {
   cycleSeconds?: InputMaybe<Scalars['Int']['input']>;
   displayId: Scalars['String']['input'];
+  scrollBehavior?: InputMaybe<ScrollBehavior>;
   view: DisplayView;
 };
 
@@ -1158,6 +1161,10 @@ export type RunOffHeat = {
   recorded: Scalars['Boolean']['output'];
   settlesRoundId?: Maybe<Scalars['Int']['output']>;
 };
+
+export type ScrollBehavior =
+  | 'PAGING'
+  | 'SMOOTH';
 
 export type SerialLogEntry = {
   data: Scalars['String']['output'];

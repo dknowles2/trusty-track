@@ -26,7 +26,14 @@ const renameDisplay = vi.fn().mockResolvedValue({ data: {} });
 // display's name, which a component-local list could never see.
 const suggestDisplayName = vi.fn();
 
-function renderPanel(view: string, cycleSeconds = 10, connected = true, awards = 2, hasDisplay = true) {
+function renderPanel(
+    view: string,
+    cycleSeconds = 10,
+    connected = true,
+    awards = 2,
+    hasDisplay = true,
+    scrollBehavior = 'PAGING',
+) {
     // Two queries, and they answer different questions: the list of screens,
     // and whether the race has any awards to announce.
     type QueryArgs = { query: { definitions: { name?: { value?: string } }[] } };
@@ -58,6 +65,7 @@ function renderPanel(view: string, cycleSeconds = 10, connected = true, awards =
                             name: 'Gym north',
                             view,
                             cycleSeconds,
+                            scrollBehavior,
                             description: 'Standings',
                             pacedByAPerson: view === 'AWARDS',
                             connected,
@@ -119,6 +127,43 @@ describe('the seconds control on a display row', () => {
     it('is absent for a view with no timer to set', () => {
         renderPanel('STANDINGS');
         expect(screen.queryByLabelText('Cycle interval for Gym north')).toBeNull();
+    });
+
+    it('is offered for standings-only, which uses it as the page duration or scroll pass length', () => {
+        renderPanel('STANDINGS_ONLY', 5);
+        expect(screen.getByLabelText('Cycle interval for Gym north')).toBeTruthy();
+    });
+});
+
+describe('the paging/auto-scroll control (#663)', () => {
+    it('is offered for standings-only', () => {
+        renderPanel('STANDINGS_ONLY');
+        expect(screen.getByLabelText('How Gym north moves through the standings')).toBeTruthy();
+    });
+
+    it('is absent for every other view', () => {
+        renderPanel('STANDINGS');
+        expect(screen.queryByLabelText('How Gym north moves through the standings')).toBeNull();
+    });
+
+    it('reflects the display’s current choice', () => {
+        renderPanel('STANDINGS_ONLY', 10, true, 2, true, 'SMOOTH');
+        const select = screen.getByLabelText(
+            'How Gym north moves through the standings',
+        ) as HTMLSelectElement;
+        expect(select.value).toBe('SMOOTH');
+    });
+
+    it('sends the choice, keeping the row on standings-only', () => {
+        renderPanel('STANDINGS_ONLY');
+        fireEvent.change(screen.getByLabelText('How Gym north moves through the standings'), {
+            target: { value: 'SMOOTH' },
+        });
+        expect(assignDisplay).toHaveBeenCalledWith({
+            displayId: 'd-1',
+            view: 'STANDINGS_ONLY',
+            scrollBehavior: 'SMOOTH',
+        });
     });
 });
 
@@ -184,6 +229,7 @@ describe('offering the ceremony as a view', () => {
             'Cycle between both',
             'Projector',
             'Racer photos',
+            'Standings only',
         ]);
     });
 

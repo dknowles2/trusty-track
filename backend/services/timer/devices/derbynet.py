@@ -11,13 +11,11 @@ captured string into a lane or a time are new code per device. Every profile
 here says so in its ``provenance``, which the timer check page shows, and
 nobody should be told their timer works until one of them has actually run.
 
-Two models from DerbyNet are deliberately absent:
+One model from DerbyNet is deliberately absent:
 
 * **SuperTimer II** reports a result in two separate messages, takes its lane
   mask as one binary-encoded command, and scales times by 10000. Three
   mechanisms for one device.
-* **ChampSRM** is a rebadged Champ whose banner differs; adding it is a second
-  identification pattern once anyone has one to test against.
 
 The **FastTrack P-series** (issue #634) *is* here now, but it needed the same
 kind of judgment call NewBold and the 9600-baud Derby Magic did. DerbyNet's
@@ -48,6 +46,30 @@ picker so. ``DERBY_MAGIC`` (19200 baud) is the one a probe can find, and it
 is also the first profile here at a framing other than the common 9600 8-N-1
 besides NewBold's own 1200/7/2 — a path the shipped set had not otherwise
 exercised.
+
+ChampSRM (issue #635) was the last DerbyNet model left out, held back for the
+reason above: it is a newer Champ firmware ("Rev H Copyright SRM
+Enterprises") whose banner differs from the original's, and until now nobody
+had brought a second identification pattern to test that difference against.
+It turns out to need neither of the two judgment calls above. Unlike the
+Derby Magic pair, its own ``.prober(...)`` call sends the *same* command as
+``CHAMP`` (lowercase ``v``) but answers with a genuinely different banner —
+``SRM.*Enterprises`` against ``CHAMP``'s ``eTekGadget SmartLine Timer`` — so
+``test_no_two_profiles_answer_the_same_probe_the_same_way`` sees two distinct
+first patterns and a prober tells the two apart exactly as it tells any other
+pair of models apart. And unlike the FastTrack P-series, DerbyNet's own
+``ChampSRM.java`` does call ``.prober(...)``, so there is a banner to search
+for in the first place. ``CHAMP_SRM`` below is therefore an ordinary
+probeable profile, ``detectable`` like most of the others.
+
+The new firmware is also simpler than the original in two ways worth noting
+at the top rather than only in the profile's own comment: it reports lanes
+with plain digits instead of letters, and it sends an explicit ``S`` when a
+race starts rather than relying on a polled gate opening the way ``CHAMP``
+does — so ``CHAMP_SRM`` needs neither a lane-letter reader nor
+``gate_open_starts_race``. DerbyNet's own definition calls no
+``.setup(...)`` and no ``.heat_prep(...)`` for it either, the same absence
+as ``THE_JUDGE``'s and ``FASTTRACK_P_SERIES``'s.
 """
 
 import re
@@ -477,6 +499,65 @@ CHAMP = TimerProfile(
 
 
 # ---------------------------------------------------------------------------
+# ChampSRM
+# ---------------------------------------------------------------------------
+#
+# https://github.com/jeffpiazza/derbynet/blob/master/timer/src/org/jeffpiazza/derby/profiles/ChampSRM.java
+# (issue #635) — the last DerbyNet model this project had left out. It shares
+# a name and a probe command with CHAMP above, but is a distinct, newer
+# firmware ("Rev H Copyright SRM Enterprises" — "not even a valid copyright",
+# DerbyNet's own comment says) that answers differently and is simpler in two
+# ways: it numbers its lanes instead of lettering them, and it sends an
+# explicit `S` the instant a race starts rather than leaving the polled gate
+# opening as the only signal, so this profile needs neither `lane_letter` nor
+# `gate_open_starts_race`. DerbyNet's own definition is nine lines and calls
+# no `.setup(...)` and no `.heat_prep(...)` at all — the same absence as
+# THE_JUDGE's and FASTTRACK_P_SERIES's, so lane masking and arming are left to
+# HeatPrep()'s defaults (nothing sent). The device's own comment lists a
+# handful of single-letter commands this firmware answers rather than "?" to
+# — A, C, D, F, R, v — but DerbyNet's profile never sends any of them beyond
+# the probe's `v`, so neither does this one; a command with no documented
+# reply is not something to invent.
+#
+# The lane-result pattern is the Champ's own shape with digits instead of
+# letters — ` *(\d)=(\d\.\d+)([^ ]?)`, taken verbatim from ChampSRM.java — so
+# `repeat=True` for the same reason: a line reporting more than one lane at
+# once. The optional third group is an optional place character, left
+# uncaptured for the same reason as the Champ's, Derby Magic's and the
+# FastTrack P-series': nothing documents what the symbol means, and DerbyNet's
+# own `.match(...)` call passes only the lane and time groups through, not
+# this one.
+
+CHAMP_SRM = TimerProfile(
+    name='"The Champ" (SRM)',
+    key="champ-srm",
+    provenance=_UNTESTED.format("ChampSRM")
+    + (
+        ' A newer "Champ" firmware, identified by a different banner than the '
+        "plain Champ profile above — nothing here treats the two as the same "
+        "device."
+    ),
+    command_eol=b"\r",
+    max_lanes=6,
+    gate_state_is_knowable=False,
+    # Pre-probe lets the timer settle, same as CHAMP's own.
+    pre_probe=(b"",),
+    probe=(b"v",),
+    identification=(re.compile(rb"SRM.*Enterprises"),),
+    matchers=(
+        Matcher(re.compile(rb"^S$"), Event.RACE_STARTED),
+        Matcher(
+            re.compile(rb" *(\d)=(\d\.\d+)([^ ]?)"),
+            Event.LANE_RESULT,
+            lane=Group(1, lane_number),
+            time=Group(2, seconds),
+            repeat=True,
+        ),
+    ),
+)
+
+
+# ---------------------------------------------------------------------------
 # Derby Magic
 # ---------------------------------------------------------------------------
 #
@@ -607,6 +688,7 @@ ADAPTED_FROM_DERBYNET: tuple[TimerProfile, ...] = (
     PDT,
     THE_JUDGE,
     CHAMP,
+    CHAMP_SRM,
     JIT_RACEMASTER,
     NEWBOLD,
     DERBY_MAGIC,

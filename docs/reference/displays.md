@@ -4,7 +4,7 @@ What a screen on the wall can show, and how telling it what to show works.
 For the setup walkthrough, see the
 [Observation Displays guide](../observation-displays.md).
 
-## The six views
+## The seven views
 
 Every screen with the Live page open can be switched between these, from
 **Race Control → Displays** or by its own URL:
@@ -16,6 +16,7 @@ Every screen with the Live page open can be switched between these, from
 | **Cycle between both** | Standings and last heat's times, alternating on a timer you set |
 | **Projector** | The full-screen, high-contrast layout: the live heat large on the left, top five standings on the right, and a brief results overlay after each heat |
 | **Racer photos** | A slideshow of the check-in photos: headshot, car, name, number, den |
+| **Standings only** | The leaderboard alone, filling the whole screen — no Now Racing / On Deck panels. For a pack whose standings are too long to share the screen with anything else |
 | **Awards ceremony** | The [ceremony](../awards.md#announcing-them), one award at a time. Unlike every other view, it only moves when a person does — either at the screen, or with the **‹** and **›** buttons on its row in the operator's list |
 
 **The ceremony only appears once you have awards.** A race with none is not
@@ -51,8 +52,9 @@ in System Settings, not a fixed palette.
 
 A break called from Race Control (see
 [Taking a Break](../race-day.md#taking-a-break)) takes over every screen
-showing this race, whichever of the six views above it was on — a break is a
-fact about the race, not about which view a display happened to be assigned.
+showing this race, whichever of the seven views above it was on — a break is
+a fact about the race, not about which view a display happened to be
+assigned.
 Each screen shows a countdown, the break's name (or "Intermission" if none
 was given), and a faint preview of the next heat's line-up, so a room that
 has wandered off to the snack table still knows roughly when to come back and
@@ -63,7 +65,7 @@ if the operator clicks **End now** — there is nothing to acknowledge on the
 display's own end. A paused break shows the time it was paused at rather than
 counting down.
 
-Notes on two of them:
+Notes on three of them:
 
 - **Racer photos** goes in car number order rather than shuffling. Families
   are watching for their own child, and in order everybody comes round once
@@ -72,6 +74,14 @@ Notes on two of them:
   display's row — about five suits a small pack.
 - **Projector** hides the app's navigation entirely, whichever way it was
   reached.
+- **Standings only** moves through a leaderboard too long for one screen in
+  one of two ways, chosen on the display's own row next to the seconds
+  control: **Page cycling** flips to the next page after that many seconds,
+  and **Auto-scroll** scrolls the whole list smoothly from top to bottom,
+  pausing briefly at each end, over that many seconds per pass. Both keep
+  going for as long as the screen is left open — walking away for an hour
+  and coming back does not leave the list stuck partway through or drifted
+  off schedule.
 
 ## Shortening a racer's name
 
