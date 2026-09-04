@@ -1368,6 +1368,7 @@ export type TimingStatsLane = {
 export type Track = {
   historicalRecords: Array<HistoricalTrackRecord>;
   id: Scalars['Int']['output'];
+  laneColors: Array<Scalars['String']['output']>;
   laneCount: Scalars['Int']['output'];
   laneOutages: Array<Scalars['Int']['output']>;
   lengthFeet?: Maybe<Scalars['Int']['output']>;
@@ -1384,6 +1385,7 @@ export type Track = {
 
 export type TrackInput = {
   id?: InputMaybe<Scalars['Int']['input']>;
+  laneColors?: Array<Scalars['String']['input']>;
   laneCount?: Scalars['Int']['input'];
   lengthFeet?: InputMaybe<Scalars['Int']['input']>;
   name?: Scalars['String']['input'];

@@ -50,6 +50,7 @@ const GET_INITIAL_CONFIG = `
         reverseLanes
         scaleRatio
         showScaleSpeed
+        laneColors
         laneOutages
         historicalRecords { id timeSeconds racerName carNumber raceName raceDate }
       }
@@ -293,6 +294,7 @@ export default function SystemConfig() {
             reverseLanes?: boolean;
             scaleRatio?: number;
             showScaleSpeed?: boolean;
+            laneColors?: string[];
             laneOutages?: number[];
             historicalRecords?: HistoricalRecord[];
           }) => ({
@@ -314,6 +316,7 @@ export default function SystemConfig() {
             // fallback only covers a fixture or a build that predates them.
             scaleRatio: t.scaleRatio ?? DEFAULT_SCALE_RATIO,
             showScaleSpeed: t.showScaleSpeed ?? true,
+            laneColors: t.laneColors ?? [],
             laneOutages: t.laneOutages ?? [],
             historicalRecords: t.historicalRecords ?? []
           })));
@@ -398,7 +401,7 @@ export default function SystemConfig() {
                 vehicleArtworkKey,
               }
             : { clearTerminology: true }),
-          tracks: tracks.map(({ id, name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled, reverseLanes, scaleRatio, showScaleSpeed }) => ({
+          tracks: tracks.map(({ id, name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled, reverseLanes, scaleRatio, showScaleSpeed, laneColors }) => ({
             // Absent for a track just added on this screen, which has no row
             // yet; present for a saved one, so the server matches it to its
             // database row by id rather than by its position in this list
@@ -418,7 +421,10 @@ export default function SystemConfig() {
             remoteStartInstalled,
             reverseLanes,
             scaleRatio,
-            showScaleSpeed
+            showScaleSpeed,
+            // Absent means an empty list on the server (`TrackInput`'s own
+            // default), same as a track that has never had one set.
+            laneColors: laneColors ?? []
           }))
         }
       };
@@ -759,6 +765,11 @@ export default function SystemConfig() {
                       onRecords={(historicalRecords) =>
                         setTracks((current) =>
                           current.map((t, i) => (i === index ? { ...t, historicalRecords } : t)),
+                        )
+                      }
+                      onLaneColors={(laneColors) =>
+                        setTracks((current) =>
+                          current.map((t, i) => (i === index ? { ...t, laneColors } : t)),
                         )
                       }
                     />

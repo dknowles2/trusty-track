@@ -14,6 +14,7 @@ check that something actually constructs it.
 
 from pydantic import BaseModel, field_validator
 
+from backend.domain.lane_colors import is_valid_lane_color
 from backend.domain.scale_speed import DEFAULT_SCALE
 
 from .models import (
@@ -43,6 +44,9 @@ class TrackBase(BaseModel):
     #: Whether scale speed is offered on this track's surfaces at all. See
     #: `models.Track.show_scale_speed`.
     show_scale_speed: bool = True
+    #: The colour painted on each physical lane, if any (#611). See
+    #: `models.Track.lane_colors` and `domain.lane_colors`.
+    lane_colors: list[str] = []
 
     @field_validator("lane_count")
     @classmethod
@@ -73,6 +77,27 @@ class TrackBase(BaseModel):
         """
         if value <= 0:
             raise ValueError("the scale ratio must be greater than zero")
+        return value
+
+    @field_validator("lane_colors")
+    @classmethod
+    def lane_colors_are_valid_or_blank(cls, value: list[str]) -> list[str]:
+        """Refuse anything `color_for_lane` could not read back sensibly.
+
+        A blank entry is not validated here — it already means "no colour
+        configured for this lane" to `domain.lane_colors.color_for_lane`,
+        the same "blank means not configured" rule `is_valid_lane_color`
+        itself declines to call valid. Everything else has to be a hex
+        token the same shape the presets themselves store, or a client
+        that sent something a colour-badge renderer cannot use would only
+        find out on the display it broke.
+        """
+        for index, entry in enumerate(value):
+            if entry and not is_valid_lane_color(entry):
+                raise ValueError(
+                    f"lane {index + 1}'s colour must be a hex value like #E53935, "
+                    f"got {entry!r}"
+                )
         return value
 
 

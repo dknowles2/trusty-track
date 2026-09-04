@@ -174,6 +174,7 @@ export type ScrollBehavior =
 
 export type TrackInput = {
   id?: number | null | undefined;
+  laneColors?: Array<string>;
   laneCount?: number;
   lengthFeet?: number | null | undefined;
   name?: string;
