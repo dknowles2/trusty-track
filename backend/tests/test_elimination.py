@@ -596,3 +596,267 @@ class TestAWithdrawnCarThatNeverRaced:
         # alongside — let alone tie with — the car that actually raced.
         assert [entry["racer_id"] for entry in board] == [winner]
         assert board[0]["rank"] == 1
+
+
+class TestTheChart:
+    """The record of the round so far, wave by wave (#710).
+
+    A bracket predicts; this format refuses to. The chart draws only what has
+    happened, and every mark on it comes from the same loss rule that grows
+    the next wave.
+    """
+
+    def test_a_new_wave_starts_when_a_car_reappears(self):
+        wave_one = [
+            [_lane(1, 1, time=3.0, place=1), _lane(2, 2, time=3.2, place=2)],
+            [_lane(1, 3, time=3.0, place=1), _lane(2, 4, time=3.2, place=2)],
+        ]
+        wave_two = [
+            [_lane(1, 1, time=3.0, place=1), _lane(2, 3, time=3.2, place=2)],
+            [_lane(1, 2, time=3.0, place=1), _lane(2, 4, time=3.2, place=2)],
+        ]
+        assert elimination.waves_of(wave_one + wave_two) == [[0, 1], [2, 3]]
+
+    def test_a_heat_holding_nobody_stays_with_the_wave_before_it(self):
+        # Every lane vacated by a deleted racer: it belongs to the wave it
+        # was drawn in, and must not start a new one.
+        heats = [
+            [_lane(1, 1, time=3.0, place=1), _lane(2, 2, time=3.2, place=2)],
+            [_lane(1, None), _lane(2, None)],
+            [_lane(1, 1), _lane(2, 2)],
+        ]
+        assert elimination.waves_of(heats) == [[0, 1], [2]]
+
+    def test_no_heats_is_no_waves(self):
+        assert elimination.waves_of([]) == []
+        assert elimination.chart([], 2) == []
+
+    def test_the_winner_and_the_losers_are_marked(self):
+        heat = [
+            _lane(1, 1, time=3.0, place=1),
+            _lane(2, 2, time=3.2, place=2),
+            _lane(3, 3, time=3.4, place=3),
+        ]
+        [wave] = elimination.chart([heat], 2)
+        assert wave.number == 1
+        [drawn] = wave.heats
+        assert drawn.finished
+        assert [lane.outcome for lane in drawn.lanes] == ["WON", "LOST", "LOST"]
+        assert [lane.losses_after for lane in drawn.lanes] == [0, 1, 1]
+        assert not any(lane.out for lane in drawn.lanes)
+
+    def test_losses_accumulate_and_a_car_goes_out_at_the_limit(self):
+        heats = [
+            [_lane(1, 1, time=3.0, place=1), _lane(2, 2, time=3.2, place=2)],
+            [_lane(1, 1, time=3.0, place=1), _lane(2, 2, time=3.2, place=2)],
+        ]
+        [_, wave_two] = elimination.chart(heats, 2)
+        [drawn] = wave_two.heats
+        loser = drawn.lanes[1]
+        assert loser.racer_id == 2
+        assert loser.losses_after == 2
+        assert loser.out
+        assert not drawn.lanes[0].out
+
+    def test_a_pending_wave_is_drawn_with_no_outcome_and_the_losses_so_far(self):
+        heats = [
+            [_lane(1, 1, time=3.0, place=1), _lane(2, 2, time=3.2, place=2)],
+            [_lane(1, 1), _lane(2, 2)],
+        ]
+        [_, pending] = elimination.chart(heats, 3)
+        [drawn] = pending.heats
+        assert not drawn.finished
+        assert [lane.outcome for lane in drawn.lanes] == [None, None]
+        assert [lane.losses_after for lane in drawn.lanes] == [0, 1]
+
+    def test_a_skipped_lane_is_marked_skipped_and_costs_nothing(self):
+        heat = [
+            _lane(1, 1, time=3.0, place=1),
+            _lane(2, 2, time=3.2, place=2),
+            _lane(3, 3, skipped=True),
+        ]
+        [wave] = elimination.chart([heat], 2)
+        [drawn] = wave.heats
+        skipped = drawn.lanes[2]
+        assert skipped.outcome == "SKIPPED"
+        assert skipped.losses_after == 0
+
+    def test_a_dnf_is_a_loss_on_the_chart_too(self):
+        heat = [_lane(1, 1, time=3.0, place=1), _lane(2, 2, time=0.0)]
+        [wave] = elimination.chart([heat], 2)
+        [drawn] = wave.heats
+        assert drawn.lanes[1].outcome == "LOST"
+
+    def test_a_lone_finisher_names_no_winner(self):
+        # `losses_by_racer` charges nobody in a heat with one finisher, so
+        # the chart marks nothing rather than a win nobody was charged for.
+        heat = [_lane(1, 1, time=3.0, place=1), _lane(2, 2)]
+        [wave] = elimination.chart([heat], 2)
+        [drawn] = wave.heats
+        assert drawn.finished
+        assert [lane.outcome for lane in drawn.lanes] == [None, None]
+
+    def test_every_loss_on_the_chart_is_a_loss_in_the_count(self):
+        # The chart is drawn from the same rule that grows the next wave, so
+        # summing its marks reproduces `losses_by_racer` exactly.
+        rng = random.Random(710)
+        racers = list(range(1, 9))
+        heats = []
+        losses = dict.fromkeys(racers, 0)
+        while not elimination.is_decided(losses, 2):
+            for group in elimination.next_wave(losses, 2, 4, rng=rng):
+                order = list(group)
+                rng.shuffle(order)
+                heats.append(
+                    [
+                        _lane(
+                            i + 1,
+                            r,
+                            time=3.0 + order.index(r) * 0.1,
+                            place=order.index(r) + 1,
+                        )
+                        for i, r in enumerate(group)
+                    ]
+                )
+            losses = elimination.losses_by_racer(heats)
+        counted: dict[int, int] = {}
+        for wave in elimination.chart(heats, 2):
+            for heat in wave.heats:
+                for lane in heat.lanes:
+                    if lane.outcome == "LOST":
+                        counted[lane.racer_id] = counted.get(lane.racer_id, 0) + 1
+                    counted.setdefault(lane.racer_id, 0)
+        assert counted == losses
+        # And the last wave drawn is the one that decided it.
+        last = elimination.chart(heats, 2)[-1]
+        assert any(lane.out for heat in last.heats for lane in heat.lanes)
+
+
+CHART_QUERY = """
+query Chart($raceId: Int!) {
+    race(raceId: $raceId) {
+        rounds {
+            id
+            schedulingStrategy
+            eliminationChart {
+                maxLosses
+                decided
+                waves {
+                    number
+                    heats { heatId heatNumber finished lanes { lane racerId outcome lossesAfter out } }
+                }
+                standings { racerId losses alive }
+            }
+        }
+    }
+}
+"""
+
+
+class TestTheChartResolver:
+    """`Round.eliminationChart` — the schedule screen's chart (#710)."""
+
+    def _chart(self, client, race_id):
+        body = client.post(
+            "/graphql", json={"query": CHART_QUERY, "variables": {"raceId": race_id}}
+        ).json()
+        assert "errors" not in body, body
+        (round_data,) = body["data"]["race"]["rounds"]
+        return round_data
+
+    def test_a_ppc_round_has_no_chart(self, db, client):
+        race = _race(db, "No Chart Derby")
+        _racers(db, race.id, 4)
+        round_obj = crud.create_round(db, race_id=race.id, round_number=1)
+        crud.generate_heats_for_round(db, round_obj.id)
+        round_data = self._chart(client, race.id)
+        assert round_data["schedulingStrategy"] == "PPC"
+        assert round_data["eliminationChart"] is None
+
+    def test_the_first_wave_is_drawn_pending(self, db, client):
+        race, ids, _ = _elimination_round(
+            db, "Pending Chart Derby", racer_count=6, max_losses=2
+        )
+        chart = self._chart(client, race.id)["eliminationChart"]
+        assert chart["maxLosses"] == 2
+        assert not chart["decided"]
+        (wave,) = chart["waves"]
+        assert wave["number"] == 1
+        assert all(not heat["finished"] for heat in wave["heats"])
+        assert all(
+            lane["outcome"] is None for heat in wave["heats"] for lane in heat["lanes"]
+        )
+        assert {entry["racerId"] for entry in chart["standings"]} == set(ids)
+        assert all(entry["alive"] for entry in chart["standings"])
+
+    def test_the_chart_follows_the_race_to_its_end(self, db, client):
+        race, ids, round_obj = _elimination_round(
+            db, "Whole Chart Derby", racer_count=6, max_losses=2
+        )
+        for heat in _pending_heats(db, round_obj.id):
+            _run_heat(db, heat, ids)
+
+        chart = self._chart(client, race.id)["eliminationChart"]
+        assert not chart["decided"]
+        # Wave one raced, wave two appended by the cascade and pending.
+        assert [wave["number"] for wave in chart["waves"]] == [1, 2]
+        raced, pending = chart["waves"]
+        assert all(heat["finished"] for heat in raced["heats"])
+        assert all(not heat["finished"] for heat in pending["heats"])
+        # Every finished heat names exactly one winner, and the heat ids are
+        # the round's own rows.
+        heat_ids = {
+            h.id
+            for h in db.query(models.Heat).filter(models.Heat.round_id == round_obj.id)
+        }
+        for heat in raced["heats"]:
+            assert heat["heatId"] in heat_ids
+            outcomes = [lane["outcome"] for lane in heat["lanes"] if lane["racerId"]]
+            assert outcomes.count("WON") == 1
+            assert all(o in ("WON", "LOST") for o in outcomes)
+
+        for _ in range(20):
+            pending_heats = _pending_heats(db, round_obj.id)
+            if not pending_heats:
+                break
+            for heat in pending_heats:
+                _run_heat(db, heat, ids)
+
+        chart = self._chart(client, race.id)["eliminationChart"]
+        assert chart["decided"]
+        alive = [entry for entry in chart["standings"] if entry["alive"]]
+        assert [entry["racerId"] for entry in alive] == [ids[0]]
+        # The favourite never lost, so is never marked out anywhere.
+        assert not any(
+            lane["out"]
+            for wave in chart["waves"]
+            for heat in wave["heats"]
+            for lane in heat["lanes"]
+            if lane["racerId"] == ids[0]
+        )
+        # Everyone else reached the limit somewhere on the chart.
+        out_ids = {
+            lane["racerId"]
+            for wave in chart["waves"]
+            for heat in wave["heats"]
+            for lane in heat["lanes"]
+            if lane["out"]
+        }
+        assert out_ids == set(ids[1:])
+
+    def test_a_withdrawn_car_is_not_shown_as_still_racing(self, db, client):
+        race, ids, round_obj = _elimination_round(
+            db, "Withdrawn Chart Derby", racer_count=4, max_losses=1
+        )
+        withdrawn = db.query(models.Racer).filter(models.Racer.id == ids[-1]).one()
+        withdrawn.car_passed_inspection = False
+        db.commit()
+        chart = self._chart(client, race.id)["eliminationChart"]
+        assert ids[-1] not in {entry["racerId"] for entry in chart["standings"]}
+        # Its lane on the pending wave is still drawn: the row exists.
+        assert ids[-1] in {
+            lane["racerId"]
+            for wave in chart["waves"]
+            for heat in wave["heats"]
+            for lane in heat["lanes"]
+        }
