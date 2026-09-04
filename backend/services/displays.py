@@ -194,6 +194,7 @@ class DisplayRegistry:
         scroll_behavior: ScrollBehavior | None = None,
         show_checked_in: bool | None = None,
         qr_target: QRTarget | None = None,
+        show_standings_ticker: bool | None = None,
     ) -> Display | None:
         """Tell a display what to show. Returns None for one nobody has seen."""
         display = self._displays.get(display_id)
@@ -212,6 +213,11 @@ class DisplayRegistry:
                 current.show_checked_in if show_checked_in is None else show_checked_in
             ),
             qr_target=(current.qr_target if qr_target is None else qr_target),
+            show_standings_ticker=(
+                current.show_standings_ticker
+                if show_standings_ticker is None
+                else show_standings_ticker
+            ),
         )
         display.assigned = True
         return display

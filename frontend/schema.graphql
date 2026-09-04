@@ -121,6 +121,7 @@ type Display {
   scrollBehavior: ScrollBehavior!
   showCheckedIn: Boolean!
   qrTarget: QRTarget!
+  showStandingsTicker: Boolean!
   connected: Boolean!
   assigned: Boolean!
   description: String!
@@ -141,6 +142,7 @@ enum DisplayView {
   STANDINGS_ONLY
   CHECKIN
   QRCODE
+  OVERLAY
 }
 
 type EliminationChart {
@@ -422,7 +424,7 @@ type Mutation {
   pauseIntermission(raceId: Int!): Race!
   resumeIntermission(raceId: Int!): Race!
   endIntermission(raceId: Int!): Race!
-  assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null, scrollBehavior: ScrollBehavior = null, showCheckedIn: Boolean = null, qrTarget: QRTarget = null): Display
+  assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null, scrollBehavior: ScrollBehavior = null, showCheckedIn: Boolean = null, qrTarget: QRTarget = null, showStandingsTicker: Boolean = null): Display
   advanceDisplay(displayId: String!, delta: Int!): Display
   identifyDisplay(displayId: String!): Display
   renameDisplay(displayId: String!, name: String!): Display

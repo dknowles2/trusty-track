@@ -1329,4 +1329,183 @@ describe('Observation Page', () => {
             expect(screen.queryByTestId('checkin-view')).not.toBeInTheDocument();
         });
     });
+
+    describe('broadcast overlay (#616)', () => {
+        const renderTree = () => (
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        const overlayAssignment = (overrides: Record<string, unknown> = {}) => ({
+            name: 'Plucky Puffin',
+            identifySeq: 0,
+            assigned: true,
+            view: 'OVERLAY',
+            cycleSeconds: 10,
+            scrollBehavior: 'PAGING',
+            showCheckedIn: true,
+            qrTarget: 'STANDINGS',
+            showStandingsTicker: true,
+            ...overrides,
+        });
+
+        it('renders the lower-third bar with the current heat and hides Now Racing / On Deck', async () => {
+            setupMocks({
+                displayAssignment: overlayAssignment(),
+                currentlyRacing: {
+                    id: 2, roundNumber: 1, heatNumber: 2,
+                    lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
+                },
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('overlay-view')).toBeInTheDocument();
+            });
+            expect(screen.getByTestId('overlay-lower-third')).toHaveTextContent('Round 1, Heat 2');
+            expect(screen.getByTestId('overlay-lower-third')).toHaveTextContent('Doc Hudson');
+            expect(screen.queryByText('Now Racing')).not.toBeInTheDocument();
+            expect(screen.queryByText('On Deck')).not.toBeInTheDocument();
+        });
+
+        it('hides the app chrome and paints no background of its own, the same as every other full-screen view', async () => {
+            setupMocks({ displayAssignment: overlayAssignment() });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('overlay-view')).toBeInTheDocument();
+            });
+            const root = document.querySelector('.container.projector-mode') as HTMLElement;
+            expect(root).toBeInTheDocument();
+            // The one deliberate departure from every sibling view: no
+            // `--display-bg-color`, so a camera feed composited underneath
+            // this in OBS shows through.
+            expect(root.style.background).toBe('transparent');
+        });
+
+        it('says "Between heats" when nothing is armed, rather than an empty bar', async () => {
+            setupMocks({ displayAssignment: overlayAssignment() });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('overlay-lower-third')).toHaveTextContent('Between heats');
+            });
+        });
+
+        it('shows the compact standings ticker by default', async () => {
+            setupMocks({
+                displayAssignment: overlayAssignment(),
+                leaderboard: [
+                    { racerId: 1, score: 3.501, heatsCompleted: 2, rank: 1 },
+                    { racerId: 2, score: 3.9, heatsCompleted: 2, rank: 2 },
+                ],
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('overlay-standings-ticker')).toBeInTheDocument();
+            });
+            expect(screen.getByTestId('overlay-standings-ticker')).toHaveTextContent('Speedy McQueen');
+        });
+
+        it('hides the standings ticker once the operator turns it off', async () => {
+            setupMocks({
+                displayAssignment: overlayAssignment({ showStandingsTicker: false }),
+                leaderboard: [{ racerId: 1, score: 3.5, heatsCompleted: 1, rank: 1 }],
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('overlay-view')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('overlay-standings-ticker')).not.toBeInTheDocument();
+        });
+
+        it('yields to an intermission (#592) — a break is a fact about the race, not the assigned view', async () => {
+            setupMocks(
+                { displayAssignment: overlayAssignment() },
+                {
+                    race: {
+                        ...mockRacersData.race,
+                        intermission: {
+                            active: true,
+                            remainingSeconds: 60,
+                            paused: false,
+                            label: 'Snack break',
+                            endsAt: new Date(Date.now() + 60_000).toISOString(),
+                        },
+                    },
+                },
+            );
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('overlay-view')).not.toBeInTheDocument();
+        });
+
+        it('reveals a finish banner for a heat that completes after load, and lets it go after it lingers', async () => {
+            let timingStats: any = {
+                heatId: 1,
+                recordedAt: '2026-01-01T00:00:00Z',
+                roundName: 'Round 1',
+                heatNumber: 1,
+                lanes: [
+                    { laneNumber: 1, racerName: 'Speedy McQueen', carName: '95', time: 3.5, place: 1 },
+                ],
+            };
+
+            (useQuery as any).mockReturnValue([{ data: mockRacersData, fetching: false, error: null }]);
+            (useSubscription as any).mockImplementation(({ query }: { query: any }) => {
+                if (query === LeaderboardSubscription) return [{ data: { leaderboard: [] } }];
+                if (query === OnDeckSubscription) return [{ data: { onDeck: [] } }];
+                if (query === CurrentlyRacingSubscription) return [{ data: { currentlyRacing: null } }];
+                if (query === TimingStatsSubscription) return [{ data: { timingStats } }];
+                if (query === ActiveFreeRaceHeatSubscription) return [{ data: { activeFreeRaceHeat: null } }];
+                if (query === TIMER_STATUS_SUBSCRIPTION) return [{ data: { timerStatus: { status: { activeHeatId: null } } } }];
+                if (query === DisplayAssignmentSubscription) return [{ data: { displayAssignment: overlayAssignment() } }];
+                return [{ data: null }];
+            });
+
+            vi.useFakeTimers();
+
+            const { rerender } = render(renderTree());
+
+            // The opening payload is history, not news (#335) — no banner yet.
+            expect(screen.queryByTestId('overlay-finish-banner')).not.toBeInTheDocument();
+
+            // Heat 2 finishes.
+            timingStats = { ...timingStats, heatId: 2, recordedAt: '2026-01-01T00:05:00Z' };
+            act(() => {
+                rerender(renderTree());
+            });
+
+            expect(screen.getByTestId('overlay-finish-banner')).toBeInTheDocument();
+            expect(screen.getByTestId('overlay-finish-banner')).toHaveTextContent('Speedy McQueen');
+
+            // Under the 10-second linger, still up.
+            act(() => {
+                vi.advanceTimersByTime(9000);
+            });
+            expect(screen.getByTestId('overlay-finish-banner')).toBeInTheDocument();
+
+            // Past it, gone.
+            act(() => {
+                vi.advanceTimersByTime(2000);
+            });
+            expect(screen.queryByTestId('overlay-finish-banner')).not.toBeInTheDocument();
+
+            vi.useRealTimers();
+        });
+    });
 });

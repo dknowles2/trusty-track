@@ -108,6 +108,26 @@ class TestTheVocabulary:
         )
         assert "vot" in vote.lower()
 
+    def test_the_standings_ticker_defaults_to_on(self):
+        # A compact top-5 ticker is what fills the screen between heats —
+        # the gaps a lower-third bar alone leaves empty.
+        assert domain.Assignment().show_standings_ticker is True
+
+    def test_broadcast_overlay_says_whether_the_ticker_is_on(self):
+        with_ticker = domain.describe(
+            domain.Assignment(
+                view=domain.DisplayView.OVERLAY, show_standings_ticker=True
+            )
+        )
+        assert "standings" in with_ticker.lower()
+
+        without_ticker = domain.describe(
+            domain.Assignment(
+                view=domain.DisplayView.OVERLAY, show_standings_ticker=False
+            )
+        )
+        assert "standings" not in without_ticker.lower()
+
 
 class TestPresence:
     def test_a_display_appears_when_it_connects(self, registry):
@@ -324,6 +344,22 @@ class TestAssignment:
         registry.assign("abc", domain.DisplayView.QRCODE)
 
         assert registry.get("abc").assignment.qr_target is domain.QRTarget.VOTE
+
+    def test_a_new_display_defaults_to_showing_the_standings_ticker(self, registry):
+        registry.connect("abc", race_id=1)
+
+        assert registry.get("abc").assignment.show_standings_ticker is True
+
+    def test_show_standings_ticker_survives_a_change_of_view(self, registry):
+        # Same shape as `qr_target` above: a screen flipped away from
+        # OVERLAY and back should not lose whether the ticker was on.
+        registry.connect("abc", race_id=1)
+        registry.assign("abc", domain.DisplayView.OVERLAY, show_standings_ticker=False)
+
+        registry.assign("abc", domain.DisplayView.STANDINGS)
+        registry.assign("abc", domain.DisplayView.OVERLAY)
+
+        assert registry.get("abc").assignment.show_standings_ticker is False
 
 
 class TestNaming:

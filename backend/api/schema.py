@@ -2410,6 +2410,11 @@ class Display:
     #: regardless of `view`, the same reasoning as `scroll_behavior` and
     #: `show_checked_in`.
     qr_target: QRTargetEnum  # type: ignore[valid-type]
+    #: `OVERLAY`'s own rider (#616) — whether the broadcast overlay's
+    #: compact top-5 ticker is shown alongside its lower-third bar. Carried
+    #: regardless of `view`, the same reasoning as `scroll_behavior`,
+    #: `show_checked_in` and `qr_target`.
+    show_standings_ticker: bool
     connected: bool
     #: Whether an operator has told this display anything. False means it is
     #: still following its own URL, which is what every display did before
@@ -2465,6 +2470,7 @@ def _display(
         scroll_behavior=display.assignment.scroll_behavior,
         show_checked_in=display.assignment.show_checked_in,
         qr_target=display.assignment.qr_target,
+        show_standings_ticker=display.assignment.show_standings_ticker,
         connected=display.connected,
         assigned=display.assigned,
         description=domain_displays.describe(display.assignment),
@@ -3758,6 +3764,7 @@ class Mutation:
         scroll_behavior: ScrollBehaviorEnum | None = None,  # type: ignore[valid-type]
         show_checked_in: bool | None = None,
         qr_target: QRTargetEnum | None = None,  # type: ignore[valid-type]
+        show_standings_ticker: bool | None = None,
     ) -> Display | None:
         """Tell an audience display what to show (#174).
 
@@ -3775,6 +3782,7 @@ class Mutation:
             scroll_behavior,
             show_checked_in,
             qr_target,
+            show_standings_ticker,
         )
         if display is None:
             return None
