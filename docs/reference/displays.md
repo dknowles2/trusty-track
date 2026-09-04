@@ -287,6 +287,45 @@ whoever is standing there to learn its name. The badge fades on its own.
   rather than stored (see [Names, and telling one screen from
   another](#names-and-telling-one-screen-from-another) above).
 
+## Scenes: configuring every screen at once
+
+Moving from check-in to racing, or racing to an intermission, or into the
+awards ceremony, is normally several screens changed one at a time — the
+projector to a different view, the lobby TV to another, the entrance kiosk
+to a third. A **scene** does all of it in one click.
+
+**Four built-in scenes are always available**, next to the Displays list:
+
+- **Check-In** — the main screen shows check-in progress, and any others show racer photos.
+- **Racing** — the main screen goes full-screen, the next shows the standings alone, and the rest show the ordinary standings.
+- **Intermission** — every screen shows racer photos.
+- **Awards** — the main screen shows the ceremony, and the rest show the standings.
+
+Clicking one applies it right away, using whichever screens are currently
+connected — first the one at the top of your Displays list, then the next,
+and so on. Nothing is saved; pressing it again just reapplies the same
+recipe to whichever screens answer at that moment.
+
+**Save your own layout as a scene** once you have set the screens up the way
+you like by hand — click **Save current layout as a scene**, on the same
+panel, and give it a name ("Front of house", say). Applying it later puts
+every screen it remembers back into that exact state — not just which view
+each one shows, but every setting that view has (the seconds-per-page on a
+scrolling standings screen, which page a QR code opens, whether check-in
+lists everybody or only who is still missing). A saved scene can be renamed
+or deleted from the same panel, and one screen's entry within it can be
+edited without starting over.
+
+**A screen the scene remembers but that has gone quiet is simply skipped.**
+Applying a scene reports how many screens it reached ("5 of 6 updated") —
+the one that did not is not connected right now, the same *Not connected*
+state described above, and nothing about the other five is held up by it.
+
+**Saved scenes do not survive a restart of the machine**, the same as a
+screen's own assignment above — build the layout again, or resave it, after
+the machine has been restarted. The four built-in scenes are always there,
+restart or not, since they are not something you built.
+
 ## Two screens, one computer
 
 A computer with two monitors — a projector next to an operator's own preview,

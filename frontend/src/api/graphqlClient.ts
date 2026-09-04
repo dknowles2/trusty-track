@@ -61,6 +61,10 @@ export function closeLiveConnection(): void {
 export const EMBEDDED_TYPES = [
   'AdvancementRacer',
   'AdvancementStatus',
+  // Display scenes (#613). `Scene` itself has a real `id` and keys the
+  // ordinary way; these are the id-less shapes riding along on it and on
+  // `applyScene`/`applyScenePreset`'s own result.
+  'ApplySceneResult',
   'AwardPassedOver',
   'AwardVoteTally',
   'RacingGroupStat',
@@ -91,6 +95,9 @@ export const EMBEDDED_TYPES = [
   'RaceStateChangedEvent',
   'RaceStats',
   'RacerStat',
+  'SceneApplyOutcome',
+  'SceneDisplayAssignment',
+  'ScenePresetInfo',
   'SerialLogEntry',
   'Terminology',
   'TimerModel',

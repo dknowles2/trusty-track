@@ -25,6 +25,7 @@ from backend.domain import (
     scheduling,
     terminology,
 )
+from backend.domain.displays import Assignment
 
 from . import lane_sync, models, schemas
 
@@ -3548,3 +3549,168 @@ def prune_audit_log(db: Session, keep: int = AUDIT_LOG_MAX_ENTRIES) -> int:
     )
     db.commit()
     return removed
+
+
+# --------------------------------------------------------------------------- #
+# Display scenes (#613)                                                        #
+# --------------------------------------------------------------------------- #
+#
+# This module holds only the stored rows. It has no dependency on
+# `services/displays.py`'s in-memory presence registry — the same boundary
+# that module keeps from the database — so every function here takes the
+# display state it needs (a snapshot to capture, an assignment to write) as
+# plain arguments rather than reaching for the registry itself. `api/schema.py`
+# is what has both: it is where a scene's stored rows and the registry's live
+# state actually meet, exactly as it already is for `assignDisplay`.
+
+
+def get_scenes(db: Session, race_id: int) -> list[models.Scene]:
+    """A race's saved scenes, oldest first — the order they were created,
+    which is also the order the quick bar offers them in."""
+    return (
+        db.query(models.Scene)
+        .filter(models.Scene.race_id == race_id)
+        .order_by(models.Scene.id)
+        .all()
+    )
+
+
+def get_scene(db: Session, scene_id: int) -> models.Scene | None:
+    return db.query(models.Scene).filter(models.Scene.id == scene_id).first()
+
+
+def _scene_name_taken(
+    db: Session, race_id: int, name: str, exclude_scene_id: int | None = None
+) -> bool:
+    query = db.query(models.Scene).filter(
+        models.Scene.race_id == race_id, models.Scene.name == name
+    )
+    if exclude_scene_id is not None:
+        query = query.filter(models.Scene.id != exclude_scene_id)
+    return query.first() is not None
+
+
+def create_scene(
+    db: Session,
+    race_id: int,
+    name: str,
+    captured: list[tuple[str, str, Assignment]],
+) -> models.Scene:
+    """Save a new named scene.
+
+    ``captured`` is one ``(display_id, display_name, Assignment)`` per
+    display the caller wants in it — ordinarily every display
+    ``DisplayRegistry.for_race`` currently knows about, read by the resolver
+    and handed down, since this module has no dependency on that registry.
+    An empty list is a legitimate scene: a name reserved before any screen
+    has connected, to be filled in later through
+    :func:`upsert_scene_display`.
+
+    Raises ``ValueError`` for a name already used by another scene in this
+    race, checked ahead of the insert rather than caught as an
+    ``IntegrityError`` afterwards, so the message names the actual problem
+    rather than a constraint name.
+    """
+    if _scene_name_taken(db, race_id, name):
+        raise ValueError(f'A scene named "{name}" already exists for this race.')
+    scene = models.Scene(race_id=race_id, name=name)
+    scene.assignments = [
+        models.SceneAssignment(
+            display_id=display_id,
+            display_name=display_name,
+            view=assignment.view,
+            cycle_seconds=assignment.cycle_seconds,
+            scroll_behavior=assignment.scroll_behavior,
+            show_checked_in=assignment.show_checked_in,
+            qr_target=assignment.qr_target,
+            show_standings_ticker=assignment.show_standings_ticker,
+        )
+        for display_id, display_name, assignment in captured
+    ]
+    db.add(scene)
+    db.commit()
+    db.refresh(scene)
+    return scene
+
+
+def rename_scene(db: Session, scene_id: int, name: str) -> models.Scene | None:
+    scene = get_scene(db, scene_id)
+    if scene is None:
+        return None
+    if _scene_name_taken(db, scene.race_id, name, exclude_scene_id=scene_id):
+        raise ValueError(f'A scene named "{name}" already exists for this race.')
+    scene.name = name
+    db.commit()
+    db.refresh(scene)
+    return scene
+
+
+def delete_scene(db: Session, scene_id: int) -> bool:
+    scene = get_scene(db, scene_id)
+    if scene is None:
+        return False
+    db.delete(scene)
+    db.commit()
+    return True
+
+
+def upsert_scene_display(
+    db: Session,
+    scene_id: int,
+    display_id: str,
+    display_name: str,
+    assignment: Assignment,
+) -> models.Scene | None:
+    """Add or replace one display's entry within a scene.
+
+    Whole-``Assignment`` in, whole row out — unlike ``assignDisplay``'s live
+    equivalent, a caller here supplies every field (`api/schema.py` fills in
+    whichever riders the mutation's own arguments omitted, from this entry's
+    *current* stored values when it already has one, or from
+    ``Assignment``'s ordinary defaults when it does not — the same
+    "unspecified keeps what was there" rule ``DisplayRegistry.assign``
+    follows for a live screen). This function itself just writes what it is
+    given.
+    """
+    scene = get_scene(db, scene_id)
+    if scene is None:
+        return None
+    existing = next((a for a in scene.assignments if a.display_id == display_id), None)
+    if existing is None:
+        scene.assignments.append(
+            models.SceneAssignment(
+                display_id=display_id,
+                display_name=display_name,
+                view=assignment.view,
+                cycle_seconds=assignment.cycle_seconds,
+                scroll_behavior=assignment.scroll_behavior,
+                show_checked_in=assignment.show_checked_in,
+                qr_target=assignment.qr_target,
+                show_standings_ticker=assignment.show_standings_ticker,
+            )
+        )
+    else:
+        existing.display_name = display_name
+        existing.view = assignment.view
+        existing.cycle_seconds = assignment.cycle_seconds
+        existing.scroll_behavior = assignment.scroll_behavior
+        existing.show_checked_in = assignment.show_checked_in
+        existing.qr_target = assignment.qr_target
+        existing.show_standings_ticker = assignment.show_standings_ticker
+    db.commit()
+    db.refresh(scene)
+    return scene
+
+
+def remove_scene_display(
+    db: Session, scene_id: int, display_id: str
+) -> models.Scene | None:
+    """Drop one display from a scene — the operator deciding a screen that
+    left the venue should no longer be part of it."""
+    scene = get_scene(db, scene_id)
+    if scene is None:
+        return None
+    scene.assignments = [a for a in scene.assignments if a.display_id != display_id]
+    db.commit()
+    db.refresh(scene)
+    return scene

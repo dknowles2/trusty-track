@@ -264,7 +264,7 @@ Databases created before Alembic are detected at startup (app tables present, no
 
 Defined entirely in `backend/api/schema.py`.
 
-**Queries:** `auditLog`, `races`, `race`, `racers`, `racer`, `tracks`, `organizations`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `timerModels`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `displays`, `suggestDisplayName`, `version`, `networkAddresses`, `practiceRace`
+**Queries:** `auditLog`, `races`, `race`, `racers`, `racer`, `tracks`, `organizations`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `timerModels`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `displays`, `suggestDisplayName`, `scenes`, `scenePresets`, `version`, `networkAddresses`, `practiceRace`
 
 **Mutations:**
 
@@ -279,6 +279,7 @@ Defined entirely in `backend/api/schema.py`.
 - Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards`
 - Voting: `castVote` — the one mutation `VIEWER` may run
 - Audience displays: `assignDisplay`, `advanceDisplay`, `identifyDisplay`, `renameDisplay`, `forgetDisplay`
+- Display scenes (#613): `createScene`, `renameScene`, `deleteScene`, `updateSceneDisplay`, `removeSceneDisplay`, `applyScene`, `applyScenePreset`
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 - Run-off: `createRunOffHeat`, `deleteRunOffHeat`
 - Intermission: `startIntermission`, `extendIntermission`, `pauseIntermission`, `resumeIntermission`, `endIntermission`

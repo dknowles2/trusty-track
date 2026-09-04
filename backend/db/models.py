@@ -16,6 +16,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from backend.domain.displays import DisplayView, QRTarget, ScrollBehavior
 from backend.domain.scale_speed import DEFAULT_SCALE
 
 from .database import Base
@@ -622,6 +623,11 @@ class Race(Base):
     awards: Mapped[list["Award"]] = relationship(
         "Award", back_populates="race", cascade="all, delete-orphan"
     )
+    #: Named display scenes (#613) — see `Scene` for why these are stored
+    #: while a `Display`'s own live assignment is not.
+    scenes: Mapped[list["Scene"]] = relationship(
+        "Scene", back_populates="race", cascade="all, delete-orphan"
+    )
 
 
 class Racer(Base):
@@ -1079,6 +1085,103 @@ class AwardVote(Base):
     cast_at: Mapped[str] = mapped_column(String, nullable=False)
 
     award: Mapped["Award"] = relationship("Award", back_populates="votes")
+
+
+class Scene(Base):
+    """A named recipe for what every audience display should show at once
+    (#613) — "Check-In", "Racing", "Awards" and whatever custom layouts an
+    operator composes for their own venue.
+
+    Deliberately **stored**, unlike a `Display`'s own live `Assignment`
+    (`services/displays.py`), which is presence-shaped and lives only in
+    memory. A scene is not presence: it is something the operator spent real
+    time composing — which screen shows what, down to the QR target or the
+    scroll behaviour — and losing it to a server restart mid-event would
+    undo that work at exactly the moment it is most wanted back. See
+    `backend/domain/scenes.py` for the full reasoning, including why the
+    four *built-in* presets need no table at all: they are code, applied
+    live against whichever displays happen to be connected, not something an
+    operator created.
+
+    Race-scoped and cascade-deleted with the race, the same shape as
+    `RacingGroup` and `Award` — a scene naming displays for a race that no
+    longer exists names nothing.
+    """
+
+    __tablename__ = "scenes"
+    __table_args__ = (UniqueConstraint("race_id", "name", name="uq_scene_race_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    race_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("races.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String, nullable=False)
+
+    race: Mapped["Race"] = relationship("Race", back_populates="scenes")
+    assignments: Mapped[list["SceneAssignment"]] = relationship(
+        "SceneAssignment",
+        back_populates="scene",
+        cascade="all, delete-orphan",
+        order_by="SceneAssignment.id",
+    )
+
+
+class SceneAssignment(Base):
+    """One display's entry within a `Scene` — a whole `Assignment` (#613),
+    not just a view. See `backend/domain/scenes.py` for why a scene has to
+    carry the riders too, not only which view a screen switches to.
+
+    ``display_id`` is not a foreign key: a `Display` is presence, held only
+    in `services/displays.py`'s in-memory registry, and there is no row in
+    this database it could reference. It is the same opaque, browser-chosen
+    identity `identifyDisplay`/`renameDisplay` already key on, and it is
+    intentionally allowed to name a display that is not currently connected
+    — applying the scene simply skips it (`crud.apply_scene`), the same
+    "degrade rather than fail" shape a lane outage or a withdrawn racer
+    already follow elsewhere in this app.
+
+    ``display_name`` is a snapshot of what the display was called when this
+    row was written, kept so the scene editor and the "N of M applied"
+    report can still say something meaningful about a display the in-memory
+    registry has since forgotten (a restart, or a screen that has simply
+    never reconnected since) rather than showing a bare id.
+    """
+
+    __tablename__ = "scene_assignments"
+    __table_args__ = (
+        UniqueConstraint("scene_id", "display_id", name="uq_scene_assignment_display"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    scene_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("scenes.id", ondelete="CASCADE"), index=True
+    )
+    display_id: Mapped[str] = mapped_column(String, nullable=False)
+    display_name: Mapped[str] = mapped_column(String, nullable=False)
+    view: Mapped[DisplayView] = mapped_column(SAEnum(DisplayView), nullable=False)
+    cycle_seconds: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=10, server_default=sa_text("10")
+    )
+    scroll_behavior: Mapped[ScrollBehavior] = mapped_column(
+        SAEnum(ScrollBehavior),
+        nullable=False,
+        default=ScrollBehavior.PAGING,
+        server_default=sa_text("'PAGING'"),
+    )
+    show_checked_in: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    qr_target: Mapped[QRTarget] = mapped_column(
+        SAEnum(QRTarget),
+        nullable=False,
+        default=QRTarget.STANDINGS,
+        server_default=sa_text("'STANDINGS'"),
+    )
+    show_standings_ticker: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+
+    scene: Mapped["Scene"] = relationship("Scene", back_populates="assignments")
 
 
 class HeatLaneBlobArchive(Base):

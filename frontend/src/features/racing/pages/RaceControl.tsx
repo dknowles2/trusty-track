@@ -7,6 +7,7 @@ import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { ScheduleManagement } from '../components/ScheduleManagement';
 import DisplaysPanel from '../../observation/components/DisplaysPanel';
+import ScenesPanel from '../../observation/components/ScenesPanel';
 import { RaceExecution } from '../components/RaceExecution';
 import LaneBadge from '../../../components/ui/LaneBadge';
 import { colorForLane } from '../../settings/laneColors';
@@ -719,6 +720,7 @@ export default function RaceControl() {
 
       {viewMode === 'DISPLAYS' ? (
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
+          <ScenesPanel raceId={id} />
           <DisplaysPanel raceId={id} />
         </div>
       ) : viewMode === 'FREE_RACE' ? (

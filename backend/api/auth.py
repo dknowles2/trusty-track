@@ -143,6 +143,16 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         "identifyDisplay",
         "renameDisplay",
         "forgetDisplay",
+        # Display scenes (#613). Same bucket and the same reasoning as the
+        # display mutations directly above — a scene is a saved way to call
+        # several of them at once, not a different kind of authority.
+        "createScene",
+        "renameScene",
+        "deleteScene",
+        "updateSceneDisplay",
+        "removeSceneDisplay",
+        "applyScene",
+        "applyScenePreset",
         # Scheduling
         "createRound",
         "createRoundWizard",

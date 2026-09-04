@@ -35,6 +35,7 @@ from backend.domain import displays as domain_displays
 from backend.domain import heat_session as domain_heat_session
 from backend.domain import intermission as domain_intermission
 from backend.domain import name_display as domain_name_display
+from backend.domain import scenes as domain_scenes
 from backend.domain import scoring as domain_scoring
 from backend.domain import terminology as domain_terminology
 from backend.domain.scale_speed import DEFAULT_SCALE
@@ -2171,6 +2172,10 @@ ScrollBehaviorEnum = strawberry.enum(
 #: reason as `DisplayViewEnum` above.
 QRTargetEnum = strawberry.enum(domain_displays.QRTarget, name="QRTarget")
 
+#: A built-in scene recipe's key (#613) — wrapped for the same reason as
+#: `DisplayViewEnum` above.
+ScenePresetEnum = strawberry.enum(domain_scenes.ScenePreset, name="ScenePreset")
+
 
 def _require_operator_role(info: Info) -> None:
     """Refuse anything but an operator.
@@ -2391,6 +2396,166 @@ async def _broadcast_display_theme_change() -> None:
         await pubsub.publish(f"display_assignment:{display_id}", None)
 
 
+@strawberry.type
+class SceneDisplayAssignment:
+    """One display's entry within a `Scene` (#613) — a whole assignment, not
+    just a view. See `backend/domain/scenes.py` for why a scene carries the
+    riders too.
+
+    Embedded rather than its own entity: it has no identity outside the
+    scene that holds it, the same shape as `HeatLane` inside a `Heat`.
+    """
+
+    display_id: str
+    #: The display's name when this entry was last written, kept so a scene
+    #: can still say something about a display the presence registry has
+    #: since forgotten (a restart, or a screen that has not reconnected).
+    display_name: str
+    view: DisplayViewEnum  # type: ignore[valid-type]
+    cycle_seconds: int
+    scroll_behavior: ScrollBehaviorEnum  # type: ignore[valid-type]
+    show_checked_in: bool
+    qr_target: QRTargetEnum  # type: ignore[valid-type]
+    show_standings_ticker: bool
+
+
+@strawberry.type
+class Scene:
+    """A named, saved recipe for what every audience display should show at
+    once (#613). See `backend/db/models.py::Scene` for why this is stored
+    while a `Display`'s own live assignment is not."""
+
+    id: int
+    race_id: int
+    name: str
+    assignments: list[SceneDisplayAssignment]
+
+
+def _scene_display_assignment(row: models.SceneAssignment) -> SceneDisplayAssignment:
+    return SceneDisplayAssignment(
+        display_id=row.display_id,
+        display_name=row.display_name,
+        view=row.view,
+        cycle_seconds=row.cycle_seconds,
+        scroll_behavior=row.scroll_behavior,
+        show_checked_in=row.show_checked_in,
+        qr_target=row.qr_target,
+        show_standings_ticker=row.show_standings_ticker,
+    )
+
+
+def _scene(scene: models.Scene) -> Scene:
+    return Scene(
+        id=scene.id,
+        race_id=scene.race_id,
+        name=scene.name,
+        assignments=[_scene_display_assignment(row) for row in scene.assignments],
+    )
+
+
+def _assignment_from_scene_row(
+    row: models.SceneAssignment,
+) -> domain_displays.Assignment:
+    return domain_displays.Assignment(
+        view=row.view,
+        cycle_seconds=row.cycle_seconds,
+        scroll_behavior=row.scroll_behavior,
+        show_checked_in=row.show_checked_in,
+        qr_target=row.qr_target,
+        show_standings_ticker=row.show_standings_ticker,
+    )
+
+
+@strawberry.type
+class ScenePresetInfo:
+    """One built-in scene recipe, for the quick bar (#613). Served rather
+    than hardcoded on the frontend for the same "one copy of the vocabulary"
+    reason `viewOptionsFor` reads `DisplayView` off the schema instead of a
+    second list — a preset's label lives in exactly one place,
+    `backend/domain/scenes.py`."""
+
+    key: ScenePresetEnum  # type: ignore[valid-type]
+    label: str
+
+
+@strawberry.type
+class SceneApplyOutcome:
+    """Whether one display in an applied scene was actually reachable
+    (#613). A saved scene can name a display that has gone quiet since —
+    presence is in memory and a restart forgets it entirely — and applying
+    the rest must not silently pretend that one was told too."""
+
+    display_id: str
+    display_name: str
+    applied: bool
+
+
+@strawberry.type
+class ApplySceneResult:
+    """What happened when a scene (saved or a built-in preset) was applied
+    (#613) — one outcome per display it named, so the operator's screen can
+    say "5 of 6 screens updated" rather than a bare success."""
+
+    scene_id: int | None
+    outcomes: list[SceneApplyOutcome]
+
+    @strawberry.field
+    def applied_count(self) -> int:
+        return sum(1 for o in self.outcomes if o.applied)
+
+    @strawberry.field
+    def skipped_count(self) -> int:
+        return sum(1 for o in self.outcomes if not o.applied)
+
+
+async def _apply_assignments(
+    assignments: list[tuple[str, str, domain_displays.Assignment]],
+) -> ApplySceneResult:
+    """Bulk-assign a list of ``(display_id, display_name, Assignment)``
+    against the live presence registry, publish each display's own channel
+    plus one nudge to every affected race's operator list, and report which
+    ones were actually reachable.
+
+    The one place a scene (saved or a preset) actually touches
+    `services/displays.py` and `api/pubsub.py` — `backend/db/crud.py` never
+    does, the same boundary `assignDisplay` already draws between the stored
+    record and the live broadcast.
+    """
+    outcomes: list[SceneApplyOutcome] = []
+    changed_race_ids: set[int] = set()
+    for display_id, display_name, assignment in assignments:
+        display = displays_service.registry.assign(
+            display_id,
+            assignment.view,
+            assignment.cycle_seconds,
+            assignment.scroll_behavior,
+            assignment.show_checked_in,
+            assignment.qr_target,
+            assignment.show_standings_ticker,
+        )
+        if display is None:
+            # Named by a saved scene but not currently known to this
+            # process — gone quiet, or the server has restarted since. See
+            # `SceneAssignment.display_name` for why there is still
+            # something to report.
+            outcomes.append(
+                SceneApplyOutcome(
+                    display_id=display_id, display_name=display_name, applied=False
+                )
+            )
+            continue
+        outcomes.append(
+            SceneApplyOutcome(
+                display_id=display_id, display_name=display.name, applied=True
+            )
+        )
+        changed_race_ids.add(display.race_id)
+        await pubsub.publish(f"display_assignment:{display_id}", None)
+    for race_id in changed_race_ids:
+        await _publish_displays(race_id)
+    return ApplySceneResult(scene_id=None, outcomes=outcomes)
+
+
 RACES_LIST_CHANNEL = "races_list"
 
 
@@ -2601,6 +2766,21 @@ class Query:
         dropped off the wifi is the one the operator most wants to see.
         """
         return [_display(d) for d in displays_service.registry.for_race(race_id)]
+
+    @strawberry.field
+    def scenes(self, info: Info, race_id: int) -> list[Scene]:
+        """A race's saved display scenes (#613), oldest first."""
+        db = info.context["db"]
+        return [_scene(s) for s in crud.get_scenes(db, race_id)]
+
+    @strawberry.field
+    def scene_presets(self) -> list[ScenePresetInfo]:
+        """The built-in scene recipes offered on the quick bar (#613) — code,
+        not a race's own data, so this takes no `raceId`."""
+        return [
+            ScenePresetInfo(key=preset.key, label=preset.label)
+            for preset in domain_scenes.PRESETS
+        ]
 
     @strawberry.field
     def suggest_display_name(
@@ -3726,6 +3906,177 @@ class Mutation:
         if removed and race_id is not None:
             await _publish_displays(race_id)
         return removed
+
+    # Scene Mutations (#613)
+    @strawberry.mutation
+    async def create_scene(self, info: Info, race_id: int, name: str) -> Scene:
+        """Save a new scene, snapshotting every display currently known for
+        this race — connected or not, the same population `Query.displays`
+        already lists — into a named, reusable layout.
+
+        This is "capture what the screens are showing right now", the
+        quickest way to build a scene: compose the room by hand once with
+        the ordinary per-screen controls, then save the result under a name
+        rather than repeating those clicks for the rest of the event. A
+        scene with no displays yet (nothing connected) is still created —
+        entries can be added afterwards with `updateSceneDisplay`.
+        """
+        db = info.context["db"]
+        captured = [
+            (d.display_id, d.name, d.assignment)
+            for d in displays_service.registry.for_race(race_id)
+        ]
+        scene = crud.create_scene(db, race_id, name, captured)
+        return _scene(scene)
+
+    @strawberry.mutation
+    async def rename_scene(self, info: Info, id: int, name: str) -> Scene | None:
+        db = info.context["db"]
+        scene = crud.rename_scene(db, id, name)
+        return _scene(scene) if scene else None
+
+    @strawberry.mutation
+    async def delete_scene(self, info: Info, id: int) -> bool:
+        """The only way a scene leaves the list. Deleting one never touches
+        any display's *current* view — a scene is a saved recipe, not a
+        live link to the screens it once described."""
+        db = info.context["db"]
+        return crud.delete_scene(db, id)
+
+    @strawberry.mutation
+    async def update_scene_display(
+        self,
+        info: Info,
+        scene_id: int,
+        display_id: str,
+        display_name: str,
+        view: DisplayViewEnum,  # type: ignore[valid-type]
+        cycle_seconds: int | None = None,
+        scroll_behavior: ScrollBehaviorEnum | None = None,  # type: ignore[valid-type]
+        show_checked_in: bool | None = None,
+        qr_target: QRTargetEnum | None = None,  # type: ignore[valid-type]
+        show_standings_ticker: bool | None = None,
+    ) -> Scene | None:
+        """Add or edit one display's entry within a saved scene (#613,
+        "customize scene mappings for custom venue setups").
+
+        The same argument shape as `assignDisplay`, on purpose: an omitted
+        rider keeps whatever this entry already had (or the ordinary
+        default, for a display new to the scene), so the scene editor can
+        reuse the exact same per-display controls the live Displays panel
+        already offers rather than inventing a second set for the saved
+        version.
+        """
+        if cycle_seconds is not None and cycle_seconds < 1:
+            raise ValueError("cycle_seconds must be at least 1")
+        db = info.context["db"]
+        scene_row = crud.get_scene(db, scene_id)
+        if scene_row is None:
+            return None
+        current = next(
+            (a for a in scene_row.assignments if a.display_id == display_id), None
+        )
+        assignment = domain_displays.Assignment(
+            view=view,
+            cycle_seconds=(
+                cycle_seconds
+                if cycle_seconds is not None
+                else (current.cycle_seconds if current else 10)
+            ),
+            scroll_behavior=(
+                scroll_behavior
+                if scroll_behavior is not None
+                else (
+                    current.scroll_behavior
+                    if current
+                    else domain_displays.DEFAULT_SCROLL_BEHAVIOR
+                )
+            ),
+            show_checked_in=(
+                show_checked_in
+                if show_checked_in is not None
+                else (current.show_checked_in if current else True)
+            ),
+            qr_target=(
+                qr_target
+                if qr_target is not None
+                else (
+                    current.qr_target if current else domain_displays.DEFAULT_QR_TARGET
+                )
+            ),
+            show_standings_ticker=(
+                show_standings_ticker
+                if show_standings_ticker is not None
+                else (current.show_standings_ticker if current else True)
+            ),
+        )
+        scene = crud.upsert_scene_display(
+            db, scene_id, display_id, display_name, assignment
+        )
+        return _scene(scene) if scene else None
+
+    @strawberry.mutation
+    async def remove_scene_display(
+        self, info: Info, scene_id: int, display_id: str
+    ) -> Scene | None:
+        """Drop one display from a saved scene — it no longer changes when
+        the scene is applied, without deleting the scene itself."""
+        db = info.context["db"]
+        scene = crud.remove_scene_display(db, scene_id, display_id)
+        return _scene(scene) if scene else None
+
+    @strawberry.mutation
+    async def apply_scene(self, info: Info, scene_id: int) -> ApplySceneResult | None:
+        """Apply every entry of a saved scene to the live displays it
+        names, atomically from the operator's point of view — one click
+        reconfigures every screen in the room at once.
+
+        Not atomic in the database sense, deliberately: presence is
+        best-effort by design (`services/displays.py`), and a scene naming
+        a screen that has since gone quiet is the ordinary case, not a
+        failure that should block the other five screens from updating.
+        Every entry named by a display no longer known to this process is
+        skipped and reported rather than applied — see `ApplySceneResult`.
+        """
+        db = info.context["db"]
+        scene_row = crud.get_scene(db, scene_id)
+        if scene_row is None:
+            return None
+        assignments = [
+            (row.display_id, row.display_name, _assignment_from_scene_row(row))
+            for row in scene_row.assignments
+        ]
+        result = await _apply_assignments(assignments)
+        result.scene_id = scene_row.id
+        return result
+
+    @strawberry.mutation
+    async def apply_scene_preset(
+        self,
+        race_id: int,
+        preset: ScenePresetEnum,  # type: ignore[valid-type]
+    ) -> ApplySceneResult:
+        """Quick-apply one of the four built-in scene recipes (#613) against
+        whichever displays this process currently knows for this race —
+        connected or not, the same population `Query.displays` lists —
+        nothing is saved, the same "code, not data" reasoning
+        `backend/domain/scenes.py` gives every preset. The role order is the
+        operator's own list order (connected first, then by name), so the
+        first role goes to whichever screen sorts first there.
+        """
+        preset_def = domain_scenes.preset_by_key(preset)
+        if preset_def is None:
+            raise ValueError(f"Unknown scene preset: {preset}")
+        ordered = displays_service.registry.for_race(race_id)
+        recipe = domain_scenes.assignments_for_preset(
+            preset_def, [d.display_id for d in ordered]
+        )
+        by_id = {d.display_id: d for d in ordered}
+        assignments = [
+            (display_id, by_id[display_id].name, assignment)
+            for display_id, assignment in recipe
+        ]
+        return await _apply_assignments(assignments)
 
     @strawberry.mutation
     async def create_racer(self, info: Info, racer: RacerInput) -> Racer:
