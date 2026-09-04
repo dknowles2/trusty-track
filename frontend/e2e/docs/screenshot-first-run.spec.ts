@@ -81,6 +81,24 @@ test('screenshot the first run', async ({ page }) => {
     // 01: the home page of an install with no races on it.
     await page.screenshot({ path: path.join(GETTING_STARTED_DIR, '01-home-page.png') });
 
+    // 03: the wizard's "Kind of event" step (#662), for
+    // docs/getting-started.md's "Creating Your First Race" section. This used
+    // to be taken in the parallel phase, where whether the wizard's opening
+    // "Start" step (scratch vs. copy a previous race) had already been shown
+    // depends on whether some other spec's race happened to exist yet — a
+    // fact the questions step's own step-count header renders, so the
+    // picture changed run to run for reasons that had nothing to do with the
+    // wizard (#708). No race exists yet at this point in this project, so the
+    // wizard always lands on this step directly with nothing before it,
+    // which is also the state the section is actually about: a first-time
+    // operator has no previous race to be offered.
+    await page.getByRole('button', { name: /Create New Race/i }).click();
+    await expect(page.getByTestId('setup-step-start')).toHaveCount(0);
+    await expect(page.getByTestId('setup-step-kind')).toBeVisible();
+    await page.screenshot({ path: path.join(GETTING_STARTED_DIR, '03-new-race-questions.png') });
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('heading', { name: 'Create New Race Event' })).toBeHidden();
+
     // 03 (copy): the setup wizard's "copy settings from a previous race"
     // choice (#662). It is offered only once a race exists, and it lists every
     // race there is — so it is photographed here, the one place that can
