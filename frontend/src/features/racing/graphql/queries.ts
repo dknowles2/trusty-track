@@ -173,6 +173,10 @@ export const GET_RACE_CONTROL_DATA = gql`
         lastName
         carNumber
         racerImageUrl
+        # Whether this racer may be picked for a hand-picked championship
+        # field (#711) — a pick does not override check-in, so the picker
+        # offers only checked-in racers.
+        carPassedInspection
       }
       heats {
         id
@@ -198,6 +202,10 @@ export const GET_RACE_CONTROL_DATA = gql`
         name
         advancementSource
         advancementFromBottom
+        # The line-up was chosen by hand rather than computed from the
+        # standings (#711) — the schedule screen's badge and its "Use
+        # standings"/"Edit picks" controls key off this.
+        fieldPinned
         schedulingStrategy
         # Which racing group this round belongs to, if any (#549 stage 4) —
         # what labels a heat in the master running order view. Resolved to a
@@ -237,6 +245,11 @@ export const GET_RACE_CONTROL_DATA = gql`
           alreadyAdvanced
           fieldIsStale
           contestedCut
+          # The field advancingRacers describes is a hand pick, not the
+          # computed standings (#711) — forced alongside fieldIsStale/
+          # contestedCut being false, since a hand-picked field is meant to
+          # differ from the standings.
+          fieldIsPinned
           source
           numRacers
           fromBottom
@@ -259,6 +272,29 @@ export const GET_RACE_CONTROL_DATA = gql`
 export const CREATE_ROUND_MUTATION = gql`
   mutation CreateRound($raceId: Int!, $roundData: RoundCreateInput!) {
     createRound(raceId: $raceId, roundData: $roundData) {
+      id
+    }
+  }
+`;
+
+// Hand-picking a championship round's line-up (#711) — the standings decide
+// by default, and these are the operator's override. `pinRoundField`
+// rebuilds the round for exactly the given racers and keeps the pick across
+// every later preliminary result; `unpinRoundField` hands it back to the
+// standings. Both return just the round's id: the schedule screen's own
+// refetch (`reExecute`) is what shows the result, the same shape every other
+// scheduling mutation on this screen already takes.
+export const PIN_ROUND_FIELD_MUTATION = gql`
+  mutation PinRoundField($raceId: Int!, $roundId: Int!, $racerIds: [Int!]!) {
+    pinRoundField(raceId: $raceId, roundId: $roundId, racerIds: $racerIds) {
+      id
+    }
+  }
+`;
+
+export const UNPIN_ROUND_FIELD_MUTATION = gql`
+  mutation UnpinRoundField($raceId: Int!, $roundId: Int!) {
+    unpinRoundField(raceId: $raceId, roundId: $roundId) {
       id
     }
   }

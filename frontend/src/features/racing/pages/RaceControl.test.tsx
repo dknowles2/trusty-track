@@ -5,11 +5,39 @@ import { useQuery, useMutation, useSubscription } from 'urql';
 
 // Mock child components to isolate RaceControl logic
 vi.mock('../components/ScheduleManagement', () => ({
-    ScheduleManagement: ({ laneCount, activeHeatId }: any) => (
+    ScheduleManagement: ({
+        laneCount,
+        activeHeatId,
+        onAddRound,
+        handPickRoundId,
+        onOpenHandPickModal,
+        onCloseHandPickModal,
+        onPinRoundField,
+        onUnpinRoundField,
+    }: any) => (
         <div data-testid="schedule-management">
             Schedule Management
             <div data-testid="lane-count-prop">{laneCount}</div>
             <div data-testid="schedule-active-heat-id">{activeHeatId ?? 'none'}</div>
+            {/* The hand-pick wiring (#711) — a round created with the
+                wizard's "I'll choose who races myself" checked, and the
+                per-round "Pick by hand"/"Use standings" controls that live
+                inside the real `ScheduleManagement`. Exposed here so
+                `RaceControl`'s own side of that wiring — extracting the
+                created round's id, waiting for it to appear in the
+                refetched race data, and the pin/unpin mutation handlers —
+                can be tested without rendering the real schedule table. */}
+            <div data-testid="hand-pick-round-id">{handPickRoundId ?? 'none'}</div>
+            <button onClick={() => onAddRound({ name: 'Finals', advancementSource: 'ALL', pickFieldByHand: true })}>
+                Add Championship Round (pick by hand)
+            </button>
+            <button onClick={() => onAddRound({ name: 'All Pack' })}>
+                Add General Round
+            </button>
+            <button onClick={() => onOpenHandPickModal?.(7)}>Pick by hand</button>
+            <button onClick={() => onCloseHandPickModal?.()}>Close picker</button>
+            <button onClick={() => onPinRoundField?.(7, [101, 102])}>Save line-up</button>
+            <button onClick={() => onUnpinRoundField?.(7)}>Use standings</button>
         </div>
     )
 }));
@@ -696,5 +724,151 @@ describe('RaceControl Page', () => {
         await waitFor(() => {
             expect(screen.getByTestId('landed-on-roster')).toBeInTheDocument();
         });
+    });
+
+    // -----------------------------------------------------------------
+    // Hand-picking a championship round's field (#711)
+    // -----------------------------------------------------------------
+    //
+    // ScheduleManagement itself is mocked above (its own tests cover the
+    // badge, the buttons and the picker rendering); these pin RaceControl's
+    // side — extracting the created round's id from `createRound`'s array
+    // return, waiting for it to show up in the refetched race data before
+    // opening the picker, and the pin/unpin mutation handlers.
+
+    const renderControl = async () => {
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+        await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
+    };
+
+    it('opens the picker once a round created with "pick by hand" appears in the race data', async () => {
+        // Simulating the round already having arrived by the refetch that
+        // follows `createRound` — which is what the render-time sync this
+        // test pins actually waits for, rather than opening on the
+        // mutation's own response.
+        withRounds([
+            { id: 55, roundNumber: 2, name: 'Finals', advancementSource: 'ALL', advancementStatus: advancementStatus() },
+        ]);
+        const mockCreateRound = vi.fn().mockResolvedValue({ data: { createRound: [{ id: 55 }] } });
+        (useMutation as any).mockReturnValue([{ fetching: false }, mockCreateRound]);
+
+        await renderControl();
+        expect(screen.getByTestId('hand-pick-round-id')).toHaveTextContent('none');
+
+        fireEvent.click(screen.getByText('Add Championship Round (pick by hand)'));
+
+        await waitFor(() => expect(mockCreateRound).toHaveBeenCalled());
+        await waitFor(() =>
+            expect(screen.getByTestId('hand-pick-round-id')).toHaveTextContent('55')
+        );
+    });
+
+    it('never opens the picker for an ordinary round — nothing to pick by hand was asked for', async () => {
+        withRounds([
+            { id: 55, roundNumber: 2, name: 'Finals', advancementSource: 'ALL', advancementStatus: advancementStatus() },
+        ]);
+        const mockCreateRound = vi.fn().mockResolvedValue({ data: { createRound: [{ id: 55 }] } });
+        (useMutation as any).mockReturnValue([{ fetching: false }, mockCreateRound]);
+
+        await renderControl();
+        fireEvent.click(screen.getByText('Add General Round'));
+
+        await waitFor(() => expect(mockCreateRound).toHaveBeenCalled());
+        expect(screen.getByTestId('hand-pick-round-id')).toHaveTextContent('none');
+    });
+
+    it('stays waiting while the created round has not shown up in the race data yet', async () => {
+        // No round 55 in this race's data at all — the mutation resolved,
+        // but the refetch it triggers has not (or never will, in this
+        // fixture); the picker must not open on stale hope.
+        withRounds([]);
+        const mockCreateRound = vi.fn().mockResolvedValue({ data: { createRound: [{ id: 55 }] } });
+        (useMutation as any).mockReturnValue([{ fetching: false }, mockCreateRound]);
+
+        await renderControl();
+        fireEvent.click(screen.getByText('Add Championship Round (pick by hand)'));
+
+        await waitFor(() => expect(mockCreateRound).toHaveBeenCalled());
+        expect(screen.getByTestId('hand-pick-round-id')).toHaveTextContent('none');
+    });
+
+    it('the schedule\'s own "Pick by hand" button opens the picker directly, and "Close picker" closes it', async () => {
+        await renderControl();
+
+        fireEvent.click(screen.getByText('Pick by hand'));
+        expect(screen.getByTestId('hand-pick-round-id')).toHaveTextContent('7');
+
+        fireEvent.click(screen.getByText('Close picker'));
+        expect(screen.getByTestId('hand-pick-round-id')).toHaveTextContent('none');
+    });
+
+    it('saving a line-up calls pinRoundField and shows a success toast', async () => {
+        const mockPinRoundField = vi.fn().mockResolvedValue({ data: { pinRoundField: { id: 7 } } });
+        (useMutation as any).mockReturnValue([{ fetching: false }, mockPinRoundField]);
+
+        await renderControl();
+        fireEvent.click(screen.getByText('Save line-up'));
+
+        await waitFor(() =>
+            expect(mockPinRoundField).toHaveBeenCalledWith({ raceId: 1, roundId: 7, racerIds: [101, 102] })
+        );
+        await waitFor(() => expect(screen.getByText('Line-up saved.')).toBeInTheDocument());
+    });
+
+    it('a failed save shows the server\'s reason rather than closing silently', async () => {
+        const mockPinRoundField = vi.fn().mockResolvedValue({ error: new Error('This round has already been raced.') });
+        (useMutation as any).mockReturnValue([{ fetching: false }, mockPinRoundField]);
+
+        await renderControl();
+        fireEvent.click(screen.getByText('Save line-up'));
+
+        await waitFor(() => {
+            expect(screen.getByText('This round has already been raced.')).toBeInTheDocument();
+        });
+    });
+
+    it('using the standings again asks first, then calls unpinRoundField once confirmed', async () => {
+        const mockUnpinRoundField = vi.fn().mockResolvedValue({ data: { unpinRoundField: { id: 7 } } });
+        (useMutation as any).mockReturnValue([{ fetching: false }, mockUnpinRoundField]);
+
+        await renderControl();
+        fireEvent.click(screen.getByText('Use standings'));
+
+        // The confirm dialog carries its own button of the same name —
+        // the trigger's is the first, the dialog's own is the one that
+        // actually confirms.
+        const confirmButtons = await screen.findAllByRole('button', { name: 'Use standings' });
+        expect(confirmButtons).toHaveLength(2);
+        expect(mockUnpinRoundField).not.toHaveBeenCalled();
+
+        fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+
+        await waitFor(() =>
+            expect(mockUnpinRoundField).toHaveBeenCalledWith({ raceId: 1, roundId: 7 })
+        );
+        await waitFor(() =>
+            expect(screen.getByText('Line-up handed back to the standings.')).toBeInTheDocument()
+        );
+    });
+
+    it('declining the confirmation leaves the pin in place', async () => {
+        const mockUnpinRoundField = vi.fn().mockResolvedValue({ data: { unpinRoundField: { id: 7 } } });
+        (useMutation as any).mockReturnValue([{ fetching: false }, mockUnpinRoundField]);
+
+        await renderControl();
+        fireEvent.click(screen.getByText('Use standings'));
+
+        const cancelButton = await screen.findByRole('button', { name: 'Cancel' });
+        fireEvent.click(cancelButton);
+
+        expect(mockUnpinRoundField).not.toHaveBeenCalled();
     });
 });

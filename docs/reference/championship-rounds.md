@@ -59,12 +59,64 @@ The same as the fastest overall, from the other end — the Slowest Race.
 - A round set up for more than one run per lane keeps that when its line-up
   refills: a two-run final stays a two-run final.
 
+## Picking a line-up by hand
+
+Most of the time the standings should decide who advances. Sometimes they
+shouldn't — a subjective award, a house rule the app has no setting for, a
+car that had a mechanical problem the timer can't see. For those, an
+operator can choose a championship round's cars directly instead of letting
+the standings pick them.
+
+**Two ways to reach it, same result either way:**
+
+- **When adding the round.** On the Championship Round tab of **Add Round**
+  (or the Round Wizard), check **I'll choose who races myself**. The round
+  is still created and scheduled the usual way — this only skips filling it
+  from the standings, and opens the picker right after so you can fill it
+  yourself.
+- **Any time before the round has been raced.** Its card on the Schedule tab
+  gets a **Pick by hand** button next to Regenerate.
+
+The picker starts with the standings' own current suggestion already
+selected, so you can see what you're choosing to differ from — add or
+remove racers, or use **Add another** for a line-up bigger than the round
+asked for. There's no maximum, and no requirement to match the count the
+round was set up with; the only rule is at least two cars.
+
+**Only a checked-in car can be picked.** The same rule that keeps a
+championship slot from going to a car that has left the building — see
+[a withdrawal](mid-race-changes.md#a-withdrawal) — applies to a hand pick
+too: if the car you want isn't in the list, check it in first.
+
+**It sticks.** A hand-picked line-up is marked with a **Hand-picked** badge,
+and — unlike a computed one — it does not get rebuilt or refilled as later
+results come in. Correcting an earlier time, a car withdrawing, another
+round finishing: none of it touches a round you've picked by hand. That's
+the whole point of picking it yourself.
+
+**Undoing it** is the **Use standings** button next to the badge. What
+happens next depends on whether the round has been raced:
+
+- **Not yet raced:** the round is rebuilt immediately from the standings as
+  they stand right now, the same as a round that was never pinned.
+- **Already raced:** only the pin comes off. The results you've already
+  recorded stand — nobody rewrites a heat that happened — but if the
+  hand-picked field doesn't match today's standings, the round now shows the
+  ordinary **Line-up out of date** badge, same as any other raced round
+  whose field has drifted.
+
+A hand-picked round can't be re-raced into by mistake: **Pick by hand**
+(shown as **Edit picks** once a pick exists) disappears the moment the round
+has recorded results, the same as **Regenerate**. Clear the round's results
+first if you really do want to change who's in it.
+
 ## When a time is corrected
 
 Correcting (or clearing) any earlier result re-decides who advances.
 
 - A championship round that has **not been raced** re-picks its cars
-  automatically.
+  automatically — unless it's [been picked by hand](#picking-a-line-up-by-hand),
+  in which case nothing about it changes.
 - One that **has been raced** is never quietly rewritten — its results are
   real. Instead the schedule shows a **Line-up out of date** badge: its cars
   were picked from standings that have since changed. Whether to re-run it

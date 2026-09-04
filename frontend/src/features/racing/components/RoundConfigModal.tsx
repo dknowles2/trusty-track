@@ -17,6 +17,7 @@ interface RoundConfigModalProps {
     balancedPhases?: number;
     runsPerLane: number;
     generalType?: string;
+    pickFieldByHand?: boolean;
   }) => Promise<void>;
   racerCount: number;
   racingGroupCount: number;
@@ -49,6 +50,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   const [source, setSource] = useState<'ALL' | 'EACH_GROUP' | 'PREVIOUS'>('ALL');
   const [numTopRacers, setNumTopRacers] = useState(championshipTrophies);
   const [fromBottom, setFromBottom] = useState(false);
+  const [pickFieldByHand, setPickFieldByHand] = useState(false);
   const [runsPerLane, setRunsPerLane] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -67,6 +69,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
     if (isOpen && !wasOpen.current) {
       setType('GENERAL');
       setName('');
+      setPickFieldByHand(false);
     }
     wasOpen.current = isOpen;
   }, [isOpen]);
@@ -130,7 +133,8 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
         eliminationLosses: isElimination ? eliminationLosses : undefined,
         balancedPhases: isBalanced ? balancedPhases : undefined,
         runsPerLane,
-        generalType: effectiveType === 'GENERAL' && !isElimination && !isBalanced ? generalType : undefined
+        generalType: effectiveType === 'GENERAL' && !isElimination && !isBalanced ? generalType : undefined,
+        pickFieldByHand: effectiveType === 'CHAMPIONSHIP' ? pickFieldByHand : undefined
       });
       onClose();
     } catch (error) {
@@ -404,6 +408,28 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                   Minimum pick count ({championshipTrophies}) enforced by trophy config.
                 </div>
               )}
+
+              {/* Skips the automatic pick entirely (#711) — the round is
+                  still created and scheduled the usual way, but this screen
+                  hands off to the schedule's own picker for the line-up
+                  itself rather than filling it from the standings above. */}
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={pickFieldByHand}
+                  onChange={(e) => setPickFieldByHand(e.target.checked)}
+                  disabled={loading}
+                  style={{ marginTop: '3px' }}
+                />
+                <span>
+                  <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>I&apos;ll choose who races myself</span>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>
+                    Skip the standings&apos; own pick above — right after this round is
+                    created, you&apos;ll choose exactly which {vehiclesLower} are in it. You
+                    can still see what the standings would have suggested when you do.
+                  </p>
+                </span>
+              </label>
             </>
           )}
 

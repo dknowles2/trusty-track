@@ -2,8 +2,21 @@ import React, { useMemo, useState } from 'react';
 import { RoundConfigModal } from './RoundConfigModal';
 import { RoundWizard } from './RoundWizard';
 import { EliminationChartView } from './EliminationChartView';
+import { PickFieldModal } from './PickFieldModal';
 import { Icon } from '@mdi/react';
-import { mdiCached, mdiPlus, mdiDragVertical, mdiAutoFix, mdiDelete, mdiPrinter, mdiTable, mdiSitemap } from '@mdi/js';
+import {
+  mdiCached,
+  mdiPlus,
+  mdiDragVertical,
+  mdiAutoFix,
+  mdiDelete,
+  mdiPrinter,
+  mdiTable,
+  mdiSitemap,
+  mdiHandBackRightOutline,
+  mdiUndo,
+  mdiPin,
+} from '@mdi/js';
 import { Link } from 'react-router-dom';
 import {
   DndContext,
@@ -28,12 +41,14 @@ import { errorText } from '../../../utils/errors';
 import { heatsEstimate } from '../../../utils/duration';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { estimatePace } from '../pace';
-import type { EliminationChart, Heat, Lane } from '../types';
+import type { EliminationChart, Heat, Lane, Round } from '../types';
 import { hasRun, hasTimes } from '../lanes';
 import { executionComparator } from '../runningOrder';
+import { advancingFromLabel } from '../roundSummaryText';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 import LaneBadge from '../../../components/ui/LaneBadge';
 import { colorForLane } from '../../settings/laneColors';
+import type { RacerOption } from '../../management/components/RacerCombobox';
 
 // Re-exported rather than redeclared: this used to be a hand-written copy that
 // nothing tied to the schema, and it drifted the moment `lanes` was added.
@@ -54,6 +69,7 @@ interface ScheduleManagementProps {
     balancedPhases?: number;
     runsPerLane?: number;
     generalType?: string;
+    pickFieldByHand?: boolean;
   }) => Promise<void>;
   onRegenerateRound: (roundId: number, silent?: boolean) => Promise<void>;
   onDeleteRound: (roundId: number) => Promise<void>;
@@ -137,6 +153,29 @@ interface ScheduleManagementProps {
    * Table/Chart toggle; one without renders exactly as it always has.
    */
   eliminationCharts?: Record<number, EliminationChart>;
+  /**
+   * A championship round's line-up may be chosen by hand instead of
+   * computed from the standings (#711) — this race's rounds, exactly as
+   * the parent query already fetched them, so the badge, the "Pick by
+   * hand"/"Edit picks"/"Use standings" controls and the picker's own
+   * suggestion text can all read `fieldPinned` and `advancementStatus` off
+   * the same object rather than a second, narrower copy.
+   */
+  rounds?: Round[];
+  /**
+   * Every racer who may be picked for a hand-picked field (#711) — checked-in
+   * racers only (#228): a hand pick does not override check-in.
+   */
+  checkedInRacers?: RacerOption[];
+  /** Which round's picker is open, controlled by the parent so the same
+   * modal can be opened either from a round's own "Pick by hand" button
+   * here, or automatically once a round created with the wizard's "I'll
+   * choose who races myself" checkbox has come back from the server. */
+  handPickRoundId?: number | null;
+  onOpenHandPickModal?: (roundId: number) => void;
+  onCloseHandPickModal?: () => void;
+  onPinRoundField?: (roundId: number, racerIds: number[]) => Promise<void>;
+  onUnpinRoundField?: (roundId: number) => Promise<void>;
 }
 
 
@@ -318,8 +357,15 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   contestedRoundIds,
   championshipRoundIds,
   eliminationCharts = {},
+  rounds: raceRounds = [],
+  checkedInRacers = [],
+  handPickRoundId = null,
+  onOpenHandPickModal,
+  onCloseHandPickModal,
+  onPinRoundField,
+  onUnpinRoundField,
 }) => {
-  const { group } = useTerminology();
+  const { group, groupLower, orgLower } = useTerminology();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [reordering, setReordering] = useState(false);
@@ -358,6 +404,29 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     acc[heat.roundId].push(heat);
     return acc;
   }, {} as Record<number, Heat[]>);
+
+  // A round's own advancement data, by id (#711) — the badge, the pick
+  // controls and the picker's initial selection all read off this rather
+  // than a second, narrower prop, so there is one copy of `fieldPinned` and
+  // `advancementStatus` per round on this screen.
+  const roundsById = useMemo(
+    () => new Map(raceRounds.map((r) => [r.id, r])),
+    [raceRounds]
+  );
+
+  /** "the top 4 from the whole pack", "the slowest 5 from each den" — what
+   * the standings currently suggest for a round, read off the same
+   * `AdvancementStatus` the badge and the picker's own suggestion use. Null
+   * when there is nothing to suggest yet. */
+  const suggestionLabelFor = (round: Round): string | null => {
+    const status = round.advancementStatus;
+    if (status.numRacers == null) return null;
+    const from = advancingFromLabel(status.source, { orgLower, groupLower });
+    const direction = status.fromBottom ? 'slowest' : 'top';
+    return `the ${direction} ${status.numRacers} from ${from}`;
+  };
+
+  const pickingRound = handPickRoundId != null ? roundsById.get(handPickRoundId) : undefined;
 
   // This race's learned turnaround pace (#591) — over every heat in the
   // race, not just the round being shown, since staging and reset time is a
@@ -410,6 +479,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     balancedPhases?: number;
     runsPerLane?: number;
     generalType?: string;
+    pickFieldByHand?: boolean;
   }) => {
     await onAddRound(config);
   };
@@ -663,6 +733,33 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           lastChampionshipRound={lastChampionshipRound}
         />
 
+        {/* Picking a championship round's line-up by hand (#711) — opened
+            either by a round's own "Pick by hand"/"Edit picks" button above,
+            or automatically once a round created with the wizard's "I'll
+            choose who races myself" checkbox has come back from the server
+            (the parent controls `handPickRoundId` for exactly that reason).
+            Always mounted, like `RoundConfigModal` above, so its own
+            open-transition reset can tell a reopen from a re-render. */}
+        <PickFieldModal
+          isOpen={handPickRoundId != null}
+          onClose={() => onCloseHandPickModal?.()}
+          roundName={pickingRound?.name ?? ''}
+          suggestionLabel={pickingRound ? suggestionLabelFor(pickingRound) : null}
+          checkedInRacers={checkedInRacers}
+          initialRacerIds={
+            pickingRound
+              ? pickingRound.advancementStatus.advancingRacers
+                  .filter((r) => r.isAdvancing)
+                  .map((r) => r.racerId)
+              : []
+          }
+          onSubmit={async (racerIds) => {
+            if (handPickRoundId != null) {
+              await onPinRoundField?.(handPickRoundId, racerIds);
+            }
+          }}
+        />
+
         {sortedRoundIds.length === 0 ? (
           <div style={{
             textAlign: 'center',
@@ -703,6 +800,12 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
               // also what decides whether the Table/Chart toggle is offered.
               const chart = eliminationCharts[Number(roundId)];
               const showingChart = chart != null && chartRoundIds.has(Number(roundId));
+              // A championship round's own advancement data (#711) — null
+              // for a general round, which is what keeps every hand-pick
+              // control off a round whose field is the roster rather than a
+              // pick (`pinRoundField` refuses one, so this screen never
+              // offers it).
+              const advancementInfo = roundsById.get(Number(roundId));
 
               return (
                 <div key={roundId} style={{
@@ -792,6 +895,32 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           Start a run-off →
                         </Link>
                       )}
+                      {advancementInfo?.fieldPinned && (
+                        // Never alongside "Line-up out of date" or "Tie
+                        // unresolved" (#711) — the server forces both false
+                        // while a field is pinned, since a hand pick is
+                        // meant to differ from the standings and settles
+                        // any tie by picking.
+                        <span
+                          data-testid={`pinned-field-badge-${roundId}`}
+                          title="This line-up was chosen by hand, not computed from the standings — it will not change as more results come in."
+                          style={{
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            color: 'var(--scouting-blue)',
+                            background: 'var(--info-panel-bg-color)',
+                            border: '1px solid var(--scouting-blue)',
+                            borderRadius: '10px',
+                            padding: '2px 10px',
+                            whiteSpace: 'nowrap',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Icon path={mdiPin} size={0.55} /> Hand-picked
+                        </span>
+                      )}
                     </div>
 
                     <div style={{ display: 'flex', gap: '10px' }}>
@@ -816,6 +945,54 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                         >
                           <Icon path={showingChart ? mdiTable : mdiSitemap} size={0.7} />
                           {showingChart ? 'Table view' : 'Chart view'}
+                        </button>
+                      )}
+                      {advancementInfo?.advancementSource != null && !isAnyStarted && onOpenHandPickModal && (
+                        // Gated on `advancementSource`, not merely on
+                        // `advancementInfo` existing — every round, general
+                        // or championship, has an entry in `roundsById`
+                        // (`AdvancementStatus` even previews the *next*
+                        // championship round's field from a general one).
+                        // `pinRoundField` refuses a general round outright
+                        // ("its field is the roster, not a pick"), and once
+                        // raced ("already been raced") — the same rule the
+                        // `onRegenerateRound` gating just above follows,
+                        // hidden here rather than shown disabled with an
+                        // explanation nobody but this comment reads.
+                        <button
+                          onClick={() => onOpenHandPickModal(Number(roundId))}
+                          className="secondary-btn"
+                          disabled={generating || reordering || raceLocked}
+                          title={raceLocked ? RACE_LOCKED_MESSAGE : undefined}
+                          data-testid={`hand-pick-field-btn-${roundId}`}
+                          style={{
+                            padding: '6px 16px',
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <Icon path={mdiHandBackRightOutline} size={0.7} />
+                          {advancementInfo.fieldPinned ? 'Edit picks' : 'Pick by hand'}
+                        </button>
+                      )}
+                      {advancementInfo?.fieldPinned && onUnpinRoundField && (
+                        <button
+                          onClick={() => onUnpinRoundField(Number(roundId))}
+                          className="secondary-btn"
+                          disabled={generating || reordering || raceLocked}
+                          title={raceLocked ? RACE_LOCKED_MESSAGE : "Let the standings choose this round's line-up again"}
+                          data-testid={`unpin-field-btn-${roundId}`}
+                          style={{
+                            padding: '6px 16px',
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <Icon path={mdiUndo} size={0.7} /> Use standings
                         </button>
                       )}
                       {!isAnyStarted && (

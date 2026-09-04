@@ -64,8 +64,8 @@ describe('RaceExecution', () => {
     // Shaped to match what the GetRaceControlData query actually returns —
     // every selected field is present, nullable ones explicitly null.
     const mockRacers = {
-        101: { id: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, racerImageUrl: 'http://example.com/racer101.jpg', carImageUrl: null },
-        102: { id: 102, firstName: 'Jane', lastName: 'Smith', carNumber: 2, racerImageUrl: null, carImageUrl: null }
+        101: { id: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, racerImageUrl: 'http://example.com/racer101.jpg', carImageUrl: null, carPassedInspection: true },
+        102: { id: 102, firstName: 'Jane', lastName: 'Smith', carNumber: 2, racerImageUrl: null, carImageUrl: null, carPassedInspection: true }
     };
 
     const mockGetRacerName = vi.fn((id: number) => (mockRacers as any)[id] ? `${(mockRacers as any)[id].firstName} ${(mockRacers as any)[id].lastName}` : `Racer ${id}`);
@@ -552,7 +552,8 @@ describe('RaceExecution', () => {
             numRacers: 1,
             fromBottom: false,
             fieldIsStale: false,
-            contestedCut: false
+            contestedCut: false,
+            fieldIsPinned: false
         };
 
         render(
@@ -580,7 +581,8 @@ describe('RaceExecution', () => {
             numRacers: 1,
             fromBottom: false,
             fieldIsStale: false,
-            contestedCut: false
+            contestedCut: false,
+            fieldIsPinned: false
         };
 
         render(
@@ -614,6 +616,7 @@ describe('RaceExecution', () => {
             fromBottom: false,
             fieldIsStale: false,
             contestedCut: false,
+            fieldIsPinned: false
         });
 
         const { rerender } = render(
@@ -639,6 +642,7 @@ describe('RaceExecution', () => {
             fromBottom: false,
             fieldIsStale: false,
             contestedCut: false,
+            fieldIsPinned: false
         };
 
         render(
@@ -679,7 +683,8 @@ describe('RaceExecution', () => {
             numRacers: 3,
             fromBottom: false,
             fieldIsStale: false,
-            contestedCut: false
+            contestedCut: false,
+            fieldIsPinned: false
         };
 
         render(
@@ -710,7 +715,8 @@ describe('RaceExecution', () => {
             numRacers: 3,
             fromBottom: true,
             fieldIsStale: false,
-            contestedCut: false
+            contestedCut: false,
+            fieldIsPinned: false
         };
 
         render(
@@ -824,7 +830,7 @@ describe('RaceExecution', () => {
         // the fixed version must show the initials fallback instead.
         const racersWithCarPhotoOnly = {
             ...mockRacers,
-            103: { id: 103, firstName: 'Amy', lastName: 'Lee', carNumber: 3, racerImageUrl: null, carImageUrl: 'http://example.com/car103.jpg' },
+            103: { id: 103, firstName: 'Amy', lastName: 'Lee', carNumber: 3, racerImageUrl: null, carImageUrl: 'http://example.com/car103.jpg', carPassedInspection: true },
         };
         render(
             <RaceExecution

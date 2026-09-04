@@ -44,8 +44,8 @@ describe('race day keys and sound', () => {
     };
 
     const racers = {
-        101: { id: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, racerImageUrl: null, carImageUrl: null },
-        102: { id: 102, firstName: 'Jane', lastName: 'Smith', carNumber: 2, racerImageUrl: null, carImageUrl: null },
+        101: { id: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, racerImageUrl: null, carImageUrl: null, carPassedInspection: true },
+        102: { id: 102, firstName: 'Jane', lastName: 'Smith', carNumber: 2, racerImageUrl: null, carImageUrl: null, carPassedInspection: true },
     };
 
     const onNextHeat = vi.fn();
