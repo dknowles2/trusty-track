@@ -33,6 +33,13 @@ export type AdvancementStatus = {
   source?: Maybe<Scalars['String']['output']>;
 };
 
+export type ApplySceneResult = {
+  appliedCount: Scalars['Int']['output'];
+  outcomes: Array<SceneApplyOutcome>;
+  sceneId?: Maybe<Scalars['Int']['output']>;
+  skippedCount: Scalars['Int']['output'];
+};
+
 export type AuditLogEntry = {
   action: Scalars['String']['output'];
   at: Scalars['String']['output'];
@@ -430,6 +437,8 @@ export type Mutation = {
   advanceDisplay?: Maybe<Display>;
   advanceRound: Scalars['Int']['output'];
   applyMasterRunningOrder: HeatReorderResponse;
+  applyScene?: Maybe<ApplySceneResult>;
+  applyScenePreset: ApplySceneResult;
   assignDisplay?: Maybe<Display>;
   bulkAssignPhotos: Scalars['Int']['output'];
   bulkAutoNumber: Scalars['Int']['output'];
@@ -451,6 +460,7 @@ export type Mutation = {
   createRound: Array<Round>;
   createRoundWizard: Array<Round>;
   createRunOffHeat: RunOffHeat;
+  createScene: Scene;
   createTrack: Track;
   createTrackRecord: HistoricalTrackRecord;
   deleteAward: Scalars['Boolean']['output'];
@@ -461,6 +471,7 @@ export type Mutation = {
   deleteRacingGroup: Scalars['Boolean']['output'];
   deleteRound: Scalars['Boolean']['output'];
   deleteRunOffHeat: Scalars['Boolean']['output'];
+  deleteScene: Scalars['Boolean']['output'];
   deleteTrack: Scalars['Boolean']['output'];
   deleteTrackRecord: Scalars['Boolean']['output'];
   endIntermission: Race;
@@ -481,7 +492,9 @@ export type Mutation = {
   recordFreeRaceResult?: Maybe<FreeRaceHeat>;
   regenerateRound: Array<Heat>;
   releaseStartGate?: Maybe<Scalars['String']['output']>;
+  removeSceneDisplay?: Maybe<Scene>;
   renameDisplay?: Maybe<Display>;
+  renameScene?: Maybe<Scene>;
   reorderAwards: Array<Award>;
   reorderHeats: HeatReorderResponse;
   resetTimer: Scalars['Boolean']['output'];
@@ -497,6 +510,7 @@ export type Mutation = {
   updateRace?: Maybe<Race>;
   updateRacer?: Maybe<Racer>;
   updateRacingGroup?: Maybe<RacingGroup>;
+  updateSceneDisplay?: Maybe<Scene>;
   updateTrack?: Maybe<Track>;
   updateTrackRecord: HistoricalTrackRecord;
   uploadImage: Scalars['String']['output'];
@@ -521,6 +535,17 @@ export type MutationAdvanceRoundArgs = {
 
 
 export type MutationApplyMasterRunningOrderArgs = {
+  raceId: Scalars['Int']['input'];
+};
+
+
+export type MutationApplySceneArgs = {
+  sceneId: Scalars['Int']['input'];
+};
+
+
+export type MutationApplyScenePresetArgs = {
+  preset: ScenePreset;
   raceId: Scalars['Int']['input'];
 };
 
@@ -653,6 +678,12 @@ export type MutationCreateRunOffHeatArgs = {
 };
 
 
+export type MutationCreateSceneArgs = {
+  name: Scalars['String']['input'];
+  raceId: Scalars['Int']['input'];
+};
+
+
 export type MutationCreateTrackArgs = {
   track: TrackInput;
 };
@@ -701,6 +732,11 @@ export type MutationDeleteRoundArgs = {
 
 export type MutationDeleteRunOffHeatArgs = {
   heatId: Scalars['Int']['input'];
+};
+
+
+export type MutationDeleteSceneArgs = {
+  id: Scalars['Int']['input'];
 };
 
 
@@ -815,8 +851,20 @@ export type MutationReleaseStartGateArgs = {
 };
 
 
+export type MutationRemoveSceneDisplayArgs = {
+  displayId: Scalars['String']['input'];
+  sceneId: Scalars['Int']['input'];
+};
+
+
 export type MutationRenameDisplayArgs = {
   displayId: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+};
+
+
+export type MutationRenameSceneArgs = {
+  id: Scalars['Int']['input'];
   name: Scalars['String']['input'];
 };
 
@@ -907,6 +955,19 @@ export type MutationUpdateRacingGroupArgs = {
 };
 
 
+export type MutationUpdateSceneDisplayArgs = {
+  cycleSeconds?: InputMaybe<Scalars['Int']['input']>;
+  displayId: Scalars['String']['input'];
+  displayName: Scalars['String']['input'];
+  qrTarget?: InputMaybe<QrTarget>;
+  sceneId: Scalars['Int']['input'];
+  scrollBehavior?: InputMaybe<ScrollBehavior>;
+  showCheckedIn?: InputMaybe<Scalars['Boolean']['input']>;
+  showStandingsTicker?: InputMaybe<Scalars['Boolean']['input']>;
+  view: DisplayView;
+};
+
+
 export type MutationUpdateTrackArgs = {
   id: Scalars['Int']['input'];
   track: TrackInput;
@@ -975,6 +1036,8 @@ export type Query = {
   races: Array<Race>;
   randomFreeRaceLanes: Array<FreeRaceLaneAssignment>;
   rounds: Array<Round>;
+  scenePresets: Array<ScenePresetInfo>;
+  scenes: Array<Scene>;
   suggestDisplayName: Scalars['String']['output'];
   timerModels: Array<TimerModel>;
   timerStatus?: Maybe<TimerStatus>;
@@ -1054,6 +1117,11 @@ export type QueryRandomFreeRaceLanesArgs = {
 
 
 export type QueryRoundsArgs = {
+  raceId: Scalars['Int']['input'];
+};
+
+
+export type QueryScenesArgs = {
   raceId: Scalars['Int']['input'];
 };
 
@@ -1326,6 +1394,41 @@ export type RunOffHeat = {
   raceId: Scalars['Int']['output'];
   recorded: Scalars['Boolean']['output'];
   settlesRoundId?: Maybe<Scalars['Int']['output']>;
+};
+
+export type Scene = {
+  assignments: Array<SceneDisplayAssignment>;
+  id: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  raceId: Scalars['Int']['output'];
+};
+
+export type SceneApplyOutcome = {
+  applied: Scalars['Boolean']['output'];
+  displayId: Scalars['String']['output'];
+  displayName: Scalars['String']['output'];
+};
+
+export type SceneDisplayAssignment = {
+  cycleSeconds: Scalars['Int']['output'];
+  displayId: Scalars['String']['output'];
+  displayName: Scalars['String']['output'];
+  qrTarget: QrTarget;
+  scrollBehavior: ScrollBehavior;
+  showCheckedIn: Scalars['Boolean']['output'];
+  showStandingsTicker: Scalars['Boolean']['output'];
+  view: DisplayView;
+};
+
+export type ScenePreset =
+  | 'AWARDS'
+  | 'CHECK_IN'
+  | 'INTERMISSION'
+  | 'RACING';
+
+export type ScenePresetInfo = {
+  key: ScenePreset;
+  label: Scalars['String']['output'];
 };
 
 export type ScrollBehavior =

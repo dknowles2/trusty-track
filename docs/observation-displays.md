@@ -243,6 +243,15 @@ still do what they always did. Assigning a screen overrides its URL; there is
 no way to get into a state where a screen cannot be reached from the operator's
 laptop, which is the point.
 
+### Changing every screen at once, with a scene
+
+Moving the whole room from check-in to racing, or into an intermission or the
+ceremony, is normally that same list changed one row at a time. A **scene**
+does every row in one click — four are built in (Check-In, Racing,
+Intermission, Awards), and you can save your own once you have a layout you
+like. See [Scenes: configuring every screen at
+once](reference/displays.md#scenes-configuring-every-screen-at-once).
+
 ---
 
 ## Projector Mode

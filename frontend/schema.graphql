@@ -22,6 +22,13 @@ type AdvancementStatus {
   fieldIsPinned: Boolean!
 }
 
+type ApplySceneResult {
+  sceneId: Int
+  outcomes: [SceneApplyOutcome!]!
+  appliedCount: Int!
+  skippedCount: Int!
+}
+
 type AuditLogEntry {
   id: Int!
   at: String!
@@ -430,6 +437,13 @@ type Mutation {
   identifyDisplay(displayId: String!): Display
   renameDisplay(displayId: String!, name: String!): Display
   forgetDisplay(displayId: String!): Boolean!
+  createScene(raceId: Int!, name: String!): Scene!
+  renameScene(id: Int!, name: String!): Scene
+  deleteScene(id: Int!): Boolean!
+  updateSceneDisplay(sceneId: Int!, displayId: String!, displayName: String!, view: DisplayView!, cycleSeconds: Int = null, scrollBehavior: ScrollBehavior = null, showCheckedIn: Boolean = null, qrTarget: QRTarget = null, showStandingsTicker: Boolean = null): Scene
+  removeSceneDisplay(sceneId: Int!, displayId: String!): Scene
+  applyScene(sceneId: Int!): ApplySceneResult
+  applyScenePreset(raceId: Int!, preset: ScenePreset!): ApplySceneResult!
   createRacer(racer: RacerInput!): Racer!
   updateRacer(id: Int!, racer: RacerInput!): Racer
   deleteRacer(id: Int!): Boolean!
@@ -530,6 +544,8 @@ enum QRTarget {
 
 type Query {
   displays(raceId: Int!): [Display!]!
+  scenes(raceId: Int!): [Scene!]!
+  scenePresets: [ScenePresetInfo!]!
   suggestDisplayName(displayId: String!, avoid: String = null): String!
   auditLog(raceId: Int = null, limit: Int! = 200, beforeId: Int = null): [AuditLogEntry!]!
   races(skip: Int! = 0, limit: Int! = 100): [Race!]!
@@ -806,6 +822,42 @@ type RunOffHeat {
   lanes: [HeatLane!]!
   recorded: Boolean!
   placement: Int
+}
+
+type Scene {
+  id: Int!
+  raceId: Int!
+  name: String!
+  assignments: [SceneDisplayAssignment!]!
+}
+
+type SceneApplyOutcome {
+  displayId: String!
+  displayName: String!
+  applied: Boolean!
+}
+
+type SceneDisplayAssignment {
+  displayId: String!
+  displayName: String!
+  view: DisplayView!
+  cycleSeconds: Int!
+  scrollBehavior: ScrollBehavior!
+  showCheckedIn: Boolean!
+  qrTarget: QRTarget!
+  showStandingsTicker: Boolean!
+}
+
+enum ScenePreset {
+  CHECK_IN
+  RACING
+  INTERMISSION
+  AWARDS
+}
+
+type ScenePresetInfo {
+  key: ScenePreset!
+  label: String!
 }
 
 enum ScrollBehavior {

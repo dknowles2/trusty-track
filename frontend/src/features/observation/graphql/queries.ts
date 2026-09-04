@@ -315,3 +315,164 @@ export const FORGET_DISPLAY = gql`
     forgetDisplay(displayId: $displayId)
   }
 `;
+
+/**
+ * Display scenes (#613) — one name that reconfigures every screen in the
+ * room at once. See `.claude/rules/displays.md`'s "Scenes" section. Each
+ * document spells out `SceneDisplayAssignment`'s fields in full rather than
+ * sharing a fragment string — codegen's document loader parses these
+ * statically, not by running the module, so a `${...}` interpolation reads
+ * as literal (invalid) GraphQL text rather than the field list it names at
+ * runtime.
+ */
+export const SCENES_QUERY = gql`
+  query GetScenes($raceId: Int!) {
+    scenes(raceId: $raceId) {
+      id
+      raceId
+      name
+      assignments {
+        displayId
+        displayName
+        view
+        cycleSeconds
+        scrollBehavior
+        showCheckedIn
+        qrTarget
+        showStandingsTicker
+      }
+    }
+  }
+`;
+
+export const SCENE_PRESETS_QUERY = gql`
+  query GetScenePresets {
+    scenePresets {
+      key
+      label
+    }
+  }
+`;
+
+export const CREATE_SCENE = gql`
+  mutation CreateScene($raceId: Int!, $name: String!) {
+    createScene(raceId: $raceId, name: $name) {
+      id
+      raceId
+      name
+      assignments {
+        displayId
+        displayName
+        view
+        cycleSeconds
+        scrollBehavior
+        showCheckedIn
+        qrTarget
+        showStandingsTicker
+      }
+    }
+  }
+`;
+
+export const RENAME_SCENE = gql`
+  mutation RenameScene($id: Int!, $name: String!) {
+    renameScene(id: $id, name: $name) {
+      id
+      name
+    }
+  }
+`;
+
+export const DELETE_SCENE = gql`
+  mutation DeleteScene($id: Int!) {
+    deleteScene(id: $id)
+  }
+`;
+
+export const UPDATE_SCENE_DISPLAY = gql`
+  mutation UpdateSceneDisplay(
+    $sceneId: Int!
+    $displayId: String!
+    $displayName: String!
+    $view: DisplayView!
+    $cycleSeconds: Int
+    $scrollBehavior: ScrollBehavior
+    $showCheckedIn: Boolean
+    $qrTarget: QRTarget
+    $showStandingsTicker: Boolean
+  ) {
+    updateSceneDisplay(
+      sceneId: $sceneId
+      displayId: $displayId
+      displayName: $displayName
+      view: $view
+      cycleSeconds: $cycleSeconds
+      scrollBehavior: $scrollBehavior
+      showCheckedIn: $showCheckedIn
+      qrTarget: $qrTarget
+      showStandingsTicker: $showStandingsTicker
+    ) {
+      id
+      name
+      assignments {
+        displayId
+        displayName
+        view
+        cycleSeconds
+        scrollBehavior
+        showCheckedIn
+        qrTarget
+        showStandingsTicker
+      }
+    }
+  }
+`;
+
+export const REMOVE_SCENE_DISPLAY = gql`
+  mutation RemoveSceneDisplay($sceneId: Int!, $displayId: String!) {
+    removeSceneDisplay(sceneId: $sceneId, displayId: $displayId) {
+      id
+      name
+      assignments {
+        displayId
+        displayName
+        view
+        cycleSeconds
+        scrollBehavior
+        showCheckedIn
+        qrTarget
+        showStandingsTicker
+      }
+    }
+  }
+`;
+
+export const APPLY_SCENE = gql`
+  mutation ApplyScene($sceneId: Int!) {
+    applyScene(sceneId: $sceneId) {
+      sceneId
+      appliedCount
+      skippedCount
+      outcomes {
+        displayId
+        displayName
+        applied
+      }
+    }
+  }
+`;
+
+export const APPLY_SCENE_PRESET = gql`
+  mutation ApplyScenePreset($raceId: Int!, $preset: ScenePreset!) {
+    applyScenePreset(raceId: $raceId, preset: $preset) {
+      sceneId
+      appliedCount
+      skippedCount
+      outcomes {
+        displayId
+        displayName
+        applied
+      }
+    }
+  }
+`;

@@ -32,6 +32,12 @@ Everything not named below, and in particular:
   which screen shows what, not about the race's own record, the same
   reasoning that puts them outside ``CHECKIN_MUTATIONS``/needing anything
   beyond an ``OPERATOR`` role in the first place;
+* the scene mutations (``createScene``, ``renameScene``, ``deleteScene``,
+  ``updateSceneDisplay``, ``removeSceneDisplay``, ``applyScene``,
+  ``applyScenePreset``, #613) — the same reasoning again: a scene is a saved
+  way to call the display mutations above in bulk, and an operator wrapping
+  up a locked, finished race can still want its screens switched back to a
+  plain standings scene without unlocking the record to do it;
 * ``castVote`` — a locked race has presumably finished being judged too, but
   voting is gated by its own ``Race.votingOpen`` switch (#305); teaching this
   module a second opinion about it would be a rule with two homes;

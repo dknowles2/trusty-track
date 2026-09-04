@@ -187,6 +187,12 @@ export type RoundCreateInput = {
   schedulingStrategy?: string;
 };
 
+export type ScenePreset =
+  | 'AWARDS'
+  | 'CHECK_IN'
+  | 'INTERMISSION'
+  | 'RACING';
+
 export type ScrollBehavior =
   | 'PAGING'
   | 'SMOOTH';
@@ -710,6 +716,79 @@ export type ForgetDisplayMutationVariables = Exact<{
 
 
 export type ForgetDisplayMutation = { forgetDisplay: boolean };
+
+export type GetScenesQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type GetScenesQuery = { scenes: Array<{ id: number, raceId: number, name: string, assignments: Array<{ displayId: string, displayName: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, showStandingsTicker: boolean }> }> };
+
+export type GetScenePresetsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetScenePresetsQuery = { scenePresets: Array<{ key: Types.ScenePreset, label: string }> };
+
+export type CreateSceneMutationVariables = Exact<{
+  raceId: number;
+  name: string;
+}>;
+
+
+export type CreateSceneMutation = { createScene: { id: number, raceId: number, name: string, assignments: Array<{ displayId: string, displayName: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, showStandingsTicker: boolean }> } };
+
+export type RenameSceneMutationVariables = Exact<{
+  id: number;
+  name: string;
+}>;
+
+
+export type RenameSceneMutation = { renameScene: { id: number, name: string } | null };
+
+export type DeleteSceneMutationVariables = Exact<{
+  id: number;
+}>;
+
+
+export type DeleteSceneMutation = { deleteScene: boolean };
+
+export type UpdateSceneDisplayMutationVariables = Exact<{
+  sceneId: number;
+  displayId: string;
+  displayName: string;
+  view: Types.DisplayView;
+  cycleSeconds?: number | null | undefined;
+  scrollBehavior?: Types.ScrollBehavior | null | undefined;
+  showCheckedIn?: boolean | null | undefined;
+  qrTarget?: Types.QrTarget | null | undefined;
+  showStandingsTicker?: boolean | null | undefined;
+}>;
+
+
+export type UpdateSceneDisplayMutation = { updateSceneDisplay: { id: number, name: string, assignments: Array<{ displayId: string, displayName: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, showStandingsTicker: boolean }> } | null };
+
+export type RemoveSceneDisplayMutationVariables = Exact<{
+  sceneId: number;
+  displayId: string;
+}>;
+
+
+export type RemoveSceneDisplayMutation = { removeSceneDisplay: { id: number, name: string, assignments: Array<{ displayId: string, displayName: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, showStandingsTicker: boolean }> } | null };
+
+export type ApplySceneMutationVariables = Exact<{
+  sceneId: number;
+}>;
+
+
+export type ApplySceneMutation = { applyScene: { sceneId: number | null, appliedCount: number, skippedCount: number, outcomes: Array<{ displayId: string, displayName: string, applied: boolean }> } | null };
+
+export type ApplyScenePresetMutationVariables = Exact<{
+  raceId: number;
+  preset: Types.ScenePreset;
+}>;
+
+
+export type ApplyScenePresetMutation = { applyScenePreset: { sceneId: number | null, appliedCount: number, skippedCount: number, outcomes: Array<{ displayId: string, displayName: string, applied: boolean }> } };
 
 export type GetPrintablesQueryVariables = Exact<{
   raceId: number;
