@@ -383,8 +383,6 @@ Two consequences worth knowing. `docs/derbynet-timer-protocol.md` came out of `t
 
 **A rule goes in the `.claude/rules/` file for its area, not here.** This file is the router: it holds what is true across the whole tree — the layout, the data model, the operation lists, the conventions — and an index of everything else. It was one 359 KB file, which is about 88k tokens loaded into every session before an agent had read a line of code; the split is what makes the record affordable to keep. Adding a section here rather than to the file that covers its area is how it grows back. When a new area needs a file of its own, add it to the index table above — an unindexed file is one nobody opens.
 
-`TODO.md` at the repo root is a mostly-completed feature checklist.
-
 ---
 
 ---
