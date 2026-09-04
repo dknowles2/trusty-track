@@ -62,6 +62,9 @@ Photos taken at the check-in table are rarely framed well — snapped sideways, 
 - **A photo taken with the Camera button** goes straight into this step after you tap **Capture** — straighten and crop it before it is ever attached to the racer.
 - **A photo already on file** — uploaded from disk, or captured earlier — gets a **⟳ Rotate / Recrop** button beneath it. Click it to reopen the same tool on the existing photo.
 
+![Crop and Rotate Tool](assets/screenshots/race-day/33-crop-photo-modal.png)
+_The crop tool open on a car photo. The blue box is the crop, with a gold handle at each corner to resize it; everything outside it is dimmed. Drag the box to reposition it. The two rotate buttons and the Cancel / Use this photo buttons sit below._
+
 Drag the crop box to reposition it, or drag a corner to resize it — the arrow keys nudge it a little at a time. **⟲ Rotate left** / **⟳ Rotate right** turn the photo a quarter turn. A racer's own portrait crops to a square, matching the round photo used elsewhere in the app and on the pit pass; a car photo crops to a wider, landscape shape. Click **Use this photo** to keep the result, or **Cancel** (or press Escape) to leave the photo as it was.
 
 All of this happens in your browser — nothing is uploaded until you confirm the crop, so a shot you decide not to use never leaves the device.

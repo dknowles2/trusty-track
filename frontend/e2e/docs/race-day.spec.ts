@@ -235,6 +235,23 @@ test('take screenshots', async ({ page }) => {
     // 03: the same modal, with the racer's photo from the populated data.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/03-check-in-modal-with-photo.png') });
 
+    // 33: the crop/rotate tool (#619), reached from the photo's own
+    // "⟳ Rotate / Recrop" button — populated data gives this racer both a
+    // portrait and a car photo, so `.last()` reaches the car one. Its 4:3
+    // aspect against a square upload leaves the crop box inset from the top
+    // and bottom edges without dragging anything, which is what makes the
+    // picture deterministic: no pointer drag to land the same way twice.
+    await page.getByRole('button', { name: '⟳ Rotate / Recrop' }).last().click();
+    const cropDialog = page.getByRole('dialog', { name: 'Rotate / recrop photo' });
+    await expect(cropDialog).toBeVisible();
+    // The image loads asynchronously; the modal shows "Loading photo…" until
+    // it has, and the crop box (with its corner handles) only exists once it
+    // is gone.
+    await expect(cropDialog.getByText('Loading photo…')).toBeHidden();
+    await page.screenshot({ path: path.join(screenshotsDir, 'race-day/33-crop-photo-modal.png') });
+    await cropDialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(cropDialog).toBeHidden();
+
     await page.getByRole('button', { name: 'Save Check-in' }).click();
     await expect(page.getByRole('heading', { name: 'Racer Check In' })).toBeHidden();
     // Scoped to the roster's rows: "Checked In" also appears in the summary
