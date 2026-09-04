@@ -105,6 +105,42 @@ describe('Observation Page', () => {
         expect(screen.getAllByText('Mater Tow').length).toBeGreaterThan(0);
     });
 
+    it("shows the track's configured lane colours beside a lane number (#611)", async () => {
+        setupMocks(
+            {
+                currentlyRacing: {
+                    id: 2, roundNumber: 1, heatNumber: 2,
+                    lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
+                },
+                onDeck: [{
+                    id: 3, roundNumber: 1, heatNumber: 3,
+                    lanes: [{ lane: 1, racerId: 3, placeholderSlot: null }],
+                }],
+            },
+            {
+                race: {
+                    ...mockRacersData.race,
+                    track: { id: 1, laneColors: ['#E53935'] },
+                },
+            },
+        );
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        // Lane 1 is red on both cards — Now Racing and On Deck each render a
+        // heat card through the same `renderHeatCard`, and both put their
+        // single racer in lane 1.
+        await waitFor(() => {
+            expect(screen.getAllByTitle('Red lane').length).toBe(2);
+        });
+    });
+
     it('shows a second heat so cars can be staged a heat early (#209)', async () => {
         // The child named on screen is in the bleachers rather than watching
         // it, so a display that names only the next heat names them at the

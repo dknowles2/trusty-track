@@ -11,6 +11,8 @@ import { heatsEstimate } from '../../../utils/duration';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { estimatedFinishTime, formatClockTime, paceLabel, type PaceEstimate } from '../pace';
 import RacerAvatar from '../../management/components/RacerAvatar';
+import LaneBadge from '../../../components/ui/LaneBadge';
+import { colorForLane } from '../../settings/laneColors';
 import { Icon } from '@mdi/react';
 import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange, mdiPlay } from '@mdi/js';
 
@@ -85,6 +87,11 @@ interface RaceExecutionProps {
     scoringStrategy?: string | null;
     timerType?: string | null;
     trackId?: number | null;
+    /** This track's configured lane colours (#611), index 0 meaning lane 1.
+     * Absent or short means "no colour configured for that lane" — see
+     * `colorForLane` — and every lane badge falls back to the plain numbered
+     * label every track has always shown. */
+    laneColors?: readonly string[];
     racers: Record<number, Racer>;
     roundSummary: AdvancementStatus | null;
     autoAdvanceHeat: boolean;
@@ -121,6 +128,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     scoringStrategy,
     timerType,
     trackId,
+    laneColors = [],
     racers,
     roundSummary,
     autoAdvanceHeat,
@@ -506,7 +514,12 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 const racer = racers[r.racerId || 0];
                                 return (
                                     <div key={r.lane} style={{ display: 'flex', alignItems: 'center', padding: '15px', background: 'var(--surface-tint-color)', borderRadius: '8px', borderLeft: '5px solid var(--border-color)' }}>
-                                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: 'var(--text-muted-color)' }}>Lane {r.lane}</div>
+                                        <LaneBadge
+                                            color={colorForLane(laneColors, r.lane)}
+                                            style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: 'var(--text-muted-color)' }}
+                                        >
+                                            Lane {r.lane}
+                                        </LaneBadge>
 
                                         <div style={{
                                             flex: 1,
@@ -802,7 +815,12 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         const racer = racers[r.racerId || 0];
                                         return (
                                                                                         <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingBottom: '12px', borderBottom: '1px solid var(--background-color)' }}>
-                                                                                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-faint-color)', width: '30px' }}>L{r.lane}</div>
+                                                                                            <LaneBadge
+                                                                                                color={colorForLane(laneColors, r.lane)}
+                                                                                                style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-faint-color)', width: '30px' }}
+                                                                                            >
+                                                                                                L{r.lane}
+                                                                                            </LaneBadge>
 
                                                                                             <div style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                                                 <RacerAvatar

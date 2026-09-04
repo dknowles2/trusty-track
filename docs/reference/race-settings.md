@@ -125,7 +125,43 @@ both.
 | **This track has a remote start gate** | Enables the on-screen gate release, if the timer supports it — see [the remote start gate](timers.md#the-remote-start-gate) |
 | **The timer's cable is wired backwards** | Flips every result so the timer's lane 1 matches the track's highest lane, instead of rewiring the timer or renumbering the track — see [reverse lane numbering](timers.md#reverse-lane-numbering) |
 | **Lanes in service** | Untick a lane that has stopped working. Unlike the rest of the card, this **saves the moment you click it** — see [a lane stops working](mid-race-changes.md#a-lane-stops-working) |
+| **Lane colours (optional)** | Match each lane to the colour painted or taped on the physical track — see [Lane colours](#lane-colours) below |
 | **Track records from past years** | Records from before Trusty Track, entered by hand for the Stats page's record board. Saves as soon as you add one — see [the track record](stats-and-exports.md#the-track-record) |
+
+### Lane colours
+
+Most physical pinewood derby tracks — aluminum, wood, or a kit like BestTrack
+or Freedom Track — paint or sleeve each lane a different colour, and the
+wranglers, staging crew and even the announcer end up calling cars by it:
+"put car #12 in the blue lane." Trusty Track only ever knew lanes by number,
+so nothing on screen matched what was painted on the ground.
+
+A small colour picker sits under **Lane colours** on the track's own card,
+one per physical lane — not just the lanes currently in service, since a
+colour is a fact about the physical lane and does not move when one goes out
+of service or the lane count is turned down. **Use standard colours** fills
+in the usual red/white/blue/yellow (and green/orange for a six-lane track) as
+a starting point; pick any lane's own colour afterwards to match your track
+exactly, or **Clear all** to go back to plain numbers. This is an ordinary
+field on the track's card, like Length (Feet) — it saves with the page's
+**Save Settings** button, not on click the way Lanes in service does.
+
+Leave every lane blank and nothing changes: this is entirely optional, and a
+track with no colours configured looks exactly as it always has.
+
+Once set, a small coloured dot appears beside the lane number wherever a lane
+is shown — the Race screen, On Deck, the audience displays, and the printed
+heat sheet. It is always a dot beside the number, never a colour filled in
+behind it: a filled badge would fight whichever [theme](themes.md) is active,
+and the lane number itself is always there too, since a dot alone means
+nothing on a black-and-white printout or to someone who cannot tell two hues
+apart. See [Audience display views](displays.md#lane-colours) for what a
+screen shows, and [Printed documents](printing.md#the-heat-sheet) for the
+heat sheet.
+
+If the timer's cable is wired backwards (see the row above), lane colours
+still follow the track's own numbering, not the timer's — a colour is
+painted on the ground, and correcting the cable does not move the paint.
 
 ### Scale speed
 

@@ -158,6 +158,10 @@ export const GET_RACE_CONTROL_DATA = gql`
         laneCount
         timerType
         laneOutages
+        # This track's configured lane colours, for the badge beside
+        # every lane number in Race Execution and On Deck. Empty when the
+        # operator has never opened the picker on the track's card.
+        laneColors
       }
       racingGroups {
         id

@@ -44,6 +44,21 @@ too — a rough real-world MPH beside each recorded time, worked out from the
 track's own length and scale ratio. A track with no length recorded, or
 with scale speed turned off, shows the time alone.
 
+### Lane colours
+
+Set [lane colours](race-settings.md#lane-colours) on the track's own card in
+System Settings and a small coloured dot appears beside every "Lane N" label
+on these screens — the Standings view's Now Racing / On Deck / After That
+cards, and the Projector view's own line-up. It matches whatever a lane is
+called in the app, not the timer's own wiring: on a track whose timer cable
+is [reversed](timers.md#reverse-lane-numbering), the dot still follows the
+track's own lane number, the one painted on the ground.
+
+The dot is always beside the lane number, never a fill behind it — a filled
+badge would fight whichever [theme](themes.md) a screen is set to, so the
+number stays readable either way. A track with no colours configured shows
+the lane number alone, exactly as every track always has.
+
 The colours every screen here uses — including the projector's high-contrast
 dark background — come from whichever [theme](themes.md) Display is set to
 in System Settings, not a fixed palette.

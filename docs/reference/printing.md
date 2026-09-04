@@ -99,6 +99,10 @@ laptop runs flat, and the announcer still has to know which cars are next.
   the line above matters.
 - Every row has a column for every lane the track has, so a heat short a
   lane still lines up with the rows around it.
+- A lane header prints its [colour](race-settings.md#lane-colours) as a
+  small dot beside the number, when one is configured — the lane number
+  itself is always there too, since a dot alone means nothing on a
+  black-and-white printout.
 
 ## The results sheet
 
