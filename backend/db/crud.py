@@ -20,6 +20,7 @@ from backend.domain import (
     lanes,
     latecomers,
     practice,
+    roster_import,
     running_order,
     scheduling,
     terminology,
@@ -479,6 +480,82 @@ def create_racer(db: Session, racer: schemas.RacerCreate) -> models.Racer | None
     db.commit()
     db.refresh(db_racer)
     return db_racer
+
+
+def existing_car_number_holders(db: Session, race_id: int) -> dict[int, str]:
+    """`{car_number: "First Last"}` for every racer already in this race who
+    has one. The I/O half of `domain.roster_import.existing_number_problems`
+    (#618) — that rule needs no database, and this is the query that feeds it.
+    """
+    holders = (
+        db.query(models.Racer)
+        .filter(models.Racer.race_id == race_id, models.Racer.car_number.isnot(None))
+        .all()
+    )
+    return {
+        holder.car_number: f"{holder.first_name} {holder.last_name}".strip()
+        for holder in holders
+        if holder.car_number is not None
+    }
+
+
+def write_imported_roster(
+    db: Session, race_id: int, roster: roster_import.ParsedRoster
+) -> int:
+    """Write a `ParsedRoster` (#618) into this race's roster.
+
+    The one door every future importer's confirm step writes through —
+    `roster_from_tables` (GPRM today, DerbyNet at #661) and anything upstream
+    of it stays program-specific; this only knows the shared vocabulary. A
+    group already on the roster by name is reused rather than duplicated,
+    the same match `import_racers`'s CSV loop already makes; a new one is
+    created grey (`#808080`), same as that loop's own auto-created groups,
+    since neither import has a colour to offer. Returns the number of racers
+    created — late-racer admission and publishing race state are the
+    caller's job, once for the whole batch (#343), not once per racer here.
+    """
+    group_ids: dict[str, int] = {}
+    for group in roster.groups:
+        existing_group = (
+            db.query(models.RacingGroup)
+            .filter(
+                models.RacingGroup.race_id == race_id,
+                models.RacingGroup.name == group.name,
+            )
+            .first()
+        )
+        if existing_group is not None:
+            group_ids[group.name] = existing_group.id
+            continue
+        created_group = create_racing_group(
+            db,
+            schemas.RacingGroupCreate(
+                name=group.name, color="#808080", division=group.division
+            ),
+            race_id,
+        )
+        group_ids[group.name] = created_group.id
+
+    count = 0
+    for imported in roster.racers:
+        create_racer(
+            db,
+            schemas.RacerCreate(
+                first_name=imported.first_name,
+                last_name=imported.last_name,
+                car_number=imported.car_number,
+                car_name=imported.car_name,
+                car_weight=imported.car_weight,
+                car_passed_inspection=imported.passed_inspection,
+                racing_group_id=(
+                    group_ids.get(imported.group) if imported.group else None
+                ),
+                excluded_from_standings=imported.excluded_from_standings,
+                race_id=race_id,
+            ),
+        )
+        count += 1
+    return count
 
 
 def update_racer(

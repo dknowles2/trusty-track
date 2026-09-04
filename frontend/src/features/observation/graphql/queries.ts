@@ -114,6 +114,7 @@ export const DisplayAssignmentSubscription = gql`
       name
       view
       cycleSeconds
+      scrollBehavior
       description
       pacedByAPerson
       connected
@@ -135,6 +136,7 @@ export const DisplaysSubscription = gql`
       name
       view
       cycleSeconds
+      scrollBehavior
       description
       pacedByAPerson
       connected
@@ -154,6 +156,7 @@ export const DISPLAYS_QUERY = gql`
       name
       view
       cycleSeconds
+      scrollBehavior
       description
       pacedByAPerson
       connected
@@ -203,11 +206,22 @@ export const SUGGEST_DISPLAY_NAME = gql`
 `;
 
 export const ASSIGN_DISPLAY = gql`
-  mutation AssignDisplay($displayId: String!, $view: DisplayView!, $cycleSeconds: Int) {
-    assignDisplay(displayId: $displayId, view: $view, cycleSeconds: $cycleSeconds) {
+  mutation AssignDisplay(
+    $displayId: String!
+    $view: DisplayView!
+    $cycleSeconds: Int
+    $scrollBehavior: ScrollBehavior
+  ) {
+    assignDisplay(
+      displayId: $displayId
+      view: $view
+      cycleSeconds: $cycleSeconds
+      scrollBehavior: $scrollBehavior
+    ) {
       displayId
       view
       cycleSeconds
+      scrollBehavior
       description
       pacedByAPerson
       connected
@@ -248,6 +262,7 @@ export const RENAME_DISPLAY = gql`
       name
       view
       cycleSeconds
+      scrollBehavior
       description
       pacedByAPerson
       connected

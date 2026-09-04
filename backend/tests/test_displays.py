@@ -51,6 +51,31 @@ class TestTheVocabulary:
             with pytest.raises(ValueError):
                 domain.Assignment(view=domain.DisplayView.CYCLE, cycle_seconds=bad)
 
+    def test_standings_only_defaults_to_paging(self):
+        assert domain.Assignment().scroll_behavior is domain.DEFAULT_SCROLL_BEHAVIOR
+        assert domain.DEFAULT_SCROLL_BEHAVIOR is domain.ScrollBehavior.PAGING
+
+    def test_standings_only_says_how_it_scrolls(self):
+        paging = domain.describe(
+            domain.Assignment(
+                view=domain.DisplayView.STANDINGS_ONLY,
+                cycle_seconds=15,
+                scroll_behavior=domain.ScrollBehavior.PAGING,
+            )
+        )
+        assert "15s" in paging
+        assert "paging" in paging.lower()
+
+        smooth = domain.describe(
+            domain.Assignment(
+                view=domain.DisplayView.STANDINGS_ONLY,
+                cycle_seconds=15,
+                scroll_behavior=domain.ScrollBehavior.SMOOTH,
+            )
+        )
+        assert "15s" in smooth
+        assert "scrolling" in smooth.lower()
+
 
 class TestPresence:
     def test_a_display_appears_when_it_connects(self, registry):
@@ -205,6 +230,33 @@ class TestAssignment:
 
     def test_an_unassigned_display_reports_the_default(self, registry):
         assert registry.assignment_for("never-seen").view is domain.DEFAULT_VIEW
+
+    def test_the_scroll_behavior_survives_a_change_of_view(self, registry):
+        # Same shape as the cycle interval above: an operator flipping a
+        # screen away from STANDINGS_ONLY and back should not lose the choice
+        # they made.
+        registry.connect("abc", race_id=1)
+        registry.assign(
+            "abc",
+            domain.DisplayView.STANDINGS_ONLY,
+            scroll_behavior=domain.ScrollBehavior.SMOOTH,
+        )
+
+        registry.assign("abc", domain.DisplayView.STANDINGS)
+        registry.assign("abc", domain.DisplayView.STANDINGS_ONLY)
+
+        assert (
+            registry.get("abc").assignment.scroll_behavior
+            is domain.ScrollBehavior.SMOOTH
+        )
+
+    def test_a_new_display_defaults_to_paging(self, registry):
+        registry.connect("abc", race_id=1)
+
+        assert (
+            registry.get("abc").assignment.scroll_behavior
+            is domain.DEFAULT_SCROLL_BEHAVIOR
+        )
 
 
 class TestNaming:

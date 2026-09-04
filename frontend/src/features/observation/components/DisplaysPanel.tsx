@@ -36,7 +36,7 @@ import {
     RENAME_DISPLAY,
     SUGGEST_DISPLAY_NAME,
 } from '../graphql/queries';
-import { viewCycles, viewOptionsFor, type DisplayView } from '../displayView';
+import { viewCycles, viewOptionsFor, viewScrolls, type DisplayView, type ScrollBehavior } from '../displayView';
 import { newDisplayWindowUrl } from '../displayIdentity';
 
 interface DisplayRow {
@@ -44,6 +44,7 @@ interface DisplayRow {
     name: string;
     view: DisplayView;
     cycleSeconds: number;
+    scrollBehavior: ScrollBehavior;
     description: string;
     pacedByAPerson: boolean;
     connected: boolean;
@@ -270,6 +271,29 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                             />{' '}
                             s
                         </label>
+                    )}
+
+                    {/* Standings only (#663): how it gets through a list too
+                        long for one screen — flip through fixed pages, or
+                        scroll continuously. The seconds control above sets
+                        the page duration or the length of one scroll pass,
+                        whichever this is set to. */}
+                    {viewScrolls(display.view) && (
+                        <select
+                            aria-label={`How ${display.name} moves through the standings`}
+                            value={display.scrollBehavior}
+                            onChange={(e) =>
+                                assignDisplay({
+                                    displayId: display.displayId,
+                                    view: display.view,
+                                    scrollBehavior: e.target.value as ScrollBehavior,
+                                })
+                            }
+                            style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+                        >
+                            <option value="PAGING">Page cycling</option>
+                            <option value="SMOOTH">Auto-scroll</option>
+                        </select>
                     )}
 
                     {/* The ceremony waits for a person, and until now that

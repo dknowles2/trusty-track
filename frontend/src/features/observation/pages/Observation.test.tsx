@@ -988,4 +988,137 @@ describe('Observation Page', () => {
             expect(screen.queryByTestId('intermission-overlay')).toBeNull();
         });
     });
+
+    describe('standings only (#663)', () => {
+        const renderTree = () => (
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        it('hides Now Racing and On Deck, and shows the leaderboard full-screen', async () => {
+            setupMocks({
+                displayAssignment: {
+                    name: 'Plucky Puffin',
+                    identifySeq: 0,
+                    assigned: true,
+                    view: 'STANDINGS_ONLY',
+                    cycleSeconds: 10,
+                    scrollBehavior: 'PAGING',
+                },
+                leaderboard: [{ racerId: 1, score: 3.2, heatsCompleted: 2, rank: 1 }],
+                currentlyRacing: {
+                    id: 2,
+                    roundNumber: 1,
+                    heatNumber: 2,
+                    lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
+                },
+                onDeck: [
+                    {
+                        id: 3,
+                        roundNumber: 1,
+                        heatNumber: 3,
+                        lanes: [{ lane: 1, racerId: 3, placeholderSlot: null }],
+                    },
+                ],
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('standings-only-view')).toBeInTheDocument();
+            });
+            expect(screen.queryByText('Now Racing')).not.toBeInTheDocument();
+            expect(screen.queryByText('On Deck')).not.toBeInTheDocument();
+            expect(screen.getByText('Speedy McQueen')).toBeInTheDocument();
+        });
+
+        it('hides the app chrome, the same as projector mode and the slideshow', async () => {
+            setupMocks({
+                displayAssignment: {
+                    name: 'Plucky Puffin',
+                    identifySeq: 0,
+                    assigned: true,
+                    view: 'STANDINGS_ONLY',
+                    cycleSeconds: 10,
+                    scrollBehavior: 'PAGING',
+                },
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('standings-only-view')).toBeInTheDocument();
+            });
+            expect(document.querySelector('.container.projector-mode')).toBeInTheDocument();
+        });
+
+        it('carries the operator’s chosen scroll behavior through to the view', async () => {
+            setupMocks({
+                displayAssignment: {
+                    name: 'Plucky Puffin',
+                    identifySeq: 0,
+                    assigned: true,
+                    view: 'STANDINGS_ONLY',
+                    cycleSeconds: 10,
+                    scrollBehavior: 'SMOOTH',
+                },
+                leaderboard: Array.from({ length: 30 }, (_, i) => ({
+                    racerId: i + 1,
+                    score: 3 + i,
+                    heatsCompleted: 1,
+                    rank: i + 1,
+                })),
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('standings-only-view')).toBeInTheDocument();
+            });
+            // Smooth scrolling has nothing to page through, so it never shows
+            // a page indicator — paging's own control.
+            expect(screen.queryByTestId('standings-only-page-indicator')).not.toBeInTheDocument();
+        });
+
+        it('yields to an intermission (#592) — a break is a fact about the race, not the assigned view', async () => {
+            // Same rule the standard, slideshow and projector modes already
+            // follow: an operator calling a break must reach every screen
+            // regardless of what it was showing, including one dedicated
+            // entirely to the leaderboard.
+            setupMocks(
+                {
+                    displayAssignment: {
+                        name: 'Plucky Puffin',
+                        identifySeq: 0,
+                        assigned: true,
+                        view: 'STANDINGS_ONLY',
+                        cycleSeconds: 10,
+                        scrollBehavior: 'PAGING',
+                    },
+                },
+                {
+                    race: {
+                        ...mockRacersData.race,
+                        intermission: {
+                            active: true,
+                            remainingSeconds: 120,
+                            paused: false,
+                            label: 'Snack break',
+                            endsAt: new Date(Date.now() + 120_000).toISOString(),
+                        },
+                    },
+                },
+            );
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('standings-only-view')).not.toBeInTheDocument();
+        });
+    });
 });

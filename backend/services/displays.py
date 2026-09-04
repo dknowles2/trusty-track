@@ -25,7 +25,12 @@ import time
 from dataclasses import dataclass, field, replace
 
 from backend.domain.display_names import whimsical_name
-from backend.domain.displays import DEFAULT_VIEW, Assignment, DisplayView
+from backend.domain.displays import (
+    DEFAULT_VIEW,
+    Assignment,
+    DisplayView,
+    ScrollBehavior,
+)
 
 __all__ = ["Display", "DisplayRegistry", "registry"]
 
@@ -185,6 +190,7 @@ class DisplayRegistry:
         display_id: str,
         view: DisplayView,
         cycle_seconds: int | None = None,
+        scroll_behavior: ScrollBehavior | None = None,
     ) -> Display | None:
         """Tell a display what to show. Returns None for one nobody has seen."""
         display = self._displays.get(display_id)
@@ -195,6 +201,9 @@ class DisplayRegistry:
             view=view,
             cycle_seconds=(
                 current.cycle_seconds if cycle_seconds is None else cycle_seconds
+            ),
+            scroll_behavior=(
+                current.scroll_behavior if scroll_behavior is None else scroll_behavior
             ),
         )
         display.assigned = True

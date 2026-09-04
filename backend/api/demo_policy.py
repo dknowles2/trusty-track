@@ -74,6 +74,14 @@ REFUSED_MUTATIONS = frozenset(
         # Bulk row creation from caller-supplied text. One visitor importing
         # ten thousand racers ruins the demo for everyone else until the reset.
         "importRacers",
+        # Same reasoning, same shape (#618): a GPRM database can carry years
+        # of a real pack's roster, and writing it is exactly the bulk
+        # creation `importRacers` is refused for. `previewGprmImport` is
+        # deliberately *not* here — it writes nothing (the decoded upload
+        # goes to a temporary file removed before the request returns), so a
+        # visitor exploring the preview screen costs the demo nothing an
+        # ordinary read does not.
+        "confirmGprmImport",
     }
 )
 

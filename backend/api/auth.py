@@ -95,6 +95,8 @@ CHECKIN_MUTATIONS = frozenset(
         "deleteRacer",
         "checkInRacer",
         "importRacers",
+        "previewGprmImport",
+        "confirmGprmImport",
         "uploadImage",
         "bulkCheckIn",
         "bulkSetExcludedFromStandings",
