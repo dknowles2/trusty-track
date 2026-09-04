@@ -419,7 +419,8 @@ wizard's questions are where a new race's words come from.
 **Unticking the checkbox returns to inheriting** — the organization's own
 words if it has set any, the built-in Scouting words otherwise. It does not
 leave the fields blank; there is no way to save an empty word — a blank box
-stops the save and the form says which section to look in.
+stops the save and the form says which section to look in, and the server
+refuses one too if it is ever asked to save one some other way.
 
 **The vehicle word has a picture to go with it: a car, a rocket, or a
 boat.** The **Vehicle picture** dropdown sits under the vehicle word's two

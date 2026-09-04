@@ -324,6 +324,249 @@ class TestRaceOverride:
         assert data["terminology"]["racingGroupSingular"] == "Den"
 
 
+class TestBlankWordIsRefused:
+    """#704: a blank custom word is refused server-side, not merely by the
+    form. `RaceSettingsSections.tsx`'s `firstProblem` (#703) already closes
+    the realistic path — an operator using the form — but `updateRace`,
+    `createInitialConfig` and `updateInitialConfig` all accept a caller with
+    no form in front of it, and a blank word renders as nothing everywhere
+    it reaches. Null must stay valid throughout: it means "inherit", and
+    `clearTerminology` is the deliberate route back to it (#496) —
+    `test_the_override_can_be_cleared_back_to_inheriting` and
+    `test_the_organization_default_can_be_cleared_back_to_null` above are
+    the regression tests for that half.
+    """
+
+    def test_updaterace_refuses_a_blank_override(self, client, db):
+        race = _race(db, "Blank Override Race")
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateRace(id: {race.id}, race: {{racingGroupSingular: ""}}) {{
+                        id
+                    }}
+                }}
+                """
+            },
+        )
+
+        res = response.json()
+        assert "errors" in res
+        assert "racing_group_singular cannot be blank" in str(res["errors"])
+        db.refresh(race)
+        assert race.racing_group_singular is None
+
+    def test_createrace_refuses_a_blank_override(self, client, db):
+        """`createRace` takes the seven override fields since #662 — a write
+        path that did not exist when #704 was closed, and one that would
+        otherwise let a race be *created* with a blank word on day one."""
+        organization = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Blank Create Organization")
+        )
+        track = crud.create_track(
+            db, schemas.TrackCreate(name="Blank Create Track", lane_count=4)
+        )
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation Create($race: RaceInput!) {
+                    createRace(race: $race) { id }
+                }
+                """,
+                "variables": {
+                    "race": {
+                        "name": "Blank Create Race",
+                        "organizationId": organization.id,
+                        "trackId": track.id,
+                        "racingGroupSingular": "   ",
+                    }
+                },
+            },
+        )
+
+        res = response.json()
+        assert "errors" in res
+        assert "racing_group_singular cannot be blank" in str(res["errors"])
+        # Refused whole: no race was written, not a race with a blank word.
+        assert (
+            db.query(models.Race)
+            .filter(models.Race.name == "Blank Create Race")
+            .first()
+            is None
+        )
+
+    def test_createrace_still_takes_null_as_inherit_and_a_blank_artwork_key(
+        self, client, db
+    ):
+        """Null stays valid on the create path for the reason it does
+        everywhere else — it means inherit — and `vehicle_artwork_key` is
+        outside `TERMINOLOGY_WORD_FIELDS` on purpose: it names a picture,
+        and an unrecognised key renders nothing rather than crashing."""
+        organization = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Null Create Organization")
+        )
+        track = crud.create_track(
+            db, schemas.TrackCreate(name="Null Create Track", lane_count=4)
+        )
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation Create($race: RaceInput!) {
+                    createRace(race: $race) {
+                        id
+                        terminology { racingGroupSingular vehicleSingular }
+                    }
+                }
+                """,
+                "variables": {
+                    "race": {
+                        "name": "Null Create Race",
+                        "organizationId": organization.id,
+                        "trackId": track.id,
+                        "racingGroupSingular": None,
+                        "vehicleSingular": "Rocket",
+                        "vehiclePlural": "Rockets",
+                        "vehicleArtworkKey": "",
+                    }
+                },
+            },
+        )
+
+        res = response.json()
+        assert "errors" not in res, res
+        assert res["data"]["createRace"]["terminology"] == {
+            "racingGroupSingular": "Den",
+            "vehicleSingular": "Rocket",
+        }
+
+    def test_updaterace_refuses_a_whitespace_only_override(self, client, db):
+        race = _race(db, "Whitespace Override Race")
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateRace(id: {race.id}, race: {{vehicleSingular: "   "}}) {{
+                        id
+                    }}
+                }}
+                """
+            },
+        )
+
+        res = response.json()
+        assert "errors" in res
+        db.refresh(race)
+        assert race.vehicle_singular is None
+
+    def test_createinitialconfig_refuses_a_blank_organization_default(self, client, db):
+        db.query(models.Track).delete()
+        db.query(models.Organization).delete()
+        db.commit()
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation($config: InitialConfigInput!) {
+                    createInitialConfig(config: $config) { organizationName }
+                }
+                """,
+                "variables": {
+                    "config": {
+                        "organizationName": "Blank Terms Pack",
+                        "organizationSingular": "",
+                        "tracks": [
+                            {"name": "Main Track", "laneCount": 4, "timerType": "FAKE"}
+                        ],
+                    }
+                },
+            },
+        )
+
+        res = response.json()
+        assert "errors" in res
+        # Refused before anything was written — no organization exists to
+        # have picked up the blank word.
+        assert crud.get_tracks(db) == []
+
+    def test_updateinitialconfig_refuses_a_blank_organization_default(self, client, db):
+        """The hole #704 was actually filed for: `updateInitialConfig` never
+        builds a pydantic model for the terminology fields at all —
+        `_apply_terminology` reads straight off the raw `InitialConfigInput`
+        and used to `setattr` whatever it found with no check in between."""
+        organization = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Update Blank Pack")
+        )
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation($config: InitialConfigInput!) {
+                    updateInitialConfig(config: $config) { organizationName }
+                }
+                """,
+                "variables": {
+                    "config": {
+                        "organizationName": "Update Blank Pack",
+                        "racingGroupPlural": "",
+                        "tracks": [],
+                    }
+                },
+            },
+        )
+
+        res = response.json()
+        assert "errors" in res
+        assert "racing_group_plural cannot be blank" in str(res["errors"])
+        db.refresh(organization)
+        assert organization.racing_group_plural is None
+
+    def test_updateinitialconfig_refuses_a_blank_word_even_when_a_later_one_is_fine(
+        self, client, db
+    ):
+        """The check runs over every word before any is written, so a blank
+        later field does not leave an earlier one applied to an
+        `organization` the caller is about to fail on."""
+        organization = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Partial Blank Pack")
+        )
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation($config: InitialConfigInput!) {
+                    updateInitialConfig(config: $config) { organizationName }
+                }
+                """,
+                "variables": {
+                    "config": {
+                        "organizationName": "Partial Blank Pack",
+                        "racingGroupSingular": "Class",
+                        "vehiclePlural": "",
+                        "tracks": [],
+                    }
+                },
+            },
+        )
+
+        res = response.json()
+        assert "errors" in res
+        db.refresh(organization)
+        assert organization.racing_group_singular is None
+        assert organization.vehicle_plural is None
+
+
 class TestVehicleTerm:
     """The third configurable term (#551) — a racer's vehicle, "Car" by
     default and wrong for a Space Derby (rockets) or a Raingutter Regatta
@@ -601,6 +844,34 @@ class TestVehicleArtworkKey:
             "vehicleSingular": "Speedster",
             "vehicleArtworkKey": "rocket",
         }
+
+    def test_a_blank_artwork_key_is_not_refused_by_704s_check(self, client, db):
+        """`vehicle_artwork_key` is deliberately excluded from
+        `TERMINOLOGY_WORD_FIELDS` (#704) — it names a *picture*, not a word
+        that renders as text, and an unrecognised key already renders
+        nothing rather than crashing, the same print-blank-rather-than-crash
+        rule `AwardArtwork` follows (see `domain.terminology`'s module
+        docstring and `PrintDecor.tsx`). An empty string behaves exactly
+        like any other key `PrintDecor.tsx` does not recognise, so there is
+        nothing here worth refusing."""
+        race = _race(db, "Blank Artwork Race")
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateRace(id: {race.id}, race: {{vehicleArtworkKey: ""}}) {{
+                        vehicleArtworkKey
+                    }}
+                }}
+                """
+            },
+        )
+
+        res = response.json()
+        assert "errors" not in res, res
+        assert res["data"]["updateRace"]["vehicleArtworkKey"] == ""
 
 
 class TestDefaultGeneralRoundName:
