@@ -498,7 +498,18 @@ export default function SystemConfig() {
 
       <div className={sectioned ? 'settings-layout' : undefined}>
         {sectioned && (
-          <SettingsNav sections={navSections} current={section} onSelect={setSection} />
+          <SettingsNav sections={navSections} current={section} onSelect={setSection}>
+            {/* Two links out, at the foot of the nav rather than buried at
+                the bottom of a section, because the documentation sends
+                people to them by this route — "Settings → Check the timer
+                connection", "Settings → See what has happened". */}
+            <Link to="/timer-check">Check the timer connection &rarr;</Link>
+            {/* The activity log (#219) spans every race and answers a
+                question nobody asks until something has already gone wrong,
+                which is why it sits with the diagnostics rather than in the
+                race navigation. */}
+            <Link to="/activity">See what has happened &rarr;</Link>
+          </SettingsNav>
         )}
 
         <div className="settings-section">

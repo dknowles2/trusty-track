@@ -9,30 +9,73 @@ afterwards from the Roster page's **Edit Details** button — or, without going
 there first, from **Edit race** in a race row's **⋯** menu on Home, or from
 the **Edit race** button on Race Control. All three open the same form.
 
+**The edit form is in four sections**, listed down its left: **Event**,
+**Scoring**, **Check-in** and **Words and names**. Pick the one holding the
+setting you came for; **Save Changes** saves every section at once, whichever
+is up. If something in a section that is not on screen would stop the save —
+a blank name, say — the form switches to that section and says what is wrong,
+rather than refusing over a field you cannot see. The **+ Create New Race**
+form is the same fields on one page under the same headings, since the first
+time through you are filling everything in anyway.
+
+![The Edit Race Details dialog, with the section list down the left and the Scoring section up](../assets/screenshots/race-setup/11-edit-race-settings.png)
+_The edit form open on **Scoring**. The other three sections are one click
+away in the list on the left; **Save Changes** saves them all._
+
+### Event
+
+What the race is called, when and where it runs, and which track it runs on.
+
 | Field | What it does |
 | --- | --- |
+| **Lock race** | Not offered until the race is created. Guards a concluded race against an accidental edit — see [locking a race](#locking-a-race) below. First in the form, since a finished event is the usual reason to open it again |
 | **Event Name** | Names the race everywhere. Must be unique |
 | **Date & Time / Location** | Shown on the Home page and printed on pit passes |
+| **Track / Timer** | Which track this race runs on. The track's own lanes, timer and records live in [System Settings](#the-track), not here — a track is hardware in the room, shared by every race run on it |
+| **Interleave heats across every den** | Off by default; only offered once the race exists. One running order across every den instead of a block per den — see [Running order across groups](running-order.md) |
+
+### Scoring
+
+How the standings are worked out, how ties are settled, and who takes which
+trophy.
+
+| Field | What it does |
+| --- | --- |
 | **Scoring** | **Timed**, **Points**, **Cumulative time**, or **Fastest single run** — see [Scoring](scoring.md). Choose before racing starts. Every option shows its one-line description underneath it, not only the one currently picked |
 | **Drop worst run(s)** | `0` is off. Drops each racer's worst counted results before scoring — only once everyone who has raced has the same number of runs to drop from, with one to spare; otherwise nothing is dropped and the standings say so. See [Drop the worst run](scoring.md#drop-the-worst-run) |
-| **Championship Trophies** | How many cars the wizard puts into the final. About the racing, not the physical trophies — those live on the [Awards](../awards.md) page |
 | **Ties** | How a tied score gets settled where it decides something — see [Ties](#ties) below |
-| **Check car weights at inspection** | See [the weight check](#the-weight-check) below |
-| **Interleave heats across every den** | Off by default; only offered once the race exists, from the edit form on the Roster page. One running order across every den instead of a block per den — see [Running order across groups](running-order.md) |
+| **Championship Trophies** | How many cars the wizard puts into the final. About the racing, not the physical trophies — those live on the [Awards](../awards.md) page |
 | **Exclude Grand Finals winners from qualifying standings** | Off by default; only offered once the race exists. Once a championship round has a winner, that car stops counting toward the standings it qualified from, so the pack champion does not also keep their own den's trophy — see [Racing without being ranked](scoring.md#the-grand-finals-winner) |
 | **At most one trophy per racer** | Off by default; only offered once the race exists. A racer who already holds an award is skipped when a later one is worked out, so a den trophy rolls down to the next-fastest car once its own winner has already taken the overall trophy — see [At most one trophy per racer](../awards.md#at-most-one-trophy-per-racer) |
-| **Track / Timer** | Which track this race runs on |
+
+### Check-in
+
+How numbers are handed out, and what the scale checks.
+
+| Field | What it does |
+| --- | --- |
 | **Car Numbering** | See [car numbering](#car-numbering) below |
-| **Use different words for this race** | Not offered until the race is created — edit it afterwards from the Roster page. See [the words on screen](#the-words-on-screen) below |
-| **Lock race** | Not offered until the race is created. Guards a concluded race against an accidental edit — see [locking a race](#locking-a-race) below |
+| **Check car weights at inspection** | See [the weight check](#the-weight-check) below |
+
+### Words and names
+
+What this race calls things, and how much of a racer's name a public screen
+shows. Neither control is offered until the race is created — both override
+an install-wide default, and there is nothing to override until the race
+exists.
+
+| Field | What it does |
+| --- | --- |
+| **Use different words for this race** | See [the words on screen](#the-words-on-screen) below |
+| **Override names on public screens for this race** | See [names on public screens](#names-on-public-screens) below |
 
 **Auto-advance**, on the race screen itself, is also remembered per race:
 when on, the screen moves to the next heat ten seconds after results land.
 
 ### Ties
 
-Set once, when the race is created, and editable afterwards from the same
-place as every other race field. Five choices, in a fieldset next to
+Set once, when the race is created, and editable afterwards from the
+**Scoring** section of the edit form. Five choices, in a fieldset next to
 Scoring — every option shows its one-line description underneath it, not
 only the one currently picked:
 
@@ -93,7 +136,8 @@ which page the code opens.
 
 ### Locking a race
 
-Once an event has concluded, **Lock race** in the edit form guards against an
+Once an event has concluded, **Lock race** — the first control in the edit
+form's **Event** section — guards against an
 accidental edit — a stray tap on a shared laptop weeks later, not a control for
 keeping anyone out. It is not offered while creating a race, only afterwards.
 
@@ -112,8 +156,9 @@ While a race is locked:
   deleting one asks for the race's exact name to be typed first, rather than
   the ordinary yes/no confirmation every other race gets.
 - Unlocking is the one change a locked race still accepts — from the same
-  **Lock race** checkbox, now labelled **Unlock race**, in the edit form on the
-  Roster page, on Race Control, or from a race row's **⋯** menu on Home.
+  **Lock race** checkbox, now labelled **Unlock race**, at the top of the edit
+  form's **Event** section, reached from the Roster page, from Race Control,
+  or from a race row's **⋯** menu on Home.
 
 A locked race is marked with a **Locked** badge on Home's race list, in the
 race picker at the top of every screen, and on Race Control's own header.
@@ -263,9 +308,10 @@ names, not read by a stranger on a wall.
 
 **Set install-wide** in **System Settings → General**, under **Names on
 public screens**. **A race can override that default of its own** — tick
-**Override names on public screens for this race** on the race's edit form
-(not offered on the **+ Create New Race** form, since there is nothing to
-override until the race exists) and choose a value, including Full name
+**Override names on public screens for this race** in the **Words and names**
+section of the race's edit form (not offered on the **+ Create New Race**
+form, since there is nothing to override until the race exists) and choose a
+value, including Full name
 itself if the organization default abbreviates and this one race should not.
 Unticking the checkbox returns to inheriting the organization's setting.
 
@@ -299,14 +345,15 @@ and a plural for each word — plus the vehicle picture below them._
 **A race can override that default of its own** — one venue running a pack
 derby in March and a school's own derby in May, on the same install, without
 either one showing the other's words. Create the race first with the default
-words, then open it from the **Roster** page's edit form and tick **Use
+words, then open the edit form, go to **Words and names**, and tick **Use
 different words for this race**; the checkbox is not offered on the **+
 Create New Race** form, because there is nothing to override until the race
 exists.
 
 **Unticking the checkbox returns to inheriting** — the organization's own
 words if it has set any, the built-in Scouting words otherwise. It does not
-leave the fields blank; there is no way to save an empty word.
+leave the fields blank; there is no way to save an empty word — a blank box
+stops the save and the form says which section to look in.
 
 **The vehicle word has a picture to go with it: a car, a rocket, or a
 boat.** The **Vehicle picture** dropdown sits under the vehicle word's two

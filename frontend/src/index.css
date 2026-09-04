@@ -1216,3 +1216,26 @@ input:checked + .slider:before {
   line-height: 1;
   color: var(--text-muted-color);
 }
+
+/*
+ * The race form's own use of the settings layout (#587). The same nav and
+ * the same one-section-at-a-time rule as System Settings, but inside a modal
+ * rather than a page: there is less room, so the nav column is narrower and
+ * the gap tighter, and the content column takes whatever is left rather
+ * than the page's 600px cap.
+ */
+.race-form-layout {
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.race-form-layout .settings-section {
+  max-width: none;
+}
+
+@media screen and (max-width: 768px) {
+  .race-form-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+}

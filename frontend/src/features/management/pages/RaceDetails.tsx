@@ -771,7 +771,7 @@ export default function RaceDetails() {
               <div><strong>Scoring:</strong> {strategyLabel(race?.scoring_strategy)}</div>
               <div><strong>{vehicle} Numbering:</strong> {race?.car_numbering_strategy ? ({
                   'MANUAL': 'Manual',
-                  'PER_GROUP': 'Per RacingGroup',
+                  'PER_GROUP': `Per ${group}`,
                   'GLOBAL': 'Global'
               }[race.car_numbering_strategy] || race.car_numbering_strategy) : '-'}</div>
               <div><strong>Championship Trophies:</strong> {race?.championship_trophies || 3}</div>
@@ -780,10 +780,15 @@ export default function RaceDetails() {
       </div>
 
       {/* Edit Race Modal */}
+      {/* Wider than the default: the edit form is sectioned (#587), with a
+          nav column beside the fields, and at 500px the two would fight for
+          the width. The create form on Home stays at the default — it has
+          no nav, so nothing there needs the room. */}
       <Modal
           isOpen={isEditingRace}
           onClose={() => setIsEditingRace(false)}
           title="Edit Race Details"
+          maxWidth="800px"
       >
           {race && (
             <RaceForm
