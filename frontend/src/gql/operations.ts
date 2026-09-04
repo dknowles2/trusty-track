@@ -417,6 +417,22 @@ export type ImportRacersMutationVariables = Exact<{
 
 export type ImportRacersMutation = { importRacers: number };
 
+export type PreviewGprmImportMutationVariables = Exact<{
+  raceId: number;
+  fileData: string;
+}>;
+
+
+export type PreviewGprmImportMutation = { previewGprmImport: { canImport: boolean, groups: Array<{ name: string, division: string | null }>, racers: Array<{ firstName: string, lastName: string, carNumber: number | null, carName: string | null, carWeight: number | null, passedInspection: boolean, group: string | null, excludedFromStandings: boolean, sourceId: string | null }>, problems: Array<{ message: string, blocking: boolean, sourceId: string | null }> } };
+
+export type ConfirmGprmImportMutationVariables = Exact<{
+  raceId: number;
+  fileData: string;
+}>;
+
+
+export type ConfirmGprmImportMutation = { confirmGprmImport: number };
+
 export type CreateRacingGroupMutationVariables = Exact<{
   raceId: number;
   racingGroup: Types.RacingGroupInput;

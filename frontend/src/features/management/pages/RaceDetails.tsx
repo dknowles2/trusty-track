@@ -17,6 +17,7 @@ import RaceForm, { RaceFormData } from '../components/RaceForm';
 import DeleteLockedRaceModal from '../components/DeleteLockedRaceModal';
 import LockedBadge from '../../core/components/LockedBadge';
 import ImportRacersModal from '../components/ImportRacersModal';
+import GprmImportModal from '../components/GprmImportModal';
 import SetupChecklist from '../components/SetupChecklist';
 import CheckInProgress from '../components/CheckInProgress';
 import SortableHeader from '../components/SortableHeader';
@@ -25,7 +26,7 @@ import RacerAvatar from '../components/RacerAvatar';
 import { Icon } from '@mdi/react';
 import {
   mdiMagnify, mdiNumeric,
-  mdiChevronDown, mdiLightningBolt, mdiFileUpload, mdiDotsHorizontal, mdiClose,
+  mdiChevronDown, mdiLightningBolt, mdiFileUpload, mdiDatabaseImport, mdiDotsHorizontal, mdiClose,
   mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiCamera, mdiPrinter,
   mdiQrcodeScan, mdiTrophyBroken
 } from '@mdi/js';
@@ -199,6 +200,7 @@ export default function RaceDetails() {
   // Racer Form State
   const [showRacerForm, setShowRacerForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showGprmImportModal, setShowGprmImportModal] = useState(false);
   const [showRacingGroupManager, setShowRacingGroupManager] = useState(false);
   const [editingRacer, setEditingRacer] = useState<Racer | undefined>(undefined);
   const [racerFormTitle, setRacerFormTitle] = useState('Add New Racer');
@@ -869,6 +871,15 @@ export default function RaceDetails() {
                             >
                                 <Icon path={mdiFileUpload} size={0.7} /> Import from CSV
                             </button>
+                            <button
+                                onClick={() => {
+                                    setShowGprmImportModal(true);
+                                    setIsAddRacerDropdownOpen(false);
+                                }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <Icon path={mdiDatabaseImport} size={0.7} /> Import from GrandPrix Race Manager
+                            </button>
                         </div>
                     )}
                 </div>
@@ -1400,6 +1411,16 @@ export default function RaceDetails() {
           <ImportRacersModal
             isOpen={showImportModal}
             onClose={() => setShowImportModal(false)}
+            raceId={race.id}
+            onImportSuccess={refreshData}
+          />
+      )}
+
+      {/* GrandPrix Race Manager Import Modal (#618) */}
+      {race && (
+          <GprmImportModal
+            isOpen={showGprmImportModal}
+            onClose={() => setShowGprmImportModal(false)}
             raceId={race.id}
             onImportSuccess={refreshData}
           />

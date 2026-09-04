@@ -34,7 +34,7 @@ Scouting one exactly as `csvMapping.validate` does.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 
@@ -146,4 +146,42 @@ def duplicate_number_problems(
                 source_id=racer.source_id,
             )
         )
+    return problems
+
+
+def existing_number_problems(
+    racers: Iterable[ImportedRacer],
+    existing_holders: Mapping[int, str],
+    vehicle_word: str = "Car",
+) -> list[ImportProblem]:
+    """A number that collides with a racer already on *this race's* roster.
+
+    `duplicate_number_problems` above is the in-file rule and needs no
+    database; this is the half that does, which is why it takes
+    `existing_holders` (`{car_number: "First Last"}`) as data rather than a
+    session — the caller queries the race's own racers and hands the answer
+    in, the same split every other rule/I-O boundary in this codebase draws.
+
+    Only the *first* file holder of a number is checked against
+    `existing_holders`. A later file holder sharing that number is already
+    reported by `duplicate_number_problems`, against the first — reporting it
+    again here would say the same thing twice for one collision.
+    """
+    problems: list[ImportProblem] = []
+    seen: set[int] = set()
+    for racer in racers:
+        if racer.car_number is None or racer.car_number in seen:
+            continue
+        seen.add(racer.car_number)
+        holder = existing_holders.get(racer.car_number)
+        if holder is not None:
+            problems.append(
+                ImportProblem(
+                    message=(
+                        f"{vehicle_word} number {racer.car_number} is already used "
+                        f"by {holder}, already on the roster."
+                    ),
+                    source_id=racer.source_id,
+                )
+            )
     return problems
