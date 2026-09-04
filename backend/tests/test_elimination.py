@@ -743,7 +743,12 @@ query Chart($raceId: Int!) {
                 decided
                 waves {
                     number
-                    heats { heatId heatNumber finished lanes { lane racerId outcome lossesAfter out } }
+                    heats {
+                        heatId
+                        heatNumber
+                        finished
+                        lanes { lane racerId outcome lossesAfter out }
+                    }
                 }
                 standings { racerId losses alive }
             }

@@ -1153,4 +1153,86 @@ describe('ScheduleManagement', () => {
       expect(await screen.findByText('boom')).toBeInTheDocument();
     });
   });
+
+  describe('the elimination chart toggle (#710)', () => {
+    // Round 1 is an ordinary PPC round (no chart); round 2 is elimination
+    // and has one, which is what `eliminationCharts` being keyed by round id
+    // — rather than a flag on every heat — models: only a round with an
+    // entry offers the toggle at all.
+    const twoRoundHeats: Heat[] = [
+      ...mockHeats,
+      { id: 3, roundNumber: 2, roundId: 2, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Elimination' },
+    ];
+    const chart = {
+      maxLosses: 2,
+      decided: false,
+      waves: [
+        {
+          number: 1,
+          heats: [
+            {
+              heatId: 3,
+              heatNumber: 1,
+              finished: false,
+              lanes: [
+                { lane: 1, racerId: 101, outcome: null, lossesAfter: 0, out: false },
+                { lane: 2, racerId: 102, outcome: null, lossesAfter: 0, out: false },
+              ],
+            },
+          ],
+        },
+      ],
+      standings: [
+        { racerId: 101, losses: 0, alive: true },
+        { racerId: 102, losses: 0, alive: true },
+      ],
+    };
+
+    const renderTwoRounds = () =>
+      render(
+        <MemoryRouter>
+          <AlertProvider>
+            <ScheduleManagement
+              raceId={1}
+              heats={twoRoundHeats}
+              generating={false}
+              activeHeatId={null}
+              onAddRound={mockOnAddRound}
+              onRegenerateRound={mockOnRegenerateRound}
+              onDeleteRound={mockOnDeleteRound}
+              onDeleteHeat={mockOnDeleteHeat}
+              onRunHeat={mockOnRunHeat}
+              onReorderHeats={mockOnReorderHeats}
+              getRacerName={mockGetRacerName}
+              onRefetchHeats={vi.fn()}
+              laneCount={4}
+              racerCount={10}
+              racingGroupCount={3}
+              championshipTrophies={3}
+              eliminationCharts={{ 2: chart }}
+            />
+          </AlertProvider>
+        </MemoryRouter>
+      );
+
+    it('offers the toggle only on the round with a chart', () => {
+      renderTwoRounds();
+      expect(screen.queryByTestId('chart-toggle-1')).not.toBeInTheDocument();
+      expect(screen.getByTestId('chart-toggle-2')).toBeInTheDocument();
+    });
+
+    it('switches that round to the chart and back, leaving the table on screen by default', () => {
+      renderTwoRounds();
+
+      // The table is what every round opens on, chart or not.
+      expect(screen.queryByTestId('elimination-chart')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('chart-toggle-2'));
+      expect(screen.getByTestId('elimination-chart')).toBeInTheDocument();
+      expect(screen.getByTestId('elimination-chart-heat-3')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('chart-toggle-2'));
+      expect(screen.queryByTestId('elimination-chart')).not.toBeInTheDocument();
+    });
+  });
 });

@@ -294,14 +294,20 @@ full rules are in [Round styles](reference/round-styles.md#balanced).
 
 ### Elimination Racing
 
-The classic "lose too many and you're out" — with no bracket to draw and
-nothing to reprint when somebody does not show up.
+The classic "lose too many and you're out" — with no bracket drawn up front
+and nothing to reprint when somebody does not show up. The schedule grows a
+set at a time as results come in, so there is nothing to predict — only a
+record of what has already happened.
 
 1. Click **Add Round** and choose **Elimination — lose too many heats and
    you're out**.
 2. Pick how many losses a car is allowed. Three is a good default.
 3. Run the heats on the screen. New sets appear by themselves, matching
    cars with the same record — the undefeated race the undefeated.
+4. On the Schedule screen, click **Chart view** on that round to switch from
+   the plain table to a set-by-set chart — who won, who lost, and who is
+   still in it. It is a record, not a prediction: the next set is never
+   drawn until this one has been raced.
 
 A loss is any heat a car does not win — second place counts the same as
 fourth. The last car left wins, and the Standings page shows the round as a
@@ -309,11 +315,16 @@ loss count, cars still racing listed first.
 
 ![Add Round dialog set to elimination](assets/screenshots/race-day/27-elimination-dialog.png)
 _The Add Round dialog with elimination chosen: pick the loss limit and go —
-there is no chart to manage._
+there is no bracket to manage._
 
 ![Elimination standings](assets/screenshots/race-day/28-elimination-standings.png)
 _The Standings page during an elimination round: losses instead of times,
 cars still racing at the top._
+
+![Elimination chart view](assets/screenshots/race-day/29-elimination-chart.png)
+_The Chart view on the Schedule screen, after the round has been decided:
+every set that was raced, who won each heat, and who reached the loss
+limit where. The set after the last one is never drawn — there wasn't one._
 
 Elimination heats stay out of the overall standings — an eliminated car
 races fewer heats, so no average over them is fair. The full rules,

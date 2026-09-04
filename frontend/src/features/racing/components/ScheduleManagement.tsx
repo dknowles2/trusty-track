@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { RoundConfigModal } from './RoundConfigModal';
 import { RoundWizard } from './RoundWizard';
+import { EliminationChartView } from './EliminationChartView';
 import { Icon } from '@mdi/react';
-import { mdiCached, mdiPlus, mdiDragVertical, mdiAutoFix, mdiDelete, mdiPrinter } from '@mdi/js';
+import { mdiCached, mdiPlus, mdiDragVertical, mdiAutoFix, mdiDelete, mdiPrinter, mdiTable, mdiSitemap } from '@mdi/js';
 import { Link } from 'react-router-dom';
 import {
   DndContext,
@@ -27,7 +28,7 @@ import { errorText } from '../../../utils/errors';
 import { heatsEstimate } from '../../../utils/duration';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { estimatePace } from '../pace';
-import type { Heat, Lane } from '../types';
+import type { EliminationChart, Heat, Lane } from '../types';
 import { hasRun, hasTimes } from '../lanes';
 import { executionComparator } from '../runningOrder';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
@@ -128,6 +129,14 @@ interface ScheduleManagementProps {
    * sorts by (`runningOrder.ts`).
    */
   championshipRoundIds?: ReadonlySet<number>;
+  /**
+   * An elimination round's record so far, wave by wave (#710), by round id.
+   * Present only for `ELIMINATION` rounds — `Round.eliminationChart` is null
+   * for every other scheduling strategy, since PPC and balanced rounds have
+   * no bracket-shaped truth to draw. A round with an entry here offers a
+   * Table/Chart toggle; one without renders exactly as it always has.
+   */
+  eliminationCharts?: Record<number, EliminationChart>;
 }
 
 
@@ -308,12 +317,25 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   staleRoundIds,
   contestedRoundIds,
   championshipRoundIds,
+  eliminationCharts = {},
 }) => {
   const { group } = useTerminology();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [reordering, setReordering] = useState(false);
   const [applyingOrder, setApplyingOrder] = useState(false);
+  // Which elimination rounds are showing the chart rather than the table
+  // (#710) — per round, so switching one round's view does not touch any
+  // other, and the table is what every round still opens on.
+  const [chartRoundIds, setChartRoundIds] = useState<ReadonlySet<number>>(new Set());
+  const toggleChartView = (roundId: number) => {
+    setChartRoundIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roundId)) next.delete(roundId);
+      else next.add(roundId);
+      return next;
+    });
+  };
   // A local copy of the heats, so a drag lands immediately rather than after
   // the round trip. It has to follow the real ones whenever they change.
   const [localHeats, setLocalHeats] = useState<Heat[]>(heats);
@@ -676,6 +698,11 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
               const isAnyStarted = roundHeats.some(h => hasTimes(h.lanes));
               const uncompletedHeats = roundHeats.filter(h => !hasRun(h.lanes)).length;
               const totalHeats = roundHeats.length;
+              // Present only for an elimination round (#710) — every other
+              // scheduling strategy's `eliminationChart` is null, so this is
+              // also what decides whether the Table/Chart toggle is offered.
+              const chart = eliminationCharts[Number(roundId)];
+              const showingChart = chart != null && chartRoundIds.has(Number(roundId));
 
               return (
                 <div key={roundId} style={{
@@ -768,6 +795,29 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     </div>
 
                     <div style={{ display: 'flex', gap: '10px' }}>
+                      {chart && (
+                        <button
+                          onClick={() => toggleChartView(Number(roundId))}
+                          className="secondary-btn"
+                          aria-label={
+                            showingChart
+                              ? `Show ${roundHeats[0]?.roundName || `Round ${roundNum}`} as a table`
+                              : `Show ${roundHeats[0]?.roundName || `Round ${roundNum}`} as a chart`
+                          }
+                          data-testid={`chart-toggle-${roundId}`}
+                          title="A record of who beat whom, wave by wave — not a bracket. The next wave isn't drawn until this one is scored."
+                          style={{
+                            padding: '6px 16px',
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <Icon path={showingChart ? mdiTable : mdiSitemap} size={0.7} />
+                          {showingChart ? 'Table view' : 'Chart view'}
+                        </button>
+                      )}
                       {!isAnyStarted && (
                         <button
                           onClick={() => onRegenerateRound(roundId)}
@@ -816,6 +866,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     </div>
                   </div>
 
+                  {showingChart && chart ? (
+                    <EliminationChartView chart={chart} getRacerName={getRacerName} />
+                  ) : (
                   <div style={{ overflowX: 'auto' }}>
                     <DndContext
                       sensors={sensors}
@@ -865,6 +918,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                       </table>
                     </DndContext>
                   </div>
+                  )}
                 </div>
               );
             })}
