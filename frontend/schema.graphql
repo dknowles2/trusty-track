@@ -78,6 +78,7 @@ type Display {
   raceId: Int!
   view: DisplayView!
   cycleSeconds: Int!
+  scrollBehavior: ScrollBehavior!
   connected: Boolean!
   assigned: Boolean!
   description: String!
@@ -95,6 +96,7 @@ enum DisplayView {
   PROJECTOR
   AWARDS
   SLIDESHOW
+  STANDINGS_ONLY
 }
 
 type FreeRaceHeat {
@@ -313,7 +315,7 @@ type Mutation {
   pauseIntermission(raceId: Int!): Race!
   resumeIntermission(raceId: Int!): Race!
   endIntermission(raceId: Int!): Race!
-  assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null): Display
+  assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null, scrollBehavior: ScrollBehavior = null): Display
   advanceDisplay(displayId: String!, delta: Int!): Display
   identifyDisplay(displayId: String!): Display
   renameDisplay(displayId: String!, name: String!): Display
@@ -665,6 +667,11 @@ type RunOffHeat {
   lanes: [HeatLane!]!
   recorded: Boolean!
   placement: Int
+}
+
+enum ScrollBehavior {
+  PAGING
+  SMOOTH
 }
 
 type SerialLogEntry {
