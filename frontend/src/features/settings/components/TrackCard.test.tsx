@@ -313,14 +313,31 @@ describe('TrackCard', () => {
             expect(options).toEqual(['FAKE', 'AUTO_DETECT_BACKEND', 'AUTO_DETECT_PROXY', 'NONE']);
         });
 
-        it('omits the browser-proxy option in the cloud demo', () => {
+        it('omits both auto-detect options in the cloud demo, leaving Fake and No timer with an explanation', () => {
             renderCard({ timerType: 'FAKE' }, { demoMode: true });
             const options = within(screen.getByLabelText('Timer Type'))
                 .getAllByRole('option')
                 .map((o) => (o as HTMLOptionElement).value);
-            expect(options).toEqual(['FAKE', 'AUTO_DETECT_BACKEND', 'NONE']);
+            expect(options).toEqual(['FAKE', 'NONE']);
             expect(
                 screen.queryByText(/not available in the cloud demo/i),
+            ).not.toBeInTheDocument();
+            expect(
+                screen.getByText(/shared cloud demo has no hardware timer/i),
+            ).toBeInTheDocument();
+        });
+
+        it('keeps the backend option, with an unavailable note, when a track is already set to it in the demo', () => {
+            renderCard({ timerType: 'AUTO_DETECT_BACKEND' }, { demoMode: true });
+            const options = within(screen.getByLabelText('Timer Type'))
+                .getAllByRole('option')
+                .map((o) => (o as HTMLOptionElement).value);
+            expect(options).toEqual(['FAKE', 'AUTO_DETECT_BACKEND', 'NONE']);
+            expect(screen.getByText(/not available in the cloud demo/i)).toBeInTheDocument();
+            // The specific note already says the option is unavailable; the
+            // general "here's what's left" explanation would be redundant.
+            expect(
+                screen.queryByText(/shared cloud demo has no hardware timer/i),
             ).not.toBeInTheDocument();
         });
 
@@ -329,8 +346,19 @@ describe('TrackCard', () => {
             const options = within(screen.getByLabelText('Timer Type'))
                 .getAllByRole('option')
                 .map((o) => (o as HTMLOptionElement).value);
-            expect(options).toEqual(['FAKE', 'AUTO_DETECT_BACKEND', 'AUTO_DETECT_PROXY', 'NONE']);
+            expect(options).toEqual(['FAKE', 'AUTO_DETECT_PROXY', 'NONE']);
             expect(screen.getByText(/not available in the cloud demo/i)).toBeInTheDocument();
+        });
+
+        it('offers no auto-detect option, and its own explanation, for NONE in the cloud demo', () => {
+            renderCard({ timerType: 'NONE' }, { demoMode: true });
+            const options = within(screen.getByLabelText('Timer Type'))
+                .getAllByRole('option')
+                .map((o) => (o as HTMLOptionElement).value);
+            expect(options).toEqual(['FAKE', 'NONE']);
+            expect(
+                screen.getByText(/shared cloud demo has no hardware timer/i),
+            ).toBeInTheDocument();
         });
     });
 

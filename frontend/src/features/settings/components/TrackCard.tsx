@@ -124,8 +124,16 @@ export default function TrackCard({
   // a seed archive can carry a track saved with it, and a `<select>` whose
   // current value is missing from its own options renders with nothing
   // chosen, telling the operator nothing about what is actually set.
+  //
+  // Backend auto-detect gets the identical treatment, for the identical
+  // reason (#691): `initialize_timer_managers` coerces *every* non-fake
+  // track type to `FAKE` in demo mode, not just the proxy one, so a
+  // "Plugged into this machine" track would probe USB serial ports on a
+  // container that has none.
   const proxyUnavailable = !!demoMode && track.timerType === 'AUTO_DETECT_PROXY';
   const showProxyOption = !demoMode || track.timerType === 'AUTO_DETECT_PROXY';
+  const backendUnavailable = !!demoMode && track.timerType === 'AUTO_DETECT_BACKEND';
+  const showBackendOption = !demoMode || track.timerType === 'AUTO_DETECT_BACKEND';
   const unusualFraming =
     chosen &&
     (chosen.baudRate !== 9600 ||
@@ -367,7 +375,9 @@ export default function TrackCard({
           style={{ ...textInput, marginBottom: track.timerType === 'FAKE' || track.timerType === 'NONE' ? '0' : '1rem' }}
         >
           <option value="FAKE">Fake Timer (Manual Control)</option>
-          <option value="AUTO_DETECT_BACKEND">Plugged into this machine</option>
+          {showBackendOption && (
+            <option value="AUTO_DETECT_BACKEND">Plugged into this machine</option>
+          )}
           {showProxyOption && (
             <option value="AUTO_DETECT_PROXY">Plugged into the laptop running the browser</option>
           )}
@@ -382,10 +392,29 @@ export default function TrackCard({
         </p>
       )}
 
+      {backendUnavailable && (
+        <p style={{ color: 'var(--warning-color)', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
+          Not available in the cloud demo — the shared instance has no USB serial ports
+          to detect. Choose another timer type.
+        </p>
+      )}
+
       {proxyUnavailable && (
         <p style={{ color: 'var(--warning-color)', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
           Not available in the cloud demo — a browser tab cannot hold a timer's serial
           port open for a shared instance. Choose another timer type.
+        </p>
+      )}
+
+      {/* With both auto-detect options hidden above, Fake Timer and No Timer
+          are what remain — a real choice about how to see the app work,
+          not a picker quietly missing two-thirds of itself. Said explicitly
+          only when neither of the "kept because it's already set" notes
+          above is already saying something about why an option is absent. */}
+      {!!demoMode && !backendUnavailable && !proxyUnavailable && (
+        <p style={{ color: 'var(--text-muted-color)', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
+          The shared cloud demo has no hardware timer to connect to. Pick Fake Timer to
+          watch heats run on their own, or No timer to try entering results by hand.
         </p>
       )}
 
