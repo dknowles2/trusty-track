@@ -14,8 +14,8 @@ rider) rather than the view alone — see `backend/domain/scenes.py` for why.
 `display_id` is not a foreign key: a `Display` is presence, held only in
 the in-memory registry, and there is no row here for it to reference.
 
-Revision ID: 0048_display_scenes
-Revises: 0047_race_qr_display
+Revision ID: 0049_display_scenes
+Revises: 0048_round_field_pinned
 Create Date: 2026-09-04
 
 """
@@ -26,8 +26,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0048_display_scenes"
-down_revision: str | Sequence[str] | None = "0047_race_qr_display"
+revision: str = "0049_display_scenes"
+down_revision: str | Sequence[str] | None = "0048_round_field_pinned"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
