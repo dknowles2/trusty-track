@@ -32,6 +32,8 @@ export const GET_RACE_DETAILS = gql`
       # toward the standings they qualified from (#548) — the race form's
       # checkbox for it.
       excludeRoundWinnersFromQualifyingStandings
+      # At most one trophy per racer (#615) — RaceForm's checkbox for it.
+      oneTrophyPerRacer
       # A per-race override of how much of a racer's name a public screen
       # may show (#552), null where this race inherits the organization's
       # setting — the raw column RaceForm's checkbox reads, mirroring the
@@ -132,6 +134,7 @@ export const UPDATE_RACE = gql`
       vehiclePlural
       vehicleArtworkKey
       excludeRoundWinnersFromQualifyingStandings
+      oneTrophyPerRacer
       # Same shape and same reason as the terminology pair below (#552):
       # the raw column is what the form edits, and resolvedNameDisplay is
       # what every abbreviating surface actually reads — without it,

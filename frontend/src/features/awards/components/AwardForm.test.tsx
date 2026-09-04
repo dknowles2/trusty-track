@@ -245,4 +245,47 @@ describe('AwardForm', () => {
     expect(screen.getByLabelText('Position')).toHaveValue('2');
     expect(screen.getByLabelText('Limited to a den')).toHaveValue('10');
   });
+
+  describe('the judged-award picker warning (#615)', () => {
+    const AWARDS = [
+      { id: 100, name: 'Fastest Car', recipient: { id: 1 } },
+      { id: 101, name: 'Best Paint', recipient: null },
+    ];
+
+    it('warns when the picked racer already holds another award', async () => {
+      renderForm({ awards: AWARDS });
+      await userEvent.selectOptions(screen.getByLabelText('Winner'), 'Ada Lovelace (#42)');
+
+      expect(
+        screen.getByText('Already won “Fastest Car.” Award this one too?'),
+      ).toBeInTheDocument();
+    });
+
+    it('says nothing when nobody has won anything yet, or nothing is picked', async () => {
+      renderForm({ awards: AWARDS });
+      expect(screen.queryByText(/Already won/)).toBeNull();
+
+      await userEvent.selectOptions(screen.getByLabelText('Winner'), 'Grace Hopper (#7)');
+      expect(screen.queryByText(/Already won/)).toBeNull();
+    });
+
+    it('does not warn about the award being edited itself', async () => {
+      renderForm({
+        awards: AWARDS,
+        excludeAwardId: 100,
+        initial: { name: 'Fastest Car', kind: 'SPECIAL', racerId: 1 },
+      });
+
+      expect(screen.queryByText(/Already won/)).toBeNull();
+    });
+
+    it('never blocks the pick — a computed rule does not override a judge', async () => {
+      const onSubmit = renderForm({ awards: AWARDS });
+      await userEvent.type(screen.getByLabelText('Award name'), 'Most Aerodynamic');
+      await userEvent.selectOptions(screen.getByLabelText('Winner'), 'Ada Lovelace (#42)');
+      await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
+
+      expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ racerId: 1 }));
+    });
+  });
 });

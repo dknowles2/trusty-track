@@ -129,6 +129,9 @@ export default function RaceDetails() {
       vehicle_plural: data.race.vehiclePlural ?? null,
       vehicle_artwork_key: data.race.vehicleArtworkKey ?? null,
       exclude_round_winners_from_qualifying_standings: data.race.excludeRoundWinnersFromQualifyingStandings,
+      // At most one trophy per racer (#615) — RaceForm's checkbox reads
+      // this back the same way every other update-only flag here does.
+      one_trophy_per_racer: data.race.oneTrophyPerRacer,
       // Raw override, null where this race inherits the organization's
       // name-display setting (#552) — `RaceForm`'s checkbox is on exactly
       // when this is non-null.
@@ -314,6 +317,7 @@ export default function RaceDetails() {
               // race had before this setting existed.
               masterRunningOrder: updateInput.master_running_order,
               excludeRoundWinnersFromQualifyingStandings: updateInput.exclude_round_winners_from_qualifying_standings,
+              oneTrophyPerRacer: updateInput.one_trophy_per_racer,
               racingGroupSingular: updateInput.racing_group_singular ?? undefined,
               racingGroupPlural: updateInput.racing_group_plural ?? undefined,
               organizationSingular: updateInput.organization_singular ?? undefined,

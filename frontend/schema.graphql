@@ -50,6 +50,9 @@ type Award {
   placeContested: Boolean!
   racingGroup: RacingGroup
   voteTally: [AwardVoteTally!]!
+  position: Int
+  passedOver: [AwardPassedOver!]!
+  duplicateOf: Award
 }
 
 input AwardInput {
@@ -63,6 +66,13 @@ input AwardInput {
   artworkKey: String = null
   sortOrder: Int = null
   votable: Boolean! = true
+}
+
+type AwardPassedOver {
+  racerId: Int!
+  awardId: Int!
+  racer: Racer
+  award: Award
 }
 
 type AwardVoteTally {
@@ -457,6 +467,7 @@ type Race {
   excludeRoundWinnersFromQualifyingStandings: Boolean!
   nameDisplay: String
   isLocked: Boolean!
+  oneTrophyPerRacer: Boolean!
   intermission: Intermission!
   resolvedNameDisplay: String!
   terminology: Terminology!
@@ -553,6 +564,7 @@ input RaceUpdateInput {
   nameDisplay: String = null
   clearNameDisplay: Boolean! = false
   isLocked: Boolean = null
+  oneTrophyPerRacer: Boolean = null
 }
 
 type Racer {

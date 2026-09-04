@@ -124,6 +124,82 @@ export function racerLabel(
   return racer.carNumber ? `${name} (#${racer.carNumber})` : name;
 }
 
+/** One racer skipped because they already held a trophy on another podium
+ * (#615) — the shape `Award.passedOver` sends down, mirrored here so
+ * `rollDownNote` needs no GraphQL-generated type of its own. */
+export interface PassedOverEntry {
+  racer?: {
+    firstName: string;
+    lastName: string;
+    carNumber?: number | null;
+  } | null;
+  award?: { name: string } | null;
+}
+
+/**
+ * "Rolled down from Fastest — Jordan Mitchell (#7) already won Fastest Car."
+ *
+ * The roll-down's own explanation (#615) for a trophy that did not go to
+ * the standings' actual Nth place: `position` is where the recipient
+ * *really* sits, `place` is what the award asked for, and `passedOver`
+ * names who was skipped and what they already hold. Null whenever nothing
+ * rolled — including every award while `Race.oneTrophyPerRacer` is off,
+ * since then `position` always equals `place` and `passedOver` is always
+ * empty.
+ */
+export function rollDownNote(
+  award: { place?: number | null; fromBottom?: boolean | null },
+  position: number | null | undefined,
+  passedOver: PassedOverEntry[],
+  nameDisplay: NameDisplay | string = 'FULL',
+): string | null {
+  if (!award.place || !position || position <= award.place || passedOver.length === 0) {
+    return null;
+  }
+  const clauses = passedOver.map((entry) => {
+    const who = entry.racer
+      ? racerLabel(entry.racer, nameDisplay)
+      : 'A racer no longer on the roster';
+    const what = entry.award?.name ?? 'an award that no longer exists';
+    return `${who} already won ${what}`;
+  });
+  const requested = positionLabel(award.place, award.fromBottom ?? false);
+  const asked = award.place === 1 ? requested : `${requested} place`;
+  return `Rolled down from ${asked} — ${clauses.join('; ')}.`;
+}
+
+/**
+ * "Also holds Fastest Car." — the judged-award collision the roll-down
+ * reports rather than acts on (#615): a computed rule never displaces a
+ * person's choice, so this is only ever a warning for the operator to read.
+ */
+export function duplicateOfNote(duplicateOf?: { name: string } | null): string | null {
+  return duplicateOf ? `Also holds “${duplicateOf.name}.”` : null;
+}
+
+/**
+ * "Jordan Mitchell already won Fastest Car." — the judged-award *picker's*
+ * own warning (#615), computed client-side from the awards already on
+ * screen rather than round-tripping to the server. Fires regardless of
+ * `Race.oneTrophyPerRacer`: a coordinator picking a racer who already holds
+ * a trophy is worth flagging as a courtesy either way, and the picker is
+ * free to award it anyway — the same "report, never block" rule
+ * `duplicateOfNote` follows for the saved award. `excludeAwardId` is the
+ * award being edited, so it does not warn about the racer it already names
+ * as its own winner.
+ */
+export function awardHolderWarning(
+  racerId: number | null,
+  awards: { id: number; name: string; recipient?: { id: number } | null }[],
+  excludeAwardId?: number | null,
+): string | null {
+  if (racerId == null) return null;
+  const held = awards.find(
+    (award) => award.id !== excludeAwardId && award.recipient?.id === racerId,
+  );
+  return held ? `Already won “${held.name}.” Award this one too?` : null;
+}
+
 export interface TalliedCar {
   carNumber?: number | null;
   carName?: string | null;

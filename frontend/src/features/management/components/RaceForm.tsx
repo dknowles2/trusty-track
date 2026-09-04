@@ -48,6 +48,15 @@ export interface RaceFormData {
      */
     exclude_round_winners_from_qualifying_standings: boolean;
     /**
+     * At most one trophy per racer (#615) — a racer who already holds an
+     * award is skipped when resolving a later one, so a den speed trophy
+     * rolls down to the next fastest car once its own winner has already
+     * taken the pack championship. Off by default, and update-only like
+     * `master_running_order` above: a race being created has no awards yet
+     * to roll down between.
+     */
+    one_trophy_per_racer: boolean;
+    /**
      * A per-race terminology override, null where this race inherits the
      * organization's word (#496 stage 3; #551 adds the vehicle pair and its
      * artwork). All seven travel together — the checkbox below is on when
@@ -123,6 +132,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         weight_limit_oz: DEFAULT_LIMIT_OZ,
         master_running_order: false,
         exclude_round_winners_from_qualifying_standings: false,
+        one_trophy_per_racer: false,
         is_locked: false,
         ...initialData
     });
@@ -427,6 +437,33 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                         Once a championship round has a winner, that {vehicleLower} stops counting toward the
                         standings it qualified from — so the same {vehicleLower} does not win both the overall
                         trophy and their own {groupLower}&apos;s.
+                    </p>
+                </div>
+            )}
+
+            {/* At most one trophy per racer (#615): a racer who already
+                holds an award is skipped when resolving a later one, so a
+                den speed trophy rolls down to the next fastest car once its
+                own winner has already taken the pack championship. Update-
+                only for the same reason the two checkboxes above are —
+                there is nothing yet to roll down between until the race,
+                and its awards, already exist. */}
+            {isEditing && (
+                <div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+                        <input
+                            type="checkbox"
+                            id="race-one-trophy-per-racer"
+                            checked={formData.one_trophy_per_racer}
+                            onChange={e => setFormData(prev => ({ ...prev, one_trophy_per_racer: e.target.checked }))}
+                        />
+                        <span>At most one trophy per racer</span>
+                    </label>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                        A {vehicleLower} that already holds an award is skipped for a later one — so the
+                        {' '}{groupLower} trophy rolls down to the next-fastest {vehicleLower} once its own
+                        winner has already taken the overall trophy. Set up which award comes first on the
+                        Awards page's running order.
                     </p>
                 </div>
             )}

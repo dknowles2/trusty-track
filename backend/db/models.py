@@ -524,6 +524,17 @@ class Race(Base):
     exclude_round_winners_from_qualifying_standings: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    #: The near-universal pack rule: a racer who already holds a trophy is
+    #: skipped when resolving a later one, so a den speed trophy "rolls
+    #: down" to the next fastest car once its own winner has already taken
+    #: the pack championship (#615). See `domain/roll_down.py` for the whole
+    #: rule and why it is computed fresh on every read rather than stored —
+    #: the same reasoning as every other award and standing in this file.
+    #: Off by default, so an upgraded install keeps resolving every award in
+    #: isolation exactly as it always has.
+    one_trophy_per_racer: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     #: A race-scoped break, on the fly or from the round-summary modal's
     #: "Take a break" row (#592). Stored, not in-memory like a `Display`
     #: `Assignment` — an intermission describes the *race*, and every screen
