@@ -138,6 +138,52 @@ retrying for as long as it takes rather than giving up.
 What they cannot do is show a race they cannot reach. If the displays matter to
 your event, a dedicated access point is worth the twenty pounds.
 
+## Streaming your event with OBS Studio
+
+Packs with a deployed parent, an out-of-town grandparent or a sick scout at
+home have been streaming derbies on YouTube, Facebook Live and Twitch for
+years. Trusty Track has a display view built for it: **Broadcast overlay**,
+a transparent graphic your streaming software composites over your camera
+feed — a lower-third bar naming the current heat and its line-up, a compact
+standings ticker, and a banner that reveals each heat's result. What it
+shows is covered in full at
+[Audience display views](reference/displays.md#broadcast-overlay); this is
+how to put it on your stream.
+
+**[OBS Studio](https://obsproject.com/) is free and is what these steps
+assume**, but any streaming program with a "Browser Source" — one that can
+show a web page, with a transparent background, inside your scene — will
+do the same job.
+
+1. Find [this machine's address](#finding-this-machines-address) the same
+   way you would for a display or a check-in tablet.
+2. In OBS, add a **Browser Source** to the scene with your camera feed in
+   it.
+3. For the URL, take the address from step 1 and add
+   `/race/<your race's number>/observation?view=overlay` to the end of it —
+   for example `http://192.168.1.42:8000/race/3/observation?view=overlay`.
+   Your race's number is in the address bar when you have that race open in
+   Trusty Track.
+4. Set the source's width and height to match your canvas (1920×1080 for a
+   standard stream), and leave **Shutdown source when not visible** and
+   **Refresh browser when scene becomes active** both unchecked — the
+   overlay holds a live connection the same way a display does, and either
+   box would needlessly drop and reopen it every time you switch scenes.
+5. Position the source wherever you like in the scene. Nothing about the
+   overlay's own layout depends on where OBS puts it.
+
+**No PIN needed, and none of your streaming details ever reach Trusty
+Track.** A Browser Source is a display, the same as a screen taped to a
+wall — it can be watched, not driven — so it needs no credential, and
+Trusty Track has no idea it is being streamed anywhere at all.
+
+**Turning the standings ticker off, or choosing which page it opens,
+without touching OBS again.** Once the source is added, the overlay shows
+up in **Race Control → Displays** the same as any other screen — find it in
+the list (it will have picked its own name, like every display does) and
+use its row to switch the ticker on or off. You never need to re-enter the
+URL in OBS for this; the running Browser Source picks up the change live.
+
 ## What is not protected
 
 Being straight about the limits:

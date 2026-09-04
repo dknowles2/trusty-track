@@ -11,6 +11,7 @@ import PhotoSlideshow from '../components/PhotoSlideshow';
 import StandingsOnlyView from '../components/StandingsOnlyView';
 import CheckInDisplayView from '../components/CheckInDisplayView';
 import QRCodeDisplayView from '../components/QRCodeDisplayView';
+import BroadcastOverlayView from '../components/BroadcastOverlayView';
 import { displayId, startDeviceClaimHeartbeat } from '../displayIdentity';
 import { useChrome } from '../../../context/ChromeContext';
 import { useTerminology } from '../../../context/TerminologyContext';
@@ -21,6 +22,7 @@ import {
   DEFAULT_SCROLL_BEHAVIOR,
   DEFAULT_SHOW_CHECKED_IN,
   DEFAULT_QR_TARGET,
+  DEFAULT_SHOW_STANDINGS_TICKER,
 } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
@@ -140,6 +142,8 @@ export default function Observation() {
               scrollBehavior: assignment.scrollBehavior ?? DEFAULT_SCROLL_BEHAVIOR,
               showCheckedIn: assignment.showCheckedIn ?? DEFAULT_SHOW_CHECKED_IN,
               qrTarget: assignment.qrTarget ?? DEFAULT_QR_TARGET,
+              showStandingsTicker:
+                assignment.showStandingsTicker ?? DEFAULT_SHOW_STANDINGS_TICKER,
             }
           : null,
         urlIntent,
@@ -206,7 +210,8 @@ export default function Observation() {
     behaviour.slideshow ||
     behaviour.standingsOnly ||
     behaviour.checkin ||
-    behaviour.qrcode;
+    behaviour.qrcode ||
+    behaviour.overlay;
 
   // Tell the app's furniture to get out of the way. `Navigation` cannot work
   // this out for itself any more: an assigned view changes no URL, so before
@@ -322,7 +327,7 @@ export default function Observation() {
   // opening payload (on load, or on reconnect) is history, not news, and the
   // key includes `recordedAt` so a re-recorded heat — which reuses its round
   // name and heat number — is news a second time (#335).
-  if (isProjectorMode && timingStatsData?.timingStats) {
+  if ((isProjectorMode || behaviour.overlay) && timingStatsData?.timingStats) {
     const observation = observeHeatResult(seenHeatResult, timingStatsData.timingStats);
     if (observation.seen !== seenHeatResult) {
       setSeenHeatResult(observation.seen);
@@ -333,15 +338,19 @@ export default function Observation() {
     }
   }
 
-  // Effect to handle overlay timeout
+  // Effect to handle overlay timeout. The broadcast overlay lingers longer
+  // (#616, issue's own "10 seconds") than the Projector view's own results
+  // overlay — a viewer joining a stream mid-heat has had no chance to see
+  // the schedule build up to it the way someone standing in the room has,
+  // so the finish banner gets more time to actually be read.
   useEffect(() => {
     if (showResultsOverlay) {
       const timer = setTimeout(() => {
         setShowResultsOverlay(false);
-      }, 5000);
+      }, behaviour.overlay ? 10000 : 5000);
       return () => clearTimeout(timer);
     }
-  }, [showResultsOverlay, seenHeatResult]);
+  }, [showResultsOverlay, seenHeatResult, behaviour.overlay]);
 
   interface Racer {
     id: number;
@@ -764,6 +773,58 @@ export default function Observation() {
           target={behaviour.qrTarget}
           headline={initialData?.race?.qrHeadline}
           wifiNote={initialData?.race?.qrWifiNote}
+        />
+      </div>
+    );
+  }
+
+  // --- BROADCAST OVERLAY (#616) ---
+  // A transparent graphic for an OBS Studio Browser Source — composited over
+  // camera video rather than shown on its own. Ahead of the standard mode
+  // render for the same reason every other full-screen view here is: this is
+  // a view of its own, not a tab within the usual layout. Unlike every
+  // sibling above, its root deliberately does *not* paint
+  // `var(--display-bg-color)` — see `BroadcastOverlayView.tsx`'s own
+  // docstring for why transparency here is the whole feature, and why the
+  // rest of the Display theme's tokens (the accent color on filled badges)
+  // still apply.
+  if (behaviour.overlay) {
+    const overlayHeatLabel = isExhibition
+      ? `${vehicle} exhibition run`
+      : officialCurrentHeat
+        ? (runOffAnnouncement(officialCurrentHeat.runOffPlacement) ??
+          `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}`)
+        : null;
+    return (
+      <div
+        className="container projector-mode"
+        data-theme={displayThemeKey}
+        style={{
+          maxWidth: '100%',
+          padding: 0,
+          // The one deliberate departure from every sibling view above:
+          // no `--display-bg-color`. A camera feed composited underneath
+          // this in OBS must show through everywhere this view is not
+          // actively drawing a panel of its own.
+          background: 'transparent',
+          ...displayThemeStyle,
+        }}
+      >
+        <IdentifyPresence assignment={assignment} />
+        <BroadcastOverlayView
+          trackId={initialData?.race?.track?.id}
+          heatLabel={overlayHeatLabel}
+          isExhibition={isExhibition}
+          lanes={currentHeatRacers}
+          laneColors={laneColors}
+          nameDisplay={nameDisplay}
+          vehicle={vehicle}
+          standings={standings}
+          racersMap={racersMap}
+          scoreLabel={scoreLabel}
+          formatScore={formatScore}
+          showStandingsTicker={behaviour.showStandingsTicker}
+          finishBanner={showResultsOverlay && overlayData ? overlayData : null}
         />
       </div>
     );

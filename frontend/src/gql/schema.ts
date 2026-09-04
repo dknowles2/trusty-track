@@ -137,6 +137,7 @@ export type Display = {
   raceId: Scalars['Int']['output'];
   scrollBehavior: ScrollBehavior;
   showCheckedIn: Scalars['Boolean']['output'];
+  showStandingsTicker: Scalars['Boolean']['output'];
   slideDelta: Scalars['Int']['output'];
   slideSeq: Scalars['Int']['output'];
   view: DisplayView;
@@ -146,6 +147,7 @@ export type DisplayView =
   | 'AWARDS'
   | 'CHECKIN'
   | 'CYCLE'
+  | 'OVERLAY'
   | 'PROJECTOR'
   | 'QRCODE'
   | 'SLIDESHOW'
@@ -493,6 +495,7 @@ export type MutationAssignDisplayArgs = {
   qrTarget?: InputMaybe<QrTarget>;
   scrollBehavior?: InputMaybe<ScrollBehavior>;
   showCheckedIn?: InputMaybe<Scalars['Boolean']['input']>;
+  showStandingsTicker?: InputMaybe<Scalars['Boolean']['input']>;
   view: DisplayView;
 };
 
