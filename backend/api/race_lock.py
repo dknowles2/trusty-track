@@ -268,6 +268,11 @@ LOCKED_MUTATION_RESOLVERS: dict[str, Callable[[Session, dict[str, Any]], bool]] 
     "createRoundWizard": _direct_locked,
     "createRound": _direct_locked,
     "importRacers": _direct_locked,
+    # `previewGprmImport` is deliberately absent (#618) — it writes nothing,
+    # so it is exactly the kind of read-shaped mutation the module's own
+    # docstring says stays reachable ("everything not named below"). Its
+    # write half is named here like every other roster-changing mutation.
+    "confirmGprmImport": _direct_locked,
     "populateRace": _direct_locked,
     "applyMasterRunningOrder": _direct_locked,
     "startFreeRaceHeat": _direct_locked,

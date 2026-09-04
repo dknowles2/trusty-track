@@ -1,15 +1,18 @@
 import asyncio
 import base64
+import binascii
 import csv
 import enum
 import io
 import json
 import logging
 import os
+import tempfile
 import typing
 import uuid
 from collections.abc import AsyncGenerator, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated, Any, Optional
 
 import pillow_heif
@@ -27,7 +30,7 @@ from backend.api.pubsub import pubsub
 from backend.api.race_lock import RaceLockExtension
 from backend.db import crud, models, schemas
 from backend.db.database import UPLOAD_DIR
-from backend.domain import advancement, audit, lanes
+from backend.domain import advancement, audit, lanes, roster_import
 from backend.domain import displays as domain_displays
 from backend.domain import heat_session as domain_heat_session
 from backend.domain import intermission as domain_intermission
@@ -40,6 +43,7 @@ from backend.services import displays as displays_service
 from backend.services import network, scoring
 from backend.services import records as records_service
 from backend.services.image_processing import convert_to_browser_safe_png
+from backend.services.importers.gprm import parse_gprm_database
 from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE, NO_TIMER
 from backend.services.timer.devices import by_key as _profile_by_key
 from backend.services.timer.devices import fake as fake_timer
@@ -3000,6 +3004,175 @@ def _apply_terminology(organization: Any, config: "InitialConfigInput") -> None:
         setattr(organization, field, value)
 
 
+#: A GPRM database is a roster, not a photo library — GPRM keeps pictures as
+#: separate files it never puts in the database (see `domain.gprm`'s own
+#: docstring) — so even years of history stays a few megabytes. This is
+#: headroom for an operator who hands over the wrong file, not a real budget;
+#: `MAX_UPLOAD_BYTES` in `api/main.py` is the same idea for `POST /upload/`.
+MAX_GPRM_IMPORT_BYTES = 64 * 1024 * 1024
+
+
+@strawberry.type
+class GprmImportGroup:
+    """A racing group `domain.gprm.roster_from_tables` found, before it is written."""
+
+    name: str
+    division: str | None
+
+
+@strawberry.type
+class GprmImportRacer:
+    """A racer `domain.gprm.roster_from_tables` found, before it is written."""
+
+    first_name: str
+    last_name: str
+    car_number: int | None
+    car_name: str | None
+    car_weight: float | None
+    passed_inspection: bool
+    group: str | None
+    excluded_from_standings: bool
+    #: The other program's own id, so a problem naming this racer (below) can
+    #: be matched back to the row it is about — see `ImportedRacer.source_id`.
+    source_id: str | None
+
+
+@strawberry.type
+class GprmImportProblem:
+    """One sentence about what will not import as the operator might expect."""
+
+    message: str
+    blocking: bool
+    source_id: str | None
+
+
+@strawberry.type
+class GprmImportPreview:
+    """Everything an uploaded GrandPrix Race Manager database would import
+    (#618), without writing any of it.
+
+    `confirmGprmImport` re-parses the same upload rather than trusting this
+    value back from the client — there is no session on the server holding
+    the file between the two calls, so what gets written can never drift
+    from what this preview showed.
+    """
+
+    groups: list[GprmImportGroup]
+    racers: list[GprmImportRacer]
+    #: In-file duplicates (`domain.roster_import.duplicate_number_problems`)
+    #: and collisions with a racer already on this race's roster
+    #: (`domain.roster_import.existing_number_problems`) are both here,
+    #: in that order — the reader has no reason to care which rule found it.
+    problems: list[GprmImportProblem]
+    can_import: bool
+
+
+def _decode_upload(file_data: str, max_bytes: int) -> bytes:
+    """A base64 data URL — the same shape `uploadImage`'s `dataUrl` takes —
+    to raw bytes, refusing anything absurdly large before it is written
+    anywhere. Shared by preview and confirm so the two cannot disagree about
+    what counts as too big.
+    """
+    if "," not in file_data:
+        raise ValueError("That file could not be read.")
+    _, encoded = file_data.split(",", 1)
+    try:
+        raw = base64.b64decode(encoded)
+    except (ValueError, binascii.Error) as error:
+        raise ValueError("That file could not be read.") from error
+    if len(raw) > max_bytes:
+        raise ValueError(
+            "That file is larger than GrandPrix Race Manager writes for a "
+            "roster database — it is probably not one."
+        )
+    return raw
+
+
+def _race_vehicle_word(db: Session, race: models.Race) -> str:
+    """This race's own resolved vehicle word (#551), for the parser's
+    problem sentences — the same layering `Race.terminology` resolves,
+    computed here because a mutation has no GraphQL field resolver to read
+    it from.
+    """
+    organization = (
+        db.query(models.Organization)
+        .filter(models.Organization.id == race.organization_id)
+        .first()
+    )
+    resolved = domain_terminology.resolve_terminology(
+        organization=_terminology_overrides(organization) if organization else None,
+        race=_terminology_overrides(race),
+    )
+    return resolved.vehicle_singular
+
+
+def _parse_gprm_upload(
+    db: Session, race: models.Race, file_data: str
+) -> tuple[roster_import.ParsedRoster, str]:
+    """Decode an uploaded GPRM database and parse it (#618).
+
+    `sqlite3` opens files, not buffers (see `services/importers/gprm.py`), so
+    the decoded bytes are written to a temporary file — removed in a
+    `finally` — before `parse_gprm_database` ever sees them, the same shape
+    `services/backup.py`'s restore uses for an uploaded archive. Raises
+    `ValueError` rather than `RosterImportError`, so every failure reaching
+    the operator through this mutation is the same shape as `importRacers`'
+    own "Race not found": a GraphQL error carrying the sentence to show.
+    """
+    raw = _decode_upload(file_data, MAX_GPRM_IMPORT_BYTES)
+    vehicle_word = _race_vehicle_word(db, race)
+    with tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False) as handle:
+        handle.write(raw)
+        temp_path = Path(handle.name)
+    try:
+        try:
+            roster = parse_gprm_database(temp_path, vehicle_word=vehicle_word)
+        except roster_import.RosterImportError as error:
+            raise ValueError(str(error)) from error
+        return roster, vehicle_word
+    finally:
+        os.unlink(temp_path)
+
+
+def _gprm_import_preview(
+    db: Session, race_id: int, roster: roster_import.ParsedRoster, vehicle_word: str
+) -> GprmImportPreview:
+    existing_holders = crud.existing_car_number_holders(db, race_id)
+    extra_problems = roster_import.existing_number_problems(
+        roster.racers, existing_holders, vehicle_word
+    )
+    problems = list(roster.problems) + extra_problems
+    return GprmImportPreview(
+        groups=[
+            GprmImportGroup(name=group.name, division=group.division)
+            for group in roster.groups
+        ],
+        racers=[
+            GprmImportRacer(
+                first_name=racer.first_name,
+                last_name=racer.last_name,
+                car_number=racer.car_number,
+                car_name=racer.car_name,
+                car_weight=racer.car_weight,
+                passed_inspection=racer.passed_inspection,
+                group=racer.group,
+                excluded_from_standings=racer.excluded_from_standings,
+                source_id=racer.source_id,
+            )
+            for racer in roster.racers
+        ],
+        problems=[
+            GprmImportProblem(
+                message=problem.message,
+                blocking=problem.blocking,
+                source_id=problem.source_id,
+            )
+            for problem in problems
+        ],
+        can_import=not any(problem.blocking for problem in problems),
+    )
+
+
 @strawberry.type
 class Mutation:
     """
@@ -4649,6 +4822,55 @@ class Mutation:
         # once for the batch, the same reason bulkCheckIn calls it once.
         await _admit_late_racers(info, race_id)
         # An import creates racers, so the roster list changed.
+        await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
+        return count
+
+    @strawberry.mutation
+    async def preview_gprm_import(
+        self, info: Info, race_id: int, file_data: str
+    ) -> GprmImportPreview:
+        """Parse an uploaded GrandPrix Race Manager database without writing
+        anything (#618, stage 3).
+
+        The upload-preview-confirm shape the issue asked for: this call
+        writes nothing, and `confirmGprmImport` is the only door that does.
+        `GprmImportPreview.canImport` mirrors `ParsedRoster.can_import` —
+        false only were a *blocking* problem to appear, which nothing this
+        parser produces today does (a row problem here is always a warning,
+        the racer is simply skipped or a field left blank) — kept anyway so
+        a future blocking rule needs no frontend change to be honoured.
+        """
+        db = info.context["db"]
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        if not race:
+            raise ValueError("Race not found")
+        roster, vehicle_word = _parse_gprm_upload(db, race, file_data)
+        return _gprm_import_preview(db, race_id, roster, vehicle_word)
+
+    @strawberry.mutation
+    async def confirm_gprm_import(
+        self, info: Info, race_id: int, file_data: str
+    ) -> int:
+        """Write the roster from a GrandPrix Race Manager database (#618,
+        stage 3).
+
+        Re-parses `fileData` rather than trusting a preview handed back from
+        the client — there is no session on the server holding the earlier
+        upload, so what gets written can never drift from what the preview
+        showed. Returns the number of racers created, the same contract
+        `importRacers` (CSV) already has.
+        """
+        db = info.context["db"]
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        if not race:
+            raise ValueError("Race not found")
+        roster, _ = _parse_gprm_upload(db, race, file_data)
+        count = crud.write_imported_roster(db, race_id, roster)
+
+        # Same arrival #343 fixed for the CSV path: a GPRM roster can carry
+        # already-checked-in racers (`PassedInspection`), and admission is
+        # the batch's job, once, not per racer.
+        await _admit_late_racers(info, race_id)
         await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
         return count
 

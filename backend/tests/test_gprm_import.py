@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.domain import gprm
+from backend.domain import gprm, roster_import
 from backend.domain.roster_import import (
     ImportedGroup,
     ImportedRacer,
@@ -474,6 +474,51 @@ def test_duplicates_are_reported_against_the_second_holder() -> None:
     assert duplicate_number_problems(racers) == [
         ImportProblem("Car number 5 is already used by Alex Rivera.", source_id="2")
     ]
+
+
+def test_existing_number_problems_checks_only_the_files_first_holder() -> None:
+    """The database half stage 3 adds (#618): a number matching a racer
+    already on the roster is reported once, against the file's *first*
+    holder of that number -- a later file holder sharing it is already
+    reported by `duplicate_number_problems`, against the first, and
+    checking it again here would say the same collision twice."""
+    racers = [
+        ImportedRacer("Alex", "Rivera", car_number=5, source_id="1"),
+        ImportedRacer("Sam", "Okafor", car_number=5, source_id="2"),
+        ImportedRacer("Pat", "Kim", car_number=9, source_id="3"),
+    ]
+    problems = roster_import.existing_number_problems(
+        racers, existing_holders={5: "Jordan Mitchell"}
+    )
+    assert problems == [
+        ImportProblem(
+            "Car number 5 is already used by Jordan Mitchell, already on the roster.",
+            source_id="1",
+        )
+    ]
+
+
+def test_existing_number_problems_ignores_a_number_not_on_the_roster() -> None:
+    racers = [ImportedRacer("Alex", "Rivera", car_number=5, source_id="1")]
+    assert roster_import.existing_number_problems(racers, existing_holders={}) == []
+
+
+def test_existing_number_problems_ignores_an_unnumbered_racer() -> None:
+    racers = [ImportedRacer("Alex", "Rivera", car_number=None, source_id="1")]
+    assert (
+        roster_import.existing_number_problems(
+            racers, existing_holders={5: "Jordan Mitchell"}
+        )
+        == []
+    )
+
+
+def test_existing_number_problems_takes_the_vehicle_word() -> None:
+    racers = [ImportedRacer("Alex", "Rivera", car_number=5, source_id="1")]
+    problems = roster_import.existing_number_problems(
+        racers, existing_holders={5: "Jordan Mitchell"}, vehicle_word="Rocket"
+    )
+    assert problems[0].message.startswith("Rocket number 5")
 
 
 def test_only_a_blocking_problem_stops_the_import() -> None:

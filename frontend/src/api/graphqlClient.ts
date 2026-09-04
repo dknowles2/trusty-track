@@ -64,6 +64,13 @@ export const EMBEDDED_TYPES = [
   'AwardVoteTally',
   'RacingGroupStat',
   'FreeRaceLaneAssignment',
+  // A GrandPrix Race Manager import preview (#618) -- parsed fresh on every
+  // call to `previewGprmImport` and never fetched independently, the same
+  // shape as `AdvancementRacer`.
+  'GprmImportGroup',
+  'GprmImportPreview',
+  'GprmImportProblem',
+  'GprmImportRacer',
   'HeatHighlight',
   'HeatLane',
   'HeatReorderResponse',

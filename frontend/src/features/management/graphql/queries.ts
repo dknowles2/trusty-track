@@ -202,6 +202,45 @@ export const IMPORT_RACERS = gql`
   }
 `;
 
+// A GrandPrix Race Manager database import (#618). Preview parses an
+// uploaded file and writes nothing; confirm re-parses the identical upload
+// and writes it -- there is no session on the server holding the file
+// between the two calls, so `fileData` is sent again rather than trusted
+// back from a previous response.
+export const PREVIEW_GPRM_IMPORT = gql`
+  mutation PreviewGprmImport($raceId: Int!, $fileData: String!) {
+    previewGprmImport(raceId: $raceId, fileData: $fileData) {
+      canImport
+      groups {
+        name
+        division
+      }
+      racers {
+        firstName
+        lastName
+        carNumber
+        carName
+        carWeight
+        passedInspection
+        group
+        excludedFromStandings
+        sourceId
+      }
+      problems {
+        message
+        blocking
+        sourceId
+      }
+    }
+  }
+`;
+
+export const CONFIRM_GPRM_IMPORT = gql`
+  mutation ConfirmGprmImport($raceId: Int!, $fileData: String!) {
+    confirmGprmImport(raceId: $raceId, fileData: $fileData)
+  }
+`;
+
 export const CREATE_RACING_GROUP = gql`
   mutation CreateRacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) {
     createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) {

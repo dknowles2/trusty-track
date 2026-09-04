@@ -117,6 +117,36 @@ input FreeRaceLaneAssignmentInput {
   racerId: Int = null
 }
 
+type GprmImportGroup {
+  name: String!
+  division: String
+}
+
+type GprmImportPreview {
+  groups: [GprmImportGroup!]!
+  racers: [GprmImportRacer!]!
+  problems: [GprmImportProblem!]!
+  canImport: Boolean!
+}
+
+type GprmImportProblem {
+  message: String!
+  blocking: Boolean!
+  sourceId: String
+}
+
+type GprmImportRacer {
+  firstName: String!
+  lastName: String!
+  carNumber: Int
+  carName: String
+  carWeight: Float
+  passedInspection: Boolean!
+  group: String
+  excludedFromStandings: Boolean!
+  sourceId: String
+}
+
 type Heat {
   id: Int!
   raceId: Int!
@@ -369,6 +399,8 @@ type Mutation {
   populateRace(raceId: Int!, config: PopulateTestDataInput!): String!
   createPracticeRace(startNew: Boolean! = false): Race!
   importRacers(raceId: Int!, csvData: String!): Int!
+  previewGprmImport(raceId: Int!, fileData: String!): GprmImportPreview!
+  confirmGprmImport(raceId: Int!, fileData: String!): Int!
   createRound(raceId: Int!, roundData: RoundCreateInput!): [Round!]!
   reorderHeats(heatUpdates: [HeatReorderItemInput!]!): HeatReorderResponse!
   applyMasterRunningOrder(raceId: Int!): HeatReorderResponse!
