@@ -22,9 +22,11 @@ from enum import Enum
 __all__ = [
     "DisplayView",
     "ScrollBehavior",
+    "QRTarget",
     "Assignment",
     "DEFAULT_VIEW",
     "DEFAULT_SCROLL_BEHAVIOR",
+    "DEFAULT_QR_TARGET",
     "is_paced_by_a_person",
     "describe",
 ]
@@ -64,6 +66,11 @@ class DisplayView(str, Enum):
     #: starts (#612). See ``Assignment.show_checked_in`` for the one setting
     #: specific to it.
     CHECKIN = "CHECKIN"
+    #: A large, high-contrast QR code that opens this race on a phone (#614)
+    #: — the answer to "how do I get fifty parents in a gym onto the right
+    #: address" that shouting an IP address never was. See ``QRTarget`` for
+    #: the one thing specific to it: which page the code actually opens.
+    QRCODE = "QRCODE"
 
 
 class ScrollBehavior(str, Enum):
@@ -81,6 +88,26 @@ class ScrollBehavior(str, Enum):
     SMOOTH = "SMOOTH"
 
 
+class QRTarget(str, Enum):
+    """Which page ``QRCODE`` points a phone at.
+
+    A screen full of `#614 <https://github.com/dknowles2/trusty-track/issues/614>`_
+    scans to somewhere, and "somewhere" is the one genuine choice this view
+    has — everything else about it (rendering a code, showing the address as
+    text) is the same regardless. Two rather than a general URL: opening this
+    up to an arbitrary address would make the display list a way to point a
+    kiosk at anything, which is not a control a screen with no PIN should be
+    handed.
+    """
+
+    #: This race's own audience display (``/race/{id}/observation``) — live
+    #: standings and the current heat, on a phone rather than a wall.
+    STANDINGS = "STANDINGS"
+    #: The voting ballot (``/race/{id}/vote``), for the one screen a
+    #: `VIEWER` may act through at all (#305).
+    VOTE = "VOTE"
+
+
 #: What a display shows when nobody has told it anything. Standings rather than
 #: nothing: an unassigned screen is a screen somebody has just plugged in, and
 #: a blank one reads as broken.
@@ -90,6 +117,10 @@ DEFAULT_VIEW = DisplayView.STANDINGS
 #: closer to what "flip to the next page" already means on every other paced
 #: view here.
 DEFAULT_SCROLL_BEHAVIOR = ScrollBehavior.PAGING
+
+#: The live audience display over the voting ballot: every race has
+#: standings to point at, and only some ever turn voting on.
+DEFAULT_QR_TARGET = QRTarget.STANDINGS
 
 
 @dataclass(frozen=True)
@@ -114,6 +145,10 @@ class Assignment:
     #: big enough that the full roster does not fit one screen is what the
     #: pending-only mode is for (#612).
     show_checked_in: bool = True
+    #: ``QRCODE``'s own rider (#614), the same shape as ``show_checked_in``
+    #: above: carried regardless of the current view, so a screen switched
+    #: away from ``QRCODE`` and back keeps whichever page it was pointed at.
+    qr_target: QRTarget = DEFAULT_QR_TARGET
 
     def __post_init__(self) -> None:
         if self.cycle_seconds < 1:
@@ -150,6 +185,10 @@ def describe(assignment: Assignment) -> str:
         if assignment.show_checked_in:
             return "Check-in progress"
         return "Check-in progress — pending only"
+    if assignment.view is DisplayView.QRCODE:
+        if assignment.qr_target is QRTarget.VOTE:
+            return "QR code — voting ballot"
+        return "QR code — live standings"
     return {
         DisplayView.STANDINGS: "Standings",
         DisplayView.TIMING: "Last heat's times",

@@ -249,6 +249,11 @@ class RaceBase(BaseModel):
     #: a race created with no opinion behaves exactly as one created before
     #: this field existed.
     drop_worst_runs: int = 0
+    #: Custom call-to-action text for the `QRCODE` display view (#614). Null
+    #: or empty means no override.
+    qr_headline: str | None = None
+    #: Optional venue Wi-Fi guidance for the `QRCODE` view (#614).
+    qr_wifi_note: str | None = None
 
     @field_validator("name")
     @classmethod
@@ -346,6 +351,14 @@ class RaceUpdate(BaseModel):
     #: own clear flag — the same shape `master_running_order` and
     #: `voting_open` already use.
     one_trophy_per_racer: bool | None = None
+    #: Custom call-to-action text for the `QRCODE` display view (#614).
+    #: Absent means leave alone; an empty string clears a custom headline
+    #: back to the derived default — no separate clear flag, since an empty
+    #: string could never be a legitimate override.
+    qr_headline: str | None = None
+    #: Optional venue Wi-Fi guidance for the `QRCODE` view (#614). Same
+    #: absent-means-leave-alone, empty-clears shape as `qr_headline` above.
+    qr_wifi_note: str | None = None
 
     @field_validator("drop_worst_runs")
     @classmethod

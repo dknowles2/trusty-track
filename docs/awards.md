@@ -103,7 +103,10 @@ walking the cars around with a clipboard.
    QR code beside it for handing to someone across the room. If it says it
    could not find a working address, see
    [finding this machine's address](access-and-network.md#finding-this-machines-address)
-   and check the phone can reach it before relying on it.
+   and check the phone can reach it before relying on it. **Project QR
+   code** opens the same code full-screen on a fresh display window, for a
+   gym-wall screen or an auxiliary TV instead of walking a phone around —
+   see [Audience display views](reference/displays.md#qr-code).
 3. Click **Close voting** before the ceremony. Nothing does this
    for you — it is your call, the same way starting the ceremony itself is.
 

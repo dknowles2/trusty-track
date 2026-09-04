@@ -161,6 +161,9 @@ export interface RaceSeed {
     location?: string;
     scoringStrategy?: string;
     carNumberingStrategy?: string;
+    /** The QR code display view's own text (#614). */
+    qrHeadline?: string;
+    qrWifiNote?: string;
 }
 
 /** A race of this spec's own. `races.name` is unique — never reuse one. */

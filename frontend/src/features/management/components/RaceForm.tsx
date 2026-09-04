@@ -33,6 +33,13 @@ export interface RaceFormData {
     championship_trophies: number;
     /** The pack's weight limit in ounces, or null for no check (#205). */
     weight_limit_oz?: number | null;
+    /** Custom call-to-action text for the full-screen QR code display view
+     * (#614). Empty means no override — the screen falls back to a default
+     * derived from what the code points at. */
+    qr_headline?: string | null;
+    /** Optional venue Wi-Fi guidance for the QR code display view (#614),
+     * shown under the code when set. */
+    qr_wifi_note?: string | null;
     /**
      * One interleaved running order across racing groups, instead of a
      * block per group (#549 stage 4). Off by default — running one group
@@ -113,7 +120,7 @@ import { useQuery } from 'urql';
 import { GET_TRACKS } from '../../core/graphql/queries';
 
 export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, submitLabel = 'Save', isEditing = false }: RaceFormProps) {
-    const { group, groupLower, groupsLower, vehicle, vehicleLower } = useTerminology();
+    const { group, groupLower, groupsLower, org, vehicle, vehicleLower } = useTerminology();
     const [formData, setFormData] = useState<RaceFormData>({
         name: '',
         date_time: '',
@@ -130,6 +137,8 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         // keeps whatever it has, including nothing. The column has no server
         // default on purpose — see the model.
         weight_limit_oz: DEFAULT_LIMIT_OZ,
+        qr_headline: '',
+        qr_wifi_note: '',
         master_running_order: false,
         exclude_round_winners_from_qualifying_standings: false,
         one_trophy_per_racer: false,
@@ -506,6 +515,43 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
                     Check-in warns when a {vehicleLower} is over this. It is a warning, not a
                     refusal — the inspector decides.
+                </p>
+            </div>
+
+            {/* The QR code display view's own text (#614) — both optional,
+                and available at creation like the weight limit above rather
+                than gated on `isEditing`: `createRace` accepts them the same
+                way `updateRace` does. Left blank, the screen falls back to a
+                headline derived from what the code points at and shows no
+                Wi-Fi line at all. */}
+            <div>
+                <label style={labelStyle} htmlFor="race-qr-headline">
+                    QR code headline (optional)
+                </label>
+                <input
+                    id="race-qr-headline"
+                    type="text"
+                    placeholder="e.g. Scan to Vote for Best in Show!"
+                    value={formData.qr_headline ?? ''}
+                    onChange={e => handleChange('qr_headline', e.target.value)}
+                    className="form-control"
+                    style={inputStyle}
+                />
+                <label style={labelStyle} htmlFor="race-qr-wifi-note">
+                    Venue Wi-Fi guidance (optional)
+                </label>
+                <input
+                    id="race-qr-wifi-note"
+                    type="text"
+                    placeholder={`e.g. Connect to ${org} 123 Guest Wi-Fi`}
+                    value={formData.qr_wifi_note ?? ''}
+                    onChange={e => handleChange('qr_wifi_note', e.target.value)}
+                    className="form-control"
+                    style={inputStyle}
+                />
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '0.25rem', marginBottom: '1rem' }}>
+                    Shown on the full-screen QR code audience display, under the code — see the
+                    Displays panel on Race Control.
                 </p>
             </div>
 

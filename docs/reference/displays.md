@@ -4,7 +4,7 @@ What a screen on the wall can show, and how telling it what to show works.
 For the setup walkthrough, see the
 [Observation Displays guide](../observation-displays.md).
 
-## The eight views
+## The nine views
 
 Every screen with the Live page open can be switched between these, from
 **Race Control → Displays** or by its own URL:
@@ -18,6 +18,7 @@ Every screen with the Live page open can be switched between these, from
 | **Racer photos** | A slideshow of the check-in photos: headshot, car, name, number, den |
 | **Standings only** | The leaderboard alone, filling the whole screen — no Now Racing / On Deck panels. For a pack whose standings are too long to share the screen with anything else |
 | **Check-in progress** | Who has checked in and who has not, grouped by den, on a screen at the entrance or the gym wall — see [below](#check-in-progress) |
+| **QR code** | A large, scannable code that opens this race on a phone — see [below](#qr-code) |
 | **Awards ceremony** | The [ceremony](../awards.md#announcing-them), one award at a time. Unlike every other view, it only moves when a person does — either at the screen, or with the **‹** and **›** buttons on its row in the operator's list |
 
 **The ceremony only appears once you have awards.** A race with none is not
@@ -81,7 +82,7 @@ if the operator clicks **End now** — there is nothing to acknowledge on the
 display's own end. A paused break shows the time it was paused at rather than
 counting down.
 
-Notes on four of them:
+Notes on five of them:
 
 - **Racer photos** goes in car number order rather than shuffling. Families
   are watching for their own child, and in order everybody comes round once
@@ -100,6 +101,9 @@ Notes on four of them:
   off schedule.
 - **Check-in progress** groups the roster by den, each with a progress bar
   and the count of cars still to come — see the next section.
+- **QR code** points a phone at this race's own Live page by default, or at
+  the [voting ballot](../awards.md#letting-people-vote) if you switch its row to **Voting
+  ballot** — see the section after Check-in progress below.
 
 ## Check-in progress
 
@@ -140,6 +144,42 @@ every view above, and the same choice hides a racer's own photo when it is
 set to anything but the default — see
 [Race and track settings](race-settings.md#names-on-public-screens) for the
 three choices and exactly where each one reaches.
+
+## QR code
+
+The answer to getting fifty parents in a crowded gym onto the right address
+without walking around holding up a laptop screen: a large, high-contrast
+code they can scan from their own seats, with the address printed underneath
+for anyone whose camera cannot read it.
+
+**Points at this race's own Live page by default.** Switch a screen's row to
+**Voting ballot** instead and it points at the [voting page](../awards.md#letting-people-vote)
+— the same address the Awards page's own **Copy** button and QR code share
+— so a screen at the entrance can invite people to follow along, and the
+same screen (or a second one) can be switched over once judging opens.
+
+**The address is worked out the same way the Awards page's ballot share
+step already does it.** The browser running Trusty Track usually shows
+`localhost`, which means nothing to a phone on the venue wifi — Trusty Track
+substitutes this machine's own network address instead, and says so plainly
+if it could not find one to substitute (try typing the printed address into
+a phone's browser to check it works before relying on it).
+
+**A headline and a Wi-Fi line, both optional**, set on the race's own edit
+form (**Edit race** from Home, or **Edit Details** on the Roster page):
+
+- **QR code headline** — the call-to-action above the code, e.g. *"Scan to
+  Vote for Best in Show!"* or *"See Live Results on Your Phone"*. Left
+  blank, the screen shows a sensible default depending on which page the
+  code opens.
+- **Venue Wi-Fi guidance** — a line under the address, e.g. *"Connect to the
+  guest Wi-Fi first"*. Left blank, nothing is shown — most venues have open
+  wifi or none worth mentioning.
+
+**A shortcut from the Awards page.** The Voting panel's **Project QR code**
+button opens a brand-new display window already pointed at the ballot — for
+when the screen you want to use is not already open, or you would rather not
+hunt for it in the Displays list first.
 
 ## Names, and telling one screen from another
 

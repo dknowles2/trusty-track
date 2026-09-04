@@ -550,6 +550,20 @@ class Race(Base):
     one_trophy_per_racer: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    #: Custom call-to-action text for the full-screen `QRCODE` audience
+    #: display view (#614), e.g. "Scan to Vote for Best in Show!". Null or
+    #: empty means no override — the screen falls back to a default derived
+    #: from what the code points at (`qrCode.ts`'s `resolveQrHeadline`).
+    #: No server default: a race created before this column existed has
+    #: nothing to fall back from but the derived default, which is exactly
+    #: what it should show.
+    qr_headline: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: Optional venue Wi-Fi guidance shown under the QR code (#614), e.g.
+    #: "Connect to Pack 123 Guest Wi-Fi" — a plain free-text line, not a
+    #: separate SSID/password pair, since the operator is typing a sentence
+    #: for a phone screen to read, not configuring a router. Null shows
+    #: nothing, which is most venues: open wifi, or none worth mentioning.
+    qr_wifi_note: Mapped[str | None] = mapped_column(String, nullable=True)
     #: A race-scoped break, on the fly or from the round-summary modal's
     #: "Take a break" row (#592). Stored, not in-memory like a `Display`
     #: `Assignment` — an intermission describes the *race*, and every screen

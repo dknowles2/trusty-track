@@ -19,7 +19,19 @@ export type DisplayView =
     | 'AWARDS'
     | 'SLIDESHOW'
     | 'STANDINGS_ONLY'
-    | 'CHECKIN';
+    | 'CHECKIN'
+    | 'QRCODE';
+
+/**
+ * Which page `QRCODE` points a phone at (#614) — mirrors
+ * `backend/domain/displays.py::QRTarget` exactly, the same relationship
+ * `DisplayView` has with its own backend enum.
+ */
+export type QRTarget = 'STANDINGS' | 'VOTE';
+
+/** The live audience display over the voting ballot — every race has
+ * standings to point at, and only some ever turn voting on. */
+export const DEFAULT_QR_TARGET: QRTarget = 'STANDINGS';
 
 /**
  * How the `STANDINGS_ONLY` view gets through a list too long for one screen
@@ -53,11 +65,19 @@ export interface ViewBehaviour {
      * the "Please Check-In" kiosk.
      */
     checkin: boolean;
+    /**
+     * A large, high-contrast QR code that opens this race on a phone
+     * (#614) — the answer to "how do I get fifty parents in a gym onto the
+     * right address" that shouting an IP address never was.
+     */
+    qrcode: boolean;
     cycleMs: number;
     /** How `standingsOnly` gets through a list too long for one screen. */
     scrollBehavior: ScrollBehavior;
     /** Whether `checkin` lists everybody, or only who is still pending. */
     showCheckedIn: boolean;
+    /** Which page `qrcode` points a phone at. */
+    qrTarget: QRTarget;
     /** The ceremony is its own route, so the page redirects rather than renders. */
     redirectTo: string | null;
 }
@@ -70,6 +90,7 @@ export interface UrlIntent {
     cycleMs: number;
     scrollBehavior: ScrollBehavior;
     showCheckedIn: boolean;
+    qrTarget: QRTarget;
 }
 
 export function readUrl(params: URLSearchParams): UrlIntent {
@@ -80,6 +101,7 @@ export function readUrl(params: URLSearchParams): UrlIntent {
         cycleMs: parseInt(params.get('cycle_interval') || '10000'),
         scrollBehavior: params.get('scroll') === 'smooth' ? 'SMOOTH' : DEFAULT_SCROLL_BEHAVIOR,
         showCheckedIn: params.get('checkin_show') !== 'pending',
+        qrTarget: params.get('qr_target') === 'vote' ? 'VOTE' : DEFAULT_QR_TARGET,
     };
 }
 
@@ -89,6 +111,7 @@ export function behaviourFor(
     raceId: number,
     scrollBehavior: ScrollBehavior = DEFAULT_SCROLL_BEHAVIOR,
     showCheckedIn: boolean = DEFAULT_SHOW_CHECKED_IN,
+    qrTarget: QRTarget = DEFAULT_QR_TARGET,
 ): ViewBehaviour {
     const base = {
         projector: false,
@@ -96,9 +119,11 @@ export function behaviourFor(
         slideshow: false,
         standingsOnly: false,
         checkin: false,
+        qrcode: false,
         cycleMs: cycleSeconds * 1000,
         scrollBehavior,
         showCheckedIn,
+        qrTarget,
         redirectTo: null,
     };
     switch (view) {
@@ -114,6 +139,8 @@ export function behaviourFor(
             return { ...base, tab: 'standings', standingsOnly: true };
         case 'CHECKIN':
             return { ...base, tab: 'standings', checkin: true };
+        case 'QRCODE':
+            return { ...base, tab: 'standings', qrcode: true };
         case 'AWARDS':
             return { ...base, tab: 'standings', redirectTo: `/race/${raceId}/awards/present` };
         case 'STANDINGS':
@@ -142,6 +169,7 @@ export function resolveView(
         cycleSeconds: number;
         scrollBehavior?: ScrollBehavior;
         showCheckedIn?: boolean;
+        qrTarget?: QRTarget;
     } | null,
     url: UrlIntent,
     raceId: number,
@@ -153,6 +181,7 @@ export function resolveView(
             raceId,
             assignment.scrollBehavior ?? DEFAULT_SCROLL_BEHAVIOR,
             assignment.showCheckedIn ?? DEFAULT_SHOW_CHECKED_IN,
+            assignment.qrTarget ?? DEFAULT_QR_TARGET,
         );
     }
     return {
@@ -165,9 +194,11 @@ export function resolveView(
         slideshow: url.view === 'slideshow',
         standingsOnly: url.view === 'standings_only',
         checkin: url.view === 'checkin',
+        qrcode: url.view === 'qrcode',
         cycleMs: url.cycleMs,
         scrollBehavior: url.scrollBehavior,
         showCheckedIn: url.showCheckedIn,
+        qrTarget: url.qrTarget,
         redirectTo: null,
     };
 }
@@ -193,6 +224,7 @@ export const VIEW_OPTIONS: readonly {
     { view: 'SLIDESHOW', label: 'Racer photos', cycles: true },
     { view: 'STANDINGS_ONLY', label: 'Standings only', cycles: true },
     { view: 'CHECKIN', label: 'Check-in progress', cycles: false },
+    { view: 'QRCODE', label: 'QR code', cycles: false },
     { view: 'AWARDS', label: 'Awards ceremony', cycles: false },
 ];
 
@@ -217,6 +249,12 @@ export function viewHasCheckedInToggle(view: DisplayView): boolean {
     return view === 'CHECKIN';
 }
 
+/** Whether a view offers the "which page does it open" choice (#614). Only
+ * `QRCODE` does — it is the one view with a page to choose between. */
+export function viewHasQrTargetToggle(view: DisplayView): boolean {
+    return view === 'QRCODE';
+}
+
 /**
  * The views to offer for one screen.
  *
@@ -236,10 +274,11 @@ export function viewHasCheckedInToggle(view: DisplayView): boolean {
  * awards; a second copy of the rule on the server would be one more thing to
  * keep in step for no gain.
  *
- * `STANDINGS_ONLY` and `CHECKIN` need no such gating — unlike the ceremony
- * neither has anything it can be missing (there is always a leaderboard, and
- * always a roster, even an empty one), so both are offered unconditionally
- * like every other ordinary view.
+ * `STANDINGS_ONLY`, `CHECKIN` and `QRCODE` need no such gating — unlike the
+ * ceremony none of the three has anything it can be missing (there is
+ * always a leaderboard, always a roster, and this race's own address always
+ * resolves to something, even before voting is ever turned on), so all
+ * three are offered unconditionally like every other ordinary view.
  */
 export function viewOptionsFor(
     hasAwards: boolean,

@@ -116,6 +116,7 @@ export const DisplayAssignmentSubscription = gql`
       cycleSeconds
       scrollBehavior
       showCheckedIn
+      qrTarget
       description
       pacedByAPerson
       connected
@@ -139,6 +140,7 @@ export const DisplaysSubscription = gql`
       cycleSeconds
       scrollBehavior
       showCheckedIn
+      qrTarget
       description
       pacedByAPerson
       connected
@@ -160,6 +162,7 @@ export const DISPLAYS_QUERY = gql`
       cycleSeconds
       scrollBehavior
       showCheckedIn
+      qrTarget
       description
       pacedByAPerson
       connected
@@ -169,6 +172,20 @@ export const DISPLAYS_QUERY = gql`
       slideDelta
       identifySeq
     }
+  }
+`;
+
+/**
+ * This machine's own LAN address(es), for the `QRCODE` display view (#614) —
+ * the same query the Awards page's ballot share step already asks, under a
+ * distinct operation name since every document in the app needs one.
+ * `window.location.origin` is `localhost` on the machine running Trusty
+ * Track, which no phone in the room can open; see
+ * `features/core/shareAddress.ts`.
+ */
+export const NETWORK_ADDRESSES_QUERY = gql`
+  query ObservationNetworkAddresses {
+    networkAddresses
   }
 `;
 
@@ -215,6 +232,7 @@ export const ASSIGN_DISPLAY = gql`
     $cycleSeconds: Int
     $scrollBehavior: ScrollBehavior
     $showCheckedIn: Boolean
+    $qrTarget: QRTarget
   ) {
     assignDisplay(
       displayId: $displayId
@@ -222,12 +240,14 @@ export const ASSIGN_DISPLAY = gql`
       cycleSeconds: $cycleSeconds
       scrollBehavior: $scrollBehavior
       showCheckedIn: $showCheckedIn
+      qrTarget: $qrTarget
     ) {
       displayId
       view
       cycleSeconds
       scrollBehavior
       showCheckedIn
+      qrTarget
       description
       pacedByAPerson
       connected
@@ -270,6 +290,7 @@ export const RENAME_DISPLAY = gql`
       cycleSeconds
       scrollBehavior
       showCheckedIn
+      qrTarget
       description
       pacedByAPerson
       connected

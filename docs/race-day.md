@@ -109,6 +109,10 @@ to the [**Check-in progress**](reference/displays.md#check-in-progress) view
 from **Race Control → Displays**, and the same question ("is my car through
 yet?") is answered by looking at the wall rather than asking the desk.
 
+A second screen with the [**QR code**](reference/displays.md#qr-code) view up
+at the entrance turns "here's our website, look us up later" into everyone
+having the live standings on their own phone before check-in even finishes.
+
 ---
 
 ### Uploading Photos in Bulk

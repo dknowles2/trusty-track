@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CLAIM_HEARTBEAT_MS, displayId, newDisplayWindowUrl, startDeviceClaimHeartbeat } from './displayIdentity';
+import {
+    CLAIM_HEARTBEAT_MS,
+    displayId,
+    newDisplayWindowUrl,
+    qrCodeWindowUrl,
+    startDeviceClaimHeartbeat,
+} from './displayIdentity';
 
 const DEVICE_KEY = 'trustytrack.displayId';
 const SESSION_KEY = 'trustytrack.displayId.session';
@@ -146,6 +152,25 @@ describe('newDisplayWindowUrl', () => {
     it('mints a different id on every call, so two windows never share one', () => {
         const a = newDisplayWindowUrl(1);
         const b = newDisplayWindowUrl(1);
+        expect(a).not.toBe(b);
+    });
+});
+
+describe('qrCodeWindowUrl', () => {
+    it('opens the QR code view pointed at this races standings', () => {
+        const url = qrCodeWindowUrl(42, 'STANDINGS');
+        expect(url).toMatch(/^\/race\/42\/observation\?displayId=.+&view=qrcode$/);
+    });
+
+    it('opens the QR code view pointed at the voting ballot', () => {
+        const url = qrCodeWindowUrl(42, 'VOTE');
+        expect(url).toContain('view=qrcode');
+        expect(url).toContain('qr_target=vote');
+    });
+
+    it('mints a different id on every call, so two windows never share one', () => {
+        const a = qrCodeWindowUrl(1, 'STANDINGS');
+        const b = qrCodeWindowUrl(1, 'STANDINGS');
         expect(a).not.toBe(b);
     });
 });

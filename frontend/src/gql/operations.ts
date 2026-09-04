@@ -22,6 +22,7 @@ export type DisplayView =
   | 'CHECKIN'
   | 'CYCLE'
   | 'PROJECTOR'
+  | 'QRCODE'
   | 'SLIDESHOW'
   | 'STANDINGS'
   | 'STANDINGS_ONLY'
@@ -89,6 +90,10 @@ export type PopulateTestDataInput = {
   count?: number;
 };
 
+export type QrTarget =
+  | 'STANDINGS'
+  | 'VOTE';
+
 export type RaceInput = {
   carNumberingStrategy?: string;
   championshipTrophies?: number;
@@ -98,6 +103,8 @@ export type RaceInput = {
   location?: string | null | undefined;
   name: string;
   organizationId?: number;
+  qrHeadline?: string | null | undefined;
+  qrWifiNote?: string | null | undefined;
   scoringStrategy?: string;
   tiebreaker?: string;
   trackId: number;
@@ -123,6 +130,8 @@ export type RaceUpdateInput = {
   oneTrophyPerRacer?: boolean | null | undefined;
   organizationPlural?: string | null | undefined;
   organizationSingular?: string | null | undefined;
+  qrHeadline?: string | null | undefined;
+  qrWifiNote?: string | null | undefined;
   racingGroupPlural?: string | null | undefined;
   racingGroupSingular?: string | null | undefined;
   scoringStrategy?: string | null | undefined;
@@ -355,7 +364,7 @@ export type GetRaceDetailsQueryVariables = Exact<{
 }>;
 
 
-export type GetRaceDetailsQuery = { race: { id: number, name: string, dateTime: string | null, location: string | null, trackId: number | null, scoringStrategy: string, tiebreaker: string, dropWorstRuns: number, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, masterRunningOrder: boolean, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, vehicleArtworkKey: string | null, excludeRoundWinnersFromQualifyingStandings: boolean, oneTrophyPerRacer: boolean, nameDisplay: string | null, resolvedNameDisplay: string, isLocked: boolean, registeredCount: number, checkedInCount: number, scheduledRacerIds: Array<number>, racingGroups: Array<{ id: number, name: string, color: string, division: string | null, carNumberRangeStart: number | null, carNumberRangeEnd: number | null }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, racingGroupId: number | null, carName: string | null, carPassedInspection: boolean, carWeight: number | null, racerImageUrl: string | null, carImageUrl: string | null, excludedFromStandings: boolean }>, leaderboard: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, racingGroupName: string, score: number, heatsCompleted: number, racerImageUrl: string | null, rank: number }>, rounds: Array<{ id: number }> } | null, tracks: Array<{ id: number, name: string, laneCount: number }> };
+export type GetRaceDetailsQuery = { race: { id: number, name: string, dateTime: string | null, location: string | null, trackId: number | null, scoringStrategy: string, tiebreaker: string, dropWorstRuns: number, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, qrHeadline: string | null, qrWifiNote: string | null, masterRunningOrder: boolean, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, vehicleArtworkKey: string | null, excludeRoundWinnersFromQualifyingStandings: boolean, oneTrophyPerRacer: boolean, nameDisplay: string | null, resolvedNameDisplay: string, isLocked: boolean, registeredCount: number, checkedInCount: number, scheduledRacerIds: Array<number>, racingGroups: Array<{ id: number, name: string, color: string, division: string | null, carNumberRangeStart: number | null, carNumberRangeEnd: number | null }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, racingGroupId: number | null, carName: string | null, carPassedInspection: boolean, carWeight: number | null, racerImageUrl: string | null, carImageUrl: string | null, excludedFromStandings: boolean }>, leaderboard: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, racingGroupName: string, score: number, heatsCompleted: number, racerImageUrl: string | null, rank: number }>, rounds: Array<{ id: number }> } | null, tracks: Array<{ id: number, name: string, laneCount: number }> };
 
 export type GetRaceRacingGroupsQueryVariables = Exact<{
   raceId: number;
@@ -370,7 +379,7 @@ export type UpdateRaceMutationVariables = Exact<{
 }>;
 
 
-export type UpdateRaceMutation = { updateRace: { id: number, name: string, dateTime: string | null, location: string | null, trackId: number | null, scoringStrategy: string, tiebreaker: string, dropWorstRuns: number, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, masterRunningOrder: boolean, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, vehicleArtworkKey: string | null, excludeRoundWinnersFromQualifyingStandings: boolean, oneTrophyPerRacer: boolean, nameDisplay: string | null, resolvedNameDisplay: string, terminology: { racingGroupSingular: string, racingGroupPlural: string, organizationSingular: string, organizationPlural: string, vehicleSingular: string, vehiclePlural: string, vehicleArtworkKey: string } } | null };
+export type UpdateRaceMutation = { updateRace: { id: number, name: string, dateTime: string | null, location: string | null, trackId: number | null, scoringStrategy: string, tiebreaker: string, dropWorstRuns: number, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, qrHeadline: string | null, qrWifiNote: string | null, masterRunningOrder: boolean, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, vehicleArtworkKey: string | null, excludeRoundWinnersFromQualifyingStandings: boolean, oneTrophyPerRacer: boolean, nameDisplay: string | null, resolvedNameDisplay: string, terminology: { racingGroupSingular: string, racingGroupPlural: string, organizationSingular: string, organizationPlural: string, vehicleSingular: string, vehiclePlural: string, vehicleArtworkKey: string } } | null };
 
 export type DeleteRaceMutationVariables = Exact<{
   id: number;
@@ -602,21 +611,26 @@ export type DisplayAssignmentSubscriptionVariables = Exact<{
 }>;
 
 
-export type DisplayAssignmentSubscription = { displayAssignment: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number, displayThemeSetting: string } };
+export type DisplayAssignmentSubscription = { displayAssignment: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number, displayThemeSetting: string } };
 
 export type DisplaysSubscriptionVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type DisplaysSubscription = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
+export type DisplaysSubscription = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
 
 export type GetDisplaysQueryVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type GetDisplaysQuery = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
+export type GetDisplaysQuery = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
+
+export type ObservationNetworkAddressesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ObservationNetworkAddressesQuery = { networkAddresses: Array<string> };
 
 export type RaceAwardCountQueryVariables = Exact<{
   raceId: number;
@@ -639,10 +653,11 @@ export type AssignDisplayMutationVariables = Exact<{
   cycleSeconds?: number | null | undefined;
   scrollBehavior?: Types.ScrollBehavior | null | undefined;
   showCheckedIn?: boolean | null | undefined;
+  qrTarget?: Types.QrTarget | null | undefined;
 }>;
 
 
-export type AssignDisplayMutation = { assignDisplay: { displayId: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, description: string, pacedByAPerson: boolean, connected: boolean, name: string, raceId: number } | null };
+export type AssignDisplayMutation = { assignDisplay: { displayId: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, description: string, pacedByAPerson: boolean, connected: boolean, name: string, raceId: number } | null };
 
 export type AdvanceDisplayMutationVariables = Exact<{
   displayId: string;
@@ -665,7 +680,7 @@ export type RenameDisplayMutationVariables = Exact<{
 }>;
 
 
-export type RenameDisplayMutation = { renameDisplay: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number } | null };
+export type RenameDisplayMutation = { renameDisplay: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number } | null };
 
 export type ForgetDisplayMutationVariables = Exact<{
   displayId: string;

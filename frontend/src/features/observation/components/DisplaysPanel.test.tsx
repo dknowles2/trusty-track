@@ -34,6 +34,7 @@ function renderPanel(
     hasDisplay = true,
     scrollBehavior = 'PAGING',
     showCheckedIn = true,
+    qrTarget = 'STANDINGS',
 ) {
     // Two queries, and they answer different questions: the list of screens,
     // and whether the race has any awards to announce.
@@ -68,6 +69,7 @@ function renderPanel(
                             cycleSeconds,
                             scrollBehavior,
                             showCheckedIn,
+                            qrTarget,
                             description: 'Standings',
                             pacedByAPerson: view === 'AWARDS',
                             connected,
@@ -199,6 +201,36 @@ describe('the everybody/pending-only control (#612)', () => {
     });
 });
 
+describe('the QR target control (#614)', () => {
+    it('is offered for the QR code view', () => {
+        renderPanel('QRCODE');
+        expect(screen.getByLabelText("What Gym north's QR code opens")).toBeTruthy();
+    });
+
+    it('is absent for every other view', () => {
+        renderPanel('STANDINGS');
+        expect(screen.queryByLabelText("What Gym north's QR code opens")).toBeNull();
+    });
+
+    it('reflects the display’s current choice', () => {
+        renderPanel('QRCODE', 10, true, 2, true, 'PAGING', true, 'VOTE');
+        const select = screen.getByLabelText("What Gym north's QR code opens") as HTMLSelectElement;
+        expect(select.value).toBe('VOTE');
+    });
+
+    it('sends the choice, keeping the row on the QR code view', () => {
+        renderPanel('QRCODE');
+        fireEvent.change(screen.getByLabelText("What Gym north's QR code opens"), {
+            target: { value: 'VOTE' },
+        });
+        expect(assignDisplay).toHaveBeenCalledWith({
+            displayId: 'd-1',
+            view: 'QRCODE',
+            qrTarget: 'VOTE',
+        });
+    });
+});
+
 describe('driving a ceremony from the operator’s list', () => {
     it('offers Next and Previous for a screen showing the ceremony', () => {
         renderPanel('AWARDS');
@@ -263,6 +295,7 @@ describe('offering the ceremony as a view', () => {
             'Racer photos',
             'Standings only',
             'Check-in progress',
+            'QR code',
         ]);
     });
 

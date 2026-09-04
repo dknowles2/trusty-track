@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shareUrl, voteQrSrc } from './shareAddress';
+import { shareUrl, qrCodeSrc } from './shareAddress';
 
 describe('shareUrl', () => {
   it('keeps the browser address when the origin is already not loopback', () => {
@@ -61,9 +61,9 @@ describe('shareUrl', () => {
   });
 });
 
-describe('voteQrSrc', () => {
+describe('qrCodeSrc', () => {
   it('scopes the QR image to the race and carries the URL to encode', () => {
-    expect(voteQrSrc(1, 'http://192.168.1.42:8000/race/1/vote')).toBe(
+    expect(qrCodeSrc(1, 'http://192.168.1.42:8000/race/1/vote')).toBe(
       '/api/printables/vote-qr/1.png?url=http%3A%2F%2F192.168.1.42%3A8000%2Frace%2F1%2Fvote',
     );
   });

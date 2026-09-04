@@ -120,6 +120,7 @@ type Display {
   cycleSeconds: Int!
   scrollBehavior: ScrollBehavior!
   showCheckedIn: Boolean!
+  qrTarget: QRTarget!
   connected: Boolean!
   assigned: Boolean!
   description: String!
@@ -139,6 +140,7 @@ enum DisplayView {
   SLIDESHOW
   STANDINGS_ONLY
   CHECKIN
+  QRCODE
 }
 
 type FreeRaceHeat {
@@ -387,7 +389,7 @@ type Mutation {
   pauseIntermission(raceId: Int!): Race!
   resumeIntermission(raceId: Int!): Race!
   endIntermission(raceId: Int!): Race!
-  assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null, scrollBehavior: ScrollBehavior = null, showCheckedIn: Boolean = null): Display
+  assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null, scrollBehavior: ScrollBehavior = null, showCheckedIn: Boolean = null, qrTarget: QRTarget = null): Display
   advanceDisplay(displayId: String!, delta: Int!): Display
   identifyDisplay(displayId: String!): Display
   renameDisplay(displayId: String!, name: String!): Display
@@ -483,6 +485,11 @@ input PopulateTestDataInput {
   checkIn: Boolean! = false
 }
 
+enum QRTarget {
+  STANDINGS
+  VOTE
+}
+
 type Query {
   displays(raceId: Int!): [Display!]!
   suggestDisplayName(displayId: String!, avoid: String = null): String!
@@ -536,6 +543,8 @@ type Race {
   nameDisplay: String
   isLocked: Boolean!
   oneTrophyPerRacer: Boolean!
+  qrHeadline: String
+  qrWifiNote: String
   intermission: Intermission!
   resolvedNameDisplay: String!
   terminology: Terminology!
@@ -576,6 +585,8 @@ input RaceInput {
   championshipTrophies: Int! = 3
   weightLimitOz: Float = null
   dropWorstRuns: Int! = 0
+  qrHeadline: String = null
+  qrWifiNote: String = null
 }
 
 type RaceStateChangedEvent {
@@ -633,6 +644,8 @@ input RaceUpdateInput {
   clearNameDisplay: Boolean! = false
   isLocked: Boolean = null
   oneTrophyPerRacer: Boolean = null
+  qrHeadline: String = null
+  qrWifiNote: String = null
 }
 
 type Racer {

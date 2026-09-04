@@ -73,6 +73,16 @@ the limit is typed at check-in, the box turns red and says so.
   warning.
 - Turn the check off entirely if your pack does not weigh cars.
 
+### QR code display
+
+Two optional text fields on the race's own edit form — a headline (e.g.
+*"Scan to Vote for Best in Show!"*) and a line of venue Wi-Fi guidance (e.g.
+*"Connect to the guest Wi-Fi first"*) — shown on the full-screen **QR code**
+audience display view. Both are blank by default: the screen falls back to
+a sensible headline of its own and shows no Wi-Fi line at all. See [Audience
+display views](displays.md#qr-code) for what the screen actually shows and
+which page the code opens.
+
 ### Car numbering
 
 | Choice | How numbers are handed out |
@@ -183,7 +193,7 @@ It needs both the checkbox on **and** a length recorded — a track with no
 length shows no speed however the checkbox is set, since there is nothing to
 convert from. Once both are set, the speed appears beside a heat's time on
 the [projector view and the Last heat's times
-view](displays.md#the-eight-views), and the fastest heat of the race gets its
+view](displays.md#the-nine-views), and the fastest heat of the race gets its
 own line on the [Stats page](stats-and-exports.md#top-moments).
 
 ### No timer

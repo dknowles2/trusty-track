@@ -45,6 +45,17 @@ describe('buildCreateRaceInput', () => {
         ).toBe(1);
     });
 
+    it('carries the QR code display view text (#614)', () => {
+        const input = buildCreateRaceInput({
+            ...baseFormData,
+            qr_headline: 'Scan to Vote for Best in Show!',
+            qr_wifi_note: 'Connect to Pack 123 Guest Wi-Fi',
+        });
+
+        expect(input.qrHeadline).toBe('Scan to Vote for Best in Show!');
+        expect(input.qrWifiNote).toBe('Connect to Pack 123 Guest Wi-Fi');
+    });
+
     it('maps every other field from snake_case to camelCase', () => {
         expect(buildCreateRaceInput(baseFormData)).toEqual({
             name: 'Pack 42 Derby',
@@ -58,6 +69,8 @@ describe('buildCreateRaceInput', () => {
             globalStartNumber: 1,
             championshipTrophies: 3,
             weightLimitOz: 5.0,
+            qrHeadline: undefined,
+            qrWifiNote: undefined,
         });
     });
 });

@@ -23,5 +23,7 @@ export function buildCreateRaceInput(data: RaceFormData) {
         globalStartNumber: data.global_start_number,
         championshipTrophies: data.championship_trophies,
         weightLimitOz: data.weight_limit_oz,
+        qrHeadline: data.qr_headline,
+        qrWifiNote: data.qr_wifi_note,
     };
 }
