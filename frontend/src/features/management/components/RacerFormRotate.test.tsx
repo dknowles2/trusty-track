@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '../../../setupTests';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 vi.mock('urql', async (importOriginal) => {
@@ -102,7 +102,16 @@ describe('rotating an already-uploaded photo', () => {
         // or a fresh camera capture, not a second path that edits the
         // stored URL in place.
         expect(screen.queryByRole('dialog', { name: /rotate \/ recrop photo/i })).not.toBeInTheDocument();
-        expect(uploadImageMutation).toHaveBeenCalledTimes(1);
+
+        // `uploadFile` hands the confirmed file to a `FileReader` and calls
+        // the mutation from its `onload`, which jsdom fires as a separate
+        // macrotask rather than within the microtask queue `userEvent.click`
+        // awaits — so the mutation is not necessarily called yet the instant
+        // the click resolves. `RacerFormPhotoUpload.test.tsx` waits on the
+        // same `uploadFile` path the same way, for the same reason.
+        await waitFor(() => {
+            expect(uploadImageMutation).toHaveBeenCalledTimes(1);
+        });
         expect(uploadImageMutation.mock.calls[0][0].dataUrl).toMatch(/^data:image\/jpeg;base64,/);
 
         expect(await screen.findByAltText('Racer')).toHaveAttribute(
@@ -135,7 +144,16 @@ describe('rotating an already-uploaded photo', () => {
         const dialog = screen.getByRole('dialog', { name: /rotate \/ recrop photo/i });
         await userEvent.click(within(dialog).getByRole('button', { name: /^cancel$/i }));
 
-        expect(screen.queryByRole('dialog', { name: /rotate \/ recrop photo/i })).not.toBeInTheDocument();
+        // `onCancel` is a plain synchronous state update (`RacerForm.tsx` sets
+        // `cropTarget` back to `'none'` with nothing awaited), so there is no
+        // upload chain here to race — unlike the confirm case above. Waiting
+        // for the dialog to be gone before the negative assertion still
+        // settles the render first, rather than trusting that "the click
+        // promise resolved" already means "everything triggered by the click
+        // has finished" — the assumption that made the confirm case flaky.
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog', { name: /rotate \/ recrop photo/i })).not.toBeInTheDocument();
+        });
         expect(uploadImageMutation).not.toHaveBeenCalled();
         expect(screen.getByAltText('Car')).toHaveAttribute('src', '/static/car-original.jpg');
     });
