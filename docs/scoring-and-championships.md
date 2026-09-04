@@ -223,6 +223,10 @@ immediately.
   the next car in the standings takes their spot — as long as that round has
   not been raced yet.
 
+Prefer to choose the cars yourself instead — a judged award, a house rule,
+a car the timer couldn't fairly score? See
+[Picking a line-up by hand](reference/championship-rounds.md#picking-a-line-up-by-hand).
+
 The full rules are in
 [Championship rounds](reference/championship-rounds.md).
 

@@ -187,6 +187,55 @@ describe('RoundConfigModal', () => {
     });
   });
 
+  it('checking "I\'ll choose who races myself" submits pickFieldByHand (#711)', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} />);
+    openChampionshipTab();
+
+    fireEvent.click(screen.getByLabelText(/I'll choose who races myself/));
+    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      advancementSource: 'ALL',
+      pickFieldByHand: true,
+    });
+  });
+
+  it('leaving the checkbox unchecked submits pickFieldByHand as false', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} />);
+    openChampionshipTab();
+
+    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0].pickFieldByHand).toBe(false);
+  });
+
+  it('the checkbox is not offered for a general round', () => {
+    // A general round's field is the roster, not a pick — `pinRoundField`
+    // refuses one, so this screen never offers the checkbox for it.
+    render(<RoundConfigModal {...defaultProps} />);
+    expect(
+      screen.queryByLabelText(/I'll choose who races myself/)
+    ).not.toBeInTheDocument();
+  });
+
+  it('the checkbox resets to unchecked on a close-and-reopen', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const { rerender } = render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} />);
+    openChampionshipTab();
+    fireEvent.click(screen.getByLabelText(/I'll choose who races myself/));
+    expect(screen.getByLabelText(/I'll choose who races myself/)).toBeChecked();
+
+    rerender(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} isOpen={false} />);
+    rerender(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} isOpen={true} />);
+    openChampionshipTab();
+
+    expect(screen.getByLabelText(/I'll choose who races myself/)).not.toBeChecked();
+  });
+
   it('the trophy minimum applies only to the fastest direction', () => {
     render(<RoundConfigModal {...defaultProps} />);
     openChampionshipTab();

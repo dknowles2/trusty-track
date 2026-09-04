@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act, within } from '@testing-library/react';
+import { render, screen, fireEvent, act, within, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { ScheduleManagement, Heat } from './ScheduleManagement';
-import { lane } from '../testFixtures';
+import { heat, lane } from '../testFixtures';
 import { AlertProvider } from '../../../context/AlertContext';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -1233,6 +1233,194 @@ describe('ScheduleManagement', () => {
 
       fireEvent.click(screen.getByTestId('chart-toggle-2'));
       expect(screen.queryByTestId('elimination-chart')).not.toBeInTheDocument();
+    });
+  });
+
+  describe("hand-picking a championship round's field (#711)", () => {
+    const advancementStatusFixture = (over: Partial<{
+      fieldIsPinned: boolean;
+      source: string | null;
+      numRacers: number | null;
+      fromBottom: boolean;
+    }> = {}) => ({
+      isReady: true,
+      requiresAdvancement: true,
+      alreadyAdvanced: false,
+      fieldIsStale: false,
+      contestedCut: false,
+      fieldIsPinned: false,
+      source: 'ALL',
+      numRacers: 2,
+      fromBottom: false,
+      ...over,
+      advancingRacers: [
+        { racerId: 1, firstName: 'Alice', lastName: 'Smith', carNumber: 7, racingGroupName: 'Lions', score: 3.5, rank: 1, isAdvancing: true },
+        { racerId: 2, firstName: 'Bob', lastName: 'Jones', carNumber: 12, racingGroupName: 'Lions', score: 3.6, rank: 2, isAdvancing: true },
+        { racerId: 3, firstName: 'Carol', lastName: 'White', carNumber: 3, racingGroupName: 'Lions', score: 4.0, rank: 3, isAdvancing: false },
+      ],
+    });
+
+    const championshipRound = (over: { fieldPinned?: boolean; advancementStatus?: ReturnType<typeof advancementStatusFixture> } = {}) => ({
+      id: 7,
+      roundNumber: 2,
+      name: 'Finals',
+      advancementSource: 'ALL',
+      advancementFromBottom: false,
+      fieldPinned: false,
+      schedulingStrategy: 'PPC',
+      racingGroupId: null,
+      eliminationChart: null,
+      advancementStatus: advancementStatusFixture(),
+      ...over,
+    });
+
+    const generalRound = () => ({
+      id: 1,
+      roundNumber: 1,
+      name: 'All Pack',
+      advancementSource: null,
+      advancementFromBottom: false,
+      fieldPinned: false,
+      schedulingStrategy: 'PPC',
+      racingGroupId: null,
+      eliminationChart: null,
+      advancementStatus: advancementStatusFixture({ source: null, numRacers: null }),
+    });
+
+    const finalsHeat = (over: Partial<Heat> = {}) =>
+      heat({
+        id: 10,
+        roundNumber: 2,
+        roundId: 7,
+        heatNumber: 1,
+        roundName: 'Finals',
+        lanes: [lane({ lane: 1, placeholderSlot: 1 })],
+        ...over,
+      });
+
+    const checkedInRacers = [
+      { id: 1, firstName: 'Alice', lastName: 'Smith', carNumber: 7 },
+      { id: 2, firstName: 'Bob', lastName: 'Jones', carNumber: 12 },
+      { id: 3, firstName: 'Carol', lastName: 'White', carNumber: 3 },
+    ];
+
+    const renderSchedule = (props: Record<string, unknown> = {}) =>
+      render(
+        <MemoryRouter>
+          <AlertProvider>
+            <ScheduleManagement
+              raceId={1}
+              heats={[finalsHeat()]}
+              generating={false}
+              activeHeatId={null}
+              onAddRound={vi.fn()}
+              onRegenerateRound={vi.fn()}
+              onDeleteRound={vi.fn()}
+              onDeleteHeat={vi.fn()}
+              onRunHeat={vi.fn()}
+              onReorderHeats={vi.fn()}
+              getRacerName={(id: number) => `Racer ${id}`}
+              onRefetchHeats={vi.fn()}
+              laneCount={4}
+              racerCount={10}
+              racingGroupCount={3}
+              championshipTrophies={3}
+              rounds={[championshipRound()]}
+              checkedInRacers={checkedInRacers}
+              handPickRoundId={null}
+              onOpenHandPickModal={vi.fn()}
+              onCloseHandPickModal={vi.fn()}
+              onPinRoundField={vi.fn()}
+              onUnpinRoundField={vi.fn()}
+              {...props}
+            />
+          </AlertProvider>
+        </MemoryRouter>
+      );
+
+    it('offers "Pick by hand" for an unraced championship round', () => {
+      renderSchedule();
+      expect(screen.getByTestId('hand-pick-field-btn-7')).toHaveTextContent('Pick by hand');
+    });
+
+    it('offers no pick controls for a general round — its field is the roster, not a pick', () => {
+      renderSchedule({
+        heats: [heat({ id: 1, roundNumber: 1, roundId: 1, roundName: 'All Pack' })],
+        rounds: [generalRound()],
+      });
+      expect(screen.queryByTestId('hand-pick-field-btn-1')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pinned-field-badge-1')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('unpin-field-btn-1')).not.toBeInTheDocument();
+    });
+
+    it('clicking "Pick by hand" opens the picker for that round', () => {
+      const onOpenHandPickModal = vi.fn();
+      renderSchedule({ onOpenHandPickModal });
+      fireEvent.click(screen.getByTestId('hand-pick-field-btn-7'));
+      expect(onOpenHandPickModal).toHaveBeenCalledWith(7);
+    });
+
+    it('hides "Pick by hand" once the round has been raced, the same rule Regenerate follows', () => {
+      renderSchedule({
+        heats: [finalsHeat({ lanes: [lane({ lane: 1, racerId: 1, time: 3.5, place: 1 })] })],
+      });
+      expect(screen.queryByTestId('hand-pick-field-btn-7')).not.toBeInTheDocument();
+    });
+
+    it('shows the "Hand-picked" badge and swaps in "Edit picks" once pinned', () => {
+      renderSchedule({
+        rounds: [championshipRound({ fieldPinned: true, advancementStatus: advancementStatusFixture({ fieldIsPinned: true }) })],
+      });
+      expect(screen.getByTestId('pinned-field-badge-7')).toHaveTextContent('Hand-picked');
+      expect(screen.getByTestId('hand-pick-field-btn-7')).toHaveTextContent('Edit picks');
+      expect(screen.getByTestId('unpin-field-btn-7')).toBeInTheDocument();
+    });
+
+    it('"Use standings" stays available on a raced, pinned round even though "Edit picks" does not', () => {
+      renderSchedule({
+        heats: [finalsHeat({ lanes: [lane({ lane: 1, racerId: 1, time: 3.5, place: 1 })] })],
+        rounds: [championshipRound({ fieldPinned: true, advancementStatus: advancementStatusFixture({ fieldIsPinned: true }) })],
+      });
+      expect(screen.queryByTestId('hand-pick-field-btn-7')).not.toBeInTheDocument();
+      expect(screen.getByTestId('unpin-field-btn-7')).toBeInTheDocument();
+    });
+
+    it('clicking "Use standings" calls onUnpinRoundField', () => {
+      const onUnpinRoundField = vi.fn();
+      renderSchedule({
+        rounds: [championshipRound({ fieldPinned: true, advancementStatus: advancementStatusFixture({ fieldIsPinned: true }) })],
+        onUnpinRoundField,
+      });
+      fireEvent.click(screen.getByTestId('unpin-field-btn-7'));
+      expect(onUnpinRoundField).toHaveBeenCalledWith(7);
+    });
+
+    it("opens the picker pre-seeded from the standings' own suggestion, and submits through onPinRoundField", async () => {
+      const onPinRoundField = vi.fn().mockResolvedValue(undefined);
+      renderSchedule({ handPickRoundId: 7, onPinRoundField });
+
+      expect(screen.getByText("Pick Finals's line-up")).toBeInTheDocument();
+      // Alice and Bob are the standings' own suggestion (isAdvancing) —
+      // Carol, ranked third of two slots, is not.
+      expect(screen.getAllByRole('combobox')).toHaveLength(2);
+      expect(
+        screen.getByText(/The standings currently suggest the top 2 from the whole pack\./)
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Save line-up'));
+      await waitFor(() => expect(onPinRoundField).toHaveBeenCalledWith(7, [1, 2]));
+    });
+
+    it('closing the picker calls onCloseHandPickModal', () => {
+      const onCloseHandPickModal = vi.fn();
+      renderSchedule({ handPickRoundId: 7, onCloseHandPickModal });
+      fireEvent.click(screen.getByText('Cancel'));
+      expect(onCloseHandPickModal).toHaveBeenCalled();
+    });
+
+    it('the picker stays closed with no round selected', () => {
+      renderSchedule({ handPickRoundId: null });
+      expect(screen.queryByText("Pick Finals's line-up")).not.toBeInTheDocument();
     });
   });
 });

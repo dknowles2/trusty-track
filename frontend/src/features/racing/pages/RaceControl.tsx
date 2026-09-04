@@ -24,6 +24,8 @@ import {
   UPDATE_HEAT_RESULT_MUTATION,
   UPDATE_RACE_AUTO_ADVANCE_MUTATION,
   APPLY_MASTER_RUNNING_ORDER_MUTATION,
+  PIN_ROUND_FIELD_MUTATION,
+  UNPIN_ROUND_FIELD_MUTATION,
 } from '../graphql/queries';
 import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple, mdiPencil } from '@mdi/js';
@@ -46,6 +48,19 @@ export default function RaceControl() {
   const [selectedHeatId, setSelectedHeatId] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
   const [roundSummary, setRoundSummary] = useState<AdvancementStatus | null>(null);
+
+  // A championship round's line-up chosen by hand (#711). `handPickRoundId`
+  // is the modal's own open/closed state, controlled here rather than in
+  // `ScheduleManagement` because it has to be reachable from two places: the
+  // round's own "Pick by hand" button on that screen, and automatically once
+  // a round created with the wizard's "I'll choose who races myself"
+  // checkbox comes back from the server — `pendingHandPickRoundId` marks
+  // that round the moment the mutation resolves, and the effect below opens
+  // the picker once it actually appears in the refetched race data, so the
+  // modal has real suggestion data to seed its rows from rather than opening
+  // on two blank rows.
+  const [handPickRoundId, setHandPickRoundId] = useState<number | null>(null);
+  const [pendingHandPickRoundId, setPendingHandPickRoundId] = useState<number | null>(null);
 
   // Which rounds we had already seen decided (#13). A ref rather than state:
   // it is bookkeeping for the detector and nothing renders from it. Keeping it
@@ -74,6 +89,8 @@ export default function RaceControl() {
   const [, updateHeatResultMutation] = useMutation(UPDATE_HEAT_RESULT_MUTATION);
   const [, updateRaceMutation] = useMutation(UPDATE_RACE_AUTO_ADVANCE_MUTATION);
   const [, applyMasterRunningOrderMutation] = useMutation(APPLY_MASTER_RUNNING_ORDER_MUTATION);
+  const [, pinRoundFieldMutation] = useMutation(PIN_ROUND_FIELD_MUTATION);
+  const [, unpinRoundFieldMutation] = useMutation(UNPIN_ROUND_FIELD_MUTATION);
 
   // Keep every open tab in sync. Heat results and check-ins arrive with the
   // updated entity and merge into the normalized cache; only structural
@@ -98,6 +115,14 @@ export default function RaceControl() {
     });
     return map;
   }, [race?.racers]);
+
+  // Every racer who may be named in a hand-picked championship field (#711)
+  // — checked-in racers only, the same population `pinRoundField` itself
+  // validates against (#228: a hand pick does not override check-in).
+  const checkedInRacers = useMemo(
+    () => (race?.racers ?? []).filter((r: Racer) => r.carPassedInspection),
+    [race?.racers]
+  );
 
   /* The race-wide running order (#549). `(roundNumber, heatNumber)` for every
    * race with `masterRunningOrder` off; the interleaved `heatNumber` sequence
@@ -155,6 +180,21 @@ export default function RaceControl() {
     }
   }, [race?.rounds, fetching]);
 
+  // Opens the hand-pick picker for a round the wizard just created with
+  // "I'll choose who races myself" checked (#711), the moment that round
+  // shows up in the refetched race data — see the state declaration above
+  // for why this waits rather than opening on the mutation's own response.
+  // Adjusted during render rather than in an effect, the same shape
+  // `RaceControl` already uses to pin its active heat: an effect would
+  // leave the picker closed for a frame before opening it.
+  if (
+    pendingHandPickRoundId != null &&
+    (race?.rounds ?? []).some((r: Round) => r.id === pendingHandPickRoundId)
+  ) {
+    setHandPickRoundId(pendingHandPickRoundId);
+    setPendingHandPickRoundId(null);
+  }
+
   const handleAddRound = async (config: {
     schedulingStrategy?: string;
     name: string;
@@ -165,6 +205,7 @@ export default function RaceControl() {
     balancedPhases?: number;
     runsPerLane?: number;
     generalType?: string;
+    pickFieldByHand?: boolean;
   }) => {
     if (!id) return;
     setGenerating(true);
@@ -188,6 +229,17 @@ export default function RaceControl() {
 
       reExecute({ requestPolicy: 'network-only' });
       setSelectedHeatId(null);
+
+      // "I'll choose who races myself" (#711) — the round is created and
+      // scheduled the usual way, and this is what hands off to the picker
+      // once it has a real round to hand off to (see the effect above).
+      // `createRound` returns a list — `EACH_GROUP` can create several
+      // general rounds in one call — but the checkbox only shows on the
+      // championship tab, which always creates exactly one.
+      const createdRoundId = result.data?.createRound?.[0]?.id;
+      if (config.pickFieldByHand && createdRoundId != null) {
+        setPendingHandPickRoundId(createdRoundId);
+      }
     } catch (e: unknown) {
       console.error("Failed to add round", e);
       showAlert(errorText(e, "The round could not be added."), "Error");
@@ -420,6 +472,45 @@ export default function RaceControl() {
       if (result.error) throw result.error;
       reExecute({ requestPolicy: 'network-only' });
   }, [applyMasterRunningOrderMutation, id, reExecute]);
+
+  // Choosing a championship round's line-up by hand (#711). Errors are
+  // caught and shown here, not rethrown — `PickFieldModal`'s own submit
+  // handler just awaits and closes, the same "the caller alerts, the modal
+  // doesn't" split `handleAddRound`/`RoundConfigModal` already use.
+  const handlePinRoundField = useCallback(async (roundId: number, racerIds: number[]) => {
+    try {
+      const result = await pinRoundFieldMutation({ raceId: id, roundId, racerIds });
+      if (result.error) throw result.error;
+      reExecute({ requestPolicy: 'network-only' });
+      showToast('Line-up saved.', 'success');
+    } catch (e: unknown) {
+      console.error('Failed to pin round field', e);
+      showAlert(errorText(e, 'The line-up could not be saved.'), 'Error');
+    }
+  }, [pinRoundFieldMutation, id, reExecute, showToast, showAlert]);
+
+  // Handing a hand-picked line-up back to the standings (#711). Confirmed
+  // first: an unraced round is re-fielded immediately (a different set of
+  // heats), and a raced one may go stale the moment the pin comes off —
+  // both are a real change the operator should mean to make, the same bar
+  // `handleDeleteRound`/`handleDeleteHeat` hold their own confirms to.
+  const handleUnpinRoundField = useCallback(async (roundId: number) => {
+    const confirmed = await showConfirm(
+      "Let the standings choose this round's line-up again? The hand-picked field will be replaced.",
+      'Use the standings',
+      'Use standings'
+    );
+    if (!confirmed) return;
+    try {
+      const result = await unpinRoundFieldMutation({ raceId: id, roundId });
+      if (result.error) throw result.error;
+      reExecute({ requestPolicy: 'network-only' });
+      showToast('Line-up handed back to the standings.', 'success');
+    } catch (e: unknown) {
+      console.error('Failed to unpin round field', e);
+      showAlert(errorText(e, 'The line-up could not be reverted.'), 'Error');
+    }
+  }, [unpinRoundFieldMutation, id, reExecute, showToast, showAlert, showConfirm]);
 
   const getRacerName = (id: number, fromBottom?: boolean) => {
       if (id < 0) {
@@ -916,6 +1007,13 @@ export default function RaceControl() {
                 .map((round: Round) => round.id),
             )
           }
+          rounds={race?.rounds ?? []}
+          checkedInRacers={checkedInRacers}
+          handPickRoundId={handPickRoundId}
+          onOpenHandPickModal={setHandPickRoundId}
+          onCloseHandPickModal={() => setHandPickRoundId(null)}
+          onPinRoundField={handlePinRoundField}
+          onUnpinRoundField={handleUnpinRoundField}
         />
       )}
     </div>

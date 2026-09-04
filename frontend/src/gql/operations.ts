@@ -826,7 +826,7 @@ export type GetRaceControlDataQueryVariables = Exact<{
 }>;
 
 
-export type GetRaceControlDataQuery = { initialConfig: { debugMode: boolean }, race: { id: number, name: string, championshipTrophies: number, scoringStrategy: string, autoAdvanceHeat: boolean, registeredCount: number, checkedInCount: number, isLocked: boolean, masterRunningOrder: boolean, track: { id: number, laneCount: number, timerType: string, laneOutages: Array<number>, laneColors: Array<string> } | null, racingGroups: Array<{ id: number, name: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null }>, heats: Array<{ id: number, heatNumber: number, roundNumber: number, roundId: number, roundName: string | null, recordedAt: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null, time: number | null, place: number | null, skipped: boolean }> }>, rounds: Array<{ id: number, roundNumber: number, name: string | null, advancementSource: string | null, advancementFromBottom: boolean, schedulingStrategy: string, racingGroupId: number | null, eliminationChart: { maxLosses: number, decided: boolean, waves: Array<{ number: number, heats: Array<{ heatId: number, heatNumber: number, finished: boolean, lanes: Array<{ lane: number, racerId: number | null, outcome: string | null, lossesAfter: number, out: boolean }> }> }>, standings: Array<{ racerId: number, losses: number, alive: boolean }> } | null, advancementStatus: { isReady: boolean, requiresAdvancement: boolean, alreadyAdvanced: boolean, fieldIsStale: boolean, contestedCut: boolean, source: string | null, numRacers: number | null, fromBottom: boolean, advancingRacers: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, racingGroupName: string, score: number, rank: number, isAdvancing: boolean }> } }> } | null };
+export type GetRaceControlDataQuery = { initialConfig: { debugMode: boolean }, race: { id: number, name: string, championshipTrophies: number, scoringStrategy: string, autoAdvanceHeat: boolean, registeredCount: number, checkedInCount: number, isLocked: boolean, masterRunningOrder: boolean, track: { id: number, laneCount: number, timerType: string, laneOutages: Array<number>, laneColors: Array<string> } | null, racingGroups: Array<{ id: number, name: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null, carPassedInspection: boolean }>, heats: Array<{ id: number, heatNumber: number, roundNumber: number, roundId: number, roundName: string | null, recordedAt: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null, time: number | null, place: number | null, skipped: boolean }> }>, rounds: Array<{ id: number, roundNumber: number, name: string | null, advancementSource: string | null, advancementFromBottom: boolean, fieldPinned: boolean, schedulingStrategy: string, racingGroupId: number | null, eliminationChart: { maxLosses: number, decided: boolean, waves: Array<{ number: number, heats: Array<{ heatId: number, heatNumber: number, finished: boolean, lanes: Array<{ lane: number, racerId: number | null, outcome: string | null, lossesAfter: number, out: boolean }> }> }>, standings: Array<{ racerId: number, losses: number, alive: boolean }> } | null, advancementStatus: { isReady: boolean, requiresAdvancement: boolean, alreadyAdvanced: boolean, fieldIsStale: boolean, contestedCut: boolean, fieldIsPinned: boolean, source: string | null, numRacers: number | null, fromBottom: boolean, advancingRacers: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, racingGroupName: string, score: number, rank: number, isAdvancing: boolean }> } }> } | null };
 
 export type CreateRoundMutationVariables = Exact<{
   raceId: number;
@@ -835,6 +835,23 @@ export type CreateRoundMutationVariables = Exact<{
 
 
 export type CreateRoundMutation = { createRound: Array<{ id: number }> };
+
+export type PinRoundFieldMutationVariables = Exact<{
+  raceId: number;
+  roundId: number;
+  racerIds: Array<number> | number;
+}>;
+
+
+export type PinRoundFieldMutation = { pinRoundField: { id: number } };
+
+export type UnpinRoundFieldMutationVariables = Exact<{
+  raceId: number;
+  roundId: number;
+}>;
+
+
+export type UnpinRoundFieldMutation = { unpinRoundField: { id: number } };
 
 export type RegenerateRoundMutationVariables = Exact<{
   roundId: number;
