@@ -1090,11 +1090,19 @@ export type RaceInput = {
   location?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
   organizationId?: Scalars['Int']['input'];
+  organizationPlural?: InputMaybe<Scalars['String']['input']>;
+  organizationSingular?: InputMaybe<Scalars['String']['input']>;
   qrHeadline?: InputMaybe<Scalars['String']['input']>;
   qrWifiNote?: InputMaybe<Scalars['String']['input']>;
+  racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
+  racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
+  racingGroups?: Array<RacingGroupInput>;
   scoringStrategy?: Scalars['String']['input'];
   tiebreaker?: Scalars['String']['input'];
   trackId: Scalars['Int']['input'];
+  vehicleArtworkKey?: InputMaybe<Scalars['String']['input']>;
+  vehiclePlural?: InputMaybe<Scalars['String']['input']>;
+  vehicleSingular?: InputMaybe<Scalars['String']['input']>;
   weightLimitOz?: InputMaybe<Scalars['Float']['input']>;
 };
 

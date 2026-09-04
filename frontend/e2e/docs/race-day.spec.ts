@@ -37,6 +37,7 @@ import {
     expandFakeTimer,
     gql,
     nextUnrunHeatId,
+    passSetupStart,
     runFakeHeat,
     type Heat,
     type Round,
@@ -56,6 +57,19 @@ test('take screenshots', async ({ page }) => {
 
     await page.getByRole('button', { name: /Create New Race/i }).click();
     await expect(page.getByRole('heading', { name: 'Create New Race Event' })).toBeVisible();
+
+    // The setup wizard (#662) in front of the form: the questions, the dens
+    // it scaffolds from the answers, and then the form itself. The dens are
+    // the six ranks with their rank colours — the same six `populateRace`
+    // hands a test roster — so the pictures further down are unchanged by
+    // the race having dens before the roster arrives.
+    await passSetupStart(page);
+    await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/03-new-race-questions.png') });
+    await page.getByTestId('setup-next').click();
+    await expect(page.getByTestId('setup-step-groups')).toBeVisible();
+    await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/03-new-race-groups.png') });
+    await page.getByTestId('setup-next').click();
+    await expect(page.getByLabel('Event Name')).toBeVisible();
     // The Track / Timer field says "Loading tracks..." until the tracks query
     // answers, and whether the picture catches that depends on the run.
     await expect(page.getByText('Loading tracks...')).toBeHidden();

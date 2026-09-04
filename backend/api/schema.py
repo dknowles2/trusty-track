@@ -839,6 +839,27 @@ class RaceInput:
     #: Pack 123 Guest Wi-Fi". Null shows nothing — most venues have open wifi
     #: or none worth mentioning.
     qr_wifi_note: str | None = None
+    #: The racing groups to create alongside the race (#662) — the setup
+    #: wizard's scaffolded dens, or a previous race's structure copied over.
+    #: One mutation rather than a `createRace` followed by N
+    #: `createRacingGroup` round trips, for #201's reason: a setup that fails
+    #: half way leaves the operator with a half-built race to tidy up. Empty
+    #: (the default) creates none, which is exactly what every caller before
+    #: this field existed got.
+    racing_groups: list[RacingGroupInput] = strawberry.field(default_factory=list)
+    #: A per-race terminology override, settable at creation (#662) — the
+    #: wizard's "what is raced / who is holding it" answers land here, so a
+    #: Space Derby reads "Rocket" from its first screen rather than after a
+    #: second trip through the edit form. Null means inherit, the same as on
+    #: `RaceUpdateInput`; there is no `clearTerminology` here because a race
+    #: being created has nothing set yet to clear.
+    racing_group_singular: str | None = None
+    racing_group_plural: str | None = None
+    organization_singular: str | None = None
+    organization_plural: str | None = None
+    vehicle_singular: str | None = None
+    vehicle_plural: str | None = None
+    vehicle_artwork_key: str | None = None
 
 
 @strawberry.input
@@ -3131,11 +3152,26 @@ def _apply_terminology(organization: Any, config: "InitialConfigInput") -> None:
     Scouting words *are* the null state, so `clearTerminology` is the explicit
     way back to it, the same trap `clear_weight_limit` (#205) and the PIN's
     removal control (#192) already solved.
+
+    This is the one door the organization-level words go through —
+    `InitialConfigInput` is a plain strawberry input with no validation of
+    its own (unlike the per-race override, built through the pydantic
+    `schemas.RaceUpdate`), so a blank word is checked right here rather than
+    left to reach the database. `domain_terminology.reject_blank_word` is
+    the same rule `schemas.py`'s validators call, shared so the two layers
+    cannot silently disagree about what counts as blank (#704). Checked
+    before anything is written, not field by field as it goes, so a blank
+    fourth word does not leave the first three set on an `organization` this
+    function's caller may still be about to abandon.
     """
     if config.clear_terminology:
         for field in _TERMINOLOGY_FIELDS:
             setattr(organization, field, None)
         return
+    for field in domain_terminology.TERMINOLOGY_WORD_FIELDS:
+        value = getattr(config, field, None)
+        if value is not None:
+            domain_terminology.reject_blank_word(field, value)
     for field in _TERMINOLOGY_FIELDS:
         value = getattr(config, field, None)
         if value is None:

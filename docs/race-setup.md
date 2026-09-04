@@ -21,6 +21,8 @@ _The Roster page provides a summary of race settings and the current racer roste
 
 Dens are the sub-groups within your race (e.g., Lions, Tigers, Wolves). Trusty Track uses them to divide the roster up — for a round raced by one den, for a championship that takes the top few from each den, and for car number ranges.
 
+A race created with the setup wizard already has its dens — the six Cub Scout ranks, or whatever you adjusted that list to, or last year's copied over. This is where you change them afterwards, or add them for a race that started with none.
+
 ### Opening Den Manager
 
 Click the **⋯** button at the top right of the roster and choose **Manage Dens**.

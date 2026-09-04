@@ -163,6 +163,12 @@ describe('Navigation Component', () => {
 
         await waitFor(() => expect(screen.getByText('Create New Race Event')).toBeInTheDocument());
 
+        // The setup wizard (#662) sits in front of the form: the mocked
+        // context query answers with no races, so it opens on the questions,
+        // and two Nexts — the default answers, the scaffolded dens — reach it.
+        fireEvent.click(screen.getByTestId('setup-next'));
+        fireEvent.click(screen.getByTestId('setup-next'));
+
         // Fill in the required name field and submit
         fireEvent.change(screen.getByPlaceholderText('e.g. 2024 Pinewood Derby'), { target: { value: 'Test Race' } });
         fireEvent.click(screen.getByText('Create Race'));
@@ -182,6 +188,9 @@ describe('Navigation Component', () => {
                     // created from "New Race…" got no weight check while the
                     // form on screen showed one ticked.
                     weightLimitOz: expect.any(Number),
+                    // The wizard's scaffolded dens ride along in the same
+                    // mutation (#662).
+                    racingGroups: expect.arrayContaining([expect.objectContaining({ name: 'Lion' })]),
                 }),
             });
             // Ensure no snake_case keys are passed

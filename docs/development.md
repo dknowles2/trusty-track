@@ -400,7 +400,7 @@ Docs are part of the change, not a follow-up. When you land something:
 | --- | --- |
 | A screen the guides describe | The relevant `docs/*.md`, and re-run its screenshot spec |
 | The GraphQL schema or a REST endpoint | `docs/design.md` |
-| Anything an agent needs to know | `CLAUDE.md` |
+| Anything an agent needs to know | `CLAUDE.md`, or the file it indexes under `.claude/rules/` |
 
 `mkdocs build --strict` catches broken links and missing images. It cannot
 catch prose that is merely **wrong**, which is the failure that actually

@@ -357,6 +357,73 @@ export const CREATE_RACE = gql`
   }
 `;
 
+/**
+ * What the race setup wizard (#662) needs before its first screen: which
+ * races exist, to offer "copy settings from a previous race", and the
+ * install's own resolved words, which is what a chosen vocabulary is
+ * compared against to decide whether the new race needs an override at
+ * all. The words come from `initialConfig` rather than `useTerminology()`
+ * because inside a race route that context already holds *that race's*
+ * override — see `raceSetup.raceOverrideFor`.
+ */
+export const GET_RACE_SETUP_CONTEXT = gql`
+  query GetRaceSetupContext {
+    races {
+      id
+      name
+      dateTime
+    }
+    initialConfig {
+      terminology {
+        racingGroupSingular
+        racingGroupPlural
+        organizationSingular
+        organizationPlural
+        vehicleSingular
+        vehiclePlural
+        vehicleArtworkKey
+      }
+    }
+  }
+`;
+
+/**
+ * A previous race's structure and settings, for the wizard to copy (#662):
+ * its racing groups exactly as they are, and the settings the details step
+ * is prefilled from. The raw terminology columns rather than the resolved
+ * words, so a race that inherited stays inheriting when copied.
+ */
+export const GET_RACE_SETUP_SOURCE = gql`
+  query GetRaceSetupSource($raceId: Int!) {
+    race(raceId: $raceId) {
+      id
+      location
+      scoringStrategy
+      tiebreaker
+      dropWorstRuns
+      carNumberingStrategy
+      globalStartNumber
+      championshipTrophies
+      weightLimitOz
+      racingGroupSingular
+      racingGroupPlural
+      organizationSingular
+      organizationPlural
+      vehicleSingular
+      vehiclePlural
+      vehicleArtworkKey
+      racingGroups {
+        id
+        name
+        color
+        division
+        carNumberRangeStart
+        carNumberRangeEnd
+      }
+    }
+  }
+`;
+
 export const POPULATE_RACE = gql`
   mutation PopulateRace($raceId: Int!, $config: PopulateTestDataInput!) {
     populateRace(raceId: $raceId, config: $config)

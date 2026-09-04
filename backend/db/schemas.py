@@ -12,10 +12,11 @@ What is left is what `crud` takes: a `*Create` or `*Update` per entity, and the
 check that something actually constructs it.
 """
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from backend.domain.lane_colors import is_valid_lane_color
 from backend.domain.scale_speed import DEFAULT_SCALE
+from backend.domain.terminology import TERMINOLOGY_WORD_FIELDS, reject_blank_word
 
 from .models import (
     AwardKind,
@@ -197,6 +198,26 @@ class InitialConfigCreate(BaseModel):
     # there is no clear flag to carry.
     name_display: str | None = None
 
+    @field_validator(*TERMINOLOGY_WORD_FIELDS)
+    @classmethod
+    def terminology_word_is_not_blank(
+        cls, value: str | None, info: ValidationInfo
+    ) -> str | None:
+        """Refuse `""` while leaving `None` (inherit) untouched (#704).
+
+        These six fields are otherwise unused here — `crud.create_initial_config`
+        never reads them; the organization-wide default is applied straight
+        onto the ORM row by `api.schema._apply_terminology`, which shares
+        this same check. Validating them here too is defense in depth for
+        the one caller that *does* construct this model,
+        `create_initial_config`, so a blank word is refused at the earliest
+        possible point rather than only downstream.
+        """
+        if value is not None:
+            assert info.field_name is not None
+            reject_blank_word(info.field_name, value)
+        return value
+
 
 class RacerBase(BaseModel):
     first_name: str
@@ -276,6 +297,36 @@ class RaceCreate(RaceBase):
     name: str
     date_time: str | None = None
     location: str | None = None
+    #: Racing groups created in the same transaction as the race (#662) —
+    #: `crud.create_race` pops this off before building the `Race` row.
+    racing_groups: list[RacingGroupCreate] = Field(default_factory=list)
+    #: A per-race terminology override set at creation (#662), null meaning
+    #: inherit — the same seven columns `RaceUpdate` below accepts.
+    racing_group_singular: str | None = None
+    racing_group_plural: str | None = None
+    organization_singular: str | None = None
+    organization_plural: str | None = None
+    vehicle_singular: str | None = None
+    vehicle_plural: str | None = None
+    vehicle_artwork_key: str | None = None
+
+    @field_validator(*TERMINOLOGY_WORD_FIELDS)
+    @classmethod
+    def terminology_word_is_not_blank(
+        cls, value: str | None, info: ValidationInfo
+    ) -> str | None:
+        """The create path is a write path too (#704, via #662).
+
+        Same rule as `RaceUpdate` below, through the same shared helper: a
+        blank word is refused, `None` (inherit) is not. Without this a race
+        could be *created* with an empty word for its racing groups on day
+        one, and #704's hole would be back through a door that did not exist
+        when it was closed.
+        """
+        if value is not None:
+            assert info.field_name is not None
+            reject_blank_word(info.field_name, value)
+        return value
 
 
 class RaceUpdate(BaseModel):
@@ -365,6 +416,25 @@ class RaceUpdate(BaseModel):
     def drop_worst_runs_is_not_negative(cls, value: int | None) -> int | None:
         if value is not None and value < 0:
             raise ValueError("drop_worst_runs cannot be negative")
+        return value
+
+    @field_validator(*TERMINOLOGY_WORD_FIELDS)
+    @classmethod
+    def terminology_word_is_not_blank(
+        cls, value: str | None, info: ValidationInfo
+    ) -> str | None:
+        """Refuse `""` while leaving `None` (inherit) untouched (#704).
+
+        Null is how a race falls back to the organization's own word, or to
+        the built-in Scouting words beneath that (`resolve_terminology`), and
+        `clearTerminology` is the deliberate route back to it (#496) — so
+        this must not reject `None`. An empty or whitespace-only string is a
+        different thing: it renders as nothing everywhere the word appears,
+        which is never legitimate, hence the refusal.
+        """
+        if value is not None:
+            assert info.field_name is not None
+            reject_blank_word(info.field_name, value)
         return value
 
 
