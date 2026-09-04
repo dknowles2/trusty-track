@@ -318,25 +318,29 @@ Both take parsed lanes. The three audience subscriptions and `loaders.scheduled_
 
 Schema changes use **Alembic**. `init_db()` runs `alembic upgrade head` at startup; if migrations fail, startup fails.
 
+**Run Alembic through `scripts/migrate.sh`, never `uv run alembic` directly** (#689). `alembic` opens whatever `TRUSTYTRACK_DATA_DIR` resolves to, which for anyone who has not set it is `~/.trustytrack` — a real install's own database, and every uploaded photograph of a child, if this machine has ever run the app. `scripts/migrate.sh` points Alembic at a fresh scratch directory instead, upgraded to head before your own command runs so `--autogenerate` diffs against a fully-migrated (if empty) schema, the same shape a real database is in.
+
 **After changing `models.py` you must generate a migration:**
 
 ```bash
-uv run alembic revision --autogenerate -m "describe the change"
+./scripts/migrate.sh revision --autogenerate -m "describe the change"
 ```
 
 Review the generated file, then apply it and confirm there's no drift:
 
 ```bash
-uv run alembic upgrade head
+./scripts/migrate.sh upgrade head
 ```
 
 ```bash
-uv run alembic check
+./scripts/migrate.sh check
 ```
 
 `alembic check` compares `models.py` against the **target database**, so it reports `Target database is not up to date` if you haven't upgraded first.
 
 `backend/tests/test_migrations.py::test_migrations_reproduce_the_models` runs that check in CI, so a model change without a migration **fails the build**.
+
+**The unwrapped CLI refuses on its own, too, as a backstop.** `backend/migrations/env.py`'s `_refuse_unsafe_cli_target` runs only on the path the CLI's own `engine_from_config` takes — never on `init_db()`'s, which hands the migration an already-open connection through `config.attributes` and so is unaffected whatever database it points at, exactly as it must be for the app to migrate itself at every startup. Given no explicit `TRUSTYTRACK_DATA_DIR`/`TRUSTYTRACK_DB_URL`, it refuses outright once the default database already holds a configured `Organization` — an empty or not-yet-created one, the ordinary first migration of a fresh checkout, is left alone. The message names the fix: use `scripts/migrate.sh`, set `TRUSTYTRACK_DATA_DIR` yourself, or set `TRUSTYTRACK_ALLOW_UNSAFE_MIGRATION=1` if you genuinely mean to migrate that database by hand.
 
 **Write a `downgrade()` that works, and it is checked.** `test_every_downgrade_runs_and_lands_back_at_the_same_schema` walks the chain to `base` and back on every run; `test_a_downgrade_past_the_folded_heats_keeps_the_data` does the same with rows through `0003` and `0006`, the two migrations that carry data rather than reshape a table. An unexercised downgrade is worse than an absent one — it is only reached when somebody is already rolling back under pressure.
 

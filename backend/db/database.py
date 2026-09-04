@@ -51,6 +51,15 @@ load_dotenv()
 DATA_DIR = os.path.expanduser(os.getenv("TRUSTYTRACK_DATA_DIR", "~/.trustytrack"))
 os.makedirs(DATA_DIR, exist_ok=True)
 
+# Whether the data directory was explicitly chosen, rather than defaulted to
+# ~/.trustytrack because nothing said otherwise. Read only by the Alembic CLI
+# guard in migrations/env.py (#689) — a contributor who has set either of
+# these has already made a deliberate choice about where migrations run, so
+# there is nothing left for that guard to protect against.
+DATA_DIR_EXPLICIT = bool(
+    os.environ.get("TRUSTYTRACK_DATA_DIR") or os.environ.get("TRUSTYTRACK_DB_URL")
+)
+
 # Configurable uploads directory
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -82,6 +91,60 @@ def database_path() -> Path | None:
     if not path or path.startswith(":memory:"):
         return None
     return Path(path)
+
+
+def database_holds_real_data() -> bool:
+    """True if the target database already has a configured ``Organization``.
+
+    Used only by the Alembic CLI guard in ``migrations/env.py`` (#689), never
+    by ``init_db()`` itself — that call runs against the real data directory
+    by design, every time the app starts. This is what tells an empty or
+    not-yet-created install, the ordinary case for a contributor running
+    ``alembic upgrade head`` for the first time, from a real event's database,
+    which the CLI must not be allowed to touch by accident.
+    """
+    path = database_path()
+    if path is None:
+        return False
+    return _sqlite_file_has_a_configured_organization(path)
+
+
+def _sqlite_file_has_a_configured_organization(path: Path) -> bool:
+    """The testable half of ``database_holds_real_data``, given a real path.
+
+    An organization is created exactly once, by the first-run wizard — the
+    same "does this install have one yet" question ``demo_content.is_seeded``
+    already asks elsewhere — so its absence is a reliable signal that nothing
+    here would be lost by a mistake, and its presence means there is a real
+    race, and probably a folder of photographs of real children, on the other
+    end of this file.
+
+    A file that exists but cannot be read as SQLite (mid-write, corrupt, or
+    simply not a database) resolves to ``True`` rather than ``False`` — a
+    false "nothing to protect" is the wrong direction to be wrong in.
+    """
+    import sqlite3
+
+    if not path.is_file():
+        return False
+
+    try:
+        connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    except sqlite3.OperationalError:
+        return False
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='organizations'"
+        )
+        if cursor.fetchone() is None:
+            return False
+        cursor.execute("SELECT 1 FROM organizations LIMIT 1")
+        return cursor.fetchone() is not None
+    except sqlite3.DatabaseError:
+        return True
+    finally:
+        connection.close()
 
 
 # Revision that the pre-Alembic schema corresponds to. Databases created before
