@@ -244,5 +244,7 @@ certs/
 *.pem
 
 .claude/settings.local.json
+# `.claude/rules/` is tracked; the worktrees beside it are not.
+.claude/worktrees/
 .trusty-track/
 .DS_Store
