@@ -16,8 +16,8 @@ The default empty list means no lane has a configured colour, which is
 what every existing track had before this column existed: nothing here
 changes what any screen renders until an operator sets one.
 
-Revision ID: 0045_track_lane_colors
-Revises: 0044_intermission
+Revision ID: 0046_track_lane_colors
+Revises: 0045_one_trophy_per_racer
 Create Date: 2026-09-03
 
 """
@@ -28,8 +28,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0045_track_lane_colors"
-down_revision: str | Sequence[str] | None = "0044_intermission"
+revision: str = "0046_track_lane_colors"
+down_revision: str | Sequence[str] | None = "0045_one_trophy_per_racer"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
