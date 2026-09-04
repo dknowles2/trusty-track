@@ -830,6 +830,15 @@ class RaceInput:
     #: column defaults to, so a race created with no opinion on this behaves
     #: exactly as one created before the column existed.
     drop_worst_runs: int = 0
+    #: Custom call-to-action text for the `QRCODE` display view (#614), e.g.
+    #: "Scan to Vote for Best in Show!". Null uses a sensible default derived
+    #: from what the code points at — see
+    #: `frontend/src/features/observation/qrCode.ts`'s `resolveQrHeadline`.
+    qr_headline: str | None = None
+    #: Optional venue Wi-Fi guidance shown under the code, e.g. "Connect to
+    #: Pack 123 Guest Wi-Fi". Null shows nothing — most venues have open wifi
+    #: or none worth mentioning.
+    qr_wifi_note: str | None = None
 
 
 @strawberry.input
@@ -923,6 +932,16 @@ class RaceUpdateInput:
     #: needing its own clear flag — the same shape `master_running_order`
     #: and `voting_open` already use.
     one_trophy_per_racer: bool | None = None
+    #: Custom call-to-action text for the `QRCODE` display view (#614).
+    #: Absent means leave alone; an empty string is how the operator clears a
+    #: custom headline back to the derived default — there is no other
+    #: string this field could legitimately hold that means "unset", so
+    #: unlike `weight_limit_oz` there is no separate clear flag.
+    qr_headline: str | None = None
+    #: Optional venue Wi-Fi guidance for the `QRCODE` view (#614). Same
+    #: absent-means-leave-alone, empty-string-means-clear shape as
+    #: `qr_headline` above.
+    qr_wifi_note: str | None = None
 
 
 @strawberry.input
@@ -1620,6 +1639,13 @@ class Race:
     #: always has. See `domain/roll_down.py` for the whole rule; `Award`'s
     #: `position`, `passedOver` and `duplicateOf` below carry its answer.
     one_trophy_per_racer: bool
+    #: Custom call-to-action text for the `QRCODE` display view (#614), null
+    #: or empty where the operator has not set one — the screen falls back
+    #: to a default derived from what the code points at.
+    qr_headline: str | None
+    #: Optional venue Wi-Fi guidance for the `QRCODE` view (#614), shown
+    #: under the code when set.
+    qr_wifi_note: str | None
 
     @strawberry.field
     def intermission(self) -> Intermission:
@@ -2120,6 +2146,10 @@ ScrollBehaviorEnum = strawberry.enum(
     domain_displays.ScrollBehavior, name="ScrollBehavior"
 )
 
+#: Which page `QRCODE` points a phone at (#614) — wrapped for the same
+#: reason as `DisplayViewEnum` above.
+QRTargetEnum = strawberry.enum(domain_displays.QRTarget, name="QRTarget")
+
 
 def _require_operator_role(info: Info) -> None:
     """Refuse anything but an operator.
@@ -2228,6 +2258,10 @@ class Display:
     #: in or not, or only the ones still pending. Carried regardless of
     #: `view`, the same reasoning as `scroll_behavior`.
     show_checked_in: bool
+    #: `QRCODE`'s own rider (#614) — which page the code opens. Carried
+    #: regardless of `view`, the same reasoning as `scroll_behavior` and
+    #: `show_checked_in`.
+    qr_target: QRTargetEnum  # type: ignore[valid-type]
     connected: bool
     #: Whether an operator has told this display anything. False means it is
     #: still following its own URL, which is what every display did before
@@ -2282,6 +2316,7 @@ def _display(
         cycle_seconds=display.assignment.cycle_seconds,
         scroll_behavior=display.assignment.scroll_behavior,
         show_checked_in=display.assignment.show_checked_in,
+        qr_target=display.assignment.qr_target,
         connected=display.connected,
         assigned=display.assigned,
         description=domain_displays.describe(display.assignment),
@@ -3559,6 +3594,7 @@ class Mutation:
         cycle_seconds: int | None = None,
         scroll_behavior: ScrollBehaviorEnum | None = None,  # type: ignore[valid-type]
         show_checked_in: bool | None = None,
+        qr_target: QRTargetEnum | None = None,  # type: ignore[valid-type]
     ) -> Display | None:
         """Tell an audience display what to show (#174).
 
@@ -3570,7 +3606,12 @@ class Mutation:
         if cycle_seconds is not None and cycle_seconds < 1:
             raise ValueError("cycle_seconds must be at least 1")
         display = displays_service.registry.assign(
-            display_id, view, cycle_seconds, scroll_behavior, show_checked_in
+            display_id,
+            view,
+            cycle_seconds,
+            scroll_behavior,
+            show_checked_in,
+            qr_target,
         )
         if display is None:
             return None

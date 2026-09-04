@@ -87,6 +87,27 @@ class TestTheVocabulary:
         )
         assert "pending" in pending_only.lower()
 
+    def test_qr_target_defaults_to_this_races_own_standings(self):
+        # Every race has standings to point at; only some ever turn voting
+        # on, so the live display is the safer default.
+        assert domain.DEFAULT_QR_TARGET is domain.QRTarget.STANDINGS
+        assert domain.Assignment().qr_target is domain.QRTarget.STANDINGS
+
+    def test_qrcode_says_which_page_it_points_at(self):
+        standings = domain.describe(
+            domain.Assignment(
+                view=domain.DisplayView.QRCODE, qr_target=domain.QRTarget.STANDINGS
+            )
+        )
+        assert "standings" in standings.lower()
+
+        vote = domain.describe(
+            domain.Assignment(
+                view=domain.DisplayView.QRCODE, qr_target=domain.QRTarget.VOTE
+            )
+        )
+        assert "vot" in vote.lower()
+
 
 class TestPresence:
     def test_a_display_appears_when_it_connects(self, registry):
@@ -285,6 +306,24 @@ class TestAssignment:
         registry.assign("abc", domain.DisplayView.CHECKIN)
 
         assert registry.get("abc").assignment.show_checked_in is False
+
+    def test_a_new_display_defaults_to_the_standings_qr_target(self, registry):
+        registry.connect("abc", race_id=1)
+
+        assert registry.get("abc").assignment.qr_target is domain.DEFAULT_QR_TARGET
+
+    def test_qr_target_survives_a_change_of_view(self, registry):
+        # Same shape as `show_checked_in` above: a screen flipped away from
+        # QRCODE and back should not lose which page it was pointed at.
+        registry.connect("abc", race_id=1)
+        registry.assign(
+            "abc", domain.DisplayView.QRCODE, qr_target=domain.QRTarget.VOTE
+        )
+
+        registry.assign("abc", domain.DisplayView.STANDINGS)
+        registry.assign("abc", domain.DisplayView.QRCODE)
+
+        assert registry.get("abc").assignment.qr_target is domain.QRTarget.VOTE
 
 
 class TestNaming:

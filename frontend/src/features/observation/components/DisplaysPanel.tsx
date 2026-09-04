@@ -39,9 +39,11 @@ import {
 import {
     viewCycles,
     viewHasCheckedInToggle,
+    viewHasQrTargetToggle,
     viewOptionsFor,
     viewScrolls,
     type DisplayView,
+    type QRTarget,
     type ScrollBehavior,
 } from '../displayView';
 import { newDisplayWindowUrl } from '../displayIdentity';
@@ -53,6 +55,7 @@ interface DisplayRow {
     cycleSeconds: number;
     scrollBehavior: ScrollBehavior;
     showCheckedIn: boolean;
+    qrTarget: QRTarget;
     description: string;
     pacedByAPerson: boolean;
     connected: boolean;
@@ -323,6 +326,26 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                         >
                             <option value="ALL">List everybody</option>
                             <option value="PENDING">Pending only</option>
+                        </select>
+                    )}
+
+                    {/* QR code (#614): which page the code opens — this
+                        race's own audience display, or the voting ballot. */}
+                    {viewHasQrTargetToggle(display.view) && (
+                        <select
+                            aria-label={`What ${display.name}'s QR code opens`}
+                            value={display.qrTarget}
+                            onChange={(e) =>
+                                assignDisplay({
+                                    displayId: display.displayId,
+                                    view: display.view,
+                                    qrTarget: e.target.value as QRTarget,
+                                })
+                            }
+                            style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+                        >
+                            <option value="STANDINGS">Live standings</option>
+                            <option value="VOTE">Voting ballot</option>
                         </select>
                     )}
 

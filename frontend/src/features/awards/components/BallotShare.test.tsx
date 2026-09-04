@@ -125,4 +125,19 @@ describe('BallotShare', () => {
     expect(() => render(<BallotShare raceId={1} />)).not.toThrow();
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
+
+  it('opens a fresh display window pointed at the QR code view (#614)', async () => {
+    stubOrigin('http://localhost:8000');
+    mockNetworkAddresses(['192.168.1.42']);
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+
+    render(<BallotShare raceId={1} />);
+    await userEvent.click(screen.getByRole('button', { name: /project qr code/i }));
+
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    const [url, target, features] = openSpy.mock.calls[0];
+    expect(url).toMatch(/^\/race\/1\/observation\?displayId=.+&view=qrcode&qr_target=vote$/);
+    expect(target).toBe('_blank');
+    expect(features).toBe('noopener');
+  });
 });

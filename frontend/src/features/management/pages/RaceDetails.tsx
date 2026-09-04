@@ -118,6 +118,10 @@ export default function RaceDetails() {
       global_start_number: data.race.globalStartNumber,
       championship_trophies: data.race.championshipTrophies,
       weight_limit_oz: data.race.weightLimitOz,
+      // Same null-to-empty-string convention as date_time/location above —
+      // the QR code display view's own text (#614), optional either way.
+      qr_headline: data.race.qrHeadline ?? '',
+      qr_wifi_note: data.race.qrWifiNote ?? '',
       master_running_order: data.race.masterRunningOrder,
       // Raw overrides, null where this race inherits the organization's
       // word (#496 stage 3; #551 adds the vehicle pair) — `RaceForm`'s
@@ -315,6 +319,14 @@ export default function RaceDetails() {
               // Absent means "leave alone" for every field here, so turning
               // the weight check off has to be said explicitly (#205).
               clearWeightLimit: updateInput.weight_limit_oz == null,
+              // The QR code display view's own text (#614). Unlike the
+              // weight limit above, an empty string is itself the "no
+              // override" value here — RaceForm always carries a string
+              // (never null) for these two, so this is always sent, and
+              // sending '' is exactly how the backend clears a previously
+              // set headline or Wi-Fi note back to the derived default.
+              qrHeadline: updateInput.qr_headline ?? '',
+              qrWifiNote: updateInput.qr_wifi_note ?? '',
               // `false` is an ordinary value here, not a sentinel needing its
               // own clear flag (#549 stage 4) — it is already what every
               // race had before this setting existed.

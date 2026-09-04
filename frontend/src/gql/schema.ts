@@ -133,6 +133,7 @@ export type Display = {
   identifySeq: Scalars['Int']['output'];
   name: Scalars['String']['output'];
   pacedByAPerson: Scalars['Boolean']['output'];
+  qrTarget: QrTarget;
   raceId: Scalars['Int']['output'];
   scrollBehavior: ScrollBehavior;
   showCheckedIn: Scalars['Boolean']['output'];
@@ -146,6 +147,7 @@ export type DisplayView =
   | 'CHECKIN'
   | 'CYCLE'
   | 'PROJECTOR'
+  | 'QRCODE'
   | 'SLIDESHOW'
   | 'STANDINGS'
   | 'STANDINGS_ONLY'
@@ -488,6 +490,7 @@ export type MutationApplyMasterRunningOrderArgs = {
 export type MutationAssignDisplayArgs = {
   cycleSeconds?: InputMaybe<Scalars['Int']['input']>;
   displayId: Scalars['String']['input'];
+  qrTarget?: InputMaybe<QrTarget>;
   scrollBehavior?: InputMaybe<ScrollBehavior>;
   showCheckedIn?: InputMaybe<Scalars['Boolean']['input']>;
   view: DisplayView;
@@ -898,6 +901,10 @@ export type PopulateTestDataInput = {
   count?: Scalars['Int']['input'];
 };
 
+export type QrTarget =
+  | 'STANDINGS'
+  | 'VOTE';
+
 export type Query = {
   activeFreeRaceHeat?: Maybe<FreeRaceHeat>;
   advancementStatus: AdvancementStatus;
@@ -1033,6 +1040,8 @@ export type Race = {
   organizationId: Scalars['Int']['output'];
   organizationPlural?: Maybe<Scalars['String']['output']>;
   organizationSingular?: Maybe<Scalars['String']['output']>;
+  qrHeadline?: Maybe<Scalars['String']['output']>;
+  qrWifiNote?: Maybe<Scalars['String']['output']>;
   racers: Array<Racer>;
   racingGroupPlural?: Maybe<Scalars['String']['output']>;
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
@@ -1078,6 +1087,8 @@ export type RaceInput = {
   location?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
   organizationId?: Scalars['Int']['input'];
+  qrHeadline?: InputMaybe<Scalars['String']['input']>;
+  qrWifiNote?: InputMaybe<Scalars['String']['input']>;
   scoringStrategy?: Scalars['String']['input'];
   tiebreaker?: Scalars['String']['input'];
   trackId: Scalars['Int']['input'];
@@ -1129,6 +1140,8 @@ export type RaceUpdateInput = {
   oneTrophyPerRacer?: InputMaybe<Scalars['Boolean']['input']>;
   organizationPlural?: InputMaybe<Scalars['String']['input']>;
   organizationSingular?: InputMaybe<Scalars['String']['input']>;
+  qrHeadline?: InputMaybe<Scalars['String']['input']>;
+  qrWifiNote?: InputMaybe<Scalars['String']['input']>;
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
   racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
   scoringStrategy?: InputMaybe<Scalars['String']['input']>;

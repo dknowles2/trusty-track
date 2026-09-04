@@ -10,11 +10,18 @@ import { TimerStatusBadge } from '../../racing/components/TimerStatusBadge';
 import PhotoSlideshow from '../components/PhotoSlideshow';
 import StandingsOnlyView from '../components/StandingsOnlyView';
 import CheckInDisplayView from '../components/CheckInDisplayView';
+import QRCodeDisplayView from '../components/QRCodeDisplayView';
 import { displayId, startDeviceClaimHeartbeat } from '../displayIdentity';
 import { useChrome } from '../../../context/ChromeContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { formatDisplayName, shouldShowRacerPhoto } from '../../core/displayName';
-import { readUrl, resolveView, DEFAULT_SCROLL_BEHAVIOR, DEFAULT_SHOW_CHECKED_IN } from '../displayView';
+import {
+  readUrl,
+  resolveView,
+  DEFAULT_SCROLL_BEHAVIOR,
+  DEFAULT_SHOW_CHECKED_IN,
+  DEFAULT_QR_TARGET,
+} from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
 import { formatScaleMph } from '../scaleSpeed';
@@ -41,6 +48,8 @@ const GET_INITIAL_DATA = `
       id
       scoringStrategy
       resolvedNameDisplay
+      qrHeadline
+      qrWifiNote
       intermission {
         active
         remainingSeconds
@@ -130,6 +139,7 @@ export default function Observation() {
               cycleSeconds: assignment.cycleSeconds,
               scrollBehavior: assignment.scrollBehavior ?? DEFAULT_SCROLL_BEHAVIOR,
               showCheckedIn: assignment.showCheckedIn ?? DEFAULT_SHOW_CHECKED_IN,
+              qrTarget: assignment.qrTarget ?? DEFAULT_QR_TARGET,
             }
           : null,
         urlIntent,
@@ -192,7 +202,11 @@ export default function Observation() {
   // of a photo on a projector is exactly the sort of thing nobody notices
   // until the room is full.
   const isFullScreenView =
-    isProjectorMode || behaviour.slideshow || behaviour.standingsOnly || behaviour.checkin;
+    isProjectorMode ||
+    behaviour.slideshow ||
+    behaviour.standingsOnly ||
+    behaviour.checkin ||
+    behaviour.qrcode;
 
   // Tell the app's furniture to get out of the way. `Navigation` cannot work
   // this out for itself any more: an assigned view changes no URL, so before
@@ -721,6 +735,35 @@ export default function Observation() {
           // can call `assignDisplay` to switch itself away (#15).
           racingHasBegun={!!lastHeatResults}
           loading={initialResult.fetching && !initialData}
+        />
+      </div>
+    );
+  }
+
+  // --- QR CODE (#614) ---
+  // A large, scannable code that opens this race on a phone — for a gym wall
+  // or an auxiliary TV during check-in or intermission. Ahead of the standard
+  // mode render for the same reason every other full-screen view here is:
+  // this is a view of its own, not a tab within the usual layout.
+  if (behaviour.qrcode) {
+    return (
+      <div
+        className="container projector-mode"
+        data-theme={displayThemeKey}
+        style={{
+          maxWidth: '100%',
+          padding: 0,
+          background: 'var(--display-bg-color)',
+          color: 'var(--display-text-color)',
+          ...displayThemeStyle,
+        }}
+      >
+        <IdentifyPresence assignment={assignment} />
+        <QRCodeDisplayView
+          raceId={id}
+          target={behaviour.qrTarget}
+          headline={initialData?.race?.qrHeadline}
+          wifiNote={initialData?.race?.qrWifiNote}
         />
       </div>
     );

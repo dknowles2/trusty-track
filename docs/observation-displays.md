@@ -112,7 +112,7 @@ headshot, the car, the name, car number and den.
 It goes in car number order, so every family knows their child is coming
 round once per cycle. Racers with no photo are skipped rather than shown
 blank. More in
-[Audience display views](reference/displays.md#the-eight-views).
+[Audience display views](reference/displays.md#the-nine-views).
 
 > [!TIP]
 > This is the view to leave up during check-in and between rounds. Set the
@@ -142,6 +142,31 @@ card down to just the cars still needed at the scale. More in
 > it up before check-in opens and it keeps working, quieter, once racing
 > starts too: a car that arrives after the first heat can still join the
 > schedule (see [Mid-race changes](reference/mid-race-changes.md)).
+
+---
+
+### QR code
+
+Instead of shouting an IP address across the gym or walking a laptop around,
+put up a screen with a large, scannable code on it. By default it opens this
+race's own Live page on whichever phone scans it; switch its row in **Race
+Control → Displays** to **Voting ballot** and it opens the
+[voting page](awards.md#letting-people-vote) instead.
+
+![The QR code display view](assets/screenshots/observation/13-qrcode.png)
+_A large code, the address printed underneath, and an optional headline and Wi-Fi line set on the race's edit form._
+
+Set an optional headline (*"Scan for Live Results"*, *"Scan to Vote for Best
+in Show!"*) and a line of Wi-Fi guidance on the race's own edit form — both
+are blank by default, and the screen falls back to a sensible headline of
+its own with nothing under it. More in
+[QR code](reference/displays.md#qr-code).
+
+> [!TIP]
+> This is a good screen for the entrance during check-in, or for an
+> auxiliary TV during an intermission — anywhere the audience has a moment
+> to reach for their phones. The Awards page's **Project QR code** button
+> opens one already pointed at the ballot, with nothing to configure first.
 
 ---
 
