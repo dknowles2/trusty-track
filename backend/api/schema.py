@@ -943,6 +943,10 @@ class TrackInput:
     #: Whether scale speed is offered on this track's surfaces at all. See
     #: `models.Track.show_scale_speed`.
     show_scale_speed: bool = True
+    #: The colour painted on each physical lane, if any (#611). One hex
+    #: string per lane, index 0 meaning lane 1. See `models.Track.lane_colors`
+    #: and `domain.lane_colors`.
+    lane_colors: list[str] = strawberry.field(default_factory=list)
 
 
 @strawberry.input
@@ -1714,6 +1718,13 @@ class Track:
     #: Stage 4's renderers AND this with a positive `length_feet` — this
     #: flag alone does not promise a length exists to compute from.
     show_scale_speed: bool
+    #: The colour painted on each physical lane, if any (#611). One hex
+    #: string per lane, index 0 meaning lane 1 — see `domain.lane_colors`
+    #: for the lookup rule, and that module's docstring for why no
+    #: `reverse_lanes` translation belongs here. An empty list (every
+    #: track before this column existed) means no lane has a configured
+    #: colour; a renderer falls back to the plain numbered badge.
+    lane_colors: list[str]
 
     @strawberry.field
     def lane_outages(self, info: Info) -> list[int]:

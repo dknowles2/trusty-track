@@ -2,6 +2,7 @@ import enum
 from typing import Optional
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Float,
     ForeignKey,
@@ -331,6 +332,20 @@ class Track(Base):
     #: this column alone does not guarantee a length exists to compute from.
     show_scale_speed: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
+    )
+    #: The colour painted on each physical lane, if any (#611). One hex
+    #: string per lane, index 0 meaning lane 1 — see
+    #: `domain.lane_colors.color_for_lane`, which is the only rule that
+    #: reads this column; the module docstring there explains why no
+    #: `reverse_lanes` translation belongs at this lookup. A JSON array
+    #: rather than a comma-separated string in a `String` column — the
+    #: shape issue #5 spent a release removing — so SQLAlchemy's `JSON`
+    #: type round-trips a plain `list[str]` with no hand-rolled
+    #: (de)serialization. The default empty list means no lane has a
+    #: configured colour, matching every track before this column existed;
+    #: a blank entry at a given index means the same for that one lane.
+    lane_colors: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=list, server_default="[]"
     )
 
     races: Mapped[list["Race"]] = relationship("Race", back_populates="track")
