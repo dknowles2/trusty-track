@@ -234,13 +234,52 @@ def is_round_complete(heats_lanes: Iterable[Sequence]) -> bool:
 def rounds_to_invalidate(rounds: Iterable, changed_round_number: int) -> list:
     """The championship rounds downstream of a change.
 
-    Takes anything with ``round_number`` and ``advancement_source`` attributes.
+    Takes anything with ``round_number``, ``advancement_source`` and
+    ``field_pinned`` attributes.
+
+    A pinned round is left out (#711). Its field was chosen by hand, so the
+    standings moving says nothing about it — and this is the list the cascade
+    both *resets* and *re-populates* from, so leaving it out here is what
+    makes a hand-picked line-up survive the next recorded preliminary result.
+    The pin is the whole of the rule: the source vocabulary is unchanged, and
+    a pinned round still names the source and count its suggestion came from.
     """
     return [
         r
         for r in rounds
-        if r.round_number > changed_round_number and r.advancement_source is not None
+        if r.round_number > changed_round_number
+        and r.advancement_source is not None
+        and not r.field_pinned
     ]
+
+
+def hand_pick_problem(
+    racer_ids: Sequence[int], eligible_ids: Iterable[int]
+) -> str | None:
+    """The first thing wrong with a hand-picked line-up, or ``None`` (#711).
+
+    ``eligible_ids`` is who may be picked — the caller supplies this race's
+    checked-in racers, because a slot in a race yet to run never goes to a
+    car that has left the building (#228), and picking by hand is not a way
+    round that: the operator can check the car in first, which is one click.
+    A duplicate is refused rather than folded, since a list naming one car
+    twice is a mistake the operator should see rather than a field one car
+    short of what they typed.
+
+    Two is the floor. A one-car "final" schedules a single heat of one lane,
+    which is not a race; and ``advancement_num_racers`` is a *suggestion*
+    here rather than a constraint, so there is deliberately no ceiling and
+    no requirement to match it — a hand-picked field is exactly as large as
+    the hand picked it.
+    """
+    if len(racer_ids) < 2:
+        return "A hand-picked line-up needs at least two racers."
+    if len(set(racer_ids)) != len(racer_ids):
+        return "The same racer is listed more than once."
+    eligible = set(eligible_ids)
+    if any(racer_id not in eligible for racer_id in racer_ids):
+        return "Only checked-in racers in this race can be picked."
+    return None
 
 
 def may_rebuild(heats_lanes: Iterable[Sequence]) -> bool:

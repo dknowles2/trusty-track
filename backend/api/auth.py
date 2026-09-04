@@ -157,6 +157,10 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         "applyMasterRunningOrder",
         # Results and advancement
         "advanceRound",
+        # A hand-picked championship line-up (#711). Operator: it decides
+        # who races for the trophy, the same bucket as `advanceRound`.
+        "pinRoundField",
+        "unpinRoundField",
         "updateHeatResult",
         # Awards (#170). Operator rather than check-in: an award is an outcome,
         # and deciding Best Paint from the registration tablet is not a thing

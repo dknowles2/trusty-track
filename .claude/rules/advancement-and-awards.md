@@ -38,6 +38,24 @@ Rules in `domain/advancement.py`; entry points are `advanceRound` and `scoring.g
 
 `advancement_num_racers` is also a **request**, not a guarantee: "top four" from a racing group of three can only ever supply three. Heats are generated from the request, before anyone qualifies, so a round can hold more slots than the race can fill. Left alone the surplus is fatal rather than untidy — `phase` reports `NOT_READY` while any placeholder remains, and the operator screen has no controls in that state, so the round cannot be run, edited or skipped. `domain/advancement.field_is_short` detects it and the round is rebuilt for the field that actually qualified. A round that has already been raced is filled in place regardless, following the same rule as invalidation.
 
+### Manually picking a championship field
+
+`Round.field_pinned`, `crud.pin_round_field` / `crud.unpin_round_field`, the `pinRoundField` / `unpinRoundField` mutations ([#711](https://github.com/dknowles2/trusty-track/issues/711)). The standings decide who advances by default, and there was no way to override that short of hand-editing recorded times — a subjective award, a local rule the app has no vocabulary for, a track anomaly the operator would rather correct by picking than by faking a time.
+
+**A pin, not a fourth `advancement_source`.** Championship fields are recomputed constantly — every recorded or cleared preliminary result calls `invalidate_future_rounds`, which resets every later, unraced championship round back to placeholders, and `populate_round_if_decided` fills them from the standings again. A hand-picked field written into the lanes alone would not survive the next heat. `rounds_to_invalidate` and `populate_round_if_decided` both check `field_pinned` and leave a pinned round alone — the same list the cascade resets *and* re-populates from, so leaving it out of the first is what keeps the second from ever running. `advancement_source`/`advancement_num_racers` are untouched: they still describe the suggestion the pick started from, which is what `unpinRoundField` hands the round back to.
+
+**`domain.advancement.hand_pick_problem`** is the whole validation, over plain values: fewer than two racers is not a race; a duplicate is refused rather than folded, since a list naming one car twice is a mistake to surface rather than a field one car short of what was typed; and every id must be in the caller-supplied eligible set. `crud.pin_round_field` supplies that set as this race's **checked-in** racers (#228's rule again) — a hand pick does not override check-in, the operator checks the car in first, which is one click.
+
+**The count is a suggestion, not a ceiling — deliberately the opposite of `field_is_short`'s direction.** A computed field that came up short is rebuilt for the smaller field that actually qualified; a hand-picked field is exactly as large as the pick, whatever `advancement_num_racers` says, and `pin_round_field` rebuilds the round to that size rather than holding it to the request.
+
+**Refused for a general round** (its field is the roster, not a pick) **and for a round that has already been raced** — the same `may_rebuild` check invalidation itself defers to, so a hand-pick cannot silently wipe heats people ran; clearing results first is the way there if that is really wanted.
+
+**`crud._reset_round_to_placeholders`** is the shared five lines `invalidate_future_rounds`, `withdraw_absent_racers` and `pin_round_field` all now call: reset in place when the slot count allows, so heat ids survive (#50), a full regeneration otherwise.
+
+**A withdrawal from a pinned round has no "next qualifier" to step up.** `withdraw_absent_racers` treats a pinned championship round the way it treats a general round it cannot rebuild: the withdrawn car's lane is vacated, everybody else's stands, the pin stays. There is no re-pick — the operator's list was the list, and filling the open lane is a fresh `pinRoundField` call.
+
+**`AdvancementStatus.fieldIsPinned`** is how a screen tells a hand-picked field from a computed one — the same status a screen already reads for `fieldIsStale` and `contestedCut`. When set, `advancingRacers` names the picked racers (read off the round's own lanes, not the standings) rather than the computed pick, and `fieldIsStale`/`contestedCut` are both forced false: a hand-picked field is *meant* to differ from the standings, and any tie was settled by the pick itself, not left for the operator to notice.
+
 ### Awards
 
 Rules in `domain/awards.py`, database wiring in `services/awards.py`, storage in the `awards` table (#170). Two kinds, and the difference is only where the recipient comes from:
