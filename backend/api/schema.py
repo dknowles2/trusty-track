@@ -917,6 +917,11 @@ class RaceUpdateInput:
     #: change while the race is currently locked — see
     #: `race_lock.is_lock_only_update`.
     is_locked: bool | None = None
+    #: At most one trophy per racer (#615). Absent means leave alone, same as
+    #: every other field here; `false` is an ordinary value, not a sentinel
+    #: needing its own clear flag — the same shape `master_running_order`
+    #: and `voting_open` already use.
+    one_trophy_per_racer: bool | None = None
 
 
 @strawberry.input
@@ -1384,6 +1389,77 @@ class Award:
             for racer_id, count in pairs
         ]
 
+    @strawberry.field
+    def position(self, info: Info) -> int | None:
+        """The 1-based row this award's recipient actually held in its own
+        narrowed standings (#615) — equal to `place` when nothing rolled
+        down, greater when a racer ranked above them already held a trophy
+        on another podium. Null for a `SPECIAL` award, and for a `SPEED`
+        award with no recipient. See `domain/roll_down.py`.
+        """
+        resolution = _loaders(info).award_resolutions(self.race_id).get(self.id)
+        return resolution.position if resolution is not None else None
+
+    @strawberry.field
+    def passed_over(self, info: Info) -> list["AwardPassedOver"]:
+        """Every racer ranked above `position` who was skipped because they
+        already held a trophy on another podium (#615), best-first — the
+        roll-down's own explanation for a screen to turn into "Liam (2nd in
+        Wolves; Jordan won Pack Champion)". Empty when nothing rolled, for a
+        judged award, and whenever `Race.oneTrophyPerRacer` is off.
+        """
+        resolution = _loaders(info).award_resolutions(self.race_id).get(self.id)
+        if resolution is None:
+            return []
+        return [
+            AwardPassedOver(
+                race_id=self.race_id, racer_id=p.racer_id, award_id=p.award_key
+            )
+            for p in resolution.passed_over
+        ]
+
+    @strawberry.field
+    def duplicate_of(self, info: Info) -> "Award | None":
+        """Set on a **judged** award only, and only while
+        `Race.oneTrophyPerRacer` is on (#615): the award its chosen racer
+        already holds. A judged award keeps its racer regardless — a
+        computed rule does not override a person's choice — this is the
+        signal for the screen to warn about the collision rather than hide
+        it. Null the rest of the time, including for a `SPEED` award, which
+        cannot collide with itself.
+        """
+        resolution = _loaders(info).award_resolutions(self.race_id).get(self.id)
+        if resolution is None or resolution.duplicate_of is None:
+            return None
+        for award in _loaders(info).awards_for_race(self.race_id):
+            if award.id == resolution.duplicate_of:
+                return typing.cast(Any, award)
+        return None
+
+
+@strawberry.type
+class AwardPassedOver:
+    """A racer who ranked above an award's actual recipient, but already held
+    a trophy on another podium (#615) — one line of `Award.passedOver`'s
+    explanation for a roll-down.
+    """
+
+    race_id: strawberry.Private[int]
+    racer_id: int
+    #: The award this racer already holds — the one that caused the roll.
+    award_id: int
+
+    @strawberry.field
+    def racer(self, info: Info) -> "Racer | None":
+        return typing.cast(Any, _loaders(info).racer_by_id(self.race_id, self.racer_id))
+
+    @strawberry.field
+    def award(self, info: Info) -> "Award | None":
+        for award in _loaders(info).awards_for_race(self.race_id):
+            if award.id == self.award_id:
+                return typing.cast(Any, award)
+        return None
+
 
 @strawberry.type
 class AwardVoteTally:
@@ -1534,6 +1610,11 @@ class Race:
     #: Enforced by `api.race_lock.RaceLockExtension`, not by anything a
     #: resolver checks; this is a plain field like any other.
     is_locked: bool
+    #: At most one trophy per racer (#615) — off by default, so an upgraded
+    #: install keeps resolving every award in isolation exactly as it
+    #: always has. See `domain/roll_down.py` for the whole rule; `Award`'s
+    #: `position`, `passedOver` and `duplicateOf` below carry its answer.
+    one_trophy_per_racer: bool
 
     @strawberry.field
     def intermission(self) -> Intermission:

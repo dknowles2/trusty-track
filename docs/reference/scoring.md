@@ -252,3 +252,10 @@ the pack champion does not also keep their own den's trophy. It only takes
 effect once the round is decided, and a corrected time can move who is
 excluded, exactly like every other standings rule on this page. Off by
 default.
+
+A third setting reaches the same "one child, one trophy" goal a different
+way: **At most one trophy per racer** changes which *award* a racer wins,
+not who counts toward a standings list — a den trophy rolls down to the
+next-fastest car once its own winner has already taken a higher award,
+rather than the champion being dropped out of the den's own standings. See
+[At most one trophy per racer](../awards.md#at-most-one-trophy-per-racer).

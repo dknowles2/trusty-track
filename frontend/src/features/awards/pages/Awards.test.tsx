@@ -13,6 +13,15 @@ vi.mock('urql', async () => {
   return { ...actual, useQuery: vi.fn(), useMutation: vi.fn() };
 });
 
+// The roll-down's own provenance (#615) — widened so a test can override
+// either with a real value without every base fixture's `[]`/`null` narrowing
+// the type out from under it.
+type PassedOverFixture = {
+  racer: { firstName: string; lastName: string; carNumber: number } | null;
+  award: { name: string } | null;
+};
+type DuplicateOfFixture = { id: number; name: string } | null;
+
 const RACE = {
   id: 1,
   name: 'Pack 42 Derby',
@@ -38,6 +47,9 @@ const RACE = {
         carNumber: 42,
         racerImageUrl: null,
       },
+      position: 1,
+      passedOver: [] as PassedOverFixture[],
+      duplicateOf: null as DuplicateOfFixture,
     },
     {
       id: 11,
@@ -56,6 +68,9 @@ const RACE = {
       ],
       racingGroup: null,
       recipient: null,
+      position: null as number | null,
+      passedOver: [] as PassedOverFixture[],
+      duplicateOf: null as DuplicateOfFixture,
     },
     {
       id: 12,
@@ -77,6 +92,9 @@ const RACE = {
         carNumber: 7,
         racerImageUrl: null,
       },
+      position: null as number | null,
+      passedOver: [] as PassedOverFixture[],
+      duplicateOf: null as DuplicateOfFixture,
     },
   ],
   rounds: [{ id: 4, name: 'Finals', roundNumber: 2 }],
@@ -150,6 +168,9 @@ describe('the awards page', () => {
       'votable',
       'voteTally',
       'carImageUrl',
+      'position',
+      'passedOver',
+      'duplicateOf',
     ]) {
       expect(document).toContain(field);
     }
@@ -376,6 +397,73 @@ describe('the awards page', () => {
           }),
         ),
       );
+    });
+  });
+
+  describe('at most one trophy per racer (#615)', () => {
+    it('explains a rolled-down speed award beside its recipient', () => {
+      renderPage({
+        ...RACE,
+        awards: [
+          {
+            ...RACE.awards[0],
+            position: 2,
+            passedOver: [
+              {
+                racer: { firstName: 'Grace', lastName: 'Hopper', carNumber: 7 },
+                award: { name: 'Fastest Car' },
+              },
+            ],
+          },
+          ...RACE.awards.slice(1),
+        ] as typeof RACE.awards,
+      });
+
+      const row = screen.getByText('Fastest Wolf').closest('li')!;
+      expect(
+        within(row).getByText(
+          'Rolled down from Fastest — Grace Hopper (#7) already won Fastest Car.',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('says nothing extra when nothing rolled', () => {
+      renderPage();
+      const row = screen.getByText('Fastest Wolf').closest('li')!;
+      expect(within(row).queryByText(/Rolled down/)).toBeNull();
+    });
+
+    it('warns about a judged award that collides with a speed trophy', () => {
+      renderPage({
+        ...RACE,
+        awards: [
+          ...RACE.awards.slice(0, 2),
+          { ...RACE.awards[2], duplicateOf: { id: 10, name: 'Fastest Wolf' } },
+        ],
+      });
+
+      const row = screen.getByText('Judges’ Choice').closest('li')!;
+      expect(within(row).getByText('Also holds “Fastest Wolf.”')).toBeInTheDocument();
+    });
+
+    it('says nothing extra when there is no collision', () => {
+      renderPage();
+      const row = screen.getByText('Judges’ Choice').closest('li')!;
+      expect(within(row).queryByText(/Also holds/)).toBeNull();
+    });
+
+    it('passes the race’s awards to the picker so it can warn about a collision', async () => {
+      renderPage();
+      await userEvent.click(screen.getByRole('button', { name: /add an award/i }));
+
+      await userEvent.selectOptions(
+        await screen.findByLabelText('Winner'),
+        'Ada Lovelace (#42)',
+      );
+
+      expect(
+        screen.getByText('Already won “Fastest Wolf.” Award this one too?'),
+      ).toBeInTheDocument();
     });
   });
 

@@ -49,6 +49,28 @@ export const RACE_AWARDS_QUERY = gql`
             carName
           }
         }
+        # The roll-down's own provenance (#615) — null/empty whenever
+        # oneTrophyPerRacer is off, since then this is the isolated
+        # per-award answer with nothing to explain.
+        position
+        passedOver {
+          racerId
+          awardId
+          racer {
+            id
+            firstName
+            lastName
+            carNumber
+          }
+          award {
+            id
+            name
+          }
+        }
+        duplicateOf {
+          id
+          name
+        }
       }
       rounds {
         id
