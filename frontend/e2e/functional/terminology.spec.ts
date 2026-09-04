@@ -40,6 +40,9 @@ test('a per-race terminology change updates the roster column without a reload',
     const dialog = page.getByRole('dialog', { name: 'Edit Race Details' });
     await expect(dialog).toBeVisible();
 
+    // The edit form is sectioned (#587) and opens on Event; the override is
+    // under "Words and names".
+    await dialog.getByTestId('race-settings-nav-words').click();
     await dialog.getByLabel('Use different words for this race').click();
     // "More than one" is not unique — the same label text is used for both
     // the racing group and the organization's own plural — so these two are

@@ -94,16 +94,22 @@ When you are done, open the practice race and delete it like any other race.
 Once your system settings are configured, you're ready to create a race event.
 
 1. From the Home page, click the **+ Create New Race** button.
-2. Fill in the **Create New Race Event** form:
-   - **Event Name**: A name for your race (e.g., "2024 Pinewood Derby").
-   - **Date & Time**: When the race will take place.
-   - **Location**: Where the race is being held.
-   - **Scoring**: Four methods — **Timed** (average heat time), **Points** (finishing places added up), **Cumulative time** (heat times added up), and **Fastest single run** (each racer's single best time). Every option shows its own one-line description right on the form. See [Scoring & Championships](scoring-and-championships.md) for what each means on race day.
-   - **Drop worst run(s)**: `0` is off. Set it above `0` to drop each racer's worst counted results before scoring, once everyone who has raced has enough runs to spare.
-   - **Championship Trophies**: How many trophies the championship awards (3 by default).
-   - **Check car weights at inspection**: On by default at 5.0 oz, the usual pack rule. Change the limit, or turn the check off entirely if your pack does not weigh cars.
-   - **Track / Timer**: Select which track you'll be using for this event.
-   - **Car Numbering**: Choose how car numbers should be assigned (Manual allows you to enter numbers during check-in).
+2. Fill in the **Create New Race Event** form. It is one page, in three
+   groups — the same groups you will find down the side of the edit form
+   later on:
+   - Under **Event**:
+     - **Event Name**: A name for your race (e.g., "2024 Pinewood Derby").
+     - **Date & Time**: When the race will take place.
+     - **Location**: Where the race is being held.
+     - **Track / Timer**: Select which track you'll be using for this event.
+   - Under **Scoring**:
+     - **Scoring**: Four methods — **Timed** (average heat time), **Points** (finishing places added up), **Cumulative time** (heat times added up), and **Fastest single run** (each racer's single best time). Every option shows its own one-line description right on the form. See [Scoring & Championships](scoring-and-championships.md) for what each means on race day.
+     - **Drop worst run(s)**: `0` is off. Set it above `0` to drop each racer's worst counted results before scoring, once everyone who has raced has enough runs to spare.
+     - **Ties**: How a tied score is settled where it decides something. **Leave it shared** is the default.
+     - **Championship Trophies**: How many cars go into the final (3 by default).
+   - Under **Check-in**:
+     - **Car Numbering**: Choose how car numbers should be assigned (Manual allows you to enter numbers during check-in).
+     - **Check car weights at inspection**: On by default at 5.0 oz, the usual pack rule. Change the limit, or turn the check off entirely if your pack does not weigh cars.
 
    Every field is explained in
    [Race and track settings](reference/race-settings.md).

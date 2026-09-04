@@ -199,7 +199,7 @@ describe('RaceDetails', () => {
 
         // Verify human-readable settings are displayed
         expect(screen.getByText('Timed (average)')).toBeInTheDocument();
-        expect(screen.getByText('Per RacingGroup')).toBeInTheDocument();
+        expect(screen.getByText('Per Den')).toBeInTheDocument();
         expect(screen.getByText('Main Track')).toBeInTheDocument();
     });
 
