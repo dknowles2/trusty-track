@@ -1,0 +1,44 @@
+# pi-gen configuration for the Trusty Track Raspberry Pi image.
+#
+# Sourced by pi-gen's build.sh (via build-docker.sh -c config). Every flag
+# here is a choice; the reasoning is inline rather than in a separate doc,
+# the same "the flags are the documentation" rule deploy/cloudrun/deploy.sh
+# follows.
+
+# The base OS: Raspberry Pi OS Lite, 64-bit, Bookworm — the exact target
+# scripts/install-pi.sh already documents itself as installing onto. Nothing
+# here forks the platform we support; it prebuilds the same result.
+RELEASE="bookworm"
+
+IMG_NAME="trustytrack"
+
+# stage0/1/2 build Raspberry Pi OS Lite; stage3/4/5 (not listed) would add a
+# desktop environment and development tools this appliance has no use for.
+# stage-trustytrack is ours, resolved relative to the pi-gen checkout that
+# deploy/raspberry-pi/build.sh copies it into (see that script for why: a
+# custom stage has to physically live inside the tree `docker build` uses as
+# its context, since nothing outside it is visible to the container pi-gen's
+# own Dockerfile bakes).
+STAGE_LIST="stage0 stage1 stage2 stage-trustytrack"
+
+# A parent volunteer writes this with Raspberry Pi Imager, which is where the
+# venue's Wi-Fi password, an account and SSH actually get set (see the top
+# level issue's "Stay Imager-compatible" requirement) — Imager's own
+# customisation is independent of, and applied after, anything pi-gen bakes
+# in here. These are just the un-customised fallbacks:
+ENABLE_SSH=0
+LOCALE_DEFAULT="en_US.UTF-8"
+KEYBOARD_KEYMAP="us"
+KEYBOARD_LAYOUT="English (US)"
+TIMEZONE_DEFAULT="Etc/UTC"
+
+# `install-pi.sh` sets this same hostname via `hostnamectl` at install time;
+# pi-gen's own TARGET_HOSTNAME does the equivalent at image-build time (and is
+# the more reliable of the two inside a chroot with no running systemd — see
+# stage-trustytrack/02-configure/00-run.sh).
+TARGET_HOSTNAME="trustytrack"
+
+# .img.xz, matching what the top-level issue asks for and what every other
+# release asset already ships compressed.
+DEPLOY_COMPRESSION="xz"
+COMPRESSION_LEVEL="9"

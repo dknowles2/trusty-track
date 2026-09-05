@@ -1,6 +1,12 @@
 [Unit]
 Description=Trusty Track Race Management
-After=network.target
+# `trustytrack-firstboot.service` only exists on the pre-built Raspberry Pi
+# image (deploy/raspberry-pi/), which is what generates the TLS certificate
+# on first boot rather than shipping one baked into a public image. An
+# ordering dependency on a unit that does not exist — the case for every
+# install this script itself performs — is simply ignored by systemd, so
+# this line is safe on both paths and there is exactly one copy of it.
+After=network.target trustytrack-firstboot.service
 
 [Service]
 Type=simple

@@ -1,0 +1,15 @@
+[Unit]
+Description=Trusty Track first-boot setup (TLS certificate)
+# Runs once, before the app is ever started on this Pi. See pi-firstboot.sh
+# for why this cannot be done at image-build time.
+Before=trustytrack.service
+ConditionPathExists=!/etc/trustytrack/cert.pem
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/trustytrack/env
+ExecStart=/opt/trustytrack/scripts/pi-firstboot.sh
+
+[Install]
+WantedBy=multi-user.target

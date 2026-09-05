@@ -248,3 +248,11 @@ certs/
 .claude/worktrees/
 .trusty-track/
 .DS_Store
+
+# The Raspberry Pi image build (deploy/raspberry-pi/build.sh): a throwaway
+# pi-gen checkout and its build/output directories, all reproducible from
+# the pinned commit and the config committed alongside them.
+deploy/raspberry-pi/.pi-gen-work/
+deploy/raspberry-pi/deploy/
+*.img
+*.img.xz
