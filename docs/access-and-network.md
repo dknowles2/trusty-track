@@ -95,11 +95,22 @@ one to hand out — on the machine running Trusty Track, it is often
 `http://localhost:8000`, which names that machine to itself and nothing else
 can open.
 
-Where Trusty Track can work this out for you, it does — the voting page's
-sharing step (see [Letting people vote](awards.md#letting-people-vote)) shows
-an address it has checked is not `localhost`, with a **Copy** button and a QR
-code. If it says it could not find one, or for setting up a display, the
-address is whatever this machine's own network settings say:
+**Try the name first: `trustytrack.local`.** Trusty Track advertises itself
+under that name on the local network — on the same `http://` or `https://`
+and `:port` your own browser's address bar shows, so if yours shows
+`https://localhost:8000`, try `https://trustytrack.local:8000` on the other
+device. It works out of the box on Windows 10 and later, macOS, iOS, and
+Android 12 and later, with nothing to install.
+
+> [!NOTE]
+> Two things can stop this. Some school or guest networks block the kind of
+> broadcast this relies on (the same networks that isolate devices from each
+> other, already flagged below) — the address below is what those need. And
+> a phone running Android 11 or earlier cannot resolve a `.local` name at
+> all, whatever the network allows.
+
+If that does not work, or for setting up a device that needs a plain IP address,
+the address is whatever this machine's own network settings say:
 
 > [!NOTE]
 > Windows: open a command prompt and type `ipconfig` — look for "IPv4
@@ -109,6 +120,11 @@ address is whatever this machine's own network settings say:
 > device's browser is that, with the same `http://` or `https://` and `:port`
 > your own browser's address bar shows for Trusty Track — for example
 > `http://192.168.1.42:8000` if yours shows `http://localhost:8000`.
+
+The voting page's sharing step (see
+[Letting people vote](awards.md#letting-people-vote)) also shows an address
+it has checked is not `localhost`, with a **Copy** button and a QR code —
+today that is always the IP form above, not the `.local` name.
 
 ## Which network to use
 

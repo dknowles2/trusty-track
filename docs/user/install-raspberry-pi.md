@@ -1,6 +1,6 @@
 # Installing on a Raspberry Pi
 
-This guide turns a Raspberry Pi into a dedicated Trusty Track appliance. After a one-time setup, the Pi boots directly into Trusty Track — no terminal interaction needed on race day.
+This guide turns a Raspberry Pi into a dedicated Trusty Track appliance. After a one-time setup, the app starts itself every time the Pi powers on — nothing to type, no terminal, on race day. The Pi runs headless, though: it has no desktop of its own, so you open Trusty Track from a browser on another device (a laptop, tablet, or phone) on the same network, the same as you would for any other install method.
 
 ---
 
@@ -13,7 +13,6 @@ This guide turns a Raspberry Pi into a dedicated Trusty Track appliance. After a
 | **Power supply** | Official Raspberry Pi power supply for your model |
 | **Network connection** | Ethernet cable (recommended) or Wi-Fi |
 | **A second computer** | For flashing the SD card and SSH access |
-| **Optional:** 7" Raspberry Pi touchscreen | For a self-contained kiosk display |
 
 ---
 
@@ -75,9 +74,15 @@ When it finishes, you'll see a message with the URL to access the app.
 
 Once the install completes, open a browser on any device connected to the same network:
 
-- **From the Pi itself:** `https://localhost:8000`
 - **From another device:** `https://trustytrack.local:8000`
 - **By IP address:** `https://<pi-ip-address>:8000`
+
+This install has no screen or desktop of its own — a monitor plugged directly
+into the Pi shows a plain login prompt, not the app. If you want a screen for
+the audience (a projector, a TV, or a tablet at the track), point any other
+device's browser at the app the same way; see [Recommended Display
+Setups](../observation-displays.md#recommended-display-setups) for a few
+common setups.
 
 ### Accepting the security certificate warning
 

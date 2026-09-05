@@ -223,7 +223,8 @@ install_service() {
         cat > /etc/systemd/system/trustytrack.service <<'SERVICE'
 [Unit]
 Description=Trusty Track Race Management
-After=network.target trustytrack-firstboot.service
+Wants=avahi-daemon.service
+After=network.target avahi-daemon.service trustytrack-firstboot.service
 
 [Service]
 Type=simple

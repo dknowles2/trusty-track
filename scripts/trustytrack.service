@@ -6,7 +6,24 @@ Description=Trusty Track Race Management
 # ordering dependency on a unit that does not exist — the case for every
 # install this script itself performs — is simply ignored by systemd, so
 # this line is safe on both paths and there is exactly one copy of it.
-After=network.target trustytrack-firstboot.service
+#
+# `avahi-daemon` is what already answers for `trustytrack.local` on every
+# Pi (#723's `discovery.avahi_already_running()` stands down for exactly
+# this reason) — but only once it has actually claimed its D-Bus name
+# (avahi-daemon.service is `Type=dbus`), which has not necessarily happened
+# yet by the time this unit would otherwise start: both are `WantedBy=
+# multi-user.target` and would race at boot with no ordering between them.
+# `Wants=` pulls it into the same start transaction (rather than merely
+# ordering after it *if* something else already started it), so this holds
+# whether trustytrack.service starts at boot or via a plain `systemctl
+# restart trustytrack` before avahi has been started at all — the exact
+# sequence install-pi.sh's own `main` runs on a first install. Without this,
+# the Python `MdnsResponder` in `backend/services/discovery.py` can win the
+# race and claim `trustytrack.local` itself, and avahi's own later, genuine
+# claim then reads as a conflict with a name this same machine already
+# holds.
+Wants=avahi-daemon.service
+After=network.target avahi-daemon.service trustytrack-firstboot.service
 
 [Service]
 Type=simple

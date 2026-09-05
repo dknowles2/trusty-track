@@ -50,7 +50,7 @@ from backend.db.database import (
     known_revisions,
 )
 from backend.domain import audit
-from backend.services import backup, printables
+from backend.services import backup, discovery, printables
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer import devices
 from backend.services.timer.manager import TimerManager, initialize_timer_managers
@@ -83,6 +83,14 @@ TIMER_MANAGERS: dict[int, TimerManager] = {}
 # lost the timer says so — but that is only for the person watching the
 # screen; the manager's state is already settled by the time it happens.
 TIMER_WS_CONNECTIONS: dict[int, tuple[WebSocket, ProxySession]] = {}
+
+# The mDNS registration for this process, if any (#723) — `None` whenever
+# `discovery.start()` declined (demo mode, `TRUSTYTRACK_MDNS=off`, avahi
+# already answering, no LAN address, or a saturated namespace), the same
+# "nothing claims a name it does not hold" rule `MdnsResponder` itself
+# follows. Module-level, the same shape as `TIMER_MANAGERS`, so the shutdown
+# half of the lifespan below can find what to unregister.
+MDNS_RESPONDER: discovery.MdnsResponder | None = None
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -146,7 +154,30 @@ async def lifespan(_app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize timer managers: {e}")
 
+    # Advertise this machine over mDNS (#723, stage 1) so a display or a
+    # check-in tablet can open `http://trustytrack.local:8000` instead of an
+    # IP address. `discovery.start()` already declines on its own — demo
+    # mode, `TRUSTYTRACK_MDNS=off`, avahi already answering, no LAN address —
+    # so the `try` here is only for the unexpected: a caller has no business
+    # taking the whole app down over a feature whose whole fallback is "show
+    # an IP instead", which is exactly what happens if this leaves
+    # `MDNS_RESPONDER` at `None`.
+    global MDNS_RESPONDER
+    logger.info("Advertising this machine over mDNS...")
+    try:
+        MDNS_RESPONDER = discovery.start()
+        if MDNS_RESPONDER:
+            logger.info("Reachable at %s", MDNS_RESPONDER.hostname)
+        else:
+            logger.info("Not advertising over mDNS; falling back to IP addresses.")
+    except Exception as e:
+        logger.error("Could not start mDNS advertising: %s", e)
+
     yield
+
+    if MDNS_RESPONDER:
+        MDNS_RESPONDER.stop()
+        MDNS_RESPONDER = None
 
 
 app = FastAPI(lifespan=lifespan)

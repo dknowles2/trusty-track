@@ -19,6 +19,10 @@ dependencies = [
     "python-dotenv",
     "alembic>=1.16.5",
     "qrcode[pil]>=8.2",
+    # `backend/services/discovery.py` (#723) — advertises this machine as
+    # `trustytrack.local` over mDNS on macOS, Windows and Docker, where
+    # there is no avahi to lean on the way the Pi install already does.
+    "zeroconf>=0.140",
 ]
 readme = "README.md"
 requires-python = ">=3.10"
