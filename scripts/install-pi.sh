@@ -8,6 +8,20 @@
 #   curl -fsSL https://raw.githubusercontent.com/dknowles2/trusty-track/main/scripts/install-pi.sh | bash
 #   # or from the cloned repo:
 #   ./scripts/install-pi.sh
+#
+# This file is also *sourced*, never executed, by the pi-gen stage under
+# `deploy/raspberry-pi/` — the pre-built image reuses these functions rather
+# than reimplementing "what a working install is" a second time. `main` runs
+# only when the file is executed directly (see the guard at the bottom), so a
+# caller that sources it gets the functions with none of the side effects and
+# can call just the ones a chroot has no running systemd or D-Bus to support
+# (`install_service` enables the unit without `restart`ing it; there is no
+# `start_service` equivalent of `setup_mdns`'s `hostnamectl`/`systemctl start`
+# calls, so the image sets its hostname through pi-gen's own mechanism and
+# enables `avahi-daemon` directly instead). It never calls `setup_tls` at
+# build time — a public image is downloaded by everybody, so a certificate
+# baked into it would be a private key every install shared; the image's own
+# first-boot service calls `setup_tls` itself, once, on real hardware.
 
 set -euo pipefail
 
@@ -186,6 +200,15 @@ EOF
 # ---------------------------------------------------------------------------
 # 8. Install and enable systemd service
 # ---------------------------------------------------------------------------
+#
+# Split into "enable" and "start" rather than one function, because the
+# pi-gen image build needs the first half only: `systemctl enable` writes the
+# `multi-user.target.wants/` symlink straight to disk and has worked inside a
+# `chroot` with no running init since long before this project existed (it is
+# what every pi-gen image's own `regenerate_ssh_host_keys` enablement already
+# relies on) — but `restart` needs a real systemd to talk to, which a chroot
+# does not have. A live install still gets the exact same net effect, since
+# `main` below calls both in the same order this used to run them in.
 install_service() {
     # Belt and braces: git preserves this file's executable bit, but the
     # unit's ExecStart depends on it, and a lost bit would otherwise show up
@@ -200,7 +223,8 @@ install_service() {
         cat > /etc/systemd/system/trustytrack.service <<'SERVICE'
 [Unit]
 Description=Trusty Track Race Management
-After=network.target
+Wants=avahi-daemon.service
+After=network.target avahi-daemon.service trustytrack-firstboot.service
 
 [Service]
 Type=simple
@@ -216,10 +240,14 @@ WantedBy=multi-user.target
 SERVICE
     fi
 
-    systemctl daemon-reload
     systemctl enable trustytrack
+    success "Trusty Track service enabled"
+}
+
+start_service() {
+    systemctl daemon-reload
     systemctl restart trustytrack
-    success "Trusty Track service enabled and started"
+    success "Trusty Track service started"
 }
 
 # ---------------------------------------------------------------------------
@@ -304,6 +332,7 @@ main() {
     setup_tls
     setup_env
     install_service
+    start_service
     setup_mdns
 
     # Wait briefly and check service status
@@ -348,4 +377,12 @@ main() {
     fi
 }
 
-main "$@"
+# Run only when executed, not when sourced. `(return 0 2>/dev/null)` succeeds
+# exactly when a `return` is legal here — i.e. we are inside a `source` — and
+# fails for every way this script is actually run standalone: `./install-pi.sh`,
+# `bash install-pi.sh`, and `curl -fsSL ... | bash` (where there is no source
+# file at all, so a `${BASH_SOURCE[0]} == ${0}` check would wrongly say
+# "sourced" and never call `main`).
+if ! (return 0 2>/dev/null); then
+    main "$@"
+fi
