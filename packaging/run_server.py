@@ -34,6 +34,7 @@ from pathlib import Path
 # shadow or collide with it). Python and PyInstaller both resolve a bare
 # `import log_viewer` against this script's own directory, which is the
 # ordinary way a launcher script keeps a helper module beside it.
+import cert_requirements
 import http_mode
 from log_viewer import build_view_logs_command, console_app_available
 
@@ -160,7 +161,10 @@ def _get_local_ip() -> str:
 
 
 def _cert_is_valid() -> bool:
-    """Return True if the cert exists and has not expired."""
+    """Return True if the cert exists, has not expired, and covers every
+    name #723 needs (see `cert_requirements.py`) — an install upgrading
+    into that requirement holds a certificate that predates it, and the
+    cache is otherwise good for the full ten-year lifetime below."""
     if not CERT_PATH.exists() or not KEY_PATH.exists():
         return False
     try:
@@ -168,13 +172,19 @@ def _cert_is_valid() -> bool:
         from cryptography.hazmat.backends import default_backend
 
         cert = x509.load_pem_x509_certificate(CERT_PATH.read_bytes(), default_backend())
-        return cert.not_valid_after_utc > datetime.datetime.now(datetime.timezone.utc)
+        if cert.not_valid_after_utc <= datetime.datetime.now(datetime.timezone.utc):
+            return False
+        san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+        dns_names = san.value.get_values_for_type(x509.DNSName)
+        return cert_requirements.covers_required_names(dns_names)
     except Exception:
         return False
 
 
 def _ensure_cert() -> None:
-    """Generate a self-signed TLS certificate covering localhost and the LAN IP."""
+    """Generate a self-signed TLS certificate covering localhost, the LAN
+    IP, and the mDNS hostname (#723) `backend/services/discovery.py` asks to
+    be advertised as."""
     if _cert_is_valid():
         return
 
@@ -187,6 +197,7 @@ def _ensure_cert() -> None:
     local_ip = _get_local_ip()
     san_entries: list[x509.GeneralName] = [
         x509.DNSName("localhost"),
+        x509.DNSName(cert_requirements.MDNS_HOSTNAME),
         x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
     ]
     if local_ip != "127.0.0.1":

@@ -32,6 +32,7 @@ from sqlalchemy.pool import StaticPool
 from backend.api.main import app, get_db
 from backend.db import crud, schemas
 from backend.db.database import DATA_DIR, UPLOAD_DIR, Base
+from backend.services import discovery
 from backend.services.timer import probe
 
 #: Read back from the module rather than recomputed, so there is one answer to
@@ -172,6 +173,40 @@ def no_real_serial_ports(monkeypatch):
 
     monkeypatch.setattr(probe, "usb_ports", list)
     monkeypatch.setattr(probe, "open_serial", refuse)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def no_real_mdns(monkeypatch):
+    """The suite never multicasts on the real network.
+
+    `discovery.start()` runs on every real app startup (`main.py`'s
+    lifespan), and several tests exercise that lifespan for real
+    (`test_init_db.py`, `test_demo_mode.py`) — so left alone, running
+    `pytest` would have every one of those tests bind a UDP socket and
+    join the mDNS multicast group, indistinguishable from outside the
+    process from a developer's laptop suddenly announcing itself on the
+    office wifi every time the suite runs.
+
+    The same shape as `no_real_serial_ports` above: the default factory
+    `discovery.start()` falls back to is replaced with one that raises, so a
+    test exercising `discovery.start()` itself has to pass its own fake
+    `zeroconf_factory`, the same way a serial test passes its own
+    ``open_port`` to ``probe.detect``. Tests that merely run the lifespan
+    incidentally (they are not testing discovery at all) are unaffected: the
+    resulting exception is caught by `main.py`'s own broad
+    ``except Exception`` around `discovery.start()` — the same "log it and
+    keep serving" shape every other startup step there already has — so
+    `MDNS_RESPONDER` simply stays `None`, which is indistinguishable from an
+    ordinary machine on which mDNS declined to register.
+    """
+
+    def refuse() -> discovery.Zeroconf:
+        raise AssertionError(
+            "a test tried to construct a real Zeroconf(); pass a fake "
+            "zeroconf_factory to discovery.start() instead"
+        )
+
+    monkeypatch.setattr(discovery, "Zeroconf", refuse)
 
 
 @pytest.fixture(autouse=True)
