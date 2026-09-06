@@ -1,0 +1,81 @@
+# An issue with no label is invisible to triage — it shows up in no board
+# column and no release note has anything to say about it not applying, since
+# this is issues rather than pull requests. A sweep found three of nine open
+# issues unlabelled; this workflow is the fix, applied at creation time rather
+# than relied on as a habit.
+#
+# Two rules, in order of preference:
+#
+#   1. Infer a label from the title prefix where the repository's own
+#      convention already gives one. `release-drafter.yml`'s autolabeler
+#      matches exactly two prefixes on pull requests — `docs:` (and
+#      `fix(docs):`) for documentation, `fix:` for bug — because PR titles
+#      here are prose, not conventional commits, and guessing from anything
+#      else mislabels more than it helps. The same two prefixes are honoured
+#      here, for the same reason: an issue titled "fix: ..." or "docs: ..."
+#      already carries a human's own classification in its title.
+#   2. Otherwise, apply `needs-triage`. A label that admits nobody has looked
+#      yet is better than a guess — mislabelling an issue `enhancement`
+#      because nothing matched is worse than saying plainly that it hasn't
+#      been triaged. See `.claude/rules/ci.md` for the label vocabulary.
+#
+# Deliberately does nothing once an issue already carries a label — including
+# on `reopened`, so a maintainer who labelled an issue before closing it does
+# not get `needs-triage` bolted back on. `needs-triage` is never removed
+# automatically; a human clearing it (by adding a real label, or removing it
+# outright) is a judgment call this workflow has no way to make, and doing
+# nothing when a maintainer has already labelled an issue both ways is
+# simpler than trying to detect "the human meant to keep both".
+name: Ensure every issue has a label
+
+on:
+  issues:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  label:
+    name: Label unlabelled issues
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Apply a label if the issue has none
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const issue = context.payload.issue;
+            if (issue.labels.length > 0) {
+              // Already labelled — including a maintainer relabelling before
+              // reopening. Nothing to do.
+              return;
+            }
+
+            const title = issue.title || "";
+            let label;
+            if (/^fix\(docs\):/i.test(title) || /^docs(\([^)]*\))?:/i.test(title)) {
+              label = "documentation";
+            } else if (/^fix(?!\(docs\))(\([^)]*\))?:/i.test(title)) {
+              label = "bug";
+            } else {
+              label = "needs-triage";
+            }
+
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: [label],
+              });
+            } catch (error) {
+              // A fork (or a repository missing one of these three labels)
+              // must not fail the workflow over a label that doesn't exist
+              // there — this rule is a convenience on top of the label set,
+              // not a gate that should ever break a run.
+              core.warning(
+                `Could not apply label "${label}" to #${issue.number}: ${error.message}`,
+              );
+            }
