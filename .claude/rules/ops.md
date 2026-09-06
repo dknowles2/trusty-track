@@ -46,17 +46,16 @@ HTTPS is forced on purpose (#593), not a default that happened to stick. `compon
 
 ### Finding the instance: mDNS
 
-`backend/services/discovery.py` (#723, stage 1 of a larger issue — a
-browsable service record and surfacing the address in the UI are later
-stages, not built yet). The same reasoning as `networkAddresses` (#414) one
-level up: an operator otherwise finds this machine's address by leaving the
-app — `ipconfig`, a Mac's Wi-Fi details panel, `hostname -I` — and typing
-four numbers a DHCP lease can change out from under them into every display
-and tablet by hand. `scripts/install-pi.sh` already solves this for the Pi
-by installing `avahi-daemon` and setting the hostname to `trustytrack`; this
-module does the same job on macOS, Windows and Docker, where there is no
-avahi to lean on, by registering `trustytrack.local` over mDNS with
-`python-zeroconf`.
+`backend/services/discovery.py` (#723, stages 1-2 — a fourth stage,
+documentation, is #723's own remaining item). The same reasoning as
+`networkAddresses` (#414) one level up: an operator otherwise finds this
+machine's address by leaving the app — `ipconfig`, a Mac's Wi-Fi details
+panel, `hostname -I` — and typing four numbers a DHCP lease can change out
+from under them into every display and tablet by hand. `scripts/install-pi.sh`
+already solves this for the Pi by installing `avahi-daemon` and setting the
+hostname to `trustytrack`; this module does the same job on macOS, Windows
+and Docker, where there is no avahi to lean on, by registering
+`trustytrack.local` over mDNS with `python-zeroconf`.
 
 **Not fighting avahi on Linux.** The Pi install already runs avahi, which
 already answers for `trustytrack.local` from the hostname alone — a second
@@ -92,9 +91,34 @@ its own retry: every attempt gets an *identical* fixed service type/name
 hostname itself, and `server` moves in lock-step with whichever numbered
 attempt (`trustytrack`, `trustytrack-2`, ...) actually wins the library's
 real probe-and-announce cycle. This is a private vehicle, not the browsable
-service record — that is the deferred stage 2's job, with its own TXT
-content to decide (`_http._tcp` with `path=/`, a `_trustytrack._tcp` naming
-the version and whether the instance is configured).
+service record — that is stage 2's job, immediately below.
+
+**Stage 2 rides on the hostname stage 1 already won, rather than negotiating
+its own name.** `_register_browsable_record` registers `_http._tcp` (TXT
+`path=/`, the ordinary "there is a web server here" record any generic mDNS
+browser already understands) and `_trustytrack._tcp` (TXT `version` and
+`configured`, ours) using the exact `candidate` string that already survived
+stage 1's collision loop — there is no second retry to write, because the
+hostname's own uniqueness on this LAN already stands in for one: nothing
+else here calls itself `trustytrack`. `allow_name_change=True` for both,
+unlike stage 1's own registration, since nothing reads either *instance*
+name back the way `MdnsResponder.hostname` is read. Be honest about who
+this is for, per the issue: no mainstream browser can browse DNS-SD, so
+this buys the volunteer nothing on its own — it is for the desktop app's
+own window (`packaging/run_server.py`'s tray/menu-bar, below), third-party
+network tooling, and any future "find my instance" helper.
+
+**Best-effort, deliberately past the point of the hostname claim.** A
+failure registering either browsable record is logged and swallowed —
+`_register_browsable_record` returns `None` rather than raising — so it can
+never undo the `.local` name stage 1 already won; `MdnsResponder.infos`
+holds however many of the three records actually succeeded (always at
+least the hostname vehicle), and `stop()` unregisters exactly that list.
+`configured`/`version` are supplied by `main.py`'s lifespan — a quick
+`Organization` existence check and `backend.version.__version__` — inside
+the same broad `try` that already wraps `discovery.start()`, so a failure
+reading either falls back to `False`/`"unknown"` rather than skipping
+registration altogether.
 
 **It reports the name it actually got, never the name it asked for.**
 `MdnsResponder.hostname` only exists once a name has actually been claimed —
@@ -110,8 +134,8 @@ responder — when demo mode is on (there is no LAN to multicast onto),
 advertising is meant to work with no configuration on every platform), avahi
 already answers, this machine has no LAN address (`lan_addresses()` came
 back empty), or five numbered attempts all collided or failed outright.
-Every one of those is the existing "show an IP instead" fallback — nothing
-new to build for stage 3 to lean on when it lands.
+Every one of those is the existing "show an IP instead" fallback — exactly
+what stage 3 (below) leans on.
 
 **The suite must never multicast on the real network.** `conftest.py`'s
 autouse `no_real_mdns` replaces the module-level `Zeroconf` name
@@ -154,6 +178,58 @@ registration may succeed from the container's own point of view, or simply
 never be seen by anything outside it) rather than needing a
 Docker-specific branch, and the Dockerfile's own served scheme and CORS
 defaults are unaffected either way.
+
+**Stage 3 surfaces the hostname, and reads it off `main.py`'s own global
+rather than storing a second copy.** `Query.mdns_hostname` in `schema.py`
+returns `info.context["mdns_hostname"]`, which `get_graphql_context` sets
+fresh on every request/subscription from `MDNS_RESPONDER.hostname` — the
+same module-level global `TIMER_MANAGERS` already rides on. Deliberately
+its own field, not folded into `networkAddresses`: that query returns a
+list of plain IPv4 addresses whose only consumer takes `[0]`, and a
+hostname in it would be a string that happens to parse differently, the
+stringly-typed shape this project keeps removing (#5). Null covers every
+reason stage 1's `start()` might have declined, and — like
+`networkAddresses`'s own `reachable` flag — it is never the name merely
+*asked* for.
+
+**`features/core/shareAddress.ts`'s `shareUrl` takes the hostname as a
+fourth, optional argument and prefers it over a bare `networkAddresses`
+entry whenever the backend has one** — it survives the DHCP lease change
+that strands an IP-based address, where a `.local` name does not. This
+does not change what `reachable` means: a registered hostname is exactly
+as unconfirmed-for-this-specific-phone as a guessed IP always was (mDNS
+registration proves this *server* answered on its own segment, not that
+every phone in the room can resolve `.local` — some Android below 12
+cannot, and some guest networks block multicast the same way they isolate
+clients), so both kinds of substitution report the same flag. Both of
+`shareUrl`'s existing callers (`BallotShare.tsx`, `QRCodeDisplayView.tsx`)
+now pass `mdnsHostname` alongside `networkAddresses`, off the same
+`NETWORK_ADDRESSES_QUERY`/`ObservationNetworkAddresses` documents both
+already ran, widened to ask for the new field too.
+
+**Race Control → Displays gets the same address, not only the ballot** —
+`ConnectDisplayAddress.tsx` (`features/observation/components/`) is the
+same Copy-button-and-QR-code shape as `BallotShare.tsx`, pointed at this
+race's own Live view (`qrTargetPath('STANDINGS', raceId)`) rather than the
+voting ballot, since setting up a wall display or a check-in tablet is the
+*first* thing an operator reaches for a shareable address, before the
+ballot's share step. It is a sibling component rather than a shared one
+with `BallotShare.tsx`: the two differ in target path, wording, and
+`BallotShare`'s own "Project QR code" button, which has no equivalent here.
+
+**The desktop launcher's tray/menu-bar icon shows it too, read off its own
+in-process backend module.** `packaging/run_server.py` imports
+`backend.api.main` as `_backend_main` (alongside the existing `_app`
+import) and `_network_label()` reads `_backend_main.MDNS_RESPONDER` fresh
+on every call — never cached, since the lifespan sets it asynchronously
+after the tray/menu-bar has already been constructed. macOS's `rumps`
+needs an explicit refresh (`_update_status` now updates a stored
+`self._network_item.title` alongside the existing status label, on every
+status change so a restart's fresh registration is picked up); Windows'
+`pystray` needs none — it already re-reads a callable title on every menu
+open, the same shape the status label there already uses, so the network
+row became `pystray.MenuItem(lambda _item: _network_label(), None)` with
+no new wiring.
 
 ### The pre-built Raspberry Pi image (stage 1 of #724)
 

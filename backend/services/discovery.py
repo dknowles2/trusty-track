@@ -1,4 +1,4 @@
-"""Advertising this machine as `trustytrack.local` over mDNS (#723, stage 1).
+"""Advertising this machine as `trustytrack.local` over mDNS (#723, stages 1–2).
 
 Every screen that is not the operator's own laptop needs the same thing: an
 address that opens Trusty Track from *another* device. Today that means
@@ -68,12 +68,40 @@ second attempting the same name a second later, produce a genuine
 `NonUniqueNameException` on the second — see `test_discovery.py`).
 
 `_SERVICE_TYPE` is a private vehicle for this, not the browsable service
-record — that is stage 2's job, with its own TXT record contents to decide
-(`_http._tcp` with `path=/`, and a `_trustytrack._tcp` carrying the version
-and whether the instance is configured), and this stage does not want to make
-that decision by accident. It is spelled `_tt-host`, not
-`_trustytrack-mdns`, because RFC 6763 caps a service type label at 15 bytes
-and the obvious name is one byte over.
+record — that was stage 2's job, kept deliberately separate. It is spelled
+`_tt-host`, not `_trustytrack-mdns`, because RFC 6763 caps a service type
+label at 15 bytes and the obvious name is one byte over.
+
+Stage 2: two browsable records, riding on the hostname stage 1 already won
+--------------------------------------------------------------------------
+Be honest about who this is for: no mainstream browser can browse DNS-SD, so
+this buys the volunteer nothing on its own — the user-visible win is
+entirely stage 1's hostname. This is for the desktop app's own window,
+third-party network tooling, and any future "find my instance" helper.
+
+`_HTTP_SERVICE_TYPE` (`_http._tcp`, TXT `path=/`) is the ordinary
+"there is a web server here" record a generic mDNS browser already
+understands. `_TRUSTYTRACK_SERVICE_TYPE` (`_trustytrack._tcp`) is ours,
+carrying `version` and `configured` so a future helper can tell an
+unconfigured install apart from a running race without loading the page
+first.
+
+Both are registered only *after* stage 1's own retry loop has already
+settled on a winning candidate name, using that name as the instance name
+for each — there is no separate collision negotiation to run, because the
+hostname's own uniqueness on this LAN already stands in for it: nothing else
+here calls itself `trustytrack`. `allow_name_change=True` all the same,
+since the browsable *instance* name (unlike `server`) is nobody's business
+but this registration's own, and there is no plan to build stage 1's kind of
+retry logic twice for something nobody reads back.
+
+Deliberately best-effort past that point: a failure registering either
+record is logged and swallowed rather than undoing the hostname claim
+stage 1 already won. The issue says outright that this is cheap once stage
+1's responder exists and should be dropped if it complicates stage 1 — the
+version actually built keeps the two decoupled instead, which costs nothing
+stage 1 was not already going to pay for a responder object it has to keep
+around regardless.
 """
 
 from __future__ import annotations
@@ -101,6 +129,13 @@ HOSTNAME = "trustytrack"
 #: A private, internal-only service type — see the module docstring for why
 #: this exists and why it is not `_http._tcp`.
 _SERVICE_TYPE = "_tt-host._tcp.local."
+
+#: Stage 2's two browsable records (see the module docstring). `_http._tcp`
+#: is the ordinary "there is a web server here" type a generic mDNS browser
+#: already understands; `_trustytrack._tcp` is ours. Both ride on the
+#: hostname `_SERVICE_TYPE` already won — see `_register_browsable_record`.
+_HTTP_SERVICE_TYPE = "_http._tcp.local."
+_TRUSTYTRACK_SERVICE_TYPE = "_trustytrack._tcp.local."
 
 #: How many numbered names to try (`trustytrack`, `trustytrack-2`, ...) before
 #: giving up and reporting failure. Two real instances on one LAN is the
@@ -179,11 +214,18 @@ class MdnsResponder:
     actually been claimed — there is no "pending" or "failed" instance to
     hold, which is what keeps `hostname` non-optional here: a caller holding
     an `MdnsResponder` at all means the name it names is live.
+
+    `infos` holds every record actually registered — always the stage 1
+    hostname vehicle, plus whichever of stage 2's two browsable records did
+    not fail (see the module docstring: those are best-effort, so this list
+    can be shorter than three). `stop()` unregisters all of it.
     """
 
-    def __init__(self, zeroconf: Zeroconf, info: ServiceInfo, hostname: str) -> None:
+    def __init__(
+        self, zeroconf: Zeroconf, infos: list[ServiceInfo], hostname: str
+    ) -> None:
         self._zeroconf = zeroconf
-        self._info = info
+        self._infos = infos
         #: The name actually registered, e.g. `"trustytrack.local"` or
         #: `"trustytrack-2.local"` on a colliding LAN — never the name that
         #: was merely *asked for*, per #723's first rule.
@@ -193,10 +235,13 @@ class MdnsResponder:
         """Unregister and close. Safe to call from `main.py`'s shutdown path
         even if the process is exiting uncleanly — best-effort, since there
         is nobody left to read a failure here."""
-        try:
-            self._zeroconf.unregister_service(self._info)
-        except Exception:
-            logger.exception("Could not unregister the mDNS service.")
+        for info in self._infos:
+            try:
+                self._zeroconf.unregister_service(info)
+            except Exception:
+                logger.exception(
+                    "Could not unregister an mDNS service (%s).", info.type
+                )
         try:
             self._zeroconf.close()
         except Exception:
@@ -216,8 +261,47 @@ def _candidate_port() -> int:
         return 8000
 
 
+def _register_browsable_record(
+    zeroconf: Zeroconf,
+    service_type: str,
+    candidate: str,
+    server: str,
+    port: int,
+    addresses: list[str],
+    properties: dict[str, str],
+) -> ServiceInfo | None:
+    """One of stage 2's two records, riding on the hostname `candidate` that
+    stage 1's own retry loop already won — see the module docstring for why
+    there is no separate collision negotiation here. Returns the registered
+    `ServiceInfo`, or `None` if this particular record could not be
+    registered; a failure here is logged and swallowed rather than raised,
+    since it must never undo the hostname claim stage 1 already made.
+    """
+    info = ServiceInfo(
+        service_type,
+        f"{candidate}.{service_type}",
+        parsed_addresses=addresses,
+        port=port,
+        server=server,
+        properties=properties,
+    )
+    try:
+        # `allow_name_change=True`, unlike stage 1's own registration: unlike
+        # `server`, nothing reads this *instance* name back, so a collision
+        # (some other device also calling itself "trustytrack" over this
+        # service type) can be resolved however the library likes.
+        zeroconf.register_service(info, allow_name_change=True)
+    except Exception:
+        logger.exception("Could not register %s over mDNS.", service_type)
+        return None
+    return info
+
+
 def start(
     zeroconf_factory: Callable[[], Zeroconf] | None = None,
+    *,
+    configured: bool = False,
+    version: str = "unknown",
 ) -> MdnsResponder | None:
     """Advertise `HOSTNAME.local` on the LAN, or decline honestly.
 
@@ -231,6 +315,12 @@ def start(
     falls back to showing an IP address exactly as it always has (#414) —
     that is the whole point of reporting failure as `None` rather than
     guessing.
+
+    `configured` and `version` are stage 2's `_trustytrack._tcp` payload —
+    whether an `Organization` row exists yet, and the running app version.
+    Neither changes whether registration is attempted or what hostname is
+    claimed; they only ride along on a record that a failure to register
+    never blocks stage 1 on (see `_register_browsable_record`).
 
     `zeroconf_factory` exists so a test can supply a fake rather than a real
     `Zeroconf()`, which binds a UDP socket and joins a multicast group the
@@ -281,7 +371,23 @@ def start(
             zeroconf.close()
             return None
         logger.info("Advertising this machine as %s.local", candidate)
-        return MdnsResponder(zeroconf, info, f"{candidate}.local")
+
+        server = f"{candidate}.local."
+        infos = [info]
+        for service_type, properties in (
+            (_HTTP_SERVICE_TYPE, {"path": "/"}),
+            (
+                _TRUSTYTRACK_SERVICE_TYPE,
+                {"version": version, "configured": "true" if configured else "false"},
+            ),
+        ):
+            browsable = _register_browsable_record(
+                zeroconf, service_type, candidate, server, port, addresses, properties
+            )
+            if browsable is not None:
+                infos.append(browsable)
+
+        return MdnsResponder(zeroconf, infos, f"{candidate}.local")
 
     logger.warning(
         "Could not find a free mDNS name in %d attempts starting from %s.local; "

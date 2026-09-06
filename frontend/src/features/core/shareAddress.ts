@@ -24,6 +24,26 @@
  * path, since the frontend and the API are served from the same origin and
  * the port the phone needs is whatever the browser is already using.
  *
+ * `mdnsHostname` ([#723](https://github.com/dknowles2/trusty-track/issues/723))
+ * is preferred over a bare `networkAddresses` entry whenever the backend has
+ * one: it survives the DHCP lease change that would otherwise strand a
+ * display configured on Friday evening, where an IP does not. This does not
+ * change what `reachable` promises — see below — it only changes *which*
+ * substituted address is shown, since a `.local` name is a better answer to
+ * the same question an IP was already answering.
+ *
+ * `reachable` means "the backend found something to substitute", never "a
+ * phone confirmed it can open this" — that was already true of an IP guess
+ * (DHCP could still be lying, a firewall could still be in the way) and
+ * stays true of a registered hostname: mDNS registration confirms this
+ * *server* answered on its own network segment, not that every phone in the
+ * room can resolve `.local` names (some Android builds below 12 cannot, and
+ * some guest networks block multicast the same way they isolate clients).
+ * Both kinds of substitution are equally unconfirmed for the one device
+ * that matters, so both get the same flag — a caller wanting more than that
+ * already tells the reader to "try typing it into a phone's browser to
+ * check before relying on it".
+ *
  * Pure — no fetch, no DOM beyond the `URL` parser — so it can be tested with
  * a table of origins rather than a browser.
  */
@@ -48,12 +68,14 @@ export interface ShareAddress {
  * `networkAddresses` are candidate LAN addresses from the backend, in the
  * order it reported them (sorted) — the first is used, since any one of
  * them is as good as any other and the page needs to settle on exactly one
- * to show and to encode.
+ * to show and to encode. `mdnsHostname` (`networkAddresses` query's sibling
+ * field) wins over either when present — see the module docstring.
  */
 export function shareUrl(
   origin: string,
   path: string,
   networkAddresses: readonly string[],
+  mdnsHostname?: string | null,
 ): ShareAddress {
   let parsed: URL;
   try {
@@ -66,12 +88,17 @@ export function shareUrl(
     return { url: `${origin}${path}`, reachable: true };
   }
 
+  const port = parsed.port ? `:${parsed.port}` : '';
+
+  if (mdnsHostname) {
+    return { url: `${parsed.protocol}//${mdnsHostname}${port}${path}`, reachable: true };
+  }
+
   const address = networkAddresses[0];
   if (!address) {
     return { url: `${origin}${path}`, reachable: false };
   }
 
-  const port = parsed.port ? `:${parsed.port}` : '';
   return { url: `${parsed.protocol}//${address}${port}${path}`, reachable: true };
 }
 

@@ -345,7 +345,7 @@ export type CastVoteMutation = { castVote: string | null };
 export type NetworkAddressesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type NetworkAddressesQuery = { networkAddresses: Array<string> };
+export type NetworkAddressesQuery = { networkAddresses: Array<string>, mdnsHostname: string | null };
 
 export type GetTracksQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -657,7 +657,7 @@ export type GetDisplaysQuery = { displays: Array<{ displayId: string, name: stri
 export type ObservationNetworkAddressesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type ObservationNetworkAddressesQuery = { networkAddresses: Array<string> };
+export type ObservationNetworkAddressesQuery = { networkAddresses: Array<string>, mdnsHostname: string | null };
 
 export type RaceAwardCountQueryVariables = Exact<{
   raceId: number;

@@ -1,4 +1,4 @@
-"""Advertising this machine over mDNS (#723, stage 1).
+"""Advertising this machine over mDNS (#723, stages 1-2).
 
 `backend/services/discovery.py` holds the rule; these tests exercise it
 directly. `conftest.py`'s autouse `no_real_mdns` replaces the module-level
@@ -7,6 +7,12 @@ a short-circuit that never reaches it (demo mode, `TRUSTYTRACK_MDNS=off`,
 avahi already running, no LAN address) or passes its own fake
 `zeroconf_factory` — the same shape a serial timer test passes its own
 ``open_port`` to ``probe.detect`` rather than touching a real port.
+
+Stage 1 registers one record — the internal `_tt-host` hostname vehicle.
+Stage 2 adds two more (`_http._tcp`, `_trustytrack._tcp`) once that one has
+won a name, best-effort. Most of the tests below predate stage 2 and only
+care about the hostname vehicle, so they select it out of `fake.registered`
+by type rather than assuming it is the only thing there.
 """
 
 from __future__ import annotations
@@ -31,6 +37,7 @@ class FakeServiceInfo:
         self.server = kwargs.get("server")
         self.port = kwargs.get("port")
         self.parsed_addresses = kwargs.get("parsed_addresses")
+        self.properties = kwargs.get("properties")
 
 
 class FakeZeroconf:
@@ -40,16 +47,26 @@ class FakeZeroconf:
     `"trustytrack-2"`, ...) that should behave as already taken — this is
     the fake's proxy for "another instance already claimed this on the
     LAN", since real conflict detection is exactly what `no_real_mdns`
-    exists to keep out of the suite.
+    exists to keep out of the suite. `rejected_types` is stage 2's own
+    knob: a service *type* whose registration should always fail, however
+    the hostname negotiation went — the fake's proxy for stage 2's
+    best-effort record failing without touching the hostname vehicle at all.
     """
 
-    def __init__(self, rejected_names: frozenset[str] = frozenset()):
+    def __init__(
+        self,
+        rejected_names: frozenset[str] = frozenset(),
+        rejected_types: frozenset[str] = frozenset(),
+    ):
         self.rejected_names = rejected_names
+        self.rejected_types = rejected_types
         self.registered: list[FakeServiceInfo] = []
         self.unregistered: list[FakeServiceInfo] = []
         self.closed = False
 
     def register_service(self, info, allow_name_change=False):  # noqa: ARG002
+        if info.type in self.rejected_types:
+            raise RuntimeError(f"{info.type} is rejected in this test")
         candidate = info.server.removesuffix(".local.")
         if candidate in self.rejected_names:
             from zeroconf import NonUniqueNameException
@@ -62,6 +79,10 @@ class FakeZeroconf:
 
     def close(self):
         self.closed = True
+
+
+def _by_type(fake: FakeZeroconf, service_type: str) -> list[FakeServiceInfo]:
+    return [info for info in fake.registered if info.type == service_type]
 
 
 def _patch_service_info(monkeypatch):
@@ -193,8 +214,9 @@ def test_an_uncontested_name_registers_as_asked(monkeypatch):
 
     assert responder is not None
     assert responder.hostname == "trustytrack.local"
-    assert len(fake.registered) == 1
-    assert fake.registered[0].server == "trustytrack.local."
+    vehicle = _by_type(fake, discovery._SERVICE_TYPE)
+    assert len(vehicle) == 1
+    assert vehicle[0].server == "trustytrack.local."
 
 
 def test_a_collision_reports_the_name_it_actually_got(monkeypatch):
@@ -263,7 +285,7 @@ def test_stop_unregisters_and_closes(monkeypatch):
 
     responder.stop()
 
-    assert len(fake.unregistered) == 1
+    assert len(fake.unregistered) == len(fake.registered)
     assert fake.closed is True
 
 
@@ -288,3 +310,99 @@ def test_the_default_factory_is_refused_by_the_autouse_guard():
     no fake at all must never reach a real `Zeroconf()`."""
     with pytest.raises(AssertionError, match="real Zeroconf"):
         discovery.start()
+
+
+# ── stage 2: the browsable records ──────────────────────────────────────
+
+
+def test_stage_2_registers_both_browsable_records_on_the_winning_name(monkeypatch):
+    _patch_service_info(monkeypatch)
+    fake = FakeZeroconf()
+
+    responder = discovery.start(
+        zeroconf_factory=lambda: fake, configured=True, version="1.2.3"
+    )
+
+    assert responder is not None
+    http = _by_type(fake, discovery._HTTP_SERVICE_TYPE)
+    assert len(http) == 1
+    assert http[0].server == "trustytrack.local."
+    assert http[0].properties == {"path": "/"}
+
+    tt = _by_type(fake, discovery._TRUSTYTRACK_SERVICE_TYPE)
+    assert len(tt) == 1
+    assert tt[0].server == "trustytrack.local."
+    assert tt[0].properties == {"version": "1.2.3", "configured": "true"}
+
+
+def test_stage_2_reports_an_unconfigured_install(monkeypatch):
+    _patch_service_info(monkeypatch)
+    fake = FakeZeroconf()
+
+    discovery.start(zeroconf_factory=lambda: fake, configured=False)
+
+    tt = _by_type(fake, discovery._TRUSTYTRACK_SERVICE_TYPE)
+    assert tt[0].properties["configured"] == "false"
+
+
+def test_stage_2_rides_on_whichever_name_the_hostname_vehicle_actually_won(
+    monkeypatch,
+):
+    """A collision on the hostname vehicle must carry through to the
+    browsable records too — they name the same machine, so they had better
+    agree on what it is called."""
+    _patch_service_info(monkeypatch)
+    fake = FakeZeroconf(rejected_names=frozenset({"trustytrack"}))
+
+    responder = discovery.start(zeroconf_factory=lambda: fake)
+
+    assert responder is not None
+    assert responder.hostname == "trustytrack-2.local"
+    browsable_types = (
+        discovery._HTTP_SERVICE_TYPE,
+        discovery._TRUSTYTRACK_SERVICE_TYPE,
+    )
+    for service_type in browsable_types:
+        infos = _by_type(fake, service_type)
+        assert len(infos) == 1
+        assert infos[0].server == "trustytrack-2.local."
+
+
+def test_stage_2_defaults_when_the_caller_supplies_nothing(monkeypatch):
+    _patch_service_info(monkeypatch)
+    fake = FakeZeroconf()
+
+    discovery.start(zeroconf_factory=lambda: fake)
+
+    tt = _by_type(fake, discovery._TRUSTYTRACK_SERVICE_TYPE)
+    assert tt[0].properties == {"version": "unknown", "configured": "false"}
+
+
+def test_a_failed_browsable_record_does_not_undo_the_hostname_claim(monkeypatch):
+    """Stage 2 is best-effort (see the module docstring): failing to
+    register `_http._tcp` must not cost the operator the `.local` name
+    stage 1 already won."""
+    _patch_service_info(monkeypatch)
+    fake = FakeZeroconf(rejected_types=frozenset({discovery._HTTP_SERVICE_TYPE}))
+
+    responder = discovery.start(zeroconf_factory=lambda: fake)
+
+    assert responder is not None
+    assert responder.hostname == "trustytrack.local"
+    assert _by_type(fake, discovery._HTTP_SERVICE_TYPE) == []
+    assert len(_by_type(fake, discovery._TRUSTYTRACK_SERVICE_TYPE)) == 1
+
+
+def test_stop_only_unregisters_what_actually_registered(monkeypatch):
+    """Following on from the above: `stop()` must not choke on — or try to
+    unregister — a record that never made it into `fake.registered`."""
+    _patch_service_info(monkeypatch)
+    fake = FakeZeroconf(rejected_types=frozenset({discovery._HTTP_SERVICE_TYPE}))
+
+    responder = discovery.start(zeroconf_factory=lambda: fake)
+    assert responder is not None
+
+    responder.stop()  # must not raise
+
+    assert len(fake.unregistered) == 2
+    assert fake.closed is True

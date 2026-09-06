@@ -129,3 +129,37 @@ class TestQuery:
         response = client.post("/graphql", json={"query": "{ networkAddresses }"})
 
         assert response.json()["data"]["networkAddresses"] == []
+
+
+class TestMdnsHostnameQuery:
+    """`mdnsHostname` (#723, stage 3) reads `backend.api.main.MDNS_RESPONDER`
+    fresh on every request — see `get_graphql_context` — so it is tested by
+    patching that module global rather than the discovery module, the same
+    way the field itself is wired.
+    """
+
+    def test_null_when_nothing_is_advertising(self, client):
+        """The ordinary state in the test suite: the app's real startup
+        lifespan (where `discovery.start()` runs) never executes for a bare
+        `TestClient`, so `MDNS_RESPONDER` is whatever it was left at —
+        `None` unless another test set it, which is exactly the "mDNS
+        declined" case a real install can also be in."""
+        from backend.api import main as backend_main
+
+        assert backend_main.MDNS_RESPONDER is None
+
+        response = client.post("/graphql", json={"query": "{ mdnsHostname }"})
+
+        assert response.json()["data"]["mdnsHostname"] is None
+
+    def test_reports_the_name_actually_registered(self, client, monkeypatch):
+        from backend.api import main as backend_main
+
+        class _FakeResponder:
+            hostname = "trustytrack-2.local"
+
+        monkeypatch.setattr(backend_main, "MDNS_RESPONDER", _FakeResponder())
+
+        response = client.post("/graphql", json={"query": "{ mdnsHostname }"})
+
+        assert response.json()["data"]["mdnsHostname"] == "trustytrack-2.local"

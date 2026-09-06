@@ -252,7 +252,29 @@ NETWORK_URL = f"{_SCHEME}://{LOCAL_IP}:{PORT}"
 
 import uvicorn  # noqa: E402
 
+from backend.api import main as _backend_main  # noqa: E402
 from backend.api.main import app as _app  # noqa: E402
+
+
+def _network_label() -> str:
+    """`NETWORK_URL`, plus the mDNS hostname (#723) once registration has
+    resolved, for the tray/menu-bar's own "Network:" row.
+
+    `_backend_main.MDNS_RESPONDER` is set inside the FastAPI lifespan,
+    which has already completed by the time `ServerController._poll_ready`
+    sees a 200 from `/health` — so this is meaningful from the moment the
+    tray first reports "running", and otherwise just falls back to the
+    plain `NETWORK_URL` this row has always shown (mDNS declined, or the
+    server has not finished starting yet). Read fresh on every call rather
+    than cached, since the macOS tray calls this once per status change and
+    the Windows one calls it fresh on every menu open — see each `run()`
+    below.
+    """
+    responder = _backend_main.MDNS_RESPONDER
+    if responder is None:
+        return f"Network: {NETWORK_URL}"
+    return f"Network: {NETWORK_URL} (or {_SCHEME}://{responder.hostname}:{PORT})"
+
 
 # ── Server controller ─────────────────────────────────────────────────────────
 
@@ -361,6 +383,7 @@ if sys.platform == "darwin":
             )
             self._controller = controller
             self._status_item = rumps.MenuItem(_STATUS_LABEL["starting"])
+            self._network_item = rumps.MenuItem(_network_label())
             self._http_only_item = rumps.MenuItem(
                 _HTTP_TOGGLE_LABEL, callback=self._toggle_http_only
             )
@@ -370,7 +393,7 @@ if sys.platform == "darwin":
                 rumps.MenuItem("Open App in Browser", callback=self._open_browser),
                 None,
                 self._status_item,
-                rumps.MenuItem(f"Network: {NETWORK_URL}"),
+                self._network_item,
                 None,
                 rumps.MenuItem("Restart Server", callback=self._restart),
                 rumps.MenuItem("Reset Database…", callback=self._reset_db),
@@ -387,6 +410,10 @@ if sys.platform == "darwin":
             self._status_item.title = _STATUS_LABEL.get(
                 status, f"Server: {status.capitalize()}"
             )
+            # The mDNS hostname (#723) is only known once the lifespan has
+            # run — refreshed on every status change rather than only
+            # "running" so a restart's fresh registration is picked up too.
+            self._network_item.title = _network_label()
 
         def _open_browser(self, _) -> None:
             webbrowser.open(APP_URL)
@@ -539,7 +566,11 @@ elif sys.platform == "win32":
                 ),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(lambda _item: self._get_status_label(), None),
-                pystray.MenuItem(f"Network: {NETWORK_URL}", None),
+                # pystray re-reads a callable title each time the menu
+                # opens, the same as the status label above — which is what
+                # lets this pick up the mDNS hostname (#723) once
+                # registration resolves, with no explicit refresh to wire.
+                pystray.MenuItem(lambda _item: _network_label(), None),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Restart Server", self._restart),
                 pystray.MenuItem("Reset Database…", self._reset_db),

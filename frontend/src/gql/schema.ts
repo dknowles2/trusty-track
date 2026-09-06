@@ -1026,6 +1026,7 @@ export type Query = {
   freeRaceHeats: Array<FreeRaceHeat>;
   heatSession: HeatSession;
   initialConfig: InitialConfigStatus;
+  mdnsHostname?: Maybe<Scalars['String']['output']>;
   networkAddresses: Array<Scalars['String']['output']>;
   organizations: Array<Organization>;
   practiceRace?: Maybe<Race>;

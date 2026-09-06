@@ -29,10 +29,12 @@ export default function BallotShare({ raceId }: BallotShareProps) {
   if (typeof window === 'undefined') return null;
 
   const networkAddresses = result.data?.networkAddresses ?? [];
+  const mdnsHostname = result.data?.mdnsHostname ?? null;
   const { url, reachable } = shareUrl(
     window.location.origin,
     `/race/${raceId}/vote`,
     networkAddresses,
+    mdnsHostname,
   );
 
   const handleCopy = async () => {

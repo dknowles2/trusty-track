@@ -10,6 +10,11 @@
  * it is why nothing here removes a row automatically: a display switched off
  * looks exactly like one whose network died, and only a person can tell them
  * apart.
+ *
+ * `ConnectDisplayAddress` (#723) is the panel's own answer to the thing
+ * every row here presupposes — that the screen in question already found
+ * its way to this address. This is the *first* place an operator needs a
+ * shareable address, before the Awards page's ballot share step ever did.
  */
 
 import { useState } from 'react';
@@ -48,6 +53,7 @@ import {
     type ScrollBehavior,
 } from '../displayView';
 import { newDisplayWindowUrl } from '../displayIdentity';
+import ConnectDisplayAddress from './ConnectDisplayAddress';
 
 interface DisplayRow {
     displayId: string;
@@ -124,21 +130,28 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
 
     if (displays.length === 0) {
         return (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted-color)' }}>
-                <p style={{ margin: 0 }}>No audience displays are open yet.</p>
-                <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem' }}>
-                    Open <strong>Live</strong> on a screen anywhere on this network and it will
-                    appear here — there is nothing to set up first.
-                </p>
-                <button
-                    type="button"
-                    onClick={openNewDisplay}
-                    className="secondary-btn"
-                    style={{ marginTop: '1rem', padding: '0.4rem 0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-                >
-                    <Icon path={mdiOpenInNew} size={0.7} />
-                    Open a new display window
-                </button>
+            <div style={{ display: 'grid', gap: '1rem' }}>
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted-color)' }}>
+                    <p style={{ margin: 0 }}>No audience displays are open yet.</p>
+                    <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem' }}>
+                        Open <strong>Live</strong> on a screen anywhere on this network and it
+                        will appear here — there is nothing to set up first.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={openNewDisplay}
+                        className="secondary-btn"
+                        style={{ marginTop: '1rem', padding: '0.4rem 0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                    >
+                        <Icon path={mdiOpenInNew} size={0.7} />
+                        Open a new display window
+                    </button>
+                </div>
+                {/* On a screen this laptop cannot open a browser window on —
+                    the wall-mounted display or the check-in tablet a new
+                    display window would open on *this* machine instead — an
+                    address to type or scan is the only way in (#723). */}
+                <ConnectDisplayAddress raceId={raceId} />
             </div>
         );
     }
@@ -154,6 +167,7 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                 <Icon path={mdiOpenInNew} size={0.7} />
                 Open a new display window
             </button>
+            <ConnectDisplayAddress raceId={raceId} />
             {displays.map((display) => (
                 <div
                     key={display.displayId}
