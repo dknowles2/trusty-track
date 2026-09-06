@@ -349,7 +349,7 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    padding: 0 0.06in 0 0;
+    padding: 0 0.06in;
     box-sizing: border-box;
     overflow: hidden;
     flex-shrink: 0;
@@ -358,11 +358,9 @@
 .pit-pass-car-col {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     flex: 1;
     overflow: hidden;
-    margin-left: -12px;
-    margin-top: -4px;
 }
 
 .pit-pass-checker-col {
