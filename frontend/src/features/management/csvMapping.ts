@@ -90,7 +90,7 @@ export const UNMAPPED = null;
 export type Mapping = Record<Field, string | null>;
 
 export interface ParsedCsv {
-  /** Header names exactly as they appear in the file. */
+  /** Header names from the file, disambiguated with (2), (3) if duplicates appear. */
   headers: string[];
   /** One record per data row, keyed by header. */
   rows: Record<string, string>[];
@@ -160,13 +160,45 @@ function splitRows(text: string): string[][] {
   return rows.filter((r) => r.some((value) => value.trim() !== ''));
 }
 
+/**
+ * Disambiguate duplicate headers by appending a counter: `Name (2)`, `Name (3)`, etc.
+ * Keeps column names unique so columns are not silently overwritten.
+ */
+export function disambiguateHeaders(rawHeaders: readonly string[]): string[] {
+  const seen = new Map<string, number>();
+  const used = new Set<string>();
+
+  return rawHeaders.map((header) => {
+    if (header === '') return '';
+
+    const count = (seen.get(header) ?? 0) + 1;
+    seen.set(header, count);
+
+    if (count === 1 && !used.has(header)) {
+      used.add(header);
+      return header;
+    }
+
+    let index = count === 1 ? 2 : count;
+    let candidate = `${header} (${index})`;
+    while (used.has(candidate)) {
+      index++;
+      candidate = `${header} (${index})`;
+    }
+    used.add(candidate);
+    return candidate;
+  });
+}
+
 /** Parse CSV text into headers and keyed rows. Throws on an empty file. */
 export function parseCsv(text: string): ParsedCsv {
   const rows = splitRows(text);
   if (rows.length === 0) throw new Error('That file is empty.');
 
-  const headers = rows[0].map((h) => h.trim());
-  if (headers.every((h) => h === '')) throw new Error('That file has no column headers.');
+  const rawHeaders = rows[0].map((h) => h.trim());
+  if (rawHeaders.every((h) => h === '')) throw new Error('That file has no column headers.');
+
+  const headers = disambiguateHeaders(rawHeaders);
 
   return {
     headers,
