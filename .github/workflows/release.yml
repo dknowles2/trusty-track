@@ -150,11 +150,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Written into a directory of its own, under the name a user actually
+      # wants on disk. It cannot be generated at the repository root: a
+      # `docker-compose.yml` is already checked in there — the one that builds
+      # from source (`build: .`) rather than pulling the published image — and
+      # overwriting it would mean the release shipped whichever of the two ran
+      # last. The old name (`docker-compose-release.yml`) avoided that clash
+      # and became the asset's filename, which is the bug this fixes.
       - name: Generate versioned docker-compose.yml
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           OWNER="${{ github.repository_owner }}"
-          cat > docker-compose-release.yml <<EOF
+          mkdir -p release-compose
+          cat > release-compose/docker-compose.yml <<EOF
           services:
             app:
               image: ghcr.io/$OWNER/trusty-track:$VERSION
@@ -180,7 +188,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: docker-compose
-          path: docker-compose-release.yml
+          path: release-compose/docker-compose.yml
 
   # -------------------------------------------------------------------
   # macOS .dmg
@@ -380,7 +388,7 @@ jobs:
             release-artifacts/macos-dmg/TrustyTrack-mac.dmg \
             release-artifacts/windows-exe/TrustyTrack-*-setup.exe \
             release-artifacts/windows-exe/TrustyTrack-setup.exe \
-            release-artifacts/docker-compose/docker-compose-release.yml#docker-compose.yml
+            release-artifacts/docker-compose/docker-compose.yml
 
       # A pre-release must not become `latest` here for the same reason it does
       # not claim the `latest` Docker tag: releases/latest/download/<asset> is
