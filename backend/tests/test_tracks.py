@@ -1,6 +1,12 @@
 import uuid
+from typing import TYPE_CHECKING
+
+import pytest
 
 from backend.db import crud, schemas
+
+if TYPE_CHECKING:
+    from fastapi.testclient import TestClient
 
 
 def get_unique_name(prefix: str) -> str:
@@ -569,3 +575,62 @@ class TestLaneCountBounds:
         assert "errors" in resp
         db.refresh(track)
         assert track.lane_count == 4
+
+
+def test_delete_track_stops_and_removes_timer_manager(
+    client: "TestClient", monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """deleteTrack must stop the track's TimerManager (#760).
+
+    A deleted track's manager must be removed from TIMER_MANAGERS and stopped,
+    so it does not leak background tasks and a reused track id does not
+    inherit the old manager.
+    """
+    from backend.api.main import TIMER_MANAGERS
+
+    saved = dict(TIMER_MANAGERS)
+    try:
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    createTrack(track: {
+                        name: "Ephemeral Track",
+                        laneCount: 4,
+                        timerType: "FAKE"
+                    }) {
+                        id
+                    }
+                }
+                """
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]["createTrack"]
+        track_id = int(data["id"])
+        assert track_id in TIMER_MANAGERS
+        mgr = TIMER_MANAGERS[track_id]
+
+        stopped = False
+        original_stop = mgr.stop
+
+        async def tracking_stop() -> None:
+            nonlocal stopped
+            stopped = True
+            await original_stop()
+
+        monkeypatch.setattr(mgr, "stop", tracking_stop)
+
+        del_resp = client.post(
+            "/graphql",
+            json={"query": f"mutation {{ deleteTrack(id: {track_id}) }}"},
+        )
+        assert del_resp.status_code == 200
+        assert del_resp.json()["data"]["deleteTrack"] is True
+
+        assert stopped is True
+        assert track_id not in TIMER_MANAGERS
+    finally:
+        TIMER_MANAGERS.clear()
+        TIMER_MANAGERS.update(saved)

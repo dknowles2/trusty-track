@@ -4658,13 +4658,23 @@ class Mutation:
         return updated_track
 
     @strawberry.mutation
-    def delete_track(self, info: Info, id: int) -> bool:
+    async def delete_track(self, info: Info, id: int) -> bool:
         """Delete a track."""
         db = info.context["db"]
         try:
-            return crud.delete_track(db, track_id=id)
+            deleted = crud.delete_track(db, track_id=id)
         except ValueError:
             return False
+        if deleted:
+            timer_managers = info.context.get("timer_managers")
+            if timer_managers is None:
+                from backend.api.main import TIMER_MANAGERS
+
+                timer_managers = TIMER_MANAGERS
+            mgr = timer_managers.pop(id, None)
+            if mgr:
+                await mgr.stop()
+        return deleted
 
     # Round / Schedule Mutations
     @strawberry.mutation
