@@ -1,14 +1,11 @@
 import { getContrastColor } from '../../../utils/colors';
 import {
-    formatEventDate,
-    formatEventTime,
     type PrintableRacingGroup,
     type PrintableRace,
     type PrintableRacer,
 } from '../documents';
-import { VehicleGlyph } from './PrintDecor';
+import { DerbyCarIllustration } from './PrintDecor';
 import PrintPhoto from './PrintPhoto';
-import { useTerminology } from '../../../context/TerminologyContext';
 import { formatDisplayName, type NameDisplay } from '../../core/displayName';
 
 interface Props {
@@ -23,65 +20,59 @@ interface Props {
 }
 
 /**
- * The pass a scout wears. It answers "who is this and where do they need to
- * be", so the event details are on it and the results are not.
- *
- * The car number rides on the portrait as a roundel rather than sitting in the
- * line of text below it: the number is how a scout is called to the track, and
- * on a pass swinging from a lanyard it has to be readable from further away
- * than a name is.
+ * The pass a scout wears, redesigned to match the official vertical lanyard badge.
  */
 export default function PitPass({ racer, race, racingGroup, nameDisplay = 'FULL' }: Props) {
-    const date = formatEventDate(race.dateTime);
-    const time = formatEventTime(race.dateTime);
-    const { vehicle, vehicleArtworkKey } = useTerminology();
+    const eventYear = race.dateTime ? new Date(race.dateTime).getFullYear() : '2026';
+    const carNumber = racer.car_number != null ? String(racer.car_number) : '';
+    const raceSubtitle = race.location ? `${race.name} / ${race.location}` : race.name;
+    const formattedName = formatDisplayName(nameDisplay, racer.first_name, racer.last_name);
 
     return (
-        <div className="print-card pit-pass">
-            <div className="print-card-header">
-                <span className="print-card-kind">Pit Pass</span>
-                <span className="print-card-race">{race.name}</span>
-            </div>
-            <div className="print-checker" />
-
-            <div className="print-card-body">
-                <div className="pit-pass-portrait">
-                    <PrintPhoto racer={racer} />
-                    <span className="pit-pass-roundel">{racer.car_number || '—'}</span>
-                </div>
-
-                <div className="print-card-name">
-                    {formatDisplayName(nameDisplay, racer.first_name, racer.last_name)}
-                </div>
-
-                {racingGroup && (
-                    <span
-                        className="print-racing-group-chip"
-                        style={{
-                            backgroundColor: racingGroup.color,
-                            color: getContrastColor(racingGroup.color),
-                        }}
-                    >
-                        {racingGroup.name}
-                    </span>
-                )}
-
-                <div className="pit-pass-car">
-                    {vehicle} #{racer.car_number || '—'}
-                    {racer.car_name ? ` · ${racer.car_name}` : ''}
-                </div>
-
-                <div className="pit-pass-footer">
-                    <VehicleGlyph artworkKey={vehicleArtworkKey} size={26} className="pit-pass-footer-car" />
-                    <div>
-                        {date && (
-                            <div>
-                                {date}
-                                {time ? ` · ${time}` : ''}
-                            </div>
-                        )}
-                        {race.location && <div>{race.location}</div>}
+        <div className="print-card pit-pass" data-testid={`pit-pass-${racer.id}`}>
+            <div className="pit-pass-top">
+                <div className="pit-pass-portrait-wrap">
+                    <div className="pit-pass-portrait">
+                        <PrintPhoto racer={racer} />
                     </div>
+                </div>
+
+                <div className="pit-pass-titles">
+                    <div className="pit-pass-racer-title">RACER</div>
+                    <div className="pit-pass-subtitle">PIT PASS</div>
+                </div>
+
+                <div className="pit-pass-name-bar-wrap">
+                    <div className="pit-pass-name-bar">
+                        <span className="print-card-name">{formattedName}</span>
+                        {racingGroup && (
+                            <span
+                                className="pit-pass-group-chip"
+                                style={{
+                                    backgroundColor: racingGroup.color,
+                                    color: getContrastColor(racingGroup.color),
+                                }}
+                            >
+                                {racingGroup.name}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="pit-pass-middle">
+                <div className="pit-pass-car-col">
+                    <DerbyCarIllustration width={116} height={50} number={carNumber} />
+                </div>
+                <div className="pit-pass-checker-col" aria-hidden="true" />
+            </div>
+
+            <div className="pit-pass-footer-split">
+                <div className="pit-pass-footer-left">
+                    <span className="pit-pass-race-location">{raceSubtitle}</span>
+                </div>
+                <div className="pit-pass-footer-right">
+                    <span className="pit-pass-year">{eventYear}</span>
                 </div>
             </div>
         </div>

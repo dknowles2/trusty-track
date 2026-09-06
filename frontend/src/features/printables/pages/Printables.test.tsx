@@ -152,14 +152,26 @@ describe('Printables', () => {
     });
 
     it('puts the event on a pit pass', () => {
-        // The pass answers "where do I need to be", so the date and the venue
-        // are on it. Nothing else prints them.
+        // The pass answers "where do I need to be", so the year and the venue
+        // are on it.
         mockRace();
         open('?racers=11');
 
         const card = document.querySelector('.pit-pass') as HTMLElement;
-        expect(within(card).getByText(/March 14, 2026/)).toBeInTheDocument();
-        expect(within(card).getByText('St Anne’s Hall')).toBeInTheDocument();
+        expect(within(card).getByText('2026')).toBeInTheDocument();
+        expect(within(card).getByText(/St Anne’s Hall/)).toBeInTheDocument();
+    });
+
+    it('renders the badge headings, car illustration, and checkered grid', () => {
+        mockRace();
+        open('?racers=11');
+
+        const card = document.querySelector('.pit-pass') as HTMLElement;
+        expect(within(card).getByText('RACER')).toBeInTheDocument();
+        expect(within(card).getByText('PIT PASS')).toBeInTheDocument();
+        expect(within(card).getByText('Alex Rivera')).toBeInTheDocument();
+        expect(within(card).getByText('Wolves')).toBeInTheDocument();
+        expect(card.querySelector('.pit-pass-checker-col')).toBeInTheDocument();
     });
 
     it('falls back to initials for a racer with no photo', () => {

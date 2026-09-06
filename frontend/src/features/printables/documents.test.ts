@@ -134,6 +134,10 @@ describe('sheet geometry', () => {
         expect(perSheet(spec)).toBeGreaterThan(0);
     });
 
+    it('counts a full sheet of pit passes — 3 columns x 2 rows', () => {
+        expect(perSheet(specFor('pit-pass'))).toBe(6);
+    });
+
     it('counts a full sheet of business cards', () => {
         expect(perSheet(specFor('drivers-license'))).toBe(10);
     });

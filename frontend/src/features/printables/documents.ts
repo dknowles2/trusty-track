@@ -54,12 +54,12 @@ export const DOCUMENTS: readonly DocumentSpec[] = [
         kind: 'pit-pass',
         label: 'Pit passes',
         blurb: 'Lanyard sized. Photo, name, and the event details.',
-        widthIn: 3.5,
-        // Deep enough for a photo above the name, shallow enough that three
-        // rows fit a sheet. At 4.5in only two rows fit and the third of the
-        // page below them is thrown away on every print run.
-        heightIn: 3.25,
-        columns: 2,
+        widthIn: 2.45,
+        // Standard vertical lanyard badge proportion (2.45in x 4.2in).
+        // Three columns fit across standard Letter portrait (3 x 2.45in = 7.35in <= 7.5in),
+        // giving 6 passes per sheet (3 columns x 2 rows).
+        heightIn: 4.2,
+        columns: 3,
     },
     {
         kind: 'drivers-license',
