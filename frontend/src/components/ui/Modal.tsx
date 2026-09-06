@@ -9,26 +9,127 @@ interface ModalProps {
     maxWidth?: string;
 }
 
+const FOCUSABLE_SELECTOR = [
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled]):not([type="hidden"])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
 export default function Modal({ isOpen, onClose, title, children, maxWidth = '500px' }: ModalProps) {
     const modalRef = useRef<HTMLDivElement>(null);
+    const triggerElementRef = useRef<HTMLElement | null>(null);
+    const onCloseRef = useRef(onClose);
 
     useEffect(() => {
-        const handleEscape = (e: KeyboardEvent) => {
+        onCloseRef.current = onClose;
+    }, [onClose]);
+
+    // Track the last focused element outside the modal to restore on close (#788)
+    useEffect(() => {
+        if (!isOpen) {
+            if (document.activeElement instanceof HTMLElement) {
+                triggerElementRef.current = document.activeElement;
+            }
+            const handleFocusIn = () => {
+                if (document.activeElement instanceof HTMLElement) {
+                    triggerElementRef.current = document.activeElement;
+                }
+            };
+            document.addEventListener('focusin', handleFocusIn);
+            return () => document.removeEventListener('focusin', handleFocusIn);
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        if (
+            document.activeElement instanceof HTMLElement &&
+            (!modalRef.current || !modalRef.current.contains(document.activeElement))
+        ) {
+            triggerElementRef.current = document.activeElement;
+        }
+
+        // Autofocus on open:
+        // If an element inside the modal is already focused (e.g. via React's autoFocus prop),
+        // preserve it. Otherwise, prioritize [autofocus], then first focusable element,
+        // or the modal container itself.
+        const isAlreadyFocusedInside =
+            modalRef.current &&
+            document.activeElement &&
+            modalRef.current.contains(document.activeElement) &&
+            document.activeElement !== modalRef.current;
+
+        if (!isAlreadyFocusedInside && modalRef.current) {
+            const autoFocusEl = modalRef.current.querySelector<HTMLElement>('[autofocus]');
+            if (autoFocusEl) {
+                autoFocusEl.focus();
+            } else {
+                const focusables = modalRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+                if (focusables.length > 0) {
+                    focusables[0].focus();
+                } else {
+                    modalRef.current.focus();
+                }
+            }
+        }
+
+        const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
-                onClose();
+                onCloseRef.current();
+                return;
+            }
+
+            if (e.key === 'Tab') {
+                if (!modalRef.current) return;
+
+                const focusableElements = Array.from(
+                    modalRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+                );
+
+                if (focusableElements.length === 0) {
+                    e.preventDefault();
+                    modalRef.current.focus();
+                    return;
+                }
+
+                const firstElement = focusableElements[0];
+                const lastElement = focusableElements[focusableElements.length - 1];
+
+                if (e.shiftKey) {
+                    if (
+                        document.activeElement === firstElement ||
+                        document.activeElement === modalRef.current ||
+                        !modalRef.current.contains(document.activeElement)
+                    ) {
+                        e.preventDefault();
+                        lastElement.focus();
+                    }
+                } else {
+                    if (
+                        document.activeElement === lastElement ||
+                        document.activeElement === modalRef.current ||
+                        !modalRef.current.contains(document.activeElement)
+                    ) {
+                        e.preventDefault();
+                        firstElement.focus();
+                    }
+                }
             }
         };
 
-        if (isOpen) {
-            document.addEventListener('keydown', handleEscape);
-            document.body.style.overflow = 'hidden'; // Prevent background scrolling
-        }
+        document.addEventListener('keydown', handleKeyDown);
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
 
         return () => {
-            document.removeEventListener('keydown', handleEscape);
+            document.removeEventListener('keydown', handleKeyDown);
             document.body.style.overflow = 'unset';
+            triggerElementRef.current?.focus?.();
         };
-    }, [isOpen, onClose]);
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -48,6 +149,7 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
         >
             <div
                 ref={modalRef}
+                tabIndex={-1}
                 // Announced as a dialog, and named by its own heading. Without
                 // these it is an anonymous div: a screen reader gives no
                 // indication that anything has opened.
@@ -64,13 +166,15 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
                     maxHeight: '90vh',
                     overflowY: 'auto',
                     position: 'relative',
-                    animation: 'fadeIn 0.2s ease-out'
+                    animation: 'fadeIn 0.2s ease-out',
+                    outline: 'none'
                 }}
             >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     {title && <h2 style={{ margin: 0 }}>{title}</h2>}
                     <button
                         onClick={onClose}
+                        aria-label="Close"
                         style={{
                             background: 'none',
                             border: 'none',
