@@ -74,6 +74,18 @@ export type Award = {
   voteTally: Array<AwardVoteTally>;
 };
 
+export type AwardCopyInput = {
+  artworkKey?: InputMaybe<Scalars['String']['input']>;
+  fromBottom?: Scalars['Boolean']['input'];
+  kind?: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  place?: InputMaybe<Scalars['Int']['input']>;
+  racingGroupId?: InputMaybe<Scalars['Int']['input']>;
+  sortOrder?: InputMaybe<Scalars['Int']['input']>;
+  source?: InputMaybe<Scalars['String']['input']>;
+  votable?: Scalars['Boolean']['input'];
+};
+
 export type AwardInput = {
   artworkKey?: InputMaybe<Scalars['String']['input']>;
   fromBottom?: Scalars['Boolean']['input'];
@@ -1199,6 +1211,7 @@ export type RaceChangeKind =
   | 'SCHEDULE';
 
 export type RaceInput = {
+  awards?: Array<AwardCopyInput>;
   carNumberingStrategy?: Scalars['String']['input'];
   championshipTrophies?: Scalars['Int']['input'];
   dateTime?: InputMaybe<Scalars['String']['input']>;
@@ -1342,6 +1355,7 @@ export type RacingGroupInput = {
   carNumberRangeEnd?: InputMaybe<Scalars['Int']['input']>;
   carNumberRangeStart?: InputMaybe<Scalars['Int']['input']>;
   color?: Scalars['String']['input'];
+  copiedFromId?: InputMaybe<Scalars['Int']['input']>;
   division?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
 };

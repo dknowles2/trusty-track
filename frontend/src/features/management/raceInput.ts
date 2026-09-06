@@ -1,11 +1,19 @@
 import type { RaceFormData } from './components/RaceForm';
-import { toRacingGroupInput, type RacingGroupDraft } from './raceSetup';
+import { toAwardCopyInput, toRacingGroupInput, type AwardCopyDraft, type RacingGroupDraft } from './raceSetup';
 
 /**
- * Everything the setup wizard hands a create-race handler (#662): the form's
- * own fields, plus the racing groups scaffolded or copied on the way to it.
+ * Everything the setup wizard hands a create-race handler (#662, #722): the
+ * form's own fields, the racing groups scaffolded or copied on the way to
+ * it, and any award definitions carried over from a previous race. `awards`
+ * is optional because a scratch setup has none to send — `raceSetup.
+ * copyableAwards` returns an empty list rather than this field being absent,
+ * but a plain `RaceForm` submission with no wizard at all has no such field
+ * either.
  */
-export type RaceSetupData = RaceFormData & { racing_groups: readonly RacingGroupDraft[] };
+export type RaceSetupData = RaceFormData & {
+    racing_groups: readonly RacingGroupDraft[];
+    awards?: readonly AwardCopyDraft[];
+};
 
 /**
  * Maps `RaceForm`'s snake_case fields to the camelCase `CreateRace` input
@@ -17,14 +25,16 @@ export type RaceSetupData = RaceFormData & { racing_groups: readonly RacingGroup
  * weight check the form on screen said was on. One builder, called from both
  * create-race handlers, is what keeps that from happening a second way.
  *
- * The racing groups and the seven terminology fields ride along since #662:
- * `createRace` takes both, so the wizard's answers land in one mutation with
- * the race rather than N follow-up round trips. A plain `RaceForm` submission
- * with no groups and no words sends an empty list and nulls — exactly what
- * the server defaulted to before either field existed.
+ * The racing groups and the seven terminology fields ride along since #662,
+ * and award definitions since #722: `createRace` takes all three, so the
+ * wizard's answers land in one mutation with the race rather than N
+ * follow-up round trips. A plain `RaceForm` submission with no groups, no
+ * awards and no words sends empty lists and nulls — exactly what the server
+ * defaulted to before any of those fields existed.
  */
 export function buildCreateRaceInput(data: RaceFormData | RaceSetupData) {
     const racingGroups = 'racing_groups' in data ? data.racing_groups : [];
+    const awards = 'awards' in data && data.awards ? data.awards : [];
     return {
         name: data.name,
         dateTime: data.date_time,
@@ -40,6 +50,7 @@ export function buildCreateRaceInput(data: RaceFormData | RaceSetupData) {
         qrHeadline: data.qr_headline,
         qrWifiNote: data.qr_wifi_note,
         racingGroups: racingGroups.map(toRacingGroupInput),
+        awards: awards.map(toAwardCopyInput),
         racingGroupSingular: data.racing_group_singular ?? null,
         racingGroupPlural: data.racing_group_plural ?? null,
         organizationSingular: data.organization_singular ?? null,

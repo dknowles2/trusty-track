@@ -964,6 +964,30 @@ class RacingGroupInput:
     division: str | None = None
     car_number_range_start: int | None = None
     car_number_range_end: int | None = None
+    #: Set only by the race setup wizard's copy step (#722) — the id this
+    #: group was copied from, in the *previous* race. `crud.create_race`
+    #: uses it to map a copied award's `racing_group_id` from the old race to
+    #: this one; it is not a column and is never stored.
+    copied_from_id: int | None = None
+
+
+@strawberry.input
+class AwardCopyInput:
+    """One award definition carried over by the race setup wizard's copy
+    step (#722) — see `schemas.AwardCopyCreate`, which this maps onto
+    directly. No `racer_id` field exists here at all, so a `SPECIAL` award's
+    chosen winner has nowhere to ride along even by mistake (#170).
+    """
+
+    name: str
+    kind: str = "SPECIAL"
+    source: str | None = None
+    place: int | None = None
+    from_bottom: bool = False
+    racing_group_id: int | None = None
+    artwork_key: str | None = None
+    sort_order: int | None = None
+    votable: bool = False
 
 
 @strawberry.input
@@ -1009,6 +1033,11 @@ class RaceInput:
     #: (the default) creates none, which is exactly what every caller before
     #: this field existed got.
     racing_groups: list[RacingGroupInput] = strawberry.field(default_factory=list)
+    #: Award definitions to create alongside the race (#722) — the setup
+    #: wizard's copy step, carrying a previous race's trophies over with no
+    #: recipient attached (#170). Empty (the default) creates none, which is
+    #: what a `RaceForm` submission with no copy step sends.
+    awards: list[AwardCopyInput] = strawberry.field(default_factory=list)
     #: A per-race terminology override, settable at creation (#662) — the
     #: wizard's "what is raced / who is holding it" answers land here, so a
     #: Space Derby reads "Rocket" from its first screen rather than after a

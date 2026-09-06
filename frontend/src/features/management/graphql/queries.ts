@@ -389,9 +389,11 @@ export const GET_RACE_SETUP_CONTEXT = gql`
 
 /**
  * A previous race's structure and settings, for the wizard to copy (#662):
- * its racing groups exactly as they are, and the settings the details step
- * is prefilled from. The raw terminology columns rather than the resolved
- * words, so a race that inherited stays inheriting when copied.
+ * its racing groups exactly as they are, the settings the details step is
+ * prefilled from, and its award *definitions* (#722) — deliberately not
+ * `recipient`, which #170 computes fresh for one race and means nothing
+ * carried into another. The raw terminology columns rather than the
+ * resolved words, so a race that inherited stays inheriting when copied.
  */
 export const GET_RACE_SETUP_SOURCE = gql`
   query GetRaceSetupSource($raceId: Int!) {
@@ -419,6 +421,18 @@ export const GET_RACE_SETUP_SOURCE = gql`
         division
         carNumberRangeStart
         carNumberRangeEnd
+      }
+      awards {
+        id
+        name
+        kind
+        source
+        place
+        fromBottom
+        racingGroupId
+        artworkKey
+        sortOrder
+        votable
       }
     }
   }
