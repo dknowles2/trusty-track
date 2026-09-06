@@ -16,11 +16,12 @@ import { Icon } from '@mdi/react';
 import { mdiArrowLeft, mdiPrinter } from '@mdi/js';
 
 import AwardArtwork from '../../awards/artwork';
-import { CornerFlourish, Rosette } from '../components/PrintDecor';
-import { certificatesFor, type CertificateAward } from '../certificate';
+import { DerbyCarIllustration, PinewoodDerbySeal } from '../components/PrintDecor';
+import { certificatesFor, signerTitleForOrg, type CertificateAward } from '../certificate';
 import { formatEventDate } from '../documents';
 import { GET_CERTIFICATES } from '../graphql/queries';
 import { printablesThemeRootProps } from '../printablesTheme';
+import { useTerminology } from '../../../context/TerminologyContext';
 import '../PrintSheet.css';
 
 export default function Certificate() {
@@ -33,8 +34,15 @@ export default function Certificate() {
         pause: !parsedRaceId,
     });
 
+    const { org } = useTerminology();
+    const signerTitle = signerTitleForOrg(org);
+
     const race = data?.race;
     const eventDate = formatEventDate(race?.dateTime);
+    const eventYear = race?.dateTime ? new Date(race.dateTime).getFullYear() : '2026';
+    const packNumberMatch = race?.name?.match(/\b\d+\b/);
+    const defaultNumber = packNumberMatch ? packNumberMatch[0] : '73';
+    const packLocation = race ? (race.location ? `${race.name} | ${race.location}` : race.name) : '';
 
     const certificates = useMemo(
         () =>
@@ -102,77 +110,81 @@ export default function Certificate() {
                             className="certificate"
                             data-testid={`certificate-${certificate.awardId}`}
                         >
-                            {/* Frame furniture: one flourish, rotated into the
-                                other three corners by the stylesheet. The
-                                background texture is in the stylesheet rather
-                                than here — a drawing big enough to fill a page
-                                is clip art, and this page already carries the
-                                award's own artwork. None of this carries
-                                `role="img"`: that selector is how a test tells
-                                a certificate with award artwork from one
-                                without. */}
-                            <span className="certificate-corner certificate-corner-tl">
-                                <CornerFlourish />
-                            </span>
-                            <span className="certificate-corner certificate-corner-tr">
-                                <CornerFlourish />
-                            </span>
-                            <span className="certificate-corner certificate-corner-br">
-                                <CornerFlourish />
-                            </span>
-                            <span className="certificate-corner certificate-corner-bl">
-                                <CornerFlourish />
-                            </span>
-                            <p className="certificate-eyebrow">Certificate of Achievement</p>
-                            <p className="certificate-race">
-                                {certificate.raceName}
-                                {eventDate ? ` · ${eventDate}` : ''}
-                            </p>
+                            <div className="certificate-main">
+                                <header className="certificate-header-bar">
+                                    <div className="certificate-official-tag">OFFICIAL</div>
+                                    <div className="certificate-champion-title">CHAMPION</div>
+                                </header>
 
-                            {/* A plain certificate — no ready-made template, and no
-                                SPEED rule to derive one from — draws no artwork at
-                                all, which is also what every certificate for an
-                                award saved before this feature existed prints. */}
-                            {certificate.artworkKey && (
-                                <div className="certificate-artwork">
-                                    <AwardArtwork
-                                        artworkKey={certificate.artworkKey}
-                                        size={110}
-                                        palette={{
-                                            line: 'var(--print-primary-color, #003F87)',
-                                            fill: 'var(--print-accent-color, #FCD116)',
-                                        }}
-                                    />
+                                <div className="certificate-body">
+                                    <p className="certificate-intro">THIS CERTIFICATE OF</p>
+
+                                    <div className="certificate-award-row">
+                                        {certificate.artworkKey && (
+                                            <div className="certificate-artwork">
+                                                <AwardArtwork
+                                                    artworkKey={certificate.artworkKey}
+                                                    size={44}
+                                                    palette={{
+                                                        line: 'var(--print-primary-color, #003F87)',
+                                                        fill: 'var(--print-accent-color, #FCD116)',
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="certificate-award-name-wrap">
+                                            <h1 className="certificate-award-name">{certificate.awardName}</h1>
+                                        </div>
+                                    </div>
+
+                                    <p className="certificate-presented-to">IS AWARDED TO</p>
+
+                                    <div className="certificate-recipient-row">
+                                        <p
+                                            className={
+                                                certificate.recipientName
+                                                    ? 'certificate-recipient'
+                                                    : 'certificate-recipient certificate-recipient-blank'
+                                            }
+                                        >
+                                            {certificate.recipientName ?? 'placeholder'}
+                                        </p>
+                                    </div>
                                 </div>
-                            )}
 
-                            <h1 className="certificate-award-name">{certificate.awardName}</h1>
+                                <div className="certificate-lower">
+                                    <div className="certificate-date-block">
+                                        <span className="certificate-date-val">{eventDate || '\u00A0'}</span>
+                                        <div className="certificate-sign-line" />
+                                        <span className="certificate-sign-label">Date</span>
+                                    </div>
 
-                            <p className="certificate-presented-to">is presented to</p>
-                            <p
-                                className={
-                                    certificate.recipientName
-                                        ? 'certificate-recipient'
-                                        : 'certificate-recipient certificate-recipient-blank'
-                                }
-                            >
-                                {certificate.recipientName ?? 'placeholder'}
-                            </p>
+                                    <div className="certificate-car-center">
+                                        <DerbyCarIllustration
+                                            width={310}
+                                            height={138}
+                                            number={defaultNumber}
+                                        />
+                                    </div>
 
-                            <div className="certificate-seal">
-                                <Rosette size={86} />
+                                    <div className="certificate-signature-block">
+                                        <span className="certificate-signature-val">{'\u00A0'}</span>
+                                        <div className="certificate-sign-line" />
+                                        <span className="certificate-sign-label">{signerTitle}</span>
+                                    </div>
+                                </div>
+
+                                <footer className="certificate-footer-bar">
+                                    <div className="certificate-seal-badge">
+                                        <PinewoodDerbySeal size={134} year={eventYear} />
+                                    </div>
+                                    <div className="certificate-pack-location">
+                                        {packLocation}
+                                    </div>
+                                </footer>
                             </div>
 
-                            {/* Blank on purpose, like the heat sheet's Result
-                                column: nothing in the app holds who signed a
-                                certificate, and the signing is what handing it
-                                over is. */}
-                            <div className="certificate-signatures">
-                                <div className="certificate-signature">Race Director</div>
-                                <div className="certificate-signature">Cubmaster</div>
-                            </div>
-
-                            <p className="certificate-date">{eventDate}</p>
+                            <div className="certificate-checker-strip" aria-hidden="true" />
                         </article>
                     ))}
                 </div>
