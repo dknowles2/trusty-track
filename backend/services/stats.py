@@ -215,6 +215,13 @@ def _compute_lane_stats(all_results: list, lane_count: int) -> list:
 
     Only counts non-DNF times. Positive relative_advantage_pct means faster
     than overall average (lane favors racers).
+
+    A DNF is a recorded time of zero or less — the same marker
+    ``domain/scoring.py`` and ``services/records.py`` use — checked on the
+    time's own magnitude rather than against ``DNF_PENALTY``. That constant
+    is a scoring *penalty*, not a sentinel: a genuine 9.999s-or-slower finish
+    (a long track, a slow rocket, a Space Derby boat) is not a DNF, and
+    comparing against it here used to fold a real result into "no time" (#754).
     """
     lane_times: dict[int, list[float]] = {}
 
@@ -225,11 +232,10 @@ def _compute_lane_stats(all_results: list, lane_count: int) -> list:
             continue
         t = float(time)
         if t <= 0.0:
-            t = DNF_PENALTY
-        if t < DNF_PENALTY:
-            if lane not in lane_times:
-                lane_times[lane] = []
-            lane_times[lane].append(t)
+            continue
+        if lane not in lane_times:
+            lane_times[lane] = []
+        lane_times[lane].append(t)
 
     all_valid = [t for times in lane_times.values() for t in times]
     overall_avg = sum(all_valid) / len(all_valid) if all_valid else None
@@ -270,8 +276,16 @@ def _compute_racer_stats(
     Includes min/mean/max/std_dev of non-DNF times, plus per-lane breakdowns.
     Internal dicts carry _racing_group_id for use by _compute_racing_group_stats.
     Sorted by mean_time ascending (None last).
+
+    A DNF (a recorded time of zero or less) is folded to ``DNF_PENALTY`` for
+    averaging — the same rule ``domain/scoring.py``'s ``TIMED`` strategy
+    applies — but each entry also carries whether it *was* a DNF, tracked
+    alongside the value rather than inferred from it afterwards. Comparing a
+    later value against ``DNF_PENALTY`` to ask "was this a real time" folds a
+    genuine 9.999s-or-slower finish into "no time" (#754); tracking the flag
+    at the point the penalty is applied is what keeps the two apart.
     """
-    racer_times: dict[int, list[float]] = {}
+    racer_times: dict[int, list[tuple[float, bool]]] = {}
     racer_lane_times: dict[int, dict[int, list[float]]] = {}
 
     for r in all_results:
@@ -282,14 +296,15 @@ def _compute_racer_stats(
             continue
 
         t = float(time)
-        if t <= 0.0:
+        is_dnf = t <= 0.0
+        if is_dnf:
             t = DNF_PENALTY
 
         if racer_id not in racer_times:
             racer_times[racer_id] = []
             racer_lane_times[racer_id] = {}
 
-        racer_times[racer_id].append(t)
+        racer_times[racer_id].append((t, is_dnf))
 
         if lane is not None:
             if lane not in racer_lane_times[racer_id]:
@@ -297,7 +312,7 @@ def _compute_racer_stats(
             racer_lane_times[racer_id][lane].append(t)
 
     stats = []
-    for racer_id, times in racer_times.items():
+    for racer_id, timed_entries in racer_times.items():
         racer = racer_map.get(racer_id)
         if not racer:
             continue
@@ -309,8 +324,9 @@ def _compute_racer_stats(
         )
         racing_group_name = racing_group.name if racing_group else "Unassigned"
 
-        valid = [t for t in times if t < DNF_PENALTY]
-        heats_completed = len(times)
+        times = [t for t, _is_dnf in timed_entries]
+        valid = [t for t, is_dnf in timed_entries if not is_dnf]
+        heats_completed = len(timed_entries)
 
         min_time: float | None = None
         max_time: float | None = None
