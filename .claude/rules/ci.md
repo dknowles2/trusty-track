@@ -37,6 +37,26 @@ Two things worth knowing:
 - **The release notes are drafted as the work lands, not reconstructed at the tag.** `.github/workflows/release-drafter.yml` keeps a draft release up to date on every merge to `main`, so the notes for the next version are visible — and correctable — before anybody cuts a tag; `release.yml`'s `create-release` runs the same drafter with the concrete tag, attaches the installers to that draft, and only then publishes it. Three things about it, each a way of getting it wrong. **The draft is filled in before the assets and published after them**, because `releases/latest/download/<asset>` is what every install guide links to ([#474](https://github.com/dknowles2/trusty-track/issues/474)) and a release page that appears without its assets is a broken link on the front page. **A category is a repository label**, so an unlabelled pull request heads the notes with no heading rather than falling off them — which is the right default here, since an unlabelled change is a change to the app itself. And the autolabeler matches only the three title prefixes this project actually uses (`docs:`, `fix:`, `fix(docs):`) — the titles are prose, not conventional commits, so a rule inferring a category from file paths would file half the features under Documentation, every change here carrying its own docs.
 - **The e2e suite runs against a real backend, on ports and a data directory derived from the checkout** (`frontend/e2e/environment.ts`), so two worktrees can run it at once. It replaced a mocked one that had been failing silently — the mocks predated the normalized cache (#12) and answered without `__typename`, which graphcache cannot store, so the page rendered nothing. Nothing ran it, so nobody found out. If you add a browser test, add it there rather than mocking the API.
 
+### Every issue carries a label
+
+`.github/workflows/issue-labels.yml` runs on `issues: [opened, reopened]`. If the title starts with `docs:` (or `fix(docs):`) it applies `documentation`; if it starts with `fix:` it applies `bug` — mirroring the same two prefixes `release-drafter.yml`'s autolabeler already matches on pull requests, above. Anything else, or an issue that already carries a label, gets `needs-triage` if and only if it has no label at all. Removing `needs-triage` once a human has triaged the issue is a manual act — the workflow never removes it, so it never fights a maintainer who wants it left on alongside a real label.
+
+**An unlabelled *pull request* is fine and stays that way — this asymmetry is deliberate.** `release-drafter.yml`'s own template puts uncategorized PRs first with no heading, because an unlabelled change is a change to the app itself and that is where the reader looking at a release wants to start. An issue has no equivalent "no heading" home: it sits in triage views and boards where "no label" reads as "nobody has looked at this yet" rather than as a deliberate category, which is why issues get a backstop and PRs don't.
+
+**Label vocabulary for issues** (the full label set also covers `dependencies`, `github_actions`, `python:uv`, `javascript`, `needs-revision`, `needs-human`, `revision-1`, `revision-2` — release/PR-facing labels this workflow never touches):
+
+| Label | When to reach for it |
+| --- | --- |
+| `needs-triage` | Applied automatically; nobody has classified this yet |
+| `bug`, `documentation` | Applied automatically from a `fix:`/`docs:` title prefix; also fine to apply by hand |
+| `enhancement`, `question`, `good first issue`, `help wanted`, `tech-debt`, `architecture`, `performance`, `security` | Ordinary human triage — pick the one that actually describes the issue, never guessed by the workflow |
+| `icebox` | Parked by a human judgment call — blocked on hardware nobody has, a purchased certificate, or a real data file. The workflow never applies this; see `auth-and-demo.md`'s note on the public demo for the kind of thing that ends up here |
+| `duplicate`, `invalid`, `wontfix` | Triage outcomes, applied by a human closing the loop |
+
+The workflow degrades to a no-op on a fork or a repository missing one of these three labels — it logs a warning and moves on rather than failing the run, since a label set is repository configuration a fork is not guaranteed to have copied.
+
+**Untested against a real `issues` event, and said so rather than implied.** Nothing available in this environment can fire a GitHub Actions `issues` webhook, so this has only been checked with `actionlint` and a read of the `actions/github-script` API — never a real run. The cheap way to check it: open a throwaway issue with a plain title (see `needs-triage` land), then one titled `fix: something` (see `bug` land), then close and reopen a labelled issue (see nothing change).
+
 ### What the functional e2e specs are for
 
 `frontend/e2e/functional/` holds two files and one shared `support.ts`: `roster.spec.ts` for the management side, `raceDay.spec.ts` for what happens once racing starts. Between them they cover generating a schedule, running a heat on the fake timer, standings arriving over the subscription, a championship field filling from the cascade, overriding a recorded time, skipping a heat, and reordering one.
