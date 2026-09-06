@@ -221,4 +221,50 @@ describe('RoundWizard Component', () => {
             ).toBeInTheDocument();
         });
     });
+
+    it('disables schedule generation and displays a notice when fewer than 2 racers are checked in (#784)', async () => {
+        const user = userEvent.setup();
+        render(
+            <AlertProvider>
+                <RoundWizard {...defaultProps} racerCount={1} totalRacerCount={5} />
+            </AlertProvider>
+        );
+
+        // Step 1 notice
+        expect(
+            screen.getByText(/At least 2 checked-in cars are required to generate heats/i)
+        ).toBeInTheDocument();
+
+        // Navigate to Step 3
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Next'));
+
+        // Generate button should be disabled
+        const generateButton = screen.getByRole('button', { name: 'Generate Schedule' });
+        expect(generateButton).toBeDisabled();
+    });
+
+    it('displays notice when some registered racers are not checked in (#784)', async () => {
+        const user = userEvent.setup();
+        render(
+            <AlertProvider>
+                <RoundWizard {...defaultProps} racerCount={4} totalRacerCount={10} />
+            </AlertProvider>
+        );
+
+        // Step 1 check-in status
+        expect(
+            screen.getByText(/4 of 10 cars checked in\. Previews and heats only include checked-in cars\./i)
+        ).toBeInTheDocument();
+
+        // Navigate to Step 3
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Next'));
+
+        // Step 3 Review footnote
+        expect(
+            screen.getByText(/\* Previews are based on 4 checked-in cars \(6 not checked in\)\. Only checked-in cars are put into heats\./i)
+        ).toBeInTheDocument();
+    });
 });
+
