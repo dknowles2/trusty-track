@@ -15,6 +15,8 @@ than forward the call (looking the track up, checking its timer type, reading
 `info.context`), and that wiring is exactly what has no other test.
 """
 
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -291,3 +293,47 @@ class TestResetTimer:
         assert mgr._state is TimerState.IDLE
         assert mgr._active_heat_id is None
         assert mgr._pending_results == {}
+
+    async def test_stops_gate_poll_task(
+        self, db: Any, timer_session_factory: Any
+    ) -> None:
+        """resetTimer must stop any running gate-polling task (#762)."""
+        from backend.services.timer.devices.derbynet import DERBY_TIMER
+
+        race, track = _race(db)
+        heat = _heat(db, race)
+        mgr = TimerManager(
+            track_id=track.id, device=DERBY_TIMER, session_factory=timer_session_factory
+        )
+        TIMER_MANAGERS[track.id] = mgr
+        await mgr.prepare_heat(heat.id, models.HeatKind.OFFICIAL, lane_mask=0b11)
+
+        assert mgr._gate_poll_task is not None
+        assert not mgr._gate_poll_task.done()
+
+        result = _mutate(self.MUTATION, {"trackId": track.id})
+
+        assert result["resetTimer"] is True
+        assert mgr._state is TimerState.IDLE
+        assert mgr._gate_poll_task is None
+
+    async def test_manager_reset_stops_gate_poll_task(
+        self, db: Any, timer_session_factory: Any
+    ) -> None:
+        """TimerManager.reset() must cancel and clear the gate-poll task (#762)."""
+        from backend.services.timer.devices.derbynet import DERBY_TIMER
+
+        race, track = _race(db)
+        heat = _heat(db, race)
+        mgr = TimerManager(
+            track_id=track.id, device=DERBY_TIMER, session_factory=timer_session_factory
+        )
+        await mgr.prepare_heat(heat.id, models.HeatKind.OFFICIAL, lane_mask=0b11)
+
+        assert mgr._gate_poll_task is not None
+        assert not mgr._gate_poll_task.done()
+
+        await mgr.reset()
+
+        assert mgr._state is TimerState.IDLE
+        assert mgr._gate_poll_task is None

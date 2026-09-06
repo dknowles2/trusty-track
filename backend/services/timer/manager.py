@@ -397,6 +397,7 @@ class TimerManager:
             self._active_heat_kind = None
             self._test_run = False
             self._buf = b""
+            self._stop_gate_polling()
             self._schedule_idle_flush()
             self._pending_results = {}
             self._racer_by_lane = {}
