@@ -109,20 +109,21 @@ def next_phase(
     """One phase of heats as ``(lane, racer_id)`` assignments.
 
     Neighbours in ``ordered`` race each other, chunked to the track's width;
-    a final one-car heat borrows from the heat before it, because nobody
-    races alone. Within each heat, lanes go to whoever has used them least
+    a final one-car heat borrows from the heat before it when that heat has
+    more than two cars, so solo runs are avoided without stranding the heat it
+    borrowed from. Within each heat, lanes go to whoever has used them least
     (``lane_uses`` is per racer, per lane) — the "best effort" lane balance
     the method promises, which cannot be a guarantee when the groupings are
     decided by results.
     """
-    if len(ordered) < 2:
+    if len(usable_lanes) < 2 or len(ordered) < 2:
         return []
     if rng is None:
         rng = random.Random()
 
     size = len(usable_lanes)
     groups = [list(ordered[i : i + size]) for i in range(0, len(ordered), size)]
-    if len(groups) > 1 and len(groups[-1]) == 1:
+    if len(groups) > 1 and len(groups[-1]) == 1 and len(groups[-2]) > 2:
         groups[-1].insert(0, groups[-2].pop())
 
     phase: list[list[tuple[int, int]]] = []

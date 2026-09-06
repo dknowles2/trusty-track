@@ -88,6 +88,30 @@ class TestThePhase:
     def test_a_lone_car_races_nobody(self):
         assert balanced.next_phase([1], {}, [1, 2, 3, 4]) == []
 
+    def test_next_phase_usable_lanes_under_two_returns_empty(self):
+        assert balanced.next_phase([1, 2], {}, usable_lanes=[1]) == []
+
+    def test_next_phase_two_lanes_odd_racers_no_intermediate_solo_heat(self):
+        phase = balanced.next_phase(
+            [1, 2, 3, 4, 5], {}, usable_lanes=[1, 2], rng=random.Random(1)
+        )
+        assert all(len(h) == 2 for h in phase[:-1])
+        assert all(len(h) > 0 for h in phase)
+
+    def test_tail_rebalancing_property(self):
+        for num_lanes in range(1, 6):
+            usable = list(range(1, num_lanes + 1))
+            for n in range(2, 16):
+                racers = list(range(1, n + 1))
+                phase = balanced.next_phase(racers, {}, usable_lanes=usable)
+                if num_lanes < 2:
+                    assert phase == []
+                elif num_lanes >= 3:
+                    assert all(len(h) >= 2 for h in phase)
+                else:
+                    assert all(len(h) == 2 for h in phase[:-1])
+                    assert all(len(h) > 0 for h in phase)
+
 
 # --------------------------------------------------------------------------- #
 # Against the database                                                        #
@@ -354,4 +378,160 @@ class TestTheRound:
         db.expire_all()
         assert (
             db.query(models.Round).filter(models.Round.race_id == race.id).count() == 0
+        )
+
+
+class TestBalancedUsableLanesAndVacating:
+    def test_balanced_round_refused_on_track_with_fewer_than_two_usable_lanes(self, db):
+        group = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Pack OneLane Bal")
+        )
+        track = crud.create_track(
+            db,
+            schemas.TrackCreate(
+                name="OneLaneTrack Bal", lane_count=1, timer_type="FAKE"
+            ),
+        )
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                organization_id=group.id,
+                name="Race OneLane Bal",
+                track_id=track.id,
+                scoring_strategy=models.ScoringStrategy.TIMED,
+            ),
+        )
+        _racers(db, race.id, 4)
+        round_obj = crud.create_round(
+            db,
+            race_id=race.id,
+            round_number=1,
+            scheduling_strategy=models.SchedulingStrategy.BALANCED,
+            name="Balanced Round",
+        )
+        import pytest
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "An elimination or balanced round requires at least two usable lanes."
+            ),
+        ):
+            crud.generate_heats_for_round(db, round_obj.id)
+
+    def test_lane_outage_emptying_pending_heat_does_not_stall_round(self, db):
+        group = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Pack Bal Outage")
+        )
+        track = crud.create_track(
+            db,
+            schemas.TrackCreate(
+                name="Track Bal Outage", lane_count=4, timer_type="FAKE"
+            ),
+        )
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                organization_id=group.id,
+                name="Race Bal Outage",
+                track_id=track.id,
+                scoring_strategy=models.ScoringStrategy.TIMED,
+            ),
+        )
+        ids = _racers(db, race.id, 5)
+        round_obj = crud.create_round(
+            db,
+            race_id=race.id,
+            round_number=1,
+            scheduling_strategy=models.SchedulingStrategy.BALANCED,
+            name="Balanced Round",
+            balanced_phases=2,
+        )
+        crud.generate_heats_for_round(db, round_obj.id)
+
+        heats = (
+            db.query(models.Heat)
+            .filter(models.Heat.round_id == round_obj.id)
+            .order_by(models.Heat.heat_number)
+            .all()
+        )
+        assert len(heats) == 2
+
+        # Run heat 1
+        _run_heat(db, heats[0], ids)
+
+        # Apply lane outages to all lanes used by heat 2
+        h2_lanes = crud.heat_lanes_of(db, heats[1])
+        used_lanes = [lane.lane for lane in h2_lanes if lane.racer_id is not None]
+
+        crud.set_lane_outages(db, track.id, used_lanes)
+        crud.apply_outages_to_scheduled_heats(db, track.id)
+
+        # Round must not stall: either apply_outages extended it or
+        # extend_balanced_round does
+        all_heats = (
+            db.query(models.Heat).filter(models.Heat.round_id == round_obj.id).all()
+        )
+        new_heats = crud.extend_balanced_round(db, round_obj.id)
+        assert len(all_heats) > 2 or len(new_heats) > 0, (
+            "Round stalled: extend_balanced_round failed to grow next phase"
+        )
+
+    def test_withdrawal_emptying_pending_heat_does_not_stall_round(self, db):
+        group = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Pack Bal Withdraw")
+        )
+        track = crud.create_track(
+            db,
+            schemas.TrackCreate(
+                name="Track Bal Withdraw", lane_count=3, timer_type="FAKE"
+            ),
+        )
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                organization_id=group.id,
+                name="Race Bal Withdraw",
+                track_id=track.id,
+                scoring_strategy=models.ScoringStrategy.TIMED,
+            ),
+        )
+        ids = _racers(db, race.id, 4)
+        round_obj = crud.create_round(
+            db,
+            race_id=race.id,
+            round_number=1,
+            scheduling_strategy=models.SchedulingStrategy.BALANCED,
+            name="Balanced Round",
+            balanced_phases=2,
+        )
+        crud.generate_heats_for_round(db, round_obj.id)
+
+        heats = (
+            db.query(models.Heat)
+            .filter(models.Heat.round_id == round_obj.id)
+            .order_by(models.Heat.heat_number)
+            .all()
+        )
+        assert len(heats) == 2
+
+        # Run heat 1
+        _run_heat(db, heats[0], ids)
+
+        # Withdraw all racers in heat 2
+        h2_lanes = crud.heat_lanes_of(db, heats[1])
+        h2_racer_ids = {lane.racer_id for lane in h2_lanes if lane.racer_id is not None}
+        for r_id in h2_racer_ids:
+            racer = db.query(models.Racer).filter(models.Racer.id == r_id).one()
+            racer.car_passed_inspection = False
+        db.commit()
+
+        crud.withdraw_absent_racers(db, race.id)
+
+        all_heats = (
+            db.query(models.Heat).filter(models.Heat.round_id == round_obj.id).all()
+        )
+        new_heats = crud.extend_balanced_round(db, round_obj.id)
+        assert len(all_heats) > 2 or len(new_heats) > 0, (
+            "Round stalled: extend_balanced_round failed to grow next phase"
         )

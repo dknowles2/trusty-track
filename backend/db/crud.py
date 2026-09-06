@@ -1079,7 +1079,11 @@ def extend_elimination_round(db: Session, round_id: int) -> list[models.Heat]:
     if not heats:
         return []
     heat_lanes = lanes_for_heats(db, heats)
-    if not all(lanes.is_finished(hl) for hl in heat_lanes):
+    if not all(
+        lanes.is_finished(hl)
+        for hl in heat_lanes
+        if any(lane.racer_id is not None for lane in hl)
+    ):
         return []
 
     losses = elimination.losses_by_racer(heat_lanes)
@@ -1167,7 +1171,11 @@ def extend_balanced_round(db: Session, round_id: int) -> list[models.Heat]:
     if not heats:
         return []
     heat_lanes = lanes_for_heats(db, heats)
-    if not all(lanes.is_finished(hl) for hl in heat_lanes):
+    if not all(
+        lanes.is_finished(hl)
+        for hl in heat_lanes
+        if any(lane.racer_id is not None for lane in hl)
+    ):
         return []
 
     usable = usable_lanes_for_race(db, round_obj.race_id)
@@ -1288,6 +1296,18 @@ def generate_heats_for_round(
 
     race_id = round_obj.race_id
     usable_lanes = usable_lanes_for_race(db, race_id)
+
+    if (
+        round_obj.scheduling_strategy
+        in (
+            models.SchedulingStrategy.ELIMINATION,
+            models.SchedulingStrategy.BALANCED,
+        )
+        and len(usable_lanes) < 2
+    ):
+        raise ValueError(
+            "An elimination or balanced round requires at least two usable lanes."
+        )
 
     # Check for existing heats
     existing_heats = (
@@ -1783,15 +1803,23 @@ def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
                 current = heat_lanes_of(db, heat)
                 if all(lane.lane in usable for lane in current):
                     continue
-                set_heat_lanes(
-                    heat,
-                    [lane for lane in current if lane.lane in usable],
-                )
+                remaining = [lane for lane in current if lane.lane in usable]
+                if not any(lane.racer_id is not None for lane in remaining):
+                    if not remaining:
+                        fallback_lane = min(usable) if usable else 1
+                        remaining = [lanes.Lane(lane=fallback_lane, skipped=True)]
+                    else:
+                        for lane in remaining:
+                            lane.skipped = True
+                set_heat_lanes(heat, remaining)
                 vacated = True
 
-            if vacated and not round_obj.disrupted:
-                round_obj.disrupted = True
-                disrupted_round_ids.append(round_obj.id)
+            if vacated:
+                if not round_obj.disrupted:
+                    round_obj.disrupted = True
+                    disrupted_round_ids.append(round_obj.id)
+                extend_elimination_round(db, round_obj.id)
+                extend_balanced_round(db, round_obj.id)
 
     db.commit()
     for race_id, new_heats_by_round in new_heats_by_race.items():
@@ -2031,10 +2059,15 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
                     lane.place = None
                     modified = True
             if modified:
+                if not any(lane.racer_id is not None for lane in lanes_):
+                    for lane in lanes_:
+                        lane.skipped = True
                 set_heat_lanes(heat, lanes_)
                 vacated = True
         if vacated:
             changed_round_ids.append(round_obj.id)
+            extend_elimination_round(db, round_obj.id)
+            extend_balanced_round(db, round_obj.id)
 
     db.commit()
     return changed_round_ids
