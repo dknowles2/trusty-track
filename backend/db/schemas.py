@@ -146,7 +146,13 @@ class RacingGroupBase(BaseModel):
 
 
 class RacingGroupCreate(RacingGroupBase):
-    pass
+    #: Set only by the race setup wizard's copy step (#722) — the id of the
+    #: *previous* race's racing group this one was copied from. Not a column;
+    #: `crud.create_race` pops it before building the row and uses it to build
+    #: an old-id-to-new-id map, which is how a copied `SPEED` award's
+    #: `racing_group_id` (also naming the old race's group) follows to the
+    #: right group here rather than a stale cross-race reference.
+    copied_from_id: int | None = None
 
 
 class RacingGroupUpdate(BaseModel):
@@ -251,6 +257,44 @@ class RacerUpdate(BaseModel):
     excluded_from_standings: bool | None = None
 
 
+class AwardCopyCreate(BaseModel):
+    """One award definition carried along by the race setup wizard's copy
+    step (#722) — deliberately **not** `AwardCreate`: that class carries
+    `racer_id`, and this one has no field for it at all, so a `SPECIAL`
+    award's chosen recipient cannot be smuggled through this path even by
+    mistake. #170's rule is that a `SPEED` award's recipient is computed, so
+    it is never stored here either; what is copied is the definition only.
+
+    `source` and `racing_group_id` still name the *previous* race's round and
+    group. `crud.create_race` drops any award whose `source` is
+    round-scoped — the new race has no rounds yet, and none of last year's
+    survive the trip — and remaps `racing_group_id` from the old race's
+    group id to the new one using the `copied_from_id` on the racing groups
+    created alongside it, dropping the award if that group was not carried
+    over either. The frontend performs the identical filtering before
+    submitting (`raceSetup.copyableAwards`), so what the operator is shown in
+    the wizard's preview is exactly what survives; this is a second,
+    independent gate against a stale or hand-built request.
+    """
+
+    name: str
+    kind: AwardKind = AwardKind.SPECIAL
+    source: str | None = None
+    place: int | None = None
+    from_bottom: bool = False
+    racing_group_id: int | None = None
+    artwork_key: str | None = None
+    sort_order: int | None = None
+    votable: bool = False
+
+    @field_validator("place")
+    @classmethod
+    def place_is_one_based(cls, value: int | None) -> int | None:
+        if value is not None and value < 1:
+            raise ValueError("place is 1-based; the winner is 1")
+        return value
+
+
 class RaceBase(BaseModel):
     name: str
     date_time: str | None = None
@@ -300,6 +344,11 @@ class RaceCreate(RaceBase):
     #: Racing groups created in the same transaction as the race (#662) —
     #: `crud.create_race` pops this off before building the `Race` row.
     racing_groups: list[RacingGroupCreate] = Field(default_factory=list)
+    #: Award definitions carried over from a previous race by the setup
+    #: wizard's copy step (#722), created in the same transaction once the
+    #: racing groups above have their new ids. Never a recipient — see
+    #: `AwardCopyCreate`.
+    awards: list[AwardCopyCreate] = Field(default_factory=list)
     #: A per-race terminology override set at creation (#662), null meaning
     #: inherit — the same seven columns `RaceUpdate` below accepts.
     racing_group_singular: str | None = None

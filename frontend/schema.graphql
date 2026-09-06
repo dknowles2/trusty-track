@@ -63,6 +63,18 @@ type Award {
   duplicateOf: Award
 }
 
+input AwardCopyInput {
+  name: String!
+  kind: String! = "SPECIAL"
+  source: String = null
+  place: Int = null
+  fromBottom: Boolean! = false
+  racingGroupId: Int = null
+  artworkKey: String = null
+  sortOrder: Int = null
+  votable: Boolean! = false
+}
+
 input AwardInput {
   name: String!
   kind: String! = "SPECIAL"
@@ -643,6 +655,7 @@ input RaceInput {
   qrHeadline: String = null
   qrWifiNote: String = null
   racingGroups: [RacingGroupInput!]! = []
+  awards: [AwardCopyInput!]! = []
   racingGroupSingular: String = null
   racingGroupPlural: String = null
   organizationSingular: String = null
@@ -773,6 +786,7 @@ input RacingGroupInput {
   division: String = null
   carNumberRangeStart: Int = null
   carNumberRangeEnd: Int = null
+  copiedFromId: Int = null
 }
 
 type RacingGroupStat {

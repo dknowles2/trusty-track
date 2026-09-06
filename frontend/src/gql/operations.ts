@@ -4,6 +4,18 @@ type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 import * as Types from './schema';
 
+export type AwardCopyInput = {
+  artworkKey?: string | null | undefined;
+  fromBottom?: boolean;
+  kind?: string;
+  name: string;
+  place?: number | null | undefined;
+  racingGroupId?: number | null | undefined;
+  sortOrder?: number | null | undefined;
+  source?: string | null | undefined;
+  votable?: boolean;
+};
+
 export type AwardInput = {
   artworkKey?: string | null | undefined;
   fromBottom?: boolean;
@@ -96,6 +108,7 @@ export type QrTarget =
   | 'VOTE';
 
 export type RaceInput = {
+  awards?: Array<AwardCopyInput>;
   carNumberingStrategy?: string;
   championshipTrophies?: number;
   dateTime?: string | null | undefined;
@@ -171,6 +184,7 @@ export type RacingGroupInput = {
   carNumberRangeEnd?: number | null | undefined;
   carNumberRangeStart?: number | null | undefined;
   color?: string;
+  copiedFromId?: number | null | undefined;
   division?: string | null | undefined;
   name: string;
 };
@@ -561,7 +575,7 @@ export type GetRaceSetupSourceQueryVariables = Exact<{
 }>;
 
 
-export type GetRaceSetupSourceQuery = { race: { id: number, location: string | null, scoringStrategy: string, tiebreaker: string, dropWorstRuns: number, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, vehicleArtworkKey: string | null, racingGroups: Array<{ id: number, name: string, color: string, division: string | null, carNumberRangeStart: number | null, carNumberRangeEnd: number | null }> } | null };
+export type GetRaceSetupSourceQuery = { race: { id: number, location: string | null, scoringStrategy: string, tiebreaker: string, dropWorstRuns: number, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, vehicleArtworkKey: string | null, racingGroups: Array<{ id: number, name: string, color: string, division: string | null, carNumberRangeStart: number | null, carNumberRangeEnd: number | null }>, awards: Array<{ id: number, name: string, kind: string, source: string | null, place: number | null, fromBottom: boolean, racingGroupId: number | null, artworkKey: string | null, sortOrder: number, votable: boolean }> } | null };
 
 export type PopulateRaceMutationVariables = Exact<{
   raceId: number;

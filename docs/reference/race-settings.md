@@ -66,15 +66,26 @@ settings filled in on the form.
 **Copied:** every den, with its name, colour, Category and car number range;
 the scoring method, **Drop worst run(s)**, **Ties** and **Championship
 Trophies**; the car numbering strategy and start number; the weight limit (or
-no weight check, if it had none); the race's own words, if it had any; and
-the location.
+no weight check, if it had none); the race's own words, if it had any; the
+location; and every award's definition — its name, kind and rule — with
+nobody assigned to any of them yet. A copied den-scoped speed award follows
+its den across.
+
+The **Dens** step lists exactly which awards are coming across before you
+create the race, and names the ones that are not: an award tied to one
+specific round can never come across, since the new race has no rounds yet,
+and an award scoped to a den you remove on that same step goes with it.
+Nothing here is a surprise you discover afterwards — add either kind again
+from the Awards tab once the race is set up, if you still want it.
 
 **Not copied:** the name and date, which are what make it a new race; the
-roster, check-in, photos, rounds, heats, results, awards and votes; the QR
-code display text; the running-order, trophy and name-display settings the
-edit form offers only after a race exists; and the lock. A race that
-inherited the install's words stays inheriting when copied, rather than
-freezing whatever they resolved to that day.
+roster, check-in, photos, rounds, heats, results and votes; who was assigned
+to a copied award — last year's Best Paint winner is not this year's, and a
+speed award's winner is always worked out fresh from this year's own results,
+never carried over; the QR code display text; the running-order, trophy and
+name-display settings the edit form offers only after a race exists; and the
+lock. A race that inherited the install's words stays inheriting when copied,
+rather than freezing whatever they resolved to that day.
 
 ![The Start step with Copy settings from a previous race chosen and last year's derby picked, listing the six dens it will copy](../assets/screenshots/getting-started/03-new-race-copy.png)
 _Copying last year's derby: its six dens come across, and the form opens on

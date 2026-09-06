@@ -402,3 +402,40 @@ jobs:
           else
             gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --latest=false
           fi
+
+  # -------------------------------------------------------------------
+  # Raspberry Pi image (dknowles2/trusty-track#724, stage 2) — the build,
+  # the pi-gen/QEMU details, and the boot smoke test all live in
+  # raspberry-pi-image.yml, called here rather than duplicated so a manual
+  # `workflow_dispatch` run of that file exercises the identical steps a
+  # release does. See that file for what it builds, what it proves, and what
+  # it deliberately does not.
+  #
+  # Built on every release, not on demand and not nightly: an image that
+  # only sometimes matches the release it is attached to is worse than one
+  # rebuilt fresh every time. `needs: [docker, create-release]` — the
+  # release it attaches the image to has to exist first, and the version
+  # comes off the same `docker` job output every other artefact's version
+  # already does, rather than a second copy of the tag-stripping logic — and
+  # nothing needs *this* job, so a slow or failed image build can never hold
+  # up the installers or the release page. That is the same `deploy-demo`
+  # shape above, generalised: the release itself does not wait on a job
+  # whose cost or reliability it does not control. If it fails, the release
+  # still stands with everything else attached, and this job is re-run by
+  # hand from the Actions tab once the image exists again — `gh release
+  # upload` inside the called workflow is exactly as re-runnable as the
+  # installers' uploads are.
+  #
+  # The whole build is tens of minutes under QEMU/binfmt emulation (see
+  # deploy/raspberry-pi/build.sh's own header); budget for that rather than
+  # treating a long run here as stuck.
+  # -------------------------------------------------------------------
+  raspberry-pi:
+    name: Raspberry Pi Image
+    needs: [docker, create-release]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/raspberry-pi-image.yml
+    with:
+      version: ${{ needs.docker.outputs.version }}
+      tag: ${{ github.ref_name }}

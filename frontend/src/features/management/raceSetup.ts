@@ -324,6 +324,13 @@ export interface RacingGroupDraft {
     division: string;
     car_number_range_start?: number;
     car_number_range_end?: number;
+    /** Set only when copying (#722): the id this group was copied from, in
+     * the *previous* race — never this race's own, which does not exist
+     * yet. Lets the backend remap a copied award's `racingGroupId` from the
+     * old race to the new one in the same transaction, and lets
+     * `copyableAwards` below tell whether a group-scoped award's group is
+     * still in the list the operator is editing. */
+    copied_from_id?: number;
 }
 
 /**
@@ -364,11 +371,28 @@ function withSuggestedRange(
 
 /** A racing group as `GET_RACE_SETUP_SOURCE` returns it. */
 export interface SourceRacingGroup {
+    id: number;
     name: string;
     color: string;
     division?: string | null;
     carNumberRangeStart?: number | null;
     carNumberRangeEnd?: number | null;
+}
+
+/** An award as `GET_RACE_SETUP_SOURCE` returns it — the definition only;
+ * `recipient` is deliberately not requested, since #170's whole point is
+ * that it means nothing outside the race it was computed for. */
+export interface SourceAward {
+    id: number;
+    name: string;
+    kind: string;
+    source?: string | null;
+    place?: number | null;
+    fromBottom?: boolean | null;
+    racingGroupId?: number | null;
+    artworkKey?: string | null;
+    sortOrder: number;
+    votable: boolean;
 }
 
 /** The previous race's settings the wizard copies — what that query returns. */
@@ -390,10 +414,14 @@ export interface SourceRace {
     vehiclePlural?: string | null;
     vehicleArtworkKey?: string | null;
     racingGroups: readonly SourceRacingGroup[];
+    awards: readonly SourceAward[];
 }
 
 /** Last year's groups, exactly as they were — names, colours, categories
- * and number ranges — minus the ids, which belong to last year's race. */
+ * and number ranges — minus the ids, which belong to last year's race. Each
+ * draft keeps a note of *which* old id it came from
+ * (`RacingGroupDraft.copied_from_id`), which is what lets `copyableAwards`
+ * below tell whether a group a `SPEED` award is scoped to made the trip. */
 export function copiedGroups(source: readonly SourceRacingGroup[]): RacingGroupDraft[] {
     return source.map((g) => ({
         name: g.name,
@@ -401,7 +429,110 @@ export function copiedGroups(source: readonly SourceRacingGroup[]): RacingGroupD
         division: g.division ?? '',
         car_number_range_start: g.carNumberRangeStart ?? undefined,
         car_number_range_end: g.carNumberRangeEnd ?? undefined,
+        copied_from_id: g.id,
     }));
+}
+
+/** One award definition ready for `createRace`'s `awards` list — still
+ * naming the *previous* race's racing group, where it is scoped to one; the
+ * server remaps that id using each racing group's own `copied_from_id`
+ * (`crud.create_race`). */
+export interface AwardCopyDraft {
+    name: string;
+    kind: string;
+    source: string | null;
+    place: number | null;
+    from_bottom: boolean;
+    racing_group_id: number | null;
+    artwork_key: string | null;
+    sort_order: number;
+    votable: boolean;
+}
+
+export interface ExcludedAward {
+    award: SourceAward;
+    /** Said in a sentence: "«name» — <reason>." */
+    reason: string;
+}
+
+export interface AwardCopyPlan {
+    toCopy: AwardCopyDraft[];
+    excluded: ExcludedAward[];
+}
+
+/** A `SPEED` award naming one round's results — the new race has no rounds
+ * at all when the wizard runs, so this can never survive the trip. */
+const ROUND_SOURCE_PREFIX = 'ROUND:';
+
+/**
+ * Which of the previous race's awards can be copied into this one, and why
+ * the rest cannot (#722) — computed against the groups list *as the
+ * operator is currently editing it*, so the answer stays right whether they
+ * remove a group afterwards or never touch it.
+ *
+ * Two things never survive the trip, and both are excluded rather than
+ * copied half-broken: an award naming a specific round (`"ROUND:<id>"`) —
+ * the new race has none yet — and an award scoped to a racing group that was
+ * not carried over (removed, on the groups step). Everything else — an
+ * unscoped `SPEED` award, one scoped to a group that *is* still in the
+ * list, and every `SPECIAL` award — copies as a plain definition, with
+ * `racer_id` never even a field to carry (see `AwardCopyDraft`): a `SPECIAL`
+ * award's recipient was somebody's choice for last year's roster, not this
+ * one's, and it arrives with nobody assigned, its ordinary state until
+ * somebody decides again.
+ */
+export function copyableAwards(
+    awards: readonly SourceAward[],
+    groups: readonly RacingGroupDraft[],
+): AwardCopyPlan {
+    const toCopy: AwardCopyDraft[] = [];
+    const excluded: ExcludedAward[] = [];
+    for (const award of awards) {
+        if (award.source && award.source.startsWith(ROUND_SOURCE_PREFIX)) {
+            excluded.push({
+                award,
+                reason: 'names one round’s results, and this race has none yet',
+            });
+            continue;
+        }
+        if (
+            award.racingGroupId != null &&
+            !groups.some((g) => g.copied_from_id === award.racingGroupId)
+        ) {
+            excluded.push({
+                award,
+                reason: 'is scoped to a group that was not carried over',
+            });
+            continue;
+        }
+        toCopy.push({
+            name: award.name,
+            kind: award.kind,
+            source: award.source ?? null,
+            place: award.place ?? null,
+            from_bottom: award.fromBottom ?? false,
+            racing_group_id: award.racingGroupId ?? null,
+            artwork_key: award.artworkKey ?? null,
+            sort_order: award.sortOrder,
+            votable: award.votable,
+        });
+    }
+    return { toCopy, excluded };
+}
+
+/** A copied award draft as `createRace`'s `awards` input takes it. */
+export function toAwardCopyInput(draft: AwardCopyDraft) {
+    return {
+        name: draft.name,
+        kind: draft.kind,
+        source: draft.source,
+        place: draft.place,
+        fromBottom: draft.from_bottom,
+        racingGroupId: draft.racing_group_id,
+        artworkKey: draft.artwork_key,
+        sortOrder: draft.sort_order,
+        votable: draft.votable,
+    };
 }
 
 /**
@@ -507,5 +638,6 @@ export function toRacingGroupInput(draft: RacingGroupDraft) {
         division: draft.division.trim() || null,
         carNumberRangeStart: draft.car_number_range_start ?? null,
         carNumberRangeEnd: draft.car_number_range_end ?? null,
+        copiedFromId: draft.copied_from_id ?? null,
     };
 }
