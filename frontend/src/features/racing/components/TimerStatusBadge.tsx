@@ -20,21 +20,21 @@ interface TimerStatusData {
 function getStatusDisplay(state: string | undefined): { colorClass: string; label: string } {
   switch (state) {
     case 'CONNECTED':
-      return { colorClass: 'yellow', label: 'Connecting\u2026' };
+      return { colorClass: 'yellow', label: 'Timer: Connecting\u2026' };
     case 'IDLE':
-      return { colorClass: 'green', label: 'Ready' };
+      return { colorClass: 'green', label: 'Timer: Ready' };
     // ARMED means the lane mask has been sent. READY means the timer has also
     // told us the start gate is latched, which only devices that report the
     // gate can reach — so ARMED keeps the neutral label and READY is the extra
     // reassurance rather than the baseline.
     case 'ARMED':
-      return { colorClass: 'blue', label: 'Staged' };
+      return { colorClass: 'blue', label: 'Timer: Staged' };
     case 'READY':
-      return { colorClass: 'blue', label: 'Ready to race' };
+      return { colorClass: 'blue', label: 'Timer: Ready to race' };
     case 'RUNNING':
-      return { colorClass: 'pulse', label: 'Racing\u2026' };
+      return { colorClass: 'pulse', label: 'Timer: Racing\u2026' };
     case 'RESULTS_OVERDUE':
-      return { colorClass: 'red', label: 'Results overdue' };
+      return { colorClass: 'red', label: 'Timer: Results overdue' };
     case 'DISCONNECTED':
     case 'FAULT':
     default:

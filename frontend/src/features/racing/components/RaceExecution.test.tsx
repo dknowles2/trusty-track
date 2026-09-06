@@ -510,6 +510,50 @@ describe('RaceExecution', () => {
 
             expect(screen.getByText('Round Not Ready')).toBeInTheDocument();
         });
+        it('shows the heat phase (e.g. Recorded) next to the heat heading (#786)', () => {
+            mockHeatSession({
+                trackId: 1,
+                heatId: 1,
+                phase: 'RECORDED',
+                timerState: 'IDLE',
+                lanes: [liveLane({ lane: 1, racerId: 101, time: 3.5, place: 1 })],
+            });
+
+            render(<RaceExecution {...defaultProps} />);
+
+            const badge = screen.getByTestId('heat-phase-badge');
+            expect(badge).toHaveTextContent('Recorded');
+        });
+
+        it('shows Ready when heat phase is WAITING (#786)', () => {
+            mockHeatSession({
+                trackId: 1,
+                heatId: 1,
+                phase: 'WAITING',
+                timerState: 'IDLE',
+                lanes: [liveLane({ lane: 1, racerId: 101, time: null, place: null })],
+            });
+
+            render(<RaceExecution {...defaultProps} />);
+
+            const badge = screen.getByTestId('heat-phase-badge');
+            expect(badge).toHaveTextContent('Ready');
+        });
+
+        it('shows Racing… when heat phase is RUNNING (#786)', () => {
+            mockHeatSession({
+                trackId: 1,
+                heatId: 1,
+                phase: 'RUNNING',
+                timerState: 'RUNNING',
+                lanes: [liveLane({ lane: 1, racerId: 101, time: null, place: null })],
+            });
+
+            render(<RaceExecution {...defaultProps} />);
+
+            const badge = screen.getByTestId('heat-phase-badge');
+            expect(badge).toHaveTextContent('Racing…');
+        });
     });
 
     it('shows "Waiting for Timer..." message when IDLE and not completed', () => {

@@ -4,6 +4,7 @@ import Modal from '../../../components/ui/Modal';
 import { FakeTimerMole } from './FakeTimerMole';
 import { HardwareTimerMole } from './HardwareTimerMole';
 import { TimerStatusBadge } from './TimerStatusBadge';
+import './TimerStatusBadge.css';
 import { SerialProxyConnector } from './SerialProxyConnector';
 import { HEAT_SESSION_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS, START_INTERMISSION_MUTATION } from '../graphql/queries';
 import { INTERMISSION_PRESETS } from '../intermission';
@@ -67,6 +68,20 @@ const KBD_STYLE: React.CSSProperties = {
     borderRadius: '4px',
     opacity: 0.65,
 };
+
+function heatPhaseDisplay(phase: HeatPhase): { label: string; statusClass: string } {
+    switch (phase) {
+        case 'RECORDED':
+            return { label: 'Recorded', statusClass: 'recorded' };
+        case 'RUNNING':
+            return { label: 'Racing\u2026', statusClass: 'running' };
+        case 'NOT_READY':
+            return { label: 'Not Ready', statusClass: 'not-ready' };
+        case 'WAITING':
+        default:
+            return { label: 'Ready', statusClass: 'waiting' };
+    }
+}
 
 interface RaceExecutionProps {
     /** For the round-summary modal's "Take a break" row (#592) — the only
@@ -418,6 +433,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                                     <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.globalHeatNumber ?? activeExecutionHeat.heatNumber}</h2>
+                                    <span className="heat-phase-badge" data-testid="heat-phase-badge">
+                                        <span className={`heat-phase-dot heat-phase-dot--${heatPhaseDisplay(phase).statusClass}`} />
+                                        <span>{heatPhaseDisplay(phase).label}</span>
+                                    </span>
                                     {trackId != null && hasTimer && <TimerStatusBadge trackId={trackId} />}
                                 </div>
                                 <div style={{ color: 'var(--text-muted-color)', fontSize: '1.1rem' }}>
