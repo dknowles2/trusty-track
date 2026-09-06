@@ -537,7 +537,85 @@ def get_racers(
     return query.order_by(models.Racer.id).offset(skip).limit(limit).all()
 
 
+def _taken_car_numbers(db: Session, race_id: int) -> set[int]:
+    """Return the set of car numbers currently assigned to racers in a race."""
+    taken: set[int] = {
+        r[0]
+        for r in db.query(models.Racer.car_number)
+        .filter(
+            models.Racer.race_id == race_id,
+            models.Racer.car_number.isnot(None),
+        )
+        .all()
+        if r[0] is not None
+    }
+    for obj in db.new:
+        if (
+            isinstance(obj, models.Racer)
+            and obj.race_id == race_id
+            and obj.car_number is not None
+        ):
+            taken.add(obj.car_number)
+    return taken
+
+
+def next_free_car_number(
+    db: Session,
+    race: models.Race,
+    racing_group_id: int | None = None,
+) -> int | None:
+    """Pick the next available car number according to the race's numbering strategy.
+
+    When the race's ``car_numbering_strategy`` is:
+    - ``GLOBAL``: the lowest number >= ``race.global_start_number`` (or 1)
+      not already taken by another racer in the race (#789).
+    - ``PER_GROUP``: the lowest number in the racer's group range
+      (``car_number_range_start`` to ``car_number_range_end``) not already
+      taken (#789). Returns ``None`` if the racer has no group, the group has
+      no range start configured, or all numbers in the range are taken.
+    - ``MANUAL`` (or unset): returns ``None``.
+    """
+    if race.car_numbering_strategy == models.CarNumberingStrategy.GLOBAL:
+        taken = _taken_car_numbers(db, race.id)
+        current = race.global_start_number or 1
+        while current in taken:
+            current += 1
+        return current
+
+    if race.car_numbering_strategy == models.CarNumberingStrategy.PER_GROUP:
+        if racing_group_id is None:
+            return None
+        racing_group = (
+            db.query(models.RacingGroup)
+            .filter(
+                models.RacingGroup.id == racing_group_id,
+                models.RacingGroup.race_id == race.id,
+            )
+            .first()
+        )
+        if racing_group is None or racing_group.car_number_range_start is None:
+            return None
+
+        taken = _taken_car_numbers(db, race.id)
+        current = racing_group.car_number_range_start
+        limit = racing_group.car_number_range_end
+        while current in taken:
+            current += 1
+        if limit is not None and current > limit:
+            return None
+        return current
+
+    return None
+
+
 def create_racer(db: Session, racer: schemas.RacerCreate) -> models.Racer | None:
+    """Create a new racer in the database.
+
+    If ``racer.car_number`` is not provided, automatically assigns the next
+    free car number when the race uses ``GLOBAL`` or ``PER_GROUP`` numbering
+    strategies (#789). When the caller explicitly supplies a car number, that
+    number is preserved.
+    """
     # Ensure a race exists.
     race: models.Race | None = None
     if racer.race_id:
@@ -559,6 +637,11 @@ def create_racer(db: Session, racer: schemas.RacerCreate) -> models.Racer | None
     racer_data = racer.model_dump()
     if "race_id" in racer_data:
         del racer_data["race_id"]
+
+    if racer_data.get("car_number") in (None, ""):
+        racer_data["car_number"] = next_free_car_number(
+            db, race, racer_data.get("racing_group_id")
+        )
 
     db_racer = models.Racer(**racer_data, race_id=race.id)
     db.add(db_racer)
