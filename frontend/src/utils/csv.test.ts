@@ -28,6 +28,18 @@ describe('csvField', () => {
         // empty cell, and 0 is a real recorded time (the DNF penalty).
         expect(csvField(0)).toBe('"0"');
     });
+
+    it('neutralises formula-leading cells to prevent CSV injection (#771)', () => {
+        expect(csvField('=1+1')).toBe('"\'=1+1"');
+        expect(csvField('+1+1')).toBe('"\'+1+1"');
+        expect(csvField('-1+1')).toBe('"\'-1+1"');
+        expect(csvField('@SUM(A1:A10)')).toBe('"\'@SUM(A1:A10)"');
+        expect(csvField('\tformula')).toBe('"\'\tformula"');
+        expect(csvField('\rformula')).toBe('"\'\rformula"');
+        expect(csvField('=HYPERLINK("http://evil.com","click")')).toBe(
+            '"\'=HYPERLINK(""http://evil.com"",""click"")"',
+        );
+    });
 });
 
 describe('toCsv', () => {
