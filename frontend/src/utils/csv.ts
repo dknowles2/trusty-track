@@ -22,10 +22,20 @@ export type CsvRow = CsvValue[];
  * Everything is quoted rather than only what needs it: it costs a few bytes,
  * and "quote when the value contains a comma, a quote, a newline, or leading
  * whitespace" is a rule with more ways to be wrong than to be right.
+ *
+ * Formula injection (#771): cells beginning with `=`, `+`, `-`, `@`, `\t`, or `\r`
+ * are treated as formulas by spreadsheet applications (Excel, LibreOffice) even when
+ * quoted. Prepending a single quote (`'`) forces the spreadsheet to treat the cell as
+ * plain text.
  */
 export function csvField(value: CsvValue): string {
     const text = value ?? '';
-    return `"${String(text).replace(/"/g, '""')}"`;
+    const str = String(text);
+    const sanitized =
+        typeof value === 'string' && /^[=+\-@\t\r]/.test(value)
+            ? `'${value}`
+            : str;
+    return `"${sanitized.replace(/"/g, '""')}"`;
 }
 
 export function toCsv(rows: readonly CsvRow[]): string {
