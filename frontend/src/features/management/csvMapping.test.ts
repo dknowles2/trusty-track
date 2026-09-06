@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyMapping,
   canImport,
+  disambiguateHeaders,
   fieldLabels,
   guessMapping,
   parseCsv,
@@ -30,6 +31,36 @@ describe('parseCsv', () => {
       { First: 'Alex', Last: 'Rivera' },
       { First: 'Sam', Last: 'Okafor' },
     ]);
+  });
+
+  it('disambiguates duplicate column headers so columns are not silently dropped', () => {
+    const parsed = parseCsv('Car Name,Car Name,Car Number\nStreak,Bolt,101');
+
+    expect(parsed.headers).toEqual(['Car Name', 'Car Name (2)', 'Car Number']);
+    expect(parsed.rows).toEqual([
+      {
+        'Car Name': 'Streak',
+        'Car Name (2)': 'Bolt',
+        'Car Number': '101',
+      },
+    ]);
+  });
+
+  it('allows mapping to disambiguated duplicate columns', () => {
+    const parsed = parseCsv('First,Last,Car Name,Car Name\nAlex,Rivera,Streak,Bolt');
+    const mappedToSecond = applyMapping(
+      parsed,
+      mapping({ firstName: 'First', lastName: 'Last', carName: 'Car Name (2)' }),
+    );
+
+    expect(mappedToSecond[0].carName).toBe('Bolt');
+
+    const mappedToFirst = applyMapping(
+      parsed,
+      mapping({ firstName: 'First', lastName: 'Last', carName: 'Car Name' }),
+    );
+
+    expect(mappedToFirst[0].carName).toBe('Streak');
   });
 
   it('keeps commas inside quoted fields', () => {
@@ -88,6 +119,36 @@ describe('parseCsv', () => {
   it('refuses an empty file', () => {
     expect(() => parseCsv('')).toThrow(/empty/i);
     expect(() => parseCsv('\n\n')).toThrow(/empty/i);
+  });
+});
+
+describe('disambiguateHeaders', () => {
+  it('leaves unique headers unchanged', () => {
+    expect(disambiguateHeaders(['First Name', 'Last Name', 'Car Number'])).toEqual([
+      'First Name',
+      'Last Name',
+      'Car Number',
+    ]);
+  });
+
+  it('appends incrementing counters to repeated headers', () => {
+    expect(disambiguateHeaders(['Car Name', 'Car Name', 'Car Name'])).toEqual([
+      'Car Name',
+      'Car Name (2)',
+      'Car Name (3)',
+    ]);
+  });
+
+  it('avoids collisions when a header already includes a counter suffix', () => {
+    expect(disambiguateHeaders(['Car Name', 'Car Name (2)', 'Car Name'])).toEqual([
+      'Car Name',
+      'Car Name (2)',
+      'Car Name (3)',
+    ]);
+  });
+
+  it('preserves empty headers without crashing or renaming', () => {
+    expect(disambiguateHeaders(['First', '', 'Last', ''])).toEqual(['First', '', 'Last', '']);
   });
 });
 
