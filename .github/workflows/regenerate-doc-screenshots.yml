@@ -1,0 +1,267 @@
+name: Regenerate Doc Screenshots
+
+# On-demand regeneration of docs/assets/screenshots (dknowles2/trusty-track#735).
+#
+# The problem this exists to solve: the development sandbox does not render
+# text the way whatever produced the checked-in baselines does, so running the
+# doc screenshot specs there rewrites nearly every image with font-rasterisation
+# noise rather than content — confirmed independently four times (see the
+# issue). That means a change that genuinely needs a regenerated screenshot
+# cannot produce one outside of CI. CI's own "Doc Screenshots" job already runs
+# these specs on ubuntu-latest with a pinned Playwright version — a
+# reproducible, shared environment — but it only proves the specs still drive
+# the app; it discards every image it produces.
+#
+# This is that same environment, run on demand, kept to actually produce the
+# images:
+#
+#   - Unsharded. The CI job shards two ways so two machines can each prove a
+#     subset of the specs still work; that is fine for a pass/fail check and
+#     wrong here, since each shard would hold only *some* of the regenerated
+#     images and neither machine would have the full, coherent set. This job
+#     is not on anyone's critical path, so the extra wall-clock is free.
+#   - Run twice, and the two runs are compared. This is #692's own standard
+#     for trusting output like this: if a rerun cannot reproduce itself, its
+#     output cannot be trusted either. Real non-determinism (a small number of
+#     images are known to differ run to run — see
+#     .claude/rules/documentation.md's screenshot section) is reported in the
+#     PR body and the job summary rather than hidden or treated as a failure.
+#   - Self-validated before anything is proposed. A pull request opened with
+#     the default GITHUB_TOKEN does not trigger further workflow runs, so
+#     "Docs Build" and test_docs_stay_current.py would never run on the very
+#     PR that changes dozens of images unless this job runs them itself first.
+#   - Opens a pull request rather than only uploading an artifact, because
+#     GitHub renders an image diff in the PR view — which is the only way a
+#     maintainer can tell a genuine content change from rasterisation noise
+#     without downloading anything. The artifact upload is kept too, as a
+#     cheap way to look at the images before the PR merges.
+#   - Says nothing when nothing changed. An empty "regenerated" PR every time
+#     this runs is how a tool like this stops getting used.
+#
+# One thing it deliberately does NOT establish: running this workflow proves
+# the checked-out ref's specs produce a given set of images in this
+# environment. It says nothing about whether a given diff is the *right*
+# change — that reading is still a maintainer's job, which is exactly why the
+# output is a PR and not a direct push to main.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  regenerate:
+    name: Regenerate and open a PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # The full dev group, not --only-group docs: this job also boots the
+      # backend the screenshot specs drive, and runs the backend test suite's
+      # test_docs_stay_current.py as its own validation step below.
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Install Node dependencies
+        run: npm ci
+        working-directory: frontend
+
+      # Same cache key and reasoning as the ordinary CI jobs: the browser is
+      # 150 MB and does not change between runs.
+      - name: Read the Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+        working-directory: frontend
+
+      - name: Cache the Playwright browser
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright.outputs.version }}
+
+      - name: Install Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      # First run. Unsharded: every spec runs on this one machine, against
+      # this one backend, so the resulting docs/assets/screenshots is a
+      # complete, coherent set rather than a shard's slice of one.
+      - name: Run the documentation screenshot specs (first run)
+        run: npx playwright test --config=playwright.screenshots.config.ts
+        working-directory: frontend
+
+      - name: Set aside the first run's output
+        run: |
+          rm -rf /tmp/screenshots-run1
+          cp -r docs/assets/screenshots /tmp/screenshots-run1
+
+      # Second run, from a clean slate exactly like the first (the webServer
+      # config wipes and recreates TRUSTYTRACK_DATA_DIR on every start). If
+      # the specs and the app are genuinely deterministic under the seed
+      # described in .claude/rules/documentation.md, this overwrites every
+      # image with byte-identical bytes.
+      - name: Run the documentation screenshot specs (second run)
+        run: npx playwright test --config=playwright.screenshots.config.ts
+        working-directory: frontend
+
+      # Not a pass/fail gate. A handful of images are already known to differ
+      # run to run for reasons that have nothing to do with the app (real
+      # clock times, camera viewfinder placement) — see
+      # .claude/rules/documentation.md. This step records what actually
+      # differed so the PR body and job summary can say so, rather than
+      # silently trusting whichever run happened to run second.
+      - name: Compare the two runs
+        id: determinism
+        run: |
+          set +e
+          diff -rq /tmp/screenshots-run1 docs/assets/screenshots > /tmp/determinism-diff.txt
+          if [ -s /tmp/determinism-diff.txt ]; then
+            echo "identical=false" >> "$GITHUB_OUTPUT"
+            echo "The two runs did not agree on every image:"
+            cat /tmp/determinism-diff.txt
+          else
+            echo "identical=true" >> "$GITHUB_OUTPUT"
+            echo "The two runs produced byte-identical output."
+          fi
+
+      # Runs before anything is proposed, for the reason set out at the top of
+      # this file: a PR opened with GITHUB_TOKEN triggers no further workflow
+      # runs, so nothing else will ever check this PR's own images unless this
+      # job does it first.
+      - name: Validate the site still builds
+        run: ./scripts/build_site.sh
+
+      - name: Validate the docs are still self-consistent
+        run: uv run pytest backend/tests/test_docs_stay_current.py
+
+      - name: Check what changed
+        id: changes
+        run: |
+          git add -A -- docs/assets/screenshots
+          if git diff --cached --quiet -- docs/assets/screenshots; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          git diff --cached --name-status -- docs/assets/screenshots > /tmp/changed-files.txt || true
+          git reset -- docs/assets/screenshots > /dev/null
+
+      - name: Upload regenerated screenshots as an artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: doc-screenshots
+          path: docs/assets/screenshots/
+          retention-days: 14
+
+      # Nothing changed: say so where a person dispatching this by hand will
+      # actually see it, and stop. No branch, no PR — an empty "regenerated"
+      # PR every run is how a tool like this stops getting used.
+      - name: Report no changes
+        if: steps.changes.outputs.changed == 'false'
+        run: |
+          {
+            echo "## Doc screenshots: no changes"
+            echo
+            echo "Regenerating every image under \`docs/assets/screenshots/\` produced no diff against \`${{ github.ref_name }}\`. Nothing to open a PR for."
+            echo
+            if [ "${{ steps.determinism.outputs.identical }}" = "true" ]; then
+              echo "The two runs in this job were byte-identical."
+            else
+              echo "Note: the two runs in this job did not fully agree with each other (see the \"Compare the two runs\" step log), even though neither differs from \`${{ github.ref_name }}\`."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open a pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="docs-screenshots/regen-${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add -- docs/assets/screenshots
+          COUNT=$(git diff --cached --name-only -- docs/assets/screenshots | wc -l | tr -d ' ')
+
+          {
+            echo "Regenerate doc screenshots"
+            echo
+            echo "Produced by the Regenerate Doc Screenshots workflow (run ${{ github.run_id }}), against ${{ github.sha }}."
+            echo
+            echo "$COUNT image(s) changed. See the PR body for the full list and the"
+            echo "two-run determinism check."
+          } > /tmp/commit-message.txt
+
+          git commit -F /tmp/commit-message.txt
+
+          git push origin "$BRANCH"
+
+          {
+            echo "## $COUNT screenshot(s) changed"
+            echo
+            echo "Regenerated by running \`frontend/e2e/docs/*.spec.ts\` unsharded against ubuntu-latest — the same environment CI's \"Doc Screenshots\" job uses, but keeping the images it discards."
+            echo
+            echo "### Determinism check"
+            echo
+            if [ "${{ steps.determinism.outputs.identical }}" = "true" ]; then
+              echo "Ran the suite twice; both runs produced byte-identical images. What follows is the diff between the second run and \`${{ github.ref_name }}\`."
+            else
+              echo "Ran the suite twice; **the two runs did not fully agree with each other**. This is a known class of noise (real clock times, camera viewfinder placement — see \`.claude/rules/documentation.md\`), but check the files below before merging:"
+              echo
+              echo '```'
+              cat /tmp/determinism-diff.txt
+              echo '```'
+            fi
+            echo
+            echo "### Validation"
+            echo
+            echo "Before opening this PR, the job itself ran:"
+            echo "- \`./scripts/build_site.sh\` (the same build Cloudflare Pages and CI's \"Docs Build\" job run)"
+            echo "- \`uv run pytest backend/tests/test_docs_stay_current.py\`"
+            echo
+            echo "Both passed. This matters because a PR opened with the default \`GITHUB_TOKEN\` triggers no further workflow runs, so nothing else was going to check this PR's own images."
+            echo
+            echo "### Changed files"
+            echo
+            echo '```'
+            cat /tmp/changed-files.txt
+            echo '```'
+            echo
+            echo "---"
+            echo
+            echo "Part of dknowles2/trusty-track#735. If \`docs/assets/screenshots/observation/08-displays-panel.png\` appears above, this run has also picked up the stale image #735 named directly (#723 stage 3's \"connect a display\" address block); if it does not appear, that image is still stale and needs a look."
+            echo
+            echo "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+          } > /tmp/pr-body.md
+
+          gh pr create \
+            --title "Regenerate doc screenshots ($COUNT image(s))" \
+            --body-file /tmp/pr-body.md \
+            --base "${{ github.ref_name }}" \
+            --head "$BRANCH"
+
+          {
+            echo "## $COUNT screenshot(s) changed — PR opened"
+            echo
+            cat /tmp/pr-body.md
+          } >> "$GITHUB_STEP_SUMMARY"
