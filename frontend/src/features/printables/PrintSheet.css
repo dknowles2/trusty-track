@@ -832,38 +832,27 @@
 }
 
 /* The certificate (#306). One per award, one per sheet — its own module
-   (`certificate.ts`), not a `DocumentSpec`: those size a card repeated to a
-   grid, and this is a single full-page document. */
+   (`certificate.ts`), sized for US Letter landscape. */
 .certificates {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 2rem;
     align-items: center;
 }
 
 .certificate {
-    width: 9in;
-    min-height: 6.5in;
+    width: 10.5in;
+    height: 7.7in;
     box-sizing: border-box;
-    padding: 0.7in;
-    /* One frame, not two. There was a gold inset rule here as well, and with
-       the corner ornaments that made three concentric lines round the page —
-       the ornaments then read as a fourth frame rather than as ornament. The
-       gold now appears once, in the corners and under the recipient's name. */
-    border: 4px double var(--print-primary-color);
-    background: var(--print-surface-color);
-    border-radius: var(--border-radius);
+    background: var(--print-surface-color, #ffffff);
     position: relative;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    gap: 0.35rem;
-    /* Trimmed to page size on paper; the outline above is the frame. */
+    flex-direction: row;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     break-inside: avoid;
     page-break-inside: avoid;
-    /* Every certificate but the last starts a fresh sheet. */
     page-break-after: always;
 }
 
@@ -871,235 +860,251 @@
     page-break-after: auto;
 }
 
-/* A very faint gold wash out of all four corners, so the middle of the page
-   stays white where the names go. Four rather than two: on opposite corners
-   alone the page reads as lit from one side, which looks like a printer
-   fault rather than a border. Its own pseudo-element (rather than
-   `.certificate`'s own `background-image`) so `--print-decor-strength` (#498)
-   can fade it — the second of the three large-area decorative gradients that
-   token governs — without also fading the border or the white page fill. */
-.certificate::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    border-radius: var(--border-radius);
-    background-image:
-        radial-gradient(circle at 0% 0%, rgba(252, 209, 22, 0.09) 0, transparent 15%),
-        radial-gradient(circle at 100% 0%, rgba(252, 209, 22, 0.09) 0, transparent 15%),
-        radial-gradient(circle at 0% 100%, rgba(252, 209, 22, 0.09) 0, transparent 15%),
-        radial-gradient(circle at 100% 100%, rgba(252, 209, 22, 0.09) 0, transparent 15%);
-    opacity: var(--print-decor-strength, 1);
-}
-
-/* Newsprint's single-ink override (see the licence wash's comment above for
-   why the hardcoded gold here needs it and the checker/header do not). */
-[data-theme='newsprint'] .certificate::after {
-    background-image:
-        radial-gradient(circle at 0% 0%, var(--print-decor-color) 0, transparent 15%),
-        radial-gradient(circle at 100% 0%, var(--print-decor-color) 0, transparent 15%),
-        radial-gradient(circle at 0% 100%, var(--print-decor-color) 0, transparent 15%),
-        radial-gradient(circle at 100% 100%, var(--print-decor-color) 0, transparent 15%);
-}
-
-/* One flourish drawn, rotated into the other three corners — four separate
-   drawings would be four things free to drift apart. */
-.certificate-corner {
-    position: absolute;
-    width: 0.62in;
-    height: 0.62in;
-}
-
-.certificate-corner svg {
-    width: 100%;
-    height: 100%;
-}
-
-.certificate-corner-tl {
-    top: 0.2in;
-    left: 0.2in;
-}
-
-.certificate-corner-tr {
-    top: 0.2in;
-    right: 0.2in;
-    transform: rotate(90deg);
-}
-
-.certificate-corner-br {
-    bottom: 0.2in;
-    right: 0.2in;
-    transform: rotate(180deg);
-}
-
-.certificate-corner-bl {
-    bottom: 0.2in;
-    left: 0.2in;
-    transform: rotate(270deg);
-}
-
-/*
- * Engine turning — the fine radiating guilloche a printed certificate has
- * behind its text, drawn as one repeating conic gradient.
- *
- * This replaced a giant outlined car, and the reason is worth keeping: a
- * recognisable object blown up to fill a page is clip art whatever it is
- * drawn of, and it fights the award's own artwork, which is the one picture
- * on the page that means something. Texture does the job a watermark is
- * actually for — it says "this is a document" and then gets out of the way.
- *
- * Concentric rings rather than radiating rays, which is what the first cut
- * used. Rays converge, so they crowd to a dark knot behind the recipient's
- * name — the most important line on the page — and read as a sunburst, which
- * is a louder gesture than a certificate wants. Rings are even everywhere and
- * sit still.
- *
- * The mask is what makes it a *band*, clear of the text in the middle and of
- * the frame at the edge. A print engine that ignores the mask gets the rings
- * everywhere at 5%, which is faint enough to be survivable rather than wrong.
- */
-.certificate::before {
-    content: '';
-    position: absolute;
-    inset: 0.3in;
-    z-index: 0;
-    pointer-events: none;
-    background-image: repeating-radial-gradient(
-        circle at 50% 47%,
-        rgba(0, 63, 135, 0.05) 0 1px,
-        transparent 1px 7px
+/* Right-edge vertical checkered flag strip */
+.certificate-checker-strip {
+    width: 0.85in;
+    flex-shrink: 0;
+    background-image: repeating-conic-gradient(
+        #000 0% 25%,
+        #ffffff 0% 50%
     );
-    /* The guilloche is the third of the three large-area decorative
-       gradients --print-decor-strength governs (#498). */
-    opacity: var(--print-decor-strength, 1);
-    -webkit-mask-image: radial-gradient(
-        closest-side,
-        transparent 42%,
-        #000 72%,
-        #000 92%,
-        transparent 100%
-    );
-    mask-image: radial-gradient(
-        closest-side,
-        transparent 42%,
-        #000 72%,
-        #000 92%,
-        transparent 100%
-    );
+    background-size: 0.85in 0.85in;
 }
 
-/* Newsprint's single-ink override (see the licence wash's comment above for
-   why the hardcoded blue here needs it and the checker/header do not). */
-[data-theme='newsprint'] .certificate::before {
-    background-image: repeating-radial-gradient(
-        circle at 50% 47%,
-        var(--print-decor-color) 0 1px,
-        transparent 1px 7px
-    );
-}
-
-/* The texture is a positioned pseudo-element, so the certificate's own text —
-   all of it static flow content — would otherwise paint underneath it.
-   `:not()` on the corners is not tidiness: they are absolutely positioned and
-   this rule is later in the file at the same specificity, so without it all
-   four ornaments come back into the flow and stack in the middle of the page. */
-.certificate > *:not(.certificate-corner) {
+/* Main content area */
+.certificate-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
     position: relative;
+    min-width: 0;
+    background: var(--print-surface-color, #ffffff);
+}
+
+/* Top header banner */
+.certificate-header-bar {
+    background: var(--print-primary-color);
+    height: 1.55in;
+    padding: 0.16in 0.5in 0.12in;
+    box-sizing: border-box;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.certificate-official-tag {
+    font-family: var(--font-header, 'Arial Black', sans-serif);
+    color: #ffffff;
+    font-size: 20pt;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1;
+    margin-bottom: 0.06in;
+}
+
+.certificate-champion-title {
+    font-family: 'Rockwell', 'Roboto Slab', 'Georgia', 'Arial Black', serif;
+    color: var(--print-accent-color);
+    font-size: 54pt;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1;
+    position: static;
+    z-index: 2;
+}
+
+/* Themes that need a contrast border around the title */
+[data-theme='sawdust-and-pine'] .certificate-champion-title,
+[data-theme='trail-colors'] .certificate-champion-title,
+[data-theme='old-glory'] .certificate-champion-title,
+[data-theme='clear-sight'] .certificate-champion-title {
+    -webkit-text-stroke: 2.5px #ffffff;
+    paint-order: stroke fill;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+[data-theme='field-uniform'] .certificate-champion-title,
+[data-theme='under-the-lights'] .certificate-champion-title,
+[data-theme='midnight-derby'] .certificate-champion-title {
+    -webkit-text-stroke: 0;
+    filter: none;
+}
+
+/* Certificate body */
+.certificate-body {
+    padding: 0.3in 0.6in 0.05in;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
     z-index: 1;
 }
 
-.certificate-eyebrow {
-    font-family: var(--font-header);
-    font-size: 11pt;
-    letter-spacing: 0.18em;
+.certificate-intro {
+    font-family: 'Arial', sans-serif;
+    font-size: 12pt;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: var(--print-text-color);
     text-transform: uppercase;
-    color: var(--print-primary-color);
-    /* Gold rules either side, the way an award citation is set. */
+    margin: 0 0 0.12in 0;
+}
+
+.certificate-award-row {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.6rem;
-    margin: 0;
+    width: 6.8in;
+    border-bottom: 2.5px solid var(--print-text-color);
+    padding-bottom: 0.04in;
+    margin-bottom: 0.18in;
+    min-height: 38pt;
 }
 
-.certificate-eyebrow::before,
-.certificate-eyebrow::after {
-    content: '';
-    width: 1.1in;
-    height: 2px;
-    background: var(--print-accent-color);
-}
-
-.certificate-race {
-    font-family: var(--font-header);
-    font-size: 13pt;
-    color: var(--print-label-color);
-    letter-spacing: 0.03em;
-}
-
-.certificate-artwork {
-    margin: 0.25rem 0;
+.certificate-award-name-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .certificate-award-name {
-    font-family: var(--font-header);
-    font-size: 30pt;
-    color: var(--print-primary-color);
-    margin: 0.1rem 0;
-    letter-spacing: 0.01em;
+    font-family: var(--font-header, 'Arial', sans-serif);
+    font-size: 25pt;
+    font-weight: 800;
+    color: var(--print-text-color);
+    margin: 0;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+}
+
+.certificate-artwork {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .certificate-presented-to {
+    font-family: 'Arial', sans-serif;
     font-size: 12pt;
-    color: var(--print-label-color);
-    margin-top: 0.2rem;
-    font-style: italic;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: var(--print-text-color);
+    text-transform: uppercase;
+    margin: 0 0 0.12in 0;
+}
+
+.certificate-recipient-row {
+    width: 6.8in;
+    border-bottom: 2.5px solid var(--print-text-color);
+    padding-bottom: 0.04in;
+    min-height: 38pt;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .certificate-recipient {
-    font-family: var(--font-header);
-    font-size: 24pt;
+    font-family: var(--font-header, 'Arial', sans-serif);
+    font-size: 25pt;
+    font-weight: 700;
     color: var(--print-text-color);
-    border-bottom: 2px solid var(--print-accent-color);
-    padding: 0.1rem 1.5rem 0.15rem;
-    min-width: 4.5in;
+    margin: 0;
+    line-height: 1.1;
 }
 
-/* An award nobody has decided yet still prints, with a blank line to write a
-   name on rather than being left out of the batch (#306). */
 .certificate-recipient.certificate-recipient-blank {
-    border-bottom-style: dashed;
     color: transparent;
 }
 
-.certificate-seal {
-    margin-top: 0.45rem;
-}
-
-/* The two lines somebody signs. Blank on purpose, like the heat sheet's
-   Result column — a certificate is handed over signed, and there is no field
-   anywhere in the app holding who signed it. */
-.certificate-signatures {
+/* Lower section with Date, Car, and Cubmaster signature */
+.certificate-lower {
     display: flex;
-    gap: 1.2in;
-    margin-top: 0.55rem;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 0.5in 0.1in;
+    position: relative;
+    z-index: 2;
 }
 
-.certificate-signature {
-    width: 2.4in;
-    border-top: 1px solid var(--print-primary-color);
-    padding-top: 3px;
-    font-family: var(--font-header);
-    font-size: 8.5pt;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--print-text-muted-color);
+.certificate-date-block,
+.certificate-signature-block {
+    width: 1.85in;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 0.2in;
 }
 
-.certificate-date {
-    margin-top: 0.4rem;
-    font-size: 10pt;
-    color: var(--print-text-muted-color);
+.certificate-date-val,
+.certificate-signature-val {
+    font-family: 'Arial', sans-serif;
+    font-size: 11pt;
+    font-weight: 600;
+    color: var(--print-text-color);
+    margin-bottom: 4px;
+    white-space: nowrap;
+}
+
+.certificate-sign-line {
+    width: 100%;
+    border-bottom: 1.8px solid var(--print-text-color);
+    margin-bottom: 4px;
+}
+
+.certificate-sign-label {
+    font-family: 'Arial', sans-serif;
+    font-size: 9.5pt;
+    color: var(--print-text-color);
+    font-weight: 600;
+}
+
+.certificate-car-center {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    margin-bottom: -0.05in;
+    z-index: 1;
+}
+
+/* Bottom footer bar with pack/location and seal */
+.certificate-footer-bar {
+    background: var(--print-primary-color, #0C2340);
+    height: 0.9in;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.8in 0 1.9in;
+    box-sizing: border-box;
+}
+
+.certificate-seal-badge {
+    position: absolute;
+    left: 0.35in;
+    bottom: -0.08in;
+    z-index: 3;
+}
+
+.certificate-pack-location {
+    font-family: var(--font-header, 'Arial Black', sans-serif);
+    font-size: 22pt;
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+[data-theme='newsprint'] .certificate-champion-title {
+    color: #ffffff;
+    -webkit-text-stroke: 1px #000;
 }
 
 @media print {
@@ -1109,16 +1114,31 @@
     }
 
     body:has(.certificates) {
-        background: var(--print-surface-color);
+        background: #ffffff;
+    }
+
+    @page {
+        size: letter landscape;
+        margin: 0.25in;
     }
 
     .certificates {
         gap: 0;
+        display: block;
     }
 
     .certificate {
-        width: auto;
-        min-height: 9.5in;
+        width: 10.5in;
+        height: 7.8in;
+        box-shadow: none;
+        border: none;
+        page-break-after: always;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .certificate:last-child {
+        page-break-after: auto;
     }
 
     .certificate,

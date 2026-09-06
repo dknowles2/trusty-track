@@ -5,6 +5,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { print } from 'graphql';
 import { useQuery } from 'urql';
+import { TerminologyProvider } from '../../../context/TerminologyContext';
 import { GET_CERTIFICATES } from '../graphql/queries';
 import Certificate from './Certificate';
 
@@ -108,6 +109,61 @@ describe('the certificate page', () => {
         expect(plain.querySelector('svg[role="img"]')).toBeNull();
     });
 
+    it('renders the official champion banner and certificate labels', () => {
+        mockRace();
+        open();
+        expect(screen.getAllByText('OFFICIAL')).toHaveLength(3);
+        expect(screen.getAllByText('CHAMPION')).toHaveLength(3);
+        expect(screen.getAllByText('THIS CERTIFICATE OF')).toHaveLength(3);
+        expect(screen.getAllByText('IS AWARDED TO')).toHaveLength(3);
+    });
+
+    it('renders date and cubmaster signature blocks', () => {
+        mockRace();
+        open();
+        expect(screen.getAllByText('Date')).toHaveLength(3);
+        expect(screen.getAllByText('Cubmaster')).toHaveLength(3);
+    });
+
+    it('adapts signature label based on organization terminology', () => {
+        mockRace();
+        render(
+            <MemoryRouter initialEntries={['/race/1/print/certificates']}>
+                <TerminologyProvider
+                    value={{
+                        racingGroupSingular: 'Patrol',
+                        racingGroupPlural: 'Patrols',
+                        organizationSingular: 'Troop',
+                        organizationPlural: 'Troops',
+                        vehicleSingular: 'Car',
+                        vehiclePlural: 'Cars',
+                        vehicleArtworkKey: 'car',
+                    }}
+                >
+                    <Routes>
+                        <Route path="/race/:raceId/print/certificates" element={<Certificate />} />
+                    </Routes>
+                </TerminologyProvider>
+            </MemoryRouter>,
+        );
+        expect(screen.getAllByText('Scoutmaster')).toHaveLength(3);
+    });
+
+    it('renders the pack and location in the footer banner', () => {
+        mockRace();
+        open();
+        expect(screen.getAllByText('Pack 42 Derby | St Anne’s Hall')).toHaveLength(3);
+    });
+
+    it('renders the checkered strip on every certificate', () => {
+        mockRace();
+        open();
+        const certificates = screen.getAllByTestId(/^certificate-\d+$/);
+        for (const cert of certificates) {
+            expect(cert.querySelector('.certificate-checker-strip')).toBeInTheDocument();
+        }
+    });
+
     it('has something to say when a race has no awards', () => {
         mockRace({ ...RACE, awards: [] });
         open();
@@ -120,3 +176,4 @@ describe('the certificate page', () => {
         expect(screen.getByText(/race not found/i)).toBeInTheDocument();
     });
 });
+

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { certificatesFor } from './certificate';
+import { certificatesFor, signerTitleForOrg } from './certificate';
 
 const RACE = { name: 'Pack 42 Derby', dateTime: '2026-03-14T09:00:00', location: 'The gym' };
 
@@ -83,5 +83,60 @@ describe('certificatesFor', () => {
       'LAST_INITIAL',
     );
     expect(certificates[0].recipientName).toBe('Ada L. (#42)');
+  });
+});
+
+describe('signerTitleForOrg', () => {
+  it('returns Cubmaster for Pack or when unspecified', () => {
+    expect(signerTitleForOrg('Pack')).toBe('Cubmaster');
+    expect(signerTitleForOrg('pack')).toBe('Cubmaster');
+    expect(signerTitleForOrg('Cub Scout Pack')).toBe('Cubmaster');
+    expect(signerTitleForOrg(null)).toBe('Cubmaster');
+    expect(signerTitleForOrg(undefined)).toBe('Cubmaster');
+    expect(signerTitleForOrg('')).toBe('Cubmaster');
+  });
+
+  it('returns Scoutmaster for Troop', () => {
+    expect(signerTitleForOrg('Troop')).toBe('Scoutmaster');
+    expect(signerTitleForOrg('Scout Troop')).toBe('Scoutmaster');
+  });
+
+  it('returns Advisor for Crew and Post', () => {
+    expect(signerTitleForOrg('Crew')).toBe('Advisor');
+    expect(signerTitleForOrg('Post')).toBe('Advisor');
+  });
+
+  it('returns Skipper for Ship', () => {
+    expect(signerTitleForOrg('Ship')).toBe('Skipper');
+  });
+
+  it('returns Principal for School', () => {
+    expect(signerTitleForOrg('School')).toBe('Principal');
+  });
+
+  it('returns Coach for Team', () => {
+    expect(signerTitleForOrg('Team')).toBe('Coach');
+  });
+
+  it('returns Club Leader for Club', () => {
+    expect(signerTitleForOrg('Club')).toBe('Club Leader');
+  });
+
+  it('returns Race Director for district, council, or generic organization', () => {
+    expect(signerTitleForOrg('District')).toBe('Race Director');
+    expect(signerTitleForOrg('Council')).toBe('Race Director');
+    expect(signerTitleForOrg('Organization')).toBe('Race Director');
+    expect(signerTitleForOrg('Group')).toBe('Race Director');
+  });
+
+  it('preserves custom titles that already include a leader designation', () => {
+    expect(signerTitleForOrg('Race Director')).toBe('Race Director');
+    expect(signerTitleForOrg('Camp Director')).toBe('Camp Director');
+    expect(signerTitleForOrg('Awana Commander')).toBe('Awana Commander');
+  });
+
+  it('appends Leader for other custom organization terms', () => {
+    expect(signerTitleForOrg('Awana')).toBe('Awana Leader');
+    expect(signerTitleForOrg('Youth League')).toBe('Youth League Leader');
   });
 });

@@ -20,6 +20,61 @@
 
 import { formatDisplayName, type NameDisplay } from '../core/displayName';
 
+/**
+ * The signature title for an award certificate, derived from the organization type.
+ *
+ * Cub Scout packs have a Cubmaster; Boy Scout troops have a Scoutmaster;
+ * Venturing crews and Explorer posts have an Advisor; Sea Scout ships have a Skipper;
+ * schools have a Principal; teams have a Coach; Awana clubs have a Club Leader;
+ * and district, council, or generic organizations fall back to Race Director.
+ */
+export function signerTitleForOrg(org?: string | null): string {
+  if (!org) return 'Cubmaster';
+  const trimmed = org.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (lower === 'pack' || lower.includes('pack')) {
+    return 'Cubmaster';
+  }
+  if (lower === 'troop' || lower.includes('troop')) {
+    return 'Scoutmaster';
+  }
+  if (lower === 'crew' || lower === 'post' || lower.includes('crew') || lower.includes('post')) {
+    return 'Advisor';
+  }
+  if (lower === 'ship' || lower.includes('ship')) {
+    return 'Skipper';
+  }
+  if (lower === 'school' || lower.includes('school')) {
+    return 'Principal';
+  }
+  if (lower === 'team' || lower.includes('team')) {
+    return 'Coach';
+  }
+  if (lower === 'club' || lower.includes('club')) {
+    return 'Club Leader';
+  }
+  if (
+    lower === 'district' ||
+    lower === 'council' ||
+    lower === 'organization' ||
+    lower === 'group'
+  ) {
+    return 'Race Director';
+  }
+  if (
+    lower.endsWith('leader') ||
+    lower.endsWith('master') ||
+    lower.endsWith('director') ||
+    lower.endsWith('advisor') ||
+    lower.endsWith('coach') ||
+    lower.endsWith('commander')
+  ) {
+    return trimmed;
+  }
+  return `${trimmed} Leader`;
+}
+
 export interface CertificateAward {
   id: number;
   name: string;
