@@ -174,7 +174,7 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
                     {title && <h2 style={{ margin: 0 }}>{title}</h2>}
                     <button
                         onClick={onClose}
-                        aria-label="Close"
+                        aria-label="Close dialog"
                         style={{
                             background: 'none',
                             border: 'none',

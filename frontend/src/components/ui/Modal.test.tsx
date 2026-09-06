@@ -130,6 +130,23 @@ describe('Modal accessibility and focus management (#788)', () => {
         expect(document.activeElement).toBe(openBtn);
     });
 
+    it('restores focus to the triggering element when closed via Close dialog (×) button', async () => {
+        const user = userEvent.setup();
+        render(<TestModalHarness defaultOpen={false} />);
+
+        const openBtn = screen.getByTestId('outside-button-before');
+        openBtn.focus();
+        await user.click(openBtn);
+
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+        const closeBtn = screen.getByRole('button', { name: 'Close dialog' });
+        await user.click(closeBtn);
+
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(document.activeElement).toBe(openBtn);
+    });
+
     it('restores focus to the triggering element when closed via Escape', async () => {
         const user = userEvent.setup();
         render(<TestModalHarness defaultOpen={false} />);
