@@ -305,6 +305,42 @@ async def test_all_lanes_reported_calls_record_results():
 
 
 @pytest.mark.anyio
+async def test_lane_result_for_unarmed_lane_is_ignored():
+    """A result for a lane the heat never armed must not take a place (#761).
+
+    A dropped mask acknowledgement, or a device that reports every sensor
+    regardless of what it was told to arm, can hand back a `LaneResult` for
+    a lane outside `_lane_mask`. That lane has no `HeatLane` row for the
+    result to belong to, so it must be dropped rather than recorded or
+    allowed into the place calculation — otherwise a phantom lane can take
+    place 1 ahead of the lanes the heat actually holds.
+    """
+    device = FAKE
+    manager = TimerManager(track_id=1, device=device)
+    manager._record_results = AsyncMock()
+
+    # lane_mask 0b011 = lanes 1 and 2 armed; lane 3 is not.
+    await manager.prepare_heat(
+        heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b011
+    )
+    await manager.inject_event(RaceStarted())
+
+    # A phantom result for the unarmed lane arrives first, and fastest.
+    await manager.inject_event(LaneResult(lane=3, time_seconds=1.000, place=0))
+    assert 3 not in manager._pending_results
+    manager._record_results.assert_not_awaited()
+
+    # The two genuinely armed lanes report afterward.
+    await manager.inject_event(LaneResult(lane=1, time_seconds=3.5, place=0))
+    await manager.inject_event(LaneResult(lane=2, time_seconds=3.8, place=0))
+
+    manager._record_results.assert_awaited_once()
+    assert 3 not in manager._pending_results
+    assert manager._pending_results[1].place == 1
+    assert manager._pending_results[2].place == 2
+
+
+@pytest.mark.anyio
 async def test_zero_lane_mask_does_not_trigger_record_results():
     """With lane_mask=0, LaneResults accumulate but _record_results is never
     auto-triggered because the expected_lanes set is empty (falsy guard in manager).

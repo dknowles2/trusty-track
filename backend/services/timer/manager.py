@@ -1068,14 +1068,31 @@ class TimerManager:
                     self._state.value,
                 )
                 return
+
+            expected_lanes = {
+                i for i in range(1, 17) if self._lane_mask & (1 << (i - 1))
+            }
+            # A lane the heat did not arm has no `HeatLane` row to write a
+            # place into (see "`heat_lanes` is where a heat's lanes live" —
+            # a lane a heat does not use has no row), so a result for one is
+            # a phantom: a dropped mask acknowledgement, or a device that
+            # reports every sensor regardless of what it was told to arm.
+            # `expected_lanes` empty means the mask itself is unknown (see
+            # `test_zero_lane_mask_does_not_trigger_record_results`), which
+            # is not this case and must not be filtered here.
+            if expected_lanes and event.lane not in expected_lanes:
+                logger.warning(
+                    "Timer %d: LaneResult for unarmed lane %d, ignoring",
+                    self._track_id,
+                    event.lane,
+                )
+                return
+
             self._pending_results[event.lane] = event
             self._recalculate_places()
             # Publish status update with new pending results
             await pubsub.publish(f"timer_state:{self._track_id}", self.status())
 
-            expected_lanes = {
-                i for i in range(1, 17) if self._lane_mask & (1 << (i - 1))
-            }
             if expected_lanes and expected_lanes.issubset(self._pending_results.keys()):
                 if self._test_run:
                     await self._finish_test_run()
