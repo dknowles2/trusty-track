@@ -1,0 +1,186 @@
+name: Raspberry Pi Image
+
+# Build the pre-built Raspberry Pi image (dknowles2/trusty-track#724) and
+# boot-test it under QEMU — pi-gen against Raspberry Pi OS Lite, then a
+# generic `virt` machine booting the finished artefact and polling /health.
+# See deploy/raspberry-pi/build.sh and deploy/raspberry-pi/
+# qemu-boot-smoke-test.sh for what each step actually does and does not
+# prove; this file is only the wiring.
+#
+# One definition, two ways in
+# ----------------------------
+# `workflow_call`, invoked by release.yml's own `raspberry-pi` job on every
+# tag, and `workflow_dispatch`, so the identical build can be run by hand with
+# no release involved at all. This exists because PRs #727 and #731 (stages 1
+# and 2 of #724) both merged without ever actually running: the sandbox they
+# were written in had no Docker, no root and no qemu-system-aarch64, so
+# neither the pi-gen build nor the QEMU boot test had executed even once
+# before this workflow did. Without a manual entry point, the first real
+# exercise of either would have been whichever tag got pushed next — the
+# worst possible moment to discover a mistake reasoned from pi-gen's and the
+# Raspberry Pi kernel's documented behaviour rather than a green run.
+#
+# Splitting the build into its own callable workflow, rather than adding a
+# `workflow_dispatch` trigger directly to release.yml (which only accepts
+# `push: tags` — a second trigger there would need its own version and
+# release-or-not branching threaded through a workflow that otherwise assumes
+# a tag exists), is the same "one door" instinct this project already applies
+# to crud.set_heat_lanes and _write_heat_numbers: one definition of the build
+# and boot test, called from two places, rather than two copies free to
+# drift apart.
+#
+# What a run produces differs by trigger, and that is what the `tag` input
+# is for:
+#
+#   - Called from release.yml (tag set to the pushed tag): the finished image
+#     is attached to that release as an asset, exactly as it always was.
+#   - Run by hand (tag left blank, the workflow_dispatch default): there is
+#     no release to attach it to, so the image is uploaded as a workflow
+#     artifact instead, downloadable from the run's own Summary page. That is
+#     the only way the hardware half of #724 — a real Pi, physically present
+#     — is ever going to get exercised at all; the issue's own position is
+#     that hardware testing is a manual step, and a downloadable artifact is
+#     what makes that step reachable in the first place. It is deliberately
+#     never attached to any release: a manual run's image is not something
+#     every install guide's download link should be able to reach.
+#
+# What this does NOT establish
+# ------------------------------
+# Running this workflow once — by hand or via a release — proves the pi-gen
+# build completes and the resulting image boots under QEMU and answers
+# /health as the version it was stamped with. It proves nothing about real
+# Pi hardware: boot firmware, GPIO, USB serial timers, the touchscreen and SD
+# card behaviour are all completely untouched by a generic `virt` machine,
+# exactly as qemu-boot-smoke-test.sh's own header already says. Don't
+# describe a green run of this workflow as "the Pi image is tested" beyond
+# that boundary.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Version string to stamp into the image (release.yml passes the tag's own X.Y.Z).
+        required: true
+        type: string
+      tag:
+        description: Git tag whose release the finished image is attached to.
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: >-
+          Version to stamp into the image. Leave blank to stamp
+          0.0.0-dev-<short-sha> — the same fallback an unlabelled Docker
+          build already produces (see backend/version.py) — since the point
+          of a manual run is proving the build and boot test still work, not
+          minting a real release version.
+        required: false
+        type: string
+        default: ""
+      tag:
+        description: >-
+          Existing release tag to attach the built image to, if you actually
+          want a manual run to publish an asset. Leave blank (the default) to
+          upload the image as a workflow artifact instead, which is the
+          ordinary case for a manual run — there is usually no release to
+          attach to.
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and boot-test
+    runs-on: ubuntu-latest
+    # pi-gen under QEMU/binfmt emulation is tens of minutes even before the
+    # image is compressed and boot-tested; see build.sh's own header.
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Determine version
+        id: version
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [[ -z "$VERSION" ]]; then
+            VERSION="0.0.0-dev-$(git rev-parse --short HEAD)"
+            echo "No version given; stamping $VERSION"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # pi-gen's own build runs arm64 binaries (apt, dpkg, npm, python) on
+      # this x86 runner via binfmt — the identical mechanism release.yml's
+      # docker job already sets up for its arm64 layer; jobs don't share a
+      # runner, so it has to be registered again here.
+      - name: Set up QEMU (binfmt, for the emulated pi-gen build)
+        uses: docker/setup-qemu-action@v4
+
+      # A second, unrelated QEMU: the full-system emulator that boots the
+      # finished image below. docker/setup-qemu-action only registers
+      # binfmt handlers for running foreign-architecture *binaries* inside
+      # containers; it does not install `qemu-system-aarch64`.
+      - name: Install qemu-system-aarch64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-arm
+
+      - name: Build the image
+        env:
+          TRUSTYTRACK_VERSION: ${{ steps.version.outputs.version }}
+        run: ./deploy/raspberry-pi/build.sh
+
+      - name: Locate the built image
+        id: built
+        run: |
+          IMG=$(ls deploy/raspberry-pi/deploy/*.img.xz)
+          echo "Built $IMG"
+          ls -lh "$IMG"
+          echo "path=$IMG" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the built image (layer B)
+        run: sudo ./deploy/raspberry-pi/verify-image.sh "${{ steps.built.outputs.path }}"
+
+      # This is the assertion that keeps a manual run honest rather than a
+      # rubber stamp: the version stamped in above (a real release version,
+      # or the dev-sha fallback) is the exact value qemu-boot-smoke-test.sh
+      # requires /health to answer with. Nothing here ever calls it with no
+      # expected version, so there is no trivially-passing path through this
+      # job.
+      - name: Boot it under QEMU and confirm /health reports this version
+        run: |
+          sudo ./deploy/raspberry-pi/qemu-boot-smoke-test.sh \
+            "${{ steps.built.outputs.path }}" \
+            "${{ steps.version.outputs.version }}"
+
+      # Renamed to the same fixed name release.yml has always used, whatever
+      # the trigger — a manual run's artifact is what a maintainer downloads
+      # to actually try it on a Pi, and it should look like the real thing.
+      - name: Rename to the release asset name
+        id: image
+        run: |
+          DEST="deploy/raspberry-pi/deploy/TrustyTrack-raspberry-pi.img.xz"
+          mv "${{ steps.built.outputs.path }}" "$DEST"
+          echo "path=$DEST" >> "$GITHUB_OUTPUT"
+
+      # Only one of these two runs. Uploading the same image as a workflow
+      # artifact on a real release would double the job's slowest step for a
+      # copy nobody asked for; a plain manual run has no release to attach to
+      # in the first place.
+      - name: Attach the image to the release
+        if: inputs.tag != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ inputs.tag }}" --clobber "${{ steps.image.outputs.path }}"
+
+      - name: Upload as a workflow artifact (no release to attach to)
+        if: inputs.tag == ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: raspberry-pi-image
+          path: ${{ steps.image.outputs.path }}

@@ -404,103 +404,38 @@ jobs:
           fi
 
   # -------------------------------------------------------------------
-  # Raspberry Pi image (dknowles2/trusty-track#724, stage 2) — built with
-  # pi-gen (deploy/raspberry-pi/build.sh) and smoke-tested by booting it
-  # under an emulated aarch64 CPU and polling /health.
+  # Raspberry Pi image (dknowles2/trusty-track#724, stage 2) — the build,
+  # the pi-gen/QEMU details, and the boot smoke test all live in
+  # raspberry-pi-image.yml, called here rather than duplicated so a manual
+  # `workflow_dispatch` run of that file exercises the identical steps a
+  # release does. See that file for what it builds, what it proves, and what
+  # it deliberately does not.
   #
   # Built on every release, not on demand and not nightly: an image that
   # only sometimes matches the release it is attached to is worse than one
-  # rebuilt fresh every time. It needs `create-release` — the release it
-  # attaches the image to has to exist first — rather than the other way
-  # around, and nothing needs *this* job, so a slow or failed image build
-  # can never hold up the installers or the release page. That is the same
-  # `deploy-demo` shape above, generalised: the release itself does not wait
-  # on a job whose cost or reliability it does not control. If it fails, the
-  # release still stands with everything else attached, and this job is
-  # re-run by hand from the Actions tab once the image exists again — `gh
-  # release upload` below is exactly as re-runnable as the installers'
-  # uploads are.
+  # rebuilt fresh every time. `needs: [docker, create-release]` — the
+  # release it attaches the image to has to exist first, and the version
+  # comes off the same `docker` job output every other artefact's version
+  # already does, rather than a second copy of the tag-stripping logic — and
+  # nothing needs *this* job, so a slow or failed image build can never hold
+  # up the installers or the release page. That is the same `deploy-demo`
+  # shape above, generalised: the release itself does not wait on a job
+  # whose cost or reliability it does not control. If it fails, the release
+  # still stands with everything else attached, and this job is re-run by
+  # hand from the Actions tab once the image exists again — `gh release
+  # upload` inside the called workflow is exactly as re-runnable as the
+  # installers' uploads are.
   #
   # The whole build is tens of minutes under QEMU/binfmt emulation (see
   # deploy/raspberry-pi/build.sh's own header); budget for that rather than
   # treating a long run here as stuck.
-  #
-  # The QEMU step proves the built image actually boots and serves the
-  # version it was built as — not that it works on a real Pi. Boot
-  # firmware, GPIO, USB serial timers, the touchscreen and SD card behaviour
-  # are all completely untouched by a generic `virt` machine; see
-  # qemu-boot-smoke-test.sh's own header for how it fakes a boot with none
-  # of that hardware, and .claude/rules/ops.md's "The pre-built Raspberry Pi
-  # image" section for why that gap is deliberately not closed here.
   # -------------------------------------------------------------------
   raspberry-pi:
     name: Raspberry Pi Image
-    needs: create-release
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
+    needs: [docker, create-release]
     permissions:
       contents: write
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Extract version
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
-      # pi-gen's own build runs arm64 binaries (apt, dpkg, npm, python) on
-      # this x86 runner via binfmt — the identical mechanism the Docker job
-      # above already sets up for its arm64 layer; jobs don't share a
-      # runner, so it has to be registered again here.
-      - name: Set up QEMU (binfmt, for the emulated pi-gen build)
-        uses: docker/setup-qemu-action@v4
-
-      # A second, unrelated QEMU: the full-system emulator that boots the
-      # finished image below. docker/setup-qemu-action only registers
-      # binfmt handlers for running foreign-architecture *binaries* inside
-      # containers; it does not install `qemu-system-aarch64`.
-      - name: Install qemu-system-aarch64
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-arm
-
-      - name: Build the image
-        env:
-          TRUSTYTRACK_VERSION: ${{ steps.version.outputs.version }}
-        run: ./deploy/raspberry-pi/build.sh
-
-      - name: Locate the built image
-        id: built
-        run: |
-          IMG=$(ls deploy/raspberry-pi/deploy/*.img.xz)
-          echo "Built $IMG"
-          ls -lh "$IMG"
-          echo "path=$IMG" >> "$GITHUB_OUTPUT"
-
-      - name: Verify the built image (layer B)
-        run: sudo ./deploy/raspberry-pi/verify-image.sh "${{ steps.built.outputs.path }}"
-
-      - name: Boot it under QEMU and confirm /health reports this version
-        run: |
-          sudo ./deploy/raspberry-pi/qemu-boot-smoke-test.sh \
-            "${{ steps.built.outputs.path }}" \
-            "${{ steps.version.outputs.version }}"
-
-      # Renamed to a fixed name rather than one carrying the version, unlike
-      # the macOS/Windows installers: releases/latest/download/<asset> (#474)
-      # needs a name that does not change release to release, and a second,
-      # version-named copy of a plausibly gigabyte-sized image would double
-      # this job's slowest step (the upload) for a copy nobody has asked to
-      # keep per-release — a stale Pi image from an old release is not the
-      # kind of thing anyone goes looking for by version the way an old
-      # installer sometimes is.
-      - name: Rename to the release asset name
-        id: image
-        run: |
-          DEST="deploy/raspberry-pi/deploy/TrustyTrack-raspberry-pi.img.xz"
-          mv "${{ steps.built.outputs.path }}" "$DEST"
-          echo "path=$DEST" >> "$GITHUB_OUTPUT"
-
-      - name: Attach the image to the release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "$GITHUB_REF_NAME" --clobber "${{ steps.image.outputs.path }}"
+    uses: ./.github/workflows/raspberry-pi-image.yml
+    with:
+      version: ${{ needs.docker.outputs.version }}
+      tag: ${{ github.ref_name }}
