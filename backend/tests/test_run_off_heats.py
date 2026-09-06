@@ -8,10 +8,15 @@ run_off_contested_rank`'s "computed, never stored" rule, and the GraphQL
 mutations end to end.
 """
 
+from typing import TYPE_CHECKING
+
 import pytest
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
+
+if TYPE_CHECKING:
+    from fastapi.testclient import TestClient
 from backend.domain import audit
 from backend.domain import scoring as domain_scoring
 from backend.services import records as records_service
@@ -263,6 +268,60 @@ class TestCreateValidation:
         with pytest.raises(ValueError):
             crud.create_run_off_heat(db, race.id, round_obj.id, [a.id])
 
+    def test_duplicate_racers_are_refused(self, db: Session) -> None:
+        """Duplicate racer IDs in a run-off heat are rejected (#753)."""
+        race, round_obj, a, b = _tied_pair(db)
+        with pytest.raises(
+            ValueError, match="Duplicate racers are not allowed in a run-off."
+        ):
+            crud.create_run_off_heat(db, race.id, round_obj.id, [a.id, a.id])
+        with pytest.raises(
+            ValueError, match="Duplicate racers are not allowed in a run-off."
+        ):
+            crud.create_run_off_heat(db, race.id, round_obj.id, [a.id, b.id, a.id])
+
+    def test_racers_from_another_race_are_refused(self, db: Session) -> None:
+        """Racers belonging to another race cannot enter a run-off (#753)."""
+        race, round_obj, a, _b = _tied_pair(db)
+        other_race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Other Race",
+                organization_id=race.organization_id,
+                track_id=race.track_id,
+            ),
+        )
+        other_racer = _racer(db, other_race, "Other")
+        with pytest.raises(
+            ValueError, match="All racers in a run-off must belong to the race."
+        ):
+            crud.create_run_off_heat(db, race.id, round_obj.id, [a.id, other_racer.id])
+
+    def test_nonexistent_racers_are_refused(self, db: Session) -> None:
+        """Non-existent racer IDs cannot enter a run-off (#753)."""
+        race, round_obj, a, _b = _tied_pair(db)
+        with pytest.raises(
+            ValueError, match="All racers in a run-off must belong to the race."
+        ):
+            crud.create_run_off_heat(db, race.id, round_obj.id, [a.id, 999999])
+
+    def test_uninspected_racers_are_refused(self, db: Session) -> None:
+        """Racers who have not passed inspection cannot enter a run-off (#753)."""
+        race, round_obj, a, _b = _tied_pair(db)
+        uninspected = crud.create_racer(
+            db,
+            schemas.RacerCreate(
+                first_name="Uninspected",
+                last_name="T",
+                race_id=race.id,
+                car_passed_inspection=False,
+            ),
+        )
+        with pytest.raises(
+            ValueError, match="All racers in a run-off must belong to the race."
+        ):
+            crud.create_run_off_heat(db, race.id, round_obj.id, [a.id, uninspected.id])
+
     def test_more_racers_than_usable_lanes_is_refused(self, db):
         race, track = _seed(db)  # 4 lanes
         round_obj = _round(db, race)
@@ -454,6 +513,77 @@ class TestGraphQLMutations:
         )
         assert response.status_code == 200
         assert "errors" in response.json()
+
+    def test_duplicate_racers_is_a_graphql_error(
+        self, client: "TestClient", db: Session
+    ) -> None:
+        """Duplicate racers in createRunOffHeat returns a GraphQL error (#753)."""
+        race, round_obj, a, _b = _tied_pair(db)
+        query = """
+        mutation($raceId: Int!, $racerIds: [Int!]!, $settlesRoundId: Int) {
+          createRunOffHeat(
+            raceId: $raceId, racerIds: $racerIds, settlesRoundId: $settlesRoundId
+          ) { id }
+        }
+        """
+        response = client.post(
+            "/graphql",
+            json={
+                "query": query,
+                "variables": {
+                    "raceId": race.id,
+                    "racerIds": [a.id, a.id],
+                    "settlesRoundId": round_obj.id,
+                },
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert "errors" in body
+        assert any(
+            "Duplicate racers are not allowed in a run-off." in err["message"]
+            for err in body["errors"]
+        )
+
+    def test_racers_from_another_race_is_a_graphql_error(
+        self, client: "TestClient", db: Session
+    ) -> None:
+        """Racers from another race in createRunOffHeat returns an error (#753)."""
+        race, round_obj, a, _b = _tied_pair(db)
+        other_race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Other Race",
+                organization_id=race.organization_id,
+                track_id=race.track_id,
+            ),
+        )
+        other_racer = _racer(db, other_race, "Other")
+        query = """
+        mutation($raceId: Int!, $racerIds: [Int!]!, $settlesRoundId: Int) {
+          createRunOffHeat(
+            raceId: $raceId, racerIds: $racerIds, settlesRoundId: $settlesRoundId
+          ) { id }
+        }
+        """
+        response = client.post(
+            "/graphql",
+            json={
+                "query": query,
+                "variables": {
+                    "raceId": race.id,
+                    "racerIds": [a.id, other_racer.id],
+                    "settlesRoundId": round_obj.id,
+                },
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert "errors" in body
+        assert any(
+            "All racers in a run-off must belong to the race." in err["message"]
+            for err in body["errors"]
+        )
 
     def test_delete_run_off_heat_through_graphql(self, client, db):
         race, round_obj, a, b = _tied_pair(db)

@@ -3122,15 +3122,30 @@ def create_run_off_heat(
     Lanes are assigned automatically, one tied racer per usable lane, in the
     order given — the whole point is that these specific cars race each
     other once, not that the operator picks who stands where. Raises if
-    there are fewer than two racers (nothing to break a tie between) or more
-    racers than usable lanes (nowhere to put them); the resolver turns that
-    into a GraphQL error.
+    there are duplicate racers, fewer than two racers (nothing to break a tie
+    between), more racers than usable lanes (nowhere to put them), or any
+    racer does not belong to the race and pass inspection (#753); the resolver
+    turns that into a GraphQL error.
     """
+    if len(racer_ids) != len(set(racer_ids)):
+        raise ValueError("Duplicate racers are not allowed in a run-off.")
     if len(set(racer_ids)) < 2:
         raise ValueError("A run-off needs at least two racers.")
     usable = sorted(usable_lanes_for_race(db, race_id))
     if len(racer_ids) > len(usable):
         raise ValueError("More tied racers than usable lanes.")
+
+    valid_racers = (
+        db.query(models.Racer.id)
+        .filter(
+            models.Racer.id.in_(racer_ids),
+            models.Racer.race_id == race_id,
+            models.Racer.car_passed_inspection.is_(True),
+        )
+        .all()
+    )
+    if len(valid_racers) != len(racer_ids):
+        raise ValueError("All racers in a run-off must belong to the race.")
 
     assignments = [
         lanes.Lane(lane=lane_num, racer_id=racer_id)
