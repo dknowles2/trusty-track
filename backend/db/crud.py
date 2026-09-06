@@ -4,6 +4,7 @@ import json
 import random
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -110,7 +111,17 @@ def get_racing_group_by_name(
 def create_racing_group(
     db: Session, racing_group: schemas.RacingGroupCreate, race_id: int
 ) -> models.RacingGroup:
-    db_racing_group = models.RacingGroup(**racing_group.model_dump(), race_id=race_id)
+    """Add one racing group to an existing race — `Manage Dens`' own mutation.
+
+    ``copied_from_id`` is not a column; it only means anything to
+    `create_race`'s own bulk path (#722), which uses it to remap a copied
+    award's `racing_group_id` in the same transaction. Every group added
+    here is brand new, with nothing yet to remap, so it is dropped rather
+    than passed to the model.
+    """
+    data = racing_group.model_dump()
+    data.pop("copied_from_id", None)
+    db_racing_group = models.RacingGroup(**data, race_id=race_id)
     db.add(db_racing_group)
     db.commit()
     db.refresh(db_racing_group)
@@ -191,24 +202,85 @@ def get_races(db: Session, skip: int = 0, limit: int = 100) -> list[models.Race]
 
 
 def create_race(db: Session, race: schemas.RaceCreate) -> models.Race:
-    """Create a race, and any racing groups sent along with it (#662).
+    """Create a race, and any racing groups and awards sent along with it
+    (#662, #722).
 
     The groups go in the same commit as the race, in the order they were
     given — the setup wizard scaffolds a pack's dens in rank order, and
     `get_racing_groups` orders by id, so creation order is display order.
     One transaction rather than a race followed by N group inserts is #201's
     reasoning: a setup that fails half way must not leave a half-built race.
+
+    Awards land in the same transaction too, once the groups above have real
+    ids — a copied `SPEED` award's `racing_group_id` still names a group in
+    the *previous* race, and `copied_from_id` on each incoming racing group
+    is what maps that old id to the new one. An award that cannot survive
+    the trip is dropped rather than written half-broken: one whose `source`
+    names a specific round (the new race has none yet), or one scoped to a
+    racing group that was not carried over. `schemas.AwardCopyCreate` carries
+    no `racer_id` at all, so a `SPECIAL` award's chosen winner cannot reach
+    this path even by mistake — see #170.
     """
     race_data = race.model_dump()
     racing_groups = race_data.pop("racing_groups", [])
+    award_copies = race_data.pop("awards", [])
     db_race = models.Race(**race_data)
     db.add(db_race)
     db.flush()
+    group_id_map: dict[int, int] = {}
+    new_groups: list[tuple[int | None, models.RacingGroup]] = []
     for racing_group in racing_groups:
-        db.add(models.RacingGroup(**racing_group, race_id=db_race.id))
+        racing_group = dict(racing_group)
+        copied_from_id = racing_group.pop("copied_from_id", None)
+        db_group = models.RacingGroup(**racing_group, race_id=db_race.id)
+        db.add(db_group)
+        new_groups.append((copied_from_id, db_group))
+    if new_groups:
+        db.flush()
+        for copied_from_id, db_group in new_groups:
+            if copied_from_id is not None:
+                group_id_map[copied_from_id] = db_group.id
+    for award_copy in award_copies:
+        _create_copied_award(db, db_race.id, dict(award_copy), group_id_map)
     db.commit()
     db.refresh(db_race)
     return db_race
+
+
+def _create_copied_award(
+    db: Session,
+    race_id: int,
+    award_data: dict[str, Any],
+    group_id_map: dict[int, int],
+) -> None:
+    """One award of `create_race`'s copy step — see its docstring.
+
+    Defence in depth, not the primary gate: the wizard (`raceSetup.
+    copyableAwards`) filters the identical two cases before ever sending the
+    request, so what reaches here should already be copyable. This still
+    checks, for a hand-built request or a future caller of `create_race`
+    that skips the wizard.
+    """
+    source = award_data.get("source")
+    if source and advancement.is_round_scoped(source):
+        return
+    racing_group_id = award_data.get("racing_group_id")
+    if racing_group_id is not None:
+        new_group_id = group_id_map.get(racing_group_id)
+        if new_group_id is None:
+            return
+        award_data["racing_group_id"] = new_group_id
+    sort_order = award_data.pop("sort_order", None)
+    db_award = models.Award(
+        race_id=race_id,
+        sort_order=(
+            _next_award_sort_order(db, race_id) if sort_order is None else sort_order
+        ),
+        **award_data,
+    )
+    _clear_fields_of_other_kind(db_award)
+    _set_speed_artwork_key(db_award)
+    db.add(db_award)
 
 
 def update_race(

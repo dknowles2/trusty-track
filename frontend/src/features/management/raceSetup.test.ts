@@ -8,13 +8,17 @@ import {
     ORGANIZATION_KINDS,
     blankGroup,
     copiedGroups,
+    copyableAwards,
     firstGroupProblem,
     prefillFromRace,
     raceOverrideFor,
     scaffoldGroups,
     stepsFor,
+    toAwardCopyInput,
     toRacingGroupInput,
     wordsFor,
+    type RacingGroupDraft,
+    type SourceAward,
     type SourceRace,
 } from './raceSetup';
 
@@ -155,16 +159,17 @@ const lastYear: SourceRace = {
     vehiclePlural: 'Rockets',
     vehicleArtworkKey: 'rocket',
     racingGroups: [
-        { name: 'Wolves', color: '#AAB7B8', division: 'Wolf', carNumberRangeStart: 100, carNumberRangeEnd: 199 },
-        { name: 'Bears', color: '#85C1E9', division: null, carNumberRangeStart: null, carNumberRangeEnd: null },
+        { id: 10, name: 'Wolves', color: '#AAB7B8', division: 'Wolf', carNumberRangeStart: 100, carNumberRangeEnd: 199 },
+        { id: 11, name: 'Bears', color: '#85C1E9', division: null, carNumberRangeStart: null, carNumberRangeEnd: null },
     ],
+    awards: [],
 };
 
 describe('copiedGroups', () => {
     it('keeps names, colours, categories and ranges, and drops nothing else there is', () => {
         expect(copiedGroups(lastYear.racingGroups)).toEqual([
-            { name: 'Wolves', color: '#AAB7B8', division: 'Wolf', car_number_range_start: 100, car_number_range_end: 199 },
-            { name: 'Bears', color: '#85C1E9', division: '', car_number_range_start: undefined, car_number_range_end: undefined },
+            { name: 'Wolves', color: '#AAB7B8', division: 'Wolf', car_number_range_start: 100, car_number_range_end: 199, copied_from_id: 10 },
+            { name: 'Bears', color: '#85C1E9', division: '', car_number_range_start: undefined, car_number_range_end: undefined, copied_from_id: 11 },
         ]);
     });
 });
@@ -242,6 +247,130 @@ describe('toRacingGroupInput', () => {
             division: null,
             carNumberRangeStart: null,
             carNumberRangeEnd: null,
+            copiedFromId: null,
+        });
+    });
+
+    it('carries a copied group’s old id along, for the award remap on the way in', () => {
+        expect(toRacingGroupInput({ name: 'Wolves', color: '#AAB7B8', division: '', copied_from_id: 10 }))
+            .toMatchObject({ copiedFromId: 10 });
+    });
+});
+
+/** An award as `GET_RACE_SETUP_SOURCE` would return it, filled out enough
+ * for `copyableAwards` to reason about. */
+function sourceAward(overrides: Partial<SourceAward>): SourceAward {
+    return {
+        id: 1,
+        name: 'Fastest Overall',
+        kind: 'SPEED',
+        source: 'ALL',
+        place: 1,
+        fromBottom: false,
+        racingGroupId: null,
+        artworkKey: 'trophy',
+        sortOrder: 0,
+        votable: false,
+        ...overrides,
+    };
+}
+
+describe('copyableAwards', () => {
+    const copiedWolves: RacingGroupDraft = { name: 'Wolves', color: '#AAB7B8', division: 'Wolf', copied_from_id: 10 };
+
+    it('copies an unscoped SPEED award and a SPECIAL award as plain definitions', () => {
+        const bestPaint = sourceAward({
+            id: 2,
+            name: 'Best Paint',
+            kind: 'SPECIAL',
+            source: null,
+            place: null,
+            artworkKey: null,
+            votable: true,
+        });
+        const plan = copyableAwards([sourceAward({}), bestPaint], []);
+        expect(plan.excluded).toEqual([]);
+        expect(plan.toCopy).toEqual([
+            {
+                name: 'Fastest Overall',
+                kind: 'SPEED',
+                source: 'ALL',
+                place: 1,
+                from_bottom: false,
+                racing_group_id: null,
+                artwork_key: 'trophy',
+                sort_order: 0,
+                votable: false,
+            },
+            {
+                name: 'Best Paint',
+                kind: 'SPECIAL',
+                source: null,
+                place: null,
+                from_bottom: false,
+                racing_group_id: null,
+                artwork_key: null,
+                sort_order: 0,
+                votable: true,
+            },
+        ]);
+    });
+
+    it('never carries a SPECIAL award’s recipient — there is no field for one', () => {
+        const plan = copyableAwards(
+            [sourceAward({ id: 2, name: 'Best Paint', kind: 'SPECIAL', source: null, place: null })],
+            [],
+        );
+        expect(plan.toCopy[0]).not.toHaveProperty('racer_id');
+        expect(plan.toCopy[0]).not.toHaveProperty('racerId');
+    });
+
+    it('follows a racing-group-scoped award to the new race’s equivalent group', () => {
+        const fastestWolf = sourceAward({ id: 3, name: 'Fastest Wolf', racingGroupId: 10 });
+        const plan = copyableAwards([fastestWolf], [copiedWolves]);
+        expect(plan.excluded).toEqual([]);
+        expect(plan.toCopy[0].racing_group_id).toBe(10);
+    });
+
+    it('excludes an award scoped to a group the operator removed', () => {
+        const fastestWolf = sourceAward({ id: 3, name: 'Fastest Wolf', racingGroupId: 10 });
+        const plan = copyableAwards([fastestWolf], []);
+        expect(plan.toCopy).toEqual([]);
+        expect(plan.excluded).toEqual([{ award: fastestWolf, reason: expect.stringContaining('not carried over') }]);
+    });
+
+    it('excludes an award tied to a specific round — the new race has none yet', () => {
+        const finalsWinner = sourceAward({ id: 4, name: 'Finals Champion', source: 'ROUND:9' });
+        const plan = copyableAwards([finalsWinner], []);
+        expect(plan.toCopy).toEqual([]);
+        expect(plan.excluded).toEqual([{ award: finalsWinner, reason: expect.stringContaining('this race has none yet') }]);
+    });
+});
+
+describe('toAwardCopyInput', () => {
+    it('maps to the camelCase mutation input, unscoped and un-derived fields intact', () => {
+        expect(
+            toAwardCopyInput({
+                name: 'Fastest Overall',
+                kind: 'SPEED',
+                source: 'ALL',
+                place: 1,
+                from_bottom: false,
+                racing_group_id: null,
+                artwork_key: 'trophy',
+                sort_order: 0,
+                votable: false,
+            }),
+        ).toEqual({
+            name: 'Fastest Overall',
+            kind: 'SPEED',
+            source: 'ALL',
+            place: 1,
+            fromBottom: false,
+            racingGroupId: null,
+            artworkKey: 'trophy',
+            sortOrder: 0,
+            votable: false,
         });
     });
 });

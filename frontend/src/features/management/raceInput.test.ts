@@ -66,9 +66,48 @@ describe('buildCreateRaceInput', () => {
         });
 
         expect(input.racingGroups).toEqual([
-            { name: 'Lion', color: '#F4D03F', division: 'Lion', carNumberRangeStart: 100, carNumberRangeEnd: 199 },
-            { name: 'Bear', color: '#85C1E9', division: null, carNumberRangeStart: null, carNumberRangeEnd: null },
+            { name: 'Lion', color: '#F4D03F', division: 'Lion', carNumberRangeStart: 100, carNumberRangeEnd: 199, copiedFromId: null },
+            { name: 'Bear', color: '#85C1E9', division: null, carNumberRangeStart: null, carNumberRangeEnd: null, copiedFromId: null },
         ]);
+    });
+
+    it('carries award definitions copied from a previous race (#722), with no recipient field at all', () => {
+        const input = buildCreateRaceInput({
+            ...baseFormData,
+            racing_groups: [],
+            awards: [
+                {
+                    name: 'Fastest Overall',
+                    kind: 'SPEED',
+                    source: 'ALL',
+                    place: 1,
+                    from_bottom: false,
+                    racing_group_id: null,
+                    artwork_key: 'trophy',
+                    sort_order: 0,
+                    votable: false,
+                },
+            ],
+        });
+
+        expect(input.awards).toEqual([
+            {
+                name: 'Fastest Overall',
+                kind: 'SPEED',
+                source: 'ALL',
+                place: 1,
+                fromBottom: false,
+                racingGroupId: null,
+                artworkKey: 'trophy',
+                sortOrder: 0,
+                votable: false,
+            },
+        ]);
+        expect(input.awards[0]).not.toHaveProperty('racerId');
+    });
+
+    it('sends an empty award list for a plain submission with no copy step', () => {
+        expect(buildCreateRaceInput(baseFormData).awards).toEqual([]);
     });
 
     it('carries the words the wizard chose, and nulls where the race inherits (#662)', () => {
@@ -103,8 +142,9 @@ describe('buildCreateRaceInput', () => {
             weightLimitOz: 5.0,
             qrHeadline: undefined,
             qrWifiNote: undefined,
-            // A plain form submission: no groups, and every word inherited.
+            // A plain form submission: no groups, no awards, and every word inherited.
             racingGroups: [],
+            awards: [],
             racingGroupSingular: null,
             racingGroupPlural: null,
             organizationSingular: null,

@@ -13,6 +13,7 @@ import {
     ORGANIZATION_KINDS,
     blankGroup,
     copiedGroups,
+    copyableAwards,
     firstGroupProblem,
     organizationKindFor,
     prefillFromRace,
@@ -145,6 +146,18 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
     );
     const prefillKey = JSON.stringify(prefill);
 
+    // Which of the previous race's awards will be copied, and why the rest
+    // will not (#722) — recomputed against `groups` as it stands right now,
+    // so removing a group on this step is reflected here before the race is
+    // ever created, not discovered afterwards as a surprise trophy list.
+    const awardPlan = useMemo(
+        () =>
+            mode === 'copy' && sourceRace
+                ? copyableAwards(sourceRace.awards, groups)
+                : { toCopy: [], excluded: [] },
+        [mode, sourceRace, groups],
+    );
+
     const categoryPresets =
         mode === 'copy' ? CATEGORY_PRESETS : organizationKindFor(answers.organizationKind).categoryPresets;
 
@@ -199,7 +212,7 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
     };
 
     const handleDetails = async (data: RaceFormData) => {
-        await onSubmit({ ...data, racing_groups: groups });
+        await onSubmit({ ...data, racing_groups: groups, awards: awardPlan.toCopy });
     };
 
     const stepLabel = (id: StepId) => (id === 'groups' ? chosenWords.racingGroupPlural : STEP_LABELS[id]);
@@ -261,8 +274,8 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
                             />{' '}
                             Copy settings from a previous race
                             <small style={optionDescriptionStyle}>
-                                Its {installDefault.racingGroupPlural.toLowerCase()}, scoring, numbering and words, ready
-                                to adjust. The roster is not copied.
+                                Its {installDefault.racingGroupPlural.toLowerCase()}, scoring, numbering, words and
+                                awards, ready to adjust. The roster is not copied.
                             </small>
                         </label>
                     </fieldset>
@@ -292,6 +305,12 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
                                         : `${sourceRace.racingGroups.length} ${
                                             sourceRace.racingGroups.length === 1 ? groupWords.groupLower : groupWords.groupsLower
                                         } to copy: ${sourceRace.racingGroups.map((g) => g.name).join(', ')}.`}
+                                </p>
+                            )}
+                            {sourceRace && sourceRace.awards.length > 0 && (
+                                <p style={helpStyle} data-testid="setup-source-awards-summary">
+                                    {sourceRace.awards.length} award{sourceRace.awards.length === 1 ? '' : 's'} to copy
+                                    too, with nobody assigned yet — you can review exactly which ones on the next step.
                                 </p>
                             )}
                         </div>
@@ -472,6 +491,32 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
                         You can add, rename or remove {groupWords.groupsLower} later from <em>Manage {groupWords.groups}</em>{' '}
                         on the Roster page.
                     </p>
+                    {mode === 'copy' && sourceRace && sourceRace.awards.length > 0 && (
+                        <fieldset style={fieldsetStyle} data-testid="setup-awards-preview">
+                            <legend style={legendStyle}>Awards from the previous race</legend>
+                            {awardPlan.toCopy.length > 0 && (
+                                <p style={{ ...helpStyle, marginTop: 0 }} data-testid="setup-awards-copy-summary">
+                                    {awardPlan.toCopy.length} award{awardPlan.toCopy.length === 1 ? '' : 's'} will be
+                                    copied, with nobody assigned yet: {awardPlan.toCopy.map((a) => a.name).join(', ')}.
+                                </p>
+                            )}
+                            {awardPlan.excluded.length > 0 && (
+                                <p
+                                    role="alert"
+                                    data-testid="setup-awards-excluded"
+                                    style={{ ...helpStyle, color: 'var(--error)' }}
+                                >
+                                    {awardPlan.excluded.length} award{awardPlan.excluded.length === 1 ? '' : 's'} will
+                                    not be copied —{' '}
+                                    {awardPlan.excluded
+                                        .map((e) => `“${e.award.name}” ${e.reason}`)
+                                        .join('; ')}
+                                    . Add {awardPlan.excluded.length === 1 ? 'it' : 'them'} again from the Awards tab
+                                    once this race is set up.
+                                </p>
+                            )}
+                        </fieldset>
+                    )}
                 </section>
             )}
 

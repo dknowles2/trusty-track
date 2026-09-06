@@ -98,8 +98,8 @@ Once your system settings are configured, you're ready to create a race event.
    Each one has **Next** and **Back**, so nothing is final until the last.
    - **Start** — only shown once you already have a race. Choose **Start from
      scratch**, or **Copy settings from a previous race** to reuse last year's
-     dens, scoring, numbering and words. What is copied, and what is not, is
-     listed in [Copying a previous race](reference/race-settings.md#copying-a-previous-race).
+     dens, scoring, numbering, words and awards. What is copied, and what is
+     not, is listed in [Copying a previous race](reference/race-settings.md#copying-a-previous-race).
    - **Kind of event** — what is being raced (Pinewood Derby, Space Derby or
      Raingutter Regatta), who is holding it (Cub Scouts, Awana, a school, or
      something else) and, for Cub Scouts, whether it is one pack's own derby
