@@ -232,3 +232,47 @@ def test_the_wizard_refuses_a_zero_runs_per_lane_on_a_championship_round(db, cli
     body = response.json()
     assert "errors" in body, body
     assert _rounds(db, race.id) == []
+
+
+def test_create_round_refuses_elimination_on_track_with_fewer_than_two_usable_lanes(
+    db, client
+):
+    race = _race(db, lane_count=1, label="OneLaneElim")
+
+    response = _create_round(
+        client,
+        race.id,
+        name="Elimination",
+        schedulingStrategy="ELIMINATION",
+        runsPerLane=1,
+    )
+
+    body = response.json()
+    assert "errors" in body, body
+    assert (
+        "An elimination or balanced round requires at least two usable lanes."
+        in body["errors"][0]["message"]
+    )
+    assert _rounds(db, race.id) == []
+
+
+def test_create_round_refuses_balanced_on_track_with_fewer_than_two_usable_lanes(
+    db, client
+):
+    race = _race(db, lane_count=1, label="OneLaneBal")
+
+    response = _create_round(
+        client,
+        race.id,
+        name="Balanced",
+        schedulingStrategy="BALANCED",
+        runsPerLane=1,
+    )
+
+    body = response.json()
+    assert "errors" in body, body
+    assert (
+        "An elimination or balanced round requires at least two usable lanes."
+        in body["errors"][0]["message"]
+    )
+    assert _rounds(db, race.id) == []

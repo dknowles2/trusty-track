@@ -4693,6 +4693,21 @@ class Mutation:
             if champ_cfg.num_top_racers < 1:
                 raise ValueError("num_top_racers must be at least 1.")
 
+        gen_strategy = getattr(config.general_round, "scheduling_strategy", None)
+        if (
+            gen_strategy
+            in (
+                models.SchedulingStrategy.ELIMINATION,
+                models.SchedulingStrategy.BALANCED,
+                "ELIMINATION",
+                "BALANCED",
+            )
+            and len(crud.usable_lanes_for_race(db, race_id)) < 2
+        ):
+            raise ValueError(
+                "An elimination or balanced round requires at least two usable lanes."
+            )
+
         created_rounds = []
         current_round_number = 1
 
@@ -5866,6 +5881,13 @@ class Mutation:
                 strategy = models.SchedulingStrategy(round_data.scheduling_strategy)
                 is_elimination = strategy == models.SchedulingStrategy.ELIMINATION
                 is_balanced = strategy == models.SchedulingStrategy.BALANCED
+                if (is_elimination or is_balanced) and len(
+                    crud.usable_lanes_for_race(db, race_id)
+                ) < 2:
+                    raise ValueError(
+                        "An elimination or balanced round requires at least"
+                        " two usable lanes."
+                    )
                 losses = None
                 if is_elimination:
                     losses = round_data.elimination_losses or 3
