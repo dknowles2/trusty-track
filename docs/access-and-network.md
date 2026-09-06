@@ -121,10 +121,18 @@ the address is whatever this machine's own network settings say:
 > your own browser's address bar shows for Trusty Track — for example
 > `http://192.168.1.42:8000` if yours shows `http://localhost:8000`.
 
-The voting page's sharing step (see
-[Letting people vote](awards.md#letting-people-vote)) also shows an address
-it has checked is not `localhost`, with a **Copy** button and a QR code —
-today that is always the IP form above, not the `.local` name.
+Two places in the app offer to hand out an address for you, with a **Copy**
+button and a QR code, rather than making you type either form above: **Race
+Control → Displays**, for connecting a wall display or a check-in tablet, and
+the voting page's sharing step (see
+[Letting people vote](awards.md#letting-people-vote)). Both show the `.local`
+name whenever Trusty Track successfully registered one, and fall back to the
+IP form otherwise — the same choice you would make by hand above, made once
+so you do not have to check whether it worked.
+
+If you use the macOS or Windows desktop app, its menu-bar/tray icon shows the
+same `.local` address next to the plain network one, once the server has
+finished starting.
 
 ## Which network to use
 

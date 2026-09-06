@@ -180,11 +180,13 @@ export const CAST_VOTE_MUTATION = gql`
  *
  * `window.location.origin` is `localhost` on the machine running Trusty
  * Track, which no phone in the room can open — the backend is the thing
- * bound to the network, so it is asked instead. See
- * `features/core/shareAddress.ts`.
+ * bound to the network, so it is asked instead. `mdnsHostname` (#723) rides
+ * alongside it — `features/core/shareAddress.ts`'s `shareUrl` prefers it
+ * over a bare address when the backend has one.
  */
 export const NETWORK_ADDRESSES_QUERY = gql`
   query NetworkAddresses {
     networkAddresses
+    mdnsHostname
   }
 `;

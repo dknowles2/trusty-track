@@ -3098,6 +3098,26 @@ class Query:
         return network.lan_addresses()
 
     @strawberry.field
+    def mdns_hostname(self, info: Info) -> str | None:
+        """The `.local` name this machine is actually advertising itself as
+        over mDNS (#723, stages 1-3), or null.
+
+        Null covers every reason `backend.services.discovery.start()`
+        declined — demo mode, `TRUSTYTRACK_MDNS=off`, avahi already
+        answering, no LAN address, or a saturated namespace — and, same as
+        `networkAddresses`'s own `reachable` flag, this is never the name the
+        app merely *asked* for: on a colliding LAN it is
+        `"trustytrack-2.local"`, not `"trustytrack.local"`.
+
+        Deliberately its own field rather than folded into
+        `networkAddresses` — that is a list of IPv4 addresses whose only
+        consumer takes `[0]`, and a hostname living in it would be a string
+        that happens to parse differently, exactly the stringly-typed shape
+        this project keeps removing.
+        """
+        return typing.cast(str | None, info.context.get("mdns_hostname"))
+
+    @strawberry.field
     def race(self, info: Info, race_id: int) -> Race | None:
         """Get a single race by ID."""
         return typing.cast(Any, crud.get_race(info.context["db"], race_id=race_id))

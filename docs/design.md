@@ -218,6 +218,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   `freeRaceHeats(raceId)`, `activeFreeRaceHeat(raceId)`, `randomFreeRaceLanes(raceId, shuffle, enabledLanes)` — the draw runs over the race's usable lanes (`usable_lanes_for_race`, #171); `enabledLanes` narrows it further to a session-only subset the Free Race screen's per-lane toggle asks for (#303), and is intersected against usable rather than trusted outright
 -   `version` — Running application version.
 -   `networkAddresses` — This machine's own LAN address(es), best-effort (`services/network.py`). The voting page's share step uses this to replace `window.location`'s `localhost`/`127.0.0.1` with something a phone on the venue wifi can actually open (#414); an empty list means none could be found.
+-   `mdnsHostname` — The `.local` name this machine is actually advertising itself as over mDNS (`services/discovery.py`, #723), or null when mDNS declined (demo mode, `TRUSTYTRACK_MDNS=off`, avahi already answering, no LAN address, or a saturated namespace). Never the name merely *asked* for — a colliding LAN reports `trustytrack-2.local`, not `trustytrack.local` — and kept separate from `networkAddresses` rather than folded in, since that field's only consumer takes `[0]` off a list of plain IPv4 addresses.
 
 **GraphQL Mutations:**
 

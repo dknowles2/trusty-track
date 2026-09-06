@@ -154,18 +154,29 @@ async def lifespan(_app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize timer managers: {e}")
 
-    # Advertise this machine over mDNS (#723, stage 1) so a display or a
+    # Advertise this machine over mDNS (#723, stages 1-2) so a display or a
     # check-in tablet can open `http://trustytrack.local:8000` instead of an
     # IP address. `discovery.start()` already declines on its own — demo
     # mode, `TRUSTYTRACK_MDNS=off`, avahi already answering, no LAN address —
     # so the `try` here is only for the unexpected: a caller has no business
     # taking the whole app down over a feature whose whole fallback is "show
     # an IP instead", which is exactly what happens if this leaves
-    # `MDNS_RESPONDER` at `None`.
+    # `MDNS_RESPONDER` at `None`. `configured`/`version` are stage 2's
+    # `_trustytrack._tcp` payload; a failure reading either falls back to
+    # "not yet" and "unknown" rather than skipping registration outright.
     global MDNS_RESPONDER
     logger.info("Advertising this machine over mDNS...")
     try:
-        MDNS_RESPONDER = discovery.start()
+        try:
+            with SessionLocal() as session:
+                configured = session.query(models.Organization).first() is not None
+        except Exception:
+            configured = False
+        try:
+            from backend.version import __version__ as app_version
+        except ImportError:
+            app_version = "unknown"
+        MDNS_RESPONDER = discovery.start(configured=configured, version=app_version)
         if MDNS_RESPONDER:
             logger.info("Reachable at %s", MDNS_RESPONDER.hostname)
         else:
@@ -303,6 +314,12 @@ async def get_graphql_context(
         # asks, and working it out costs a query.
         "role_resolver": lambda: _role_for_request(db, pin),
         "timer_managers": TIMER_MANAGERS,
+        # The `.local` name this process is actually advertising (#723,
+        # stage 3), if any — read fresh off the module global on every
+        # request/subscription rather than captured once, since the lifespan
+        # sets it after this function is first defined but before any real
+        # request can arrive.
+        "mdns_hostname": MDNS_RESPONDER.hostname if MDNS_RESPONDER else None,
         "loaders": RequestLoaders(db),
         # Managers created mid-request (e.g. by createTrack) need a factory for
         # their own background writes; tests override this.

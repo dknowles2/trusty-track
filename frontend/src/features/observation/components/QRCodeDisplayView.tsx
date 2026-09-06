@@ -38,6 +38,7 @@ interface Props {
 export default function QRCodeDisplayView({ raceId, target, headline, wifiNote }: Props) {
     const [result] = useQuery({ query: NETWORK_ADDRESSES_QUERY });
     const networkAddresses = result.data?.networkAddresses ?? [];
+    const mdnsHostname = result.data?.mdnsHostname ?? null;
 
     // SSR has no `window`; every other full-screen view on this page has the
     // same guard for the same reason (this component is only ever mounted
@@ -45,7 +46,7 @@ export default function QRCodeDisplayView({ raceId, target, headline, wifiNote }
     if (typeof window === 'undefined') return null;
 
     const path = qrTargetPath(target, raceId);
-    const { url, reachable } = shareUrl(window.location.origin, path, networkAddresses);
+    const { url, reachable } = shareUrl(window.location.origin, path, networkAddresses, mdnsHostname);
     const line = resolveQrHeadline(headline, target);
 
     return (

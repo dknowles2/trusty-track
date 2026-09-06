@@ -179,16 +179,18 @@ export const DISPLAYS_QUERY = gql`
 `;
 
 /**
- * This machine's own LAN address(es), for the `QRCODE` display view (#614) —
- * the same query the Awards page's ballot share step already asks, under a
+ * This machine's own LAN address(es), for the `QRCODE` display view (#614)
+ * and for the Displays panel's own "connect a screen" step (#723) — the
+ * same query the Awards page's ballot share step already asks, under a
  * distinct operation name since every document in the app needs one.
  * `window.location.origin` is `localhost` on the machine running Trusty
- * Track, which no phone in the room can open; see
- * `features/core/shareAddress.ts`.
+ * Track, which no phone in the room can open; `mdnsHostname` (#723) rides
+ * alongside it — see `features/core/shareAddress.ts`.
  */
 export const NETWORK_ADDRESSES_QUERY = gql`
   query ObservationNetworkAddresses {
     networkAddresses
+    mdnsHostname
   }
 `;
 

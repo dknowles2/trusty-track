@@ -59,6 +59,57 @@ describe('shareUrl', () => {
 
     expect(result.reachable).toBe(false);
   });
+
+  // #723: the mDNS hostname outlasts a DHCP lease change, where a bare IP
+  // does not, so it wins whenever the backend has one.
+  it('prefers the mDNS hostname over a LAN address when both are available', () => {
+    const result = shareUrl(
+      'http://localhost:8000',
+      '/race/1/vote',
+      ['192.168.1.42'],
+      'trustytrack.local',
+    );
+
+    expect(result).toEqual({ url: 'http://trustytrack.local:8000/race/1/vote', reachable: true });
+  });
+
+  it('uses the mDNS hostname even when no LAN address was found at all', () => {
+    const result = shareUrl('http://localhost:8000', '/race/1/vote', [], 'trustytrack.local');
+
+    expect(result).toEqual({ url: 'http://trustytrack.local:8000/race/1/vote', reachable: true });
+  });
+
+  it('reports whatever name registration actually won, not the plain one', () => {
+    // A colliding LAN reports `trustytrack-2.local` — never the name that
+    // was merely asked for (#723's own rule for `discovery.start()`).
+    const result = shareUrl(
+      'http://localhost:8000',
+      '/race/1/vote',
+      ['192.168.1.42'],
+      'trustytrack-2.local',
+    );
+
+    expect(result.url).toBe('http://trustytrack-2.local:8000/race/1/vote');
+  });
+
+  it('falls back to a LAN address when no mDNS hostname is available', () => {
+    const result = shareUrl('http://localhost:8000', '/race/1/vote', ['192.168.1.42'], null);
+
+    expect(result.url).toBe('http://192.168.1.42:8000/race/1/vote');
+  });
+
+  it('does not substitute the mDNS hostname when the origin is already reachable', () => {
+    // Same rule as a LAN address: nothing here overrides an address that
+    // already works from off this machine.
+    const result = shareUrl(
+      'http://192.168.1.42:8000',
+      '/race/1/vote',
+      [],
+      'trustytrack.local',
+    );
+
+    expect(result).toEqual({ url: 'http://192.168.1.42:8000/race/1/vote', reachable: true });
+  });
 });
 
 describe('qrCodeSrc', () => {

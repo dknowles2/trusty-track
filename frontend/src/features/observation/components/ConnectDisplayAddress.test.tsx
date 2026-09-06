@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useQuery } from 'urql';
-import BallotShare from './BallotShare';
+import ConnectDisplayAddress from './ConnectDisplayAddress';
 import * as clipboard from '../../../utils/clipboard';
 
 vi.mock('urql', async () => {
@@ -30,7 +30,7 @@ function stubOrigin(origin: string) {
   vi.stubGlobal('location', { origin });
 }
 
-describe('BallotShare', () => {
+describe('ConnectDisplayAddress', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -43,27 +43,33 @@ describe('BallotShare', () => {
     stubOrigin('http://localhost:8000');
     mockNetworkAddresses(['192.168.1.42']);
 
-    render(<BallotShare raceId={1} />);
+    render(<ConnectDisplayAddress raceId={1} />);
 
-    expect(screen.getByText(/http:\/\/192\.168\.1\.42:8000\/race\/1\/vote/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/http:\/\/192\.168\.1\.42:8000\/race\/1\/observation/),
+    ).toBeInTheDocument();
   });
 
   it('prefers the mDNS hostname over a LAN address when the backend has one (#723)', () => {
     stubOrigin('http://localhost:8000');
     mockNetworkAddresses(['192.168.1.42'], 'trustytrack.local');
 
-    render(<BallotShare raceId={1} />);
+    render(<ConnectDisplayAddress raceId={1} />);
 
-    expect(screen.getByText(/http:\/\/trustytrack\.local:8000\/race\/1\/vote/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/http:\/\/trustytrack\.local:8000\/race\/1\/observation/),
+    ).toBeInTheDocument();
   });
 
   it('keeps the browser address when it is already not loopback', () => {
     stubOrigin('http://192.168.1.42:8000');
     mockNetworkAddresses([]);
 
-    render(<BallotShare raceId={1} />);
+    render(<ConnectDisplayAddress raceId={1} />);
 
-    expect(screen.getByText(/http:\/\/192\.168\.1\.42:8000\/race\/1\/vote/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/http:\/\/192\.168\.1\.42:8000\/race\/1\/observation/),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
@@ -71,16 +77,16 @@ describe('BallotShare', () => {
     stubOrigin('http://localhost:8000');
     mockNetworkAddresses([]);
 
-    render(<BallotShare raceId={1} />);
+    render(<ConnectDisplayAddress raceId={1} />);
 
     expect(screen.getByRole('alert')).toHaveTextContent(/could not find/i);
   });
 
-  it('shows no warning once a LAN address is found', () => {
+  it('shows no warning once an address is found', () => {
     stubOrigin('http://localhost:8000');
     mockNetworkAddresses(['192.168.1.42']);
 
-    render(<BallotShare raceId={1} />);
+    render(<ConnectDisplayAddress raceId={1} />);
 
     expect(screen.queryByRole('alert')).toBeNull();
   });
@@ -89,7 +95,7 @@ describe('BallotShare', () => {
     stubOrigin('http://localhost:8000');
     mockNetworkAddresses(['192.168.1.42']);
 
-    render(<BallotShare raceId={1} />);
+    render(<ConnectDisplayAddress raceId={1} />);
 
     const image = screen.getByAltText(/qr code/i);
     expect(image).toHaveAttribute(
@@ -97,7 +103,7 @@ describe('BallotShare', () => {
       expect.stringContaining('/api/printables/vote-qr/1.png?url='),
     );
     expect(decodeURIComponent(image.getAttribute('src')!)).toContain(
-      'http://192.168.1.42:8000/race/1/vote',
+      'http://192.168.1.42:8000/race/1/observation',
     );
   });
 
@@ -105,7 +111,7 @@ describe('BallotShare', () => {
     stubOrigin('http://localhost:8000');
     mockNetworkAddresses([]);
 
-    render(<BallotShare raceId={1} />);
+    render(<ConnectDisplayAddress raceId={1} />);
 
     expect(screen.queryByAltText(/qr code/i)).toBeNull();
   });
@@ -115,10 +121,10 @@ describe('BallotShare', () => {
     mockNetworkAddresses(['192.168.1.42']);
     vi.mocked(clipboard.copyText).mockResolvedValue(true);
 
-    render(<BallotShare raceId={1} />);
+    render(<ConnectDisplayAddress raceId={1} />);
     await userEvent.click(screen.getByRole('button', { name: /copy/i }));
 
-    expect(clipboard.copyText).toHaveBeenCalledWith('http://192.168.1.42:8000/race/1/vote');
+    expect(clipboard.copyText).toHaveBeenCalledWith('http://192.168.1.42:8000/race/1/observation');
     await waitFor(() => expect(screen.getByRole('button', { name: /copied/i })).toBeInTheDocument());
   });
 
@@ -127,7 +133,7 @@ describe('BallotShare', () => {
     mockNetworkAddresses(['192.168.1.42']);
     vi.mocked(clipboard.copyText).mockResolvedValue(false);
 
-    render(<BallotShare raceId={1} />);
+    render(<ConnectDisplayAddress raceId={1} />);
     await userEvent.click(screen.getByRole('button', { name: /copy/i }));
 
     await waitFor(() => expect(clipboard.copyText).toHaveBeenCalled());
@@ -138,22 +144,7 @@ describe('BallotShare', () => {
     stubOrigin('http://localhost:8000');
     mockNetworkAddresses(undefined);
 
-    expect(() => render(<BallotShare raceId={1} />)).not.toThrow();
+    expect(() => render(<ConnectDisplayAddress raceId={1} />)).not.toThrow();
     expect(screen.getByRole('alert')).toBeInTheDocument();
-  });
-
-  it('opens a fresh display window pointed at the QR code view (#614)', async () => {
-    stubOrigin('http://localhost:8000');
-    mockNetworkAddresses(['192.168.1.42']);
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
-
-    render(<BallotShare raceId={1} />);
-    await userEvent.click(screen.getByRole('button', { name: /project qr code/i }));
-
-    expect(openSpy).toHaveBeenCalledTimes(1);
-    const [url, target, features] = openSpy.mock.calls[0];
-    expect(url).toMatch(/^\/race\/1\/observation\?displayId=.+&view=qrcode&qr_target=vote$/);
-    expect(target).toBe('_blank');
-    expect(features).toBe('noopener');
   });
 });

@@ -200,6 +200,11 @@ list on its own — the Live page, or the awards ceremony — and there is
 nothing to add, or to set up before an event. Pick what each one shows from the dropdown beside it and the screen
 changes within a second or two.
 
+Above the list is the address to open on a screen that has not found its way
+here yet — see [Finding this machine's
+address](access-and-network.md#finding-this-machines-address) — with a
+**Copy** button and a QR code a tablet can scan directly.
+
 Two things worth knowing:
 
 - **Every screen already has a name** — an adjective and an animal, like the
