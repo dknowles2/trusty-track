@@ -918,27 +918,64 @@ def delete_round(db: Session, round_id: int) -> bool:
 
 
 def delete_heat(db: Session, heat_id: int) -> bool:
-    """Delete a heat. Only if it hasn't been run."""
+    """Delete a heat. Only if it hasn't been run (#750).
+
+    A heat that has been recorded, has results, or is finished (e.g. all lanes
+    skipped) cannot be deleted.
+
+    When master running order is enabled on the race, remaining heat numbers are
+    left untouched so the interleaved schedule across rounds is preserved.
+    Otherwise, remaining pending heats are renumbered sequentially via
+    :func:`_write_heat_numbers`, leaving recorded heat numbers unchanged.
+    """
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
     if heat:
-        if lanes.has_results(heat_lanes_of(db, heat)):
+        hl = heat_lanes_of(db, heat)
+        if (
+            heat.recorded_at is not None
+            or lanes.has_results(hl)
+            or lanes.is_finished(hl)
+        ):
             raise ValueError("Cannot delete heat: it has results.")
 
+        round_obj = heat.round
+        master_running_order = bool(
+            round_obj and round_obj.race and round_obj.race.master_running_order
+        )
         round_id = heat.round_id
         db.delete(heat)
         db.flush()
 
-        # Renumber remaining heats in the same round
+        if master_running_order:
+            db.commit()
+            return True
+
+        # Renumber only pending heats in the same round, leaving recorded heats alone
         remaining_heats = (
             db.query(models.Heat)
             .filter(models.Heat.round_id == round_id)
             .order_by(models.Heat.heat_number)
             .all()
         )
-        for i, h in enumerate(remaining_heats):
-            h.heat_number = i + 1
+        update_map: dict[int, int] = {}
+        used_numbers = {
+            h.heat_number for h in remaining_heats if h.recorded_at is not None
+        }
+        next_num = 1
+        for h in remaining_heats:
+            if h.recorded_at is None:
+                while next_num in used_numbers:
+                    next_num += 1
+                if h.heat_number != next_num:
+                    update_map[h.id] = next_num
+                used_numbers.add(next_num)
+                next_num += 1
 
-        db.commit()
+        if update_map:
+            _write_heat_numbers(db, update_map)
+        else:
+            db.commit()
+
         return True
     return False
 
