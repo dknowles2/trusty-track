@@ -14,10 +14,12 @@ vi.mock('../components/ScheduleManagement', () => ({
         onCloseHandPickModal,
         onPinRoundField,
         onUnpinRoundField,
+        racerCount,
     }: any) => (
         <div data-testid="schedule-management">
             Schedule Management
             <div data-testid="lane-count-prop">{laneCount}</div>
+            <div data-testid="racer-count-prop">{racerCount}</div>
             <div data-testid="schedule-active-heat-id">{activeHeatId ?? 'none'}</div>
             {/* The hand-pick wiring (#711) — a round created with the
                 wizard's "I'll choose who races myself" checked, and the
@@ -871,4 +873,41 @@ describe('RaceControl Page', () => {
 
         expect(mockUnpinRoundField).not.toHaveBeenCalled();
     });
+
+    it('passes checked-in racer count to ScheduleManagement, excluding racers who are not checked in (#784)', async () => {
+        const raceWithPartialCheckIn = {
+            race: {
+                ...mockRaceData.race,
+                racers: [
+                    { id: 101, firstName: 'A', lastName: 'B', carNumber: 101, carPassedInspection: true },
+                    { id: 102, firstName: 'C', lastName: 'D', carNumber: 102, carPassedInspection: false },
+                    { id: 103, firstName: 'E', lastName: 'F', carNumber: 103, carPassedInspection: true },
+                ],
+            },
+        };
+        (useQuery as any).mockReturnValue([
+            { data: raceWithPartialCheckIn, fetching: false, error: null },
+            vi.fn(),
+        ]);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control/schedule`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('schedule-management')).toBeInTheDocument();
+        });
+
+        // 3 racers on roster, but only 2 checked in (carPassedInspection: true).
+        // ScheduleManagement (and in turn RoundWizard / RoundConfigModal) must receive 2,
+        // not the total roster length of 3 (#784).
+        expect(screen.getByTestId('racer-count-prop')).toHaveTextContent('2');
+    });
 });
+

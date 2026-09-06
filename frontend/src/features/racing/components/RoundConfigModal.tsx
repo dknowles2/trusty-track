@@ -20,6 +20,7 @@ interface RoundConfigModalProps {
     pickFieldByHand?: boolean;
   }) => Promise<void>;
   racerCount: number;
+  totalRacerCount?: number;
   racingGroupCount: number;
   laneCount: number;
   championshipTrophies: number;
@@ -34,6 +35,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   onClose,
   onSubmit,
   racerCount,
+  totalRacerCount,
   racingGroupCount,
   laneCount,
   championshipTrophies,
@@ -198,6 +200,20 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
            <div style={{ padding: '10px', background: 'var(--caution-bg-color)', border: '1px solid var(--caution-border-color)', borderRadius: '4px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
              <Icon path={mdiInformation} size={0.7} color="var(--caution-icon-color)" />
              Championship rounds require an existing general round as a source.
+           </div>
+        )}
+
+        {racerCount < 2 && (
+           <div style={{ padding: '10px', background: 'var(--caution-bg-color)', border: '1px solid var(--caution-border-color)', borderRadius: '4px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--caution-text-color)' }}>
+             <Icon path={mdiInformation} size={0.7} color="var(--caution-icon-color)" />
+             At least 2 checked-in {vehiclesLower} are required to generate heats.
+           </div>
+        )}
+
+        {totalRacerCount !== undefined && totalRacerCount > racerCount && (
+           <div style={{ padding: '10px', background: 'var(--surface-hover-color)', border: '1px solid var(--divider-color)', borderRadius: '4px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
+             <Icon path={mdiInformation} size={0.7} color="var(--text-muted-color)" />
+             {racerCount} of {totalRacerCount} {vehiclesLower} checked in. Only checked-in {vehiclesLower} are put into heats.
            </div>
         )}
 

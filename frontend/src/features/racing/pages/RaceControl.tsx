@@ -981,7 +981,8 @@ export default function RaceControl() {
           getRacerName={getRacerName}
           laneCount={race?.track?.laneCount || 4}
           laneColors={race?.track?.laneColors ?? []}
-          racerCount={race?.racers?.length || 0}
+          racerCount={checkedInRacers.length}
+          totalRacerCount={race?.racers?.length || 0}
           racingGroupCount={race?.racingGroups?.length || 0}
           championshipTrophies={race?.championshipTrophies || 3}
           lastChampionshipRound={

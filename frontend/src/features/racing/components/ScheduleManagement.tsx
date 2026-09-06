@@ -121,7 +121,14 @@ interface ScheduleManagementProps {
    * track is painted. Absent or short means no colour for that lane, and
    * the header shows exactly what it always has. */
   laneColors?: readonly string[];
+  /**
+   * The number of checked-in racers (#784). Only checked-in racers are fielded
+   * into heats, so heat count and time estimates must be based on this count
+   * rather than the total roster.
+   */
   racerCount: number;
+  /** Total number of racers registered on the roster (#784). */
+  totalRacerCount?: number;
   racingGroupCount: number;
   championshipTrophies: number;
   lastChampionshipRound?: { id: number; name: string | null } | null;
@@ -350,6 +357,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   laneCount,
   laneColors = [],
   racerCount,
+  totalRacerCount,
   racingGroupCount,
   championshipTrophies,
   lastChampionshipRound,
@@ -712,6 +720,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           onClose={() => setIsWizardOpen(false)}
           raceId={raceId}
           racerCount={racerCount}
+          totalRacerCount={totalRacerCount}
           racingGroupCount={racingGroupCount}
           laneCount={laneCount}
           championshipTrophies={championshipTrophies}
@@ -726,6 +735,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           onClose={() => setIsModalOpen(false)}
           onSubmit={handleAddRound}
           racerCount={racerCount}
+          totalRacerCount={totalRacerCount}
           racingGroupCount={racingGroupCount}
           laneCount={laneCount}
           championshipTrophies={championshipTrophies}

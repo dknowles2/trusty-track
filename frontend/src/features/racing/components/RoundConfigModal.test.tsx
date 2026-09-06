@@ -252,4 +252,18 @@ describe('RoundConfigModal', () => {
     });
     expect((screen.getByLabelText('Number to pick') as HTMLInputElement).value).toBe('2');
   });
+
+  it('displays a notice explaining why round generation is disabled when fewer than 2 racers are checked in (#784)', () => {
+    render(<RoundConfigModal {...defaultProps} racerCount={1} totalRacerCount={5} />);
+    expect(screen.getByText(/At least 2 checked-in cars are required to generate heats/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create Round(s) & Generate Heats' })).toBeDisabled();
+  });
+
+  it('displays notice when some registered racers are not checked in (#784)', () => {
+    render(<RoundConfigModal {...defaultProps} racerCount={4} totalRacerCount={10} />);
+    expect(
+      screen.getByText(/4 of 10 cars checked in\. Only checked-in cars are put into heats\./i)
+    ).toBeInTheDocument();
+  });
 });
+

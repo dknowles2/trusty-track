@@ -13,6 +13,7 @@ interface RoundWizardProps {
   onClose: () => void;
   raceId: number;
   racerCount: number;
+  totalRacerCount?: number;
   racingGroupCount: number;
   laneCount: number;
   championshipTrophies: number;
@@ -42,13 +43,14 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   onClose,
   raceId,
   racerCount,
+  totalRacerCount,
   racingGroupCount,
   laneCount,
   championshipTrophies,
   minutesPerHeat = ESTIMATED_HEAT_DURATION_MIN,
   onCreated,
 }) => {
-  const { group, groupLower, groupsLower, org, orgLower } = useTerminology();
+  const { group, groupLower, groupsLower, org, orgLower, vehicleLower, vehiclesLower } = useTerminology();
   const [step, setStep] = useState(1);
   const [generalConfig, setGeneralConfig] = useState<GeneralConfig>({
     type: 'ALL',
@@ -253,6 +255,32 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', marginBottom: '1.5rem' }}>
           {step === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {racerCount < 2 && (
+                <div
+                  style={{
+                    padding: '0.75rem',
+                    backgroundColor: 'var(--caution-bg-color)',
+                    border: '1px solid var(--caution-border-color)',
+                    borderRadius: '0.5rem',
+                    color: 'var(--caution-text-color)',
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  At least 2 checked-in {vehiclesLower} are required to generate heats.
+                </div>
+              )}
+
+              {totalRacerCount !== undefined && totalRacerCount > racerCount && (
+                <div
+                  style={{
+                    fontSize: '0.875rem',
+                    color: 'var(--wizard-text-muted-color)',
+                  }}
+                >
+                  {racerCount} of {totalRacerCount} {vehiclesLower} checked in. Previews and heats only include checked-in {vehiclesLower}.
+                </div>
+              )}
+
               <div>
                 <label style={labelStyle}>Qualifying / General Round Type</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -414,7 +442,11 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
               </div>
 
               <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', fontStyle: 'italic' }}>
-                * Creating this schedule will generate all necessary rounds and heats. You can still modify the schedule later, but the wizard assumes a clean slate.
+                * Previews are based on {racerCount} checked-in {racerCount === 1 ? vehicleLower : vehiclesLower}
+                {totalRacerCount !== undefined && totalRacerCount > racerCount
+                  ? ` (${totalRacerCount - racerCount} not checked in)`
+                  : ''}
+                . Only checked-in {vehiclesLower} are put into heats. You can still modify the schedule later, but the wizard assumes a clean slate.
               </div>
             </div>
           )}
@@ -437,7 +469,11 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
               Next
             </button>
           ) : (
-            <button onClick={handleCreate} className="primary-btn" disabled={loading}>
+            <button
+              onClick={handleCreate}
+              className="primary-btn"
+              disabled={loading || racerCount < 2}
+            >
               {loading ? 'Generating Schedule...' : 'Generate Schedule'}
             </button>
           )}
