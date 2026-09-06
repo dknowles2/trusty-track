@@ -80,6 +80,30 @@ class TestTheWave:
     def test_a_decided_race_schedules_nothing(self):
         assert elimination.next_wave({1: 0, 2: 3}, 3, 4, rng=random.Random(7)) == []
 
+    def test_next_wave_heat_size_under_two_returns_empty(self):
+        assert elimination.next_wave({1: 0, 2: 0}, 1, heat_size=1) == []
+
+    def test_next_wave_heat_size_two_odd_racers_no_intermediate_solo_heat(self):
+        losses = dict.fromkeys(range(1, 6), 0)
+        wave = elimination.next_wave(losses, 1, heat_size=2, rng=random.Random(1))
+        # Intermediate heats must not be left as a 1-car heat
+        # while borrowing left another heat with 2 cars.
+        assert all(len(h) == 2 for h in wave[:-1])
+        assert all(len(h) > 0 for h in wave)
+
+    def test_tail_rebalancing_property(self):
+        for heat_size in range(1, 6):
+            for n in range(2, 16):
+                losses = dict.fromkeys(range(1, n + 1), 0)
+                wave = elimination.next_wave(losses, 1, heat_size=heat_size)
+                if heat_size < 2:
+                    assert wave == []
+                elif heat_size >= 3:
+                    assert all(len(h) >= 2 for h in wave)
+                else:
+                    assert all(len(h) == 2 for h in wave[:-1])
+                    assert all(len(h) > 0 for h in wave)
+
     def test_the_whole_race_terminates(self):
         # Play an entire event: racer 1 always wins, everyone else loses in
         # lane order. Whatever the shuffles do, the loop must end with one
@@ -865,3 +889,156 @@ class TestTheChartResolver:
             for heat in wave["heats"]
             for lane in heat["lanes"]
         }
+
+
+class TestEliminationUsableLanesAndVacating:
+    def test_elimination_round_refused_on_track_with_fewer_than_two_usable_lanes(
+        self, db
+    ):
+        group = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Pack OneLane")
+        )
+        track = crud.create_track(
+            db,
+            schemas.TrackCreate(name="OneLaneTrack", lane_count=1, timer_type="FAKE"),
+        )
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                organization_id=group.id, name="Race OneLane", track_id=track.id
+            ),
+        )
+        _racers(db, race.id, 4)
+        round_obj = crud.create_round(
+            db,
+            race_id=race.id,
+            round_number=1,
+            scheduling_strategy=models.SchedulingStrategy.ELIMINATION,
+            name="Elimination Round",
+        )
+        import pytest
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "An elimination or balanced round requires at least two usable lanes."
+            ),
+        ):
+            crud.generate_heats_for_round(db, round_obj.id)
+
+    def test_lane_outage_emptying_pending_heat_does_not_stall_round(self, db):
+        # 5 racers on a 4-lane track -> wave 1 has 2 heats.
+        group = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Pack Outage")
+        )
+        track = crud.create_track(
+            db,
+            schemas.TrackCreate(name="Track Outage", lane_count=4, timer_type="FAKE"),
+        )
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                organization_id=group.id,
+                name="Race Outage",
+                track_id=track.id,
+                scoring_strategy=models.ScoringStrategy.TIMED,
+            ),
+        )
+        ids = _racers(db, race.id, 5)
+        round_obj = crud.create_round(
+            db,
+            race_id=race.id,
+            round_number=1,
+            scheduling_strategy=models.SchedulingStrategy.ELIMINATION,
+            name="Elimination Round",
+            elimination_losses=2,
+        )
+        crud.generate_heats_for_round(db, round_obj.id)
+
+        heats = (
+            db.query(models.Heat)
+            .filter(models.Heat.round_id == round_obj.id)
+            .order_by(models.Heat.heat_number)
+            .all()
+        )
+        assert len(heats) == 2
+
+        # Run heat 1
+        _run_heat(db, heats[0], ids)
+
+        # For heat 2, identify which lanes have racers
+        h2_lanes = crud.heat_lanes_of(db, heats[1])
+        used_lanes = [lane.lane for lane in h2_lanes if lane.racer_id is not None]
+
+        # Apply lane outages to all lanes used by heat 2
+        crud.set_lane_outages(db, track.id, used_lanes)
+        crud.apply_outages_to_scheduled_heats(db, track.id)
+
+        # Round must not stall: either apply_outages extended it or
+        # extend_elimination_round does.
+        all_heats = (
+            db.query(models.Heat).filter(models.Heat.round_id == round_obj.id).all()
+        )
+        new_heats = crud.extend_elimination_round(db, round_obj.id)
+        assert len(all_heats) > 2 or len(new_heats) > 0, (
+            "Round stalled: extend_elimination_round failed to grow next wave"
+        )
+
+    def test_withdrawal_emptying_pending_heat_does_not_stall_round(self, db):
+        # 4 racers on a 3-lane track.
+        # Wave 1 has 2 heats.
+        group = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Pack Withdraw")
+        )
+        track = crud.create_track(
+            db,
+            schemas.TrackCreate(name="Track Withdraw", lane_count=3, timer_type="FAKE"),
+        )
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                organization_id=group.id,
+                name="Race Withdraw",
+                track_id=track.id,
+                scoring_strategy=models.ScoringStrategy.TIMED,
+            ),
+        )
+        ids = _racers(db, race.id, 4)
+        round_obj = crud.create_round(
+            db,
+            race_id=race.id,
+            round_number=1,
+            scheduling_strategy=models.SchedulingStrategy.ELIMINATION,
+            name="Elimination Round",
+            elimination_losses=2,
+        )
+        crud.generate_heats_for_round(db, round_obj.id)
+
+        heats = (
+            db.query(models.Heat)
+            .filter(models.Heat.round_id == round_obj.id)
+            .order_by(models.Heat.heat_number)
+            .all()
+        )
+        assert len(heats) == 2
+
+        # Run heat 1
+        _run_heat(db, heats[0], ids)
+
+        # Withdraw all racers in heat 2
+        h2_lanes = crud.heat_lanes_of(db, heats[1])
+        h2_racer_ids = {lane.racer_id for lane in h2_lanes if lane.racer_id is not None}
+        for r_id in h2_racer_ids:
+            racer = db.query(models.Racer).filter(models.Racer.id == r_id).one()
+            racer.car_passed_inspection = False
+        db.commit()
+
+        crud.withdraw_absent_racers(db, race.id)
+
+        all_heats = (
+            db.query(models.Heat).filter(models.Heat.round_id == round_obj.id).all()
+        )
+        new_heats = crud.extend_elimination_round(db, round_obj.id)
+        assert len(all_heats) > 2 or len(new_heats) > 0, (
+            "Round stalled: extend_elimination_round failed to grow next wave"
+        )

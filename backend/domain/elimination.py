@@ -102,9 +102,11 @@ def next_wave(
     Cars are grouped by loss count (fewest first), shuffled within their
     group, and chunked into heats of ``heat_size``. A group's leftover cars
     spill into the next group rather than racing short-handed, and a final
-    one-car heat borrows from the heat before it, so no heat ever holds a
-    single car.
+    one-car heat borrows from the heat before it when that heat has more than
+    two cars, so solo runs are avoided without stranding the heat it borrowed from.
     """
+    if heat_size < 2:
+        return []
     alive = [racer_id for racer_id, count in losses.items() if count < max_losses]
     if len(alive) < 2:
         return []
@@ -121,7 +123,7 @@ def next_wave(
         ordered.extend(group)
 
     heats = [ordered[i : i + heat_size] for i in range(0, len(ordered), heat_size)]
-    if len(heats) > 1 and len(heats[-1]) == 1:
+    if len(heats) > 1 and len(heats[-1]) == 1 and len(heats[-2]) > 2:
         heats[-1].insert(0, heats[-2].pop())
     return heats
 
