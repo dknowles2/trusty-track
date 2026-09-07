@@ -2732,6 +2732,8 @@ class ApplySceneResult:
 
 async def _apply_assignments(
     assignments: list[tuple[str, str, domain_displays.Assignment]],
+    *,
+    expected_race_id: int | None = None,
 ) -> ApplySceneResult:
     """Bulk-assign a list of ``(display_id, display_name, Assignment)``
     against the live presence registry, publish each display's own channel
@@ -2742,10 +2744,38 @@ async def _apply_assignments(
     `services/displays.py` and `api/pubsub.py` — `backend/db/crud.py` never
     does, the same boundary `assignDisplay` already draws between the stored
     record and the live broadcast.
+
+    ``expected_race_id``, when given, refuses to touch a display that is
+    currently connected under a *different* race (#756). `DisplayRegistry`
+    keys a display purely by its own `display_id`, and `.connect` overwrites
+    `race_id` whenever a known id reconnects — correct behaviour for a kiosk
+    that legitimately moved from one race's `/observation` to another's,
+    keeping its `localStorage` device id. Without this check, applying a
+    scene saved for race A could reach across and reconfigure a screen that
+    now belongs to race B, with race A's operator none the wiser (a success
+    reported) and race B's screen hijacked with no explanation. Treated the
+    same as "not connected at all" — the same best-effort shape, since from
+    the scene's own point of view the display it named is equally
+    unreachable either way.
     """
     outcomes: list[SceneApplyOutcome] = []
     changed_race_ids: set[int] = set()
     for display_id, display_name, assignment in assignments:
+        current = displays_service.registry.get(display_id)
+        if current is None or (
+            expected_race_id is not None and current.race_id != expected_race_id
+        ):
+            # Named by a saved scene but not currently reachable for this
+            # scene's own race — gone quiet, the server has restarted since,
+            # or (#756) reconnected under this id to a different race. See
+            # `SceneAssignment.display_name` for why there is still
+            # something to report.
+            outcomes.append(
+                SceneApplyOutcome(
+                    display_id=display_id, display_name=display_name, applied=False
+                )
+            )
+            continue
         display = displays_service.registry.assign(
             display_id,
             assignment.view,
@@ -2755,17 +2785,7 @@ async def _apply_assignments(
             assignment.qr_target,
             assignment.show_standings_ticker,
         )
-        if display is None:
-            # Named by a saved scene but not currently known to this
-            # process — gone quiet, or the server has restarted since. See
-            # `SceneAssignment.display_name` for why there is still
-            # something to report.
-            outcomes.append(
-                SceneApplyOutcome(
-                    display_id=display_id, display_name=display_name, applied=False
-                )
-            )
-            continue
+        assert display is not None  # just confirmed connected, above
         outcomes.append(
             SceneApplyOutcome(
                 display_id=display_id, display_name=display.name, applied=True
@@ -4295,10 +4315,11 @@ class Mutation:
 
         Not atomic in the database sense, deliberately: presence is
         best-effort by design (`services/displays.py`), and a scene naming
-        a screen that has since gone quiet is the ordinary case, not a
-        failure that should block the other five screens from updating.
-        Every entry named by a display no longer known to this process is
-        skipped and reported rather than applied — see `ApplySceneResult`.
+        a screen that has since gone quiet — or reconnected under its id to
+        a *different* race (#756) — is the ordinary case, not a failure
+        that should block the other five screens from updating. Every such
+        entry is skipped and reported rather than applied — see
+        `ApplySceneResult`.
         """
         db = info.context["db"]
         scene_row = crud.get_scene(db, scene_id)
@@ -4308,7 +4329,9 @@ class Mutation:
             (row.display_id, row.display_name, _assignment_from_scene_row(row))
             for row in scene_row.assignments
         ]
-        result = await _apply_assignments(assignments)
+        result = await _apply_assignments(
+            assignments, expected_race_id=scene_row.race_id
+        )
         result.scene_id = scene_row.id
         return result
 
@@ -4338,7 +4361,11 @@ class Mutation:
             (display_id, by_id[display_id].name, assignment)
             for display_id, assignment in recipe
         ]
-        return await _apply_assignments(assignments)
+        # `ordered` is already scoped to this race by `for_race`, so this is
+        # belt-and-braces rather than load-bearing here — but it costs
+        # nothing to state the same rule `apply_scene` now enforces (#756)
+        # rather than relying on the caller above never changing.
+        return await _apply_assignments(assignments, expected_race_id=race_id)
 
     @strawberry.mutation
     async def create_racer(self, info: Info, racer: RacerInput) -> Racer:
@@ -4354,17 +4381,11 @@ class Mutation:
         for flag in _RACER_CLEAR_FLAGS:
             data.pop(flag, None)
         racer_in = schemas.RacerCreate(**typing.cast(Any, data))
-        new_racer = typing.cast(Any, crud.create_racer(db, racer_in))
-        if new_racer is None:
-            # `crud.create_racer` returns `None` only when no race was named
-            # or found *and* the install has no `Organization` row yet —
-            # dereferencing it unchecked used to surface as
-            # `'NoneType' object has no attribute 'car_passed_inspection'`
-            # instead of a sentence (#748).
-            raise ValueError(
-                "Cannot create a racer: no race exists yet, and the app has "
-                "not been configured. Finish system setup first."
-            )
+        # `crud.create_racer` refuses a `race_id` that names no race (#819)
+        # rather than guessing one, so there is nothing to check for `None`
+        # here any more — a bad id surfaces as a `ValueError` the same way
+        # `_validate_racing_group_membership` already does for this mutation.
+        new_racer = crud.create_racer(db, racer_in)
         if new_racer.car_passed_inspection:
             # A racer created already inspected — the check-in desk adding
             # somebody who was never on the roster, which is the commonest way

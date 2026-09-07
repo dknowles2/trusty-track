@@ -757,31 +757,31 @@ def next_free_car_number(
     return None
 
 
-def create_racer(db: Session, racer: schemas.RacerCreate) -> models.Racer | None:
+def create_racer(db: Session, racer: schemas.RacerCreate) -> models.Racer:
     """Create a new racer in the database.
 
     If ``racer.car_number`` is not provided, automatically assigns the next
     free car number when the race uses ``GLOBAL`` or ``PER_GROUP`` numbering
     strategies (#789). When the caller explicitly supplies a car number, that
     number is preserved.
+
+    ``race_id`` must name an existing race (#819). This used to fall back to
+    the first race in the database when it named none, and invent a race
+    called "Main Event" when there were none at all — so a stale or deleted
+    race id produced a *success*, with the racer landed on somebody else's
+    roster and nothing anywhere saying so. The same family as
+    `_validate_racing_group_membership` (#743/#746/#759/#804): refuse rather
+    than guess. Every internal caller — `populate.generate_fake_racers`,
+    `write_imported_roster`, the CSV importer — already supplies its own
+    explicit, just-created `race_id`, so nothing here depended on the
+    fallback; only the `createRacer` mutation's own client-supplied id could
+    ever have been stale.
     """
-    # Ensure a race exists.
-    race: models.Race | None = None
-    if racer.race_id:
-        race = db.query(models.Race).filter(models.Race.id == racer.race_id).first()
-    else:
-        race = db.query(models.Race).first()
-
-    if not race:
-        organization = db.query(models.Organization).first()
-        if not organization:
-            return None
-        race = models.Race(name="Main Event", organization_id=organization.id)
-        db.add(race)
-        db.commit()
-        db.refresh(race)
-
-    assert race is not None
+    if racer.race_id is None:
+        raise ValueError("Cannot create a racer: no race was specified.")
+    race = db.query(models.Race).filter(models.Race.id == racer.race_id).first()
+    if race is None:
+        raise ValueError(f"Cannot create a racer: race {racer.race_id} does not exist.")
 
     racer_data = racer.model_dump()
     if "race_id" in racer_data:

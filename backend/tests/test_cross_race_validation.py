@@ -603,3 +603,91 @@ def test_crud_bulk_move_to_racing_group_refuses_a_group_from_another_race(db):
 
     with pytest.raises(ValueError):
         crud.bulk_move_racers_to_racing_group(db, race_a.id, [racer_a.id], group_b.id)
+
+
+# --------------------------------------------------------------------------- #
+# #819 — createRacer must not retarget a nonexistent race id                  #
+# --------------------------------------------------------------------------- #
+#
+# The last of this family, and the worst: the id is not merely unvalidated,
+# it is *actively replaced* with a different one. `crud.create_racer` used to
+# fall back to the first race in the database when `race_id` named no race,
+# and invent a race called "Main Event" when there were none at all — so a
+# stale or deleted race id produced a *success*, with the racer landed on
+# somebody else's roster and nothing anywhere saying so.
+
+
+def test_create_racer_refuses_a_nonexistent_race_id(client, db):
+    race_a = _org_track_race(db, "NonexistentRaceA")
+    other_racer_count_before = (
+        db.query(models.Racer).filter(models.Racer.race_id == race_a.id).count()
+    )
+
+    body = _post(
+        client,
+        CREATE_RACER,
+        {
+            "racer": {
+                "firstName": "New",
+                "lastName": "Comer",
+                "raceId": race_a.id + 999_000,
+            }
+        },
+    ).json()
+
+    assert body.get("errors"), (
+        "a race id naming no race must be refused, not silently retargeted "
+        "to the first race in the database"
+    )
+    assert (
+        db.query(models.Racer).filter(models.Racer.race_id == race_a.id).count()
+        == other_racer_count_before
+    ), "the racer must not have landed on an unrelated race's roster"
+
+
+def test_create_racer_refuses_when_no_race_id_is_given(client, db):
+    # Even with a race already in the database, an absent raceId must be
+    # refused outright rather than defaulting to "whichever race is first".
+    race_a = _org_track_race(db, "NoRaceIdGivenA")
+
+    body = _post(
+        client,
+        CREATE_RACER,
+        {"racer": {"firstName": "New", "lastName": "Comer"}},
+    ).json()
+
+    assert body.get("errors")
+    assert db.query(models.Racer).filter(models.Racer.race_id == race_a.id).count() == 0
+
+
+def test_create_racer_does_not_invent_a_main_event_race(client, db):
+    # No race exists in the database at all yet — but the app has been
+    # configured (an `Organization` row exists), which is the exact
+    # condition that used to conjure a race named "Main Event".
+    crud.create_organization(db, schemas.OrganizationCreate(name="Freshly Configured"))
+
+    body = _post(
+        client,
+        CREATE_RACER,
+        {"racer": {"firstName": "New", "lastName": "Comer", "raceId": 123456}},
+    ).json()
+
+    assert body.get("errors")
+    assert (
+        db.query(models.Race).filter(models.Race.name == "Main Event").first() is None
+    )
+
+
+def test_crud_create_racer_refuses_a_nonexistent_race_id(db):
+    with pytest.raises(ValueError):
+        crud.create_racer(
+            db,
+            schemas.RacerCreate(first_name="New", last_name="Comer", race_id=987654),
+        )
+
+
+def test_crud_create_racer_refuses_a_missing_race_id(db):
+    with pytest.raises(ValueError):
+        crud.create_racer(
+            db, schemas.RacerCreate(first_name="New", last_name="Comer", race_id=None)
+        )

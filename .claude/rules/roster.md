@@ -4,6 +4,12 @@ Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE
 
 ---
 
+### `crud.create_racer` refuses a `race_id` that names no race
+
+([#819](https://github.com/dknowles2/trusty-track/issues/819)) The last of the id-ownership family that #743/#746/#759/#804 established — `_validate_racing_group_membership` refuses a *child* id (a racing group) belonging to the wrong race; this is the same rule one level up, for the racer's own top-level `race_id`. It is the worst of the family because the id was not merely unvalidated, it was **actively replaced**: a `race_id` naming no race used to fall back to the first race in the database, and a database with no races at all got one invented on the spot, named `"Main Event"`. Either way the caller got a success and a racer id back, with nothing saying the racer had landed somewhere else — a stale id (a deleted race, a stray value from a form that had not yet noticed the operator switched races) silently wrote onto a stranger's roster.
+
+`race_id` must now name a race that exists, or `create_racer` raises `ValueError` — no fallback, no invented race. Every internal caller already supplies its own explicit, just-created `race_id` (`populate.generate_fake_racers`, `write_imported_roster`, the CSV importer), so nothing depended on the fallback; only the `createRacer` mutation's own client-supplied id could ever have been stale, and that is exactly the path this closes.
+
 ### Car numbering
 
 `PER_GROUP` fills within each racing group's range; `GLOBAL` numbers sequentially from `global_start_number`; `MANUAL` disables auto-numbering.

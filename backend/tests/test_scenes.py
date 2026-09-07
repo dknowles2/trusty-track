@@ -317,6 +317,50 @@ class TestGraphQL:
             {"displayId": "ghost", "displayName": "Gone", "applied": False}
         ]
 
+    def test_apply_scene_skips_a_display_that_has_moved_to_another_race(
+        self, db, client
+    ):
+        # #756: a kiosk browser navigates from race A's /observation to race
+        # B's, keeping its localStorage device id — `DisplayRegistry.connect`
+        # then overwrites the display's `race_id`, which is correct behaviour
+        # (that overwrite is not what is being fixed here). Applying a scene
+        # saved for race A must not reach across and reconfigure a display
+        # that now belongs to race B, even though the scene still names it
+        # by the id it was captured under.
+        race_a = _make_race(db, "Race A")
+        race_b = _make_race(db, "Race B")
+        displays_service.registry.connect("shared", race_id=race_a.id, name="Shared")
+        scene = crud.create_scene(
+            db,
+            race_a.id,
+            "Racing",
+            captured=[
+                (
+                    "shared",
+                    "Shared",
+                    crud.Assignment(view=models.DisplayView.PROJECTOR),
+                )
+            ],
+        )
+
+        # The kiosk moves to race B and gets reconfigured there.
+        displays_service.registry.connect("shared", race_id=race_b.id)
+        displays_service.registry.assign("shared", models.DisplayView.STANDINGS)
+
+        data = _gql(client, APPLY_SCENE, {"sceneId": scene.id})
+
+        assert data["applyScene"]["appliedCount"] == 0
+        assert data["applyScene"]["skippedCount"] == 1
+        assert data["applyScene"]["outcomes"] == [
+            {"displayId": "shared", "displayName": "Shared", "applied": False}
+        ]
+        # The display must still show whatever race B put on it, not race
+        # A's scene.
+        assert displays_service.registry.get("shared").assignment.view == (
+            models.DisplayView.STANDINGS
+        )
+        assert displays_service.registry.get("shared").race_id == race_b.id
+
     def test_apply_scene_preset_assigns_roles_in_connected_first_order(
         self, db, client
     ):
