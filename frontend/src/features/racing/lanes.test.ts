@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { hasTimes, hasRun, wasSkipped, byPlace, assignPlaces, isTimeBasedStrategy, shouldDerivePlaces, shouldDerivePlacesForFreeRace, toInput } from './lanes';
+import {
+  hasTimes,
+  hasRun,
+  wasSkipped,
+  byPlace,
+  assignPlaces,
+  isTimeBasedStrategy,
+  shouldDerivePlaces,
+  shouldDerivePlacesForFreeRace,
+  toInput,
+  placeIssue,
+  duplicatePlaces,
+  placesAboveField,
+  placesBelowOne,
+  parseTimeText,
+  tiedTimeGroups,
+} from './lanes';
 import { lane } from './testFixtures';
 import type { LaneInput } from './types';
 
@@ -324,5 +340,176 @@ describe('shouldDerivePlacesForFreeRace', () => {
     const saved = shouldDerivePlacesForFreeRace(false) ? assignPlaces(results) : results;
     expect(saved.find((r) => r.lane === 1)?.place).toBe(2);
     expect(saved.find((r) => r.lane === 2)?.place).toBe(1);
+  });
+});
+
+/**
+ * Issue #766. Hand-entered places got no client-side check before Save,
+ * whose only backstop was the server's `validate_lane_replacement` — a
+ * round trip and a refusal the operator had to interpret before they even
+ * found out something was wrong. These mirror that function's own rules
+ * (`backend/domain/lanes.py`'s `places_below_one`, `places_above_field`,
+ * `duplicate_places`) so the same input is refused in the same words on
+ * both sides — the client is a first check, not a replacement one.
+ */
+describe('placesBelowOne', () => {
+  it('names a lane whose place is not a positive number', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, place: 0 }),
+      input({ lane: 2, racerId: 2, place: 1 }),
+    ];
+    expect(placesBelowOne(results)).toEqual([1]);
+  });
+
+  it('says nothing about a lane with no place at all', () => {
+    const results = [input({ lane: 1, racerId: 1, place: null })];
+    expect(placesBelowOne(results)).toEqual([]);
+  });
+});
+
+describe('placesAboveField', () => {
+  it('names a lane placed beyond the number of real racers in the heat', () => {
+    // Two real racers in this heat — a place of 3 has nobody to be third
+    // behind.
+    const results = [
+      input({ lane: 1, racerId: 1, place: 3 }),
+      input({ lane: 2, racerId: 2, place: 2 }),
+    ];
+    expect(placesAboveField(results)).toEqual([1]);
+  });
+
+  it('says nothing when nobody has been given a place at all — no field to bound against', () => {
+    const results = [
+      input({ lane: 1, racerId: null, place: null }),
+      input({ lane: 2, racerId: null, place: null }),
+    ];
+    expect(placesAboveField(results)).toEqual([]);
+  });
+
+  it('counts only real racers toward the field, not empty or placeholder lanes', () => {
+    const results = [
+      // Placed 2nd, but the only other lane in the heat is empty — one real
+      // racer in the field, so nobody can be 2nd behind them.
+      input({ lane: 1, racerId: 1, place: 2 }),
+      input({ lane: 2, racerId: null, place: null }),
+    ];
+    expect(placesAboveField(results)).toEqual([1]);
+  });
+});
+
+describe('duplicatePlaces', () => {
+  it('names a place claimed by more than one lane', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, place: 2 }),
+      input({ lane: 2, racerId: 2, place: 2 }),
+    ];
+    expect(duplicatePlaces(results)).toEqual([2]);
+  });
+
+  it('says nothing when every place is distinct', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, place: 1 }),
+      input({ lane: 2, racerId: 2, place: 2 }),
+    ];
+    expect(duplicatePlaces(results)).toEqual([]);
+  });
+
+  it('two unplaced lanes are not a duplicate of each other', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, place: null }),
+      input({ lane: 2, racerId: 2, place: null }),
+    ];
+    expect(duplicatePlaces(results)).toEqual([]);
+  });
+});
+
+describe('placeIssue', () => {
+  it('is silent when every place is valid', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, place: 1 }),
+      input({ lane: 2, racerId: 2, place: 2 }),
+    ];
+    expect(placeIssue(results)).toBeNull();
+  });
+
+  it('reports the first duplicate place — the exact sentence a client following the server backstop would show', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, place: 2 }),
+      input({ lane: 2, racerId: 2, place: 2 }),
+    ];
+    expect(placeIssue(results)).toBe('Place 2 is assigned to more than one lane.');
+  });
+
+  it('reports a place higher than the field before checking for duplicates', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, place: 5 }),
+      input({ lane: 2, racerId: 2, place: 2 }),
+    ];
+    expect(placeIssue(results)).toBe(
+      "Lane 1's place is higher than the 2 racer(s) in this heat.",
+    );
+  });
+
+  it('reports a non-positive place ahead of everything else', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, place: 0 }),
+      input({ lane: 2, racerId: 2, place: 0 }),
+    ];
+    expect(placeIssue(results)).toBe("Lane 1's place must be 1 or higher.");
+  });
+});
+
+/**
+ * `parseTimeText` factors out the parsing `handleSaveResults` already did
+ * inline, so the tie-detector below reads the same value that actually gets
+ * saved rather than a second, possibly-drifted copy of the same rule.
+ */
+describe('parseTimeText', () => {
+  it('parses a typed number', () => {
+    expect(parseTimeText('3.501')).toBe(3.501);
+  });
+
+  it('treats a blank field as no time, not zero', () => {
+    expect(parseTimeText('')).toBeNull();
+    expect(parseTimeText('   ')).toBeNull();
+  });
+
+  it('treats unparsable text as no time', () => {
+    expect(parseTimeText('abc')).toBeNull();
+  });
+});
+
+/**
+ * Issue #766's second half: `assignPlaces` breaks a genuine tie in recorded
+ * times by array order with nothing on screen to say a tie happened — two
+ * identical hand-typed times silently become 2nd and 3rd. This does not
+ * change what gets saved (see `lanes.ts`'s note on why not); it is what lets
+ * `RaceExecution` show the operator the tie exists.
+ */
+describe('tiedTimeGroups', () => {
+  it('groups lanes that recorded the identical time', () => {
+    const rows = [
+      { lane: 1, time: 3.5 },
+      { lane: 2, time: 3.5 },
+      { lane: 3, time: 3.6 },
+    ];
+    expect(tiedTimeGroups(rows)).toEqual([{ time: 3.5, lanes: [1, 2] }]);
+  });
+
+  it('says nothing when every time is distinct', () => {
+    const rows = [
+      { lane: 1, time: 3.5 },
+      { lane: 2, time: 3.6 },
+    ];
+    expect(tiedTimeGroups(rows)).toEqual([]);
+  });
+
+  it('ignores lanes with no time or a DNF (#308\'s zero-or-less rule)', () => {
+    const rows = [
+      { lane: 1, time: null },
+      { lane: 2, time: 0 },
+      { lane: 3, time: -1 },
+    ];
+    expect(tiedTimeGroups(rows)).toEqual([]);
   });
 });

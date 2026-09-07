@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 import { downloadCsv, filenameFor } from '../../../utils/csv';
 import { useTerminology } from '../../../context/TerminologyContext';
 import RunOffControl from '../../racing/components/RunOffControl';
+import { usableLaneCount } from '../../racing/runOff';
 
 export interface LeaderboardEntry {
   racerId: number;
@@ -48,9 +49,15 @@ const GET_LEADERBOARD_METADATA = `
       dropWorstRuns
       # Scopes RunOffControl's arm/record subscription (run-off heats) — a
       # run-off can still be created and manually timed with no track
-      # configured, but nothing can be armed without one.
+      # configured, but nothing can be armed without one. laneCount and
+      # laneOutages (lane outages, issue 171) are read here too, so
+      # RunOffControl can disable "Start run-off" for a cluster wider than
+      # the track's usable lanes rather than let the server's refusal be
+      # the first the operator hears of it (issue 766).
       track {
         id
+        laneCount
+        laneOutages
       }
       resolvedNameDisplay
       rounds {
@@ -136,6 +143,12 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
 
   const race = queryData?.race;
   const rounds = (race?.rounds || []) as RoundSummary[];
+  // Null when the race has no track — matches `RunOffControl`'s own
+  // `trackId` null convention, and its `tooManyForRunOff` treats an unknown
+  // count as "don't disable" the same way (#766).
+  const trackUsableLaneCount: number | null = race?.track
+    ? usableLaneCount(race.track.laneCount, race.track.laneOutages ?? [])
+    : null;
   // Rounds with standings of their own: championship rounds, and elimination
   // rounds, whose result is survival rather than a share of the aggregate.
   const selectableRounds = rounds.filter(
@@ -484,6 +497,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                             racerId: e.racerId,
                             name: `${e.firstName} ${e.lastName}`,
                           }))}
+                          usableLaneCount={trackUsableLaneCount}
                         />
                       </td>
                     </tr>

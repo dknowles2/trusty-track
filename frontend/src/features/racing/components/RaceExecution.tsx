@@ -29,7 +29,7 @@ export type {
 } from '../types';
 import type { Heat, Racer, AdvancementStatus, LaneInput, Lane, LiveLane } from '../types';
 import type { HeatPhase } from '../../../gql/operations';
-import { hasRun, hasTimes, isTimeBasedStrategy, toInput } from '../lanes';
+import { hasRun, hasTimes, isTimeBasedStrategy, toInput, placeIssue, parseTimeText, tiedTimeGroups } from '../lanes';
 import { chimeEnabled, playChime, setChimeEnabled, shouldChime } from '../chime';
 import { isTypingTarget, shortcutFor, SHORTCUT_HINTS } from '../shortcuts';
 import { useRaceFlow } from '../useRaceFlow';
@@ -395,16 +395,37 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     };
 
 
+    // #766: the first problem with what's on screen, checked live rather
+    // than only after a refused Save round-trips through the server. Only
+    // meaningful when the Place column is actually shown — a TIMED heat has
+    // no way for the operator to type a place at all, so there is nothing
+    // here to collide (the places `editingResults` carries are whatever the
+    // heat was last recorded with, and `RaceControl.tsx`'s `assignPlaces`
+    // recomputes every one of them from the times on save regardless).
+    const placeError = showsPlaceColumn ? placeIssue(editingResults) : null;
+
+    // The equal-time-tie note (#766's other half): informational, not a
+    // block on Save. Only meaningful where a time actually decides the
+    // finishing order — under POINTS the typed place wins regardless of
+    // what the optional Time column holds (#525), so two matching times
+    // there mean nothing about who placed where.
+    const tiedTimes = !showsPlaceColumn
+        ? tiedTimeGroups(editingResults.map((r) => ({ lane: r.lane, time: parseTimeText(r.timeText) })))
+        : [];
+
     const handleSaveResults = async () => {
-        const edited = editingResults.map(({ timeText, ...rest }) => {
-            const time = Number(timeText);
-            return { ...rest, time: timeText.trim() === '' || isNaN(time) ? null : time };
-        });
+        const edited = editingResults.map(({ timeText, ...rest }) => ({
+            ...rest,
+            time: parseTimeText(timeText),
+        }));
         // A refused save (e.g. two lanes given the same place under POINTS)
         // must not close the modal on the way out — that discards everything
         // the operator just typed, with the only signal a transient alert
         // `onUpdateResult` has already shown (#765). Leave it open so they can
-        // fix the value and try again.
+        // fix the value and try again. `placeError` catches the common case
+        // before Save is even clickable; this stays the backstop for
+        // anything it can't see (a lane set out of step with the schedule,
+        // say).
         const saved = await onUpdateResult(activeExecutionHeat.id, edited);
         if (saved) setIsEditModalOpen(false);
     };
@@ -1100,6 +1121,26 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             ? 'Manually enter finishing order for this heat. If a time was recorded, you can correct or clear it below too — it will not change the finishing order.'
                             : 'Manually update times for this heat.'}
                     </p>
+                    {/* #766: two identical hand-typed times are a real tie —
+                        `assignPlaces` still has to pick an order to save,
+                        breaking it by lane number, but the operator should
+                        know that happened rather than read a confident 2nd
+                        and 3rd that were actually a coin flip. Informational
+                        only; nothing here is wrong enough to block Save. */}
+                    {tiedTimes.length > 0 && (
+                        <p
+                            data-testid="tied-times-note"
+                            className="form-help"
+                            style={{ color: 'var(--warning-strong-color)' }}
+                        >
+                            {tiedTimes
+                                .map(
+                                    (group) =>
+                                        `Lanes ${group.lanes.join(' and ')} recorded the same time (${group.time.toFixed(4)}s) — their order below was picked by lane number, not decided.`,
+                                )
+                                .join(' ')}
+                        </p>
+                    )}
                     <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
                         <thead>
                             <tr>
@@ -1144,9 +1185,23 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             ))}
                         </tbody>
                     </table>
+                    {/* #766: the same rule `crud.validate_lane_replacement`
+                        would refuse Save for, checked here instead so the
+                        operator finds out before losing the edit to a round
+                        trip — not a replacement for that check, which stays
+                        the backstop for anything this can't see. */}
+                    {placeError && (
+                        <p
+                            data-testid="place-validation-error"
+                            className="form-help"
+                            style={{ color: 'var(--danger-strong-color)' }}
+                        >
+                            {placeError}
+                        </p>
+                    )}
                     <div className="form-actions" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                         <button className="secondary-btn" onClick={() => setIsEditModalOpen(false)}>Cancel</button>
-                        <button className="primary-btn" onClick={handleSaveResults}>Save Results</button>
+                        <button className="primary-btn" onClick={handleSaveResults} disabled={!!placeError}>Save Results</button>
                     </div>
                 </div>
             </Modal>

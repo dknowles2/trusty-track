@@ -127,6 +127,10 @@ describe('no run-off exists yet for this tied cluster', () => {
   });
 
   it('surfaces the server’s refusal — more tied racers than usable lanes', async () => {
+    // No `usableLaneCount` passed here on purpose — this is the backstop for
+    // a caller that has not supplied one (or one that went stale between
+    // render and click, a lane failing mid-event), not the ordinary path.
+    // #766 adds the client-side check below for the ordinary path.
     mockRunOffHeats([]);
     createRunOffHeat.mockResolvedValue({
       error: { graphQLErrors: [{ message: 'More tied racers than usable lanes.' }] },
@@ -141,6 +145,102 @@ describe('no run-off exists yet for this tied cluster', () => {
         'More tied racers than usable lanes.',
         'Error',
       );
+    });
+  });
+
+  // #766: offering "Start run-off" for a cluster wider than the track can
+  // ever race produced nothing but that generic server refusal. Given the
+  // usable lane count, the button now says why before it is even clicked.
+  describe('the tied cluster can be wider than the track (#766)', () => {
+    const tooMany = [...racers, { racerId: 103, name: 'Sam Ortiz' }];
+
+    it('disables the button and names both counts when the cluster exceeds the usable lanes', () => {
+      mockRunOffHeats([]);
+      render(
+        <RunOffControl
+          raceId={1}
+          trackId={5}
+          settlesRoundId={null}
+          racers={tooMany}
+          usableLaneCount={2}
+        />,
+      );
+
+      const button = screen.getByTestId('start-run-off-btn');
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute(
+        'title',
+        'Not enough usable lanes for all 3 tied racers (only 2 available).',
+      );
+    });
+
+    it('leaves the button enabled when the track has room for the whole cluster', () => {
+      mockRunOffHeats([]);
+      render(
+        <RunOffControl
+          raceId={1}
+          trackId={5}
+          settlesRoundId={null}
+          racers={tooMany}
+          usableLaneCount={3}
+        />,
+      );
+
+      expect(screen.getByTestId('start-run-off-btn')).not.toBeDisabled();
+    });
+
+    it('leaves the button enabled when the usable lane count is not known', () => {
+      mockRunOffHeats([]);
+      render(
+        <RunOffControl
+          raceId={1}
+          trackId={5}
+          settlesRoundId={null}
+          racers={tooMany}
+          usableLaneCount={null}
+        />,
+      );
+
+      expect(screen.getByTestId('start-run-off-btn')).not.toBeDisabled();
+    });
+
+    it('never calls createRunOffHeat from a disabled button', () => {
+      mockRunOffHeats([]);
+      render(
+        <RunOffControl
+          raceId={1}
+          trackId={5}
+          settlesRoundId={null}
+          racers={tooMany}
+          usableLaneCount={2}
+        />,
+      );
+
+      fireEvent.click(screen.getByTestId('start-run-off-btn'));
+
+      expect(createRunOffHeat).not.toHaveBeenCalled();
+    });
+
+    it('a race lock still wins the title over the lane-count reason', () => {
+      // Both disable the button; the lock is the more urgent thing to say —
+      // it means nothing here can be created at all right now.
+      (useQuery as ReturnType<typeof vi.fn>).mockReturnValue([
+        { data: { race: { id: 1, runOffHeats: [], isLocked: true } }, fetching: false, error: null },
+        refetchExisting,
+      ]);
+      render(
+        <RunOffControl
+          raceId={1}
+          trackId={5}
+          settlesRoundId={null}
+          racers={tooMany}
+          usableLaneCount={2}
+        />,
+      );
+
+      const button = screen.getByTestId('start-run-off-btn');
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute('title', 'This race is locked. Unlock it from Edit race to make changes.');
     });
   });
 });
