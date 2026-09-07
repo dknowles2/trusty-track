@@ -146,7 +146,7 @@ describe('RaceExecution', () => {
         );
         expect(screen.getByText('Heat 1')).toBeInTheDocument();
         expect(screen.getByText('John Doe')).toBeInTheDocument();
-        expect(screen.getByText('3.5000s')).toBeInTheDocument();
+        expect(screen.getByText('3.500s')).toBeInTheDocument();
         expect(screen.getByText('1st')).toBeInTheDocument();
     });
 
@@ -550,8 +550,10 @@ describe('RaceExecution', () => {
     describe('the live view comes from the server (#7)', () => {
         it('shows a recorded 0.0 as a time, not as an unrun lane (#346)', () => {
             // A recorded 0.0 is a DNF marker, not "nothing here yet" — and
-            // `r.time ? ... : '--'` treated 0 as falsy, so this screen hid the
-            // very time RaceControl's own list renders as `0.0000s`.
+            // `r.time ? ... : '--'` treated 0 as falsy, so this screen used to
+            // hide it entirely. #763 went further: a bare `0.0000s` didn't say
+            // what it meant either, so `formatLaneTime` now labels it DNF
+            // outright rather than printing the number.
             mockHeatSession({
                 trackId: 1,
                 heatId: 1,
@@ -562,7 +564,7 @@ describe('RaceExecution', () => {
 
             render(<RaceExecution {...defaultProps} />);
 
-            expect(screen.getByText('0.0000s')).toBeInTheDocument();
+            expect(screen.getByText('DNF')).toBeInTheDocument();
             expect(screen.queryByText('--')).not.toBeInTheDocument();
         });
 
@@ -592,7 +594,7 @@ describe('RaceExecution', () => {
             );
 
             // The heat itself holds no times — this one exists only in the timer.
-            expect(screen.getByText('3.1010s')).toBeInTheDocument();
+            expect(screen.getByText('3.101s')).toBeInTheDocument();
             expect(screen.getByText('--')).toBeInTheDocument();
         });
 
@@ -612,7 +614,7 @@ describe('RaceExecution', () => {
 
             render(<RaceExecution {...defaultProps} />);
 
-            expect(screen.getByText('3.5000s')).toBeInTheDocument();
+            expect(screen.getByText('3.500s')).toBeInTheDocument();
             expect(screen.queryByText(/Racing.../)).not.toBeInTheDocument();
             expect(screen.getByText('Edit')).toBeInTheDocument();
         });

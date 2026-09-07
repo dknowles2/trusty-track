@@ -37,7 +37,7 @@ test('one click reaches a heat that can be run', async ({ page }) => {
     await expect(page).toHaveURL(/\/race\/\d+\/control\/race/, { timeout: 30000 });
     await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
 
-    const times = page.getByText(/^\d+\.\d{4}s$/);
+    const times = page.getByText(/^\d+\.\d{3}s$/);
     await expect(times).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Start Timer' }).click();

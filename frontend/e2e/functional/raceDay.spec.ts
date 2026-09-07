@@ -86,7 +86,7 @@ test('a heat run on the timer records times that survive a reload', async ({ pag
 
     // No lane has a time before the heat is run — otherwise the assertion below
     // would pass against a heat that was already recorded.
-    const times = page.getByText(/^\d+\.\d{4}s$/);
+    const times = page.getByText(/^\d+\.\d{3}s$/);
     await expect(times).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Start Timer' }).click();
@@ -206,7 +206,7 @@ test('an operator override replaces the recorded time', async ({ page }) => {
     await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
     await page.getByRole('button', { name: 'Start Timer' }).click();
     await page.getByRole('button', { name: 'Finish Heat' }).click();
-    await expect(page.getByText(/^\d+\.\d{4}s$/)).toHaveCount(laneCount, {
+    await expect(page.getByText(/^\d+\.\d{3}s$/)).toHaveCount(laneCount, {
         timeout: 30000,
     });
 
@@ -219,19 +219,22 @@ test('an operator override replaces the recorded time', async ({ page }) => {
     const editor = page.getByRole('dialog', { name: /Edit Results/ });
     await expect(editor).toBeVisible();
 
-    // A time the fake timer never produces, so it cannot be confused with the run.
-    await editor.locator('input[type="number"]').first().fill('9.8765');
+    // A time the fake timer never produces, so it cannot be confused with the
+    // run — and away from a rounding boundary (not `x.xxx5`), so what the
+    // display shows at three decimals (#763) is unambiguous rather than
+    // depending on round-half behaviour.
+    await editor.locator('input[type="number"]').first().fill('9.8761');
     await editor.getByRole('button', { name: 'Save Results' }).click();
     await expect(editor).toBeHidden();
 
-    await expect(page.getByText('9.8765s').first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText('9.876s').first()).toBeVisible({ timeout: 30000 });
 
     // A fresh load of the schedule is where the stored record shows.
     await page.goto(`/race/${raceId}/control`);
-    await expect(page.getByText('9.8765s').first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText('9.876s').first()).toBeVisible({ timeout: 30000 });
 
     const [stored] = (await readHeats(page, raceId)).sort((a, b) => a.heatNumber - b.heatNumber);
-    expect(stored.lanes.map((l) => l.time)).toContain(9.8765);
+    expect(stored.lanes.map((l) => l.time)).toContain(9.8761);
 });
 
 test('a refused Override save keeps the modal open with what was typed (#765)', async ({ page }) => {

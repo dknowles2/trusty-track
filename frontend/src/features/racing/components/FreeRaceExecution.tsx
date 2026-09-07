@@ -9,7 +9,7 @@ import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy, mdiArrowRight } from
 import { LaneAssignment } from './FreeRaceLaneSetup';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import type { Lane, LaneInput } from '../types';
-import { assignPlaces, cleared, shouldDerivePlacesForFreeRace, toInput } from '../lanes';
+import { assignPlaces, cleared, formatLaneTime, shouldDerivePlacesForFreeRace, toInput } from '../lanes';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
@@ -514,7 +514,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                     <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                      {r?.time != null ? `${Number(r.time).toFixed(4)}s` : '--'}
+                      {formatLaneTime(r?.time) ?? '--'}
                     </div>
                     {r?.place != null && (
                       <div style={{

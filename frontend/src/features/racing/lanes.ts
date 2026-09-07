@@ -109,6 +109,39 @@ export const assignPlaces = (results: readonly LaneInput[]): LaneInput[] => {
 };
 
 /**
+ * A per-lane heat time, formatted for display (#763). Every screen that
+ * shows a raw recorded time — RaceExecution's live lane cards,
+ * ScheduleManagement's and RaceControl's schedule tables, FreeRaceExecution,
+ * the projector and broadcast overlay, and the timer diagnostics page — had
+ * its own `.toFixed()` call, three decimals on most of them and four on the
+ * live-heat screens, with nothing saying why the fourth digit was there. It
+ * was not a deliberate finer reading: it is one rule now, three decimals
+ * everywhere, matching what every real timer profile's own precision
+ * supports and what the standings score formatter
+ * (`scoringStrategyText.formatScore`) already uses.
+ *
+ * `null`/`undefined` (nothing recorded yet) returns `null` rather than a
+ * fallback string, since that varies by screen ("--", "—", blank); the
+ * caller supplies its own with `formatLaneTime(time) ?? '—'`.
+ *
+ * A time at or below zero is the DNF marker this file's own `assignPlaces`
+ * already reads, mirroring `backend/domain/scoring.py`: the timer assigns it
+ * no place, and it scores as a penalty rather than a real result. Printing
+ * "0.000s" — or, worse, a bare `9.999s` penalty value with nothing marking
+ * it as one — is how an operator mistakes a scratch for a result; this
+ * always prints "DNF" for a non-positive time instead of the number.
+ */
+export const formatLaneTime = (time: number | null | undefined): string | null => {
+  if (time == null) {
+    return null;
+  }
+  if (time <= 0) {
+    return 'DNF';
+  }
+  return `${time.toFixed(3)}s`;
+};
+
+/**
  * Whether `scoringStrategy` scores from a recorded *time* rather than a
  * hand-entered *place* — the distinction the Override/Edit modal's column
  * choice turns on (#490), and the one thing #547's two new strategies have

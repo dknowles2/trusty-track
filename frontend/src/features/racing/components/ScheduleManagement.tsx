@@ -42,7 +42,7 @@ import { heatsEstimate } from '../../../utils/duration';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { estimatePace } from '../pace';
 import type { EliminationChart, Heat, Lane, Round } from '../types';
-import { hasRun, hasTimes } from '../lanes';
+import { formatLaneTime, hasRun, hasTimes } from '../lanes';
 import { executionComparator } from '../runningOrder';
 import { advancingFromLabel } from '../roundSummaryText';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
@@ -291,7 +291,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
                 <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{getDisplayName(result, getRacerName)}</span>
                 {result.time != null && (
                   <span style={{ fontSize: '0.75rem', color: 'var(--scouting-blue)', fontFamily: 'monospace' }}>
-                    {Number(result.time).toFixed(4)}s
+                    {formatLaneTime(result.time)}
                   </span>
                 )}
               </div>

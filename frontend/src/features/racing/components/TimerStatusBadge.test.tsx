@@ -5,7 +5,7 @@ import { Provider } from 'urql';
 import { fromValue, never } from 'wonka';
 import { TimerStatusBadge } from './TimerStatusBadge';
 
-function renderBadge(state: string) {
+function renderBadge(state: string, lastError: string | null = null) {
   const client = {
     executeQuery: () => never,
     executeMutation: () => never,
@@ -17,7 +17,7 @@ function renderBadge(state: string) {
               state,
               deviceName: 'Test Timer',
               activeHeatId: 1,
-              lastError: null,
+              lastError,
             },
           },
         },
@@ -68,5 +68,33 @@ describe('TimerStatusBadge', () => {
   it('clarifies DISCONNECTED state as Timer disconnected', () => {
     renderBadge('DISCONNECTED');
     expect(screen.getByText('Timer disconnected')).toBeInTheDocument();
+  });
+
+  // #764: FAULT is not the same claim as DISCONNECTED. Since #342, a
+  // database write failure lands the manager in FAULT with the port
+  // perfectly healthy -- landing an operator on "Timer disconnected" sends
+  // them to check a cable that was never the problem.
+  it('gives FAULT a distinct label from DISCONNECTED', () => {
+    renderBadge('FAULT');
+    expect(screen.getByText('Timer: Needs attention')).toBeInTheDocument();
+    expect(screen.queryByText('Timer disconnected')).toBeNull();
+  });
+
+  it('surfaces lastError as the badge title once it is present', () => {
+    const { container } = renderBadge(
+      'FAULT',
+      'Heat 12: results could not be saved (database is locked) — the timer link is fine; enter the times with Override',
+    );
+    const badge = container.querySelector('.timer-status-badge');
+    expect(badge).toHaveAttribute(
+      'title',
+      'Heat 12: results could not be saved (database is locked) — the timer link is fine; enter the times with Override',
+    );
+  });
+
+  it('has no title when there is no error to show', () => {
+    const { container } = renderBadge('IDLE');
+    const badge = container.querySelector('.timer-status-badge');
+    expect(badge).not.toHaveAttribute('title');
   });
 });

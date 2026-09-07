@@ -158,7 +158,7 @@ describe('FreeRaceExecution', () => {
     });
 
     render(<FreeRaceExecution {...defaultProps} />);
-    expect(screen.getByText('3.1420s')).toBeInTheDocument();
+    expect(screen.getByText('3.142s')).toBeInTheDocument();
     expect(screen.getByText('1st')).toBeInTheDocument();
     expect(screen.getByText('2nd')).toBeInTheDocument();
   });
@@ -350,8 +350,8 @@ describe('FreeRaceExecution', () => {
 
     // The screen must not flip to showing the locally computed (unsaved)
     // time — the server never stored it.
-    expect(screen.queryByText('3.9990s')).not.toBeInTheDocument();
-    expect(screen.getByText('3.1420s')).toBeInTheDocument();
+    expect(screen.queryByText('3.999s')).not.toBeInTheDocument();
+    expect(screen.getByText('3.142s')).toBeInTheDocument();
     // The edit modal stays open so the operator can retry.
     expect(screen.getByTestId('mock-modal')).toBeInTheDocument();
   });
@@ -388,7 +388,7 @@ describe('FreeRaceExecution', () => {
     await waitFor(() => expect(mockShowAlert).toHaveBeenCalled());
 
     // The recorded time is still on screen — the server still holds it.
-    expect(screen.getByText('3.1420s')).toBeInTheDocument();
+    expect(screen.getByText('3.142s')).toBeInTheDocument();
     expect(mockResetTimer).not.toHaveBeenCalled();
     expect(mockPrepareHeat).not.toHaveBeenCalled();
   });

@@ -97,11 +97,52 @@ export function scoreLabel(scoringStrategy: string | null | undefined): string {
   }
 }
 
+/**
+ * `backend/domain/scoring.py`'s `DNF_PENALTY_SECONDS` — a DNF (a recorded
+ * time of zero or less) is scored as a bad-but-finite result under `TIMED`
+ * and `CUMULATIVE_TIME` rather than erasing the racer's average outright.
+ * A racer whose *only* counted heat was a DNF therefore has an average of
+ * exactly this value, and printing "9.999s" with nothing marking it as the
+ * penalty sentinel reads as an unusually slow car rather than a scratch
+ * (#763). Mirrored here, rather than sent across the wire, for the same
+ * reason `DEFAULT_SCALE` and the other small numeric constants this app
+ * shares between the two languages are: it is a fact about the domain rule,
+ * not something a race configures.
+ */
+export const DNF_PENALTY_SECONDS = 9.999;
+
 /** The score value, formatted for the strategy that produced it — seconds to
- * three places for a time-based strategy, a bare integer for Points. */
+ * three places for a time-based strategy, a bare integer for Points.
+ *
+ * The one place this rule is stated (#763) — every screen that shows a
+ * standings score (the operator's own Standings page, the audience Standings
+ * tab, the projector view) calls this rather than keeping its own copy, so
+ * "3.414s" cannot read as "3.4141s" on one wall and "3.414s" on another.
+ *
+ * `unit: false` drops the trailing "s" for a caller that already labels the
+ * unit separately — the projector view prints "Avg Time"/"Points" as its own
+ * line under the number, where a second "s" would be redundant. Defaults to
+ * `true`, which is every other caller's shape: the number stands alone in its
+ * own column with nothing else saying what it is.
+ *
+ * A score exactly equal to `DNF_PENALTY_SECONDS` — reachable when a racer's
+ * one and only counted heat was a DNF — prints "DNF" instead of "9.999s",
+ * the same labelling `features/racing/lanes.ts`'s `formatLaneTime` applies
+ * to a raw per-lane time of zero or less. A multi-heat average landing on
+ * that exact value by genuine coincidence is not a real floating-point
+ * concern.
+ */
 export function formatScore(
   score: number,
   scoringStrategy: string | null | undefined,
+  { unit = true }: { unit?: boolean } = {},
 ): string {
-  return isTimeBasedStrategy(scoringStrategy) ? `${score.toFixed(3)}s` : score.toString();
+  if (!isTimeBasedStrategy(scoringStrategy)) {
+    return score.toString();
+  }
+  if (score === DNF_PENALTY_SECONDS) {
+    return 'DNF';
+  }
+  const formatted = score.toFixed(3);
+  return unit ? `${formatted}s` : formatted;
 }
