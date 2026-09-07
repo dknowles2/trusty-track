@@ -490,4 +490,38 @@ describe('the awards page', () => {
       expect(screen.getByText(/1 of 2 cars have no photo/)).toBeInTheDocument();
     });
   });
+
+  describe('Present and Print certificates on a race with no awards (#790)', () => {
+    it('offers both, enabled, once the race has at least one award', () => {
+      renderPage();
+      expect(screen.getByRole('link', { name: 'Present' })).toHaveAttribute(
+        'href',
+        '/race/1/awards/present',
+      );
+      expect(screen.getByRole('link', { name: 'Print certificates' })).toHaveAttribute(
+        'href',
+        '/race/1/print/certificates',
+      );
+    });
+
+    it('disables both rather than opening a ceremony or a print page with nothing in it', () => {
+      renderPage(null);
+      // Present opens a ceremony with nothing in it, and the certificates
+      // page already refuses to print with nothing to print — an option
+      // that can only disappoint is worse than one that is absent, the same
+      // rule `displayView.viewOptionsFor` already applies to the ceremony
+      // as a display view.
+      expect(screen.queryByRole('link', { name: 'Present' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Print certificates' })).not.toBeInTheDocument();
+      expect(screen.getByText('Present')).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByText('Print certificates')).toHaveAttribute('aria-disabled', 'true');
+    });
+
+    it('gives the empty state its own way to add an award, not just the corner button', () => {
+      renderPage(null);
+      // The corner "Add an award" button still exists; the empty state gets
+      // its own so the reader is not sent hunting for the only other one.
+      expect(screen.getAllByRole('button', { name: 'Add an award' }).length).toBeGreaterThan(1);
+    });
+  });
 });

@@ -10,6 +10,14 @@
  * their mind, and so there is only one button on the page that writes. The
  * lane outage control does save on click, and says so — the difference is that
  * a lane goes out of service mid-event with cars waiting, and a PIN does not.
+ *
+ * The input is `type="password"` (#790) — these are typed at a table with
+ * people around, sometimes on a screen a room can see. No show/hide toggle:
+ * a four-digit code is short enough that masking costs little as you type
+ * it, and the row already carries a Remove control — a third control would
+ * lengthen the row and the tab order for a check-in desk that reaches for
+ * this rarely. `inputMode="numeric"` stays, and stays respected: it is not
+ * tied to the input's `type`.
  */
 
 import { canRemove, pinHelp, type PinField } from '../pinFields';
@@ -45,7 +53,7 @@ export default function PinFieldRow({
       </label>
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         <input
-          type="text"
+          type="password"
           inputMode="numeric"
           id={id}
           value={field.value}

@@ -240,15 +240,33 @@ export default function Awards() {
         <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Awards</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           {/* Opens the ceremony on this screen. It is an ordinary route, so it
-              is also the address to point a projector at. */}
-          <Link to={`/race/${id}/awards/present`} className="secondary-btn">
-            Present
-          </Link>
+              is also the address to point a projector at. Present opens a
+              ceremony with nothing in it and the certificates page already
+              refuses to print with nothing to print, so both are disabled
+              rather than offered on a race with no awards — the same rule
+              `displayView.viewOptionsFor` already applies to the ceremony as
+              a display view: an option that can only disappoint is worse
+              than one that is absent (#790). */}
+          {awards.length > 0 ? (
+            <Link to={`/race/${id}/awards/present`} className="secondary-btn">
+              Present
+            </Link>
+          ) : (
+            <span className="secondary-btn" aria-disabled="true" title="Add an award first.">
+              Present
+            </span>
+          )}
           {/* The certificate print page, next to the ceremony route it pairs
               with — one is for the room, the other for the wall afterward. */}
-          <Link to={`/race/${id}/print/certificates`} className="secondary-btn">
-            Print certificates
-          </Link>
+          {awards.length > 0 ? (
+            <Link to={`/race/${id}/print/certificates`} className="secondary-btn">
+              Print certificates
+            </Link>
+          ) : (
+            <span className="secondary-btn" aria-disabled="true" title="Add an award first.">
+              Print certificates
+            </span>
+          )}
           <button
             type="button"
             className="primary-btn"
@@ -304,6 +322,17 @@ export default function Awards() {
             No awards yet. Add the ones your {orgLower} hands out — Best Paint and Most
             Original as well as the fast ones.
           </p>
+          {/* The corner button above is the only way forward otherwise —
+              away from the text telling you to use it (#790). */}
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => setAdding(true)}
+            disabled={raceLocked}
+            title={raceLocked ? lockedTitle : undefined}
+          >
+            Add an award
+          </button>
         </div>
       )}
 

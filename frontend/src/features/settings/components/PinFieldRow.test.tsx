@@ -27,6 +27,15 @@ function renderRow({ isSet = false, optional, field = blankPin }: RenderOptions 
 }
 
 describe('PinFieldRow', () => {
+  it('masks the PIN as it is typed (#790) — these are entered at a table with people around', () => {
+    renderRow({ isSet: false, field: blankPin });
+
+    const input = screen.getByLabelText('Operator PIN');
+    expect(input).toHaveAttribute('type', 'password');
+    // The numeric keypad on mobile is already right and must survive the mask.
+    expect(input).toHaveAttribute('inputMode', 'numeric');
+  });
+
   it('shows no PIN set: no removal control, and the plain help text', () => {
     renderRow({ isSet: false, field: blankPin });
 

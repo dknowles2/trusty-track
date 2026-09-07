@@ -467,7 +467,11 @@ input:checked + .slider:before {
     opacity: 1 !important;
 }
 
-.secondary-btn:disabled {
+.secondary-btn:disabled,
+/* A `<Link>` styled as one of these has no `disabled` attribute to match —
+   `aria-disabled` is its non-interactive twin (#790, Awards' Present and
+   Print certificates buttons on a race with no awards yet). */
+.secondary-btn[aria-disabled='true'] {
     cursor: not-allowed;
     background-color: #eee;
     color: #999;

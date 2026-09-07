@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from 'react';
 import { observeIdentify, type SeenIdentifySeq } from './identifyOverlay';
+import { useChrome } from '../../context/ChromeContext';
 
 export interface IdentifyAssignment {
   readonly name?: string | null;
@@ -31,6 +32,12 @@ interface Props {
  * treatments are `position: fixed`.
  */
 export default function IdentifyPresence({ assignment }: Props) {
+  // Whether the app's own header is on screen (#175). A projector has none —
+  // `chromeHidden` is true — so the badge is free to sit at the very corner.
+  // Everywhere else `Navigation`'s bar occupies that corner already
+  // (`zIndex: 1000` against the badge's own `4900`), so it has to sit below
+  // it rather than on top of it (#790).
+  const { hidden: chromeHidden } = useChrome();
   const [seen, setSeen] = useState<SeenIdentifySeq>(null);
   const [showFlash, setShowFlash] = useState(false);
   const [showConnectBadge, setShowConnectBadge] = useState(false);
@@ -75,7 +82,9 @@ export default function IdentifyPresence({ assignment }: Props) {
           data-testid="identify-connect-badge"
           style={{
             position: 'fixed',
-            top: '16px',
+            // Below `Navigation`'s bar (roughly 56px tall) when it is on
+            // screen, at the corner when there is no chrome to clash with.
+            top: chromeHidden ? '16px' : '76px',
             right: '16px',
             zIndex: 4900,
             background: 'var(--display-badge-bg-color)',
