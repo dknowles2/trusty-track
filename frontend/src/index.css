@@ -1283,3 +1283,71 @@ input:checked + .slider:before {
     gap: 1rem;
   }
 }
+
+/*
+ * Race Execution responsive layout (#782).
+ * On desktop (>900px), a 2fr 1fr grid with Active Heat on the left and
+ * On Deck / Progress on the right. Below 900px (tablets & phones), collapses
+ * to a single column with Active Heat first so phone viewports don't shrink-to-fit.
+ */
+.race-execution-layout {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+
+@media screen and (max-width: 900px) {
+  .race-execution-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .race-execution-active-card {
+    padding: 16px !important;
+  }
+
+  .race-execution-controls-bottom {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .race-execution-controls-left,
+  .race-execution-controls-right {
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+  }
+
+  .race-execution-lane-row {
+    padding: 10px !important;
+  }
+
+  .race-execution-lane-badge {
+    font-size: 1rem !important;
+    width: 65px !important;
+    padding: 4px 6px !important;
+  }
+
+  .race-execution-lane-content {
+    padding: 8px 10px !important;
+  }
+
+  .race-execution-avatar-wrap {
+    width: 50px !important;
+    height: 50px !important;
+    margin-right: 10px !important;
+  }
+
+  .race-execution-racer-name {
+    font-size: 1.1rem !important;
+  }
+
+  .race-execution-time-place {
+    gap: 10px !important;
+  }
+
+  .race-execution-time {
+    font-size: 1.2rem !important;
+  }
+}
