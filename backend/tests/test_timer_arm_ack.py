@@ -250,3 +250,82 @@ async def test_aborting_while_unconfirmed_cancels_the_watch():
     assert manager._last_error is None
 
     await manager.stop()
+
+
+async def test_reconnect_rearm_starts_arm_ack_watch_and_faults_on_dropped_ack(
+    monkeypatch,
+):
+    """#815: When a device reconnects while a heat is armed, the re-arming
+    sequence must start the arm-ack watch so a dropped arm command is caught."""
+    _fast(monkeypatch)
+    manager, sent = await _idle_microwizard()
+
+    await manager.prepare_heat(
+        heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b0011
+    )
+    # Confirm initial arming
+    for cmd in (b"MG", b"MC", b"MD", b"ME", b"MF", b"LR"):
+        await manager.receive_bytes(cmd + b"\r")
+        if cmd != b"MG":
+            await manager.receive_bytes(b"*\r")
+    await _wait_settled(manager)
+    assert manager._state is TimerState.ARMED
+    sent.clear()
+
+    # Device reconnects / reboots mid-heat
+    manager._state = TimerState.CONNECTED
+    # Identification line received, triggering re-arm sequence in _process_line
+    await manager.receive_bytes(BANNER)
+
+    # State transitions back to ARMED and sends prepare_heat_commands
+    assert manager._state is TimerState.ARMED
+    # The arm-ack watch must have been started
+    assert manager._arm_ack_task is not None
+
+    # No acks arrive for the re-arm commands
+    await _wait_settled(manager)
+
+    assert manager._state is TimerState.FAULT
+    assert manager._active_heat_id is None
+    assert manager._last_error is not None
+    assert "arm" in manager._last_error.lower()
+
+    await manager.stop()
+
+
+async def test_reconnect_rearm_confirmed_ack_stays_armed(monkeypatch):
+    """#815: When a device reconnects while a heat is armed and confirms the re-arm,
+    it stays ARMED."""
+    _fast(monkeypatch)
+    manager, sent = await _idle_microwizard()
+
+    await manager.prepare_heat(
+        heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b0011
+    )
+    for cmd in (b"MG", b"MC", b"MD", b"ME", b"MF", b"LR"):
+        await manager.receive_bytes(cmd + b"\r")
+        if cmd != b"MG":
+            await manager.receive_bytes(b"*\r")
+    await _wait_settled(manager)
+    assert manager._state is TimerState.ARMED
+    sent.clear()
+
+    # Device reconnects mid-heat
+    manager._state = TimerState.CONNECTED
+    await manager.receive_bytes(BANNER)
+    assert manager._state is TimerState.ARMED
+    assert manager._arm_ack_task is not None
+
+    # Echo and ack for re-arm commands arrive
+    for cmd in (b"MG", b"MC", b"MD", b"ME", b"MF", b"LR"):
+        await manager.receive_bytes(cmd + b"\r")
+        if cmd != b"MG":
+            await manager.receive_bytes(b"*\r")
+
+    await _wait_settled(manager)
+
+    assert manager._state is TimerState.ARMED
+    assert manager._active_heat_id == 1
+    assert manager._last_error is None
+
+    await manager.stop()
