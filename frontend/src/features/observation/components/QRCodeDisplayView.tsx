@@ -97,7 +97,7 @@ export default function QRCodeDisplayView({ raceId, target, headline, wifiNote }
                         alignItems: 'center',
                         gap: '1vmin',
                         maxWidth: '70vmin',
-                        color: 'var(--warning-color, #b45309)',
+                        color: 'var(--display-warning-color)',
                     }}
                 >
                     <Icon path={mdiAlertOutline} size={3} />

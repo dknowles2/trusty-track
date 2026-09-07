@@ -39,6 +39,7 @@ import ActivityLog from './features/settings/pages/ActivityLog';
 
 import { INITIAL_CONFIG_QUERY, RACE_TERMINOLOGY_QUERY } from './features/core/graphql/queries';
 import { DemoSessionGate } from './features/core/components/DemoSessionGate';
+import NotFoundPage from './features/core/components/NotFoundPage';
 import type { GetInitialConfigStatusQuery, GetRaceTerminologyQuery } from './gql/operations';
 
 /** Seeds the organization's default terminology for the whole app —
@@ -62,14 +63,34 @@ function AppTerminologyProvider({ children }: { children: React.ReactNode }) {
  * stage 4). While the query is in flight `TerminologyProvider` keeps
  * whatever `AppTerminologyProvider` already supplied, so a race with no
  * override of its own never flashes the built-in words before settling on
- * the identical organization ones. */
-function RaceTerminologyGate({ children }: { children: React.ReactNode }) {
+ * the identical organization ones.
+ *
+ * This is also the one seam every race-scoped route already passes through
+ * (`raceRoute` below), which is what makes it the right place to catch a
+ * race id that does not resolve to anything (#787) — a stale bookmark, a
+ * pasted link, a race that has since been deleted. `Query.race` answers
+ * `null` for an unknown id (never an error), so a *resolved* response
+ * carrying no race is answered here, once, rather than by teaching every
+ * individual race-scoped page to tell "still loading" apart from "not
+ * there." A network error is left alone — that is #781's separate failure,
+ * a *reachable* race whose query fails, and is not this one. */
+export function RaceTerminologyGate({ children }: { children: React.ReactNode }) {
   const { raceId } = useParams<{ raceId: string }>();
   const [{ data }] = useQuery<GetRaceTerminologyQuery>({
     query: RACE_TERMINOLOGY_QUERY,
     variables: { raceId: Number(raceId) },
     pause: !raceId,
   });
+
+  if (data !== undefined && data.race === null) {
+    return (
+      <NotFoundPage
+        heading="Race not found"
+        message="That race no longer exists. It may have been deleted, or the link may be out of date."
+      />
+    );
+  }
+
   return (
     <TerminologyProvider value={data?.race?.terminology}>
       {children}
@@ -87,7 +108,7 @@ function raceRoute(element: React.ReactNode) {
   );
 }
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   // Not `network-only`, which is what this asked for and never got. `Routes`
@@ -171,10 +192,30 @@ function App() {
                 <Route path="/race/:raceId/control/:tab?" element={raceRoute(<KeyedRaceControl />)} />
                 <Route path="/race/:raceId/observation" element={raceRoute(<Observation />)} />
 
-                {/* Legacy Redirects or Handle 404 */}
+                {/* Legacy redirects */}
                 <Route path="/checkin" element={<Navigate to="/" replace />} />
                 <Route path="/control" element={<Navigate to="/" replace />} />
                 <Route path="/observation" element={<Navigate to="/" replace />} />
+
+                {/* Everything else (#787) — a mistyped path, a renamed one, a
+                    guess at a tab's URL. `Routes` matches nothing and renders
+                    nothing without this, and the backend's SPA catch-all
+                    means the browser never sees a 404 either, so this is the
+                    only place that can say so. Wrapped in `ProtectedRoute`
+                    like every other route, so an unconfigured install still
+                    lands on setup rather than a "page not found" for a page
+                    that was never going to exist yet anyway. */}
+                <Route
+                  path="*"
+                  element={(
+                    <ProtectedRoute>
+                      <NotFoundPage
+                        heading="Page not found"
+                        message="That page does not exist. It may have moved, or the link may be out of date."
+                      />
+                    </ProtectedRoute>
+                  )}
+                />
               </Routes>
             </main>
           </div>

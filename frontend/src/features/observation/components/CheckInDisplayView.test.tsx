@@ -97,6 +97,32 @@ describe('CheckInDisplayView (#612)', () => {
         expect(screen.getByText(/All 2 checked in!/)).toBeInTheDocument();
     });
 
+    // #772 — this is a Display surface (assigned to a kiosk, not the
+    // operator's own device), and `--success-color` is an App token that
+    // lives in *this device's own* localStorage App theme, not the
+    // per-install Display theme. Two kiosks showing the identical
+    // `CHECKIN` assignment must render identically regardless of what App
+    // theme either browser happens to hold, which only a Display-scoped
+    // token can guarantee.
+    it('reads the Display surface success token, not the App one (#772)', () => {
+        renderView({
+            racers: [
+                racer({ id: 1, racingGroupId: 1, carPassedInspection: true }),
+                racer({ id: 2, racingGroupId: 2, carPassedInspection: true }),
+            ],
+        });
+
+        const celebration = screen.getByText(/All 2 checked in!/);
+        expect(celebration).toHaveStyle({ color: 'var(--display-success-color)' });
+        expect(celebration.style.color).not.toContain('--success-color)');
+    });
+
+    it('marks a fully checked-in group\'s note with the Display success token, not the App one (#772)', () => {
+        renderView();
+        const done = screen.getByText('All checked in ✓');
+        expect(done).toHaveStyle({ color: 'var(--display-success-color)' });
+    });
+
     it('abbreviates names the same way every other public display does', () => {
         renderView({ nameDisplay: 'LAST_INITIAL' });
         expect(screen.getByTestId('checkin-group-1')).toHaveTextContent('Grace H.');
