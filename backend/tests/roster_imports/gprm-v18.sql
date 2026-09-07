@@ -5,6 +5,14 @@
 -- (website/sql/sqlite/schema.inc), and the rows are chosen to exercise every
 -- branch of domain/gprm.py:
 --
+-- Unchanged by #694, and NOTICE.md says why: GPRM has no public repository,
+-- so there is no committed DDL to fetch for it the way there was for
+-- `derbynet.sql`. Every column below that the shared mapping actually reads
+-- is now independently confirmed correct against DerbyNet's real schema
+-- (see NOTICE.md) — this file's own *shape* is still inferred from
+-- DerbyNet's documentation describing the two as compatible, not from a
+-- GPRM install.
+--
 --   * Wolves and Bears each have one rank named the same as the class (GPRM's
 --     default) — no category — plus "Den 1" under both, which collides.
 --   * Webelos has two distinct ranks, Den 4 and Den 5, categorised "Webelos".

@@ -5,7 +5,10 @@ Two layers, tested from both sides, the same shape as `test_gprm_import.py`:
 a hand-built `TableSet` so each branch can be reached with one row;
 `services/importers/derbynet.py` is the file, pinned against a SQLite
 database built from `roster_imports/derbynet.sql` — see the NOTICE there for
-how much that fixture can and cannot prove.
+how much that fixture can and cannot prove. As of #694, that fixture's table
+shape is transcribed from DerbyNet's own committed schema.inc/partitions.inc
+rather than from its documentation; the "the real schema (#694)" section
+below is what that transcription is for.
 
 `domain/gprm.py`'s own tests already cover everything DerbyNet's schema
 shares with GPRM's — the racer fields, the class/rank grouping, the
@@ -22,13 +25,14 @@ from pathlib import Path
 
 import pytest
 
-from backend.domain import derbynet
+from backend.domain import derbynet, gprm
 from backend.domain.roster_import import ImportedGroup, RosterImportError
 from backend.services.importers.derbynet import (
     NO_ROSTER_MESSAGE,
     NOT_A_DATABASE_MESSAGE,
     parse_derbynet_database,
 )
+from backend.services.importers.sqlite_tables import open_sqlite_tables
 
 FIXTURES = Path(__file__).parent / "roster_imports"
 
@@ -161,6 +165,71 @@ def test_the_vehicle_word_reaches_the_sentences(tmp_path: Path) -> None:
     connection.close()
     roster = parse_derbynet_database(path, vehicle_word="Rocket")
     assert any(m.message.startswith('Rocket number "ABC"') for m in roster.problems)
+
+
+# --- the real schema (#694) -----------------------------------------------
+#
+# `roster_imports/derbynet.sql`'s table shape is transcribed from DerbyNet's
+# own committed schema.inc/partitions.inc (see that file's own header and
+# NOTICE.md for the commit and the method) rather than from documentation.
+# These two tests are what that transcription is *for*: proving the parsers
+# tolerate the real schema's extra columns and its one added constraint, and
+# showing precisely where the shared GPRM mapping and the DerbyNet-specific
+# wrapper around it diverge on an unmodified real-shaped database.
+
+
+def test_the_real_schemas_extra_columns_and_not_null_partition_cost_nothing(
+    derbynet_file: Path,
+) -> None:
+    """`derbynet.sql` now carries five columns neither importer reads
+    (`Classes.durable`/`ntrophies`, `Ranks.ntrophies`,
+    `RegistrationInfo.checkin_time`/`note`) and a `NOT NULL` constraint on
+    `RegistrationInfo.partitionid` our prior, documentation-inferred fixture
+    didn't have. None of it changes what comes out: `SqliteTables.rows`
+    reads whole rows by name (see `services/importers/sqlite_tables.py`), so
+    an unmapped column is inert and a `NOT NULL` column that every row here
+    already supplies costs nothing. This is the "no mismatch found for
+    anything the importer reads" half of #694 -- pinned so it stays true as
+    the fixture is extended.
+    """
+    roster = parse_derbynet_database(derbynet_file)
+    assert len(roster.racers) == 5
+    pat = next(r for r in roster.racers if r.first_name == "Pat")
+    assert pat.excluded_from_standings is True
+
+
+def test_the_shared_gprm_mapping_reads_the_real_schema_directly(
+    derbynet_file: Path,
+) -> None:
+    """`domain/gprm.roster_from_tables` is the mapping both importers use
+    (`domain/derbynet.py` only adds the `Partitions` rename in front of it),
+    so running it directly against the same real-schema-derived database --
+    bypassing that rename -- exercises the code GPRM's own importer runs
+    against a table shape drawn from DerbyNet's real, committed DDL, which is
+    closer to a real database than anything `test_gprm_import.py`'s own
+    fixture can currently offer (GPRM itself has no public repository to
+    fetch DDL from -- see NOTICE.md).
+
+    It also shows exactly what the `Partitions` rename buys: without it, the
+    Siblings den reads under its rank's own stale name and gets a category
+    from its class, where the DerbyNet-aware path (the test above, and
+    `test_the_fixture_reads_as_groups_and_racers`) reads the partition's
+    current name and drops the redundant category.
+    """
+    with open_sqlite_tables(derbynet_file) as tables:
+        assert gprm.looks_like_gprm(tables)
+        roster = gprm.roster_from_tables(tables)
+
+    assert roster.groups == (
+        ImportedGroup("Wolves"),
+        ImportedGroup("Bears"),
+        ImportedGroup("Den 4", division="Webelos"),
+        ImportedGroup("Den 5", division="Webelos"),
+        ImportedGroup("siblings-legacy", division="Siblings"),
+    )
+    pat = next(r for r in roster.racers if r.first_name == "Pat")
+    assert pat.group == "siblings-legacy"
+    assert pat.excluded_from_standings is True
 
 
 # --- the Partitions rule --------------------------------------------------

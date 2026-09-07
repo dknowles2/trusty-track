@@ -39,6 +39,17 @@ recorded from a GPRM install; a real file from a pack that has one would be
 the first evidence here that did not come from us, exactly as
 `timer_recordings/` was for the timers.
 
+**#694 strengthened one half of that inference and left the other where it
+was.** Every column this module reads is now independently confirmed
+against DerbyNet's own committed schema (`NOTICE.md` names the exact commit)
+rather than against its prose documentation — no mismatch was found for any
+of them. GPRM's own file remains unverified: it has no public repository, so
+there is no DDL to check it against, only DerbyNet's own comments describing
+its schema as inherited from GPRM's in the first place. `NOTICE.md` also
+records what DerbyNet's source says `Exclude` is *for* (filtered from
+standings/trophies, a racer still races) — corroboration for the reading
+below, not proof a given pack's file uses it that way.
+
 ## The mapping
 
 GPRM's `Class` is the unit that races together (its rounds and rosters are

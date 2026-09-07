@@ -53,11 +53,23 @@ the ordinary default is what this stage answers for.
 No DerbyNet database was available to test this against — the same
 limitation #618's own docstring names for GPRM, and for the same reason:
 this is read from DerbyNet's own schema and source files, not from a real
-backup a pack actually raced with. `backend/tests/roster_imports/`'s
-DerbyNet fixture is synthesised the same way its GPRM one is, and says so
-in the same `NOTICE.md`. The preview screen tells the operator the mapping
-is inferred for exactly this reason — it is worth a second look before
-confirming, not assumed correct.
+backup a pack actually raced with. The preview screen tells the operator
+the mapping is inferred for exactly this reason — it is worth a second look
+before confirming, not assumed correct.
+
+**#694 changed how sure the *table shape* half of that is.**
+`backend/tests/roster_imports/derbynet.sql` is no longer written from
+DerbyNet's documentation; its `Classes`/`Ranks`/`RegistrationInfo`/`RaceInfo`
+tables are transcribed from DerbyNet's own committed `schema.inc`, and
+`Partitions` from its own `partitions.inc` — `NOTICE.md` names the exact
+commit and shows the transcription. Every column this module and
+`gprm.roster_from_tables` read matched the real schema exactly; nothing here
+needed fixing. What a schema cannot settle is left exactly as open as
+before: whether a real pack's rank names collide across classes the way the
+fixture's do, and whether a real file's `Exclude` column is used the way
+DerbyNet's own source says it is meant to be (see `NOTICE.md` and
+`gprm.py`'s docstring for what that source says). Both still want a real
+database.
 """
 
 from __future__ import annotations
