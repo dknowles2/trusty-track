@@ -198,6 +198,17 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         is_locked: false,
         ...initialData
     });
+    // The weight limit input's own text, decoupled from `formData.weight_limit_oz`
+    // (#767). The field's `value` used to be `formatOunces(formData.weight_limit_oz)`
+    // directly, so every keystroke re-rendered from the *parsed* number — and a
+    // keystroke that parses to a falsy-but-real `0` (a leading zero, or the field
+    // momentarily empty) reset the stored value to the default, snapping the
+    // display back mid-edit and losing whatever the operator had typed so far.
+    // Keeping the raw string here lets an in-progress value like "0." survive a
+    // re-render, which reformatting it on every change could not.
+    const [weightLimitText, setWeightLimitText] = useState<string>(
+        formData.weight_limit_oz != null ? formatOunces(formData.weight_limit_oz) : formatOunces(DEFAULT_LIMIT_OZ),
+    );
     const [loading, setLoading] = useState(false);
     const [tracksResult] = useQuery({ query: GET_TRACKS });
     const tracks = useMemo(() => tracksResult.data?.tracks || [], [tracksResult.data?.tracks]);
@@ -734,12 +745,14 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                         type="checkbox"
                                         id="race-check-weights"
                                         checked={formData.weight_limit_oz != null}
-                                        onChange={e =>
+                                        onChange={e => {
+                                            const checked = e.target.checked;
                                             setFormData(prev => ({
                                                 ...prev,
-                                                weight_limit_oz: e.target.checked ? DEFAULT_LIMIT_OZ : null,
-                                            }))
-                                        }
+                                                weight_limit_oz: checked ? DEFAULT_LIMIT_OZ : null,
+                                            }));
+                                            if (checked) setWeightLimitText(formatOunces(DEFAULT_LIMIT_OZ));
+                                        }}
                                     />
                                     <span>Check {vehicleLower} weights at inspection</span>
                                 </label>
@@ -751,10 +764,17 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                             type="number"
                                             step="0.01"
                                             min="0.01"
-                                            value={formatOunces(formData.weight_limit_oz)}
-                                            onChange={e =>
-                                                handleChange('weight_limit_oz', parseFloat(e.target.value) || DEFAULT_LIMIT_OZ)
-                                            }
+                                            value={weightLimitText}
+                                            onChange={e => {
+                                                const raw = e.target.value;
+                                                setWeightLimitText(raw);
+                                                const parsed = parseFloat(raw);
+                                                handleChange(
+                                                    'weight_limit_oz',
+                                                    Number.isNaN(parsed) ? DEFAULT_LIMIT_OZ : parsed,
+                                                );
+                                            }}
+                                            onBlur={() => setWeightLimitText(formatOunces(formData.weight_limit_oz ?? DEFAULT_LIMIT_OZ))}
                                             className="form-control"
                                             style={inputStyle}
                                         />

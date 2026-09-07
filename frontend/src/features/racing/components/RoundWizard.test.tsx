@@ -54,8 +54,9 @@ describe('RoundWizard Component', () => {
         fireEvent.change(runsInput, { target: { value: '2' } });
         await user.click(screen.getByText('Next'));
 
-        // 10 racers x 1 run, plus a championship of max(3, 4) = 4 raced twice.
-        expect(screen.getByText('Total Heats: 18')).toBeInTheDocument();
+        // 10 racers x 1 run, plus a championship of 3 (the trophy setting)
+        // raced twice.
+        expect(screen.getByText('Total Heats: 16')).toBeInTheDocument();
     });
 
     it('estimates the heat count the scheduler will actually produce', async () => {
@@ -74,19 +75,21 @@ describe('RoundWizard Component', () => {
         await user.click(screen.getByText('Next'));
         await user.click(screen.getByText('Next'));
 
-        // 19 racers x 1 run, plus a championship of max(3, 3) = 3.
+        // 19 racers x 1 run, plus a championship of 3 (the trophy setting).
         expect(screen.getByText('Total Heats: 22')).toBeInTheDocument();
         unmount();
 
-        // The same roster on a wider track runs the same number of heats.
+        // The same roster on a wider track runs the same number of heats —
+        // the championship's size follows the trophy setting, not the lane
+        // count, so widening the track changes nothing here either (#775).
         render(
             <AlertProvider><RoundWizard {...defaultProps} racerCount={19} laneCount={6} /></AlertProvider>
         );
         await user.click(screen.getByText('Next'));
         await user.click(screen.getByText('Next'));
 
-        // 19 again, and a championship of max(3, 6) = 6.
-        expect(screen.getByText('Total Heats: 25')).toBeInTheDocument();
+        // 19 again, and a championship of 3.
+        expect(screen.getByText('Total Heats: 22')).toBeInTheDocument();
     });
 
     it('renders Step 1 by default', () => {
@@ -108,17 +111,20 @@ describe('RoundWizard Component', () => {
         // PPC makes one heat per racer, per run — lane 1 is seeded with every
         // racer, and that fixes the count. The lane count does not divide it.
         //
-        //   General:      10 racers x 1 run          = 10 heats
-        //   Championship: max(3, 4) = 4 racers x 1   =  4 heats
-        //                                              --------
-        //                                                14
+        //   General:      10 racers x 1 run  = 10 heats
+        //   Championship:  3 racers x 1 run  =  3 heats
+        //                                      --------
+        //                                        13
         //
         // This used to divide by the lane count and answer 4, which is the
         // arithmetic for a scheduler that packs racers into heats (#140).
-        expect(screen.getByText('Total Heats: 14')).toBeInTheDocument();
-        // 14 heats at the 1.75-minute baseline (#591) — no pace has been
+        // The championship's own size is `championshipTrophies` (3) — the
+        // race's own setting for how many cars advance — not
+        // `Math.max(championshipTrophies, laneCount)` (#775).
+        expect(screen.getByText('Total Heats: 13')).toBeInTheDocument();
+        // 13 heats at the 1.75-minute baseline (#591) — no pace has been
         // learned yet, since this race has no recorded heats.
-        expect(screen.getByText(/Estimated Grand Total: ~25 mins/i)).toBeInTheDocument();
+        expect(screen.getByText(/Estimated Grand Total: ~24 mins/i)).toBeInTheDocument();
     });
 
     it('navigates through steps', async () => {
@@ -133,7 +139,7 @@ describe('RoundWizard Component', () => {
 
         // Step 2 -> Step 3
         await user.click(screen.getByText('Next'));
-        expect(screen.getByText('Estimated Grand Total: ~25 mins')).toBeInTheDocument();
+        expect(screen.getByText('Estimated Grand Total: ~24 mins')).toBeInTheDocument();
         expect(screen.getByText('Review')).toBeInTheDocument(); // Step indicator or content
 
         // Step 3 -> Step 2
@@ -166,6 +172,30 @@ describe('RoundWizard Component', () => {
         expect(screen.getByDisplayValue('New Championship Round')).toBeInTheDocument();
     });
 
+    it('defaults the finalist count to the trophy setting, not the lane count (#775)', async () => {
+        // `Race.championship_trophies` is "how many cars advance to the
+        // final" — a setting the operator has already made on the roster's
+        // Race Settings card. `defaultProps` sets it to 3 on a 4-lane track;
+        // the wizard used to default "Number of Finalists" to
+        // `Math.max(championshipTrophies, laneCount)` (4 here) "to fill a
+        // heat", silently disagreeing with the setting shown one screen away.
+        const user = userEvent.setup();
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Generate Schedule'));
+
+        expect(mockExecuteMutation).toHaveBeenCalledWith({
+            raceId: 1,
+            config: expect.objectContaining({
+                championshipRounds: [
+                    expect.objectContaining({ numTopRacers: 3 }),
+                ],
+            }),
+        });
+    });
+
     it('submits correct data to GraphQL mutation', async () => {
         const user = userEvent.setup();
         render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
@@ -188,7 +218,7 @@ describe('RoundWizard Component', () => {
                     expect.objectContaining({
                         name: 'Grand Finals',
                         source: 'ALL',
-                        numTopRacers: 4 // Math.max(3, 4)
+                        numTopRacers: 3 // championshipTrophies (#775)
                     })
                 ]
             })

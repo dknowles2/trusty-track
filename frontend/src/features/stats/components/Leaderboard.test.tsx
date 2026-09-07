@@ -85,6 +85,62 @@ describe('Leaderboard', () => {
     expect(rows[2]).toHaveTextContent('4.200s');
   });
 
+  it('omits the parenthetical when the division only repeats the group name (#774)', () => {
+    // The setup wizard's Cub Scout scaffold gives every den a Category equal
+    // to its own name — "Bear" the den, "Bear" the Category — so the raw
+    // "name (division)" composition prints "Bear (Bear)" on every row.
+    const raceWithRedundantDivision = {
+      id: 1,
+      scoringStrategy: 'TIMED',
+      leaderboard: [
+        {
+          racerId: 1,
+          firstName: 'John',
+          lastName: 'Doe',
+          carNumber: 101,
+          racingGroupName: 'Bear',
+          racingGroupDivision: 'Bear',
+          score: 3.5,
+          heatsCompleted: 1,
+          rank: 1,
+        },
+        {
+          racerId: 2,
+          firstName: 'Jane',
+          lastName: 'Smith',
+          carNumber: 102,
+          racingGroupName: 'Wolves',
+          racingGroupDivision: 'Wolf',
+          score: 4.2,
+          heatsCompleted: 1,
+          rank: 2,
+        },
+      ],
+    };
+    (useQuery as any).mockReturnValue([{
+      data: { race: raceWithRedundantDivision },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    (useSubscription as any).mockReturnValue([{
+      data: { leaderboard: raceWithRedundantDivision.leaderboard },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={1} /></MemoryRouter></AlertProvider>);
+
+    const rows = screen.getAllByRole('row');
+    // A division that adds nothing is not printed at all — not even the
+    // parentheses.
+    expect(rows[1]).toHaveTextContent('Bear');
+    expect(rows[1]).not.toHaveTextContent('Bear (Bear)');
+    expect(rows[1]).not.toHaveTextContent('(Bear)');
+    // A division that genuinely differs from the group's name still shows.
+    expect(rows[2]).toHaveTextContent('Wolves (Wolf)');
+  });
+
   it('renders a shared rank the same way for both racers who hold it (#226)', () => {
     const tiedData = {
       race: {

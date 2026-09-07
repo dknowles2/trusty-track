@@ -51,7 +51,12 @@ describe('which sections are offered', () => {
 });
 
 describe('what stops a save', () => {
-    const track = (name: string, laneCount = 4, scaleRatio = 25) => ({ name, laneCount, scaleRatio });
+    const track = (name: string, laneCount = 4, scaleRatio = 25, showScaleSpeed = true) => ({
+        name,
+        laneCount,
+        scaleRatio,
+        showScaleSpeed,
+    });
 
     it('passes a filled-in form', () => {
         expect(firstProblem('Pack 42', [track('Main Track')])).toBeNull();
@@ -94,15 +99,23 @@ describe('what stops a save', () => {
         expect(firstProblem('Pack 42', [track('Main Track', 0)])?.section).toBe('tracks');
     });
 
-    it('refuses a non-positive scale ratio (#610)', () => {
-        // The server refuses this too (`scale_ratio_is_positive`), whatever
-        // "Show scale speed" is set to — a value nothing could ever use is
-        // wrong to store, not just wrong to display.
+    it('refuses a non-positive scale ratio while the field is shown (#610)', () => {
+        // The server refuses this too (`scale_ratio_is_positive`), so a value
+        // nothing could ever use is wrong to store — but only while the
+        // operator can see the field holding it.
         expect(firstProblem('Pack 42', [track('Main Track', 4, 0)])).toEqual({
             section: 'tracks',
             message: 'Main Track needs a scale ratio greater than zero.',
         });
         expect(firstProblem('Pack 42', [track('Main Track', 4, -1)])?.section).toBe('tracks');
+    });
+
+    it('does not block Save over a scale ratio the operator cannot see (#773)', () => {
+        // "Show scale speed" hides the ratio input. A zero left behind from
+        // before it was unticked must not switch Save to a section with
+        // nothing on screen naming the problem.
+        expect(firstProblem('Pack 42', [track('Main Track', 4, 0, false)])).toBeNull();
+        expect(firstProblem('Pack 42', [track('Main Track', 4, -1, false)])).toBeNull();
     });
 
     it('refuses a race with no track at all', () => {

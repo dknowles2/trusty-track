@@ -420,7 +420,11 @@ export default function SystemConfig() {
             timerProfile: timerType === 'FAKE' ? null : (timerProfile || null),
             remoteStartInstalled,
             reverseLanes,
-            scaleRatio,
+            // The server refuses a non-positive ratio unconditionally, whether
+            // or not "Show scale speed" is on (#773) — `firstProblem` only
+            // checks this field while it is visible, so a zero left over from
+            // before the flag was unticked must not reach the mutation at all.
+            scaleRatio: scaleRatio > 0 ? scaleRatio : DEFAULT_SCALE_RATIO,
             showScaleSpeed,
             // Absent means an empty list on the server (`TrackInput`'s own
             // default), same as a track that has never had one set.
