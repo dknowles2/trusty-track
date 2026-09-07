@@ -35,17 +35,16 @@ _The Roster page at the start of race day. Every racer has a gold **Check In** b
 ### Checking In a Racer
 
 1. Find the racer in the list. Scroll, or use the search box above the roster — it matches on name, car number, and den.
-2. Click the **Check In** button at the end of their row to open the check-in form.
-3. Toggle **Passed Inspection / Checked In** to mark the car as cleared to race.
-4. Optionally enter or update the **Car Name** if not already provided.
-5. Optionally enter the **Car Weight (oz)**. If the race has a weight limit set, the box turns red and says so when the car is over it.
+2. Click the **Check In** button at the end of their row to open the check-in form. The **Passed Inspection / Checked In** toggle starts **on** — clicking Check In already says what you intend, so the form defaults to matching it. Turn it off only if this particular car fails inspection; the button below relabels itself to **Save without checking in** the moment you do, so it never claims to check in a car it isn't.
+3. Optionally enter or update the **Car Name** if not already provided.
+4. Optionally enter the **Car Weight (oz)**. If the race has a weight limit set, the box turns red and says so when the car is over it.
 
     This is a warning, not a refusal — you can still check the car in. The inspector at the table decides what happens next; the app is only making the rule visible at the moment it matters. There is a small tolerance for the last decimal place, where desk scales disagree — see [the weight check](reference/race-settings.md#the-weight-check) for exactly how close is close enough.
-6. Optionally upload or capture a **Racer Photo** and/or **Car Photo** — each has an **Upload File** button and a **Camera** button.
-7. Click **Save Check-in**.
+5. Optionally upload or capture a **Racer Photo** and/or **Car Photo** — each has an **Upload File** button and a **Camera** button.
+6. Click **Save Check-in**.
 
 ![Check-In Modal — Inspection Toggled On](assets/screenshots/race-day/02-check-in-modal-inspected.png)
-_The check-in modal for a racer, with "Passed Inspection / Checked In" toggled on._
+_The check-in modal for a racer, opened from the roster's **Check In** button — "Passed Inspection / Checked In" is on by default._
 
 ![Check-In Modal — With Photo](assets/screenshots/race-day/03-check-in-modal-with-photo.png)
 _A racer photo loaded in the check-in modal. Photos appear on the live audience display during the race. Once a photo is on file, a **⟳ Rotate / Recrop** button appears beneath it — see below._

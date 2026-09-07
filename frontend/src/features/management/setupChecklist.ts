@@ -89,7 +89,14 @@ export function checklistFor(progress: SetupProgress, words: TerminologyWords): 
                     ? `${checkedInCount} of ${racerCount} checked in. Only checked-in ${vehiclesLower} are put into heats.`
                     : `Only checked-in ${vehiclesLower} are put into heats.`,
             done: checkedInCount > 0,
-            action: null,
+            // This step is only ever "next" while nobody at all is checked in
+            // (`done` flips the moment one racer is), so "select" always
+            // means the whole roster — there is nobody already checked in to
+            // leave out. The button selects everyone and reveals the
+            // roster's own bulk Check In control (#849) rather than opening
+            // a per-racer dialog, since a den that has just arrived together
+            // is the case this step exists for.
+            action: `Select ${vehiclesLower} to check in`,
         },
         {
             key: 'schedule',

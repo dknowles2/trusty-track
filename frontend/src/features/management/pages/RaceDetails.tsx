@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import type { GetRaceDetailsQuery } from '../../../gql/operations';
@@ -214,6 +214,12 @@ export default function RaceDetails() {
   const [editingRacer, setEditingRacer] = useState<Racer | undefined>(undefined);
   const [racerFormTitle, setRacerFormTitle] = useState('Add New Racer');
   const [racerFormSubmitLabel, setRacerFormSubmitLabel] = useState('Save Racer');
+  // Whether the form is open *as* a check-in (#848) rather than an ordinary
+  // add or edit — reached from the row's Check In / Checked In-Edit button or
+  // a scan, never from Add Racer. While true, the primary button's label
+  // tracks the toggle live, so declining ("this car failed inspection") reads
+  // as "Save without checking in" rather than a "Save Check-in" that lies.
+  const [racerFormCheckInMode, setRacerFormCheckInMode] = useState(false);
 
   const [showBulkPhotoUpload, setShowBulkPhotoUpload] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
@@ -276,6 +282,12 @@ export default function RaceDetails() {
 
   // Selection State
   const [selectedRacerIds, setSelectedRacerIds] = useState<number[]>([]);
+
+  // Where the checklist's "Select ... to check in" action (#849) scrolls to
+  // — the roster's own bulk selection bar, once something is selected, is
+  // below the fold on a laptop with a checklist and a settings summary above
+  // it.
+  const rosterSectionRef = useRef<HTMLDivElement>(null);
 
   // Handle click outside for dropdowns
   useEffect(() => {
@@ -408,14 +420,38 @@ export default function RaceDetails() {
     setEditingRacer(undefined);
     setRacerFormTitle('Add New Racer');
     setRacerFormSubmitLabel('Save Racer');
+    setRacerFormCheckInMode(false);
     setShowRacerForm(true);
   };
 
+  // Reached from the row's Check In button (not yet inspected) and from its
+  // Checked In / Edit button (already inspected) alike, and from a scan
+  // (#848). The dialog used to seed its toggle straight from the racer's
+  // stored state either way, so opening it from Check In — the obvious path
+  // of type the weight, press Save Check-in — showed the toggle *off*, and an
+  // operator who never looked twice at it saved a racer who stayed
+  // unchecked. Defaulting it on here is the fix: it matches what pressing
+  // Check In already said the operator wants, and the toggle stays reachable
+  // so they can still decline a car that fails inspection. An already
+  // checked-in racer reached through Checked In / Edit keeps reflecting its
+  // real stored state (already true) — nothing about opening an edit implies
+  // un-checking anybody.
   const handleCheckInClick = (racer: Racer) => {
-      setEditingRacer(racer);
+      setEditingRacer(racer.car_passed_inspection ? racer : { ...racer, car_passed_inspection: true });
       setRacerFormTitle('Racer Check In');
       setRacerFormSubmitLabel('Save Check-in');
+      setRacerFormCheckInMode(true);
       setShowRacerForm(true);
+  };
+
+  // The setup checklist's "Check in ..." step (#849): select everyone — this
+  // step is only ever the one to act on while nobody at all is checked in —
+  // and scroll down to the roster's own bulk Check In control, the route a
+  // pack whose den just arrived together actually wants, rather than opening
+  // one racer's dialog at a time.
+  const handleChecklistCheckIn = () => {
+      setSelectedRacerIds(prev => Array.from(new Set([...prev, ...racers.map(r => r.id)])));
+      rosterSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   // A scan identifies a racer; from there it is the same check-in the operator
@@ -786,6 +822,7 @@ export default function RaceDetails() {
           onAction={{
               racingGroups: () => setShowRacingGroupManager(true),
               racers: handleAddRacerClick,
+              checkin: handleChecklistCheckIn,
               schedule: () => navigate(`/race/${parsedRaceId}/control`),
           }}
       />
@@ -873,7 +910,7 @@ export default function RaceDetails() {
           of the day disabled, which is space spent saying "not yet". What it
           held is now a selection bar that exists only when something is
           selected. */}
-      <div className="roster-header" style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--divider-color)', paddingBottom: '0.75rem' }}>
+      <div ref={rosterSectionRef} className="roster-header" style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--divider-color)', paddingBottom: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, fontSize: '1.4rem' }}>
                 Racer Roster <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: 'var(--text-muted-color)', marginLeft: '8px' }}>({filteredRacers.length})</span>
@@ -1461,6 +1498,7 @@ export default function RaceDetails() {
             onSubmit={handleRacerFormSubmit}
             onCancel={() => setShowRacerForm(false)}
             submitLabel={racerFormSubmitLabel}
+            checkInMode={racerFormCheckInMode}
             weightLimitOz={data?.race?.weightLimitOz}
             // The roster this page already fetched, threaded down for the
             // duplicate car number warning (#811) — no second query.

@@ -86,6 +86,14 @@ describe('checklistFor', () => {
         expect(checkin.hint).toBe('Only checked-in cars are put into heats.');
     });
 
+    // #849: the other three steps each name where to go — this one used to
+    // state a fact and stop, the only step of the four with nothing to click.
+    it('offers an action for the check-in step, unlike before #849', () => {
+        const [, , checkin] = checklistFor(progress({ racerCount: 19 }));
+        expect(checkin.action).not.toBeNull();
+        expect(checkin.action).toBe('Select cars to check in');
+    });
+
     it('needs a round for the schedule step, not merely racers', () => {
         expect(doneKeys(progress({ racerCount: 20, checkedInCount: 20 }))).not.toContain('schedule');
     });
@@ -100,6 +108,7 @@ describe('checklistFor', () => {
         };
         const [, , checkin] = checklistForWords(progress(), rocketWords);
         expect(checkin.label).toBe('Check in rockets');
+        expect(checkin.action).toBe('Select rockets to check in');
         expect(checkin.hint).toBe('Only checked-in rockets are put into heats.');
     });
 });
