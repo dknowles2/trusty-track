@@ -243,6 +243,25 @@ def delete_racing_group(db: Session, racing_group_id: int) -> models.RacingGroup
         if round_scoped:
             raise ValueError("Cannot delete racing_group: a round is scoped to it.")
 
+        # A `SPEED` award narrowed to this racing group (#755) — "Fastest
+        # Wolf" — has the identical shape as the round check above: nulling
+        # `racing_group_id` would silently turn it into "Fastest overall",
+        # a different trophy that may go to a different child, and the
+        # column used to carry `ondelete="CASCADE"` instead, which destroyed
+        # the award (and any `AwardVote` rows under it) outright. Refuse and
+        # name the awards, the same as the round case, rather than lose a
+        # trophy on race morning with one confirm click.
+        awards_scoped = (
+            db.query(models.Award)
+            .filter(models.Award.racing_group_id == racing_group_id)
+            .all()
+        )
+        if awards_scoped:
+            names = ", ".join(f'"{award.name}"' for award in awards_scoped)
+            raise ValueError(
+                f"Cannot delete racing_group: award(s) scoped to it: {names}."
+            )
+
         racers = (
             db.query(models.Racer)
             .filter(models.Racer.racing_group_id == racing_group_id)

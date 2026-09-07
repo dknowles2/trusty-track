@@ -1,6 +1,6 @@
 import uuid
 
-from backend.db import crud, schemas
+from backend.db import crud, models, schemas
 
 
 def get_unique_name(prefix: str) -> str:
@@ -119,6 +119,62 @@ def test_delete_den_refused_when_round_is_scoped_to_it(client, db):
 
     # The racing_group survives the refused delete.
     assert crud.get_racing_group(db, int(racing_group_id)) is not None
+
+
+def test_delete_den_refused_when_award_is_scoped_to_it(client, db):
+    """#755: `Award.racing_group_id` used to cascade — deleting a den that a
+    "Fastest Wolf" award named silently destroyed the award (and any votes
+    under it). Refuse the same way the round-scoped case does, rather than
+    losing a trophy on race morning with one confirm click."""
+    race_id = create_race_context(db)
+
+    racing_group_name = get_unique_name("AwardedDen")
+    mutation_create = f"""
+    mutation {{
+        createRacingGroup(
+            racingGroup: {{
+                name: "{racing_group_name}", color: "#000000", division: "Wolf"
+            }}
+            raceId: {race_id}
+        ) {{
+            id
+        }}
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_create})
+    assert resp.status_code == 200
+    racing_group_id = int(resp.json()["data"]["createRacingGroup"]["id"])
+
+    award = crud.create_award(
+        db,
+        race_id,
+        schemas.AwardCreate(
+            name="Fastest Wolf",
+            kind=models.AwardKind.SPEED,
+            source="ALL",
+            place=1,
+            racing_group_id=racing_group_id,
+        ),
+    )
+    award_id = award.id
+
+    mutation_delete = f"""
+    mutation {{
+        deleteRacingGroup(id: {racing_group_id})
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_delete})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body.get("errors") is None
+    assert body["data"]["deleteRacingGroup"] is False
+
+    # The den, and the award scoped to it, both survive the refused delete.
+    assert crud.get_racing_group(db, racing_group_id) is not None
+    db.expire_all()
+    surviving_award = db.query(models.Award).filter(models.Award.id == award_id).first()
+    assert surviving_award is not None
+    assert surviving_award.racing_group_id == racing_group_id
 
 
 def test_edit_den_logic(client, db):

@@ -101,8 +101,15 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
     };
 
     const handleDeleteRacingGroup = async (racingGroupId: number) => {
+        // #755: deletion is refused (not a silent loss) when a round or an
+        // award is still scoped to this racing group — the confirm dialog
+        // says so up front so a refusal is not a surprise. `deleteRacingGroup`
+        // reports the refusal as a plain `false`, not a message (matching the
+        // pre-existing round-scoped case), so the alert below names the two
+        // possible causes rather than the specific round or award.
         const confirmed = await showConfirm(
-            `Are you sure? Racers in this ${groupLower} will be unassigned.`,
+            `Are you sure? Racers in this ${groupLower} will be unassigned. ` +
+            `If a round or an award is scoped to this ${groupLower}, it can't be deleted until that is reassigned or removed.`,
             `Delete ${group}`,
         );
         if (!confirmed) return;
@@ -112,7 +119,7 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
             if (result.error) throw result.error;
             if (!result.data?.deleteRacingGroup) {
                 showAlert(
-                    `This ${groupLower} can't be deleted while a round is scoped to it. Remove or reassign that round first.`,
+                    `This ${groupLower} can't be deleted while a round or an award is scoped to it. Remove or reassign that first.`,
                     "Error"
                 );
                 return;

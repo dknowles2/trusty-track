@@ -1018,8 +1018,18 @@ class Award(Base):
     )
     #: SPEED only. Narrows the standings to one racing group, so "fastest Wolf" is the
     #: ordinary standings filtered rather than a third kind of source.
+    #:
+    #: No `ondelete` action, deliberately (#755) — same as `Round.racing_group_id`,
+    #: and for the same reason. This used to cascade, so deleting a den silently
+    #: destroyed every award scoped to it (and any `AwardVote` rows under it via
+    #: their own cascade off `Award`). Nulling it would be just as wrong as
+    #: nulling a round's: "Fastest Wolf" would silently become "Fastest overall",
+    #: a different trophy that may go to a different child. `crud.delete_racing_group`
+    #: refuses instead, naming the awards, mirroring the round-scoped check
+    #: immediately above it — the schema now backs that refusal rather than
+    #: contradicting it, per #125 ("deletion is the schema's job, not Python's").
     racing_group_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("racing_groups.id", ondelete="CASCADE"), nullable=True
+        Integer, ForeignKey("racing_groups.id"), nullable=True
     )
 
     #: SPECIAL only. Null until somebody decides.
