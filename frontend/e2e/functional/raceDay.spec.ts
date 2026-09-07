@@ -201,8 +201,12 @@ test('the last heat of the race raises a summary pointing at standings, awards a
     // screen opened must not throw up a celebration on load, the same
     // `seen === null` rule `roundCompletion.ts` already needed for the round
     // summary (`raceCompletion.ts` here).
-    const { raceId, racers } = await seedRace(page, 'Race Day Finish');
-    await createSchedule(page, raceId, { name: 'Pack Final', numTopRacers: 3 });
+    // The final's field is exactly the lane count, so every lane the round
+    // schedules holds a racer — `recordRound` sends only occupied lanes,
+    // and a final short a lane (fewer top racers than lanes) would need a
+    // second helper to fill the rest in as unraced.
+    const { raceId, racers, laneCount } = await seedRace(page, 'Race Day Finish');
+    await createSchedule(page, raceId, { name: 'Pack Final', numTopRacers: laneCount });
 
     const rounds = await readRounds(page, raceId);
     const prelim = rounds.find((r) => r.advancementSource === null)!;

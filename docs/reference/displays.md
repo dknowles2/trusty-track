@@ -306,6 +306,11 @@ connected — first the one at the top of your Displays list, then the next,
 and so on. Nothing is saved; pressing it again just reapplies the same
 recipe to whichever screens answer at that moment.
 
+**Until at least one screen has connected, the four buttons and Save current
+layout as a scene are shown disabled**, with a line explaining why. There is
+nothing yet for a scene to apply to — the Displays list above it, with its
+own address to open on a screen, is what actually gets you started.
+
 **Save your own layout as a scene** once you have set the screens up the way
 you like by hand — click **Save current layout as a scene**, on the same
 panel, and give it a name ("Front of house", say). Applying it later puts
