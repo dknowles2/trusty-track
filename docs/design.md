@@ -148,7 +148,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `source` (`SPEED` only: `ALL` or `ROUND:<id>` — the same vocabulary `Round.advancement_source` uses, but never `EACH_GROUP`)
     -   `place` (`SPEED` only, 1-based: the winner is 1)
     -   `from_bottom` (`SPEED` only: which end `place` counts from — false is the fastest car, true the slowest. The same flip `Round.advancement_from_bottom` makes for a Slowest Race bracket, and a car that has not raced is never picked)
-    -   `racing_group_id` (`SPEED` only, FK to RacingGroup, `ON DELETE CASCADE` — narrows the standings to one racing group, which is how "fastest Wolf" is expressed rather than a third kind of source)
+    -   `racing_group_id` (`SPEED` only, FK to RacingGroup, no `ON DELETE` action — narrows the standings to one racing group, which is how "fastest Wolf" is expressed rather than a third kind of source. Deleting a racing group with an award scoped to it is refused, naming the award, the same way a round scoped to it already is (#755) — nulling this would silently turn "Fastest Wolf" into "Fastest overall", a different trophy)
     -   `racer_id` (`SPECIAL` only, FK to Racer, `ON DELETE SET NULL` — deleting a racer un-assigns the award rather than deleting the trophy)
     -   `artwork_key` (nullable — which clipart the ceremony slide and the printed certificate draw; null prints a plain certificate. A `SPEED` award has this defaulted from its rule rather than offered as a picker; a `SPECIAL` award gets it from the ready-made superlative picker, or free text over it (#306))
     -   `votable` (`SPECIAL` only, Boolean, default `false`) — whether this award takes ballots while the race's `voting_open` is true (#305); always forced false for `SPEED`
