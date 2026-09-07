@@ -35,6 +35,17 @@ query RaceAwards($raceId: Int!) {
 }
 """
 
+PLACE_CONTESTED_QUERY = """
+query RaceAwardsContested($raceId: Int!) {
+  race(raceId: $raceId) {
+    awards {
+      id
+      placeContested
+    }
+  }
+}
+"""
+
 
 def _set_one_trophy_per_racer(db, race_id: int, value: bool) -> None:
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
@@ -263,3 +274,142 @@ class TestQueryCount:
             f"{one_award.count} for one; the roll-down's per-race resolution "
             "is scaling with the number of awards."
         )
+
+
+class TestPlaceContestedFollowsTheResolvedPosition:
+    """`Award.placeContested` (#540) has to ask about the row the roll-down
+    (#615) actually placed the recipient in, not the award's configured
+    `place` — see #757. Two racers tied for the pack's top time each win a
+    race-wide award off that tie in both tests below; whether the *Wolves*
+    award ends up contested depends on which row it actually resolves to
+    once those two are excluded, not on the row it was nominally aimed at.
+    """
+
+    def test_a_tie_excluded_by_roll_down_is_not_contested(self, client, db):
+        # w1 and w2 share the pack's fastest time and each take a race-wide
+        # award off that tie; both are then excluded from the Wolves podium,
+        # which rolls down to w3 — who is not tied with anyone.
+        race_id, dens, racers = build_race(
+            db, racing_groups=("Wolves",), racers_per_den=4
+        )
+        wolves_id = dens[0]
+        w1, w2, w3, w4 = racers
+        race_everyone(client, db, race_id, {w1: 3.0, w2: 3.0, w3: 4.0, w4: 5.0})
+
+        pack_champion = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Pack Champion",
+                kind=models.AwardKind.SPEED,
+                source="ALL",
+                place=1,
+            ),
+        )
+        runner_up = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Runner Up", kind=models.AwardKind.SPEED, source="ALL", place=2
+            ),
+        )
+        fastest_wolf = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Fastest Wolf",
+                kind=models.AwardKind.SPEED,
+                source="ALL",
+                place=1,
+                racing_group_id=wolves_id,
+            ),
+        )
+        _set_one_trophy_per_racer(db, race_id, True)
+
+        # A direct service call must be told the flag explicitly — reading
+        # `Race.one_trophy_per_racer` itself is `loaders.py`'s job (see
+        # `resolutions_for`'s own docstring), so setting the column above is
+        # only what a save through GraphQL would do; it is not what drives
+        # this call.
+        resolved = awards_service.resolutions_for(
+            db, race_id, one_trophy_per_racer=True
+        )
+        assert resolved[pack_champion.id].recipient == w1
+        assert resolved[runner_up.id].recipient == w2
+        # w1 and w2 already hold trophies from the pack-wide podium, so the
+        # Wolf trophy rolls all the way down to w3.
+        assert resolved[fastest_wolf.id].recipient == w3
+        assert resolved[fastest_wolf.id].position == 3
+
+        # `placeContested` is read the way the operator screen reads it: over
+        # GraphQL, through `loaders.award_contested`, which is the seam #757
+        # is about — it has to read the race's own flag to check the row the
+        # roll-down actually seated the recipient in.
+        response = client.post(
+            "/graphql",
+            json={
+                "query": PLACE_CONTESTED_QUERY,
+                "variables": {"raceId": race_id},
+            },
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert "errors" not in body, body["errors"]
+        by_id = {a["id"]: a for a in body["data"]["race"]["awards"]}
+        assert by_id[fastest_wolf.id]["placeContested"] is False
+
+    def test_a_tie_reached_only_after_rolling_down_is_contested(self, client, db):
+        # w1 alone at the top of the pack; w2 and w3 tie for the next spot.
+        race_id, dens, racers = build_race(
+            db, racing_groups=("Wolves",), racers_per_den=4
+        )
+        wolves_id = dens[0]
+        w1, w2, w3, w4 = racers
+        race_everyone(client, db, race_id, {w1: 3.0, w2: 4.0, w3: 4.0, w4: 5.0})
+
+        pack_champion = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Pack Champion",
+                kind=models.AwardKind.SPEED,
+                source="ALL",
+                place=1,
+            ),
+        )
+        fastest_wolf = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Fastest Wolf",
+                kind=models.AwardKind.SPEED,
+                source="ALL",
+                place=1,
+                racing_group_id=wolves_id,
+            ),
+        )
+        _set_one_trophy_per_racer(db, race_id, True)
+
+        resolved = awards_service.resolutions_for(
+            db, race_id, one_trophy_per_racer=True
+        )
+        assert resolved[pack_champion.id].recipient == w1
+        # w1 already holds the pack trophy, so the Wolf trophy rolls down to
+        # w2 — who is tied with w3 for that row.
+        assert resolved[fastest_wolf.id].recipient == w2
+        assert resolved[fastest_wolf.id].position == 2
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": PLACE_CONTESTED_QUERY,
+                "variables": {"raceId": race_id},
+            },
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert "errors" not in body, body["errors"]
+        by_id = {a["id"]: a for a in body["data"]["race"]["awards"]}
+        # The award's nominal place (1, w1's own row) is not tied with
+        # anyone; the row it actually resolved to (2, w2 and w3) is.
+        assert by_id[fastest_wolf.id]["placeContested"] is True

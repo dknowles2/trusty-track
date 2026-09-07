@@ -206,13 +206,18 @@ def recipients_of(
     return {award_id: resolution.recipient for award_id, resolution in resolved.items()}
 
 
-def contested_for(db: Session, race_id: int) -> dict[int, bool]:
+def contested_for(
+    db: Session, race_id: int, *, one_trophy_per_racer: bool = False
+) -> dict[int, bool]:
     """``{award_id: bool}`` — whether a `SPEED` award's place is a tie the
     tiebreak chain left standing (#540), for every award in a race.
 
     Whole-race and shared, the same shape as :func:`recipients_for` and for
     the same reason: an awards screen showing a dozen trophies at once should
     not repeat a scoring pass per trophy.
+
+    ``one_trophy_per_racer`` matches :func:`resolutions_for`'s parameter of
+    the same name — see #757 below for why it has to.
     """
     awards = (
         db.query(models.Award)
@@ -220,27 +225,61 @@ def contested_for(db: Session, race_id: int) -> dict[int, bool]:
         .order_by(models.Award.sort_order, models.Award.id)
         .all()
     )
-    return contested_of(db, race_id, awards)
+    return contested_of(db, race_id, awards, one_trophy_per_racer=one_trophy_per_racer)
 
 
 def contested_of(
-    db: Session, race_id: int, awards: list[models.Award]
+    db: Session,
+    race_id: int,
+    awards: list[models.Award],
+    *,
+    one_trophy_per_racer: bool = False,
 ) -> dict[int, bool]:
-    """As :func:`contested_for`, for awards the caller has already loaded."""
+    """As :func:`contested_for`, for awards the caller has already loaded.
+
+    Checks the row the award **actually resolved to**, not its configured
+    ``place`` (#757). With ``one_trophy_per_racer`` on, a roll-down (#615) can
+    seat an award's real recipient several rows below ``place`` — a tie at
+    the nominal row is not necessarily a tie the *recipient* is caught up in,
+    and a tie at the recipient's own row is invisible if nothing ever looks
+    there. So this resolves the awards exactly as :func:`resolutions_of`
+    would (with the same flag, over the same cache — inlined rather than
+    calling it, so a whole-race contested pass costs one scoring pass rather
+    than two) and asks `domain.awards.place_is_contested` about each award's
+    resolved ``position`` rather than its ``rule.place``. A ``None`` position
+    — nobody holds the award at all, judged or otherwise unresolved — is
+    ``False`` outright: there is nothing to contest about a trophy nobody
+    has.
+    """
     rules = {award.id: _rule_for(award) for award in awards}
     sources = {rule.source for rule in rules.values() if rule is not None}
 
     cache = _standings_cache(db, race_id, sources) if sources else {}
 
+    entries = [
+        domain_roll_down.AwardEntry(
+            key=award.id,
+            rule=rules[award.id],
+            chosen_racer_id=(
+                award.racer_id if award.kind is models.AwardKind.SPECIAL else None
+            ),
+        )
+        for award in awards
+    ]
+    resolutions = domain_roll_down.resolve_awards(
+        entries, cache, one_trophy_per_racer=one_trophy_per_racer
+    )
+
     contested: dict[int, bool] = {}
     for award in awards:
         rule = rules[award.id]
-        # SPECIAL, or a SPEED row that cannot be resolved: nothing computed
-        # named the place, so there is nothing to contest.
+        position = resolutions[award.id].position
+        # SPECIAL, a SPEED row that cannot be resolved, or one nobody holds
+        # yet: nothing computed named a row, so there is nothing to contest.
         contested[award.id] = (
             False
-            if rule is None
-            else domain_awards.place_is_contested(rule, cache[rule.source])
+            if rule is None or position is None
+            else domain_awards.place_is_contested(rule, cache[rule.source], position)
         )
     return contested
 

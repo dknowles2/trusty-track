@@ -311,11 +311,19 @@ class RequestLoaders:
         the tiebreak chain left standing (#540).
 
         Whole-race, the same shape as :meth:`award_recipients` and for the
-        same reason.
+        same reason. Reads `Race.one_trophy_per_racer` off the memoised race
+        row for the same reason :meth:`award_resolutions` does: the row an
+        award's place is checked against has to be the row the roll-down
+        (#615) actually seated the recipient in, not the award's configured
+        `place` (#757) — and that seat depends on the same flag.
         """
         if race_id not in self._award_contested:
+            race = self.race_by_id(race_id)
             self._award_contested[race_id] = awards_service.contested_of(
-                self._db, race_id, self.awards_for_race(race_id)
+                self._db,
+                race_id,
+                self.awards_for_race(race_id),
+                one_trophy_per_racer=bool(race and race.one_trophy_per_racer),
             )
         return self._award_contested[race_id]
 
