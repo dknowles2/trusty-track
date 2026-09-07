@@ -23,6 +23,7 @@ import {
     BACKEND_URL,
     createSchedule,
     dismissRoundSummary,
+    gql,
     readHeats,
     readRounds,
     recordRound,
@@ -233,6 +234,54 @@ test('an operator override replaces the recorded time', async ({ page }) => {
     expect(stored.lanes.map((l) => l.time)).toContain(9.8765);
 });
 
+test('a refused Override save keeps the modal open with what was typed (#765)', async ({ page }) => {
+    // The Edit/Override modal used to close on any save, successful or not,
+    // discarding every value the operator had just typed. `validate_lane_replacement`
+    // refuses two lanes sharing a place under POINTS scoring — a mistake a
+    // person entering a finishing order by hand can genuinely make — which
+    // makes this a real server refusal to prove the fix against rather than a
+    // mocked one.
+    const { raceId } = await seedRace(page, 'Race Day Refused Save');
+    await gql(
+        page,
+        `mutation SetPoints($id: Int!, $race: RaceUpdateInput!) {
+            updateRace(id: $id, race: $race) { id }
+        }`,
+        { id: raceId, race: { scoringStrategy: 'POINTS' } },
+    );
+    await createSchedule(page, raceId);
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible({ timeout: 30000 });
+
+    // A POINTS race with a timer still shows Override, not Enter Results
+    // (#490/#525) — this track has one (FAKE).
+    await page.getByRole('button', { name: 'Override' }).click();
+    const editor = page.getByRole('dialog', { name: /Edit Results/ });
+    await expect(editor).toBeVisible();
+
+    // Place, then optional Time, per lane row — give the first two lanes the
+    // same place, which the server refuses.
+    const placeInputs = editor.locator('input[type="number"]');
+    await placeInputs.nth(0).fill('1');
+    await placeInputs.nth(2).fill('1');
+    await editor.getByRole('button', { name: 'Save Results' }).click();
+
+    const errorDialog = page.getByRole('dialog', { name: 'Error' });
+    await expect(errorDialog).toBeVisible({ timeout: 30000 });
+    await expect(errorDialog).toContainText(/more than one lane/i);
+    await errorDialog.getByRole('button', { name: 'OK' }).click();
+
+    // The refusal must not have closed the editor or reset what was typed.
+    await expect(editor).toBeVisible();
+    await expect(placeInputs.nth(0)).toHaveValue('1');
+    await expect(placeInputs.nth(2)).toHaveValue('1');
+
+    // Nothing was actually saved.
+    const [heat] = (await readHeats(page, raceId)).sort((a, b) => a.heatNumber - b.heatNumber);
+    expect(heat.lanes.every((l) => l.place === null)).toBe(true);
+});
+
 test('a skipped heat is passed over rather than left to run', async ({ page }) => {
     // `is_finished` rather than `has_results` — the distinction #55 got wrong.
     // A skipped heat holds no times, so anything asking "would rebuilding lose
@@ -261,12 +310,17 @@ test('a skipped heat is passed over rather than left to run', async ({ page }) =
 
     // Wait for the *server* to hold the skip before navigating away.
     //
-    // "Heat 2 is on screen" is a client-side consequence — `raceFlow` moves the
-    // running order on its own — so it can be true while `updateHeatResult` is
-    // still in flight, and `page.goto` is a full document load, which aborts
-    // whatever is in flight. Serially the mutation always won that race; with
-    // the suite running at once it did not, and the failure landed on the
+    // "Heat 2 is on screen" used to be a client-side consequence that could be
+    // true while `updateHeatResult` was still in flight — `RaceExecution.tsx`
+    // called `onNextHeat()` before awaiting the save ("Move UI forward
+    // IMMEDIATELY…"), so `page.goto`'s full document load could abort a save
+    // still in flight. Serially the mutation always won that race; with the
+    // suite running at once it did not, and the failure landed on the
     // assertion below rather than anywhere near the navigation that caused it.
+    // #765 fixed the ordering itself — the screen now waits for the save
+    // before advancing — so by the time "Heat 2" is on screen this is already
+    // true; the poll stays as a direct assertion on the thing that matters
+    // (the server holds the skip) rather than trusting the heading alone.
     await expect
         .poll(
             async () => {

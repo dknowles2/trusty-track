@@ -20,8 +20,11 @@ vi.mock('urql', async (importOriginal) => {
 // machine. Mocked so a test can drive the confirm/cancel outcome and assert
 // nothing ever reaches `window.confirm`.
 const mockShowConfirm = vi.fn();
+// Exposed the same way as `mockShowConfirm` (#765): a failed mutation must
+// tell the operator, and a test asserting that needs a handle on the call.
+const mockShowAlert = vi.fn();
 vi.mock('../../../context/AlertContext', () => ({
-    useAlert: () => ({ showConfirm: mockShowConfirm, showAlert: vi.fn(), showToast: vi.fn() }),
+    useAlert: () => ({ showConfirm: mockShowConfirm, showAlert: mockShowAlert, showToast: vi.fn() }),
 }));
 
 // Mock Modal component
@@ -97,6 +100,11 @@ describe('RaceExecution', () => {
         mockShowConfirm.mockResolvedValue(true);
         mockMutationFn.mockResolvedValue({ data: { prepareHeat: true } });
         (useMutation as any).mockReturnValue([{}, mockMutationFn]);
+        // `handleUpdateResult` (RaceControl.tsx) resolves to whether the save
+        // landed (#765) — default every test to the success case, the same
+        // way `mockMutationFn` defaults to one, and let the tests that care
+        // about a refusal override it.
+        mockOnUpdateResult.mockResolvedValue(true);
 
         mockHeatSession(null);
     });
@@ -205,6 +213,35 @@ describe('RaceExecution', () => {
             // A number, not the '4.0' the blob used to carry (#5).
             expect(args[1][0].time).toBe(4);
         });
+    });
+
+    // #765: `onUpdateResult` (`handleUpdateResult` in RaceControl.tsx) catches
+    // its own errors and shows an alert, but a rejected save (a duplicate
+    // place under POINTS, the race locked mid-click, a dropped connection)
+    // used to close this modal and discard everything the operator had
+    // typed regardless. `FreeRaceExecution.tsx`'s own edit modal already
+    // checks its mutation's result before closing — this brings the
+    // official Override/Edit modal in line with it.
+    it('keeps the Edit modal open and the typed values intact when the save is refused (#765)', async () => {
+        mockOnUpdateResult.mockResolvedValue(false);
+        render(
+            <RaceExecution
+                {...defaultProps}
+            />
+        );
+        fireEvent.click(screen.getByText('Edit'));
+
+        const inputs = screen.getAllByRole('spinbutton');
+        fireEvent.change(inputs[0], { target: { value: '4.0' } });
+
+        fireEvent.click(screen.getByText('Save Results'));
+
+        await waitFor(() => expect(mockOnUpdateResult).toHaveBeenCalled());
+
+        // The failed save must not discard what the operator typed, or close
+        // the one screen that still holds it.
+        expect(screen.getByTestId('mock-modal')).toBeInTheDocument();
+        expect(screen.getByText('Edit Results - Heat 1')).toBeInTheDocument();
     });
 
     describe('the Edit/Override modal follows the scoring strategy (#490, #525)', () => {
@@ -1146,6 +1183,90 @@ describe('RaceExecution', () => {
             await waitFor(() => expect(mockShowConfirm).toHaveBeenCalled());
             expect(mockOnUpdateResult).not.toHaveBeenCalled();
             expect(mockOnNextHeat).not.toHaveBeenCalled();
+        });
+
+        // #765: the screen used to call `onNextHeat()` *before* awaiting the
+        // save ("Move UI forward IMMEDIATELY to prevent 'flash back' race
+        // conditions"), so a slow or refused save left the operator on the
+        // next heat while the old one was never actually marked skipped.
+        // `raceDay.spec.ts`'s skipped-heat e2e test had to be changed to poll
+        // the server before navigating for exactly this reason — the fix
+        // here is to not move on until the server holds the skip, so that
+        // workaround becomes redundant rather than load-bearing.
+        it('does not advance to the next heat until the server holds the skip (#765)', async () => {
+            let resolveUpdate: (success: boolean) => void = () => {};
+            mockOnUpdateResult.mockImplementation(
+                () => new Promise<boolean>((resolve) => { resolveUpdate = resolve; }),
+            );
+            renderRunningHeat();
+
+            fireEvent.click(screen.getByText('Skip Heat'));
+            await waitFor(() => expect(mockOnUpdateResult).toHaveBeenCalled());
+
+            // The save is still in flight — the screen must not have moved on,
+            // and the timer must not have been released, yet.
+            expect(mockOnNextHeat).not.toHaveBeenCalled();
+            expect(mockMutationFn).not.toHaveBeenCalledWith({ trackId: 1 });
+
+            resolveUpdate(true);
+
+            await waitFor(() => expect(mockOnNextHeat).toHaveBeenCalledTimes(1));
+            expect(mockMutationFn).toHaveBeenCalledWith({ trackId: 1 });
+        });
+
+        it('stays on the heat and does not release the timer when the skip is refused (#765)', async () => {
+            mockOnUpdateResult.mockResolvedValue(false);
+            renderRunningHeat();
+
+            fireEvent.click(screen.getByText('Skip Heat'));
+
+            await waitFor(() => expect(mockOnUpdateResult).toHaveBeenCalled());
+            // `handleUpdateResult` already alerted; the screen must not act as
+            // though the skip landed.
+            expect(mockOnNextHeat).not.toHaveBeenCalled();
+            expect(mockMutationFn).not.toHaveBeenCalledWith({ trackId: 1 });
+        });
+    });
+
+    // #765: `prepareHeat` is fired from the auto-prepare command in
+    // `raceFlow.ts` and from the "Reset Heat" button with no check of
+    // `result.error` or a `false` return (the #337 refusal, "a different
+    // heat is RUNNING", or any device fault). The operator was left at
+    // "Waiting for Timer…" indefinitely with nothing said. `RunOffControl.tsx`'s
+    // `handlePrepare` already checks both; these bring RaceExecution in line.
+    describe('a failed prepareHeat is not ignored (#765)', () => {
+        it('alerts when the automatic arming of the next heat is refused', async () => {
+            mockMutationFn.mockResolvedValue({ data: { prepareHeat: false } });
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    activeExecutionHeat={{ ...mockHeat, lanes: [lane({ lane: 1, racerId: 101 })] }}
+                />
+            );
+
+            await waitFor(() => expect(mockMutationFn).toHaveBeenCalledWith({ heatId: 1 }));
+            await waitFor(() => expect(mockShowAlert).toHaveBeenCalled());
+        });
+
+        it('alerts when Reset Heat fails to re-arm the timer', async () => {
+            mockHeatSession({
+                trackId: 1,
+                heatId: 1,
+                phase: 'RUNNING',
+                timerState: 'RUNNING',
+                lanes: [liveLane({ lane: 1, racerId: 101 })],
+            });
+            mockMutationFn.mockResolvedValue({ error: new Error('boom') });
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    activeExecutionHeat={{ ...mockHeat, lanes: [lane({ lane: 1, racerId: 101 })] }}
+                />
+            );
+
+            fireEvent.click(screen.getByText('Reset Heat'));
+
+            await waitFor(() => expect(mockShowAlert).toHaveBeenCalled());
         });
     });
 });
