@@ -236,12 +236,106 @@ test('an operator override replaces the recorded time', async ({ page }) => {
 
 test('a refused Override save keeps the modal open with what was typed (#765)', async ({ page }) => {
     // The Edit/Override modal used to close on any save, successful or not,
-    // discarding every value the operator had just typed. `validate_lane_replacement`
-    // refuses two lanes sharing a place under POINTS scoring — a mistake a
-    // person entering a finishing order by hand can genuinely make — which
-    // makes this a real server refusal to prove the fix against rather than a
-    // mocked one.
+    // discarding every value the operator had just typed. This used to
+    // provoke the refusal by giving two lanes the same place under POINTS
+    // scoring — but #766 closed that route client-side (`lanes.placeIssue`
+    // now disables Save before the duplicate ever reaches the server; see
+    // the dedicated test for that below), so it can no longer stand in for
+    // a genuine *server* refusal here.
+    //
+    // What still reaches the server unchecked is a heat whose lanes changed
+    // underneath an open edit — the modal holds no live subscription telling
+    // it a racer was deleted elsewhere while it was open, so the payload it
+    // sends on Save still names a racer the server no longer has, and
+    // `validate_lane_replacement` refuses it. Recording a *different* heat
+    // in the round first is what makes that safe to provoke here: a round
+    // with nothing raced anywhere is eligible to be silently regenerated on
+    // a racer's deletion (`may_rebuild`), which would rebuild heat 1 itself
+    // out from under this test rather than merely vacating one of its lanes.
     const { raceId } = await seedRace(page, 'Race Day Refused Save');
+    await gql(
+        page,
+        `mutation SetPoints($id: Int!, $race: RaceUpdateInput!) {
+            updateRace(id: $id, race: $race) { id }
+        }`,
+        { id: raceId, race: { scoringStrategy: 'POINTS' } },
+    );
+    await createSchedule(page, raceId);
+
+    const seeded = (await readHeats(page, raceId)).sort((a, b) => a.heatNumber - b.heatNumber);
+    const [heat1, heat2] = seeded;
+    const heat1Lanes = [...heat1.lanes].sort((a, b) => a.lane - b.lane);
+    const doomedRacerId = heat1Lanes[0].racerId;
+    if (doomedRacerId === null) {
+        throw new Error("heat 1's own lane 1 has no racer to delete — check the seeded schedule");
+    }
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible({ timeout: 30000 });
+
+    // A POINTS race with a timer still shows Override, not Enter Results
+    // (#490/#525) — this track has one (FAKE).
+    await page.getByRole('button', { name: 'Override' }).click();
+    const editor = page.getByRole('dialog', { name: /Edit Results/ });
+    await expect(editor).toBeVisible();
+
+    // An ordinary, valid finishing order — #766's client-side check has
+    // nothing to say about this.
+    const placeInputs = editor.locator('input[type="number"]');
+    await placeInputs.nth(0).fill('1');
+    await placeInputs.nth(2).fill('2');
+
+    // Meanwhile, behind the open modal: record heat 2 (so the round is no
+    // longer eligible for a silent regeneration), then delete the racer
+    // sitting in heat 1's own lane 1. `ON DELETE SET NULL` vacates that lane
+    // the moment the delete lands — the editor already read the old value
+    // and has no way to know it changed.
+    await gql(
+        page,
+        `mutation RecordOtherHeat($heatId: Int!, $lanes: [HeatLaneInput!]!) {
+            updateHeatResult(heatId: $heatId, lanes: $lanes) { id }
+        }`,
+        {
+            heatId: heat2.id,
+            lanes: heat2.lanes.map((l, idx) => ({
+                lane: l.lane,
+                racerId: l.racerId,
+                placeholderSlot: l.placeholderSlot,
+                time: idx === 0 ? 5.0 : l.time,
+                place: l.place,
+            })),
+        },
+    );
+    await gql(page, `mutation DeleteDoomedRacer($id: Int!) { deleteRacer(id: $id) }`, {
+        id: doomedRacerId,
+    });
+
+    await editor.getByRole('button', { name: 'Save Results' }).click();
+
+    const errorDialog = page.getByRole('dialog', { name: 'Error' });
+    await expect(errorDialog).toBeVisible({ timeout: 30000 });
+    await expect(errorDialog).toContainText(/not part of this heat/i);
+    await errorDialog.getByRole('button', { name: 'OK' }).click();
+
+    // The refusal must not have closed the editor or reset what was typed.
+    await expect(editor).toBeVisible();
+    await expect(placeInputs.nth(0)).toHaveValue('1');
+    await expect(placeInputs.nth(2)).toHaveValue('2');
+
+    // Nothing from this Save landed on heat 1 — its lane 1 lost only the
+    // racer the vacate itself cleared, and no place was ever written.
+    const [heat] = (await readHeats(page, raceId)).sort((a, b) => a.heatNumber - b.heatNumber);
+    expect(heat.lanes.every((l) => l.place === null)).toBe(true);
+});
+
+test('a duplicate place is refused before Save is even clickable (#766)', async ({ page }) => {
+    // The client-side half of the story above: giving two lanes the same
+    // place under POINTS scoring used to reach the server and come back as
+    // the refusal the previous test provoked a different way. `lanes.placeIssue`
+    // now mirrors `crud.validate_lane_replacement`'s own rule and disables
+    // Save before the round trip — this is what closed that route, so it
+    // gets its own regression rather than only a unit test's word for it.
+    const { raceId } = await seedRace(page, 'Race Day Duplicate Place');
     await gql(
         page,
         `mutation SetPoints($id: Int!, $race: RaceUpdateInput!) {
@@ -254,32 +348,22 @@ test('a refused Override save keeps the modal open with what was typed (#765)', 
     await page.goto(`/race/${raceId}/control/race`);
     await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible({ timeout: 30000 });
 
-    // A POINTS race with a timer still shows Override, not Enter Results
-    // (#490/#525) — this track has one (FAKE).
     await page.getByRole('button', { name: 'Override' }).click();
     const editor = page.getByRole('dialog', { name: /Edit Results/ });
     await expect(editor).toBeVisible();
 
-    // Place, then optional Time, per lane row — give the first two lanes the
-    // same place, which the server refuses.
     const placeInputs = editor.locator('input[type="number"]');
     await placeInputs.nth(0).fill('1');
     await placeInputs.nth(2).fill('1');
-    await editor.getByRole('button', { name: 'Save Results' }).click();
 
-    const errorDialog = page.getByRole('dialog', { name: 'Error' });
-    await expect(errorDialog).toBeVisible({ timeout: 30000 });
-    await expect(errorDialog).toContainText(/more than one lane/i);
-    await errorDialog.getByRole('button', { name: 'OK' }).click();
+    await expect(editor.getByText('Place 1 is assigned to more than one lane.')).toBeVisible();
+    await expect(editor.getByRole('button', { name: 'Save Results' })).toBeDisabled();
 
-    // The refusal must not have closed the editor or reset what was typed.
-    await expect(editor).toBeVisible();
-    await expect(placeInputs.nth(0)).toHaveValue('1');
-    await expect(placeInputs.nth(2)).toHaveValue('1');
-
-    // Nothing was actually saved.
-    const [heat] = (await readHeats(page, raceId)).sort((a, b) => a.heatNumber - b.heatNumber);
-    expect(heat.lanes.every((l) => l.place === null)).toBe(true);
+    // Fixing the collision clears the error and re-enables Save — the same
+    // round trip the client-side check exists to avoid never happens here.
+    await placeInputs.nth(2).fill('2');
+    await expect(editor.getByText(/is assigned to more than one lane/)).toBeHidden();
+    await expect(editor.getByRole('button', { name: 'Save Results' })).toBeEnabled();
 });
 
 test('a skipped heat is passed over rather than left to run', async ({ page }) => {
