@@ -82,7 +82,15 @@ def test_delete_racing_group_logic(client, db):
 
 
 def test_delete_den_refused_when_round_is_scoped_to_it(client, db):
-    """#312: a racing-group-scoped round's FK must refuse the delete, not crash it."""
+    """#312: a racing-group-scoped round's FK must refuse the delete, not crash it.
+
+    #823: the refusal used to be a bare `false` with no message reaching the
+    client at all (`deleteRacingGroup` caught the `ValueError` and swallowed
+    it) — the operator saw "a round or an award" with no way to tell which.
+    The mutation now lets the `ValueError` through as an ordinary GraphQL
+    error, naming the round that is blocking the delete, the same shape
+    `createRunOffHeat`'s own validation already takes.
+    """
     race_id = create_race_context(db)
 
     racing_group_name = get_unique_name("ScopedDen")
@@ -103,7 +111,11 @@ def test_delete_den_refused_when_round_is_scoped_to_it(client, db):
     racing_group_id = resp.json()["data"]["createRacingGroup"]["id"]
 
     crud.create_round(
-        db, race_id=race_id, round_number=1, racing_group_id=int(racing_group_id)
+        db,
+        race_id=race_id,
+        round_number=1,
+        name="Wolves Prelims",
+        racing_group_id=int(racing_group_id),
     )
 
     mutation_delete = f"""
@@ -114,8 +126,12 @@ def test_delete_den_refused_when_round_is_scoped_to_it(client, db):
     resp = client.post("/graphql", json={"query": mutation_delete})
     assert resp.status_code == 200
     body = resp.json()
-    assert body.get("errors") is None
-    assert body["data"]["deleteRacingGroup"] is False
+    assert body.get("errors"), "expected the refusal to reach the client as an error"
+    assert any("Wolves Prelims" in err["message"] for err in body["errors"]), body[
+        "errors"
+    ]
+    # A non-null field's resolver raising propagates all the way to the root.
+    assert body.get("data") is None
 
     # The racing_group survives the refused delete.
     assert crud.get_racing_group(db, int(racing_group_id)) is not None
@@ -125,7 +141,12 @@ def test_delete_den_refused_when_award_is_scoped_to_it(client, db):
     """#755: `Award.racing_group_id` used to cascade — deleting a den that a
     "Fastest Wolf" award named silently destroyed the award (and any votes
     under it). Refuse the same way the round-scoped case does, rather than
-    losing a trophy on race morning with one confirm click."""
+    losing a trophy on race morning with one confirm click.
+
+    #823: `crud.delete_racing_group` already named the award in its
+    `ValueError` message — the mutation just discarded it. This pins that
+    the message now reaches the client.
+    """
     race_id = create_race_context(db)
 
     racing_group_name = get_unique_name("AwardedDen")
@@ -166,8 +187,11 @@ def test_delete_den_refused_when_award_is_scoped_to_it(client, db):
     resp = client.post("/graphql", json={"query": mutation_delete})
     assert resp.status_code == 200
     body = resp.json()
-    assert body.get("errors") is None
-    assert body["data"]["deleteRacingGroup"] is False
+    assert body.get("errors"), "expected the refusal to reach the client as an error"
+    assert any("Fastest Wolf" in err["message"] for err in body["errors"]), body[
+        "errors"
+    ]
+    assert body.get("data") is None
 
     # The den, and the award scoped to it, both survive the refused delete.
     assert crud.get_racing_group(db, racing_group_id) is not None

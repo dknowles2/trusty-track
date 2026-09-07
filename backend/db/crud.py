@@ -241,7 +241,14 @@ def delete_racing_group(db: Session, racing_group_id: int) -> models.RacingGroup
             .first()
         )
         if round_scoped:
-            raise ValueError("Cannot delete racing_group: a round is scoped to it.")
+            # Named the same way the award case below already names its
+            # blocker (#823) — a round created with no name of its own
+            # (the common case) falls back to "Round <n>" rather than
+            # leaving the operator to guess which one it is.
+            round_label = round_scoped.name or f"Round {round_scoped.round_number}"
+            raise ValueError(
+                f'Cannot delete racing_group: round "{round_label}" is scoped to it.'
+            )
 
         # A `SPEED` award narrowed to this racing group (#755) — "Fastest
         # Wolf" — has the identical shape as the round check above: nulling
