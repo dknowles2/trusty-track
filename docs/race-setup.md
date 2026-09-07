@@ -146,6 +146,10 @@ instead, since both remove something rather than adding to it.
 
 The **✕** on the right clears the selection and puts the bar away.
 
+If you search while racers are selected, the bar and every action above only
+count and act on the ones still visible — a racer the search has hidden is
+left untouched, and reappears selected once you clear the search.
+
 ### Final Roster Review
 
 Before moving to the "Control" phase, review your roster to ensure every racer is assigned to the correct den and has a unique car number.

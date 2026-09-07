@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Modal from '../../../components/ui/Modal';
 import { useMutation } from 'urql';
@@ -126,14 +126,24 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
     const [preview, setPreview] = useState<RosterImportPreview | null>(null);
     const [confirming, setConfirming] = useState(false);
     const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    // Set once a file has been confirmed, so the same file data cannot be
+    // sent a second time (#768) — `reset()`, which choosing a new file
+    // already calls, clears it.
+    const [imported, setImported] = useState(false);
     const [previewResult, previewMutation] = useMutation(config.previewDoc);
     const [, confirmMutation] = useMutation(config.confirmDoc);
+    // A synchronous re-entrancy guard alongside `confirming`'s own disabled
+    // state, the same shape `Home.tsx`'s practice-race button uses (#588):
+    // urql's fetching flag only lands once a render has caught up, and two
+    // clicks in the same tick can both fire before that happens.
+    const confirmingRef = useRef(false);
 
     const reset = () => {
         setFileName(null);
         setFileData(null);
         setPreview(null);
         setStatus(null);
+        setImported(false);
     };
 
     const runPreview = async (dataUrl: string) => {
@@ -170,8 +180,9 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
     };
 
     const handleImport = async () => {
-        if (!fileData || !preview) return;
+        if (!fileData || !preview || confirmingRef.current) return;
 
+        confirmingRef.current = true;
         setConfirming(true);
         setStatus(null);
         try {
@@ -179,11 +190,18 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
             if (result.error) throw result.error;
 
             const data = result.data as Record<string, number> | null | undefined;
-            const imported = data?.[config.confirmField] ?? 0;
+            const importedCount = data?.[config.confirmField] ?? 0;
             setStatus({
                 type: 'success',
-                message: `Imported ${imported} racer${imported === 1 ? '' : 's'}.`,
+                message: `Imported ${importedCount} racer${importedCount === 1 ? '' : 's'}.`,
             });
+            // The file data just sent must not still be sitting behind an
+            // enabled Import button (#768) — clearing it also drops `ready`
+            // to false, and the action row swaps to "Import Another File"
+            // once `imported` is set.
+            setFileData(null);
+            setPreview(null);
+            setImported(true);
             onImportSuccess();
         } catch (error: unknown) {
             setStatus({
@@ -192,6 +210,7 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
             });
         } finally {
             setConfirming(false);
+            confirmingRef.current = false;
         }
     };
 
@@ -320,13 +339,23 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
                     <button onClick={handleClose} className="secondary-btn" disabled={confirming}>
                         Close
                     </button>
-                    <button onClick={handleImport} className="primary-btn" disabled={!ready || confirming}>
-                        {confirming
-                            ? 'Importing...'
-                            : preview
-                              ? `Import ${preview.racers.length} Racer${preview.racers.length === 1 ? '' : 's'}`
-                              : 'Import'}
-                    </button>
+                    {imported ? (
+                        // #768: once a file has been confirmed, there is
+                        // nothing left for a click on this row to resend —
+                        // starting over is a deliberate act of its own, back
+                        // at the empty picker.
+                        <button onClick={reset} className="primary-btn">
+                            Import Another File
+                        </button>
+                    ) : (
+                        <button onClick={handleImport} className="primary-btn" disabled={!ready || confirming}>
+                            {confirming
+                                ? 'Importing...'
+                                : preview
+                                  ? `Import ${preview.racers.length} Racer${preview.racers.length === 1 ? '' : 's'}`
+                                  : 'Import'}
+                        </button>
+                    )}
                 </div>
             </div>
         </Modal>
