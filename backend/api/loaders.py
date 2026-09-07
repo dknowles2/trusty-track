@@ -20,7 +20,7 @@ data to the audience displays. ``clear()`` is also wired to the session's
 
 from __future__ import annotations
 
-from sqlalchemy import event
+from sqlalchemy import case, event, func
 from sqlalchemy.orm import Session, selectinload
 
 from backend.db import crud, models
@@ -53,6 +53,7 @@ class RequestLoaders:
         self._award_vote_tallies: dict[int, dict[int, list[tuple[int, int]]]] = {}
         self._award_contested: dict[int, dict[int, bool]] = {}
         self._races: dict[int, models.Race | None] = {}
+        self._racer_counts: dict[int, tuple[int, int]] = {}
 
         event.listen(db, "after_commit", self._on_commit)
 
@@ -76,6 +77,7 @@ class RequestLoaders:
         self._award_vote_tallies.clear()
         self._award_contested.clear()
         self._races.clear()
+        self._racer_counts.clear()
 
     # ------------------------------------------------------------------ #
     # Collections, loaded once per race                                    #
@@ -230,6 +232,46 @@ class RequestLoaders:
                 self._db.query(models.Race).filter(models.Race.id == race_id).first()
             )
         return self._races[race_id]
+
+    def prime_racer_counts(self, race_ids: list[int]) -> None:
+        """Load (registered, checked-in) counts for several races in one query.
+
+        ``Query.races`` lists every race the install has ever run (the Home
+        page, #749) — `Race.registered_count`/`checked_in_count` used to run
+        two ``COUNT`` queries per race, so the list scaled linearly with a
+        history that is never pruned. Call this once with every race id the
+        caller is about to resolve, before the per-race field resolvers run,
+        and each of them costs nothing further.
+        """
+        missing = [race_id for race_id in race_ids if race_id not in self._racer_counts]
+        if not missing:
+            return
+        rows = (
+            self._db.query(
+                models.Racer.race_id,
+                func.count(models.Racer.id),
+                func.sum(case((models.Racer.car_passed_inspection, 1), else_=0)),
+            )
+            .filter(models.Racer.race_id.in_(missing))
+            .group_by(models.Racer.race_id)
+            .all()
+        )
+        counted = {
+            race_id: (total, checked_in or 0) for race_id, total, checked_in in rows
+        }
+        for race_id in missing:
+            self._racer_counts[race_id] = counted.get(race_id, (0, 0))
+
+    def racer_counts_for_race(self, race_id: int) -> tuple[int, int]:
+        """(registered, checked-in) for one race — see :meth:`prime_racer_counts`.
+
+        Falls back to loading just this one race's counts if nothing primed
+        it first, so a single `race(raceId:)` query still costs one grouped
+        query rather than none at all.
+        """
+        if race_id not in self._racer_counts:
+            self.prime_racer_counts([race_id])
+        return self._racer_counts[race_id]
 
     # ------------------------------------------------------------------ #
     # Derived values                                                       #

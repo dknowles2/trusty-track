@@ -243,6 +243,87 @@ def test_heat_fields_do_not_scale_with_heat_count(client, populated_race, db):
     )
 
 
+GET_RACES_QUERY = """
+query GetRaces {
+  races {
+    id
+    name
+    registeredCount
+    checkedInCount
+  }
+}
+"""
+
+
+def _run_no_vars(client, query):
+    response = client.post("/graphql", json={"query": query})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert "errors" not in body, body["errors"]
+    return body
+
+
+def _seed_race_with_racers(db, organization, track, name, racer_count=3):
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            name=name, organization_id=organization.id, track_id=track.id
+        ),
+    )
+    for i in range(racer_count):
+        db.add(
+            models.Racer(
+                race_id=race.id,
+                first_name=f"Racer{i}",
+                last_name="Test",
+                car_number=i + 1,
+                car_passed_inspection=(i % 2 == 0),
+            )
+        )
+    db.commit()
+    return race
+
+
+def test_get_races_query_count_does_not_scale_with_race_count(client, db):
+    """The Home page lists every race the install has ever run (#749).
+
+    `Race.registeredCount`/`checkedInCount` used to run two `COUNT` queries
+    per race outside `RequestLoaders`, so `GetRaces` scaled linearly with
+    how many races an install had ever run — the one list that is never
+    pruned, unlike every other page this guard already covers. A grouped
+    query must serve any number of races at the same cost.
+    """
+    organization = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Count Pack")
+    )
+    track = crud.create_track(
+        db,
+        schemas.TrackCreate(name="Count Track", lane_count=4, timer_type="FAKE"),
+    )
+
+    for i in range(3):
+        _seed_race_with_racers(db, organization, track, f"Small Race {i}")
+
+    with _QueryCounter() as few_races:
+        body = _run_no_vars(client, GET_RACES_QUERY)
+    assert len(body["data"]["races"]) == 3, (
+        "a cheap query that returns nothing proves nothing"
+    )
+
+    for i in range(20):
+        _seed_race_with_racers(db, organization, track, f"Bulk Race {i}")
+
+    with _QueryCounter() as many_races:
+        body = _run_no_vars(client, GET_RACES_QUERY)
+    assert len(body["data"]["races"]) == 23
+
+    assert many_races.count <= few_races.count, (
+        f"23 races cost {many_races.count} SQL queries against "
+        f"{few_races.count} for 3; registeredCount/checkedInCount must not "
+        f"scale with the number of races."
+    )
+
+
 def test_bulk_move_to_den_is_a_single_update(client, db, populated_race):
     """Moving racers between racing_groups is one UPDATE, whatever the count.
 

@@ -187,6 +187,53 @@ async def test_forgetting_a_display_removes_it_from_the_list(db):
     assert Query().displays(race_id=1) == []
 
 
+@pytest.mark.asyncio
+async def test_forgetting_a_display_that_is_still_connected_does_not_strand_it(db):
+    """#758: a screen the operator forgets while it is still open must not
+    freeze on its last view with nothing server-side able to reach it again.
+
+    Before the fix, `forget_display` popped the row with no connectivity
+    check and never nudged the display's own subscription — so a still-open
+    `displayAssignment` stream just hung forever with no display left in the
+    registry for any later mutation to publish to. The fix re-registers the
+    display, live, as a fresh unassigned screen — exactly the state it would
+    be in on a genuine first connect — so the operator's list, and the
+    screen's own subscription, both recover.
+    """
+    stream = Subscription().display_assignment(_info(db), display_id="abc", race_id=1)
+    await _first(stream)
+    await Mutation().assign_display(view=DisplayView.PROJECTOR, display_id="abc")
+
+    # Drain the assignment's own payload before listening for the forget, or
+    # the two events race and the "following" task below just resolves to
+    # this one instead.
+    projected = await asyncio.wait_for(stream.__anext__(), timeout=TIMEOUT)
+    assert projected.view is DisplayView.PROJECTOR
+
+    following = asyncio.create_task(stream.__anext__())
+    await asyncio.sleep(0.05)
+    assert await Mutation().forget_display(display_id="abc") is True
+
+    # The still-open subscription hears about it and recovers rather than
+    # hanging forever.
+    payload = await asyncio.wait_for(following, timeout=TIMEOUT)
+    assert payload.display_id == "abc"
+    assert payload.assigned is False, "a forgotten screen must fall back to its URL"
+
+    # And it is back on the operator's list, not vanished.
+    assert [d.display_id for d in Query().displays(race_id=1)] == ["abc"]
+
+    # A later assignment reaches the screen again — nothing is permanently
+    # unreachable.
+    following2 = asyncio.create_task(stream.__anext__())
+    await asyncio.sleep(0.05)
+    await Mutation().assign_display(view=DisplayView.TIMING, display_id="abc")
+    payload2 = await asyncio.wait_for(following2, timeout=TIMEOUT)
+    assert payload2.view is DisplayView.TIMING
+
+    await stream.aclose()
+
+
 # -- the Display theme, pushed live (#586) ---------------------------------
 
 

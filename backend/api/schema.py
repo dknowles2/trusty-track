@@ -1971,26 +1971,19 @@ class Race:
 
     @strawberry.field
     def registered_count(self, info: Info) -> int:
-        """Get the number of registered racers."""
-        return (
-            info.context["db"]
-            .query(models.Racer)
-            .filter(models.Racer.race_id == self.id)
-            .count()
-        )
+        """Get the number of registered racers.
+
+        Through `RequestLoaders.racer_counts_for_race` (#749) — `Query.races`
+        primes every race's counts in one grouped query before this runs, so
+        the Home page's list does not scale with how many races the install
+        has ever run.
+        """
+        return _loaders(info).racer_counts_for_race(self.id)[0]
 
     @strawberry.field
     def checked_in_count(self, info: Info) -> int:
-        """Get the number of checked-in racers."""
-        return (
-            info.context["db"]
-            .query(models.Racer)
-            .filter(
-                models.Racer.race_id == self.id,
-                models.Racer.car_passed_inspection,
-            )
-            .count()
-        )
+        """Get the number of checked-in racers. See `registered_count`."""
+        return _loaders(info).racer_counts_for_race(self.id)[1]
 
     @strawberry.field
     def racing_groups(self, info: Info) -> list[RacingGroup]:
@@ -3086,10 +3079,15 @@ class Query:
 
     @strawberry.field
     def races(self, info: Info, skip: int = 0, limit: int = 100) -> list[Race]:
-        """Get a list of races with pagination."""
-        return typing.cast(
-            Any, crud.get_races(info.context["db"], skip=skip, limit=limit)
-        )
+        """Get a list of races with pagination.
+
+        Primes `registered_count`/`checked_in_count` for the whole page in
+        one grouped query (#749), rather than letting each row's field
+        resolvers pay for their own.
+        """
+        races = crud.get_races(info.context["db"], skip=skip, limit=limit)
+        _loaders(info).prime_racer_counts([race.id for race in races])
+        return typing.cast(Any, races)
 
     @strawberry.field
     def practice_race(self, info: Info) -> Race | None:
@@ -4181,11 +4179,21 @@ class Mutation:
         The only way one leaves it. A screen that is switched off looks exactly
         like one whose wifi dropped, so nothing but a person can tell them
         apart — and guessing either way is worse than a row somebody clears.
+
+        If the screen is actually still open, this must not strand it (#758):
+        nudging its own `display_assignment:{id}` channel — the same one
+        every other display mutation publishes to — wakes its still-running
+        `displayAssignment` subscription, which notices the row is gone and
+        re-registers itself as a fresh, unassigned display. That is exactly
+        the state a screen is in on a genuine first connect, so the operator
+        recovers a working, listed row rather than a screen frozen on its
+        last view with nothing server-side able to reach it again.
         """
         display = displays_service.registry.get(display_id)
         race_id = display.race_id if display else None
         removed = displays_service.registry.forget(display_id)
         if removed and race_id is not None:
+            await pubsub.publish(f"display_assignment:{display_id}", None)
             await _publish_displays(race_id)
         return removed
 
@@ -6651,6 +6659,16 @@ class Subscription:
         channel (a real assignment or that nudge) the current organization
         row is re-read, so a screen that was merely renamed picks up a theme
         changed a moment earlier for free, and vice versa.
+
+        **Being forgotten while still connected does not strand this screen
+        (#758).** `forget_display` nudges this same channel, and finding the
+        row gone here means exactly that — not a theme-only nudge, since
+        those never remove anything. Re-registering, live, is what an actual
+        reconnect would do anyway; the alternative (stop yielding and leave
+        the generator hanging with nothing left in the registry for any
+        later mutation to publish to) is the bug. The screen lands back on
+        an unassigned payload, the same "fall back to your own URL" state
+        every display starts in, and the operator's list gets it back too.
         """
         db = info.context["db"]
         async with pubsub.subscribe(f"display_assignment:{display_id}") as stream:
@@ -6660,10 +6678,14 @@ class Subscription:
                 yield _display(display, _display_theme_setting(db))
                 async for _ in stream:
                     current = displays_service.registry.get(display_id)
-                    if current is not None:
-                        db.expire_all()
-                        _loaders(info).clear()
-                        yield _display(current, _display_theme_setting(db))
+                    if current is None:
+                        current = displays_service.registry.connect(
+                            display_id, race_id, name
+                        )
+                        await _publish_displays(race_id)
+                    db.expire_all()
+                    _loaders(info).clear()
+                    yield _display(current, _display_theme_setting(db))
             finally:
                 # The socket closing is the only signal that a screen has gone
                 # away, so it has to be handled however the generator ends —
