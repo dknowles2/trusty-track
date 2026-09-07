@@ -22,7 +22,7 @@
  * the one spec that runs on its own.
  */
 
-import { test, expect } from './screenshots-setup';
+import { test, expect, settleTransitions } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -81,6 +81,11 @@ test('screenshot the settings panels', async ({ page }) => {
         .getByTestId(/track-card-\d+/)
         .filter({ has: page.locator(`input[value="${TRACK_NAME}"]`) });
     await expect(trackCard.getByLabel('Lane 1 works')).toBeVisible();
+    // Settled against `body`: the just-clicked SettingsNav button's own
+    // background-color transition (see `settleTransitions`'s doc comment)
+    // lives outside this card, but the layout shift it causes in the nav
+    // column is what can nudge the card's own sub-pixel position.
+    await settleTransitions(page.locator('body'));
 
     // The timer section, for docs/fake-timer.md — ownTrack() creates every
     // track with timerType FAKE, so this is the dropdown's default state, not

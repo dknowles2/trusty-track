@@ -29,10 +29,36 @@
  * Import `test` and `expect` from this file rather than from `@playwright/test`.
  */
 
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, type Locator } from '@playwright/test';
 
 /** Hidden rather than removed, so nothing reflows around the gap it leaves. */
 const HIDE_UNSTABLE = `[data-testid="app-version"] { visibility: hidden !important; }`;
+
+/**
+ * A fixed instant, so anything computed from `new Date()`/`Date.now()` reads
+ * the same on every run rather than drifting with however long the suite
+ * takes to reach it.
+ *
+ * `RaceExecution.tsx`'s Round Progress panel is the one that made this
+ * necessary: "Est. finish: {formatClockTime(estimatedFinishTime(...,
+ * new Date()))}" is computed at render time from the real clock, so any
+ * screenshot of an unraced round's Round Progress panel showed a genuinely
+ * different minute depending on how far into the run it was taken —
+ * `race-day/12`, `race-day/13` and `race-day/31` all carry it. Freezing
+ * `Date` is a better fix than documenting a third clock-dependent exception
+ * alongside the activity log and the check-in scanner, because — unlike
+ * those two — nothing here needs the *real* clock: the value only has to be
+ * stable, not current.
+ *
+ * `setTimeout`/`setInterval`/`requestAnimationFrame` are deliberately left
+ * alone (this is not `page.clock.install()`, which virtualizes those too) —
+ * freezing them would risk hanging anything that waits on a real timer
+ * firing (a WebSocket reconnect backoff, `raceFlow.ts`'s countdown), and
+ * nothing here needs that. Only `Date` reads the frozen instant; a timer
+ * still fires on the real wall clock, it just reads the same `Date.now()`
+ * every time it does.
+ */
+const FIXED_NOW = new Date('2026-01-15T16:00:00.000Z').getTime();
 
 /**
  * The key `displayIdentity.ts` reads and writes — kept in step with it here
@@ -50,6 +76,18 @@ const FIXED_DISPLAY_ID = 'trustytrack-docs-screenshot-display';
 
 export const test = base.extend({
     page: async ({ page }, use) => {
+        // Recharts' `<Bar isAnimationActive="auto">` (the default, and what
+        // `RaceStats.tsx` uses for both bar charts) checks
+        // `prefers-reduced-motion` itself and skips its JS-driven mount
+        // animation when it is set — so this alone, with no production code
+        // change, is what stops `race-stats/01-stats-tab-nav.png` (and any
+        // other bar chart photographed shortly after it mounts) from
+        // sometimes catching a bar mid-grow. `page.screenshot({ animations:
+        // 'disabled' })` does not reach this: that option finishes CSS
+        // transitions and Web Animations, but Recharts drives its bars with
+        // its own `requestAnimationFrame` loop, which is invisible to it.
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+
         // An init script rather than `addStyleTag`, because the specs navigate
         // many times and a style added to one document does not survive the
         // next one. This runs on every document, before the app renders, so no
@@ -64,6 +102,26 @@ export const test = base.extend({
             if (document.head) inject();
             else document.addEventListener('DOMContentLoaded', inject);
         }, HIDE_UNSTABLE);
+
+        // Freezes `Date` (constructor and `.now()`) to `FIXED_NOW`, leaving
+        // every real timer alone — see the constant's own comment for why
+        // this is not `page.clock.install()`. `Reflect.construct` rather than
+        // `super(...args)`, so the constructor does not have to match one of
+        // `Date`'s several overloaded signatures at the type level — it only
+        // has to forward whatever arguments it received, none when called as
+        // `new Date()` and whatever was given otherwise. `new Date(x)` with an
+        // argument still behaves normally, so a component formatting a
+        // *stored* timestamp (a heat's `recordedAt`, say) is unaffected.
+        await page.addInitScript((fixedNow: number) => {
+            const RealDate = window.Date;
+            function FrozenDate(...args: unknown[]): Date {
+                return Reflect.construct(RealDate, args.length === 0 ? [fixedNow] : args) as Date;
+            }
+            FrozenDate.prototype = RealDate.prototype;
+            Object.setPrototypeOf(FrozenDate, RealDate);
+            (FrozenDate as unknown as { now: () => number }).now = () => fixedNow;
+            window.Date = FrozenDate as unknown as DateConstructor;
+        }, FIXED_NOW);
 
         // Seeded before the app ever asks `displayIdentity.displayId()` for
         // one, so it never mints its own UUID. `localStorage.setItem` is a
@@ -150,6 +208,31 @@ export const test = base.extend({
             await page
                 .evaluate(() => document.fonts.ready)
                 .catch(() => {});
+            // `Modal.tsx`'s dialog element is itself the scrollable container
+            // (`overflowY: 'auto'`), not some inner div — so whenever an
+            // action inside it (filling a field near the foot of a tall form,
+            // clicking a control that was off-screen) makes Playwright scroll
+            // the *target* into view, it leaves the *dialog's own* `scrollTop`
+            // at whatever that took, and nothing ever puts it back. The next
+            // `page.screenshot()` then shows the dialog scrolled to a position
+            // that depends on exactly how much scrolling that click needed —
+            // itself a function of image-load timing and font metrics, which
+            // is why this reproduced under load and not in a quiet run. Two
+            // real captures of `race-day/02-check-in-modal-inspected.png`
+            // differed only in this: one scrolled past the "Racer Check In"
+            // heading, one not. Resetting every open dialog to the top before
+            // every page-level screenshot is what `settleTransitions` cannot
+            // do on its own — a scroll offset is not an `Animation` — and a
+            // locator-scoped screenshot (`dialog.screenshot()`, used where a
+            // spec wants only the dialog rather than the whole page) has to
+            // reset its own, since this hook never runs for it.
+            await page
+                .evaluate(() => {
+                    document.querySelectorAll('[role="dialog"]').forEach((el) => {
+                        el.scrollTop = 0;
+                    });
+                })
+                .catch(() => {});
             return takeScreenshot({ animations: 'disabled', ...options });
         }) as typeof page.screenshot;
 
@@ -162,6 +245,41 @@ export const test = base.extend({
 });
 
 export { expect };
+
+/**
+ * Waits for CSS transitions and animations running on this element or its
+ * descendants to reach their end state, then resolves.
+ *
+ * `page.screenshot({ animations: 'disabled' })` only finishes an animation
+ * that already exists (`Element.getAnimations()`) at the moment the
+ * screenshot is taken — a CSS transition triggered by a click does not
+ * necessarily exist yet at that instant, because the browser has not always
+ * run the style recalc that instantiates it. That is what made
+ * `race-setup/11-edit-race-settings.png` non-deterministic even with
+ * `animations: 'disabled'` already in play: `.settings-nav button`'s
+ * `transition: background-color 0.2s` (from the plain `button` rule in
+ * `index.css`) sometimes had not started by the time the screenshot's own
+ * "finish what's running" step looked for it, so the screenshot captured a
+ * genuinely in-flight frame — a real color, not noise, and worse under load
+ * (a busier machine gives the recalc longer to be still pending).
+ *
+ * The two `requestAnimationFrame` ticks give that recalc a chance to run
+ * before asking what is animating; by two frames after a click has already
+ * been awaited (this project's specs always `await` a `click()` and then an
+ * `expect(...).toBeVisible()` before calling this), the transition this
+ * exists for is reliably instantiated. Awaiting every animation's own
+ * `finished` promise then settles it exactly, rather than guessing its
+ * duration the way a `waitForTimeout` would.
+ */
+export async function settleTransitions(locator: Locator): Promise<void> {
+    await locator.evaluate(async (el) => {
+        await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        });
+        const animations = el.getAnimations({ subtree: true });
+        await Promise.all(animations.map((animation) => animation.finished.catch(() => undefined)));
+    });
+}
 
 /**
  * A small, repeatable number in `[0, span)` for `key`.
