@@ -246,6 +246,86 @@ async def test_a_recorded_arm_sequence_confirms_rather_than_faults():
     assert mgr._last_error is None
 
 
+async def test_a_recorded_reconnect_rearm_confirms_rather_than_faults():
+    """#815, checked against the same real K3 recording as the arm-sequence
+    test above.
+
+    `_process_line`'s CONNECTED-state re-arm branch is a second entry point
+    into arming — a device that reboots mid-heat and reconnects has
+    `prepare_heat_commands` re-sent there directly, not through
+    `prepare_heat`, and #815 taught that branch to start the same arm-ack
+    watch #780 added to the ordinary path. This replays the identical
+    mask/arm sequence from `fasttrack-mark-set.playback` a second time,
+    through the reconnect branch, to prove the watch it now starts survives
+    a real K3's own reply shape there too — including the same `MG` "AC"
+    that #780's test above shows never actually arrives. Before #815's fix
+    the watch was simply never started on this path, so a dropped re-arm on
+    reconnect went unnoticed; that regression is what
+    `test_timer_arm_ack.py`'s synthetic reconnect tests pin directly, and
+    what this recording checks is that the same fix does not turn a real
+    device's own quirky-but-working acks into a false FAULT.
+    """
+    mgr = TimerManager(track_id=1, device=MICROWIZARD)
+
+    async def write(data: bytes) -> None:
+        pass
+
+    mgr.set_write_fn(write)
+    mgr._state = TimerState.IDLE
+
+    heat_prep_triggers = {"MG", "ME", "MF", "LR"}
+
+    await mgr.prepare_heat(heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b001111)
+    assert mgr._state is TimerState.ARMED
+
+    for trigger, line in device_lines("fasttrack-mark-set"):
+        if trigger not in heat_prep_triggers:
+            continue
+        await mgr.receive_bytes(line + b"\r")
+
+    if mgr._arm_ack_task is not None:
+        await mgr._arm_ack_task
+
+    assert mgr._state is TimerState.ARMED
+    assert mgr._last_error is None
+
+    # `_watch_arm_ack` never clears `_arm_ack_task` on a confirmed arm (it
+    # only ever moves the state backward, from ARMED to FAULT) -- so the
+    # finished task from the first arming is still sitting there. Clear the
+    # reference before the reconnect so the next assertion proves the
+    # reconnect branch itself started a new watch, rather than merely
+    # finding the old one.
+    mgr._arm_ack_task = None
+
+    # The device reboots and reconnects mid-heat: `handle_connect` puts the
+    # manager back in CONNECTED, and the real K3's own identification line
+    # (the one `is_identified_by` actually matches, not the whole
+    # multi-line greeting) arrives next.
+    mgr._state = TimerState.CONNECTED
+    banner_line = next(
+        line
+        for trigger, line in device_lines("fasttrack-mark-set")
+        if trigger == "RV" and MICROWIZARD.is_identified_by(line)
+    )
+    await mgr.receive_bytes(banner_line + b"\r")
+
+    assert mgr._state is TimerState.ARMED
+    assert mgr._arm_ack_task is not None
+
+    # The device re-sends the identical mask/arm sequence the reconnect
+    # branch just asked for, exactly as it did on the original arming.
+    for trigger, line in device_lines("fasttrack-mark-set"):
+        if trigger not in heat_prep_triggers:
+            continue
+        await mgr.receive_bytes(line + b"\r")
+
+    if mgr._arm_ack_task is not None:
+        await mgr._arm_ack_task
+
+    assert mgr._state is TimerState.ARMED
+    assert mgr._last_error is None
+
+
 async def test_a_recorded_session_is_mirrored_through_the_manager():
     """Stage 1 of #553, proved against real device output rather than a line
     we wrote down ourselves.
