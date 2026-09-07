@@ -102,7 +102,7 @@ describe('Modal accessibility and focus management (#788)', () => {
         const secondInput = screen.getByTestId('second-input');
         const submitBtn = screen.getByTestId('submit-btn');
         const cancelBtn = screen.getByTestId('cancel-btn');
-        const closeBtn = screen.getByLabelText(/close dialog/i);
+        const closeBtn = screen.getByRole('button', { name: '×' });
 
         expect(document.activeElement).toBe(firstInput);
 
