@@ -24,6 +24,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from backend.db import models
 from backend.services.timer.devices import MICROWIZARD, TimerProfile
 from backend.services.timer.devices.base import (
     GateClosed,
@@ -203,6 +204,46 @@ def test_the_derby_timer_session_reads_end_to_end():
         (2, 1.7269),
         (3, 2.0396),
     ]
+
+
+async def test_a_recorded_arm_sequence_confirms_rather_than_faults():
+    """#780, checked against the one real recording available for the
+    profile it affects most.
+
+    `MICROWIZARD.acks` declares an acknowledgement for both the unmask
+    command (`MG` → `AC`) and the per-lane mask/arm commands (`ME`, `MF`,
+    `LR` → `*`) — but this real K3 session shows `MG`'s own declared "AC"
+    never actually arrives, only an echo, while the later commands' do,
+    cleanly. `TimerManager._watch_arm_ack` deliberately only waits on the
+    *arm* command (`LR`) for exactly this reason (see its docstring); this
+    replays the session mechanically to prove that choice against the
+    recording rather than only asserting it in prose. Before that choice was
+    made — waiting on `MG` too — this same replay landed in FAULT.
+    """
+    mgr = TimerManager(track_id=1, device=MICROWIZARD)
+
+    async def write(data: bytes) -> None:
+        pass
+
+    mgr.set_write_fn(write)
+    mgr._state = TimerState.IDLE
+
+    # Lanes E and F (5, 6) are masked out in this recording — matching lanes
+    # A-D (1-4) armed.
+    await mgr.prepare_heat(heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b001111)
+    assert mgr._state is TimerState.ARMED
+
+    heat_prep_triggers = {"MG", "ME", "MF", "LR"}
+    for trigger, line in device_lines("fasttrack-mark-set"):
+        if trigger not in heat_prep_triggers:
+            continue
+        await mgr.receive_bytes(line + b"\r")
+
+    if mgr._arm_ack_task is not None:
+        await mgr._arm_ack_task
+
+    assert mgr._state is TimerState.ARMED
+    assert mgr._last_error is None
 
 
 async def test_a_recorded_session_is_mirrored_through_the_manager():
