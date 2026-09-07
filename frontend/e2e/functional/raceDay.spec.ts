@@ -257,6 +257,141 @@ test('the last heat of the race raises a summary pointing at standings, awards a
     await expect(page.getByRole('dialog', { name: 'Race Complete!' })).toHaveCount(0);
 });
 
+test('a round summary can be raised again once its round is decided a second time (#856)', async ({
+    page,
+}) => {
+    // `RaceControl`'s `roundSummary` sticky state used to clear only at its
+    // own two explicit call sites — re-running the *active* heat (which
+    // clears the result through `handleRunHeat`), and dismissing the summary
+    // (which clears it through `handleNextHeat`). Dismissing the summary by
+    // its own "×" goes through neither: it calls `flow.dismissSummary`
+    // directly, hiding the modal without touching `roundSummary` at all.
+    //
+    // Correcting a result through Edit/Override (`handleUpdateResult`) is a
+    // third path, and it never clears `roundSummary` either. That would be
+    // invisible on its own — the modal is already hidden — except that
+    // `raceFlow.ts`'s own "already summarised this round" guard
+    // (`haveSummarised`/`summarisedRoundId`) only resets when `roundSummary`
+    // itself genuinely becomes falsy. If it never does, a round that
+    // un-decides and is later decided again is never re-announced: the
+    // stale `roundSummary` keeps naming the same round id, so the guard
+    // reads the second decision as one it has already shown.
+    //
+    // All but the last prelim heat are written straight to the backend —
+    // fast, and it does not matter how the client learns about them, because
+    // `updateHeatResult`'s own publish carries only the one heat it touched
+    // (#12's cache-merge optimization) and never forces a refetch. Only the
+    // *last* heat is run on screen, through the fake timer, because the
+    // timer's own result path publishes with no specific `kind` and so
+    // always forces a live refetch — the one thing that actually refreshes a
+    // *round's* advancement status on this client, as opposed to one heat's
+    // own lanes.
+    const { raceId, racers } = await seedRace(page, 'Race Day Summary Reraise');
+    await createSchedule(page, raceId, { name: 'Pack Final', numTopRacers: 3 });
+
+    const rounds = await readRounds(page, raceId);
+    const prelim = rounds.find((r) => r.advancementSource === null)!;
+    const prelimHeats = (await readHeats(page, raceId))
+        .filter((h) => h.roundId === prelim.id)
+        .sort((a, b) => a.heatNumber - b.heatNumber);
+
+    await recordRound(page, prelimHeats.slice(0, -1), racers);
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+    await page.getByRole('button', { name: 'Start Timer' }).click();
+    await page.getByRole('button', { name: 'Finish Heat' }).click();
+    // The heat's own "Edit" button only appears once it holds a result — a
+    // signal scoped to *this* heat, unlike counting rendered times, which
+    // also matches every already-recorded heat listed under "Previous Heats".
+    await expect(page.getByRole('button', { name: /^Edit(?! race)/ })).toBeVisible({
+        timeout: 30000,
+    });
+
+    // The championship field just filled in live — the modal celebrating it
+    // being decided.
+    const summary = page.getByRole('dialog', { name: 'Round Complete!' });
+    await expect(summary).toBeVisible({ timeout: 30000 });
+
+    // Dismissed the ordinary way — an operator moving on to the next heat.
+    // The modal's own "×" is `flow.dismissSummary`, not `handleNextHeat`, so
+    // this does not touch `roundSummary` either way; it only hides the modal.
+    await summary.getByRole('button', { name: '×' }).click();
+    await expect(summary).toBeHidden();
+
+    // Clear this heat's result through Edit — blanking every time field
+    // sends exactly what `cleared()` sends for a Re-Run, so the backend
+    // treats it identically, but this reaches it through the one path
+    // (`handleUpdateResult`) that has no explicit clear site. The
+    // preliminary round is no longer fully raced, so the championship
+    // round's field reverts to placeholders.
+    await page.getByRole('button', { name: /^Edit(?! race)/ }).click();
+    const editor = page.getByRole('dialog', { name: /Edit Results/ });
+    await expect(editor).toBeVisible();
+    for (const input of await editor.locator('input[type="number"]').all()) {
+        await input.fill('');
+    }
+    await editor.getByRole('button', { name: 'Save Results' }).click();
+    await expect(editor).toBeHidden();
+
+    // Run the same heat again — an ordinary "this one still needs a time"
+    // action. The championship round becomes decided a second time.
+    await expect(page.getByRole('button', { name: 'Start Timer' })).toBeVisible({
+        timeout: 30000,
+    });
+    await page.getByRole('button', { name: 'Start Timer' }).click();
+    await page.getByRole('button', { name: 'Finish Heat' }).click();
+
+    // A round decided a second time deserves a summary a second time.
+    await expect(summary).toBeVisible({ timeout: 30000 });
+});
+
+test('clearing a result un-completes a race whose summary was already shown (#856)', async ({
+    page,
+}) => {
+    // `raceJustCompleted` had no clear path at all — once the race finished
+    // once, the flag stayed true for the rest of the page's life (see the
+    // comment this replaced), so finishing the race a second time, after
+    // fixing a result that turned out to be wrong, could never raise "Race
+    // Complete!" again.
+    const { raceId, racers } = await seedRace(page, 'Race Day Completion Reset');
+    await createSchedule(page, raceId);
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+
+    const heats = await readHeats(page, raceId);
+    await recordRound(page, heats, racers);
+
+    const summary = page.getByRole('dialog', { name: 'Race Complete!' });
+    await expect(summary).toBeVisible({ timeout: 30000 });
+
+    // Left open deliberately, and cleared from elsewhere — the same shape as
+    // the round-summary case above. Clearing any one heat's result, not
+    // necessarily the last one recorded, is enough to make
+    // `heats.every(hasRun)` false again.
+    const toClear = (await readHeats(page, raceId)).find((h) => h.id === heats[0].id)!;
+    await gql(
+        page,
+        `mutation ClearHeat($heatId: Int!, $lanes: [HeatLaneInput!]!) {
+            updateHeatResult(heatId: $heatId, lanes: $lanes) { id }
+        }`,
+        {
+            heatId: toClear.id,
+            lanes: toClear.lanes.map((l) => ({
+                lane: l.lane,
+                racerId: l.racerId,
+                placeholderSlot: l.placeholderSlot,
+                time: null,
+                place: null,
+                skipped: false,
+            })),
+        },
+    );
+
+    await expect(summary).toBeHidden({ timeout: 30000 });
+});
+
 test('an operator override replaces the recorded time', async ({ page }) => {
     // The edit path writes the heat's lanes from the screen, which is the one
     // place a stored result is changed by hand. Worth crossing end to end

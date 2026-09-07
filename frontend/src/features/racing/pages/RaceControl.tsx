@@ -208,10 +208,9 @@ export default function RaceControl() {
   }, [race?.rounds, fetching]);
 
   // The race as a whole has just finished (#847) — the same edge-detection
-  // shape as the round summary above, one level up, and following its own
-  // choice not to reset the sticky flag from inside this effect: once true
-  // it stays true for the rest of this page's life, exactly as `roundSummary`
-  // above is only ever set, never cleared, by its own detector.
+  // shape as the round summary above, one level up. Raised here by a genuine
+  // edge in the effect; cleared below, during render, the same way
+  // `roundSummary` is (#856).
   useEffect(() => {
     if (fetching || !race?.heats) return;
 
@@ -235,6 +234,37 @@ export default function RaceControl() {
   ) {
     setHandPickRoundId(pendingHandPickRoundId);
     setPendingHandPickRoundId(null);
+  }
+
+  // A round's field, or the whole race, can stop being decided after its
+  // summary has already been raised (#856) — correcting an earlier
+  // preliminary result resets every later championship round's field back to
+  // placeholders (`.claude/rules/advancement-and-awards.md`), and clearing
+  // any heat's result can un-complete a race that had just finished. Neither
+  // is necessarily the heat on screen, so the two explicit clears above (a
+  // re-run of the active heat, dismissing the summary) do not cover it, and
+  // `raceJustCompleted` had no clear at all.
+  //
+  // Adjusted during render rather than in an effect, for the same reason as
+  // the hand-pick picker above: an effect calling `setState` here would trip
+  // `react-hooks/set-state-in-effect` (a bare "if this prop-derived condition
+  // holds, sync that into state" is exactly the shape it flags), and would
+  // leave a stale, no-longer-true summary on screen for one extra frame
+  // regardless. This does not undo dismissal — a dismissed summary already
+  // reads `roundSummary === null` / `raceJustCompleted` unaffected by this
+  // check, so there is nothing here to re-open it; it only ever moves a
+  // *currently displayed* stale summary back to absent, which is what lets
+  // `raceFlow.ts`'s own "the round stopped being decided" branch (driven by
+  // `hasRoundSummary`/`hasRaceSummary` flipping false) actually fire and
+  // close the modal if it is still up.
+  if (roundSummary && race?.rounds && !fetching) {
+    const stillDecided = decidedRoundIds(race.rounds).some((id) => id === roundSummary.roundId);
+    if (!stillDecided) {
+      setRoundSummary(null);
+    }
+  }
+  if (raceJustCompleted && race?.heats && !fetching && !isRaceComplete) {
+    setRaceJustCompleted(false);
   }
 
   const handleAddRound = async (config: {
