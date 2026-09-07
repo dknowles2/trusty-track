@@ -482,13 +482,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     return (
         <>
-            <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px' }}>
+            <div className="race-execution-layout">
 
                 {/* LEFT COLUMN: Active Heat */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                     {/* Active Heat Card */}
-                    <div style={{ background: 'var(--surface-color)', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--cub-scouting-gold)' }}>
+                    <div className="race-execution-active-card" style={{ background: 'var(--surface-color)', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--cub-scouting-gold)' }}>
                         {showProxyControls && trackId != null && (
                             <SerialProxyConnector trackId={trackId} />
                         )}
@@ -595,15 +595,16 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             {liveLanes.map((r) => {
                                 const racer = racers[r.racerId || 0];
                                 return (
-                                    <div key={r.lane} style={{ display: 'flex', alignItems: 'center', padding: '15px', background: 'var(--surface-tint-color)', borderRadius: '8px', borderLeft: '5px solid var(--border-color)' }}>
+                                    <div key={r.lane} className="race-execution-lane-row" style={{ display: 'flex', alignItems: 'center', padding: '15px', background: 'var(--surface-tint-color)', borderRadius: '8px', borderLeft: '5px solid var(--border-color)' }}>
                                         <LaneBadge
                                             color={colorForLane(laneColors, r.lane)}
+                                            className="race-execution-lane-badge"
                                             style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: 'var(--text-muted-color)' }}
                                         >
                                             Lane {r.lane}
                                         </LaneBadge>
 
-                                        <div style={{
+                                        <div className="race-execution-lane-content" style={{
                                             flex: 1,
                                             padding: '10px 15px',
                                             background: r.place === 1 ? 'var(--highlight-gold-tint-color)' : 'transparent',
@@ -612,7 +613,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             display: 'flex',
                                             alignItems: 'center'
                                         }}>
-                                            <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                            <div className="race-execution-avatar-wrap" style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                                                 <RacerAvatar
                                                     racer={{
                                                         id: racer?.id || r.racerId || 0,
@@ -625,14 +626,14 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             </div>
 
                                             <div style={{ flex: 1 }}>
-                                                <div style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>
+                                                <div className="race-execution-racer-name" style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>
                                                     {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0), slowestRoundIds?.has(activeExecutionHeat.roundId))}
                                                 </div>
                                                 {racer && <div style={{ fontSize: '1rem', color: 'var(--text-muted-color)' }}>{racer.carNumber ? `#${racer.carNumber}` : ''}</div>}
                                             </div>
 
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                                <div style={{ fontSize: '1.5rem', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontWeight: 'bold' }}>
+                                            <div className="race-execution-time-place" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                                <div className="race-execution-time" style={{ fontSize: '1.5rem', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontWeight: 'bold' }}>
                                                     {formatLaneTime(r.time) ?? '--'}
                                                 </div>
                                                 {r.place !== null && (
@@ -671,9 +672,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             })}
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '15px', borderTop: '1px solid var(--divider-color)' }}>
+                        <div className="race-execution-controls-bottom" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '15px', borderTop: '1px solid var(--divider-color)' }}>
                             {/* BOTTOM LEFT: Controls */}
-                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <div className="race-execution-controls-left" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                 {isCompleted ? (
                                     <>
                                         <button
@@ -800,7 +801,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             </div>
 
                             {/* BOTTOM RIGHT: sound, then auto-advance */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+                            <div className="race-execution-controls-right" style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
                             {/* The finish chime (#208). Off until somebody asks
                                 for it, and remembered per device — the
                                 operator's laptop wants it, a wall display does

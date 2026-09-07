@@ -1382,4 +1382,18 @@ describe('RaceExecution', () => {
             await waitFor(() => expect(mockShowAlert).toHaveBeenCalled());
         });
     });
+
+    it('renders with race-execution-layout class for responsive single-column collapse (#782)', () => {
+        const { container } = render(
+            <RaceExecution
+                {...defaultProps}
+                activeExecutionHeat={{ ...mockHeat, lanes: [lane({ lane: 1, racerId: 101 })] }}
+            />
+        );
+
+        const layout = container.querySelector('.race-execution-layout');
+        expect(layout).toBeInTheDocument();
+        expect(container.querySelector('.race-execution-active-card')).toBeInTheDocument();
+    });
 });
+
