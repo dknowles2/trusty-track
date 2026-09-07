@@ -362,7 +362,12 @@ def test_the_each_group_champion_stops_counting_toward_the_pack_standings(db):
     db.commit()
 
     # The Wolves' champion wins the final outright.
-    _heat(db, race, champ, [_lane(1, fast_wolf.id, 2.0, 1), _lane(2, fast_bear.id, 3.0, 2)])
+    _heat(
+        db,
+        race,
+        champ,
+        [_lane(1, fast_wolf.id, 2.0, 1), _lane(2, fast_bear.id, 3.0, 2)],
+    )
 
     standings = scoring.get_leaderboard(db, race.id)
     ids = [s["racer_id"] for s in standings]
@@ -385,7 +390,12 @@ def test_an_each_group_final_reads_the_aggregate_scope_not_each_den(db):
     )
     race.exclude_round_winners_from_qualifying_standings = True
     db.commit()
-    _heat(db, race, champ, [_lane(1, fast_wolf.id, 2.0, 1), _lane(2, fast_bear.id, 3.0, 2)])
+    _heat(
+        db,
+        race,
+        champ,
+        [_lane(1, fast_wolf.id, 2.0, 1), _lane(2, fast_bear.id, 3.0, 2)],
+    )
 
     # The prelim round's own page is scored `round_id=prelim.id`, not the
     # `round_id=None` scope EACH_GROUP's field was drawn from — the pack
@@ -408,5 +418,9 @@ def test_a_tie_for_first_in_the_final_excludes_every_co_champion(db):
 
     standings = scoring.get_leaderboard(db, race.id)
     ids = [s["racer_id"] for s in standings]
-    assert fast.id not in ids, "a co-champion must be excluded, not just whichever sorts first"
-    assert slow.id not in ids, "a co-champion must be excluded, not just whichever sorts first"
+    assert fast.id not in ids, (
+        "a co-champion must be excluded, not just whichever sorts first"
+    )
+    assert slow.id not in ids, (
+        "a co-champion must be excluded, not just whichever sorts first"
+    )

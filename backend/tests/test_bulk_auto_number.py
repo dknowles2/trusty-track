@@ -211,9 +211,7 @@ def test_an_exhausted_racing_group_range_leaves_the_remainder_unnumbered(
     b = _racer(db, race, "Bea", "Bolt", racing_group_id=lions.id)
     c = _racer(db, race, "Cy", "Bolt", racing_group_id=lions.id)
 
-    updated = crud.auto_number_racers(
-        db, race.id, racer_ids=[a.id, b.id, c.id]
-    )
+    updated = crud.auto_number_racers(db, race.id, racer_ids=[a.id, b.id, c.id])
 
     # Sorted by (last_name, first_name) — Bolt, Bolt, Bolt then by first
     # name: Ace, Bea, Cy — so Ace and Bea take the two available numbers and
