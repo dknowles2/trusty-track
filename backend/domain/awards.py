@@ -167,7 +167,9 @@ def recipient_of(rule: SpeedRule, standings: Sequence[Standing]) -> int | None:
     return eligible[index].racer_id
 
 
-def place_is_contested(rule: SpeedRule, standings: Sequence[Standing]) -> bool:
+def place_is_contested(
+    rule: SpeedRule, standings: Sequence[Standing], position: int | None = None
+) -> bool:
     """Whether this award's place is a tie the tiebreak chain left standing (#540).
 
     ``standings`` must carry each row's ``rank`` — see
@@ -175,6 +177,21 @@ def place_is_contested(rule: SpeedRule, standings: Sequence[Standing]) -> bool:
     :func:`backend.domain.scoring.standings_ranks` stamped it with. Narrowed
     and ordered exactly as :func:`recipient_of` narrows and orders, so the two
     always agree on which row *is* the recipient.
+
+    ``position`` is the 1-based row the award actually resolved to —
+    :attr:`backend.domain.roll_down.Resolution.position` — and, when given, is
+    what gets checked instead of ``rule.place`` (#757). With
+    ``Race.oneTrophyPerRacer`` on, the roll-down can seat the recipient
+    several rows below an award's configured place, and a tie at that
+    *nominal* row says nothing about whether the row the trophy actually
+    landed on is contested: the nominal row can be a tie the roll-down has
+    already stepped past (nobody there is the real recipient), and the real
+    recipient's row can be a tie ``rule.place`` never looks at. A caller with
+    no roll-down to consult — a plain domain-level check, or the isolated
+    resolution `one_trophy_per_racer=False` gives every race that existed
+    before #615 — omits it and gets ``rule.place`` back, which is exactly what
+    :func:`backend.domain.roll_down.resolve_awards` computes as ``position``
+    for that case too, so the two never disagree.
 
     A place shares its rank with the row immediately above or below it in
     that narrowed order — never both at once being required, since a rank can
@@ -185,7 +202,7 @@ def place_is_contested(rule: SpeedRule, standings: Sequence[Standing]) -> bool:
     trophy nobody has run for.
     """
     eligible = eligible_standings(rule, standings)
-    index = rule.place - 1
+    index = (position - 1) if position is not None else (rule.place - 1)
     if index >= len(eligible):
         return False
 
