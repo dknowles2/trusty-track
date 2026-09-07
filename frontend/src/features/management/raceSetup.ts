@@ -334,6 +334,26 @@ export interface RacingGroupDraft {
 }
 
 /**
+ * A wizard-made race whose groups already have a block of numbers of their
+ * own should actually use them (#811, follow-up to #741/#810). The groups
+ * step offers a suggested range on every group — `scaffoldGroups` and
+ * `blankGroup` both fill one in — so the flat form's own `'GLOBAL'` default
+ * used to leave every one of those ranges unused unless the operator found
+ * and changed the Numbering control by hand.
+ *
+ * Only for the scratch flow: a copied race (`prefillFromRace`) already
+ * carries the *previous* race's own numbering strategy verbatim, which this
+ * must not second-guess.
+ */
+export function numberingStrategyFor(
+    groups: readonly RacingGroupDraft[],
+): string | undefined {
+    return groups.some((g) => g.car_number_range_start != null)
+        ? 'PER_GROUP'
+        : undefined;
+}
+
+/**
  * The groups the answers scaffold, each with the number block Manage Dens
  * would have offered it in turn — 100–199, 200–299 — so a race set up here
  * numbers exactly as one set up by hand. Under global numbering the ranges

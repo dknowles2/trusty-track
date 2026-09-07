@@ -287,14 +287,18 @@ def test_bulk_move_to_den_is_a_single_update(client, db, populated_race):
     #
     # Four, not three, since #15: a mutation reads the configured PINs once to
     # work out the caller's role. Five since #219: it also writes one audit
-    # entry. Both are constant and only a mutation pays either — queries and
-    # subscriptions resolve no role and record nothing, which is why this is
-    # the only count in this file that has moved. What the number still holds
-    # is the property that matters: it does not grow with the racers moved.
-    assert counter.count <= 5, (
+    # entry. Six since #804: the incoming `racingGroupId` is checked once
+    # against the race's own id (`_validate_racing_group_membership`), a
+    # different race's own group otherwise being accepted with nothing
+    # saying so. All three are constant and only a mutation pays them —
+    # queries and subscriptions resolve no role, record nothing, and check
+    # no membership, which is why this is the only count in this file that
+    # has moved. What the number still holds is the property that matters:
+    # it does not grow with the racers moved.
+    assert counter.count <= 6, (
         f"Moving {len(racer_ids)} racers issued {counter.count} SQL statements; "
-        f"it should be the UPDATE, the role lookup, the audit entry, and little "
-        f"else."
+        f"it should be the UPDATE, the role lookup, the membership check, the "
+        f"audit entry, and little else."
     )
 
 

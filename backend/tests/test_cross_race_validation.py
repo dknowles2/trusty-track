@@ -15,6 +15,8 @@ URL field is rendered on public, unauthenticated audience surfaces, and only
 `uploadImage`'s own `/static/...` shape belongs there.
 """
 
+import pytest
+
 from backend.api import demo_policy
 from backend.db import crud, models, schemas
 
@@ -490,3 +492,114 @@ def test_update_award_refuses_reassigning_to_a_racing_group_from_another_race(
     assert body.get("errors")
     db.expire_all()
     assert db.get(models.Award, award.id).racing_group_id is None
+
+
+# --------------------------------------------------------------------------- #
+# #804 — a racer's racingGroupId must belong to the racer's own race          #
+# --------------------------------------------------------------------------- #
+
+CREATE_RACER_WITH_GROUP = """
+mutation($racer: RacerInput!) {
+  createRacer(racer: $racer) { id racingGroupId }
+}
+"""
+
+UPDATE_RACER_WITH_GROUP = """
+mutation($id: Int!, $racer: RacerInput!) {
+  updateRacer(id: $id, racer: $racer) { id racingGroupId }
+}
+"""
+
+
+def test_create_racer_refuses_a_racing_group_from_another_race(client, db):
+    race_a = _org_track_race(db, "RacerGroupA")
+    race_b = _org_track_race(db, "RacerGroupB")
+    group_b = crud.create_racing_group(
+        db, schemas.RacingGroupCreate(name="Wolves"), race_b.id
+    )
+
+    body = _post(
+        client,
+        CREATE_RACER_WITH_GROUP,
+        {
+            "racer": {
+                "firstName": "New",
+                "lastName": "Comer",
+                "raceId": race_a.id,
+                "racingGroupId": group_b.id,
+            }
+        },
+    ).json()
+
+    assert body.get("errors")
+    assert (
+        db.query(models.Racer)
+        .filter(models.Racer.race_id == race_a.id, models.Racer.last_name == "Comer")
+        .first()
+        is None
+    )
+
+
+def test_update_racer_refuses_reassigning_to_a_racing_group_from_another_race(
+    client, db
+):
+    race_a = _org_track_race(db, "RacerUpdGroupA")
+    race_b = _org_track_race(db, "RacerUpdGroupB")
+    racer = _racer(db, race_a)
+    group_b = crud.create_racing_group(
+        db, schemas.RacingGroupCreate(name="Wolves"), race_b.id
+    )
+
+    body = _post(
+        client,
+        UPDATE_RACER_WITH_GROUP,
+        {
+            "id": racer.id,
+            "racer": {
+                "firstName": racer.first_name,
+                "lastName": racer.last_name,
+                "racingGroupId": group_b.id,
+            },
+        },
+    ).json()
+
+    assert body.get("errors")
+    db.expire_all()
+    assert db.get(models.Racer, racer.id).racing_group_id is None
+
+
+def test_bulk_move_to_racing_group_refuses_a_group_from_another_race(client, db):
+    race_a = _org_track_race(db, "BulkMoveGroupA")
+    race_b = _org_track_race(db, "BulkMoveGroupB")
+    racer_a = _racer(db, race_a)
+    group_b = crud.create_racing_group(
+        db, schemas.RacingGroupCreate(name="Wolves"), race_b.id
+    )
+
+    body = _post(
+        client,
+        BULK_MOVE,
+        {"racerIds": [racer_a.id], "racingGroupId": group_b.id},
+    ).json()
+
+    assert body.get("errors")
+    db.expire_all()
+    assert db.get(models.Racer, racer_a.id).racing_group_id is None
+
+
+def test_crud_bulk_move_to_racing_group_refuses_a_group_from_another_race(db):
+    """Defense in depth for a caller that reaches `crud` directly, the same
+    reasoning `test_crud_bulk_functions_treat_a_stray_id_from_another_race_as_a_no_op`
+    holds for the other bulk functions above — except here there is no
+    "just don't touch it" option: a `racing_group_id` naming a group in a
+    different race is not a per-row mismatch to skip, it is the whole call's
+    own argument, so it is refused outright rather than silently no-op'd."""
+    race_a = _org_track_race(db, "CrudBulkMoveGroupA")
+    race_b = _org_track_race(db, "CrudBulkMoveGroupB")
+    racer_a = _racer(db, race_a)
+    group_b = crud.create_racing_group(
+        db, schemas.RacingGroupCreate(name="Wolves"), race_b.id
+    )
+
+    with pytest.raises(ValueError):
+        crud.bulk_move_racers_to_racing_group(db, race_a.id, [racer_a.id], group_b.id)

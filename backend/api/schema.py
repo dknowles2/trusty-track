@@ -951,6 +951,38 @@ class RacerInput:
     #: outlaw-class entry, a demonstration run. Read in exactly one place,
     #: `services/scoring.get_leaderboard`.
     excluded_from_standings: bool = False
+    #: `updateRacer` used to drop an explicit `null` the same way it dropped
+    #: an absent field (#747) — both arrived as Python `None` off this same
+    #: `None`-defaulted input, so a screen could never tell the server "clear
+    #: this" instead of "I have nothing to say about this." The fix follows
+    #: this codebase's own precedent for the identical trap rather than
+    #: switching to `strawberry.UNSET`: `RaceUpdateInput.clearWeightLimit`
+    #: (#205), `clearTerminology` (#496) and `clearNameDisplay` (#552) all
+    #: keep "absent means leave alone" and add one explicit boolean per
+    #: field (or per cluster of fields sharing one on/off state) that needs
+    #: a way back to null. `RacerInput` is shared by `createRacer` too,
+    #: where these six have nothing to mean — a racer being created has
+    #: nothing set yet to clear — so `create_racer`'s resolver discards them
+    #: unread, the same way `RaceInput` (create) simply has no clear flags
+    #: at all.
+    clear_racing_group: bool = False
+    clear_car_number: bool = False
+    clear_car_name: bool = False
+    clear_car_weight: bool = False
+    clear_racer_image: bool = False
+    clear_car_image: bool = False
+
+
+#: `RacerInput`'s clear flags, by name — `createRacer`'s resolver pops every
+#: one of them off unread (#747, see the field docstrings above).
+_RACER_CLEAR_FLAGS = (
+    "clear_racing_group",
+    "clear_car_number",
+    "clear_car_name",
+    "clear_car_weight",
+    "clear_racer_image",
+    "clear_car_image",
+)
 
 
 @strawberry.input
@@ -4312,8 +4344,27 @@ class Mutation:
     async def create_racer(self, info: Info, racer: RacerInput) -> Racer:
         """Create a new racer."""
         db = info.context["db"]
-        racer_in = schemas.RacerCreate(**typing.cast(Any, strawberry.asdict(racer)))
+        data = strawberry.asdict(racer)
+        # The six `clear*` flags (#747) exist for `updateRacer` alone — a
+        # racer being created has nothing set yet to clear, the same reason
+        # `RaceInput` (create) carries none of `RaceUpdateInput`'s clear
+        # flags either. `RacerCreate` has no fields for them, so they would
+        # be silently ignored either way; popped here so that is not left
+        # to Pydantic's default "ignore extra kwargs" behaviour.
+        for flag in _RACER_CLEAR_FLAGS:
+            data.pop(flag, None)
+        racer_in = schemas.RacerCreate(**typing.cast(Any, data))
         new_racer = typing.cast(Any, crud.create_racer(db, racer_in))
+        if new_racer is None:
+            # `crud.create_racer` returns `None` only when no race was named
+            # or found *and* the install has no `Organization` row yet —
+            # dereferencing it unchecked used to surface as
+            # `'NoneType' object has no attribute 'car_passed_inspection'`
+            # instead of a sentence (#748).
+            raise ValueError(
+                "Cannot create a racer: no race exists yet, and the app has "
+                "not been configured. Finish system setup first."
+            )
         if new_racer.car_passed_inspection:
             # A racer created already inspected — the check-in desk adding
             # somebody who was never on the roster, which is the commonest way
@@ -4331,7 +4382,30 @@ class Mutation:
         """Update an existing racer."""
         db = info.context["db"]
         data = strawberry.asdict(racer)
+        # Explicit removal beats an absent field, the same shape
+        # `updateRace`'s `clearWeightLimit`/`clearTerminology`/
+        # `clearNameDisplay` already use (#205, #496, #552) — absent means
+        # "leave alone" for every field below, so a way back to null needs
+        # its own flag (#747).
+        clear_racing_group = data.pop("clear_racing_group", False)
+        clear_car_number = data.pop("clear_car_number", False)
+        clear_car_name = data.pop("clear_car_name", False)
+        clear_car_weight = data.pop("clear_car_weight", False)
+        clear_racer_image = data.pop("clear_racer_image", False)
+        clear_car_image = data.pop("clear_car_image", False)
         filtered_data = {k: v for k, v in data.items() if v is not None}
+        if clear_racing_group:
+            filtered_data["racing_group_id"] = None
+        if clear_car_number:
+            filtered_data["car_number"] = None
+        if clear_car_name:
+            filtered_data["car_name"] = None
+        if clear_car_weight:
+            filtered_data["car_weight"] = None
+        if clear_racer_image:
+            filtered_data["racer_image_url"] = None
+        if clear_car_image:
+            filtered_data["car_image_url"] = None
         racer_update = schemas.RacerUpdate(**typing.cast(Any, filtered_data))
         updated = typing.cast(
             Any, crud.update_racer(db, racer_id=id, racer_update=racer_update)

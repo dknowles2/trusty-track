@@ -218,6 +218,18 @@ it afterwards in Manage Dens, is refused with a message naming both dens if
 their ranges would collide. This does not apply to Manual numbering, where
 racers sharing a number is allowed by design.
 
+**The setup wizard's Dens step gives each den a block of numbers of its own**
+by default, so a race created there starts on **Per Den** numbering rather
+than Global — the ranges the wizard already scaffolded would otherwise go
+unused. Cleared every den's range on that step, or started from a blank
+list? The race stays on **Global**, exactly as before.
+
+**Typing a number already on the roster is a warning, not a refusal.** Add
+Racer and Edit Racer show a note naming who already holds the number, under
+any numbering strategy — it does not block the save. Under Manual numbering
+this is expected; under Per Den or Global it is usually a sign the wrong
+number was typed, and the note is there to catch that before check-in does.
+
 ### Locking a race
 
 Once an event has concluded, **Lock race** — the first control in the edit

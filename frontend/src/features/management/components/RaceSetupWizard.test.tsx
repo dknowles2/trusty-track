@@ -129,6 +129,27 @@ describe('with no previous races', () => {
         // The built-in words on a default install: the race inherits.
         expect(data.vehicle_singular).toBeNull();
         expect(data.racing_group_singular).toBeNull();
+        // The scaffolded dens each got a block of numbers of their own
+        // (#811) — a race created here should actually use them, rather
+        // than defaulting to Global and leaving the ranges unused.
+        expect(data.car_numbering_strategy).toBe('PER_GROUP');
+    });
+
+    it('with no groups configured, numbering stays Global — the ordinary default', async () => {
+        mockQueries();
+        const { onSubmit } = renderWizard();
+
+        await userEvent.click(screen.getByRole('radio', { name: /^Something else/ }));
+        await next();
+        expect(screen.getByTestId('setup-step-groups')).toBeInTheDocument();
+        await next();
+        expect(screen.getByLabelText('Event Name')).toBeInTheDocument();
+
+        await userEvent.type(screen.getByLabelText('Event Name'), 'No Groups Race');
+        await userEvent.click(screen.getByRole('button', { name: 'Create Race' }));
+
+        expect(onSubmit).toHaveBeenCalledTimes(1);
+        expect(onSubmit.mock.calls[0][0].car_numbering_strategy).toBe('GLOBAL');
     });
 
     it('a Space Derby carries the rocket words as an override', async () => {
