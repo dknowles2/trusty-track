@@ -174,6 +174,7 @@ def generate_fake_racers(
 
     racer_asset_idx = 0
     car_asset_idx = 0
+    new_racer_ids: list[int] = []
 
     for _ in range(count):
         # Pick unique names
@@ -223,9 +224,17 @@ def generate_fake_racers(
             race_id=race_id,
         )
 
-        crud.create_racer(db, racer_in)
+        created = crud.create_racer(db, racer_in)
+        if created is not None:
+            new_racer_ids.append(created.id)
 
-    # Apply auto-numbering based on race's car_numbering_strategy
-    crud.auto_number_racers(db, race_id)
+    # Number only the racers this call just created (#740) — passing no
+    # `racer_ids` numbers the *whole race*, which silently renumbered
+    # racers who were already on the roster (and already checked in, and
+    # already on a printed pit pass) before Populate Test Data ran.
+    # `auto_number_racers` itself now skips numbers held outside the set
+    # it is asked to number (#739), so this also cannot hand a fake racer
+    # a number an existing racer already holds.
+    crud.auto_number_racers(db, race_id, new_racer_ids)
 
     return {"message": f"Successfully created {count} fake racers"}

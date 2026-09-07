@@ -16,6 +16,7 @@ from backend.domain import (
     audit,
     awards,
     balanced,
+    car_numbering,
     elimination,
     intermission,
     lanes,
@@ -109,6 +110,90 @@ def get_racing_group_by_name(
     )
 
 
+def _refuse_bad_racing_group_range(
+    db: Session,
+    race_id: int,
+    name: str,
+    start: int | None,
+    end: int | None,
+    exclude_id: int | None = None,
+) -> None:
+    """Refuse a racing group's own range if it is malformed or clashes with
+    a sibling's (#741).
+
+    A group with no *start* configured does not participate in PER_GROUP
+    numbering at all (`next_free_car_number` returns `None` for it) and is
+    exempt from both checks — there is no range to validate or to overlap.
+    Unlike a racer's own duplicate car number under MANUAL numbering
+    (`.claude/rules/roster.md` — deliberately allowed), an overlapping
+    racing-group range has no legitimate use: it is always a wizard/Manage
+    Dens mistake, so this refuses rather than warns.
+    """
+    if start is None:
+        return
+    if not car_numbering.range_is_valid(start, end):
+        raise ValueError(
+            f"{name}: the end number must not be lower than the start number."
+        )
+
+    query = db.query(models.RacingGroup).filter(
+        models.RacingGroup.race_id == race_id,
+        models.RacingGroup.car_number_range_start.isnot(None),
+    )
+    if exclude_id is not None:
+        query = query.filter(models.RacingGroup.id != exclude_id)
+
+    for other in query.all():
+        other_start = other.car_number_range_start
+        assert other_start is not None  # filtered by the query above
+        if car_numbering.ranges_overlap(
+            start, end, other_start, other.car_number_range_end
+        ):
+            if other.car_number_range_end is None:
+                other_range = f"{other.car_number_range_start}+"
+            else:
+                other_range = (
+                    f"{other.car_number_range_start}–{other.car_number_range_end}"
+                )
+            raise ValueError(
+                f"{name}'s car number range overlaps {other.name}'s ({other_range})."
+            )
+
+
+def _refuse_bad_racing_group_ranges(racing_groups: list[dict[str, Any]]) -> None:
+    """The bulk-create counterpart of `_refuse_bad_racing_group_range` (#741).
+
+    The setup wizard sends every den in one `createRace` call
+    (`RaceInput.racing_groups`) rather than one `createRacingGroup` per den,
+    so there is no sibling row in the database yet to query — the whole
+    check is pairwise over the batch itself, run before any of it is
+    written.
+    """
+    configured = [
+        g for g in racing_groups if g.get("car_number_range_start") is not None
+    ]
+    for group in configured:
+        start = group["car_number_range_start"]
+        end = group.get("car_number_range_end")
+        if not car_numbering.range_is_valid(start, end):
+            raise ValueError(
+                f"{group.get('name') or 'A racing group'}: the end number "
+                "must not be lower than the start number."
+            )
+    for i, a in enumerate(configured):
+        for b in configured[i + 1 :]:
+            if car_numbering.ranges_overlap(
+                a["car_number_range_start"],
+                a.get("car_number_range_end"),
+                b["car_number_range_start"],
+                b.get("car_number_range_end"),
+            ):
+                raise ValueError(
+                    f"{a.get('name') or 'A racing group'}'s car number "
+                    f"range overlaps {b.get('name') or 'another racing group'}'s."
+                )
+
+
 def create_racing_group(
     db: Session, racing_group: schemas.RacingGroupCreate, race_id: int
 ) -> models.RacingGroup:
@@ -122,6 +207,13 @@ def create_racing_group(
     """
     data = racing_group.model_dump()
     data.pop("copied_from_id", None)
+    _refuse_bad_racing_group_range(
+        db,
+        race_id,
+        data.get("name") or "",
+        data.get("car_number_range_start"),
+        data.get("car_number_range_end"),
+    )
     db_racing_group = models.RacingGroup(**data, race_id=race_id)
     db.add(db_racing_group)
     db.commit()
@@ -176,6 +268,21 @@ def update_racing_group(
         return None
 
     update_data = racing_group_update.model_dump(exclude_unset=True)
+    new_start = update_data.get(
+        "car_number_range_start", db_racing_group.car_number_range_start
+    )
+    new_end = update_data.get(
+        "car_number_range_end", db_racing_group.car_number_range_end
+    )
+    _refuse_bad_racing_group_range(
+        db,
+        db_racing_group.race_id,
+        update_data.get("name", db_racing_group.name),
+        new_start,
+        new_end,
+        exclude_id=db_racing_group.id,
+    )
+
     for key, value in update_data.items():
         setattr(db_racing_group, key, value)
 
@@ -225,6 +332,7 @@ def create_race(db: Session, race: schemas.RaceCreate) -> models.Race:
     race_data = race.model_dump()
     racing_groups = race_data.pop("racing_groups", [])
     award_copies = race_data.pop("awards", [])
+    _refuse_bad_racing_group_ranges(racing_groups)
     db_race = models.Race(**race_data)
     db.add(db_race)
     db.flush()
@@ -2689,6 +2797,22 @@ def auto_number_racers(
     — the optionality had been written one level too deep, so the signature
     said "a list that may contain nothing" and meant "no list". Both callers
     pass either a `list[int]` or nothing at all.
+
+    Numbers held by racers *outside* the set being numbered are never
+    reused (#739) — numbering a partial selection used to restart counting
+    from the race's own start number as though the roster were empty, so a
+    subset could be handed numbers other racers still held. Numbers already
+    held by a racer *inside* the set are freed for reassignment, since every
+    racer in the set is about to be renumbered anyway — that is what lets
+    `populate.generate_fake_racers` (#740) call this with just the racers it
+    created and get a clean, non-colliding sequence without disturbing
+    anyone already on the roster.
+
+    A racer with no racing group under ``PER_GROUP`` has no range to draw
+    from and is left unnumbered, same as before — there is deliberately no
+    number to invent for them. Likewise a group whose range is exhausted
+    stops assigning once it runs out; the racers past that point stay
+    unnumbered rather than spilling into another group's range.
     """
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not race:
@@ -2704,6 +2828,21 @@ def auto_number_racers(
 
     updated_count = 0
 
+    # Numbers already spoken for by racers *not* in this call — every racer
+    # being numbered here is about to get a (possibly new) number, so their
+    # own current one is free to hand back out rather than blocking itself.
+    being_numbered = {r.id for r in racers}
+    taken: set[int] = {
+        num
+        for (rid, num) in db.query(models.Racer.id, models.Racer.car_number)
+        .filter(
+            models.Racer.race_id == race_id,
+            models.Racer.car_number.isnot(None),
+        )
+        .all()
+        if rid not in being_numbered
+    }
+
     if race.car_numbering_strategy == models.CarNumberingStrategy.GLOBAL:
         # Sort by ID to ensure stable ordering, or last name? Let's do ID (entry order)
         # Or maybe sort by Last Name, First Name
@@ -2711,7 +2850,10 @@ def auto_number_racers(
 
         current_number = race.global_start_number or 1
         for racer in racers:
+            while current_number in taken:
+                current_number += 1
             racer.car_number = current_number
+            taken.add(current_number)
             current_number += 1
             updated_count += 1
 
@@ -2735,6 +2877,8 @@ def auto_number_racers(
                     racing_group_racers[racer.racing_group_id] = []
                 racing_group_racers[racer.racing_group_id].append(racer)
             else:
+                # No group, no range to draw from — left unnumbered, same as
+                # a group with no configured range below (#739).
                 unassigned_racers.append(racer)
 
         # Assign numbers per RacingGroup
@@ -2750,11 +2894,14 @@ def auto_number_racers(
             limit = racing_group.car_number_range_end
 
             for racer in group_racers:
-                if limit and current > limit:
-                    break  # Stop assigning if out of range? Or just keep going?
-                    # Let's stop to respect the "end" concept, user can fix.
+                while current in taken:
+                    current += 1
+                if limit is not None and current > limit:
+                    break  # Stop assigning once the range is exhausted;
+                    # the rest stay unnumbered for the operator to notice.
 
                 racer.car_number = current
+                taken.add(current)
                 current += 1
                 updated_count += 1
 

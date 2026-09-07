@@ -135,6 +135,47 @@ def test_populate_with_manual_numbering(db):
     assert all(r.car_number is None for r in racers)
 
 
+def test_populate_does_not_renumber_racers_already_on_the_roster(db):
+    """#740: Populate Test Data must not touch numbers racers already hold.
+
+    `generate_fake_racers` used to finish with a whole-race
+    `auto_number_racers(db, race_id)` call, which renumbers *every* racer in
+    the race — including ones added by hand before Populate ran. An
+    operator bulking out a roster (or running it twice) found their own
+    already-printed pit passes no longer matched.
+    """
+    race = _race(
+        db,
+        car_numbering_strategy=models.CarNumberingStrategy.GLOBAL,
+        global_start_number=1,
+    )
+
+    existing = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Vet",
+            last_name="Racer",
+            race_id=race.id,
+            car_number=100,
+            car_passed_inspection=True,
+        ),
+    )
+
+    populate.generate_fake_racers(db, race.id, count=3)
+
+    db.refresh(existing)
+    assert existing.car_number == 100, (
+        "populate renumbered a racer that was already on the roster"
+    )
+
+    all_racers = crud.get_racers(db, race_id=race.id)
+    assert len(all_racers) == 4
+    numbers = [r.car_number for r in all_racers if r.car_number is not None]
+    assert len(numbers) == len(set(numbers)), (
+        f"populate produced duplicate car numbers: {numbers}"
+    )
+
+
 class TestRepeatability:
     """The roster is invented, and the documentation screenshots photograph it.
 
