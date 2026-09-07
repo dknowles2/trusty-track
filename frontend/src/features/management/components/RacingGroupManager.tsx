@@ -3,6 +3,7 @@ import { RacingGroup } from './RacerForm';
 import { COMMON_COLORS } from '../../../utils/colors';
 import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { errorText } from '../../../utils/errors';
 import { Icon } from '@mdi/react';
 import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js';
 import { useMutation, useQuery } from 'urql';
@@ -104,9 +105,12 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
         // #755: deletion is refused (not a silent loss) when a round or an
         // award is still scoped to this racing group — the confirm dialog
         // says so up front so a refusal is not a surprise. `deleteRacingGroup`
-        // reports the refusal as a plain `false`, not a message (matching the
-        // pre-existing round-scoped case), so the alert below names the two
-        // possible causes rather than the specific round or award.
+        // used to report a refusal as a plain `false` with no message
+        // reaching the client, so the alert named only the two possible
+        // causes rather than the specific round or award. The mutation now
+        // lets the backend's own `ValueError` through as a GraphQL error
+        // naming exactly which one is blocking the delete (#823), so
+        // `errorText` below shows that message over the generic fallback.
         const confirmed = await showConfirm(
             `Are you sure? Racers in this ${groupLower} will be unassigned. ` +
             `If a round or an award is scoped to this ${groupLower}, it can't be deleted until that is reassigned or removed.`,
@@ -116,10 +120,12 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
 
         try {
             const result = await deleteRacingGroupMutation({ id: racingGroupId });
-            if (result.error) throw result.error;
-            if (!result.data?.deleteRacingGroup) {
+            if (result.error) {
                 showAlert(
-                    `This ${groupLower} can't be deleted while a round or an award is scoped to it. Remove or reassign that first.`,
+                    errorText(
+                        result.error,
+                        `This ${groupLower} can't be deleted while a round or an award is scoped to it. Remove or reassign that first.`,
+                    ),
                     "Error"
                 );
                 return;

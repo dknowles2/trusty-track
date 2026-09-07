@@ -4538,16 +4538,24 @@ class Mutation:
 
     @strawberry.mutation
     async def delete_racing_group(self, info: Info, id: int) -> bool:
-        """Delete a racing group."""
+        """Delete a racing group.
+
+        Unlike `deleteRound` or `deleteRunOffHeat` — each refused for exactly
+        one reason, which the mutation's own name already says — this can
+        refuse for two unrelated reasons: a round scoped to it, or an award
+        scoped to it (#755). Catching `crud.delete_racing_group`'s
+        `ValueError` and returning a bare `false` left the operator with
+        "a round or an award" and no way to tell which without a hunt
+        through two screens (#823). It is let through as an ordinary
+        GraphQL error instead, carrying the specific round's or award's own
+        name — the same shape `createRunOffHeat`'s validation already takes.
+        """
         db = info.context["db"]
         racing_group = (
             db.query(models.RacingGroup).filter(models.RacingGroup.id == id).first()
         )
         race_id = racing_group.race_id if racing_group else None
-        try:
-            result = crud.delete_racing_group(db, racing_group_id=id) is not None
-        except ValueError:
-            return False
+        result = crud.delete_racing_group(db, racing_group_id=id) is not None
         if race_id:
             await _publish_race_state(race_id)
         return result
