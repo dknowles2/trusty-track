@@ -311,21 +311,14 @@ def update_racing_group(
 
 
 def get_races(db: Session, skip: int = 0, limit: int = 100) -> list[models.Race]:
-    """Get all races with computed registered and checked-in racer counts."""
-    races = db.query(models.Race).offset(skip).limit(limit).all()
-    for race in races:
-        race.registered_count = (
-            db.query(models.Racer).filter(models.Racer.race_id == race.id).count()
-        )
-        race.checked_in_count = (
-            db.query(models.Racer)
-            .filter(
-                models.Racer.race_id == race.id,
-                models.Racer.car_passed_inspection,
-            )
-            .count()
-        )
-    return races
+    """Get all races.
+
+    Registered/checked-in counts are not computed here (#749) — `Race` has
+    no such mapped columns, so setting them on these rows was dead work the
+    GraphQL `registered_count`/`checked_in_count` field resolvers always
+    re-queried past. See `api.loaders.RequestLoaders.prime_racer_counts`.
+    """
+    return db.query(models.Race).offset(skip).limit(limit).all()
 
 
 def _raise_race_name_conflict(name: str, exc: IntegrityError) -> None:
@@ -468,21 +461,12 @@ def update_race(
 
 
 def get_race(db: Session, race_id: int) -> models.Race | None:
-    """Get a specific race by ID with computed racer counts."""
-    race = db.query(models.Race).filter(models.Race.id == race_id).first()
-    if race:
-        race.registered_count = (
-            db.query(models.Racer).filter(models.Racer.race_id == race.id).count()
-        )
-        race.checked_in_count = (
-            db.query(models.Racer)
-            .filter(
-                models.Racer.race_id == race.id,
-                models.Racer.car_passed_inspection,
-            )
-            .count()
-        )
-    return race
+    """Get a specific race by ID.
+
+    See `get_races` (#749) for why this no longer computes racer counts
+    itself.
+    """
+    return db.query(models.Race).filter(models.Race.id == race_id).first()
 
 
 def delete_race(db: Session, race_id: int) -> bool:
