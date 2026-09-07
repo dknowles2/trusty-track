@@ -1097,11 +1097,14 @@ class TimerManager:
                     self._track_id,
                     self._lane_mask,
                 )
+                self._cancel_arm_ack_watch()
+                self._arm_generation += 1
                 await self._send_commands(
                     self._device.prepare_heat_commands(
                         self._device_lane_mask(self._lane_mask)
                     )
                 )
+                self._start_arm_ack_watch()
             elif next_state == TimerState.IDLE and is_ident:
                 # No heat armed, so this is a genuine "just connected" moment
                 # rather than a mid-event reconnect — the lane-count query's
