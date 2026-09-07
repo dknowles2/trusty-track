@@ -18,7 +18,7 @@
  * spec bringing its own track.
  */
 
-import { test, expect } from './screenshots-setup';
+import { test, expect, settleTransitions } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -118,7 +118,14 @@ test('screenshot the timer pages', async ({ page }) => {
         .getByTestId(/track-card-\d+/)
         .filter({ has: page.locator('input[value="Timer Demo Track"]') });
     await expect(demoCard.locator('input[value="Timer Demo Track"]')).toBeVisible();
-    await page.waitForTimeout(300);
+    // Settled against `body`, not `demoCard`: the SettingsNav buttons whose
+    // `[aria-current='page']` background-color just changed (see
+    // `settleTransitions`'s doc comment) live in the page's own nav column,
+    // outside the card being screenshotted — but the layout shift a bold
+    // active label causes in that sibling column is what nudges the card's
+    // own sub-pixel position, so this still has to wait for the nav to settle
+    // even though the nav itself is never in frame.
+    await settleTransitions(page.locator('body'));
     await demoCard.screenshot({
         path: path.join(SCREENSHOT_DIR, '01-timer-settings.png'),
     });
