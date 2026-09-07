@@ -53,6 +53,16 @@ interface RacerFormProps {
   onCancel: () => void;
   submitLabel?: string;
   /**
+   * The form is open *as* a check-in (#848) — reached from the roster's
+   * Check In / Checked In-Edit button or a scan, never from Add Racer. While
+   * true, the primary button's label tracks the toggle live rather than
+   * showing `submitLabel` verbatim: "Save Check-in" while the toggle is on,
+   * "Save without checking in" the moment the operator turns it off (a car
+   * that fails inspection), so the button never promises a check-in it is
+   * not about to perform.
+   */
+  checkInMode?: boolean;
+  /**
    * Save and stay open for the next racer (#202).
    *
    * Only supplied when adding. Editing one racer has no "another" to go on to,
@@ -61,7 +71,7 @@ interface RacerFormProps {
   onSubmitAndContinue?: (data: RacerData) => Promise<void>;
 }
 
-export default function RacerForm({ initialData, raceId, onSubmit, onCancel, submitLabel, onSubmitAndContinue, weightLimitOz, existingRacers, excludeRacerId }: RacerFormProps) {
+export default function RacerForm({ initialData, raceId, onSubmit, onCancel, submitLabel, onSubmitAndContinue, weightLimitOz, existingRacers, excludeRacerId, checkInMode }: RacerFormProps) {
   // Seeded from the racer being edited, rather than emptied and then patched
   // by an effect. The form lives in a modal that unmounts when it closes, so a
   // fresh mount is a fresh form; the caller also keys it, so switching racers
@@ -117,6 +127,14 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
     existingRacers ?? [],
     excludeRacerId,
   );
+
+  // #848: in check-in mode the button says what it is actually about to do,
+  // tracking the toggle live rather than repeating `submitLabel` verbatim —
+  // so declining ("this car failed inspection") reads honestly rather than
+  // as a "Save Check-in" that does not check anybody in.
+  const submitButtonLabel = checkInMode
+    ? (formData.car_passed_inspection ? (submitLabel || 'Save Check-in') : 'Save without checking in')
+    : (submitLabel || 'Save Racer');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -437,7 +455,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
             </button>
           )}
           <button type="submit" disabled={loading} className="primary-btn" style={{ fontSize: '0.9rem', padding: '8px 16px' }}>
-            {loading ? 'Saving...' : (submitLabel || 'Save Racer')}
+            {loading ? 'Saving...' : submitButtonLabel}
           </button>
         </div>
       </form>

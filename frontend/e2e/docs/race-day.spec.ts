@@ -77,7 +77,13 @@ test('take screenshots', async ({ page }) => {
     await expect(page.getByText('Loading tracks...')).toBeHidden();
     await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/03-new-race-form.png') });
 
-    await page.getByPlaceholder('e.g. 2024 Pinewood Derby').fill('2026 Pinewood Derby');
+    // Suffixed on retry (#829) so a retry does not collide on the race name
+    // if attempt 1 leaked before cleanup — `races.name` is unique, and this
+    // whole spec is one long chain built through the browser, so there is no
+    // seeding helper here to carry the convention for it.
+    const retry = test.info().retry;
+    const raceName = retry > 0 ? `2026 Pinewood Derby (retry ${retry})` : '2026 Pinewood Derby';
+    await page.getByPlaceholder('e.g. 2024 Pinewood Derby').fill(raceName);
     await page.locator('input[type="datetime-local"]').fill('2026-03-01T10:00');
     await page.getByPlaceholder('e.g. School Gym').fill('School Gym');
     await page.getByRole('button', { name: 'Create Race' }).click();
@@ -108,7 +114,7 @@ test('take screenshots', async ({ page }) => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('2026 Pinewood Derby')).toBeVisible();
+    await expect(page.getByText(raceName)).toBeVisible();
 
     await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/05-race-details-empty.png') });
     await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/01-race-details-overview.png') });
@@ -236,14 +242,18 @@ test('take screenshots', async ({ page }) => {
     // 01: the full roster, with every "Check In" button on screen.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/01-check-in-status.png') });
 
-    await page.getByRole('button', { name: 'Check In' }).first().click();
+    // Scoped to a roster row (#849): the setup checklist's own "Select cars
+    // to check in" action is an unscoped substring match for "Check In" too,
+    // and it now renders above the table while nobody has checked in yet.
+    await page.locator('.racer-row').getByRole('button', { name: 'Check In' }).first().click();
     await expect(page.getByRole('heading', { name: 'Racer Check In' })).toBeVisible();
 
-    // The inspection toggle, inside the modal — found by its input's id
-    // rather than by position now that the form holds a second toggle-switch
-    // for "Racing, not ranked" (#548); `.last()` stopped being unambiguous
-    // the moment that one landed right after this one in the DOM.
-    await page.locator('label.toggle-switch:has(#car-passed-inspection)').click();
+    // The inspection toggle defaults on when the dialog is opened from Check
+    // In (#848) — pressing that button already says what the operator wants,
+    // so there is nothing to click before the "inspected" screenshot below.
+    // Found by its input's id rather than by position, since the form holds
+    // a second toggle-switch for "Racing, not ranked" (#548) right after it.
+    await expect(page.locator('#car-passed-inspection')).toBeChecked();
 
     // 02: the modal with the inspection toggle on.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/02-check-in-modal-inspected.png') });
@@ -285,10 +295,11 @@ test('take screenshots', async ({ page }) => {
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/04-racer-list-after-check-in.png') });
 
     // 05: a second racer checked in, so this shows *progress* rather than
-    // being a second copy of 04 (#144).
-    await page.getByRole('button', { name: 'Check In' }).first().click();
+    // being a second copy of 04 (#144). Scoped to a roster row for the same
+    // reason as the first check-in above; the toggle again needs no click —
+    // it is already on.
+    await page.locator('.racer-row').getByRole('button', { name: 'Check In' }).first().click();
     await expect(page.getByRole('heading', { name: 'Racer Check In' })).toBeVisible();
-    await page.locator('label.toggle-switch:has(#car-passed-inspection)').click();
     await page.getByRole('button', { name: 'Save Check-in' }).click();
     await expect(page.getByRole('heading', { name: 'Racer Check In' })).toBeHidden();
     await expect(checkedInRows).toHaveCount(2);
