@@ -909,5 +909,26 @@ describe('RaceControl Page', () => {
         // not the total roster length of 3 (#784).
         expect(screen.getByTestId('racer-count-prop')).toHaveTextContent('2');
     });
+
+    it('shows network error message instead of no active race when query fails with error (#781)', async () => {
+        (useQuery as any).mockReturnValue([
+            { data: undefined, fetching: false, error: { networkError: new Error('Failed to fetch') } },
+            vi.fn(),
+        ]);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control/race`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        expect(screen.queryByText(/No active race found/i)).not.toBeInTheDocument();
+        expect(screen.getByText('Trusty Track could not be reached. Check the network connection and try again.')).toBeInTheDocument();
+    });
 });
+
 
