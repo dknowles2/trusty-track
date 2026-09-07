@@ -23,7 +23,7 @@ type Status = {
 
 function renderMole(
     status: Status,
-    { refusal = null as string | null } = {},
+    { refusal = null as string | null, docked = false } = {},
 ) {
     const executeMutation = vi.fn(() =>
         fromValue({ data: { releaseStartGate: refusal }, stale: false, hasNext: false }),
@@ -50,14 +50,14 @@ function renderMole(
             }),
     } as unknown as Parameters<typeof Provider>[0]['value'];
 
-    render(
+    const utils = render(
         <Provider value={client}>
             <AlertProvider>
-                <HardwareTimerMole trackId={1} timerType="AUTO_DETECT_BACKEND" />
+                <HardwareTimerMole trackId={1} timerType="AUTO_DETECT_BACKEND" docked={docked} />
             </AlertProvider>
         </Provider>,
     );
-    return { executeMutation };
+    return { executeMutation, ...utils };
 }
 
 const button = () => screen.queryByRole('button', { name: /release start gate/i });
@@ -122,5 +122,18 @@ describe('pressing it', () => {
         await userEvent.click(button()!);
 
         await waitFor(() => expect(screen.queryByText(/no heat is armed/i)).not.toBeInTheDocument());
+    });
+});
+
+describe('docking into a column', () => {
+    it('renders with docked styles when docked=true (#783)', () => {
+        const { getByTestId, unmount } = renderMole({ state: 'IDLE', canRemoteStart: false }, { docked: true });
+        const mole = getByTestId('hardware-timer-mole');
+        expect(mole).toHaveStyle({ width: '100%' });
+        expect(mole.style.position).toBe('');
+        unmount();
+
+        const { getByTestId: getFloating } = renderMole({ state: 'IDLE', canRemoteStart: false }, { docked: false });
+        expect(getFloating('hardware-timer-mole')).toHaveStyle({ position: 'fixed' });
     });
 });
