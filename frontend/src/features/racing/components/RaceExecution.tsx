@@ -632,7 +632,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             </div>
 
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                                <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                                <div style={{ fontSize: '1.5rem', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontWeight: 'bold' }}>
                                                     {formatLaneTime(r.time) ?? '--'}
                                                 </div>
                                                 {r.place !== null && (
@@ -1040,7 +1040,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             <div style={{ fontWeight: 'bold' }}>{ar.firstName} {ar.lastName}</div>
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>{ar.racingGroupName} #{ar.carNumber}</div>
                                         </td>
-                                        <td style={{ padding: '10px', textAlign: 'right', fontFamily: 'monospace' }}>
+                                        <td style={{ padding: '10px', textAlign: 'right', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>
                                             {ar.score.toFixed(3)}
                                         </td>
                                     </tr>

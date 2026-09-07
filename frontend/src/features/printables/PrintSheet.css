@@ -1030,8 +1030,17 @@
     margin-bottom: 0.06in;
 }
 
+/* Was a named stack of decorative faces this app has never bundled
+   ('Rockwell', 'Roboto Slab', 'Georgia', 'Arial Black') ending in the
+   generic `serif` — none of those names are installed on most of the
+   platforms this app ships to (a Raspberry Pi least of all), so in practice
+   this was already rendering as whatever the host's default serif is, a
+   different face on every machine (#821). `docs/spec.md` only specifies
+   Roboto and Roboto Condensed for this app's branding, so the "CHAMPION"
+   headline uses the same bundled header face as the rest of the
+   certificate rather than a third, undocumented one. */
 .certificate-champion-title {
-    font-family: 'Rockwell', 'Roboto Slab', 'Georgia', 'Arial Black', serif;
+    font-family: var(--font-header);
     color: var(--print-accent-color);
     font-size: 54pt;
     font-weight: 900;
@@ -1069,8 +1078,11 @@
     z-index: 1;
 }
 
+/* 'Arial' is not bundled, so this was a host font by another route (#821) —
+   see `.certificate-champion-title` above. The bundled body face already
+   carries the 700 weight this needs. */
 .certificate-intro {
-    font-family: 'Arial', sans-serif;
+    font-family: var(--font-body);
     font-size: 12pt;
     font-weight: 700;
     letter-spacing: 0.22em;
@@ -1113,8 +1125,9 @@
     justify-content: center;
 }
 
+/* See `.certificate-intro` above — same host-font route (#821), same fix. */
 .certificate-presented-to {
-    font-family: 'Arial', sans-serif;
+    font-family: var(--font-body);
     font-size: 12pt;
     font-weight: 700;
     letter-spacing: 0.22em;
@@ -1166,9 +1179,10 @@
     margin-bottom: 0.2in;
 }
 
+/* Same host-font route as `.certificate-intro` above (#821). */
 .certificate-date-val,
 .certificate-signature-val {
-    font-family: 'Arial', sans-serif;
+    font-family: var(--font-body);
     font-size: 11pt;
     font-weight: 600;
     color: var(--print-text-color);
@@ -1182,8 +1196,9 @@
     margin-bottom: 4px;
 }
 
+/* Same host-font route as `.certificate-intro` above (#821). */
 .certificate-sign-label {
-    font-family: 'Arial', sans-serif;
+    font-family: var(--font-body);
     font-size: 9.5pt;
     color: var(--print-text-color);
     font-weight: 600;

@@ -165,7 +165,15 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
                 fontSize: '0.9rem',
               }}
             >
-              <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+              {/* Not a system `monospace` (#821) — see `.overlay-time` in
+                  `index.css`. */}
+              <span
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontVariantNumeric: 'tabular-nums',
+                  fontWeight: 'bold',
+                }}
+              >
                 {record.timeSeconds.toFixed(3)}s
               </span>
               <span>

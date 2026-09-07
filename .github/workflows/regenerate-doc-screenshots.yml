@@ -2,18 +2,39 @@ name: Regenerate Doc Screenshots
 
 # On-demand regeneration of docs/assets/screenshots (dknowles2/trusty-track#735).
 #
-# The problem this exists to solve: the development sandbox does not render
-# text the way whatever produced the checked-in baselines does, so running the
-# doc screenshot specs there rewrites nearly every image with font-rasterisation
-# noise rather than content — confirmed independently four times (see the
-# issue). That means a change that genuinely needs a regenerated screenshot
-# cannot produce one outside of CI. CI's own "Doc Screenshots" job already runs
-# these specs on ubuntu-latest with a pinned Playwright version — a
-# reproducible, shared environment — but it only proves the specs still drive
-# the app; it discards every image it produces.
+# Originally written because the development sandbox did not render text the
+# way whatever produced the checked-in baselines did, so running the doc
+# screenshot specs there rewrote nearly every image with font-rasterisation
+# noise rather than content — confirmed independently four times (see
+# dknowles2/trusty-track#821). That was a font-*selection* bug, not a property
+# of sandboxes: `index.css` declared its two bundled faces `font-display:
+# swap` with nothing waiting on `document.fonts.ready`, so a screenshot taken
+# inside the swap window captured whatever fallback font the *host* supplied
+# instead of the bundled one — and several CSS rules named a bare `monospace`/
+# `sans-serif`/`Arial` generic outright, which resolves however the host's own
+# fontconfig (or platform equivalent) happens to be set up. #821 closed both:
+# the screenshot fixture now waits on `document.fonts.ready` alongside its
+# image wait, and every font-family reference in the frontend resolves to a
+# bundled face. A local run and this job's `ubuntu-latest` now agree on which
+# font renders every glyph, because neither can reach past the bundled
+# families to ask the host.
+#
+# What that does *not* mean: that a local run will always produce a clean diff
+# against the checked-in baselines. The images still accumulate ordinary,
+# unrelated staleness between runs of this workflow — a redesigned printable,
+# a new settings control — the same as any screenshot suite nobody runs on
+# every merge, and that backlog shows up in the same diff a font fix would.
+# This job's own two-run comparison below still catches a rerun that cannot
+# reproduce itself; it says nothing about whether the diff against `main` is
+# all one cause. CI's own "Doc Screenshots" job already runs these specs on
+# ubuntu-latest with a pinned Playwright version — a reproducible, shared
+# environment — but it only proves the specs still drive the app; it discards
+# every image it produces.
 #
 # This is that same environment, run on demand, kept to actually produce the
-# images:
+# images — now genuinely reachable from a developer's own machine too, but
+# still the easiest way to get a full, coherent, reviewable set without local
+# setup:
 #
 #   - Unsharded. The CI job shards two ways so two machines can each prove a
 #     subset of the specs still work; that is fine for a pass/fail check and

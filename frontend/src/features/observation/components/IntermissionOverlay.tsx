@@ -99,7 +99,12 @@ export default function IntermissionOverlay({
       <div
         data-testid="intermission-overlay-countdown"
         style={{
-          fontFamily: 'monospace',
+          // Not a system `monospace` (#821) — the bundled body face plus
+          // tabular figures keeps the countdown from jittering in width as
+          // its digits change, without asking the host what "monospace"
+          // resolves to.
+          fontFamily: 'var(--font-body)',
+          fontVariantNumeric: 'tabular-nums',
           fontSize: '16vmin',
           fontWeight: 'bold',
           lineHeight: 1,

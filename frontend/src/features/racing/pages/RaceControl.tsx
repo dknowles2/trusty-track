@@ -956,7 +956,7 @@ export default function RaceControl() {
                                   Lane {r.lane}
                               </LaneBadge>
                               <span style={{ flex: 1, fontWeight: r.place === 1 ? 600 : 'normal' }}>{laneRacerName(r, slowestRoundIds.has(heat.roundId))}</span>
-                              <span style={{ fontFamily: 'monospace', color: 'var(--text-heading-alt-color)', flexShrink: 0 }}>{formatLaneTime(r.time) ?? '–'}</span>
+                              <span style={{ fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', color: 'var(--text-heading-alt-color)', flexShrink: 0 }}>{formatLaneTime(r.time) ?? '–'}</span>
                             </div>
                           ))}
                         </div>

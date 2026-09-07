@@ -255,7 +255,10 @@ export default function StandingsOnlyView({
                                             style={{
                                                 padding: '15px',
                                                 textAlign: 'right',
-                                                fontFamily: 'monospace',
+                                                // Not a system `monospace` (#821) —
+                                                // see `.overlay-time` in `index.css`.
+                                                fontFamily: 'var(--font-body)',
+                                                fontVariantNumeric: 'tabular-nums',
                                                 fontSize: '2.4vmin',
                                                 fontWeight: 'bold',
                                             }}

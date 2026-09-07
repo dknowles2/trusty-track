@@ -103,8 +103,12 @@
   background: var(--table-row-hover-color);
 }
 
+/* Not a system `monospace` (#821) — the bundled body face plus tabular
+   figures gives the same column-aligned digits without asking the host what
+   "monospace" resolves to. Matches `.overlay-time` in `index.css`. */
 .race-stats__table td.mono {
-  font-family: monospace;
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
   font-size: 0.95rem;
 }
 
@@ -162,7 +166,8 @@
   font-size: 1.5rem;
   font-weight: bold;
   color: var(--scouting-blue);
-  font-family: monospace;
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
 }
 
 .race-stats__highlight-sub {
