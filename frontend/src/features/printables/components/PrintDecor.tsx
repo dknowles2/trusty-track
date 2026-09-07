@@ -458,7 +458,11 @@ export function DerbyCarIllustration({
             {/* Right wing endplate */}
             <polygon points="280,68 290,70 288,86 278,84" fill={CAR_ACCENT} stroke={CAR_ACCENT_DARK} strokeWidth="1" />
 
-            {/* Car numbers */}
+            {/* Car numbers. `var(--font-body)` rather than the bare generic
+                `sans-serif` this used to say — a car number is a digit
+                string, well within the bundled Roboto's range, and the bare
+                keyword was one more place this drawing depended on whatever
+                sans-serif face the host happened to have (#821). */}
             <g transform="translate(136, 138) rotate(-22) skewX(20)">
                 <text
                     x="0"
@@ -468,7 +472,7 @@ export function DerbyCarIllustration({
                     strokeWidth="1.2"
                     fontSize="17"
                     fontWeight="900"
-                    fontFamily="sans-serif"
+                    fontFamily="var(--font-body)"
                     textAnchor="middle"
                 >
                     {number}
@@ -483,7 +487,7 @@ export function DerbyCarIllustration({
                     strokeWidth="0.8"
                     fontSize="13"
                     fontWeight="900"
-                    fontFamily="sans-serif"
+                    fontFamily="var(--font-body)"
                     textAnchor="middle"
                 >
                     {number}
@@ -552,13 +556,13 @@ export function PinewoodDerbySeal({
             <circle cx="80" cy="80" r="66" fill={SEAL_NAVY_DARK} stroke={GOLD} strokeWidth="1.5" />
 
             {/* Circular text along arcs */}
-            <text fill={WHITE} fontSize="9" fontWeight="800" letterSpacing="2.5" fontFamily="sans-serif">
+            <text fill={WHITE} fontSize="9" fontWeight="800" letterSpacing="2.5" fontFamily="var(--font-body)">
                 <textPath href="#topSealArc" startOffset="50%" textAnchor="middle">
                     PINEWOOD DERBY
                 </textPath>
             </text>
 
-            <text fill={WHITE} fontSize="9" fontWeight="800" letterSpacing="2.5" fontFamily="sans-serif">
+            <text fill={WHITE} fontSize="9" fontWeight="800" letterSpacing="2.5" fontFamily="var(--font-body)">
                 <textPath href="#bottomSealArc" startOffset="50%" textAnchor="middle">
                     {year} WINNER
                 </textPath>

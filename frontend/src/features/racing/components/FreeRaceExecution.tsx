@@ -513,7 +513,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                    <div style={{ fontSize: '1.5rem', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontWeight: 'bold' }}>
                       {formatLaneTime(r?.time) ?? '--'}
                     </div>
                     {r?.place != null && (

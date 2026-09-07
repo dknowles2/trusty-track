@@ -290,7 +290,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{getDisplayName(result, getRacerName)}</span>
                 {result.time != null && (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--scouting-blue)', fontFamily: 'monospace' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--scouting-blue)', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>
                     {formatLaneTime(result.time)}
                   </span>
                 )}

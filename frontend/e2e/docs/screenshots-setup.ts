@@ -110,20 +110,34 @@ export const test = base.extend({
             }
         }, FAKE_TIMER_COLLAPSED_KEY);
 
-        // Every screenshot waits for the pictures and freezes the animation.
+        // Every screenshot waits for the pictures, the webfonts, and freezes
+        // the animation.
         //
-        // These two are what was left moving once the version stamp and the
-        // invented data were pinned, and both were being handled by sleeping:
-        // `waitForTimeout(500)` after opening a modal, `waitForTimeout(3000)`
-        // after populating a roster. A sleep is a guess about a machine — too
-        // short on a loaded CI runner, always too long on a fast laptop — and
-        // it is why a run still rewrote a dozen images with nothing behind it.
+        // These were what was left moving once the version stamp and the
+        // invented data were pinned, and all three were being handled by
+        // sleeping: `waitForTimeout(500)` after opening a modal,
+        // `waitForTimeout(3000)` after populating a roster. A sleep is a
+        // guess about a machine — too short on a loaded CI runner, always too
+        // long on a fast laptop — and it is why a run still rewrote a dozen
+        // images with nothing behind it.
+        //
+        // The font wait is the one that made the *machine* matter, not just
+        // the run: `index.css` declares both bundled faces `font-display:
+        // swap`, which is right for an operator (never block first paint on a
+        // font load from local disk) and wrong for a screenshot taken inside
+        // that swap window, which captures the browser's fallback system font
+        // instead of the bundled one — a different picture on every host,
+        // simply because the shutter can fire before the font finishes
+        // parsing. `document.fonts.ready` is what `branding.spec.ts` already
+        // waits on to assert the fonts loaded at all; waiting on it here too
+        // is what makes every screenshot wait for the same thing that test
+        // does before it is willing to call the page "ready".
         //
         // `animations: 'disabled'` fast-forwards CSS transitions to their end
         // state, so a modal is photographed where it is going to settle rather
-        // than wherever it had got to. The image wait is a soft one: a page
-        // with a genuinely broken image should produce the picture that shows
-        // it, not a timeout with no picture at all.
+        // than wherever it had got to. Both waits are soft: a page with a
+        // genuinely broken image, or a font that never loads, should produce
+        // the picture that shows that, not a timeout with no picture at all.
         const takeScreenshot = page.screenshot.bind(page);
         page.screenshot = (async (options = {}) => {
             await page
@@ -132,6 +146,9 @@ export const test = base.extend({
                     undefined,
                     { timeout: 5000 },
                 )
+                .catch(() => {});
+            await page
+                .evaluate(() => document.fonts.ready)
                 .catch(() => {});
             return takeScreenshot({ animations: 'disabled', ...options });
         }) as typeof page.screenshot;

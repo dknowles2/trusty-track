@@ -32,6 +32,21 @@
   font-display: swap;
 }
 
+/* Not part of `docs/spec.md`'s branding pair — bundled for the app's two
+ * genuinely fixed-width surfaces (the timer diagnostics serial log and the
+ * Hardware Timer panel's copy of it), which is what "monospace" meant at
+ * those two call sites rather than a bare generic keyword the host was left
+ * to resolve (#821). Every other use of a system `monospace` in this app
+ * wanted tabular-figure digit alignment, which the bundled body font already
+ * gives through `font-variant-numeric: tabular-nums`. */
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('./assets/fonts/roboto-mono-latin-variable.woff2') format('woff2-variations');
+  font-weight: 100 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* BSA Official Colors — Field Uniform's own values (#498). These are the
    * no-script/pre-JS fallback: `applyTheme` (frontend/src/theming/) redefines
@@ -173,6 +188,11 @@
   /* Typography */
   --font-header: 'Roboto Condensed', sans-serif;
   --font-body: 'Roboto', sans-serif;
+  /* The one genuinely fixed-width surface (the serial log on /timer-check
+     and its twin on the Hardware Timer panel) — everywhere else that wants
+     digit alignment reaches for `--font-body` plus `tabular-nums` instead
+     (#821). */
+  --font-mono: 'Roboto Mono', monospace;
 
   /* Spacing & Layout */
   --border-radius: 12px;
@@ -269,6 +289,18 @@ button {
   padding: 10px 20px;
   font-size: 1rem;
   transition: background-color 0.2s;
+}
+
+/* Form controls are the one place the browser's own UA stylesheet does not
+   inherit `body`'s font-family — an <input>, <select> or <textarea> renders
+   in the platform's native control font (Arial on this box, something else
+   on the next one) until told otherwise (#821). Every text field, dropdown
+   and search box in the app was silently exempt from the bundled typography
+   for exactly that reason, on every screen that has one. */
+input,
+select,
+textarea {
+  font-family: var(--font-body);
 }
 
 /* The shape of a button — padding, radius, font — sat on the `button` element
@@ -933,10 +965,18 @@ input:checked + .slider:before {
   color: var(--display-text-muted-color);
 }
 
+/* `monospace` and `sans-serif` used to be bare generic keywords here, which
+   the browser resolves against whatever the host has installed rather than
+   the two families this app bundles (#821) — every other digit display in
+   the app reaches the same tabular-figure alignment through the bundled body
+   face plus `tabular-nums` rather than a system monospace font (see
+   `ActivityLog.tsx`), so this follows suit instead of asking a Raspberry Pi,
+   a laptop and a CI runner to agree on what "monospace" means. */
 .overlay-time {
   font-size: 7vmin;
   font-weight: 900;
-  font-family: monospace;
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
   color: var(--display-accent-color);
 }
 
@@ -946,7 +986,7 @@ input:checked + .slider:before {
 .overlay-scale-mph {
   font-size: 2.2vmin;
   font-weight: 700;
-  font-family: sans-serif;
+  font-family: var(--font-body);
   color: var(--display-text-muted-color);
 }
 

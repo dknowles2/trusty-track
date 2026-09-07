@@ -85,8 +85,12 @@ export const EliminationChartView: React.FC<EliminationChartViewProps> = ({ char
                     </span>
                     <span style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexShrink: 0 }}>
                       {lane.racerId != null && (
+                        // Not a system `monospace` (#821) — these pips are
+                        // circle glyphs, not digits, so there is nothing here
+                        // that needs a fixed-width face; the bundled body
+                        // font is enough.
                         <span
-                          style={{ fontFamily: 'monospace', color: 'var(--warning-soft-color)', fontSize: '0.75rem' }}
+                          style={{ fontFamily: 'var(--font-body)', color: 'var(--warning-soft-color)', fontSize: '0.75rem' }}
                           title={`${lane.lossesAfter} of ${chart.maxLosses}`}
                         >
                           {lossPips(lane.lossesAfter, chart.maxLosses)}

@@ -174,7 +174,11 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
                             No serial data yet.
                         </div>
                     ) : (
-                        <div style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                        // The same bundled Roboto Mono as the timer
+                        // diagnostics page's own serial log (#821) — not a
+                        // bare `monospace` keyword the host resolves on its
+                        // own.
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
                             {buildDisplayLines(serialLog).map((line, i) => (
                                 <div
                                     key={i}

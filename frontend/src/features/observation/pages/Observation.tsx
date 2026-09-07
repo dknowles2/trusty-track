@@ -1015,7 +1015,7 @@ export default function Observation() {
                           </div>
                         </div>
                       </td>
-                      <td className="standing-time" style={{ padding: '15px', textAlign: 'right', fontFamily: 'monospace', fontSize: '1.4rem', fontWeight: 'bold' }}>{formatScore(s.score)}</td>
+                      <td className="standing-time" style={{ padding: '15px', textAlign: 'right', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontSize: '1.4rem', fontWeight: 'bold' }}>{formatScore(s.score)}</td>
                       <td className="standing-runs" style={{ padding: '15px', textAlign: 'right', fontSize: '1.1rem' }}>{s.heatsCompleted}</td>
                     </tr>
                   );
@@ -1086,7 +1086,7 @@ export default function Observation() {
                         <div className="timing-racer-name" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{lane.racerName}</div>
                         <div className="timing-car-name" style={{ color: 'var(--display-text-muted-color)' }}>{lane.carName || `Lane ${lane.laneNumber}`}</div>
                       </div>
-                      <div className="timing-time" style={{ fontSize: '2.5rem', fontWeight: 'bold', fontFamily: 'monospace' }}>
+                      <div className="timing-time" style={{ fontSize: '2.5rem', fontWeight: 'bold', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>
                         {formatLaneTime(lane.time)}
                         {formatScaleMph(lane.scaleMph) && (
                           <span
@@ -1271,7 +1271,7 @@ export default function Observation() {
                         </td>
                         <td className="projector-standings-time-col" style={{ padding: '1.5vmin 0', width: '30%', textAlign: 'right' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-                            <span style={{ fontSize: '3.5vmin', fontWeight: 'bold', fontFamily: 'monospace', color: 'var(--display-accent-color)', lineHeight: '1' }}>
+                            <span style={{ fontSize: '3.5vmin', fontWeight: 'bold', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', color: 'var(--display-accent-color)', lineHeight: '1' }}>
                               {formatProjectorScore(s.score)}
                             </span>
                             <span style={{ fontSize: '1.5vmin', color: 'var(--display-text-faintest-color)', textTransform: 'uppercase', letterSpacing: '0.1vmin', marginTop: '0.5vmin' }}>

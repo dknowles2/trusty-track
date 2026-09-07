@@ -172,7 +172,12 @@ const STATE_HELP: Record<string, StateHelp> = {
     },
 };
 
-const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+// Was a stack of platform UI monospace fonts this app has never bundled —
+// none of `ui-monospace`, `SFMono-Regular`, `Menlo` or `Consolas` exist on
+// most of what this app ships to (a Raspberry Pi least of all), so this
+// read the host's own fallback rather than anything the app controls
+// (#821). `--font-mono` is the bundled Roboto Mono.
+const MONO = 'var(--font-mono)';
 
 function renderData(data: string): React.ReactNode {
     return data.split(/(\\r\\n|\\r|\\n)/).map((part, i) => {

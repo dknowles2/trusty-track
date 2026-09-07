@@ -207,9 +207,16 @@ export default function IntermissionControl({ raceId }: IntermissionControlProps
     >
       <Icon path={mdiCoffee} size={1} />
       <span style={{ fontWeight: 'bold' }}>{intermission.label || 'Intermission'}</span>
+      {/* Not a system `monospace` (#821) — see `.overlay-time` in
+          `index.css`. */}
       <span
         data-testid="intermission-countdown"
-        style={{ fontFamily: 'monospace', fontSize: '1.3rem', fontWeight: 'bold' }}
+        style={{
+          fontFamily: 'var(--font-body)',
+          fontVariantNumeric: 'tabular-nums',
+          fontSize: '1.3rem',
+          fontWeight: 'bold',
+        }}
       >
         {formatCountdown(remaining)}
       </span>

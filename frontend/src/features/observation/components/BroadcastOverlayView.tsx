@@ -189,7 +189,15 @@ export default function BroadcastOverlayView({
                                         ? formatDisplayName(nameDisplay, racer.firstName, racer.lastName)
                                         : `Racer #${s.racerId}`}
                                 </span>
-                                <span style={{ color: SCRIM_TEXT_MUTED, fontFamily: 'monospace' }}>
+                                {/* Not a system `monospace` (#821) — see
+                                    `.overlay-time` in `index.css`. */}
+                                <span
+                                    style={{
+                                        color: SCRIM_TEXT_MUTED,
+                                        fontFamily: 'var(--font-body)',
+                                        fontVariantNumeric: 'tabular-nums',
+                                    }}
+                                >
                                     {formatScore(s.score)}
                                 </span>
                             </span>
@@ -244,7 +252,13 @@ export default function BroadcastOverlayView({
                                             : (lane.place ?? '—')}
                                 </span>
                                 <span style={{ flex: 1 }}>{lane.racerName}</span>
-                                <span style={{ fontFamily: 'monospace', color: SCRIM_TEXT_MUTED }}>
+                                <span
+                                    style={{
+                                        fontFamily: 'var(--font-body)',
+                                        fontVariantNumeric: 'tabular-nums',
+                                        color: SCRIM_TEXT_MUTED,
+                                    }}
+                                >
                                     {formatLaneTime(lane.time) ?? '—'}
                                 </span>
                             </div>

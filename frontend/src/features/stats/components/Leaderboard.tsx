@@ -476,7 +476,8 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                 <td style={{
                   padding: '12px',
                   textAlign: 'right',
-                  fontFamily: 'monospace',
+                  fontFamily: 'var(--font-body)',
+                  fontVariantNumeric: 'tabular-nums',
                   fontSize: '1.05rem',
                   fontWeight: entry.rank <= 3 ? 'bold' : 'normal'
                 }}>
