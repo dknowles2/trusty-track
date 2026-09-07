@@ -8,6 +8,8 @@ schedule grows a wave at a time.
 
 import random
 
+import pytest
+
 from backend.db import crud, models, schemas
 from backend.domain import elimination
 from backend.domain import lanes as lanes_module
@@ -152,13 +154,15 @@ class TestStandings:
 # --------------------------------------------------------------------------- #
 
 
-def _race(db, name) -> models.Race:
+def _race(db, name, lane_count: int = 4) -> models.Race:
     group = crud.create_organization(
         db, schemas.OrganizationCreate(name=f"Pack for {name}")
     )
     track = crud.create_track(
         db,
-        schemas.TrackCreate(name=f"Track for {name}", lane_count=4, timer_type="FAKE"),
+        schemas.TrackCreate(
+            name=f"Track for {name}", lane_count=lane_count, timer_type="FAKE"
+        ),
     )
     return crud.create_race(
         db,
@@ -187,8 +191,8 @@ def _racers(db, race_id, count) -> list[int]:
     ]
 
 
-def _elimination_round(db, name, racer_count=6, max_losses=2):
-    race = _race(db, name)
+def _elimination_round(db, name, racer_count=6, max_losses=2, lane_count=4):
+    race = _race(db, name, lane_count=lane_count)
     ids = _racers(db, race.id, racer_count)
     round_obj = crud.create_round(
         db,
@@ -544,6 +548,82 @@ class TestTheRound:
         assert board[0]["rank"] == 1
         # Everyone else went out with exactly one loss; ties are visible.
         assert all(entry["score"] == 1.0 for entry in board[1:])
+
+
+class TestAcrossLaneCounts:
+    """`generate_heats_for_round`'s ELIMINATION branch and
+    `extend_elimination_round` both derive `next_wave`'s `heat_size`
+    argument from the *track's* usable lane count
+    (`len(usable_lanes_for_race(...))`), not a fixed number — but every
+    database-level test above ran against `_race`'s hardcoded
+    `lane_count=4`, so nothing ever exercised that wiring at a different
+    track configuration. The pure sweep in `TestTheWave` and `TestTheChart`
+    already varies `heat_size` directly against `elimination.next_wave`
+    itself; this is the same "nobody races alone" property, but through the
+    database wiring that turns a track's own lane count into that argument.
+    A heat_size that disagreed with the track's actual lane count would
+    surface here as an `IndexError` in `_write_elimination_wave`
+    (`usable_lanes[position]`), not a quiet scoring bug — so this sweep is
+    also the one place that would catch a track's lane count silently being
+    ignored.
+
+    `heat_size` values below 3 are deliberately excluded: `next_wave`'s own
+    "nobody races alone" guarantee is narrower there (`TestTheWave.
+    test_tail_rebalancing_property` pins it) — with `heat_size == 2` the very
+    last heat of a wave may legitimately hold one car when the alive count is
+    odd, since the borrow rule that avoids a solo heat only fires when the
+    heat it would borrow from holds more than two cars. That is intended
+    behaviour for a two-lane track, not a bug this sweep should flag.
+    """
+
+    @pytest.mark.parametrize(
+        "lane_count,racer_count",
+        [
+            (3, 7),
+            (3, 10),
+            (5, 11),
+            (5, 17),
+            (6, 13),
+            (8, 21),
+        ],
+    )
+    def test_the_round_runs_to_one_winner_at_every_lane_count(
+        self, db, lane_count, racer_count
+    ):
+        race, ids, round_obj = _elimination_round(
+            db,
+            f"Elim {lane_count}x{racer_count}",
+            racer_count=racer_count,
+            max_losses=2,
+            lane_count=lane_count,
+        )
+
+        for _ in range(50):
+            pending = _pending_heats(db, round_obj.id)
+            if not pending:
+                break
+            for heat in pending:
+                heat_lanes = crud.heat_lanes_of(db, heat)
+                racing = [lane for lane in heat_lanes if lane.racer_id]
+                # Nobody races alone, and no heat is asked to hold more cars
+                # than the track has lanes for.
+                assert len(racing) >= 2, (
+                    f"a heat with {len(racing)} racer(s) was scheduled "
+                    f"on a {lane_count}-lane track"
+                )
+                assert len(racing) <= lane_count
+                _run_heat(db, heat, ids)
+        else:
+            raise AssertionError("the elimination never finished")
+
+        heats = db.query(models.Heat).filter(models.Heat.round_id == round_obj.id).all()
+        losses = elimination.losses_by_racer(crud.lanes_for_heats(db, heats))
+        assert elimination.is_decided(losses, 2)
+        assert crud.is_round_complete(db, round_obj.id)
+        # `_run_heat` always favours the earlier racers in `ids`, so the
+        # favourite (ids[0]) never loses and is the sole survivor.
+        alive = [r for r, count in losses.items() if count < 2]
+        assert alive == [ids[0]]
 
 
 class TestAWithdrawnCarThatNeverRaced:

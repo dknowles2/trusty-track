@@ -80,6 +80,13 @@ def _den_wizard(client, race_id):
     ).json()
 
 
+def _turn_on_master_running_order(db, race_id):
+    race = db.query(models.Race).filter(models.Race.id == race_id).one()
+    race.master_running_order = True
+    db.commit()
+    return race
+
+
 def _heats_of(db, round_id):
     return sorted(
         db.query(models.Heat).filter(models.Heat.round_id == round_id).all(),
@@ -267,3 +274,160 @@ def test_update_race_sets_the_flag(db, client):
     body = resp.json()
     assert "errors" not in body, body
     assert body["data"]["updateRace"]["masterRunningOrder"] is True
+
+
+# --------------------------------------------------------------------------- #
+# `delete_heat` against a real interleaved schedule                          #
+# --------------------------------------------------------------------------- #
+#
+# `crud.delete_heat`'s own docstring states the rule: with
+# `Race.master_running_order` on, deleting a pending heat leaves every other
+# heat's number untouched rather than renumbering the round it belonged to —
+# a renumber would silently pull a later heat earlier in the interleave, or
+# push an earlier one later, contradicting a number an announcer (or another
+# wall display) may already have read. `test_delete_heat.py` already pins
+# that rule against three heats it constructs by hand, in one round, with
+# hand-picked heat_numbers (10, 20, 30) — never against a schedule the
+# interleave itself produced, spanning more than one round, which is what
+# every `test_master_running_order*.py` file was missing (#777).
+
+
+def test_deleting_a_pending_heat_under_master_running_order_leaves_the_rest_intact(
+    db, client
+):
+    """Delete a heat from the middle of a real, two-round interleave. Every
+    other heat — in both rounds — must keep exactly the number
+    `applyMasterRunningOrder` gave it, and `crud.heats_in_running_order` (the
+    one door the audience-facing subscriptions read through, #549) must still
+    produce a valid ascending sequence with the deleted heat gone and nothing
+    duplicated.
+    """
+    race = _race(db, "Delete Interleave Derby", [3, 3])
+    _turn_on_master_running_order(db, race.id)
+    body = _den_wizard(client, race.id)
+    assert "errors" not in body, body
+
+    resp = client.post(
+        "/graphql", json={"query": APPLY_MUTATION, "variables": {"raceId": race.id}}
+    )
+    body = resp.json()
+    assert "errors" not in body, body
+    numbered = sorted(
+        body["data"]["applyMasterRunningOrder"]["heats"], key=lambda h: h["heatNumber"]
+    )
+    assert len(numbered) == 6
+
+    # A heat from the interior of the interleave — not the first or the
+    # last — so a renumber that merely closed up one end would not be
+    # caught by comparing against it alone.
+    victim = numbered[2]
+    victim_id = int(float(victim["id"]))
+    before = {
+        int(float(h["id"])): h["heatNumber"]
+        for h in numbered
+        if h["id"] != victim["id"]
+    }
+
+    assert crud.delete_heat(db, victim_id) is True
+
+    remaining = crud.get_heats(db, race.id)
+    after = {h.id: h.heat_number for h in remaining}
+    assert after == before, (
+        "deleting a heat under master running order must not renumber "
+        "anything else, in its own round or the other one"
+    )
+    assert victim_id not in after
+
+    ordered = crud.heats_in_running_order(db, race.id)
+    assert [h.id for h in ordered] == sorted(after, key=lambda hid: after[hid])
+    assert victim_id not in {h.id for h in ordered}
+
+
+def test_deleting_a_pending_heat_with_the_flag_off_still_renumbers_its_own_round(
+    db, client
+):
+    """The mirror image, through the same real two-round fixture rather than
+    hand-built heats: with the flag off, deleting a pending heat renumbers
+    only the *round it belonged to* — the other round's own numbering (which
+    started at 1 independently, since nothing has interleaved them) is
+    untouched.
+    """
+    race = _race(db, "Delete No Order Derby", [3, 3])
+    body = _den_wizard(client, race.id)
+    rounds = body["data"]["createRoundWizard"]
+    assert len(rounds) == 2
+
+    first_round_heats_before = _heats_of(db, rounds[0]["id"])
+    second_round_heats_before = _heats_of(db, rounds[1]["id"])
+    assert [h.heat_number for h in first_round_heats_before] == [1, 2, 3]
+    assert [h.heat_number for h in second_round_heats_before] == [1, 2, 3]
+
+    victim = first_round_heats_before[0]
+    assert crud.delete_heat(db, victim.id) is True
+
+    db.expire_all()
+    first_round_heats_after = _heats_of(db, rounds[0]["id"])
+    second_round_heats_after = _heats_of(db, rounds[1]["id"])
+    assert [h.heat_number for h in first_round_heats_after] == [1, 2]
+    # The other round never had the master order applied to it either, so
+    # deleting a heat in the first round must not touch its numbering.
+    assert [h.heat_number for h in second_round_heats_after] == [1, 2, 3]
+    assert {h.id for h in second_round_heats_after} == {
+        h.id for h in second_round_heats_before
+    }
+
+
+def test_repair_never_fills_a_gap_a_delete_left_behind(db, client):
+    """scheduling.md is explicit that a physical insertion between two
+    existing heat_number values is "not attempted" — new heats always land
+    after the race's current highest number. A number a `delete_heat` call
+    just freed up, in the middle of the sequence, is exactly the gap a
+    "helpful" reuse would reach for; `repair_master_running_order` must skip
+    over it rather than splice a new heat into it.
+    """
+    race = _race(db, "Freed Gap Derby", [3, 3])
+    _turn_on_master_running_order(db, race.id)
+    body = _den_wizard(client, race.id)
+    rounds = body["data"]["createRoundWizard"]
+    assert "errors" not in body, body
+
+    resp = client.post(
+        "/graphql", json={"query": APPLY_MUTATION, "variables": {"raceId": race.id}}
+    )
+    body = resp.json()
+    assert "errors" not in body, body
+    numbered = sorted(
+        body["data"]["applyMasterRunningOrder"]["heats"], key=lambda h: h["heatNumber"]
+    )
+    assert len(numbered) == 6
+
+    # Free up a number in the *middle* of the sequence, not the top of it —
+    # freeing the highest number would make "the next number is above the
+    # old max" true by coincidence, since that is also simply the next
+    # integer. A middle gap is the case that actually tests "never spliced
+    # in", as opposed to "simply incremented".
+    victim = numbered[2]
+    freed_number = victim["heatNumber"]
+    assert crud.delete_heat(db, int(float(victim["id"]))) is True
+
+    current_max = max(h.heat_number for h in crud.get_heats(db, race.id))
+    assert freed_number < current_max, "the freed number must actually be a gap"
+
+    # Manufacture a heat the way a mid-event cascade would hand one to this
+    # function — a brand-new row for one of the race's own general rounds,
+    # numbered the way a freshly generated round-local wave always is.
+    round_id = rounds[0]["id"]
+    new_heat = models.Heat(race_id=race.id, round_id=round_id, heat_number=1)
+    db.add(new_heat)
+    db.flush()
+    crud.set_heat_lanes(new_heat, [lanes.Lane(lane=1, racer_id=None)])
+    db.commit()
+
+    repaired = crud.repair_master_running_order(db, race.id, {round_id: [new_heat]})
+
+    assert len(repaired) == 1
+    assert repaired[0].heat_number != freed_number
+    assert repaired[0].heat_number > current_max, (
+        "a freed gap must never be filled — new numbers only ever land "
+        "above the race's current highest"
+    )
