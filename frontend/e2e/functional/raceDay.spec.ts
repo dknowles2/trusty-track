@@ -192,6 +192,71 @@ test('finishing the prelims fills the championship round with the top finishers'
     );
 });
 
+test('the last heat of the race raises a summary pointing at standings, awards and printing (#847)', async ({
+    page,
+}) => {
+    // The reported dead end: the last heat lands and On Deck says "Race
+    // Complete!" with nothing pointing anywhere. The modal has to be seen
+    // live, not recovered after a reload — a race that finished before the
+    // screen opened must not throw up a celebration on load, the same
+    // `seen === null` rule `roundCompletion.ts` already needed for the round
+    // summary (`raceCompletion.ts` here).
+    // The final's field is exactly the lane count, so every lane the round
+    // schedules holds a racer — `recordRound` sends only occupied lanes,
+    // and a final short a lane (fewer top racers than lanes) would need a
+    // second helper to fill the rest in as unraced.
+    const { raceId, racers, laneCount } = await seedRace(page, 'Race Day Finish');
+    await createSchedule(page, raceId, { name: 'Pack Final', numTopRacers: laneCount });
+
+    const rounds = await readRounds(page, raceId);
+    const prelim = rounds.find((r) => r.advancementSource === null)!;
+    const final = rounds.find((r) => r.advancementSource !== null)!;
+
+    // On the Race tab throughout, so the live subscription — not a reload —
+    // is what has to deliver both the championship field and, later, the
+    // finished-race summary.
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+
+    const heats = await readHeats(page, raceId);
+    await recordRound(
+        page,
+        heats.filter((h) => h.roundId === prelim.id),
+        racers,
+    );
+    await dismissRoundSummary(page);
+
+    // The championship field fills in live.
+    await expect(page.getByText('Placeholder 1', { exact: true })).toHaveCount(0, {
+        timeout: 30000,
+    });
+
+    const finalHeats = (await readHeats(page, raceId)).filter((h) => h.roundId === final.id);
+    await recordRound(page, finalHeats, racers);
+
+    const summary = page.getByRole('dialog', { name: 'Race Complete!' });
+    await expect(summary).toBeVisible({ timeout: 30000 });
+    await expect(summary.getByRole('link', { name: /Final Standings/i })).toHaveAttribute(
+        'href',
+        `/race/${raceId}/standings`,
+    );
+    await expect(summary.getByRole('link', { name: /Awards/i })).toHaveAttribute(
+        'href',
+        `/race/${raceId}/awards`,
+    );
+    await expect(summary.getByRole('link', { name: /Print Results/i })).toHaveAttribute(
+        'href',
+        `/race/${raceId}/print/results`,
+    );
+
+    await summary.getByRole('button', { name: '×' }).click();
+    await expect(summary).toBeHidden();
+
+    // A race that finished before the screen opened is history, not news.
+    await page.reload();
+    await expect(page.getByRole('dialog', { name: 'Race Complete!' })).toHaveCount(0);
+});
+
 test('an operator override replaces the recorded time', async ({ page }) => {
     // The edit path writes the heat's lanes from the screen, which is the one
     // place a stored result is changed by hand. Worth crossing end to end

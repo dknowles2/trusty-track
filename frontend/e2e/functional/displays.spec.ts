@@ -68,6 +68,38 @@ test('an operator can see a display and change what it shows', async ({ browser,
     await displayContext.close();
 });
 
+test('scenes are disabled with a reason until a display connects (#850)', async ({ browser, page }) => {
+    // The reported bug: the Scenes panel led with five live-looking buttons
+    // that silently did nothing with nothing connected, above the empty
+    // state that actually answers "how do I get a screen onto this list".
+    // `DisplaysPanel` and `ScenesPanel` each have their own unit coverage for
+    // what they render given a boolean; this is the wiring between them —
+    // `RaceControl.tsx` reading one panel's own answer into the other's
+    // `disabled` prop — that only a real page can exercise.
+    await ensureConfigured(page);
+    const { raceId } = await seedRace(page, 'Scenes Disabled Race');
+
+    await page.goto(`/race/${raceId}/control/displays`);
+
+    // The connect panel is what is actually there while nothing is
+    // connected, and Scenes has nothing yet to apply to.
+    await expect(page.getByText('No audience displays are open yet.')).toBeVisible();
+
+    const racing = page.getByRole('button', { name: 'Racing' });
+    await expect(racing).toBeDisabled();
+    await expect(page.getByText(/connect a screen first/i)).toBeVisible();
+
+    const displayContext = await browser.newContext();
+    const display = await displayContext.newPage();
+    await openDisplay(display, raceId, 'spec-display-scenes');
+
+    await expect(page.getByTestId('display-spec-display-scenes')).toBeVisible();
+    await expect(racing).toBeEnabled({ timeout: 10000 });
+    await expect(page.getByText(/connect a screen first/i)).not.toBeVisible();
+
+    await displayContext.close();
+});
+
 test('a display that goes away stays listed, and can be forgotten', async ({ browser, page }) => {
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Display Presence Race');

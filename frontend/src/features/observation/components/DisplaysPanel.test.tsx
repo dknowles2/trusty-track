@@ -36,6 +36,7 @@ function renderPanel(
     showCheckedIn = true,
     qrTarget = 'STANDINGS',
     showStandingsTicker = true,
+    onDisplaysChange?: (hasDisplays: boolean) => void,
 ) {
     // Two queries, and they answer different questions: the list of screens,
     // and whether the race has any awards to announce.
@@ -97,7 +98,7 @@ function renderPanel(
     (vi.mocked(useClient) as ReturnType<typeof vi.fn>).mockReturnValue({
         query: suggestDisplayName,
     });
-    render(<DisplaysPanel raceId={1} />);
+    render(<DisplaysPanel raceId={1} onDisplaysChange={onDisplaysChange} />);
 }
 
 afterEach(() => {
@@ -485,5 +486,23 @@ describe('opening a new display window (#590)', () => {
         expect(
             screen.getByRole('button', { name: 'Open a new display window' }),
         ).toBeInTheDocument();
+    });
+});
+
+describe('reporting whether any display is known for this race (#850)', () => {
+    // `ScenesPanel` has no query of its own for this — it would be a second
+    // subscription answering the same question this one already does. The
+    // Displays tab reads it off this panel instead, so the two can never
+    // disagree about whether there is anything for a scene to apply to.
+    it('reports true once a display is listed', () => {
+        const onDisplaysChange = vi.fn();
+        renderPanel('STANDINGS', 10, true, 2, true, 'PAGING', true, 'STANDINGS', true, onDisplaysChange);
+        expect(onDisplaysChange).toHaveBeenCalledWith(true);
+    });
+
+    it('reports false while the list is empty', () => {
+        const onDisplaysChange = vi.fn();
+        renderPanel('STANDINGS', 10, true, 2, false, 'PAGING', true, 'STANDINGS', true, onDisplaysChange);
+        expect(onDisplaysChange).toHaveBeenCalledWith(false);
     });
 });

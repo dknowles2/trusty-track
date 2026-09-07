@@ -34,6 +34,7 @@ import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane, Eliminatio
 import { hasRun, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shouldDerivePlaces } from '../lanes';
 import { executionComparator } from '../runningOrder';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
+import { observeRaceComplete, type SeenComplete } from '../raceCompletion';
 import { shouldShowReadiness } from '../readiness';
 import { estimatePace } from '../pace';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
@@ -49,6 +50,18 @@ export default function RaceControl() {
   const [selectedHeatId, setSelectedHeatId] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
   const [roundSummary, setRoundSummary] = useState<AdvancementStatus | null>(null);
+  // The whole race has just finished (#847) — `roundSummary`'s counterpart
+  // for the race rather than one round. Sticky the same way: set once by a
+  // genuine edge in the effect below, so a page opened on an already-finished
+  // race does not greet the operator with a celebration (see
+  // `raceCompletion.ts`'s `seen === null` rule).
+  const [raceJustCompleted, setRaceJustCompleted] = useState(false);
+
+  // Whether any audience display is known for this race (#850) — read off
+  // `DisplaysPanel`, which already asks the question for its own list,
+  // rather than a second query here answering the same thing. Drives the
+  // Displays tab's ordering and whether Scenes is offered as live.
+  const [hasDisplays, setHasDisplays] = useState(false);
 
   // A championship round's line-up chosen by hand (#711). `handPickRoundId`
   // is the modal's own open/closed state, controlled here rather than in
@@ -68,6 +81,9 @@ export default function RaceControl() {
   // in state is what forced the old effect to depend on its own output and
   // defer half its work to the next pass.
   const seenAdvancedRounds = useRef<SeenRounds>(null);
+  // Same bookkeeping, for whether the race as a whole was already finished
+  // the last time we looked (#847).
+  const seenRaceComplete = useRef<SeenComplete>(null);
 
   // Nothing resets this screen when the race changes, because the route keys
   // it on the race id and a different race is a different component. That is
@@ -101,6 +117,16 @@ export default function RaceControl() {
   const { data, fetching, error } = result;
   const race = data?.race;
   const heats = useMemo(() => race?.heats || [], [race?.heats]);
+
+  // Every heat the race will ever run has now run (#847) — independent of
+  // whatever heat the operator has selected, unlike the On Deck panel's own
+  // "Race Complete!" text, which only asks about the position of the
+  // *active* heat and so would say the same thing about the second-to-last
+  // heat of the race as about the truly last one.
+  const isRaceComplete = useMemo(
+    () => heats.length > 0 && heats.every((h: Heat) => hasRun(h.lanes)),
+    [heats]
+  );
 
   // This race's learned turnaround pace (#591), over every recorded heat in
   // the race — not just the round on screen, since staging and reset time is
@@ -180,6 +206,21 @@ export default function RaceControl() {
       setRoundSummary({ ...round.advancementStatus, roundId: round.id });
     }
   }, [race?.rounds, fetching]);
+
+  // The race as a whole has just finished (#847) — the same edge-detection
+  // shape as the round summary above, one level up, and following its own
+  // choice not to reset the sticky flag from inside this effect: once true
+  // it stays true for the rest of this page's life, exactly as `roundSummary`
+  // above is only ever set, never cleared, by its own detector.
+  useEffect(() => {
+    if (fetching || !race?.heats) return;
+
+    const { seen, justCompleted } = observeRaceComplete(seenRaceComplete.current, isRaceComplete);
+    seenRaceComplete.current = seen;
+    if (justCompleted) {
+      setRaceJustCompleted(true);
+    }
+  }, [fetching, race?.heats, isRaceComplete]);
 
   // Opens the hand-pick picker for a round the wizard just created with
   // "I'll choose who races myself" checked (#711), the moment that round
@@ -841,9 +882,18 @@ export default function RaceControl() {
       )}
 
       {viewMode === 'DISPLAYS' ? (
+        // Displays leads (#850): it is the thing that is actually there —
+        // the operator's live list of screens, and the address to give a
+        // screen that has not connected yet — where Scenes is a power tool
+        // for reconfiguring several of them at once and has nothing to do
+        // until at least one exists. The order is deliberately stable
+        // rather than swapping as screens connect and disconnect through
+        // the event, which would move the panel out from under the
+        // operator's cursor; what changes with `hasDisplays` is only
+        // whether Scenes' own controls are live.
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
-          <ScenesPanel raceId={id} />
-          <DisplaysPanel raceId={id} />
+          <DisplaysPanel raceId={id} onDisplaysChange={setHasDisplays} />
+          <ScenesPanel raceId={id} disabled={!hasDisplays} />
         </div>
       ) : viewMode === 'FREE_RACE' ? (
         <FreeRaceTab
@@ -883,6 +933,7 @@ export default function RaceControl() {
               laneColors={race?.track?.laneColors ?? []}
               racers={racers}
               roundSummary={roundSummary}
+              raceJustCompleted={raceJustCompleted}
               autoAdvanceHeat={race?.autoAdvanceHeat ?? false}
               masterRunningOrder={masterRunningOrder}
               remainingHeatsInRound={remainingHeatsInRound}

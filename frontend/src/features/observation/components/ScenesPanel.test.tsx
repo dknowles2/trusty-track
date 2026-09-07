@@ -180,4 +180,62 @@ describe('ScenesPanel', () => {
             expect(renameScene).toHaveBeenCalledWith({ id: 1, name: 'Renamed' });
         });
     });
+
+    describe('with nothing connected yet (#850)', () => {
+        // Applying a preset with zero displays is a no-op the operator can't
+        // tell from a hang, and "Save current layout as a scene" would save
+        // an empty layout. Disabled, with a reason, rather than a silent
+        // click — the same "an option that can only disappoint is worse than
+        // one that is absent" rule the ceremony's own display-view offer
+        // already follows, adapted to a control rather than a select option.
+
+        it('disables the preset buttons and says why', () => {
+            mockQueries();
+            render(<ScenesPanel raceId={1} disabled />);
+
+            const racing = screen.getByRole('button', { name: /Racing/ });
+            expect(racing).toBeDisabled();
+            expect(screen.getByText(/connect a screen first/i)).toBeInTheDocument();
+        });
+
+        it('does not apply a preset while disabled', () => {
+            mockQueries();
+            render(<ScenesPanel raceId={1} disabled />);
+
+            fireEvent.click(screen.getByRole('button', { name: /Racing/ }));
+
+            expect(applyScenePreset).not.toHaveBeenCalled();
+        });
+
+        it('disables Apply on an already-saved scene', () => {
+            mockQueries([{ id: 1, name: 'Front of house', assignments: [{ displayId: 'a' }] }]);
+            render(<ScenesPanel raceId={1} disabled />);
+
+            expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
+        });
+
+        it('disables saving the current layout as a new scene', () => {
+            mockQueries();
+            render(<ScenesPanel raceId={1} disabled />);
+
+            expect(screen.getByRole('button', { name: /Save current layout/ })).toBeDisabled();
+        });
+
+        it('still allows renaming or deleting an existing scene', () => {
+            // Neither depends on anything being connected right now.
+            mockQueries([{ id: 1, name: 'Front of house', assignments: [] }]);
+            render(<ScenesPanel raceId={1} disabled />);
+
+            expect(screen.getByRole('button', { name: 'Rename Front of house' })).not.toBeDisabled();
+            expect(screen.getByRole('button', { name: 'Delete Front of house' })).not.toBeDisabled();
+        });
+
+        it('is not disabled once something is connected', () => {
+            mockQueries();
+            render(<ScenesPanel raceId={1} disabled={false} />);
+
+            expect(screen.getByRole('button', { name: /Racing/ })).not.toBeDisabled();
+            expect(screen.queryByText(/connect a screen first/i)).not.toBeInTheDocument();
+        });
+    });
 });

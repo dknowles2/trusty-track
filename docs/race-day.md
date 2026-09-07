@@ -576,6 +576,15 @@ _The Schedule tab once the qualifying round is complete — every heat has its t
 
 ## Part 5: Final Standings
 
+When the very last heat of the race is recorded, Trusty Track raises one
+more summary — **Race Complete!** — with buttons straight to the Standings
+page, the Awards page, and the results sheet, so you are not left staring at
+a finished heat with nothing to click. Closing it leaves you on the ordinary
+Race tab; every one of those destinations is also one click away from the
+top navigation bar at any time, including if you come back to this tab
+later — a race that finished before you opened the page does not throw this
+summary up on you again.
+
 After all heats are complete, the **Standings** page shows the final ranked results. Navigate there from the top nav bar.
 
 The Standings page can be put on a large screen or projector so everyone can see the final results.
