@@ -96,7 +96,9 @@ interface RaceExecutionProps {
     /** Rounds whose field is the slowest cars — their undecided slots read
      * "Slowest N" rather than "Top N". */
     slowestRoundIds?: Set<number>;
-    onUpdateResult: (heatId: number, lanes: LaneInput[]) => Promise<void>;
+    /** Resolves to whether the save landed (#765) — a Skip or an Edit/Override
+     * must not act as though a refused save succeeded. */
+    onUpdateResult: (heatId: number, lanes: LaneInput[]) => Promise<boolean>;
     /** Which columns the Override/Edit modal shows (#490): times for `TIMED`,
      * places for `POINTS`. */
     scoringStrategy?: string | null;
@@ -249,7 +251,23 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             roundSummaryId: roundSummary?.roundId ?? null,
         },
         {
-            onPrepareHeat: (heatId) => { prepareHeat({ heatId }); },
+            // Fire-and-forget here used to mean silently: neither a GraphQL
+            // error nor the #337 refusal (a different heat RUNNING) — which
+            // answers `false` rather than throwing — said anything, leaving
+            // the operator at "Waiting for Timer…" indefinitely (#765). The
+            // command stays synchronous (`raceFlow.ts` performs no I/O and
+            // does not wait on this), so the check happens in the handler
+            // rather than by changing what the machine hands back.
+            onPrepareHeat: (heatId) => {
+                prepareHeat({ heatId }).then((result) => {
+                    if (result.error || result.data?.prepareHeat === false) {
+                        showAlert(
+                            errorText(result.error, 'The timer could not be armed for the next heat.'),
+                            'Error',
+                        );
+                    }
+                });
+            },
             onAdvance: onNextHeat,
         },
     );
@@ -382,8 +400,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             const time = Number(timeText);
             return { ...rest, time: timeText.trim() === '' || isNaN(time) ? null : time };
         });
-        await onUpdateResult(activeExecutionHeat.id, edited);
-        setIsEditModalOpen(false);
+        // A refused save (e.g. two lanes given the same place under POINTS)
+        // must not close the modal on the way out — that discards everything
+        // the operator just typed, with the only signal a transient alert
+        // `onUpdateResult` has already shown (#765). Leave it open so they can
+        // fix the value and try again.
+        const saved = await onUpdateResult(activeExecutionHeat.id, edited);
+        if (saved) setIsEditModalOpen(false);
     };
 
     const handleSkipHeat = async () => {
@@ -405,11 +428,30 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 skipped: true
             }));
 
-            // Move UI forward IMMEDIATELY to prevent "flash back" race conditions
-            onNextHeat();
+            // Wait for the server to hold the skip before moving the screen
+            // on (#765; #7 — the server owns the live heat view, so the fix
+            // is to not get ahead of it rather than to hold a client-side
+            // "skipped" state it might disagree with). This used to advance
+            // first ("Move UI forward IMMEDIATELY to prevent 'flash back' race
+            // conditions"), so a refused save — a network blip, the race
+            // locked mid-click — left the operator on the next heat with the
+            // old one never actually marked skipped, unsettled for
+            // `is_round_complete` and everything downstream of it.
+            // `raceDay.spec.ts`'s skipped-heat test already had to poll the
+            // server before navigating away for exactly this reason.
+            const saved = await onUpdateResult(currentHeatId, skippedResults);
+            if (!saved) return; // `onUpdateResult` has already alerted why.
 
-            await onUpdateResult(currentHeatId, skippedResults);
-            if (trackId) await abortHeat({ trackId });
+            onNextHeat();
+            if (trackId) {
+                const aborted = await abortHeat({ trackId });
+                if (aborted.error) {
+                    showAlert(
+                        errorText(aborted.error, 'The heat was skipped, but the timer could not be released.'),
+                        'Error',
+                    );
+                }
+            }
         }
     };
 
@@ -660,7 +702,21 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 ) : isRunning ? (
                                     <>
                                         <button
-                                            onClick={() => prepareHeat({ heatId: activeExecutionHeat.id })}
+                                            onClick={async () => {
+                                                // Same check as the auto-prepare
+                                                // handler above and RunOffControl's
+                                                // own `handlePrepare` (#765): a
+                                                // refused re-arm otherwise leaves
+                                                // the operator's own deliberate
+                                                // click looking like it worked.
+                                                const result = await prepareHeat({ heatId: activeExecutionHeat.id });
+                                                if (result.error || result.data?.prepareHeat === false) {
+                                                    showAlert(
+                                                        errorText(result.error, 'The timer could not be re-armed for this heat.'),
+                                                        'Error',
+                                                    );
+                                                }
+                                            }}
                                             className="secondary-btn"
                                             disabled={raceLocked}
                                             title={raceLocked ? lockedTitle : undefined}

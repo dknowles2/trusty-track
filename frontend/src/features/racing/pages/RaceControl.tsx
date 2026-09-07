@@ -312,10 +312,17 @@ export default function RaceControl() {
     }
   };
 
-  const handleUpdateResult = useCallback(async (heatId: number, results: LaneInput[]) => {
+  // Returns whether the save landed (#765) rather than swallowing the
+  // outcome: `RaceExecution.tsx` has two callers — Skip Heat and the
+  // Override/Edit modal — that must not act as though a refused save
+  // succeeded (advancing past an unmarked heat, closing a modal and
+  // discarding what the operator typed). This still alerts here, so neither
+  // caller needs its own copy of "say why it failed" — it only also reports
+  // success or failure so they can decide what a failure means for *them*.
+  const handleUpdateResult = useCallback(async (heatId: number, results: LaneInput[]): Promise<boolean> => {
       try {
           const heat = heats.find((h: Heat) => h.id === heatId);
-          if (!heat) return;
+          if (!heat) return false;
 
           // Times become places (#490's part 2); hand-typed places under
           // `POINTS` are sent exactly as entered — there is no time to
@@ -335,9 +342,11 @@ export default function RaceControl() {
           // this refetch's advancement status against what it saw last and
           // raises the summary itself (`roundCompletion.ts`).
           reExecute({ requestPolicy: 'network-only' });
+          return true;
       } catch (e) {
           console.error("Failed to update results", e);
           showAlert(errorText(e, "Failed to update results."), "Error");
+          return false;
       }
   }, [heats, race, updateHeatResultMutation, reExecute, showAlert]);
 
