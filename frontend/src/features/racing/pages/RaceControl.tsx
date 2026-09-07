@@ -98,7 +98,7 @@ export default function RaceControl() {
   // changes cost a refetch. See useRaceStateChanged.
   useRaceStateChanged(id, () => reExecute({ requestPolicy: 'network-only' }));
 
-  const { data, fetching } = result;
+  const { data, fetching, error } = result;
   const race = data?.race;
   const heats = useMemo(() => race?.heats || [], [race?.heats]);
 
@@ -681,6 +681,13 @@ export default function RaceControl() {
   const anyHeatRecorded = heats.some((heat: Heat) => hasTimes(heat.lanes));
 
   if (fetching && !data) return <div>Loading Race Control...</div>;
+
+  if (error && !race) return (
+    <div className="container" style={{ padding: '20px' }}>
+      <h1>Race Control</h1>
+      <p style={{ color: 'var(--error-color)' }}>{errorText(error, 'The race could not be loaded.')}</p>
+    </div>
+  );
 
   if (!race && !fetching) return (
     <div className="container">
