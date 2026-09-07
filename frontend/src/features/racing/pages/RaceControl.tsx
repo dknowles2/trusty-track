@@ -31,7 +31,7 @@ import {
 import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple, mdiPencil } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane, EliminationChart } from '../types';
-import { hasRun, hasTimes, byPlace, cleared, assignPlaces, shouldDerivePlaces } from '../lanes';
+import { hasRun, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shouldDerivePlaces } from '../lanes';
 import { executionComparator } from '../runningOrder';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
 import { shouldShowReadiness } from '../readiness';
@@ -956,7 +956,7 @@ export default function RaceControl() {
                                   Lane {r.lane}
                               </LaneBadge>
                               <span style={{ flex: 1, fontWeight: r.place === 1 ? 600 : 'normal' }}>{laneRacerName(r, slowestRoundIds.has(heat.roundId))}</span>
-                              <span style={{ fontFamily: 'monospace', color: 'var(--text-heading-alt-color)', flexShrink: 0 }}>{r.time != null ? `${Number(r.time).toFixed(4)}s` : '–'}</span>
+                              <span style={{ fontFamily: 'monospace', color: 'var(--text-heading-alt-color)', flexShrink: 0 }}>{formatLaneTime(r.time) ?? '–'}</span>
                             </div>
                           ))}
                         </div>

@@ -1887,11 +1887,21 @@ class TimerManager:
                             # report what they have want telling here.
                             await self._send_for(Event.RESULTS_OVERDUE)
 
-                if self._direct_port and (
-                    not self._serial
-                    or not self._serial.is_open
-                    or self._state == TimerState.FAULT
-                ):
+                # Reconnect only when the port itself is actually gone (#764).
+                # `self._state == FAULT` used to be a reason on its own, but
+                # FAULT is not only "the device is unreachable" -- since #342,
+                # `_recording_failed` lands here on a database write failure
+                # with the port perfectly healthy, and closing and reopening
+                # it in that case tears down a working connection and
+                # re-sends the identification/initialisation commands over a
+                # SQLite hiccup that has nothing to do with the hardware.
+                # Every path that sets FAULT for a real connection problem
+                # (`connect_direct`'s own open failure, `_read_loop`'s
+                # `SerialException` handler) already clears `self._serial`
+                # first, so `not self._serial or not self._serial.is_open`
+                # catches those on its own with nothing left for the FAULT
+                # check to add.
+                if self._direct_port and (not self._serial or not self._serial.is_open):
                     logger.info(
                         "Timer %d watchdog: attempting reconnect on %s",
                         self._track_id,

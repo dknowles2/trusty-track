@@ -20,7 +20,7 @@ interface TimerStatusData {
 function getStatusDisplay(state: string | undefined): { colorClass: string; label: string } {
   switch (state) {
     case 'CONNECTED':
-      return { colorClass: 'yellow', label: 'Timer: Connecting\u2026' };
+      return { colorClass: 'yellow', label: 'Timer: Connecting…' };
     case 'IDLE':
       return { colorClass: 'green', label: 'Timer: Ready' };
     // ARMED means the lane mask has been sent. READY means the timer has also
@@ -32,11 +32,21 @@ function getStatusDisplay(state: string | undefined): { colorClass: string; labe
     case 'READY':
       return { colorClass: 'blue', label: 'Timer: Ready to race' };
     case 'RUNNING':
-      return { colorClass: 'pulse', label: 'Timer: Racing\u2026' };
+      return { colorClass: 'pulse', label: 'Timer: Racing…' };
     case 'RESULTS_OVERDUE':
       return { colorClass: 'red', label: 'Timer: Results overdue' };
-    case 'DISCONNECTED':
+    // FAULT is not the same claim as DISCONNECTED, and #764 is about the two
+    // being run together. Since #342, a database write failure lands the
+    // manager in FAULT with the port perfectly healthy — its own error text
+    // says "the timer link is fine; enter the times with Override" — so a
+    // label that says "disconnected" sends the operator to check a cable
+    // that was never the problem. This gets its own word, and `lastError`
+    // (already fetched below, never shown until now) goes on the badge as a
+    // title so the actual reason — a locked database, or a real hardware
+    // fault — is one hover away instead of invisible.
     case 'FAULT':
+      return { colorClass: 'red', label: 'Timer: Needs attention' };
+    case 'DISCONNECTED':
     default:
       return { colorClass: 'grey', label: 'Timer disconnected' };
   }
@@ -49,10 +59,11 @@ export function TimerStatusBadge({ trackId }: TimerStatusBadgeProps) {
   });
 
   const state = data?.timerStatus?.status?.state;
+  const lastError = data?.timerStatus?.status?.lastError ?? null;
   const { colorClass, label } = getStatusDisplay(state);
 
   return (
-    <span className="timer-status-badge">
+    <span className="timer-status-badge" title={lastError ?? undefined}>
       <span className={`timer-status-dot timer-status-dot--${colorClass}`} />
       <span className="timer-status-label">{label}</span>
     </span>

@@ -15,6 +15,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useQuery, useSubscription, useMutation } from 'urql';
 import { gql } from 'urql';
 import { buildDisplayLines } from '../../racing/serialLog';
+import { formatLaneTime } from '../../racing/lanes';
 import type { SerialLogEntry } from '../../racing/serialLog';
 import { SerialProxyConnector } from '../../racing/components/SerialProxyConnector';
 import { useAlert } from '../../../context/AlertContext';
@@ -339,7 +340,7 @@ const TimerTestPanel: React.FC<{
                                 <tr key={r.lane}>
                                     <td style={{ paddingRight: '1rem' }}>{r.lane}</td>
                                     <td style={{ paddingRight: '1rem', fontFamily: MONO }}>
-                                        {r.time != null ? `${r.time.toFixed(3)}s` : '—'}
+                                        {formatLaneTime(r.time) ?? '—'}
                                     </td>
                                     <td>{r.place ?? '—'}</td>
                                 </tr>

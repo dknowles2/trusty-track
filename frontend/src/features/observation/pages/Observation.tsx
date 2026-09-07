@@ -28,6 +28,11 @@ import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
 import { formatScaleMph } from '../scaleSpeed';
 import { runOffAnnouncement } from '../../racing/runOff';
+import { formatLaneTime } from '../../racing/lanes';
+import {
+  formatScore as formatScoreShared,
+  scoreLabel as scoreLabelFor,
+} from '../../stats/scoringStrategyText';
 import IdentifyPresence from '../IdentifyPresence';
 import IntermissionOverlay from '../components/IntermissionOverlay';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
@@ -394,9 +399,13 @@ export default function Observation() {
   const lastHeatResults = timingStatsData?.timingStats;
   const activeFreeRace = activeFreeRaceData?.activeFreeRaceHeat;
 
-  // Mirrors Leaderboard.tsx's scoreLabel/formatScore: a POINTS race sums
-  // placements, not seconds, so the wall must say what it means and never
-  // print a POINTS total as though it were a time (#329).
+  // Through Leaderboard.tsx's own scoreLabel/formatScore (#763) — this used
+  // to be a private reimplementation of both, with a comment claiming to
+  // mirror them while actually printing a TIMED average to four decimals
+  // where every other screen (the projector view below, and the operator's
+  // own Standings page) prints three. One rule, in one module, is what
+  // keeps "3.4141s" on this wall and "3.414s" on that one from happening
+  // again.
   const scoringStrategy = initialData?.race?.scoringStrategy || 'TIMED';
   // How much of a racer's name this audience-facing page may show (#552) —
   // resolved server-side, never null once the race has answered; `'FULL'`
@@ -408,11 +417,13 @@ export default function Observation() {
   // re-deriving it, the same "resolve once, pass down" shape `nameDisplay`
   // itself uses on this page.
   const laneColors = initialData?.race?.track?.laneColors ?? [];
-  const scoreLabel = scoringStrategy === 'TIMED' ? 'Avg Time' : 'Points';
-  const formatScore = (score: number) =>
-    scoringStrategy === 'TIMED' ? `${score.toFixed(4)}s` : score.toString();
+  const scoreLabel = scoreLabelFor(scoringStrategy);
+  const formatScore = (score: number) => formatScoreShared(score, scoringStrategy);
+  // The projector's own row already carries `scoreLabel` as a second line
+  // beneath the number (see the render below), so it needs the bare value
+  // with no trailing unit rather than a second copy of the same word.
   const formatProjectorScore = (score: number) =>
-    scoringStrategy === 'TIMED' ? score.toFixed(3) : score.toString();
+    formatScoreShared(score, scoringStrategy, { unit: false });
 
   /** Is the thing on the track an exhibition run? (#142)
    *
@@ -636,7 +647,7 @@ export default function Observation() {
                 <div className="overlay-car-name">{lane.carName || `Lane ${lane.laneNumber}`}</div>
               </div>
               <div className="overlay-time">
-                {lane.time?.toFixed(3)}s
+                {formatLaneTime(lane.time)}
                 {formatScaleMph(lane.scaleMph) && (
                   <span className="overlay-scale-mph"> · {formatScaleMph(lane.scaleMph)}</span>
                 )}
@@ -1076,7 +1087,7 @@ export default function Observation() {
                         <div className="timing-car-name" style={{ color: 'var(--display-text-muted-color)' }}>{lane.carName || `Lane ${lane.laneNumber}`}</div>
                       </div>
                       <div className="timing-time" style={{ fontSize: '2.5rem', fontWeight: 'bold', fontFamily: 'monospace' }}>
-                        {lane.time?.toFixed(3)}s
+                        {formatLaneTime(lane.time)}
                         {formatScaleMph(lane.scaleMph) && (
                           <span
                             className="timing-scale-mph"

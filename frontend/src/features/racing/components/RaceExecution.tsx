@@ -29,7 +29,7 @@ export type {
 } from '../types';
 import type { Heat, Racer, AdvancementStatus, LaneInput, Lane, LiveLane } from '../types';
 import type { HeatPhase } from '../../../gql/operations';
-import { hasRun, hasTimes, isTimeBasedStrategy, toInput, placeIssue, parseTimeText, tiedTimeGroups } from '../lanes';
+import { formatLaneTime, hasRun, hasTimes, isTimeBasedStrategy, toInput, placeIssue, parseTimeText, tiedTimeGroups } from '../lanes';
 import { chimeEnabled, playChime, setChimeEnabled, shouldChime } from '../chime';
 import { isTypingTarget, shortcutFor, SHORTCUT_HINTS } from '../shortcuts';
 import { useRaceFlow } from '../useRaceFlow';
@@ -633,7 +633,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                                                 <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                                                    {r.time != null ? `${Number(r.time).toFixed(4)}s` : '--'}
+                                                    {formatLaneTime(r.time) ?? '--'}
                                                 </div>
                                                 {r.place !== null && (
                                                     <div style={{

@@ -5,6 +5,7 @@ import {
   wasSkipped,
   byPlace,
   assignPlaces,
+  formatLaneTime,
   isTimeBasedStrategy,
   shouldDerivePlaces,
   shouldDerivePlacesForFreeRace,
@@ -511,5 +512,44 @@ describe('tiedTimeGroups', () => {
       { lane: 3, time: -1 },
     ];
     expect(tiedTimeGroups(rows)).toEqual([]);
+  });
+});
+
+/**
+ * Issue #763. A per-lane time used to be `.toFixed()`-ed inline at whichever
+ * precision the screen it lived on happened to pick — three decimals on
+ * most, four on RaceExecution/ScheduleManagement/FreeRaceExecution/
+ * RaceControl's live-heat views — and none of them said "DNF" for a
+ * non-positive time, which is the marker `assignPlaces` above already
+ * treats specially. This is the one place both rules live now.
+ */
+describe('formatLaneTime', () => {
+  it('formats a real time to three decimals, regardless of how many the raw float carries', () => {
+    // What the fake timer used to hand back before #763's other fix, and
+    // what a real device's own value looks like once parsed to a float.
+    expect(formatLaneTime(3.41412257608823)).toBe('3.414s');
+    expect(formatLaneTime(3.4)).toBe('3.400s');
+  });
+
+  it('returns null for nothing recorded, leaving the fallback to the caller', () => {
+    expect(formatLaneTime(null)).toBeNull();
+    expect(formatLaneTime(undefined)).toBeNull();
+  });
+
+  it('labels a zero time DNF rather than printing "0.000s"', () => {
+    expect(formatLaneTime(0)).toBe('DNF');
+  });
+
+  it('labels a negative time DNF too', () => {
+    expect(formatLaneTime(-1)).toBe('DNF');
+  });
+
+  it('does not relabel an ordinary slow-but-real time that happens to be 9.999s', () => {
+    // 9.999 is `domain/scoring.py`'s DNF *penalty* substituted only when
+    // averaging a score — never a value this app writes to a stored lane —
+    // so a genuinely slow car's raw recorded time is not this rule's
+    // concern. `scoringStrategyText.formatScore`'s own test pins the
+    // aggregate-score half of this label.
+    expect(formatLaneTime(9.999)).toBe('9.999s');
   });
 });

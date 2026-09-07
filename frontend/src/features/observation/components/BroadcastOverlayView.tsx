@@ -45,6 +45,7 @@
  */
 
 import { formatDisplayName, type NameDisplay } from '../../core/displayName';
+import { formatLaneTime } from '../../racing/lanes';
 import LaneBadge from '../../../components/ui/LaneBadge';
 import { colorForLane } from '../../settings/laneColors';
 import { TimerStatusBadge } from '../../racing/components/TimerStatusBadge';
@@ -244,7 +245,7 @@ export default function BroadcastOverlayView({
                                 </span>
                                 <span style={{ flex: 1 }}>{lane.racerName}</span>
                                 <span style={{ fontFamily: 'monospace', color: SCRIM_TEXT_MUTED }}>
-                                    {lane.time != null ? `${lane.time.toFixed(3)}s` : '—'}
+                                    {formatLaneTime(lane.time) ?? '—'}
                                 </span>
                             </div>
                         ))}

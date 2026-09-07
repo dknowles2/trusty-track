@@ -498,7 +498,7 @@ describe('Observation Page', () => {
         // A POINTS total is not a time — the header must not still say
         // "Avg Time", and the score must not carry a fabricated "s" suffix.
         expect(screen.queryByText('Avg Time')).not.toBeInTheDocument();
-        expect(screen.queryByText('12.0000s')).not.toBeInTheDocument();
+        expect(screen.queryByText('12.000s')).not.toBeInTheDocument();
         expect(screen.getAllByText('12').length).toBe(2);
         expect(screen.getByText('20')).toBeInTheDocument();
 
@@ -508,6 +508,41 @@ describe('Observation Page', () => {
         expect(mcqueenRow?.querySelector('.standing-rank')?.textContent).toBe('1');
         expect(docRow?.querySelector('.standing-rank')?.textContent).toBe('1');
         expect(materRow?.querySelector('.standing-rank')?.textContent).toBe('3');
+    });
+
+    it('prints a TIMED average to three decimals, matching every other screen (#763)', async () => {
+        // This page used to define its own `formatScore` (`toFixed(4)`),
+        // disagreeing with the shared `scoringStrategyText.formatScore`
+        // every other screen — the operator's own Standings page, the
+        // projector view — already uses at three decimals.
+        const racersData = {
+            race: {
+                id: 1,
+                scoringStrategy: 'TIMED',
+                racers: [
+                    { id: 1, firstName: 'Speedy', lastName: 'McQueen', carNumber: 95, racerImageUrl: null },
+                ],
+            }
+        };
+
+        setupMocks({
+            leaderboard: [
+                { racerId: 1, score: 3.41412257608823, heatsCompleted: 4, rank: 1 },
+            ],
+        }, racersData);
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('3.414s')).toBeInTheDocument();
+        });
+        expect(screen.queryByText('3.4141s')).not.toBeInTheDocument();
     });
 
     it('projector standings label a POINTS race by points and keep the shared rank (#329)', async () => {

@@ -80,3 +80,27 @@ class TestTheTimesThemselves:
 
     def test_no_lanes_is_no_times(self):
         assert fake.lane_times([], key="k") == []
+
+    def test_times_are_rounded_like_a_real_device_rather_than_raw_float_noise(self):
+        """Issue #763. Before the fix this was
+        ``FASTEST_SECONDS + source.random() * span`` with nothing rounding
+        it, so a heat's time could be ``3.41412257608823`` -- visible,
+        digit for digit, in the Edit modal's input and in a CSV export.
+        Every real timer profile reports a handful of decimal digits, never
+        raw float noise, so the fake one should too.
+        """
+        for _, seconds in fake.lane_times(list(range(1, 9)), key="rounding"):
+            assert round(seconds, 3) == seconds, (
+                f"{seconds!r} carries more than three decimal places"
+            )
+
+    def test_rounding_never_pushes_a_time_up_to_the_window_s_edge(self):
+        """A value at the very top of the window (e.g. 3.99961) rounds to
+        4.0, which is `SLOWEST_SECONDS` itself -- exactly what
+        `test_they_land_in_the_window` above says never happens. Repeated
+        rather than assumed from one seed, since the failure only shows up
+        within 0.0005 of the ceiling."""
+        for offset in range(1, 1000):
+            key = f"edge-{offset}"
+            for _, seconds in fake.lane_times([1], key=key):
+                assert fake.FASTEST_SECONDS <= seconds < fake.SLOWEST_SECONDS

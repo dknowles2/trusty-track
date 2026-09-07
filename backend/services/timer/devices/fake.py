@@ -23,6 +23,28 @@ FAKE = TimerProfile(
 FASTEST_SECONDS = 3.0
 SLOWEST_SECONDS = 4.0
 
+#: How many decimal places a generated time carries -- matching what every
+#: real timer profile reports (#763). Unrounded, `source.random()` produces
+#: fifteen-digit float noise (``3.41412257608823``), which used to reach the
+#: Edit modal's inputs and a CSV export digit for digit.
+_TIME_DECIMALS = 3
+
+
+def _rounded_time(raw: float) -> float:
+    """Round to `_TIME_DECIMALS` places without letting a value at the very
+    top of the window round up to (or past) ``SLOWEST_SECONDS``.
+
+    ``source.random()`` is exclusive of 1.0, so ``raw`` is always strictly
+    below ``SLOWEST_SECONDS`` -- but rounding is not exclusive, and a value
+    within half a thousandth of the ceiling (e.g. ``3.99961``) rounds *to*
+    it. `test_they_land_in_the_window` (and the scoring/display rules that
+    read the window's own bound) say that never happens, so this clamps
+    rather than letting a one-in-a-thousand-ish draw violate it.
+    """
+    rounded = round(raw, _TIME_DECIMALS)
+    ceiling = SLOWEST_SECONDS - (10**-_TIME_DECIMALS)
+    return min(rounded, ceiling)
+
 
 def lane_times(lanes: Sequence[int], *, key: str) -> list[tuple[int, float]]:
     """A time for each lane, fastest first.
@@ -33,6 +55,9 @@ def lane_times(lanes: Sequence[int], *, key: str) -> list[tuple[int, float]]:
     """
     source = demo_seed.generator(key)
     span = SLOWEST_SECONDS - FASTEST_SECONDS
-    timed = [(lane, FASTEST_SECONDS + source.random() * span) for lane in lanes]
+    timed = [
+        (lane, _rounded_time(FASTEST_SECONDS + source.random() * span))
+        for lane in lanes
+    ]
     timed.sort(key=lambda pair: pair[1])
     return timed

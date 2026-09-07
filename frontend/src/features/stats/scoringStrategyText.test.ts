@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CUMULATIVE_TIME,
+  DNF_PENALTY_SECONDS,
   FASTEST_TIME,
   POINTS,
   SCORING_STRATEGY_OPTIONS,
@@ -45,5 +46,26 @@ describe('formatScore', () => {
 
   it('formats a Points score as a bare number', () => {
     expect(formatScore(7, 'POINTS')).toBe('7');
+  });
+
+  // #763: this used to be reimplemented privately in Observation.tsx at
+  // four decimals, disagreeing with this module's three and with the
+  // projector view's own copy of the same private reimplementation.
+  it('drops the trailing unit when the caller labels it separately', () => {
+    expect(formatScore(3.2016, 'TIMED', { unit: false })).toBe('3.202');
+    expect(formatScore(7, 'POINTS', { unit: false })).toBe('7');
+  });
+
+  it('labels a score equal to the DNF penalty sentinel as DNF, not 9.999s', () => {
+    expect(formatScore(DNF_PENALTY_SECONDS, 'TIMED')).toBe('DNF');
+    expect(formatScore(DNF_PENALTY_SECONDS, 'CUMULATIVE_TIME')).toBe('DNF');
+  });
+
+  it('does not relabel an ordinary Points score that happens to equal 9.999', () => {
+    // POINTS never produces a fractional score, but the guard is a strict
+    // equality on the raw number regardless of strategy, so this pins that
+    // the check is scoped to time-based strategies and not to the literal
+    // value alone.
+    expect(formatScore(DNF_PENALTY_SECONDS, 'POINTS')).toBe('9.999');
   });
 });
