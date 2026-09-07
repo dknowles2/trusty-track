@@ -31,6 +31,7 @@
  */
 
 import { test, expect } from './screenshots-setup';
+import type { Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -42,6 +43,27 @@ const GETTING_STARTED_DIR = path.resolve(
     '../../../docs/assets/screenshots/getting-started',
 );
 const SETTINGS_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/settings');
+
+/**
+ * Removes the operator PIN if one is set, navigating fresh rather than
+ * continuing from wherever the caller's own page happens to be — the one
+ * call in this file that has to work regardless of what already failed.
+ * A no-op if the panel shows no PIN to remove, which is what makes this
+ * safe to call from a `finally` block that cannot know how far the `try`
+ * got.
+ */
+async function clearOperatorPin(page: Page): Promise<void> {
+    await page.goto('/system-settings');
+    await page.getByTestId('settings-nav-access').click();
+    const remove = page.getByTestId('operator_pin-remove');
+    if ((await remove.count()) === 0) return;
+    await remove.click();
+    await page.getByRole('button', { name: 'Save Settings' }).click();
+    await page.waitForURL('**/', { waitUntil: 'networkidle' });
+    await page.goto('/system-settings');
+    await page.getByTestId('settings-nav-access').click();
+    await expect(page.getByTestId('operator_pin-remove')).toHaveCount(0);
+}
 
 test('screenshot the first run', async ({ page }) => {
     fs.mkdirSync(GETTING_STARTED_DIR, { recursive: true });
@@ -146,26 +168,40 @@ test('screenshot the first run', async ({ page }) => {
     //
     // Saving leaves this page — and, when the PIN changed, reloads so the
     // subscription socket picks the new credential up. Come back to it.
-    await page.goto('/system-settings');
-    await page.getByTestId('settings-nav-access').click();
-    await page.getByLabel('Operator PIN').fill('1234');
-    await page.getByRole('button', { name: 'Save Settings' }).click();
-    await page.waitForURL('**/', { waitUntil: 'networkidle' });
-    await page.goto('/system-settings');
-    await page.getByTestId('settings-nav-access').click();
-    await expect(page.getByTestId('operator_pin-remove')).toBeVisible();
-    await page
-        .getByTestId('access-panel')
-        .screenshot({ path: path.join(SETTINGS_DIR, '03-access-pins.png') });
-
-    // Put it back before anything else starts. Everything below, and every
-    // spec in the phases after this one, mutates without a PIN header.
-    await page.getByTestId('operator_pin-remove').click();
-    await page.getByRole('button', { name: 'Save Settings' }).click();
-    await page.waitForURL('**/', { waitUntil: 'networkidle' });
-    await page.goto('/system-settings');
-    await page.getByTestId('settings-nav-access').click();
-    await expect(page.getByTestId('operator_pin-remove')).toHaveCount(0);
+    //
+    // Everything from here to the PIN coming back off is wrapped in
+    // `try`/`finally`: while a PIN is set, every caller without one is a
+    // `VIEWER` and no mutation is allowed at all (#15) — and `gql()` in this
+    // file (`page.request.post`, straight HTTP) never carries one, because it
+    // bypasses `api/pin.ts` entirely, which is what reads the browser's own
+    // stored PIN into a real page's requests. A failure anywhere in this
+    // block used to leave the PIN set, and the very next `gql()` call —
+    // whether this test's own retry, sharing the same backend, or any spec
+    // in the parallel phase this project gates — would be refused rather
+    // than fail with anything pointing back here.
+    try {
+        await page.goto('/system-settings');
+        await page.getByTestId('settings-nav-access').click();
+        await page.getByLabel('Operator PIN').fill('1234');
+        await page.getByRole('button', { name: 'Save Settings' }).click();
+        await page.waitForURL('**/', { waitUntil: 'networkidle' });
+        await page.goto('/system-settings');
+        await page.getByTestId('settings-nav-access').click();
+        await expect(page.getByTestId('operator_pin-remove')).toBeVisible();
+        await page
+            .getByTestId('access-panel')
+            .screenshot({ path: path.join(SETTINGS_DIR, '03-access-pins.png') });
+    } finally {
+        // Put it back before anything else starts. Everything below, and
+        // every spec in the phases after this one, mutates without a PIN
+        // header. A fresh `goto` rather than continuing from wherever the
+        // `try` block got to, since that is the one navigation this can
+        // still make regardless of what failed above; a caught, swallowed
+        // error here is deliberate too — cleanup failing must not replace
+        // whatever real error the `try` block threw with a more confusing
+        // one about the Access panel.
+        await clearOperatorPin(page).catch(() => {});
+    }
 
     // The activity log (#219). It needs something to show, so make a little
     // history first — including one thing a person did by hand, so the picture

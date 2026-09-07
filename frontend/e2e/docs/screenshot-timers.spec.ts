@@ -19,10 +19,11 @@
  */
 
 import { test, expect, settleTransitions } from './screenshots-setup';
+import type { Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { BACKEND_URL, ensureConfigured, gql } from './support';
+import { BACKEND_URL, deleteTrack, ensureConfigured, gql } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/timers');
@@ -90,14 +91,34 @@ test('screenshot the timer pages', async ({ page }) => {
 
     await ensureConfigured(page);
 
+    // A retry re-creates the track, and a name has to be unique enough that
+    // the *first* attempt's leftovers — if cleanup itself never got to run —
+    // cannot collide with it: two tracks named identically is exactly what
+    // turned a retried flake into a hard failure (a `getByTestId(/track-card-
+    // \d+/)` locator resolving to two elements) rather than the recovery a
+    // retry is supposed to be. Same convention `seedRace` in
+    // `e2e/functional/support.ts` already uses for `races.name`. First
+    // attempts keep the plain name, so the ordinary, non-retried run — every
+    // run, in practice — produces the same picture as before this change.
+    const retry = test.info().retry;
+    const trackName = retry > 0 ? `Timer Demo Track (retry ${retry})` : 'Timer Demo Track';
+
     // A two-lane proxy-mode track of our own. Two lanes, so the bench test
     // finishes with two hand-tripped results rather than needing six.
+    //
+    // Deleted in `finally`, not as the test body's last statement — a track
+    // is global state on this shared backend, and a failure anywhere above
+    // that line used to leak it, poisoning a same-run retry (which shares the
+    // backend, and so the leftover) even though the retry itself created its
+    // own uniquely-named track. `deleteTrack` is deliberately swallowed:
+    // cleanup failing (page already closed, backend already gone) must not
+    // replace whatever real error the test body threw.
     const created = await gql(
         page,
         `mutation ($track: TrackInput!) { createTrack(track: $track) { id } }`,
         {
             track: {
-                name: 'Timer Demo Track',
+                name: trackName,
                 laneCount: 2,
                 timerType: 'AUTO_DETECT_PROXY',
             },
@@ -105,6 +126,19 @@ test('screenshot the timer pages', async ({ page }) => {
     );
     const trackId: number = created.createTrack.id;
 
+    try {
+        await screenshotTimerPages(page, trackId, trackName);
+    } finally {
+        await deleteTrack(page, trackId).catch(() => {});
+    }
+});
+
+/** Everything after the track exists and before it is torn down. */
+async function screenshotTimerPages(
+    page: Page,
+    trackId: number,
+    trackName: string,
+): Promise<void> {
     // 01: where the timer settings live — the track card's connection and
     // model controls on System Settings.
     await page.goto('/system-settings');
@@ -116,8 +150,8 @@ test('screenshot the timer pages', async ({ page }) => {
     // now something that happens while this page is open.
     const demoCard = page
         .getByTestId(/track-card-\d+/)
-        .filter({ has: page.locator('input[value="Timer Demo Track"]') });
-    await expect(demoCard.locator('input[value="Timer Demo Track"]')).toBeVisible();
+        .filter({ has: page.locator(`input[value="${trackName}"]`) });
+    await expect(demoCard.locator(`input[value="${trackName}"]`)).toBeVisible();
     // Settled against `body`, not `demoCard`: the SettingsNav buttons whose
     // `[aria-current='page']` background-color just changed (see
     // `settleTransitions`'s doc comment) live in the page's own nav column,
@@ -135,7 +169,7 @@ test('screenshot the timer pages', async ({ page }) => {
     await page.waitForLoadState('networkidle');
     const timerCard = page
         .locator('section')
-        .filter({ hasText: 'Timer Demo Track' });
+        .filter({ hasText: trackName });
     await expect(timerCard.getByText('Not connected')).toBeVisible();
 
     // The fake device dials in; the prober identifies it; the page goes green.
@@ -179,9 +213,4 @@ test('screenshot the timer pages', async ({ page }) => {
     });
 
     device.close();
-
-    // Leave no proxy track behind for later specs to trip on: the main
-    // screenshots spec seeds races against tracks[0] and must keep finding
-    // the original.
-    await gql(page, `mutation { deleteTrack(id: ${trackId}) }`);
-});
+}

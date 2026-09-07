@@ -31,15 +31,23 @@ import { ensureConfigured, ownTrack } from './support';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/settings');
 
-/** This spec's own track. Three lanes, matching the one the wizard creates,
- *  so "2 of 3 lanes in use" reads the same as it always has. */
-const TRACK_NAME = 'Gym Track';
-
 test('screenshot the settings panels', async ({ page }) => {
     fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
     await page.setViewportSize({ width: 1280, height: 900 });
 
     await ensureConfigured(page);
+
+    // This spec's own track. Three lanes, matching the one the wizard
+    // creates, so "2 of 3 lanes in use" reads the same as it always has.
+    // Never deleted — nothing else in the suite reads it — but a retry
+    // re-creates it, and without a per-attempt suffix a retry's own track
+    // collides on name with whatever the failed first attempt left behind:
+    // the same `getByTestId(/track-card-\d+/).filter(...)` locator that
+    // `screenshot-timers.spec.ts`'s leaked track once turned into "resolved
+    // to 2 elements" rather than a clean retry. Same convention `seedRace`
+    // in `e2e/functional/support.ts` uses for `races.name`.
+    const retry = test.info().retry;
+    const TRACK_NAME = retry > 0 ? `Gym Track (retry ${retry})` : 'Gym Track';
     await ownTrack(page, TRACK_NAME, 3);
 
     await page.goto('/system-settings');
