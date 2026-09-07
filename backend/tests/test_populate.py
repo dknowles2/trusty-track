@@ -155,7 +155,7 @@ class TestRepeatability:
         data directory every time.
         """
         already = crud.get_racers(db, race_id=race.id)
-        crud.bulk_delete_racers(db, [r.id for r in already])
+        crud.bulk_delete_racers(db, race.id, [r.id for r in already])
         populate.generate_fake_racers(
             db, race.id, count=6, add_racer_photos=False, add_car_photos=False
         )

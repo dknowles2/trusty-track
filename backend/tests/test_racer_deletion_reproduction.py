@@ -233,7 +233,7 @@ def test_bulk_delete_below_the_minimum_does_not_raise(db):
     survivor = racers[2].id
 
     # No exception: the whole point of #310 is that this used to raise.
-    crud.bulk_delete_racers(db, doomed)
+    crud.bulk_delete_racers(db, race_id, doomed)
 
     remaining = {r.id for r in db.query(models.Racer).filter_by(race_id=race_id)}
     assert remaining == {survivor}
@@ -247,7 +247,7 @@ def test_bulk_delete_below_the_minimum_leaves_the_survivor_scheduled(db):
     doomed = [racers[0].id, racers[1].id]
     survivor = racers[2].id
 
-    crud.bulk_delete_racers(db, doomed)
+    crud.bulk_delete_racers(db, race_id, doomed)
 
     db.expire_all()
     scheduled = _scheduled_racer_ids(db, round_id)
@@ -261,7 +261,7 @@ def test_bulk_delete_one_of_two_also_falls_back(db):
     race_id, racers, round_id = _setup_unraced_round(db, num_racers=2)
     survivor = racers[1].id
 
-    crud.bulk_delete_racers(db, [racers[0].id])
+    crud.bulk_delete_racers(db, race_id, [racers[0].id])
 
     remaining = {r.id for r in db.query(models.Racer).filter_by(race_id=race_id)}
     assert remaining == {survivor}
@@ -277,7 +277,7 @@ def test_bulk_delete_with_enough_racers_left_still_rebuilds(db):
     doomed = racers[0].id
     remaining_ids = {r.id for r in racers[1:]}
 
-    crud.bulk_delete_racers(db, [doomed])
+    crud.bulk_delete_racers(db, race_id, [doomed])
 
     db.expire_all()
     heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()

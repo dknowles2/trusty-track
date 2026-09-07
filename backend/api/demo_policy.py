@@ -67,6 +67,13 @@ REFUSED_MUTATIONS = frozenset(
         # which one would arrive. Its REST twin `POST /upload/` is refused in
         # `api/main.py`, which the GraphQL policy cannot see.
         "uploadImage",
+        # Same reasoning as `uploadImage` above (#746): `RacerUpdate`'s own
+        # validator now refuses a URL this app's own upload endpoint did not
+        # produce, but this mutation writes straight onto a racer's public,
+        # unauthenticated audience surface with no photograph of its own to
+        # inspect — refused here too, belt and braces, the same as every
+        # other route to the disk or to somebody else's screen.
+        "bulkAssignPhotos",
         # Unbounded row generators behind no credential. The demo is seeded
         # already, so a visitor has no reason to reach for either.
         "populateRace",
