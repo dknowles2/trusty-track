@@ -97,4 +97,37 @@ describe('TimerStatusBadge', () => {
     const badge = container.querySelector('.timer-status-badge');
     expect(badge).not.toHaveAttribute('title');
   });
+
+  // The colour dot is the other half of the state-to-label map operators
+  // read at a glance — FAULT and DISCONNECTED share no label (#764) and must
+  // not share a colour either, or the glance stops working.
+  it('gives FAULT a red dot, distinct from grey DISCONNECTED', () => {
+    const { container: fault } = renderBadge('FAULT');
+    expect(fault.querySelector('.timer-status-dot--red')).toBeInTheDocument();
+
+    const { container: disconnected } = renderBadge('DISCONNECTED');
+    expect(disconnected.querySelector('.timer-status-dot--grey')).toBeInTheDocument();
+  });
+
+  it('gives RUNNING a pulsing dot', () => {
+    const { container } = renderBadge('RUNNING');
+    expect(container.querySelector('.timer-status-dot--pulse')).toBeInTheDocument();
+  });
+
+  it('falls back to the disconnected label and dot when no state has arrived yet', () => {
+    const client = {
+      executeQuery: () => never,
+      executeMutation: () => never,
+      executeSubscription: () => never,
+    } as unknown as Parameters<typeof Provider>[0]['value'];
+
+    const { container } = render(
+      <Provider value={client}>
+        <TimerStatusBadge trackId={1} />
+      </Provider>,
+    );
+
+    expect(screen.getByText('Timer disconnected')).toBeInTheDocument();
+    expect(container.querySelector('.timer-status-dot--grey')).toBeInTheDocument();
+  });
 });

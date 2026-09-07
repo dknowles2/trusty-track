@@ -244,6 +244,37 @@ describe('RaceExecution', () => {
         expect(screen.getByText('Edit Results - Heat 1')).toBeInTheDocument();
     });
 
+    // `onUpdateResult` (`handleUpdateResult` in RaceControl.tsx) is
+    // documented to catch its own errors and resolve `false` rather than
+    // reject — that contract is the whole point of #765's `Promise<boolean>`
+    // change, and every other test here only ever exercises the resolved
+    // `true`/`false` cases. Nothing pinned what happens if the promise
+    // actually rejects — a genuine violation of that contract, or an
+    // unrelated exception thrown somewhere in the mutation's own promise
+    // chain. Before RaceExecution.tsx caught this itself, a rejection here
+    // was a real uncaught rejection: the modal did not stay open, nothing
+    // told the operator, and the typed values were gone all the same.
+    it('keeps the Edit modal open and alerts, rather than crashing, when onUpdateResult rejects', async () => {
+        mockOnUpdateResult.mockRejectedValue(new Error('boom'));
+        render(
+            <RaceExecution
+                {...defaultProps}
+            />
+        );
+        fireEvent.click(screen.getByText('Edit'));
+
+        const inputs = screen.getAllByRole('spinbutton');
+        fireEvent.change(inputs[0], { target: { value: '4.0' } });
+
+        fireEvent.click(screen.getByText('Save Results'));
+
+        await waitFor(() => expect(mockOnUpdateResult).toHaveBeenCalled());
+        await waitFor(() => expect(mockShowAlert).toHaveBeenCalled());
+
+        expect(screen.getByTestId('mock-modal')).toBeInTheDocument();
+        expect(screen.getByText('Edit Results - Heat 1')).toBeInTheDocument();
+    });
+
     describe('the Edit/Override modal follows the scoring strategy (#490, #525)', () => {
         it('shows a Time column for a TIMED race, and no Place column', () => {
             render(<RaceExecution {...defaultProps} scoringStrategy="TIMED" />);
@@ -1336,6 +1367,26 @@ describe('RaceExecution', () => {
             await waitFor(() => expect(mockOnUpdateResult).toHaveBeenCalled());
             // `handleUpdateResult` already alerted; the screen must not act as
             // though the skip landed.
+            expect(mockOnNextHeat).not.toHaveBeenCalled();
+            expect(mockMutationFn).not.toHaveBeenCalledWith({ trackId: 1 });
+        });
+
+        // Same gap as the Edit/Override modal's own rejection test above: the
+        // contract is that `onUpdateResult` resolves `false` rather than
+        // rejects (#765), and nothing here ever exercised a genuine
+        // rejection. Before RaceExecution.tsx caught this itself, a
+        // rejection was a real uncaught rejection — the heat was left
+        // dangling, unmarked as skipped, with nothing said and the timer
+        // never released.
+        it('stays on the heat and alerts, rather than crashing, when the skip rejects', async () => {
+            mockOnUpdateResult.mockRejectedValue(new Error('boom'));
+            renderRunningHeat();
+
+            fireEvent.click(screen.getByText('Skip Heat'));
+
+            await waitFor(() => expect(mockOnUpdateResult).toHaveBeenCalled());
+            await waitFor(() => expect(mockShowAlert).toHaveBeenCalled());
+
             expect(mockOnNextHeat).not.toHaveBeenCalled();
             expect(mockMutationFn).not.toHaveBeenCalledWith({ trackId: 1 });
         });

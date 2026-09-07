@@ -252,3 +252,175 @@ def test_a_tie_shares_a_rank_on_the_leaderboard(db):
     standings = scoring.get_leaderboard(db, race.id)
 
     assert [s["rank"] for s in standings] == [1, 1, 3]
+
+
+# `_grand_final_exclusions` (#548) drops a decided championship round's
+# rank-1 racer(s) from the standings the round's field was drawn from, when
+# `Race.exclude_round_winners_from_qualifying_standings` is on. The bulk of
+# it — the "ALL" and "ROUND:<id>" source kinds, an undecided round excluding
+# nobody, a correction restoring the champion — already has coverage in
+# `test_excluded_from_standings.py`'s `TestGrandFinalsWinnerExclusion`. Two
+# cases that function itself reads a scope for were left untested there,
+# because `_build_race_with_championship` above (and its mirror in that
+# file) only ever produces an `"ALL"` or `"ROUND:<id>"` source:
+#
+# - A tie for rank 1 in the championship round. `_grand_final_exclusions`
+#   reads `entry.get("rank") == 1` rather than the first row, specifically so
+#   a shared rank (#226) excludes every co-champion — not just whichever one
+#   happened to sort first.
+# - `"EACH_GROUP"`, which is #548's own motivating scenario ("a Grand
+#   Finals pack champion does not also keep their own den's trophy"). Its
+#   exclusion scope is the aggregate prelim standings (`round_id=None`), the
+#   same scope `_standings_for` reads when it picks an `EACH_GROUP` field —
+#   not each den's own page.
+def _build_race_with_each_group_championship(db):
+    """Two racing groups, a winner from each qualifying to one championship
+    round drawn `EACH_GROUP` — mirrors `_build_race_with_championship`'s
+    shape, but the field is two dens' winners rather than the whole pack's
+    top two."""
+    race = _seed(db)
+    wolves = crud.create_racing_group(
+        db, schemas.RacingGroupCreate(name="Wolves"), race.id
+    )
+    bears = crud.create_racing_group(
+        db, schemas.RacingGroupCreate(name="Bears"), race.id
+    )
+    fast_wolf = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="FastWolf",
+            last_name="W",
+            race_id=race.id,
+            racing_group_id=wolves.id,
+            car_passed_inspection=True,
+        ),
+    )
+    slow_wolf = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="SlowWolf",
+            last_name="W",
+            race_id=race.id,
+            racing_group_id=wolves.id,
+            car_passed_inspection=True,
+        ),
+    )
+    fast_bear = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="FastBear",
+            last_name="B",
+            race_id=race.id,
+            racing_group_id=bears.id,
+            car_passed_inspection=True,
+        ),
+    )
+    slow_bear = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="SlowBear",
+            last_name="B",
+            race_id=race.id,
+            racing_group_id=bears.id,
+            car_passed_inspection=True,
+        ),
+    )
+
+    prelim = crud.create_round(db, race_id=race.id, round_number=1)
+    _heat(
+        db,
+        race,
+        prelim,
+        [_lane(1, fast_wolf.id, 3.0, 1), _lane(2, slow_wolf.id, 4.0, 2)],
+        heat_number=1,
+    )
+    _heat(
+        db,
+        race,
+        prelim,
+        [_lane(1, fast_bear.id, 3.5, 1), _lane(2, slow_bear.id, 5.0, 2)],
+        heat_number=2,
+    )
+
+    champ = crud.create_round(db, race_id=race.id, round_number=2)
+    champ.advancement_source = "EACH_GROUP"
+    champ.advancement_num_racers = 1
+    db.commit()
+
+    return race, fast_wolf, fast_bear, prelim, champ
+
+
+def test_the_each_group_champion_stops_counting_toward_the_pack_standings(db):
+    """#548's actual scenario: the two den winners race each other in the
+    final, and whoever wins it (the pack champion) no longer also holds
+    their own den's trophy on the overall pack standings — while the
+    runner-up, who only won their den, still does."""
+    race, fast_wolf, fast_bear, _prelim, champ = (
+        _build_race_with_each_group_championship(db)
+    )
+    race.exclude_round_winners_from_qualifying_standings = True
+    db.commit()
+
+    # The Wolves' champion wins the final outright.
+    _heat(
+        db,
+        race,
+        champ,
+        [_lane(1, fast_wolf.id, 2.0, 1), _lane(2, fast_bear.id, 3.0, 2)],
+    )
+
+    standings = scoring.get_leaderboard(db, race.id)
+    ids = [s["racer_id"] for s in standings]
+    assert fast_wolf.id not in ids, (
+        "the pack champion should no longer also hold their own den's trophy"
+    )
+    assert fast_bear.id in ids, (
+        "the runner-up in the final still holds their own den's trophy"
+    )
+
+
+def test_an_each_group_final_reads_the_aggregate_scope_not_each_den(db):
+    """`_grand_final_exclusions` computes the EACH_GROUP exclusion once, at
+    the aggregate prelim scope (round_id=None) — the same scope
+    `_standings_for` reads when it picks an EACH_GROUP field. A den's own
+    round-scoped page is untouched by it, the same asymmetry the "ROUND:<id>"
+    case already pins against the aggregate view."""
+    race, fast_wolf, fast_bear, prelim, champ = (
+        _build_race_with_each_group_championship(db)
+    )
+    race.exclude_round_winners_from_qualifying_standings = True
+    db.commit()
+    _heat(
+        db,
+        race,
+        champ,
+        [_lane(1, fast_wolf.id, 2.0, 1), _lane(2, fast_bear.id, 3.0, 2)],
+    )
+
+    # The prelim round's own page is scored `round_id=prelim.id`, not the
+    # `round_id=None` scope EACH_GROUP's field was drawn from — the pack
+    # champion still shows up racing their den's own prelim heat.
+    round_standings = scoring.get_leaderboard(db, race.id, round_id=prelim.id)
+    assert fast_wolf.id in [s["racer_id"] for s in round_standings]
+
+
+def test_a_tie_for_first_in_the_final_excludes_every_co_champion(db):
+    """A tie shares a rank (#226) — `_grand_final_exclusions` reads
+    `rank == 1` rather than the first row of the leaderboard, so a dead heat
+    for the championship excludes every co-champion together rather than
+    whichever one happened to sort first."""
+    race, fast, slow, _prelim, champ = _build_race_with_championship(db)
+    race.exclude_round_winners_from_qualifying_standings = True
+    db.commit()
+
+    # Fast and Slow cross the line together in the final.
+    _heat(db, race, champ, [_lane(1, fast.id, 3.0, 1), _lane(2, slow.id, 3.0, 1)])
+
+    standings = scoring.get_leaderboard(db, race.id)
+    ids = [s["racer_id"] for s in standings]
+    assert fast.id not in ids, (
+        "a co-champion must be excluded, not just whichever sorts first"
+    )
+    assert slow.id not in ids, (
+        "a co-champion must be excluded, not just whichever sorts first"
+    )

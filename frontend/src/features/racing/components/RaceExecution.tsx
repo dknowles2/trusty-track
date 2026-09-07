@@ -426,8 +426,19 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
         // before Save is even clickable; this stays the backstop for
         // anything it can't see (a lane set out of step with the schedule,
         // say).
-        const saved = await onUpdateResult(activeExecutionHeat.id, edited);
-        if (saved) setIsEditModalOpen(false);
+        //
+        // `onUpdateResult` (`handleUpdateResult` in RaceControl.tsx) already
+        // catches its own errors and resolves `false` rather than rejecting
+        // — that is the whole point of #765's `Promise<boolean>` contract —
+        // but an unguarded `await` is one violation of that contract away
+        // from an uncaught rejection that silently drops the operator's
+        // typed values with no alert at all. This `catch` is the backstop.
+        try {
+            const saved = await onUpdateResult(activeExecutionHeat.id, edited);
+            if (saved) setIsEditModalOpen(false);
+        } catch (err) {
+            showAlert(errorText(err, 'The result could not be saved.'), 'Error');
+        }
     };
 
     const handleSkipHeat = async () => {
@@ -460,7 +471,19 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             // `is_round_complete` and everything downstream of it.
             // `raceDay.spec.ts`'s skipped-heat test already had to poll the
             // server before navigating away for exactly this reason.
-            const saved = await onUpdateResult(currentHeatId, skippedResults);
+            //
+            // Same backstop as `handleSaveResults`: `onUpdateResult` is
+            // contracted to resolve `false` rather than reject (#765), but an
+            // unguarded `await` would otherwise let a violation of that
+            // contract crash this handler with the heat left dangling and no
+            // alert shown.
+            let saved: boolean;
+            try {
+                saved = await onUpdateResult(currentHeatId, skippedResults);
+            } catch (err) {
+                showAlert(errorText(err, 'The heat could not be skipped.'), 'Error');
+                return;
+            }
             if (!saved) return; // `onUpdateResult` has already alerted why.
 
             onNextHeat();
