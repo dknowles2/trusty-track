@@ -8,6 +8,7 @@ import base64
 import io
 import logging
 import os
+import re
 import sys
 import uuid
 from contextlib import asynccontextmanager, suppress
@@ -95,6 +96,116 @@ MDNS_RESPONDER: discovery.MdnsResponder | None = None
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+#: Matches the operator PIN's one crossing of a URL — `?pin=...` or
+#: `&pin=...`, however it is capitalised — and nothing else in the query
+#: string around it. See `_redact_pin` for why this exists.
+_PIN_QUERY_PARAM = re.compile(r"([?&])pin=[^&\s\"]*", re.IGNORECASE)
+
+
+def _redact_pin(value: str) -> str:
+    """Replace a `pin=` query-string value with a placeholder, wherever it
+    appears in *value*.
+
+    The PIN travels in the `x-trustytrack-pin` header for an ordinary HTTP
+    request, but a WebSocket handshake has no headers a browser can set
+    (`api/auth.py`), so `/graphql` subscriptions and `/ws/timer/{track_id}`
+    both carry it as `?pin=...` instead — the one place this credential ever
+    crosses a URL. uvicorn's own connection logging writes that whole URL to
+    a logger on every accept, refusal and close (#745), which is what this
+    exists to stop reaching a handler.
+
+    Matched on the query string's own `pin=`, the way `domain.audit.redact`
+    matches a JSON key — except there is exactly one shape this ever takes,
+    fixed by `frontend/src/api/pin.ts`'s `withPin`, and it is not a name a
+    caller chooses, so a literal match is the whole rule.
+    """
+    return _PIN_QUERY_PARAM.sub(r"\1pin=REDACTED", value)
+
+
+class _PinRedactingFilter(logging.Filter):
+    """A `logging.Filter` that runs `_redact_pin` over every string a log
+    record carries, wherever that string lives.
+
+    A record's message can arrive pre-formatted (`record.msg` already a
+    plain string) or as a format string plus `record.args` — uvicorn uses
+    the second shape for its own connection log
+    (`'%s - "WebSocket %s" [accepted]'`, with the path-and-query as one of
+    the args) — so both are checked rather than only the one a single
+    example happens to use.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str) and "pin=" in record.msg.lower():
+            record.msg = _redact_pin(record.msg)
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                _redact_pin(arg)
+                if isinstance(arg, str) and "pin=" in arg.lower()
+                else arg
+                for arg in record.args
+            )
+        elif isinstance(record.args, dict):
+            record.args = {
+                key: (
+                    _redact_pin(value)
+                    if isinstance(value, str) and "pin=" in value.lower()
+                    else value
+                )
+                for key, value in record.args.items()
+            }
+        return True
+
+
+def _install_pin_log_redaction() -> None:
+    """Attach `_PinRedactingFilter` to uvicorn's own loggers, once each.
+
+    **Both `uvicorn.access` and `uvicorn.error` get it, and the second one is
+    the one that matters.** The WebSocket "accepted"/refused/closed line
+    (`uvicorn/protocols/websockets/websockets_impl.py` and its `wsproto`
+    twin) logs through `logging.getLogger("uvicorn.error")`, not
+    `uvicorn.access` — `uvicorn.access` is only the ordinary HTTP request
+    line, which never carries the PIN because that travels in a header for
+    an ordinary request. A fix aimed at "the access log" by name alone would
+    miss the one line #745 is actually about; `uvicorn.access` is covered
+    too as a second defence, the same "three defences, not a list" shape
+    `domain.audit.redact`'s own docstring describes, in case a future
+    change, a reverse proxy, or a format change ever puts a full URL through
+    it instead.
+
+    **Attached to the logger, not to a handler.** uvicorn configures its own
+    handlers via `logging.config.dictConfig` — for the CLI entry point
+    (`uvicorn backend.api.main:app`), that runs in `Config.__init__`,
+    *before* this module is even imported, since `self.app` is still a
+    string at that point and only gets resolved to this module in
+    `Config.load()`. A filter added to a handler that `dictConfig` can later
+    replace would be silently dropped; a logger's own filters are untouched
+    by `dictConfig` unless the config explicitly names a `filters` key for
+    that logger, which uvicorn's own `LOGGING_CONFIG` does not. So this
+    survives however the server is started — the CLI form re-imports this
+    module (and so re-runs this function) after `configure_logging()` has
+    already built the handlers; the desktop launcher's `packaging/
+    run_server.py` imports this module first and only later constructs its
+    own `uvicorn.Config(_app, ...)`, whose `configure_logging()` runs after
+    this filter is already attached. Order does not matter either way.
+
+    Idempotent, checked by identity of the filter *type* rather than by
+    tracking whether this ran: reimporting this module (the test suite,
+    a second `uvicorn.Config` in the same process) must not stack a second
+    copy of the filter on top of the first.
+    """
+    for name in ("uvicorn.access", "uvicorn.error"):
+        target_logger = logging.getLogger(name)
+        already_installed = any(
+            isinstance(existing, _PinRedactingFilter)
+            for existing in target_logger.filters
+        )
+        if not already_installed:
+            target_logger.addFilter(_PinRedactingFilter())
+
+
+_install_pin_log_redaction()
 
 
 @asynccontextmanager
@@ -236,6 +347,105 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+#: The largest body this app accepts on `/graphql` (and its `/api/graphql`
+#: twin).
+#:
+#: GraphQL carries every mutation argument inside one JSON body, and two of
+#: them had no cap of their own (#744): `uploadImage`'s `data_url`
+#: (`schema.py`) is `base64.b64decode`d with no length check, and
+#: `importRacers`'s `csv_data` goes straight into `csv.DictReader`, unlike
+#: `POST /upload/`'s `MAX_UPLOAD_BYTES` above and the GPRM/DerbyNet
+#: importers' `MAX_GPRM_IMPORT_BYTES` (`schema.py`), which already measure
+#: while reading rather than after. Both of those resolvers live in
+#: `schema.py`, so a per-argument check there is somebody else's fix to
+#: make; this is the cap that can be applied at the one seam that already
+#: covers every GraphQL mutation regardless of which argument is carrying
+#: the oversized value — the HTTP request body itself, before Strawberry
+#: ever parses it.
+#:
+#: Sized above the largest body a *legitimate* request can already produce:
+#: a GPRM/DerbyNet import's own `file_data` is a base64 data URL of up to
+#: `MAX_GPRM_IMPORT_BYTES` (64 MB) decoded, which is itself about 85 MB on
+#: the wire. This leaves headroom above that rather than trimming it — the
+#: point is bounding an unbounded body, not tightening an existing one.
+MAX_GRAPHQL_BODY_BYTES = 128 * 1024 * 1024
+
+#: Path prefixes this cap applies to — both mount points `/graphql` is
+#: registered under (see `app.include_router` below), for the same reason
+#: the printables and timer-test routes are each registered twice.
+_GRAPHQL_PATH_PREFIXES = ("/graphql", "/api/graphql")
+
+
+class MaxGraphQLBodySizeMiddleware:
+    """A pure-ASGI middleware capping the body of a request to `/graphql`.
+
+    Not `starlette.middleware.base.BaseHTTPMiddleware`: that class reads the
+    whole body into memory via `request.body()` before a handler ever sees
+    it, which is exactly the thing being guarded against. This instead reads
+    the body off the raw ASGI `receive` channel one message at a time,
+    totalling as it goes and refusing the moment the running total clears
+    the cap — the same "measure while reading, not after" rule
+    `_read_capped` follows for `POST /upload/` below, applied at the
+    transport boundary because the two resolvers that need it
+    (`uploadImage`, `importRacers`) live in a file this fix does not touch.
+
+    Every message read while measuring is buffered and replayed to the
+    wrapped app afterwards through a synthetic `receive`, so a request that
+    clears the cap reaches Strawberry exactly as it would have with no
+    middleware in front of it at all — this only ever adds a rejection, never
+    changes what a request under the cap looks like once it arrives.
+    """
+
+    def __init__(self, app):  # type: ignore[no-untyped-def]
+        self.app = app
+
+    async def __call__(self, scope, receive, send):  # type: ignore[no-untyped-def]
+        if scope["type"] != "http" or not any(
+            scope["path"].startswith(prefix) for prefix in _GRAPHQL_PATH_PREFIXES
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        buffered: list[dict] = []
+        total = 0
+        while True:
+            message = await receive()
+            buffered.append(message)
+            if message["type"] != "http.request":
+                # A disconnect (or anything else unexpected) arriving before
+                # the body finished — nothing left to measure, so stop and
+                # let the buffered replay below hand it straight through.
+                break
+            total += len(message.get("body", b""))
+            # Read fresh from the module on every request, not captured at
+            # `__init__` time, so a caller (a test) can change the cap after
+            # the middleware is already built into the app.
+            if total > MAX_GRAPHQL_BODY_BYTES:
+                response = JSONResponse(
+                    {
+                        "detail": (
+                            "That request is larger than "
+                            f"{MAX_GRAPHQL_BODY_BYTES // (1024 * 1024)} MB."
+                        )
+                    },
+                    status_code=413,
+                )
+                await response(scope, receive, send)
+                return
+            if not message.get("more_body", False):
+                break
+
+        async def _replay_receive():
+            if buffered:
+                return buffered.pop(0)
+            return await receive()  # pragma: no cover - body already exhausted
+
+        await self.app(scope, _replay_receive, send)
+
+
+app.add_middleware(MaxGraphQLBodySizeMiddleware)
 
 
 # Dependency
