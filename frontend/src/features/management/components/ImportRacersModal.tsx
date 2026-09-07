@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Modal from '../../../components/ui/Modal';
 import { useMutation } from 'urql';
 import { IMPORT_RACERS } from '../graphql/queries';
@@ -46,13 +46,23 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
     const [mapping, setMapping] = useState<Mapping | null>(null);
     const [uploading, setUploading] = useState(false);
     const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    // Set once a file has been imported, so the same rows cannot be resent
+    // (#768) — the file picker's own `reset()` clears it, since choosing a
+    // new file is the deliberate way past it.
+    const [imported, setImported] = useState(false);
     const [, importRacersMutation] = useMutation(IMPORT_RACERS);
+    // A synchronous re-entrancy guard alongside `uploading`'s own disabled
+    // state, the same shape `Home.tsx`'s practice-race button uses (#588):
+    // urql's fetching flag only lands once a render has caught up, and two
+    // clicks in the same tick can both fire before that happens.
+    const importingRef = useRef(false);
 
     const reset = () => {
         setFileName(null);
         setParsed(null);
         setMapping(null);
         setStatus(null);
+        setImported(false);
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,8 +100,9 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
     const mappedFields = mapping ? FIELDS.filter((f) => mapping[f] !== null) : [];
 
     const handleImport = async () => {
-        if (!parsed || !mapping) return;
+        if (!parsed || !mapping || importingRef.current) return;
 
+        importingRef.current = true;
         setUploading(true);
         setStatus(null);
         try {
@@ -101,14 +112,21 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
             });
             if (result.error) throw result.error;
 
-            const imported = result.data.importRacers;
+            const importedCount = result.data.importRacers;
             setStatus({
                 type: 'success',
                 message:
-                    imported === rows.length
-                        ? `Imported ${imported} racers.`
-                        : `Imported ${imported} of ${rows.length} rows; the rest were missing a name.`,
+                    importedCount === rows.length
+                        ? `Imported ${importedCount} racers.`
+                        : `Imported ${importedCount} of ${rows.length} rows; the rest were missing a name.`,
             });
+            // The rows just sent must not still be sitting behind an
+            // enabled Import button (#768) — clearing the parse/mapping
+            // also drops `ready` to false, and the action row below swaps
+            // to "Import Another File" once `imported` is set.
+            setParsed(null);
+            setMapping(null);
+            setImported(true);
             onImportSuccess();
         } catch (error: unknown) {
             setStatus({
@@ -117,6 +135,7 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
             });
         } finally {
             setUploading(false);
+            importingRef.current = false;
         }
     };
 
@@ -302,9 +321,19 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
                     <button onClick={handleClose} className="secondary-btn" disabled={uploading}>
                         Close
                     </button>
-                    <button onClick={handleImport} className="primary-btn" disabled={!ready || uploading}>
-                        {uploading ? 'Importing...' : rows.length ? `Import ${rows.length} Racers` : 'Import Racers'}
-                    </button>
+                    {imported ? (
+                        // #768: once a file has gone through, there is
+                        // nothing left for a click on this row to resubmit —
+                        // starting a fresh import is a deliberate act of its
+                        // own, back at the empty picker.
+                        <button onClick={reset} className="primary-btn">
+                            Import Another File
+                        </button>
+                    ) : (
+                        <button onClick={handleImport} className="primary-btn" disabled={!ready || uploading}>
+                            {uploading ? 'Importing...' : rows.length ? `Import ${rows.length} Racers` : 'Import Racers'}
+                        </button>
+                    )}
                 </div>
             </div>
         </Modal>

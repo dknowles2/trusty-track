@@ -476,11 +476,21 @@ export default function RaceDetails() {
   };
 
   // Selection Handlers
+  //
+  // Select-all is scoped to the rows the search is currently showing (#769):
+  // toggling it never touches a selection made while some other search was
+  // active. Selecting adds the visible rows to whatever was already picked
+  // (a hidden pick is left standing, not silently dropped); deselecting
+  // removes only the visible ones, for the same reason.
   const toggleSelectAll = () => {
-    if (selectedRacerIds.length === filteredRacers.length) {
-      setSelectedRacerIds([]);
+    const filteredIds = new Set(filteredRacers.map(r => r.id));
+    const everyVisibleSelected =
+      filteredRacers.length > 0 && filteredRacers.every(r => selectedRacerIds.includes(r.id));
+
+    if (everyVisibleSelected) {
+      setSelectedRacerIds(prev => prev.filter(id => !filteredIds.has(id)));
     } else {
-      setSelectedRacerIds(filteredRacers.map(r => r.id));
+      setSelectedRacerIds(prev => Array.from(new Set([...prev, ...filteredIds])));
     }
   };
 
@@ -494,6 +504,12 @@ export default function RaceDetails() {
 
   // Bulk Handlers
   //
+  // Every one of these acts on `visibleSelectedRacerIds` — the intersection
+  // of the selection with the current search (#769) — never on the raw
+  // `selectedRacerIds`, which can hold a racer a search is currently hiding.
+  // A hidden tick must never be touched by a click the operator fired at
+  // what they could see.
+  //
   // The additive ones — auto-number, check in, move to racingGroup — leave the
   // selection standing after they succeed (#420). The desk works a queue:
   // select everyone, auto-number, then check in, and re-ticking select-all
@@ -501,10 +517,11 @@ export default function RaceDetails() {
   // selection bar exists to remove. Clear numbers and delete keep clearing
   // it — both remove data rather than adding to it, so a stale selection
   // there is a chance to repeat a destructive action by mistake rather than
-  // a convenience.
+  // a convenience. They only clear the *visible* ids they just acted on,
+  // though — a hidden selection they never touched must survive them.
   const handleBulkAutoNumber = async () => {
     try {
-      const result = await bulkAutoNumberMutation({ racerIds: selectedRacerIds });
+      const result = await bulkAutoNumberMutation({ racerIds: visibleSelectedRacerIds });
       if (result.error) throw result.error;
       refreshData();
       showAlert(`Successfully auto-numbered ${result.data.bulkAutoNumber} racers`, "Bulk Auto-Number Result");
@@ -515,7 +532,7 @@ export default function RaceDetails() {
 
   const handleBulkClearNumbers = async () => {
     const confirmed = await showConfirm(
-      `Are you sure you want to clear car numbers for ${selectedRacerIds.length} racers?`,
+      `Are you sure you want to clear car numbers for ${visibleSelectedRacerIds.length} racers?`,
       "Clear Numbers",
       "Clear",
       "primary"
@@ -523,10 +540,10 @@ export default function RaceDetails() {
     if (!confirmed) return;
 
     try {
-      const result = await bulkClearNumbersMutation({ racerIds: selectedRacerIds });
+      const result = await bulkClearNumbersMutation({ racerIds: visibleSelectedRacerIds });
       if (result.error) throw result.error;
       refreshData();
-      setSelectedRacerIds([]);
+      setSelectedRacerIds(prev => prev.filter(id => !visibleSelectedRacerIds.includes(id)));
     } catch {
       showAlert("Failed to clear racer numbers", "Error");
     }
@@ -534,7 +551,7 @@ export default function RaceDetails() {
 
   const handleBulkCheckIn = async () => {
     const confirmed = await showConfirm(
-      `Mark ${selectedRacerIds.length} racers as passed inspection and checked-in?`,
+      `Mark ${visibleSelectedRacerIds.length} racers as passed inspection and checked-in?`,
       "Bulk Check-In",
       "Check In",
       "primary"
@@ -542,7 +559,7 @@ export default function RaceDetails() {
     if (!confirmed) return;
 
     try {
-      const result = await bulkCheckInMutation({ racerIds: selectedRacerIds, passedInspection: true });
+      const result = await bulkCheckInMutation({ racerIds: visibleSelectedRacerIds, passedInspection: true });
       if (result.error) throw result.error;
       refreshData();
       setIsMoreMenuOpen(false);
@@ -553,7 +570,7 @@ export default function RaceDetails() {
 
   const handleBulkSetExcludedFromStandings = async () => {
     const confirmed = await showConfirm(
-      `Mark ${selectedRacerIds.length} racers as racing but not ranked? They will still race, and be shown on the audience displays — just left out of the standings, advancement and awards.`,
+      `Mark ${visibleSelectedRacerIds.length} racers as racing but not ranked? They will still race, and be shown on the audience displays — just left out of the standings, advancement and awards.`,
       "Racing, Not Ranked",
       "Mark",
       "primary"
@@ -561,7 +578,7 @@ export default function RaceDetails() {
     if (!confirmed) return;
 
     try {
-      const result = await bulkSetExcludedFromStandingsMutation({ racerIds: selectedRacerIds, excluded: true });
+      const result = await bulkSetExcludedFromStandingsMutation({ racerIds: visibleSelectedRacerIds, excluded: true });
       if (result.error) throw result.error;
       refreshData();
       setIsMoreMenuOpen(false);
@@ -572,7 +589,7 @@ export default function RaceDetails() {
 
   const handleBulkMoveToRacingGroup = async (racingGroupId: number | null) => {
     try {
-      const result = await bulkMoveToRacingGroupMutation({ racerIds: selectedRacerIds, racingGroupId });
+      const result = await bulkMoveToRacingGroupMutation({ racerIds: visibleSelectedRacerIds, racingGroupId });
       if (result.error) throw result.error;
       refreshData();
       setIsMoveToRacingGroupOpen(false);
@@ -583,9 +600,9 @@ export default function RaceDetails() {
   };
 
   const handleBulkDelete = async () => {
-    const scheduledSelected = selectedRacerIds.filter(id => scheduledRacerIds.includes(id));
+    const scheduledSelected = visibleSelectedRacerIds.filter(id => scheduledRacerIds.includes(id));
 
-    let message = `Are you sure you want to delete ${selectedRacerIds.length} racers? This action cannot be undone.`;
+    let message = `Are you sure you want to delete ${visibleSelectedRacerIds.length} racers? This action cannot be undone.`;
     if (scheduledSelected.length > 0) {
       message += "\n\nWARNING: Some selected racers are scheduled in heats. Affected unstarted rounds will be regenerated, and started heats will have empty lanes.";
     }
@@ -599,10 +616,10 @@ export default function RaceDetails() {
     if (!confirmed) return;
 
     try {
-      const result = await bulkDeleteRacersMutation({ racerIds: selectedRacerIds });
+      const result = await bulkDeleteRacersMutation({ racerIds: visibleSelectedRacerIds });
       if (result.error) throw result.error;
       refreshData();
-      setSelectedRacerIds([]);
+      setSelectedRacerIds(prev => prev.filter(id => !visibleSelectedRacerIds.includes(id)));
     } catch {
       showAlert("Failed to delete racers", "Error");
     }
@@ -627,15 +644,32 @@ export default function RaceDetails() {
     sort,
   );
 
+  // #769: the selection can hold a racer the current search has hidden.
+  // Everything that counts, displays, or acts on "the selection" reads this
+  // instead of `selectedRacerIds` directly — the raw state still remembers a
+  // hidden pick (so clearing the search reveals it ticked again), but
+  // nothing visible ever claims to include, or acts on, a row it cannot show.
+  // A plain derived value rather than a `useMemo`, matching `filteredRacers`
+  // itself just above (also plain) — `filteredRacers` is rebuilt every
+  // render regardless, so memoizing only this one small filter over it
+  // bought nothing, and having it in the source is what tripped the React
+  // Compiler's `preserve-manual-memoization` check the moment this value
+  // was read from a callback handed to a list of buttons below (Move to
+  // {group}): it could not reconcile that manual `useMemo` against its own
+  // inference once this value was reachable from there too.
+  const visibleSelectedRacerIds = selectedRacerIds.filter(id => filteredRacers.some(r => r.id === id));
+
   const toggleSort = (key: SortKey) => setSort(current => nextSortState(current, key));
 
   // The grouped view, shared between the desktop table and the mobile cards
   // (#437) — both used to build this bucketing and sorting themselves, with
-  // no test of either copy.
-  const groupedRacers = useMemo(
-    () => groupRacersByRacingGroup(filteredRacers, racingGroups, group),
-    [filteredRacers, racingGroups, group],
-  );
+  // no test of either copy. A plain value rather than `useMemo` for the same
+  // reason as `visibleSelectedRacerIds` above: `filteredRacers` is already
+  // rebuilt every render, so this bought no real memoization, and keeping it
+  // as manual memoization the React Compiler must "preserve" is what broke
+  // once `handleBulkMoveToRacingGroup` (below) also read `filteredRacers`
+  // from inside a list of buttons.
+  const groupedRacers = groupRacersByRacingGroup(filteredRacers, racingGroups, group);
 
   const renderRacerCard = (racer: Racer) => {
     const racingGroup = racingGroups.find(d => d.id === racer.racing_group_id);
@@ -957,20 +991,23 @@ export default function RaceDetails() {
                             {/* The selection carries over, but an empty one is
                                 not an empty print run — the print page reads it
                                 as the whole roster, which is what "print the pit
-                                passes" means the morning of a race. */}
+                                passes" means the morning of a race. Scoped to
+                                the visible selection (#769): a racer a search
+                                is hiding right now was not deliberately
+                                pointed at by this click. */}
                             <button
                                 onClick={() => {
                                     setIsMoreMenuOpen(false);
                                     navigate(
-                                        selectedRacerIds.length > 0
-                                            ? `/race/${parsedRaceId}/print?racers=${selectedRacerIds.join(',')}`
+                                        visibleSelectedRacerIds.length > 0
+                                            ? `/race/${parsedRaceId}/print?racers=${visibleSelectedRacerIds.join(',')}`
                                             : `/race/${parsedRaceId}/print`
                                     );
                                 }}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 <Icon path={mdiPrinter} size={0.7} /> Print
-                                {selectedRacerIds.length > 0 && ` (${selectedRacerIds.length})`}
+                                {visibleSelectedRacerIds.length > 0 && ` (${visibleSelectedRacerIds.length})`}
                             </button>
                         </div>
                     )}
@@ -1010,7 +1047,11 @@ export default function RaceDetails() {
             </label>
         </div>
 
-        {selectedRacerIds.length > 0 && (
+        {/* #769: keyed off the visible selection, not the raw one — a
+            selection made entirely out of the search's current view has
+            nothing on screen for the bar's actions to reach, so it stays
+            hidden rather than claiming a count it cannot act on. */}
+        {visibleSelectedRacerIds.length > 0 && (
             <div
                 data-testid="roster-selection-bar"
                 style={{
@@ -1026,7 +1067,7 @@ export default function RaceDetails() {
                 }}
             >
                 <strong style={{ fontSize: '0.85rem', color: 'var(--scouting-blue)', whiteSpace: 'nowrap' }}>
-                    {selectedRacerIds.length} selected
+                    {visibleSelectedRacerIds.length} selected
                 </strong>
                 <button
                     className="secondary-btn"
@@ -1136,9 +1177,14 @@ export default function RaceDetails() {
                             <input
                                 type="checkbox"
                                 data-testid="select-all-header"
-                                checked={selectedRacerIds.length > 0 && selectedRacerIds.length === filteredRacers.length}
+                                // #769: compared against the visible selection, not
+                                // the raw one — a selection made under a different
+                                // search used to leave this neither checked nor
+                                // indeterminate even when every row on screen was
+                                // ticked.
+                                checked={visibleSelectedRacerIds.length > 0 && visibleSelectedRacerIds.length === filteredRacers.length}
                                 ref={el => {
-                                    if (el) el.indeterminate = selectedRacerIds.length > 0 && selectedRacerIds.length < filteredRacers.length;
+                                    if (el) el.indeterminate = visibleSelectedRacerIds.length > 0 && visibleSelectedRacerIds.length < filteredRacers.length;
                                 }}
                                 onChange={toggleSelectAll}
                                 style={{ transform: 'scale(1.2)' }}

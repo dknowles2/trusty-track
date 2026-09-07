@@ -201,6 +201,22 @@ describe.each(Object.keys(SOURCES) as RosterImportSource[])('RosterImportModal (
         await waitFor(() => expect(screen.getByText('Race not found')).toBeInTheDocument());
     });
 
+    // #768: the same file data stays in state after a successful confirm,
+    // so a second click used to send an identical confirm a second time.
+    it('will not resend the same file after a successful import', async () => {
+        const { confirm } = mockMutations(source);
+        open(source);
+
+        await selectFile(source, 'roster.sqlite');
+        await waitFor(() => expect(screen.getByText('Alex Rivera')).toBeInTheDocument());
+        await userEvent.click(screen.getByRole('button', { name: /Import 1 Racer/ }));
+
+        await waitFor(() => expect(screen.getByText('Imported 1 racer.')).toBeInTheDocument());
+
+        expect(screen.queryByRole('button', { name: /Import 1 Racer/ })).not.toBeInTheDocument();
+        expect(confirm).toHaveBeenCalledTimes(1);
+    });
+
     it('names the right program in its title', async () => {
         mockMutations(source);
         open(source);

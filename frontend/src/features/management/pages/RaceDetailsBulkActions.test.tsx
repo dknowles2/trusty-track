@@ -418,4 +418,82 @@ describe('RaceDetails Bulk Actions', () => {
         await user.click(screen.getByTestId('clear-selection'));
         expect(screen.queryByTestId('roster-selection-bar')).toBeNull();
     });
+
+    // #769: a search that hides a selected racer must not leave a bulk
+    // action free to act on a row the operator can no longer see, and the
+    // header checkbox must not misreport what is actually selected.
+    describe('search-filtered selection (#769)', () => {
+        it('scopes the count, the header checkbox, and the bulk action itself to what the search still shows', async () => {
+            setupMocks();
+            mockShowConfirm.mockResolvedValue(true);
+            const user = (await import('@testing-library/user-event')).default.setup();
+
+            render(
+                <MemoryRouter initialEntries={['/races/1']}>
+                    <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
+                </MemoryRouter>
+            );
+
+            await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+
+            // Select both racers, then narrow the roster to just one of them.
+            const selectAllCheckbox = screen.getByTestId('select-all-header') as HTMLInputElement;
+            await user.click(selectAllCheckbox);
+            expect(screen.getByText('2 selected')).toBeInTheDocument();
+
+            await user.type(screen.getByPlaceholderText('Search racers...'), 'Alpha');
+            await waitFor(() => expect(screen.queryByText('Beta')).not.toBeInTheDocument());
+
+            // The bar must count only the racer still on screen — showing "2
+            // selected" here is what let Beta be bulk-deleted unseen.
+            expect(screen.getByText('1 selected')).toBeInTheDocument();
+
+            // The header box has one filtered row and it is selected, so it
+            // must read as checked/not-indeterminate rather than neither.
+            expect(selectAllCheckbox.checked).toBe(true);
+            expect(selectAllCheckbox.indeterminate).toBe(false);
+
+            // Firing the bulk action must reach only the visible racer.
+            const checkInBtn = await screen.findByTestId('bulk-check-in-btn');
+            await user.click(checkInBtn);
+
+            expect(mockBulkCheckIn).toHaveBeenCalledWith({
+                racerIds: [1],
+                passedInspection: true,
+            });
+        });
+
+        it('toggling select-all while filtered leaves a hidden selection standing', async () => {
+            setupMocks();
+            const user = (await import('@testing-library/user-event')).default.setup();
+
+            render(
+                <MemoryRouter initialEntries={['/races/1']}>
+                    <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
+                </MemoryRouter>
+            );
+
+            await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+
+            // Select Beta on its own, then filter it out of view.
+            await user.click(screen.getByTestId('racer-select-2'));
+            await user.type(screen.getByPlaceholderText('Search racers...'), 'Alpha');
+            await waitFor(() => expect(screen.queryByText('Beta')).not.toBeInTheDocument());
+
+            // Nothing visible is selected, so the bar has nothing honest to
+            // say and should not claim Beta is still "selected" on screen.
+            expect(screen.queryByTestId('roster-selection-bar')).toBeNull();
+
+            // Ticking select-all here must only add the visible row (Alpha),
+            // not silently replace Beta's own, now-hidden, selection.
+            const selectAllCheckbox = screen.getByTestId('select-all-header');
+            await user.click(selectAllCheckbox);
+            expect(screen.getByText('1 selected')).toBeInTheDocument();
+
+            // Clearing the search must reveal that Beta's selection survived.
+            await user.clear(screen.getByPlaceholderText('Search racers...'));
+            await waitFor(() => expect(screen.getByText('Beta')).toBeInTheDocument());
+            expect(screen.getByText('2 selected')).toBeInTheDocument();
+        });
+    });
 });

@@ -154,4 +154,39 @@ describe('ImportRacersModal', () => {
 
         await waitFor(() => expect(screen.getByText('Race not found')).toBeInTheDocument());
     });
+
+    // #768: nothing recorded that an import just succeeded, so the button
+    // stayed enabled with the same rows behind it and a second click
+    // resent the identical payload.
+    it('will not resend the same rows after a successful import', async () => {
+        const execute = mockImport(2);
+        open();
+
+        await selectFile('first,last\nAlex,Rivera\nSam,Okafor');
+        await userEvent.click(screen.getByRole('button', { name: /Import 2 Racers/ }));
+
+        await waitFor(() => expect(screen.getByText('Imported 2 racers.')).toBeInTheDocument());
+
+        // The button that would resubmit the same rows must be gone, not
+        // merely disabled behind the same label.
+        expect(screen.queryByRole('button', { name: /Import 2 Racers/ })).not.toBeInTheDocument();
+        expect(execute).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers a way to import another file once one has succeeded', async () => {
+        mockImport(1);
+        open();
+
+        await selectFile('first,last\nAlex,Rivera');
+        await userEvent.click(screen.getByRole('button', { name: /Import 1 Racer/ }));
+
+        await waitFor(() => expect(screen.getByText('Imported 1 racers.')).toBeInTheDocument());
+
+        const again = screen.getByRole('button', { name: /Import Another File/ });
+        await userEvent.click(again);
+
+        // Back to the empty picker, not the stale mapping from the last file.
+        expect(screen.getByText('Select CSV File')).toBeInTheDocument();
+        expect(screen.queryByText('Match your columns')).not.toBeInTheDocument();
+    });
 });
