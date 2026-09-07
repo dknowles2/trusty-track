@@ -41,7 +41,22 @@ interface SceneRow {
     assignments: { displayId: string }[];
 }
 
-export default function ScenesPanel({ raceId }: { raceId: number }) {
+interface ScenesPanelProps {
+    raceId: number;
+    /**
+     * No display is connected for this race yet (#850). A preset applied
+     * here would change nothing, and "Save current layout" would capture an
+     * empty one — both disabled, with a reason, rather than a click that
+     * looks like it did something (or a hang the operator can't tell from
+     * one). Renaming and deleting an already-saved scene stay enabled:
+     * neither depends on anything being connected right now.
+     */
+    disabled?: boolean;
+}
+
+const CONNECT_A_SCREEN_FIRST = 'Connect a screen first — there is nothing yet for a scene to apply to.';
+
+export default function ScenesPanel({ raceId, disabled = false }: ScenesPanelProps) {
     const { showToast, showConfirm } = useAlert();
 
     const [presetsResult] = useQuery({ query: SCENE_PRESETS_QUERY, pause: !raceId });
@@ -150,7 +165,7 @@ export default function ScenesPanel({ raceId }: { raceId: number }) {
         >
             <div style={{ fontWeight: 600 }}>Scenes</div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
-                One click reconfigures every connected screen at once.
+                {disabled ? CONNECT_A_SCREEN_FIRST : 'One click reconfigures every connected screen at once.'}
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
@@ -159,6 +174,8 @@ export default function ScenesPanel({ raceId }: { raceId: number }) {
                         key={preset.key}
                         type="button"
                         className="secondary-btn"
+                        disabled={disabled}
+                        title={disabled ? CONNECT_A_SCREEN_FIRST : undefined}
                         onClick={() => void handleApplyPreset(preset.key)}
                         style={{ padding: '0.4rem 0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                     >
@@ -213,6 +230,8 @@ export default function ScenesPanel({ raceId }: { raceId: number }) {
                             <button
                                 type="button"
                                 className="secondary-btn"
+                                disabled={disabled}
+                                title={disabled ? CONNECT_A_SCREEN_FIRST : undefined}
                                 onClick={() => void handleApplyScene(scene.id)}
                                 style={{ padding: '0.3rem 0.7rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
                             >
@@ -273,6 +292,8 @@ export default function ScenesPanel({ raceId }: { raceId: number }) {
                 <button
                     type="button"
                     className="secondary-btn"
+                    disabled={disabled}
+                    title={disabled ? CONNECT_A_SCREEN_FIRST : undefined}
                     onClick={() => setSavingAs(true)}
                     style={{ justifySelf: 'start', padding: '0.4rem 0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >

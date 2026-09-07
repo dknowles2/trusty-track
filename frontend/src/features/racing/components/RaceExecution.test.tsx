@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useMutation, useSubscription } from 'urql';
+import { MemoryRouter } from 'react-router-dom';
 import { RaceExecution, Heat } from './RaceExecution';
 import { lane } from '../testFixtures';
 import { TerminologyProvider } from '../../../context/TerminologyContext';
@@ -1445,6 +1446,64 @@ describe('RaceExecution', () => {
         const layout = container.querySelector('.race-execution-layout');
         expect(layout).toBeInTheDocument();
         expect(container.querySelector('.race-execution-active-card')).toBeInTheDocument();
+    });
+
+    describe('the race summary (#847)', () => {
+        // The dead end #847 reports: the last heat lands and nothing on
+        // screen points at standings, awards or printing. `raceJustCompleted`
+        // is the sticky, edge-detected flag `RaceControl.tsx` computes via
+        // `raceCompletion.ts` — the same shape `roundSummary` already uses,
+        // one level up (a whole race rather than one round).
+        it('offers routes to standings, awards and printing when the race finishes', () => {
+            render(
+                <MemoryRouter>
+                    <RaceExecution {...defaultProps} raceId={7} raceJustCompleted />
+                </MemoryRouter>
+            );
+
+            const modal = screen.getByTestId('mock-modal');
+            expect(within(modal).getByText('Race Complete!')).toBeInTheDocument();
+
+            expect(within(modal).getByRole('link', { name: /standings/i })).toHaveAttribute(
+                'href',
+                '/race/7/standings',
+            );
+            expect(within(modal).getByRole('link', { name: /awards/i })).toHaveAttribute(
+                'href',
+                '/race/7/awards',
+            );
+            expect(within(modal).getByRole('link', { name: /print/i })).toHaveAttribute(
+                'href',
+                '/race/7/print/results',
+            );
+        });
+
+        it('says nothing when the race has not just finished', () => {
+            // The On Deck panel's own unrelated "Race Complete!" line (when
+            // there is no next heat) stays untouched — this is about the
+            // modal, found by its own body text rather than that shared
+            // title string.
+            render(
+                <MemoryRouter>
+                    <RaceExecution {...defaultProps} raceJustCompleted={false} />
+                </MemoryRouter>
+            );
+
+            expect(screen.queryByTestId('mock-modal')).not.toBeInTheDocument();
+        });
+
+        it('can be dismissed', () => {
+            render(
+                <MemoryRouter>
+                    <RaceExecution {...defaultProps} raceJustCompleted />
+                </MemoryRouter>
+            );
+
+            const modal = screen.getByTestId('mock-modal');
+            fireEvent.click(within(modal).getByText('Close Mock'));
+
+            expect(screen.queryByTestId('mock-modal')).not.toBeInTheDocument();
+        });
     });
 });
 

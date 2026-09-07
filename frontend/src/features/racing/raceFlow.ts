@@ -78,13 +78,23 @@ export interface Observation {
     readonly hasRoundSummary: boolean;
     /** Which round that is, when it says. */
     readonly roundSummaryId: number | null;
+    /**
+     * Every heat the race will ever run has now run (#847).
+     *
+     * A level, made sticky upstream by `raceCompletion.ts` the same way
+     * `hasRoundSummary` is made sticky by `roundCompletion.ts` — there is
+     * only one race, so there is no id to carry alongside it the way
+     * {@link roundSummaryId} carries one for a round.
+     */
+    readonly hasRaceSummary: boolean;
 }
 
 /** What the operator is looking at. Exactly one of these is true. */
 export type Screen =
     | { readonly kind: 'WATCHING' }
     | { readonly kind: 'COUNTING_DOWN'; readonly secondsLeft: number }
-    | { readonly kind: 'ROUND_SUMMARY'; readonly roundId: number | null };
+    | { readonly kind: 'ROUND_SUMMARY'; readonly roundId: number | null }
+    | { readonly kind: 'RACE_SUMMARY' };
 
 export interface FlowState {
     /** What renders. */
@@ -109,6 +119,13 @@ export interface FlowState {
     readonly haveSummarised: boolean;
     /** Which round that was, when it said. */
     readonly summarisedRoundId: number | null;
+    /**
+     * Whether the race summary now on offer has already been raised once
+     * (#847) — {@link haveSummarised}'s counterpart for the whole race
+     * rather than one round. There is no id to pair it with: unlike a
+     * round, a race cannot decide a second, different one.
+     */
+    readonly haveShownRaceSummary: boolean;
     /**
      * The heat whose countdown the operator called off, if any.
      *
@@ -145,6 +162,7 @@ export const initialFlowState: FlowState = {
     preparedHeatId: null,
     haveSummarised: false,
     summarisedRoundId: null,
+    haveShownRaceSummary: false,
     countdownCancelledFor: null,
     observed: null,
 };
@@ -180,7 +198,7 @@ const shouldCountDown = (observation: Observation): boolean =>
  * by way of `shouldResetAutoAdvance` flipping back.
  */
 const settle = (screen: Screen, observation: Observation, cancelledFor: number | null): Screen => {
-    if (screen.kind === 'ROUND_SUMMARY') return screen;
+    if (screen.kind === 'ROUND_SUMMARY' || screen.kind === 'RACE_SUMMARY') return screen;
     const cancelled = cancelledFor !== null && cancelledFor === observation.heatId;
     if (cancelled || !shouldCountDown(observation)) {
         // Returning the *same* object when nothing changed, not an equal one.
@@ -231,6 +249,23 @@ const observed = (state: FlowState, observation: Observation): FlowResult => {
         if (screen.kind === 'ROUND_SUMMARY') screen = { kind: 'WATCHING' };
     }
 
+    // The whole race has just finished (#847). Same shape as the round
+    // summary above, minus an id — there is only one race. This runs after
+    // the round-summary block and can override its screen: the two should
+    // never both be true in practice (the final round's own completion has
+    // no later round left to decide), but if they ever were, the race
+    // finishing is the more useful of the two things to tell the operator.
+    let haveShownRaceSummary = state.haveShownRaceSummary;
+    if (observation.hasRaceSummary) {
+        if (!haveShownRaceSummary) {
+            haveShownRaceSummary = true;
+            screen = { kind: 'RACE_SUMMARY' };
+        }
+    } else if (haveShownRaceSummary) {
+        haveShownRaceSummary = false;
+        if (screen.kind === 'RACE_SUMMARY') screen = { kind: 'WATCHING' };
+    }
+
     // A cancellation only covers the heat it was made against.
     const countdownCancelledFor =
         state.countdownCancelledFor === observation.heatId ? state.countdownCancelledFor : null;
@@ -241,6 +276,7 @@ const observed = (state: FlowState, observation: Observation): FlowResult => {
             preparedHeatId,
             haveSummarised,
             summarisedRoundId,
+            haveShownRaceSummary,
             countdownCancelledFor,
             observed: observation,
         },
@@ -271,9 +307,12 @@ export function reduce(state: FlowState, event: FlowEvent): FlowResult {
         }
 
         case 'SUMMARY_DISMISSED': {
-            if (state.screen.kind !== 'ROUND_SUMMARY') return { state, commands: [] };
-            // `summarisedRoundId` deliberately survives: the operator closed
-            // this one, and it should not spring back on the next observation.
+            if (state.screen.kind !== 'ROUND_SUMMARY' && state.screen.kind !== 'RACE_SUMMARY') {
+                return { state, commands: [] };
+            }
+            // `summarisedRoundId`/`haveShownRaceSummary` deliberately survive:
+            // the operator closed this one, and it should not spring back on
+            // the next observation.
             const screen: Screen = { kind: 'WATCHING' };
             return {
                 state: {

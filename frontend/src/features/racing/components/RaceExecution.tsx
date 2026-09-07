@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useSubscription, useMutation } from 'urql';
 import Modal from '../../../components/ui/Modal';
 import { FakeTimerMole } from './FakeTimerMole';
@@ -111,6 +112,13 @@ interface RaceExecutionProps {
     laneColors?: readonly string[];
     racers: Record<number, Racer>;
     roundSummary: AdvancementStatus | null;
+    /**
+     * Every heat the race will ever run has just run (#847) — sticky and
+     * edge-detected upstream by `raceCompletion.ts`, the same shape
+     * `roundSummary` already uses one level up. Raises the race summary
+     * modal exactly once per genuine completion; see `raceFlow.ts`.
+     */
+    raceJustCompleted?: boolean;
     autoAdvanceHeat: boolean;
     onToggleAutoAdvance?: (value: boolean) => void;
     remainingHeatsInRound?: number;
@@ -148,6 +156,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     laneColors = [],
     racers,
     roundSummary,
+    raceJustCompleted = false,
     autoAdvanceHeat,
     onToggleAutoAdvance,
     remainingHeatsInRound,
@@ -249,6 +258,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             autoAdvanceEnabled: autoAdvanceHeat,
             hasRoundSummary: !!roundSummary,
             roundSummaryId: roundSummary?.roundId ?? null,
+            hasRaceSummary: raceJustCompleted,
         },
         {
             // Fire-and-forget here used to mean silently: neither a GraphQL
@@ -285,6 +295,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
 
     const isRoundSummaryOpen = flow.screen.kind === 'ROUND_SUMMARY';
+    const isRaceSummaryOpen = flow.screen.kind === 'RACE_SUMMARY';
 
     const handleEditOpen = () => {
         setEditingResults(storedLanes.map((l) => ({
@@ -1113,6 +1124,66 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             {preset.label}
                         </button>
                     ))}
+                </div>
+            </Modal>
+
+            {/* Race Complete Modal (#847) — the seam the operator used to be
+                left at with nothing pointing anywhere: every heat has run,
+                and the roster's checklist stops well short of what happens
+                next. The three routes below already exist; this is only the
+                prompt at the moment they become relevant. */}
+            <Modal
+                isOpen={isRaceSummaryOpen}
+                onClose={flow.dismissSummary}
+                title="Race Complete!"
+            >
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                    <Icon path={mdiTrophy} size={3} color="var(--cub-scouting-gold)" />
+                    <p style={{ fontSize: '1.2rem', color: 'var(--text-muted-color)', marginTop: '10px' }}>
+                        Every heat has been run. Here&apos;s where to go next:
+                    </p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                    <Link
+                        to={`/race/${raceId}/standings`}
+                        className="primary-btn"
+                        style={{ textAlign: 'center', textDecoration: 'none' }}
+                    >
+                        See Final Standings
+                    </Link>
+                    <Link
+                        to={`/race/${raceId}/awards`}
+                        className="secondary-btn"
+                        style={{ textAlign: 'center', textDecoration: 'none' }}
+                    >
+                        Awards &amp; Ceremony
+                    </Link>
+                    <Link
+                        to={`/race/${raceId}/print/results`}
+                        className="secondary-btn"
+                        style={{ textAlign: 'center', textDecoration: 'none' }}
+                    >
+                        Print Results Sheet
+                    </Link>
+                </div>
+
+                {/* Optional, per the issue: a pointer at wrapping up, not a
+                    new feature — locking lives on the race's own edit form
+                    (Roster's "Edit race"), and a backup is one click in
+                    System Settings. Both are one click away already; this
+                    only says so. */}
+                <div
+                    style={{
+                        fontSize: '0.85rem',
+                        color: 'var(--text-subtle-color)',
+                        textAlign: 'center',
+                        borderTop: '1px solid var(--divider-color)',
+                        paddingTop: '12px',
+                    }}
+                >
+                    Wrapping up? <Link to={`/race/${raceId}?edit=true`}>Lock this race</Link> and take a{' '}
+                    <Link to="/system-settings">backup</Link> before you go.
                 </div>
             </Modal>
 

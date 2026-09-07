@@ -17,7 +17,7 @@
  * shareable address, before the Awards page's ballot share step ever did.
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useClient, useMutation, useQuery, useSubscription } from 'urql';
 import { Icon } from '@mdi/react';
 import {
@@ -70,7 +70,18 @@ interface DisplayRow {
     identifySeq: number;
 }
 
-export default function DisplaysPanel({ raceId }: { raceId: number }) {
+interface DisplaysPanelProps {
+    raceId: number;
+    /**
+     * Told whenever the answer to "is any display known for this race"
+     * changes (#850) — the Displays tab uses it to decide whether Scenes
+     * has anything to apply to, rather than that panel running a second
+     * query answering the same question this one already does.
+     */
+    onDisplaysChange?: (hasDisplays: boolean) => void;
+}
+
+export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPanelProps) {
     // Query and subscription both: the query answers on load, the
     // subscription keeps it current. A subscription alone shows an empty list
     // until something changes, which on a quiet minute is most of the event.
@@ -119,6 +130,20 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
     };
 
     const displays: DisplayRow[] = liveResult.data?.displays ?? queryResult.data?.displays ?? [];
+    const hasDisplays = displays.length > 0;
+
+    // Held in a ref, the same shape `useRaceFlow.ts` uses for its own
+    // handlers: a fresh callback identity on the caller's every render must
+    // not fire this effect on every render, only when the answer itself
+    // changes. Assigned after the commit rather than during render, for the
+    // same reason that file gives.
+    const onDisplaysChangeRef = useRef(onDisplaysChange);
+    useEffect(() => {
+        onDisplaysChangeRef.current = onDisplaysChange;
+    });
+    useEffect(() => {
+        onDisplaysChangeRef.current?.(hasDisplays);
+    }, [hasDisplays]);
 
     // Two monitors on this same computer used to report as one screen,
     // because every tab shares this computer's `localStorage` — assigning a

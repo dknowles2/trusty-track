@@ -30,6 +30,7 @@ const seen = (overrides: Partial<Observation> = {}): Observation => ({
     hasNextHeat: true,
     autoAdvanceEnabled: true,
     hasRoundSummary: false, roundSummaryId: null,
+    hasRaceSummary: false,
     ...overrides,
 });
 
@@ -384,5 +385,106 @@ describe('the machine cannot re-enter itself', () => {
             { type: 'PREPARE_HEAT', heatId: 1 },
             { type: 'ADVANCE_TO_NEXT_HEAT' },
         ]);
+    });
+});
+
+describe('the race summary (#847)', () => {
+    // `hasRaceSummary` is a level, computed and made sticky upstream in
+    // `RaceControl.tsx` by `raceCompletion.ts` — exactly the shape
+    // `hasRoundSummary`/`roundSummary` already use. `haveShownRaceSummary`
+    // is this machine's own half, mirroring `haveSummarised`.
+
+    test('a race that becomes complete raises it', () => {
+        const result = run([
+            observe(seen({ hasRaceSummary: false })),
+            observe(recorded({ hasRaceSummary: true, hasNextHeat: false })),
+        ]);
+        expect(result.state.screen).toEqual({ kind: 'RACE_SUMMARY' });
+    });
+
+    test('it suppresses the countdown', () => {
+        // There is nowhere to advance to once the race is over, but the
+        // summary should win even if there were.
+        const result = run([
+            observe(seen({ hasRaceSummary: false })),
+            observe(recorded({ hasRaceSummary: true, hasNextHeat: true })),
+        ]);
+        expect(result.state.screen.kind).toBe('RACE_SUMMARY');
+    });
+
+    test('a countdown cannot run behind it', () => {
+        const events = [
+            observe(seen({ hasRaceSummary: false })),
+            observe(recorded({ hasRaceSummary: true, hasNextHeat: false })),
+            ...Array(20).fill(tick()),
+        ];
+        expect(commandsOf(events)).toEqual([]);
+    });
+
+    test('seeing the race still complete again does not re-raise it', () => {
+        const result = run([
+            observe(seen({ hasRaceSummary: false })),
+            observe(recorded({ hasRaceSummary: true, hasNextHeat: false })),
+            dismissSummary(),
+            observe(recorded({ hasRaceSummary: true, hasNextHeat: false })),
+        ]);
+        expect(result.state.screen.kind).not.toBe('RACE_SUMMARY');
+    });
+
+    test('dismissing it, with nothing to advance to, just watches', () => {
+        const result = run([
+            observe(seen({ hasRaceSummary: false })),
+            observe(recorded({ hasRaceSummary: true, hasNextHeat: false })),
+            dismissSummary(),
+        ]);
+        expect(result.state.screen).toEqual({ kind: 'WATCHING' });
+    });
+
+    test('undoing race completion lets it raise again', () => {
+        // Re-running the last heat un-completes the race. When the operator
+        // finishes it a second time the summary should come back.
+        const result = run([
+            observe(seen({ hasRaceSummary: false })),
+            observe(recorded({ hasRaceSummary: true, hasNextHeat: false })),
+            dismissSummary(),
+            observe(seen({ hasRaceSummary: false, timerState: 'IDLE' })),
+            observe(recorded({ hasRaceSummary: true, hasNextHeat: false })),
+        ]);
+        expect(result.state.screen).toEqual({ kind: 'RACE_SUMMARY' });
+    });
+
+    test('the race un-completing while its summary is open closes it', () => {
+        const result = run([
+            observe(seen({ hasRaceSummary: false })),
+            observe(recorded({ hasRaceSummary: true, hasNextHeat: false })),
+            observe(seen({ hasRaceSummary: false, timerState: 'IDLE' })),
+        ]);
+        expect(result.state.screen).toEqual({ kind: 'WATCHING' });
+    });
+
+    test('dismissing when no race summary is up changes nothing', () => {
+        const before = run([observe(recorded())]);
+        const after = reduce(before.state, dismissSummary());
+        expect(after.state).toEqual(before.state);
+        expect(after.commands).toEqual([]);
+    });
+
+    test('a decided round and a completed race do not fight over one screen', () => {
+        // Both flags true in the same observation is not a state the app
+        // should ever produce (the final round's own completion has no later
+        // round left to decide), but the machine can only show one thing —
+        // the race taking priority is the more useful of the two answers.
+        const result = run([
+            observe(seen({ hasRaceSummary: false })),
+            observe(
+                recorded({
+                    hasRaceSummary: true,
+                    hasNextHeat: false,
+                    hasRoundSummary: true,
+                    roundSummaryId: 3,
+                }),
+            ),
+        ]);
+        expect(result.state.screen).toEqual({ kind: 'RACE_SUMMARY' });
     });
 });
