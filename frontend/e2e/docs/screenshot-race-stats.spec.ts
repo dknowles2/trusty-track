@@ -89,7 +89,11 @@ test('screenshot the race stats page', async ({ page }) => {
     // A configured length (#610) — `ownTrack` otherwise leaves it null, and
     // the "Top scale speed" line beside the Fastest Heat card would have
     // nothing to compute from.
-    const trackId = await ownTrack(page, 'Race Stats Track', 4, 'FAKE', 40);
+    // Suffixed on retry (#829) so a retry does not collide on track name if
+    // attempt 1 leaked before cleanup.
+    const retry = test.info().retry;
+    const trackName = retry > 0 ? `Race Stats Track (retry ${retry})` : 'Race Stats Track';
+    const trackId = await ownTrack(page, trackName, 4, 'FAKE', 40);
     const raceId = await seedRace(page, {
         name: 'Pack 42 Stats Derby',
         trackId,

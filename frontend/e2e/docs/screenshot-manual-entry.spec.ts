@@ -37,7 +37,9 @@ test('screenshot the manual result-entry modal on a track with no timer', async 
     await page.setViewportSize({ width: 1200, height: 1150 });
     await ensureConfigured(page);
 
-    const trackId = await ownTrack(page, 'Silent Track', 4, 'NONE');
+    const retry = test.info().retry;
+    const trackName = retry > 0 ? `Silent Track (retry ${retry})` : 'Silent Track';
+    const trackId = await ownTrack(page, trackName, 4, 'NONE');
     const raceId = await seedRace(page, {
         name: 'Points Derby — No Timer',
         trackId,
