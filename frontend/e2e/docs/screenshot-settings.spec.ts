@@ -89,6 +89,31 @@ test('screenshot the settings panels', async ({ page }) => {
         .getByTestId(/track-card-\d+/)
         .filter({ has: page.locator(`input[value="${TRACK_NAME}"]`) });
     await expect(trackCard.getByLabel('Lane 1 works')).toBeVisible();
+
+    // Every *other* track card, hidden (#841). Several other specs bring
+    // their own track to this shared backend and — unlike this one — never
+    // delete it (`screenshot-timers.spec.ts` is the exception; see its own
+    // header comment), so how many sibling cards exist above and below this
+    // one when the page loads depends on which of those specs' workers have
+    // gotten there first. Locator-scoping the four captures below to this
+    // card and its own subsections was not enough on its own: a sibling card
+    // appearing or disappearing still changes the page's total height, which
+    // changes whether — and to what fractional scroll position — this card
+    // has to be scrolled into view before Playwright can crop it, which
+    // nudges every one of these crops by a pixel that has nothing to do with
+    // what they are pictures of. Hiding every card but this one removes the
+    // variable outright rather than tolerating the pixel it costs: the
+    // layout this card renders into is then exactly what it would be if it
+    // were the only track that had ever existed, on every run.
+    const ownTestId = await trackCard.getAttribute('data-testid');
+    await page.evaluate((keep) => {
+        document.querySelectorAll('[data-testid^="track-card-"]').forEach((el) => {
+            if (el.getAttribute('data-testid') !== keep) {
+                (el as HTMLElement).style.display = 'none';
+            }
+        });
+    }, ownTestId);
+
     // Settled against `body`: the just-clicked SettingsNav button's own
     // background-color transition (see `settleTransitions`'s doc comment)
     // lives outside this card, but the layout shift it causes in the nav

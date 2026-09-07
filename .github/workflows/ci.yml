@@ -354,10 +354,16 @@ jobs:
       # to differ between two runs on a genuinely unchanged tree for a reason
       # that has nothing to do with rendering: `settings/04-activity-log.png`
       # (real clock times) and `printables/check-in-scanner.png` (camera
-      # viewfinder placement) were already documented; the other six were
-      # found this session — see the rule file for what causes each, since a
-      # tolerance loose enough to swallow them would also swallow a real
-      # change of the same size.
+      # viewfinder placement) were already documented; the other two are
+      # per-browser-context state nothing here seeds — see the rule file for
+      # what causes each, since a tolerance loose enough to swallow them
+      # would also swallow a real change of the same size. The four
+      # `settings/*` images once listed here too traced to another spec's
+      # temporary track still existing on the page when these were captured
+      # (#841) — fixed by hiding every track card but the one being
+      # photographed before either `screenshot-settings.spec.ts` or
+      # `screenshot-timers.spec.ts` screenshots its own, so removed rather
+      # than carried forward.
       - name: Check for screenshot drift against the committed baseline
         run: |
           node e2e/docs/compare-screenshots.ts \
@@ -365,7 +371,7 @@ jobs:
             "$GITHUB_WORKSPACE/docs/assets/screenshots" \
             --max-diff-pixels 50 \
             --max-diff-ratio 0.0005 \
-            --exclude "settings/04-activity-log.png,printables/check-in-scanner.png,observation/08-displays-panel.png,observation/13-qrcode.png,settings/01-lanes-in-service.png,settings/05-track-records.png,settings/06-fake-timer-selected.png,settings/07-no-timer-selected.png" \
+            --exclude "settings/04-activity-log.png,printables/check-in-scanner.png,observation/08-displays-panel.png,observation/13-qrcode.png" \
             --diff-dir /tmp/screenshot-diffs \
             --json /tmp/screenshot-drift.json | tee -a "$GITHUB_STEP_SUMMARY"
         working-directory: frontend

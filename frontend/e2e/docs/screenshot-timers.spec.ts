@@ -13,9 +13,18 @@
  * K2 banner and reports results in the genuine format.
  *
  * Adds its own proxy-mode track, which is global state on this shared
- * backend: this spec sorts after screenshot-settings (which scopes everything
- * to track-card-0), and the free-race spec already set the precedent of a
- * spec bringing its own track.
+ * backend, deleted again in `finally` below — several other specs bring
+ * their own track the same way and never delete it (`screenshot-race-stats`,
+ * `screenshot-observation`, `screenshot-free-race`, `screenshot-manual-entry`).
+ * This one used to claim it "sorts after screenshot-settings" on the strength
+ * of alphabetical file order; that was never a guarantee this config gives
+ * (#841) — `screenshots` runs every file in parallel across workers, so any
+ * of those tracks can exist, on a different worker, at any point while this
+ * spec or `screenshot-settings.spec.ts` is on screen. Both now protect
+ * themselves the same way, by hiding every track card but their own before
+ * screenshotting one — see the comment at each `demoCard`/`trackCard`
+ * capture. This header no longer needs to say anything about ordering,
+ * because nothing here depends on it.
  */
 
 import { test, expect, settleTransitions } from './screenshots-setup';
@@ -152,6 +161,26 @@ async function screenshotTimerPages(
         .getByTestId(/track-card-\d+/)
         .filter({ has: page.locator(`input[value="${trackName}"]`) });
     await expect(demoCard.locator(`input[value="${trackName}"]`)).toBeVisible();
+
+    // Every *other* track card, hidden — the same fix #841 gave
+    // `screenshot-settings.spec.ts`, and for the identical reason: several
+    // specs bring their own track to this shared backend and never delete it
+    // (`screenshot-race-stats`, `screenshot-observation`, `screenshot-free-race`,
+    // `screenshot-manual-entry`), so how many sibling cards sit above or below
+    // this one — and so this page's total height, and so the fractional
+    // scroll position this card gets cropped at — depends on which of those
+    // specs' workers had gotten there first. Hiding every card but this one
+    // makes the layout this card renders into the same on every run,
+    // regardless of what else is going on on the shared backend.
+    const ownTestId = await demoCard.getAttribute('data-testid');
+    await page.evaluate((keep) => {
+        document.querySelectorAll('[data-testid^="track-card-"]').forEach((el) => {
+            if (el.getAttribute('data-testid') !== keep) {
+                (el as HTMLElement).style.display = 'none';
+            }
+        });
+    }, ownTestId);
+
     // Settled against `body`, not `demoCard`: the SettingsNav buttons whose
     // `[aria-current='page']` background-color just changed (see
     // `settleTransitions`'s doc comment) live in the page's own nav column,
