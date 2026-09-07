@@ -77,7 +77,7 @@ def test_auto_numbering_a_selection_does_not_duplicate_numbers_held_outside_it(
     # roster was already numbered — e.g. late check-ins).
     zoe = _racer(db, race, "Zoe", "Zephyr")
     yara = _racer(db, race, "Yara", "Yankee")
-    crud.bulk_clear_car_numbers(db, [zoe.id, yara.id])
+    crud.bulk_clear_car_numbers(db, race.id, [zoe.id, yara.id])
 
     updated = crud.auto_number_racers(db, race.id, racer_ids=[zoe.id, yara.id])
     assert updated == 2
@@ -118,7 +118,7 @@ def test_auto_numbering_a_selection_respects_per_group_ranges_too(
     ace = _racer(db, race, "Ace", "Bolt", car_number=100, racing_group_id=lions.id)
     neo = _racer(db, race, "Neo", "Bolt", car_number=101, racing_group_id=lions.id)
     zoe = _racer(db, race, "Zoe", "Zephyr", racing_group_id=lions.id)
-    crud.bulk_clear_car_numbers(db, [zoe.id])
+    crud.bulk_clear_car_numbers(db, race.id, [zoe.id])
 
     updated = crud.auto_number_racers(db, race.id, racer_ids=[zoe.id])
     assert updated == 1
@@ -141,7 +141,7 @@ def test_auto_numbering_the_whole_race_still_works(db: Session) -> None:
     race = _race(db, models.CarNumberingStrategy.GLOBAL, global_start_number=1)
     a = _racer(db, race, "Ace", "Bolt")
     b = _racer(db, race, "Neo", "Bolt")
-    crud.bulk_clear_car_numbers(db, [a.id, b.id])
+    crud.bulk_clear_car_numbers(db, race.id, [a.id, b.id])
 
     updated = crud.auto_number_racers(db, race.id)
     assert updated == 2

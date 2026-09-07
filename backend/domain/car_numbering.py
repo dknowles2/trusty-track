@@ -20,7 +20,9 @@ def range_is_valid(start: int | None, end: int | None) -> bool:
     return end >= start
 
 
-def ranges_overlap(a_start: int, a_end: int | None, b_start: int, b_end: int | None) -> bool:
+def ranges_overlap(
+    a_start: int, a_end: int | None, b_start: int, b_end: int | None
+) -> bool:
     """Whether two closed car-number ranges intersect.
 
     ``None`` for an end means "open, no upper bound" — the same meaning
@@ -34,6 +36,4 @@ def ranges_overlap(a_start: int, a_end: int | None, b_start: int, b_end: int | N
     """
     if a_end is not None and a_end < b_start:
         return False
-    if b_end is not None and b_end < a_start:
-        return False
-    return True
+    return not (b_end is not None and b_end < a_start)

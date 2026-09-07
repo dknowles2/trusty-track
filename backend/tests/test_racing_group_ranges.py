@@ -170,9 +170,7 @@ def test_update_racing_group_refuses_a_range_overlapping_a_sibling(db):
         crud.update_racing_group(
             db,
             racing_group_id=tiger.id,
-            racing_group_update=schemas.RacingGroupUpdate(
-                car_number_range_start=150
-            ),
+            racing_group_update=schemas.RacingGroupUpdate(car_number_range_start=150),
         )
 
     db.refresh(tiger)
@@ -223,7 +221,9 @@ def test_create_race_refuses_overlapping_den_ranges_from_the_wizard(db):
     Lion 100-199 and Tiger 150-299 on the same Dens step.
     """
     org = crud.create_organization(db, schemas.OrganizationCreate(name="Pack 741 W"))
-    track = crud.create_track(db, schemas.TrackCreate(name="Wizard Track", lane_count=4))
+    track = crud.create_track(
+        db, schemas.TrackCreate(name="Wizard Track", lane_count=4)
+    )
 
     with pytest.raises(ValueError):
         crud.create_race(

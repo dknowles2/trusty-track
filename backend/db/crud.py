@@ -144,19 +144,19 @@ def _refuse_bad_racing_group_range(
         query = query.filter(models.RacingGroup.id != exclude_id)
 
     for other in query.all():
+        other_start = other.car_number_range_start
+        assert other_start is not None  # filtered by the query above
         if car_numbering.ranges_overlap(
-            start, end, other.car_number_range_start, other.car_number_range_end
+            start, end, other_start, other.car_number_range_end
         ):
             if other.car_number_range_end is None:
                 other_range = f"{other.car_number_range_start}+"
             else:
                 other_range = (
-                    f"{other.car_number_range_start}–"
-                    f"{other.car_number_range_end}"
+                    f"{other.car_number_range_start}–{other.car_number_range_end}"
                 )
             raise ValueError(
-                f"{name}'s car number range overlaps {other.name}'s "
-                f"({other_range})."
+                f"{name}'s car number range overlaps {other.name}'s ({other_range})."
             )
 
 
