@@ -198,6 +198,37 @@ export const test = base.extend({
         // the picture that shows that, not a timeout with no picture at all.
         const takeScreenshot = page.screenshot.bind(page);
         page.screenshot = (async (options = {}) => {
+            // The navigation bar's race selector pill (#843). It reads
+            // `GET_RACES_NAV`, a query with no dependency on whatever the
+            // rest of the page is waiting for — so on a page whose own
+            // content settles first, a screenshot taken the moment that
+            // content is ready can still catch the pill between a fresh
+            // navigation (or a `createRace`-triggered cache invalidation)
+            // and that query's own response landing. The window is normally
+            // a handful of milliseconds, wide enough to matter once many
+            // specs are creating races on the same shared backend at once —
+            // `Navigation.tsx` no longer claims "Select a Race" while that
+            // request is still in flight (see `raceContextUnresolved`
+            // there), but the pill can still read blank in that window, and
+            // a screenshot of blank-then-named is exactly as nondeterministic
+            // as "Select a Race"-then-named. Skipped when there is no race in
+            // the URL (the steady "Select a Race" state on Home is correct
+            // and must not be waited past) or no nav bar at all (projector
+            // mode, the ceremony route, the voting ballot — none render one).
+            if (/\/race\/\d+/.test(page.url())) {
+                await page
+                    .waitForFunction(
+                        () => {
+                            const pill = document.querySelector('[data-testid="race-selector-pill"]');
+                            if (!pill) return true;
+                            const text = pill.textContent ?? '';
+                            return text.trim().length > 0 && !text.includes('Select a Race');
+                        },
+                        undefined,
+                        { timeout: 5000 },
+                    )
+                    .catch(() => {});
+            }
             await page
                 .waitForFunction(
                     () => Array.from(document.images).every((image) => image.complete),

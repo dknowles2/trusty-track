@@ -19,7 +19,7 @@ import { useChrome } from '../../../context/ChromeContext';
 export default function Navigation() {
   const { hidden: chromeHidden } = useChrome();
   const { showAlert } = useAlert();
-  const [{ data: navData }, reexecuteRacesNav] = useQuery({ query: GET_RACES_NAV });
+  const [{ data: navData, fetching: racesFetching }, reexecuteRacesNav] = useQuery({ query: GET_RACES_NAV });
   const races: { id: number; name: string; isLocked: boolean }[] = navData?.races || [];
 
   // #300: a race created, renamed or deleted in another tab (or another
@@ -65,6 +65,17 @@ export default function Navigation() {
   const match = location.pathname.match(/\/race\/(\d+)/);
   const raceId = match ? match[1] : null;
   const activeRace = raceId ? races.find((r: { id: number; name: string; isLocked: boolean }) => r.id === parseInt(raceId)) : null;
+
+  // Being on a race's own URL and having no answer from `GET_RACES_NAV` yet
+  // (its first request in flight, or a background refetch that a
+  // `createRace`/`racesChanged` cache invalidation just triggered) is not the
+  // same as there being no race to select — the address bar already says
+  // otherwise. `forgetRaceList` invalidates rather than splices, so there is
+  // a real, if normally brief, window where `races` does not yet contain the
+  // race whose page is on screen. "Select a Race" is only true once we can
+  // actually rule the race out, i.e. once a request has *answered* and it is
+  // still missing — not while one is still in flight.
+  const raceContextUnresolved = !!raceId && !activeRace && (navData === undefined || racesFetching);
 
   const links: { to: string; label: string; icon: string }[] = [];
   if (raceId) {
@@ -120,6 +131,7 @@ export default function Navigation() {
           {!isMobile && (
             <div style={{ position: 'relative', flex: 1, display: 'flex', justifyContent: 'center' }}>
             <button
+              data-testid="race-selector-pill"
               onClick={() => setIsRaceDropdownOpen(!isRaceDropdownOpen)}
               style={{
                 background: 'rgba(255,255,255,0.1)',
@@ -139,7 +151,7 @@ export default function Navigation() {
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
             >
               <Icon path={mdiFlagCheckered} size={0.8} color="var(--on-primary-color)" />
-              {activeRace ? activeRace.name : 'Select a Race'}
+              {activeRace ? activeRace.name : raceContextUnresolved ? '' : 'Select a Race'}
               {activeRace?.isLocked && <LockedBadge size="small" />}
               <Icon path={isRaceDropdownOpen ? mdiChevronUp : mdiChevronDown} size={0.6} color="var(--on-primary-color)" style={{ opacity: 0.8 }} />
             </button>
