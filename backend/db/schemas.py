@@ -15,6 +15,7 @@ check that something actually constructs it.
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from backend.domain.lane_colors import is_valid_lane_color
+from backend.domain.photos import is_valid_photo_url
 from backend.domain.scale_speed import DEFAULT_SCALE
 from backend.domain.terminology import TERMINOLOGY_WORD_FIELDS, reject_blank_word
 
@@ -225,6 +226,27 @@ class InitialConfigCreate(BaseModel):
         return value
 
 
+def _reject_url_uploadimage_did_not_produce(
+    value: str | None, info: ValidationInfo
+) -> str | None:
+    """Shared body for the `racer_image_url`/`car_image_url` validators on
+    `RacerBase` and `RacerUpdate` (#746).
+
+    A plain function rather than a mixin class: the two models are not
+    otherwise related (`RacerUpdate` does not extend `RacerBase`), and a
+    `field_validator` has to be declared on each Pydantic model it applies
+    to regardless — this is the one place the actual rule lives, so the two
+    declarations differ only in which class they are attached to.
+    """
+    if value is not None and not is_valid_photo_url(value):
+        assert info.field_name is not None
+        raise ValueError(
+            f"{info.field_name} must be a path returned by uploadImage, "
+            "not an external URL"
+        )
+    return value
+
+
 class RacerBase(BaseModel):
     first_name: str
     last_name: str
@@ -238,6 +260,13 @@ class RacerBase(BaseModel):
     #: Races, but is not ranked (#548). Off by default, same as
     #: `car_passed_inspection` above.
     excluded_from_standings: bool = False
+
+    @field_validator("racer_image_url", "car_image_url")
+    @classmethod
+    def photo_url_is_one_uploadimage_produced(
+        cls, value: str | None, info: ValidationInfo
+    ) -> str | None:
+        return _reject_url_uploadimage_did_not_produce(value, info)
 
 
 class RacerCreate(RacerBase):
@@ -255,6 +284,13 @@ class RacerUpdate(BaseModel):
     racer_image_url: str | None = None
     car_image_url: str | None = None
     excluded_from_standings: bool | None = None
+
+    @field_validator("racer_image_url", "car_image_url")
+    @classmethod
+    def photo_url_is_one_uploadimage_produced(
+        cls, value: str | None, info: ValidationInfo
+    ) -> str | None:
+        return _reject_url_uploadimage_did_not_produce(value, info)
 
 
 class AwardCopyCreate(BaseModel):

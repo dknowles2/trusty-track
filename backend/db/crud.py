@@ -27,6 +27,7 @@ from backend.domain import (
     terminology,
 )
 from backend.domain.displays import Assignment
+from backend.domain.photos import is_valid_photo_url
 
 from . import lane_sync, models, schemas
 
@@ -746,13 +747,22 @@ def bulk_assign_racer_photos(
     db: Session,
     assignments: list[dict],
 ) -> int:
-    """Apply photo URLs to racers in bulk. Returns count of updated racers."""
+    """Apply photo URLs to racers in bulk. Returns count of updated racers.
+
+    A `url` that is not the shape `uploadImage` produces is skipped exactly
+    like every other malformed entry here (#746) — a nonexistent racer id or
+    a missing url already do not count, and a caller-supplied external URL
+    is refused for the same reason `RacerUpdate`'s own validator refuses one
+    on `updateRacer`: it is rendered on public, unauthenticated audience
+    surfaces, and only a path this app's own upload endpoint produced
+    belongs there.
+    """
     count = 0
     for a in assignments:
         racer_id = a.get("racer_id")
         url = a.get("url")
         photo_type = a.get("photo_type", "racer")
-        if not racer_id or not url:
+        if not racer_id or not url or not is_valid_photo_url(url):
             continue
         if photo_type == "racer":
             update = schemas.RacerUpdate(racer_image_url=url)
@@ -799,7 +809,7 @@ def _vacate_lanes(db: Session, racer_ids: set[int], race_id: int) -> None:
 def delete_racer(db: Session, racer_id: int) -> models.Racer | None:
     db_racer = db.query(models.Racer).filter(models.Racer.id == racer_id).first()
     if db_racer:
-        bulk_delete_racers(db, [racer_id])
+        bulk_delete_racers(db, db_racer.race_id, [racer_id])
     return db_racer
 
 
@@ -2996,10 +3006,23 @@ def repair_master_running_order(
     return _write_heat_numbers(db, update_map)
 
 
-def bulk_delete_racers(db: Session, racer_ids: list[int]):
+def bulk_delete_racers(db: Session, race_id: int, racer_ids: list[int]):
+    """Delete a batch of racers, all of them expected to belong to `race_id`.
+
+    Scoped to `race_id` since #743: a stray id belonging to a different race
+    is a no-op rather than a write — belt and braces alongside the resolver's
+    own refusal (`api/schema.py`'s `_race_id_for_racers`) of a list that
+    spans more than one race in the first place, which is what stops a
+    locked race's racer from being deleted by hiding its id behind one from
+    any unlocked race.
+    """
     from collections import defaultdict
 
-    racers = db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).all()
+    racers = (
+        db.query(models.Racer)
+        .filter(models.Racer.id.in_(racer_ids), models.Racer.race_id == race_id)
+        .all()
+    )
     by_race: dict[int, set[int]] = defaultdict(set)
     for r in racers:
         by_race[r.race_id].add(r.id)
@@ -3019,15 +3042,20 @@ def bulk_delete_racers(db: Session, racer_ids: list[int]):
     # doomed racer while the racer is still there: `ON DELETE SET NULL` (#125)
     # nulls `heat_lanes.racer_id` the moment the delete lands, so anything
     # looking afterwards has nothing left to match on.
-    for race_id, ids in by_race.items():
-        _vacate_lanes(db, ids, race_id)
+    #
+    # `by_race` only ever holds one key now that `racers` above is scoped to
+    # `race_id` — kept as a loop over a dict rather than a single call so a
+    # future loosening of that scope fails toward "vacates more than one
+    # race" rather than silently reintroducing an unscoped one.
+    for group_race_id, ids in by_race.items():
+        _vacate_lanes(db, ids, group_race_id)
     db.commit()
 
     # Regeneration has to see the racers gone, so that it fields the pool that
     # is actually left.
-    db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).delete(
-        synchronize_session=False
-    )
+    db.query(models.Racer).filter(
+        models.Racer.id.in_(racer_ids), models.Racer.race_id == race_id
+    ).delete(synchronize_session=False)
     db.commit()
 
     # A round that was raced keeps the holes the vacating left; only the rest
@@ -3048,18 +3076,28 @@ def bulk_delete_racers(db: Session, racer_ids: list[int]):
     db.commit()
 
 
-def bulk_clear_car_numbers(db: Session, racer_ids: list[int]):
-    db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update(
-        {models.Racer.car_number: None}, synchronize_session=False
-    )
+def bulk_clear_car_numbers(db: Session, race_id: int, racer_ids: list[int]):
+    """Clear car numbers for a batch of racers, all expected to belong to
+    `race_id`.
+
+    Scoped since #743, the same reasoning as `bulk_delete_racers` above: a
+    stray id from a different race matches nothing here rather than being
+    silently cleared.
+    """
+    db.query(models.Racer).filter(
+        models.Racer.id.in_(racer_ids), models.Racer.race_id == race_id
+    ).update({models.Racer.car_number: None}, synchronize_session=False)
     db.commit()
 
 
 def bulk_check_in_racers(
-    db: Session, racer_ids: list[int], passed_inspection: bool = True
+    db: Session, race_id: int, racer_ids: list[int], passed_inspection: bool = True
 ):
-    """Bulk update check-in status for racers."""
-    db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update(
+    """Bulk update check-in status for racers, all expected to belong to
+    `race_id`. Scoped since #743 — see `bulk_delete_racers`."""
+    db.query(models.Racer).filter(
+        models.Racer.id.in_(racer_ids), models.Racer.race_id == race_id
+    ).update(
         {models.Racer.car_passed_inspection: passed_inspection},
         synchronize_session=False,
     )
@@ -3067,15 +3105,18 @@ def bulk_check_in_racers(
 
 
 def bulk_set_excluded_from_standings(
-    db: Session, racer_ids: list[int], excluded: bool = True
+    db: Session, race_id: int, racer_ids: list[int], excluded: bool = True
 ) -> None:
     """Bulk set whether racers race but are not ranked (#548).
 
     Unlike :func:`bulk_check_in_racers`, this touches nothing but the flag
     itself — check-in still decides who fields in a heat, so there is no
-    schedule to rebuild here.
+    schedule to rebuild here. Scoped to `race_id` since #743, the same
+    reasoning as `bulk_delete_racers` above.
     """
-    db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update(
+    db.query(models.Racer).filter(
+        models.Racer.id.in_(racer_ids), models.Racer.race_id == race_id
+    ).update(
         {models.Racer.excluded_from_standings: excluded},
         synchronize_session=False,
     )
@@ -3380,12 +3421,16 @@ def get_random_lane_assignments(
 
 
 def bulk_move_racers_to_racing_group(
-    db: Session, racer_ids: list[int], racing_group_id: int | None
+    db: Session, race_id: int, racer_ids: list[int], racing_group_id: int | None
 ):
-    """Reassign racers to a racing group, or to none."""
-    db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update(
-        {"racing_group_id": racing_group_id}, synchronize_session=False
-    )
+    """Reassign racers to a racing group, or to none.
+
+    `racer_ids` are all expected to belong to `race_id`; scoped since #743,
+    the same reasoning as `bulk_delete_racers` above.
+    """
+    db.query(models.Racer).filter(
+        models.Racer.id.in_(racer_ids), models.Racer.race_id == race_id
+    ).update({"racing_group_id": racing_group_id}, synchronize_session=False)
     db.commit()
 
 
@@ -3421,6 +3466,45 @@ def _next_award_sort_order(db: Session, race_id: int) -> int:
     return 0 if highest is None else int(highest) + 1
 
 
+def _validate_award_membership(
+    db: Session,
+    race_id: int,
+    racing_group_id: int | None,
+    racer_id: int | None,
+) -> None:
+    """Refuse a den or racer that does not belong to this award's own race
+    (#759).
+
+    The foreign key only proves the row exists *somewhere* — a stray id left
+    over from a form that had not yet noticed the operator switched races,
+    or a hand-built GraphQL call, is otherwise accepted, and the award then
+    resolves against a den or racer that never appears in this race's
+    standings: it silently and permanently shows no recipient with nothing
+    saying why.
+
+    Checked regardless of the award's own `kind`: a client can set both
+    `racing_group_id` and `racer_id` in the same payload, and it is
+    `_clear_fields_of_other_kind` — called *after* this — that decides which
+    one actually survives. An id that does not exist at all is a different,
+    pre-existing question (the database's own foreign key refuses it); this
+    only refuses one that exists in the wrong race.
+    """
+    if racing_group_id is not None:
+        owner = (
+            db.query(models.RacingGroup.race_id)
+            .filter(models.RacingGroup.id == racing_group_id)
+            .scalar()
+        )
+        if owner is not None and owner != race_id:
+            raise ValueError("racingGroupId belongs to a different race")
+    if racer_id is not None:
+        owner = (
+            db.query(models.Racer.race_id).filter(models.Racer.id == racer_id).scalar()
+        )
+        if owner is not None and owner != race_id:
+            raise ValueError("racerId belongs to a different race")
+
+
 def create_award(db: Session, race_id: int, award: schemas.AwardCreate) -> models.Award:
     """Add an award, at the end of the running order unless told otherwise.
 
@@ -3430,6 +3514,9 @@ def create_award(db: Session, race_id: int, award: schemas.AwardCreate) -> model
     thing that remembers.
     """
     data = award.model_dump(exclude_unset=True)
+    _validate_award_membership(
+        db, race_id, data.get("racing_group_id"), data.get("racer_id")
+    )
     sort_order = data.pop("sort_order", None)
     db_award = models.Award(
         race_id=race_id,
@@ -3454,6 +3541,12 @@ def update_award(
         return None
 
     changes = award_update.model_dump(exclude_unset=True)
+    _validate_award_membership(
+        db,
+        db_award.race_id,
+        changes.get("racing_group_id"),
+        changes.get("racer_id"),
+    )
 
     # `sort_order` is NOT NULL, and the running order is `reorder_awards`'
     # business rather than the edit form's. The form sends the whole award on

@@ -3400,16 +3400,36 @@ async def _admit_late_racers(info: Info, race_id: int) -> None:
 
 
 def _race_id_for_racers(db: Session, racer_ids: list[int]) -> int | None:
-    """The race a bulk mutation's racers belong to, or ``None`` if there are none.
+    """The one race every id in a bulk mutation's `racer_ids` belongs to, or
+    ``None`` if none of them exist.
 
-    Five bulk resolvers each re-derived this from ``racer_ids[0]`` — to know
-    which race's state to publish — with three different null-guard styles
-    for the same lookup. Naming it once ends the drift.
+    Five bulk resolvers each used to re-derive this from ``racer_ids[0]`` —
+    to know which race's state to publish — with three different null-guard
+    styles for the same lookup, and none of them checked that the *rest* of
+    the list agreed (#743). `RaceLockExtension` resolves a bulk mutation's
+    lock from that same first-id shortcut, so a mixed list dodged it, and
+    each of these five then wrote to (or deleted) whichever racers it was
+    actually given with no per-racer race check of its own — a locked
+    race's racer was editable by anyone who put one of their own unlocked
+    racers first.
+
+    Raises ``ValueError`` when the ids that do exist span more than one
+    race — nothing legitimate ever sends a mixed list; the roster screen
+    that builds one is itself scoped to a single race. Raising here, before
+    any of the five callers below does anything else, is what makes this
+    the one place the check has to live rather than a copy in each.
     """
     if not racer_ids:
         return None
-    racer = db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first()
-    return racer.race_id if racer else None
+    race_ids = {
+        row[0]
+        for row in db.query(models.Racer.race_id)
+        .filter(models.Racer.id.in_(racer_ids))
+        .distinct()
+    }
+    if len(race_ids) > 1:
+        raise ValueError("racerIds must all belong to the same race")
+    return race_ids.pop() if race_ids else None
 
 
 def _device_for(track: Any) -> TimerProfile:
@@ -5326,9 +5346,10 @@ class Mutation:
         """Bulk clear car numbers."""
         db = info.context["db"]
         race_id = _race_id_for_racers(db, racer_ids)
-        crud.bulk_clear_car_numbers(db, racer_ids)
-        if race_id is not None:
-            await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
+        if race_id is None:
+            return False
+        crud.bulk_clear_car_numbers(db, race_id, racer_ids)
+        await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
         return True
 
     @strawberry.mutation
@@ -5340,7 +5361,7 @@ class Mutation:
         race_id = _race_id_for_racers(db, racer_ids)
         if race_id is None:
             return False
-        crud.bulk_check_in_racers(db, racer_ids, passed_inspection)
+        crud.bulk_check_in_racers(db, race_id, racer_ids, passed_inspection)
         # Once for the batch, not once per racer: both directions are
         # idempotent and look at everybody, so a per-racer call would
         # regenerate an unraced round sixty times over a desk queue. Runs for
@@ -5366,7 +5387,7 @@ class Mutation:
         race_id = _race_id_for_racers(db, racer_ids)
         if race_id is None:
             return False
-        crud.bulk_set_excluded_from_standings(db, racer_ids, excluded)
+        crud.bulk_set_excluded_from_standings(db, race_id, racer_ids, excluded)
         await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
         return True
 
@@ -5377,9 +5398,10 @@ class Mutation:
         """Bulk move racers to a racing group."""
         db = info.context["db"]
         race_id = _race_id_for_racers(db, racer_ids)
-        crud.bulk_move_racers_to_racing_group(db, racer_ids, racing_group_id)
-        if race_id is not None:
-            await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
+        if race_id is None:
+            return False
+        crud.bulk_move_racers_to_racing_group(db, race_id, racer_ids, racing_group_id)
+        await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
         return True
 
     @strawberry.mutation
@@ -5387,12 +5409,13 @@ class Mutation:
         """Bulk delete racers."""
         db = info.context["db"]
         race_id = _race_id_for_racers(db, racer_ids)
-        crud.bulk_delete_racers(db, racer_ids)
-        if race_id is not None:
-            # Same #50 risk as a single delete, and this is the desk's bulk
-            # path onto it (#309).
-            await _revalidate_timers(info)
-            await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
+        if race_id is None:
+            return False
+        crud.bulk_delete_racers(db, race_id, racer_ids)
+        # Same #50 risk as a single delete, and this is the desk's bulk
+        # path onto it (#309).
+        await _revalidate_timers(info)
+        await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
         return True
 
     @strawberry.mutation
