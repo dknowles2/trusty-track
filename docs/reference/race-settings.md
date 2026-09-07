@@ -207,6 +207,17 @@ which page the code opens.
 | **Global** | Sequentially from one starting number, den regardless |
 | **Manual** | You type every number yourself; **Auto number** leaves the race alone. Duplicates are allowed — which is why the check-in scanner's car number box only matches when exactly one racer holds the number |
 
+**Auto number never hands out a number another racer already holds**, whether
+you select everyone or just a few — numbers held by racers outside your
+selection are skipped, not overwritten. Selecting a handful of latecomers and
+clicking **Auto number** numbers only them, leaving everyone else's numbers
+untouched.
+
+Two dens' ranges cannot overlap — setting one up on the Dens step, or editing
+it afterwards in Manage Dens, is refused with a message naming both dens if
+their ranges would collide. This does not apply to Manual numbering, where
+racers sharing a number is allowed by design.
+
 ### Locking a race
 
 Once an event has concluded, **Lock race** — the first control in the edit
