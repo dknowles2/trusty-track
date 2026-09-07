@@ -66,6 +66,19 @@ FORCE_RESULTS_WAIT_SECONDS = 1.0
 #: How often that wait checks for the device's answer to have arrived.
 FORCE_RESULTS_POLL_SECONDS = 0.05
 
+#: How long a background watch waits for the profile's own acknowledgement of
+#: the *arm* command before treating it as dropped and faulting the timer
+#: (#780). Bounded, and unlike `FORCE_RESULTS_WAIT_SECONDS` nothing waits on
+#: this directly: `prepare_heat`/`prepare_test_heat` still report ARMED the
+#: moment the commands are sent, and this runs alongside as a background
+#: confirmation rather than a round trip the operator sits through. It only
+#: has to resolve well before anyone could plausibly stage cars and release
+#: the gate. Named so tests can shorten it.
+ARM_ACK_WAIT_SECONDS = 1.0
+
+#: How often the background watch checks for the arm acknowledgement.
+ARM_ACK_POLL_SECONDS = 0.05
+
 #: How often to ask a device for the start gate's state, and how long after
 #: asking its answer is still an answer. DerbyNet's pacing.
 #:
@@ -216,6 +229,21 @@ class TimerManager:
         # Queue of (command, expected_response_pattern) for commands that have
         # been sent but whose acknowledgment has not yet been received.
         self._pending_acks: deque[tuple[bytes, re.Pattern[bytes]]] = deque()
+        #: Every acknowledgement resolved off `_pending_acks`, in order: the
+        #: command it was for, and whether it genuinely matched (``True``) or
+        #: was popped as a mismatch/dropped/out-of-order response (``False``)
+        #: — see `_process_line`. `_watch_arm_ack` (#780) reads this to find
+        #: out what happened to one specific command's promised
+        #: acknowledgement without racing whatever else shares the same
+        #: queue. Bounded generously against how many commands one
+        #: `prepare_heat_commands()` batch can hold.
+        self._ack_log: deque[tuple[bytes, bool]] = deque(maxlen=64)
+        #: Bumped by anything that changes what is currently being armed —
+        #: `prepare_heat`, `prepare_test_heat`, `abort_heat`, `reset` — so a
+        #: background arm-ack watch (#780) started by an earlier call can
+        #: tell it has been superseded and do nothing.
+        self._arm_generation: int = 0
+        self._arm_ack_task: asyncio.Task | None = None
 
         if not device.requires_serial:
             # Fake timer: skip DISCONNECTED/CONNECTED/identification; start in IDLE
@@ -393,6 +421,8 @@ class TimerManager:
     async def reset(self) -> None:
         """Manually reset the timer to IDLE state, clearing buffers and active heat."""
         async with self._event_lock:
+            self._cancel_arm_ack_watch()
+            self._arm_generation += 1
             self._active_heat_id = None
             self._active_heat_kind = None
             self._test_run = False
@@ -500,6 +530,8 @@ class TimerManager:
         the status payload.
         """
         async with self._event_lock:
+            self._cancel_arm_ack_watch()
+            self._arm_generation += 1
             self._active_heat_id = heat_id
             self._active_heat_kind = kind
             self._test_run = False
@@ -514,6 +546,7 @@ class TimerManager:
             )
             await self._transition(TimerState.ARMED)
             self._start_gate_polling()
+            self._start_arm_ack_watch()
 
     async def prepare_test_heat(self, lane_count: int) -> None:
         """Arm the timer for a bench exercise: every lane, no heat (#235).
@@ -525,6 +558,8 @@ class TimerManager:
         for the operator (and the report) and are written nowhere.
         """
         async with self._event_lock:
+            self._cancel_arm_ack_watch()
+            self._arm_generation += 1
             self._active_heat_id = None
             self._active_heat_kind = None
             self._test_run = True
@@ -539,6 +574,7 @@ class TimerManager:
             )
             await self._transition(TimerState.ARMED)
             self._start_gate_polling()
+            self._start_arm_ack_watch()
 
     async def _finish_test_run(self) -> None:
         """A test run's finish: keep the times on screen, write nothing.
@@ -559,6 +595,8 @@ class TimerManager:
     async def abort_heat(self) -> None:
         """Abort the current heat. Sends device reset commands and returns to IDLE."""
         async with self._event_lock:
+            self._cancel_arm_ack_watch()
+            self._arm_generation += 1
             self._active_heat_id = None
             self._active_heat_kind = None
             self._test_run = False
@@ -567,6 +605,129 @@ class TimerManager:
             await self._send_commands(self._device.abort_commands())
             await self._transition(TimerState.IDLE)
             self._stop_gate_polling()
+
+    # ------------------------------------------------------------------ #
+    # Confirming arming (#780)                                             #
+    # ------------------------------------------------------------------ #
+
+    def _cancel_arm_ack_watch(self) -> None:
+        if self._arm_ack_task is not None:
+            self._arm_ack_task.cancel()
+            self._arm_ack_task = None
+
+    def _start_arm_ack_watch(self) -> None:
+        """Confirm, in the background, that the device acknowledged the
+        command that arms it (#780) — the profile's ``HeatPrep.arm``, when it
+        declares an acknowledgement for one.
+
+        Deliberately only the arm command, not every mask command along the
+        way, even for the one profile that declares an acknowledgement for
+        both. Replaying a real K3's own recorded session
+        (``timer_recordings/fasttrack-mark-set.playback``) shows the unmask
+        command's declared acknowledgement (``AC`` for ``MG``) never actually
+        arrives in that session — only an echo — while the arm command's
+        (``*`` for ``LR``) arrives cleanly every time. Waiting on a
+        per-command ack the one real recording available shows is unreliable
+        would risk exactly the false alarm this issue warns about, so this
+        watches the one command that most directly answers "did the device
+        just arm": the last one sent, the one that puts the timer in its
+        armed state.
+
+        A no-op when the profile's arm command is empty (most profiles) or
+        has no declared acknowledgement (every profile but the MicroWizard
+        and PDT today) — arming stays exactly as optimistic as it has always
+        been for those, because waiting on an acknowledgement a profile never
+        promised would be a false alarm on hardware working exactly as
+        documented.
+        """
+        arm_cmd = self._device.heat_prep.arm
+        if not arm_cmd or self._device.expected_response_for(arm_cmd) is None:
+            return
+        generation = self._arm_generation
+        start = len(self._ack_log)
+        self._arm_ack_task = asyncio.create_task(
+            self._watch_arm_ack(arm_cmd, generation, start)
+        )
+
+    async def _watch_arm_ack(self, arm_cmd: bytes, generation: int, start: int) -> None:
+        """Wait, bounded, for the arm command's acknowledgement (#780).
+
+        Arming already reported ARMED before this task was created — an
+        operator staging cars must not wait on a round trip to the device
+        for a badge to update, and this runs alongside that rather than
+        blocking it, the same "do not add a blocking wait on the
+        byte-receive path" reasoning `force_results` follows for #341. It
+        only ever moves the state *backward*, from ARMED to FAULT, and only
+        if the acknowledgement the profile promised does not show up within
+        `ARM_ACK_WAIT_SECONDS` — well inside the time it takes an operator to
+        stage cars and release the gate.
+
+        Reads `_ack_log` rather than the raw `_pending_acks` queue, because
+        that queue is shared with every other command in flight (setup,
+        force-results, a gate reset) and popping its front tells you nothing
+        about which *command* was involved — `_ack_log` keeps that, so this
+        can wait for `arm_cmd` specifically even if something else's ack
+        resolves first or after it.
+        """
+        deadline = asyncio.get_event_loop().time() + ARM_ACK_WAIT_SECONDS
+        outcome: bool | None = None
+        while True:
+            for cmd, success in list(self._ack_log)[start:]:
+                if cmd == arm_cmd:
+                    outcome = success
+                    break
+            if outcome is not None:
+                break
+            if asyncio.get_event_loop().time() >= deadline:
+                break
+            await asyncio.sleep(ARM_ACK_POLL_SECONDS)
+
+        if outcome is True:
+            return  # Confirmed — arming already reported ARMED; nothing to do.
+
+        reason = (
+            "the timer's answer to the arm command did not match what was "
+            "expected — it may have NAKed, or answered out of order"
+            if outcome is False
+            else "the timer never acknowledged the arm command"
+        )
+
+        async with self._event_lock:
+            if (
+                self._arm_generation != generation
+                or self._state is not TimerState.ARMED
+            ):
+                # Superseded by an abort, a reset, a later prepare_heat, or
+                # the heat has already moved on (READY, RUNNING) — nothing
+                # to do. In particular, do not interrupt a heat that is
+                # already under way over a confirmation that arrived late.
+                return
+            await self._arm_confirmation_failed(reason)
+
+    async def _arm_confirmation_failed(self, reason: str) -> None:
+        """The device never confirmed it armed (#780).
+
+        Lands in FAULT, the same as `_recording_failed` and for the same
+        reason: this is not the routine "the schedule changed underneath an
+        armed heat" case `_abandon_run` covers — it is a live, unresolved
+        question about whether the hardware is doing what it was told, and
+        the operator must see it and decide (check the connection, re-arm)
+        rather than run a heat that may not be timing the lanes it says it
+        is. `resetTimer` clears it once they have.
+        """
+        heat_id = self._active_heat_id
+        logger.error(
+            "Timer %d: heat %s not confirmed armed — %s",
+            self._track_id,
+            heat_id,
+            reason,
+        )
+        self._last_error = f"Timer did not confirm arming: {reason}"
+        self._active_heat_id = None
+        self._active_heat_kind = None
+        self._test_run = False
+        self._stop_gate_polling()
+        await self._transition(TimerState.FAULT)
 
     def can_remote_start(self) -> bool:
         """Whether releasing the start gate from software is available here.
@@ -847,6 +1008,7 @@ class TimerManager:
             pending_cmd, expected_pattern = self._pending_acks[0]
             if expected_pattern.match(line):
                 self._pending_acks.popleft()
+                self._ack_log.append((pending_cmd, True))
                 logger.debug(
                     "Timer %d: command %r acknowledged by %r",
                     self._track_id,
@@ -863,6 +1025,7 @@ class TimerManager:
                 # The line doesn't match what we expected. Pop the stale entry,
                 # log a warning, and continue so the line is still parsed normally.
                 self._pending_acks.popleft()
+                self._ack_log.append((pending_cmd, False))
                 logger.warning(
                     "Timer %d: expected ack for %r but received %r; "
                     "command may have been dropped or response was out of order",
@@ -1784,6 +1947,7 @@ class TimerManager:
             self._idle_flush_task = None
 
         self._stop_gate_polling()
+        self._cancel_arm_ack_watch()
 
         if self._read_task:
             self._read_task.cancel()
