@@ -647,6 +647,41 @@ describe('the settings sections', () => {
         expect(screen.queryByTestId('settings-nav')).toBeNull();
     });
 
+    it('puts Tracks ahead of the collapsed Appearance section on the first run (#851)', async () => {
+        // The two fields that change anything before a heat runs are the
+        // organization's name and a track's lane count. Twenty-three theme
+        // swatches and a three-panel preview used to sit between them and
+        // "Access" — this pins that Tracks now comes first, and that
+        // Appearance's bulk sits behind a closed disclosure so it is still
+        // reachable (the wizard still "shows the lot") without competing
+        // with the track question for a first-timer's attention.
+        renderWith({ initialized: false, organizationName: '', tracks: [] });
+
+        const tracksPanel = await screen.findByTestId('tracks-panel');
+        const appearancePanel = screen.getByTestId('appearance-panel');
+        const accessPanel = screen.getByTestId('access-panel');
+
+        // Document order: general, tracks, access, appearance, advanced.
+        expect(
+            tracksPanel.compareDocumentPosition(appearancePanel) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(
+            tracksPanel.compareDocumentPosition(accessPanel) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(
+            accessPanel.compareDocumentPosition(appearancePanel) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+
+        // Still every field, just not open by default: the swatches are in
+        // the document (a first-timer can still meet the setting) but not
+        // visible until the disclosure is opened.
+        const swatch = screen.getByTestId('app-theme-option-field-uniform');
+        expect(swatch).not.toBeVisible();
+
+        await fireEvent.click(screen.getByText(/Appearance/));
+        expect(swatch).toBeVisible();
+    });
+
     it('shows one section at a time once the install is configured', async () => {
         renderWith(configured);
 

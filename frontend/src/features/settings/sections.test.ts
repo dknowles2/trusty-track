@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { firstProblem, isFormSection, SECTIONS, sectionsFor } from './sections';
+import { firstProblem, isFormSection, SECTIONS, sectionsFor, WIZARD_FORM_ORDER } from './sections';
 
 describe('which sections are offered', () => {
     it('gives a configured install one entry per section', () => {
@@ -47,6 +47,26 @@ describe('which sections are offered', () => {
             expect(section.label).not.toBe('');
             expect(section.blurb).not.toBe('');
         }
+    });
+
+    it('puts what blocks racing before what does not, on the first run (#851)', () => {
+        // The sectioned page's own order (SECTIONS/FORM_SECTIONS above) is
+        // fine as it stands — a nav down the left lets an operator jump
+        // straight to any section, so its order is not something a reader
+        // has to scroll past. The wizard has no nav (`sectionsFor(false)` is
+        // empty) and renders every section in a row, so *its* order is the
+        // one a first-timer actually experiences: Organization Name and
+        // Tracks (lane count) are the two fields that change anything before
+        // a heat runs, and both come ahead of Access and Appearance, which
+        // do not.
+        expect(WIZARD_FORM_ORDER).toEqual(['general', 'tracks', 'access', 'appearance', 'advanced']);
+        // Same members as the sectioned page's form order, just reshuffled —
+        // nothing is added or removed for the wizard.
+        expect([...WIZARD_FORM_ORDER].sort()).toEqual(
+            SECTIONS.filter((s) => isFormSection(s.id))
+                .map((s) => s.id)
+                .sort(),
+        );
     });
 });
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import BackupPanel from '../components/BackupPanel';
@@ -8,7 +8,15 @@ import ThemePicker from '../components/ThemePicker';
 import AppearancePreview from '../components/AppearancePreview';
 import TrackCard, { type TimerModel, type TrackFields } from '../components/TrackCard';
 import { blankPin, pinInput, pinToSend, type PinField } from '../pinFields';
-import { firstProblem, isFormSection, sectionsFor, SECTIONS, type SectionId } from '../sections';
+import {
+  firstProblem,
+  isFormSection,
+  sectionsFor,
+  SECTIONS,
+  FORM_SECTIONS,
+  WIZARD_FORM_ORDER,
+  type SectionId,
+} from '../sections';
 import { clearPin, writePin } from '../../../api/pin';
 import { errorText } from '../../../utils/errors';
 import { applyStoredAppTheme, readAppTheme, writeAppTheme } from '../../../theming/appTheme';
@@ -492,6 +500,358 @@ export default function SystemConfig() {
   const sectioned = navSections.length > 0;
   /** On the wizard every section is on screen; otherwise only the chosen one. */
   const shows = (id: SectionId) => !sectioned || section === id;
+  /**
+   * The order the form sections render in (#851).
+   *
+   * The sectioned settings page has a nav down the left, so its own order
+   * (`FORM_SECTIONS`) barely matters — an operator jumps straight to
+   * whichever section they want. The wizard has no nav and shows every
+   * section in a row, so it uses `WIZARD_FORM_ORDER` instead: the two
+   * fields that change anything before a heat runs (the organization's
+   * name, a track's lane count) come ahead of the two that do not (Access,
+   * Appearance).
+   */
+  const sectionOrder: readonly SectionId[] = isEditing ? FORM_SECTIONS : WIZARD_FORM_ORDER;
+
+  // The three theme pickers and the live preview — extracted so the wizard
+  // can wrap them in a closed disclosure below (#851) without a second copy
+  // of the markup. Nothing here changes on the sectioned settings page.
+  const appearanceControls = (
+    <>
+      <ThemePicker
+        id="app-theme"
+        label="App theme"
+        blurb="What your own screen looks like — Race Control, the roster, and this settings page. Saved on this device only."
+        surface="app"
+        value={appTheme}
+        onChange={(value) => setAppTheme(value as ThemeKey)}
+        includeMatchApp={false}
+      />
+      <ThemePicker
+        id="display-theme"
+        label="Display theme"
+        blurb="What the wall display and the projector show — the same on every screen in the room, however many are connected."
+        surface="display"
+        value={displayTheme}
+        onChange={(value) => setDisplayTheme(value as SurfaceThemeSetting)}
+        includeMatchApp
+      />
+      <ThemePicker
+        id="printables-theme"
+        label="Printables theme"
+        blurb="Pit passes, licences, heat sheets and certificates — the same however many desks print them."
+        surface="printables"
+        value={printablesTheme}
+        onChange={(value) => setPrintablesTheme(value as SurfaceThemeSetting)}
+        includeMatchApp
+      />
+      <p style={{ fontWeight: 'bold', margin: '0 0 0.75rem' }}>Preview</p>
+      <AppearancePreview
+        appThemeKey={appTheme}
+        displaySetting={displayTheme}
+        printablesSetting={printablesTheme}
+      />
+    </>
+  );
+
+  /**
+   * The five form sections, keyed by id so `sectionOrder` can render them in
+   * whichever order the page (wizard or sectioned) calls for (#851). Building
+   * the element for a section that is not on screen right now costs nothing
+   * real: `shows(id)` decides whether it is actually included in the
+   * returned tree, and a React element that is never included is never
+   * mounted — its own component functions never run.
+   */
+  const formSections: Record<'general' | 'appearance' | 'access' | 'tracks' | 'advanced', ReactNode> = {
+    general: (
+      <section aria-labelledby="settings-general" data-testid="general-panel">
+        <SectionHeading id="general" sectioned={sectioned} />
+        <div style={{ marginBottom: '2rem' }}>
+          <label htmlFor="group_name" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Organization Name</label>
+          <input
+            type="text"
+            id="group_name"
+            value={organizationName}
+            onChange={(e) => setOrganizationName(e.target.value)}
+            required
+            placeholder="e.g. Pack 123"
+            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+          />
+        </div>
+
+        {/* Custom terminology (#496 stage 3, consumed by stage 4's
+            useTerminology(); #551 adds the vehicle pair). A
+            checkbox as well as six inputs, the same shape as the
+            weight limit above: "off" and "on but blank" have to
+            be different answers, and an empty box cannot tell
+            them apart. See
+            docs/reference/race-settings.md#the-words-on-screen. */}
+        <div data-testid="terminology-fields" style={{ marginBottom: '2rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
+            <input
+              type="checkbox"
+              id="custom_terminology"
+              checked={customTerminology}
+              onChange={(e) => setCustomTerminology(e.target.checked)}
+            />
+            <span style={{ fontWeight: 'bold' }}>Use different words for &ldquo;Den&rdquo;, &ldquo;Pack&rdquo; and &ldquo;Car&rdquo;</span>
+          </label>
+          <small style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: customTerminology ? '0.75rem' : 0 }}>
+            For a school, a club, a Space Derby, or anyone racing the same format under different words. A race can override this on its own settings too.
+          </small>
+          {customTerminology && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label htmlFor="racing_group_singular" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>One racing group (was &ldquo;Den&rdquo;)</label>
+                <input
+                  type="text"
+                  id="racing_group_singular"
+                  value={racingGroupSingular}
+                  onChange={(e) => setRacingGroupSingular(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                />
+              </div>
+              <div>
+                <label htmlFor="racing_group_plural" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>More than one (was &ldquo;Dens&rdquo;)</label>
+                <input
+                  type="text"
+                  id="racing_group_plural"
+                  value={racingGroupPlural}
+                  onChange={(e) => setRacingGroupPlural(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                />
+              </div>
+              <div>
+                <label htmlFor="organization_singular" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>The organization itself (was &ldquo;Pack&rdquo;)</label>
+                <input
+                  type="text"
+                  id="organization_singular"
+                  value={organizationSingular}
+                  onChange={(e) => setOrganizationSingular(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                />
+              </div>
+              <div>
+                <label htmlFor="organization_plural" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>More than one (was &ldquo;Packs&rdquo;)</label>
+                <input
+                  type="text"
+                  id="organization_plural"
+                  value={organizationPlural}
+                  onChange={(e) => setOrganizationPlural(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                />
+              </div>
+              <div>
+                <label htmlFor="vehicle_singular" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>One vehicle (was &ldquo;Car&rdquo;)</label>
+                <input
+                  type="text"
+                  id="vehicle_singular"
+                  value={vehicleSingular}
+                  onChange={(e) => setVehicleSingular(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                />
+              </div>
+              <div>
+                <label htmlFor="vehicle_plural" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>More than one (was &ldquo;Cars&rdquo;)</label>
+                <input
+                  type="text"
+                  id="vehicle_plural"
+                  value={vehiclePlural}
+                  onChange={(e) => setVehiclePlural(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                />
+              </div>
+              <div>
+                <label htmlFor="vehicle_artwork_key" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Vehicle picture</label>
+                <select
+                  id="vehicle_artwork_key"
+                  value={vehicleArtworkKey}
+                  onChange={(e) => setVehicleArtworkKey(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                >
+                  {VEHICLE_ARTWORK_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* How much of a racer's name a public screen may show
+            (#552) — the audience displays, the printables and the
+            standings export; the roster, check-in and Race
+            Control always show the full name regardless. Every
+            option's description stays visible (#304), the same
+            shape the race form's tiebreaker picker uses. A race
+            can override this on its own settings too. */}
+        <fieldset data-testid="name-display-fields" style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', marginBottom: '2rem' }}>
+          <legend style={{ fontSize: '0.9rem', padding: '0 0.4rem', fontWeight: 'bold' }}>Names on public screens</legend>
+          <small style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: '0.75rem' }}>
+            What the audience displays, the printables and the standings export show for a racer&apos;s name. The roster, check-in and Race Control always show the full name.
+          </small>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            {NAME_DISPLAY_OPTIONS.map(option => (
+              <label key={option.value} style={{ display: 'block', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="org-name-display"
+                  id={`org_name_display_${option.value}`}
+                  checked={nameDisplay === option.value}
+                  onChange={() => setNameDisplay(option.value)}
+                />{' '}
+                {option.label}
+                <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem', marginLeft: '1.4rem' }}>
+                  {option.description}
+                </small>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      </section>
+    ),
+
+    // Appearance (#851): on the sectioned settings page this is its own
+    // section, chosen from the nav — already as "open" as it needs to be.
+    // On the wizard, where every section is on screen at once, the twenty-
+    // three swatches and the live preview sit behind a closed disclosure
+    // instead — still in the document (the wizard still "shows the lot"),
+    // just not competing with the track question for a first-timer's
+    // attention. Nothing inside is required, so this cannot hide a value
+    // `firstProblem` needs the browser to validate.
+    appearance: (
+      <section aria-labelledby="settings-appearance" data-testid="appearance-panel">
+        <SectionHeading id="appearance" sectioned={sectioned} />
+        {isEditing ? (
+          appearanceControls
+        ) : (
+          <details>
+            <summary style={{ cursor: 'pointer', fontWeight: 'bold', marginBottom: '1rem' }}>
+              Appearance — pick a look (optional, you can change this any time)
+            </summary>
+            <div style={{ marginTop: '1rem' }}>{appearanceControls}</div>
+          </details>
+        )}
+      </section>
+    ),
+
+    access: (
+      <section data-testid="access-panel">
+        {sectioned ? <SectionHeading id="access" sectioned={sectioned} /> : <h2 style={{ marginBottom: '0.5rem' }}>Access</h2>}
+        <p style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem', marginTop: 0, marginBottom: '1rem' }}>
+          {pinRequired
+            ? 'A PIN is set. Screens without one can watch the race but cannot change anything.'
+            : 'No PIN is set, so anyone on this network can change anything — including deleting the race. Set one to stop that.'}
+        </p>
+
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+          <PinFieldRow
+            id="operator_pin"
+            label="Operator PIN"
+            isSet={pinRequired}
+            placeholder={pinRequired ? 'Set — type to change' : 'e.g. 1234'}
+            what="Runs the race."
+            field={operatorPin}
+            onChange={setOperatorPin}
+          />
+          <PinFieldRow
+            id="checkin_pin"
+            label="Check-in PIN"
+            optional
+            isSet={checkinPinSet}
+            placeholder={checkinPinSet ? 'Set — type to change' : 'e.g. 5678'}
+            what="Registration desk: racers and check-in only."
+            field={checkinPin}
+            onChange={setCheckinPin}
+          />
+        </div>
+
+        {/* The hint the check-in PIN was missing (#210). The role has existed
+            since #15 and is documented, but nothing on the screen said what it
+            is *for* — so an operator setting PINs had no cue that running the
+            desk on a second device is a supported way to work. One sentence,
+            not a wizard. */}
+        <p data-testid="checkin-pin-hint" style={{ color: 'var(--text-muted-color)', fontSize: '0.85rem', marginTop: '-1.25rem', marginBottom: '2rem' }}>
+          Running check-in on a separate tablet? Set a check-in PIN and enter it
+          on that device. It can add racers and check them in, and nothing else —
+          so a tablet left on the registration table cannot delete a round.
+        </p>
+      </section>
+    ),
+
+    tracks: (
+      <section data-testid="tracks-panel">
+        {sectioned ? <SectionHeading id="tracks" sectioned={sectioned} /> : <h2 style={{ marginBottom: '1rem' }}>Tracks</h2>}
+        {tracks.map((track, index) => (
+          <TrackCard
+            key={index}
+            index={index}
+            track={track}
+            timerModels={timerModels}
+            canRemove={tracks.length > 1}
+            demoMode={!!data?.initialConfig?.demoMode}
+            onChange={(field, value) => handleTrackChange(index, field, value)}
+            onRemove={() => removeTrack(index)}
+            onLaneOutages={(laneOutages) =>
+              setTracks((current) =>
+                current.map((t, i) => (i === index ? { ...t, laneOutages } : t)),
+              )
+            }
+            onRecords={(historicalRecords) =>
+              setTracks((current) =>
+                current.map((t, i) => (i === index ? { ...t, historicalRecords } : t)),
+              )
+            }
+            onLaneColors={(laneColors) =>
+              setTracks((current) =>
+                current.map((t, i) => (i === index ? { ...t, laneColors } : t)),
+              )
+            }
+          />
+        ))}
+
+        <button
+          type="button"
+          onClick={addTrack}
+          className="secondary-btn"
+          style={{ marginBottom: '2rem', display: 'block', width: '100%' }}
+        >
+          + Add Another Track
+        </button>
+      </section>
+    ),
+
+    // Advanced (#659) — last of the form sections, and ordinary form state
+    // rather than pulled out of the form the way Backup is: nothing here is
+    // destructive, so there is no misclick to guard against, only clutter to
+    // keep out of an operator's first look. Debugging Mode used to sit at the
+    // foot of General, which put it near the *top* of the page once the page
+    // was sectioned — this is the one control that lives here today, and the
+    // section exists so a later troubleshooting control has somewhere to go
+    // that is not General.
+    advanced: (
+      <section aria-labelledby="settings-advanced" data-testid="advanced-panel">
+        {sectioned ? <SectionHeading id="advanced" sectioned={sectioned} /> : <h2 style={{ marginBottom: '0.5rem' }}>Advanced</h2>}
+        <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <input
+            type="checkbox"
+            id="debug_mode"
+            checked={debugMode}
+            onChange={(e) => setDebugMode(e.target.checked)}
+            style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+          />
+          <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
+          <small style={{ color: 'var(--text-muted-color)', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
+        </div>
+      </section>
+    ),
+  };
 
   return (
     <div className="container">
@@ -522,310 +882,9 @@ export default function SystemConfig() {
               invites exactly one kind of mistake. */}
           {(!sectioned || isFormSection(section)) && (
             <form onSubmit={handleSubmit}>
-              {shows('general') && (
-                <section aria-labelledby="settings-general" data-testid="general-panel">
-                  <SectionHeading id="general" sectioned={sectioned} />
-                  <div style={{ marginBottom: '2rem' }}>
-                    <label htmlFor="group_name" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Organization Name</label>
-                    <input
-                      type="text"
-                      id="group_name"
-                      value={organizationName}
-                      onChange={(e) => setOrganizationName(e.target.value)}
-                      required
-                      placeholder="e.g. Pack 123"
-                      style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
-                    />
-                  </div>
-
-                  {/* Custom terminology (#496 stage 3, consumed by stage 4's
-                      useTerminology(); #551 adds the vehicle pair). A
-                      checkbox as well as six inputs, the same shape as the
-                      weight limit above: "off" and "on but blank" have to
-                      be different answers, and an empty box cannot tell
-                      them apart. See
-                      docs/reference/race-settings.md#the-words-on-screen. */}
-                  <div data-testid="terminology-fields" style={{ marginBottom: '2rem' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
-                      <input
-                        type="checkbox"
-                        id="custom_terminology"
-                        checked={customTerminology}
-                        onChange={(e) => setCustomTerminology(e.target.checked)}
-                      />
-                      <span style={{ fontWeight: 'bold' }}>Use different words for &ldquo;Den&rdquo;, &ldquo;Pack&rdquo; and &ldquo;Car&rdquo;</span>
-                    </label>
-                    <small style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: customTerminology ? '0.75rem' : 0 }}>
-                      For a school, a club, a Space Derby, or anyone racing the same format under different words. A race can override this on its own settings too.
-                    </small>
-                    {customTerminology && (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <div>
-                          <label htmlFor="racing_group_singular" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>One racing group (was &ldquo;Den&rdquo;)</label>
-                          <input
-                            type="text"
-                            id="racing_group_singular"
-                            value={racingGroupSingular}
-                            onChange={(e) => setRacingGroupSingular(e.target.value)}
-                            required
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="racing_group_plural" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>More than one (was &ldquo;Dens&rdquo;)</label>
-                          <input
-                            type="text"
-                            id="racing_group_plural"
-                            value={racingGroupPlural}
-                            onChange={(e) => setRacingGroupPlural(e.target.value)}
-                            required
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="organization_singular" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>The organization itself (was &ldquo;Pack&rdquo;)</label>
-                          <input
-                            type="text"
-                            id="organization_singular"
-                            value={organizationSingular}
-                            onChange={(e) => setOrganizationSingular(e.target.value)}
-                            required
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="organization_plural" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>More than one (was &ldquo;Packs&rdquo;)</label>
-                          <input
-                            type="text"
-                            id="organization_plural"
-                            value={organizationPlural}
-                            onChange={(e) => setOrganizationPlural(e.target.value)}
-                            required
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="vehicle_singular" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>One vehicle (was &ldquo;Car&rdquo;)</label>
-                          <input
-                            type="text"
-                            id="vehicle_singular"
-                            value={vehicleSingular}
-                            onChange={(e) => setVehicleSingular(e.target.value)}
-                            required
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="vehicle_plural" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>More than one (was &ldquo;Cars&rdquo;)</label>
-                          <input
-                            type="text"
-                            id="vehicle_plural"
-                            value={vehiclePlural}
-                            onChange={(e) => setVehiclePlural(e.target.value)}
-                            required
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="vehicle_artwork_key" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Vehicle picture</label>
-                          <select
-                            id="vehicle_artwork_key"
-                            value={vehicleArtworkKey}
-                            onChange={(e) => setVehicleArtworkKey(e.target.value)}
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
-                          >
-                            {VEHICLE_ARTWORK_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* How much of a racer's name a public screen may show
-                      (#552) — the audience displays, the printables and the
-                      standings export; the roster, check-in and Race
-                      Control always show the full name regardless. Every
-                      option's description stays visible (#304), the same
-                      shape the race form's tiebreaker picker uses. A race
-                      can override this on its own settings too. */}
-                  <fieldset data-testid="name-display-fields" style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', marginBottom: '2rem' }}>
-                    <legend style={{ fontSize: '0.9rem', padding: '0 0.4rem', fontWeight: 'bold' }}>Names on public screens</legend>
-                    <small style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: '0.75rem' }}>
-                      What the audience displays, the printables and the standings export show for a racer&apos;s name. The roster, check-in and Race Control always show the full name.
-                    </small>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                      {NAME_DISPLAY_OPTIONS.map(option => (
-                        <label key={option.value} style={{ display: 'block', cursor: 'pointer' }}>
-                          <input
-                            type="radio"
-                            name="org-name-display"
-                            id={`org_name_display_${option.value}`}
-                            checked={nameDisplay === option.value}
-                            onChange={() => setNameDisplay(option.value)}
-                          />{' '}
-                          {option.label}
-                          <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem', marginLeft: '1.4rem' }}>
-                            {option.description}
-                          </small>
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                </section>
-              )}
-
-              {shows('appearance') && (
-                <section aria-labelledby="settings-appearance" data-testid="appearance-panel">
-                  <SectionHeading id="appearance" sectioned={sectioned} />
-                  <ThemePicker
-                    id="app-theme"
-                    label="App theme"
-                    blurb="What your own screen looks like — Race Control, the roster, and this settings page. Saved on this device only."
-                    surface="app"
-                    value={appTheme}
-                    onChange={(value) => setAppTheme(value as ThemeKey)}
-                    includeMatchApp={false}
-                  />
-                  <ThemePicker
-                    id="display-theme"
-                    label="Display theme"
-                    blurb="What the wall display and the projector show — the same on every screen in the room, however many are connected."
-                    surface="display"
-                    value={displayTheme}
-                    onChange={(value) => setDisplayTheme(value as SurfaceThemeSetting)}
-                    includeMatchApp
-                  />
-                  <ThemePicker
-                    id="printables-theme"
-                    label="Printables theme"
-                    blurb="Pit passes, licences, heat sheets and certificates — the same however many desks print them."
-                    surface="printables"
-                    value={printablesTheme}
-                    onChange={(value) => setPrintablesTheme(value as SurfaceThemeSetting)}
-                    includeMatchApp
-                  />
-                  <p style={{ fontWeight: 'bold', margin: '0 0 0.75rem' }}>Preview</p>
-                  <AppearancePreview
-                    appThemeKey={appTheme}
-                    displaySetting={displayTheme}
-                    printablesSetting={printablesTheme}
-                  />
-                </section>
-              )}
-
-              {shows('access') && (
-                <section data-testid="access-panel">
-                  {sectioned ? <SectionHeading id="access" sectioned={sectioned} /> : <h2 style={{ marginBottom: '0.5rem' }}>Access</h2>}
-                  <p style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem', marginTop: 0, marginBottom: '1rem' }}>
-                    {pinRequired
-                      ? 'A PIN is set. Screens without one can watch the race but cannot change anything.'
-                      : 'No PIN is set, so anyone on this network can change anything — including deleting the race. Set one to stop that.'}
-                  </p>
-
-                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-                    <PinFieldRow
-                      id="operator_pin"
-                      label="Operator PIN"
-                      isSet={pinRequired}
-                      placeholder={pinRequired ? 'Set — type to change' : 'e.g. 1234'}
-                      what="Runs the race."
-                      field={operatorPin}
-                      onChange={setOperatorPin}
-                    />
-                    <PinFieldRow
-                      id="checkin_pin"
-                      label="Check-in PIN"
-                      optional
-                      isSet={checkinPinSet}
-                      placeholder={checkinPinSet ? 'Set — type to change' : 'e.g. 5678'}
-                      what="Registration desk: racers and check-in only."
-                      field={checkinPin}
-                      onChange={setCheckinPin}
-                    />
-                  </div>
-
-                  {/* The hint the check-in PIN was missing (#210). The role has existed
-                      since #15 and is documented, but nothing on the screen said what it
-                      is *for* — so an operator setting PINs had no cue that running the
-                      desk on a second device is a supported way to work. One sentence,
-                      not a wizard. */}
-                  <p data-testid="checkin-pin-hint" style={{ color: 'var(--text-muted-color)', fontSize: '0.85rem', marginTop: '-1.25rem', marginBottom: '2rem' }}>
-                    Running check-in on a separate tablet? Set a check-in PIN and enter it
-                    on that device. It can add racers and check them in, and nothing else —
-                    so a tablet left on the registration table cannot delete a round.
-                  </p>
-                </section>
-              )}
-
-              {shows('tracks') && (
-                <section data-testid="tracks-panel">
-                  {sectioned ? <SectionHeading id="tracks" sectioned={sectioned} /> : <h2 style={{ marginBottom: '1rem' }}>Tracks</h2>}
-                  {tracks.map((track, index) => (
-                    <TrackCard
-                      key={index}
-                      index={index}
-                      track={track}
-                      timerModels={timerModels}
-                      canRemove={tracks.length > 1}
-                      demoMode={!!data?.initialConfig?.demoMode}
-                      onChange={(field, value) => handleTrackChange(index, field, value)}
-                      onRemove={() => removeTrack(index)}
-                      onLaneOutages={(laneOutages) =>
-                        setTracks((current) =>
-                          current.map((t, i) => (i === index ? { ...t, laneOutages } : t)),
-                        )
-                      }
-                      onRecords={(historicalRecords) =>
-                        setTracks((current) =>
-                          current.map((t, i) => (i === index ? { ...t, historicalRecords } : t)),
-                        )
-                      }
-                      onLaneColors={(laneColors) =>
-                        setTracks((current) =>
-                          current.map((t, i) => (i === index ? { ...t, laneColors } : t)),
-                        )
-                      }
-                    />
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={addTrack}
-                    className="secondary-btn"
-                    style={{ marginBottom: '2rem', display: 'block', width: '100%' }}
-                  >
-                    + Add Another Track
-                  </button>
-                </section>
-              )}
-
-              {/* Advanced (#659) — last of the form sections, and ordinary
-                  form state rather than pulled out of the form the way Backup
-                  is: nothing here is destructive, so there is no misclick to
-                  guard against, only clutter to keep out of an operator's
-                  first look. Debugging Mode used to sit at the foot of
-                  General, which put it near the *top* of the page once the
-                  page was sectioned — this is the one control that lives
-                  here today, and the section exists so a later troubleshooting
-                  control has somewhere to go that is not General. */}
-              {shows('advanced') && (
-                <section aria-labelledby="settings-advanced" data-testid="advanced-panel">
-                  {sectioned ? <SectionHeading id="advanced" sectioned={sectioned} /> : <h2 style={{ marginBottom: '0.5rem' }}>Advanced</h2>}
-                  <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <input
-                      type="checkbox"
-                      id="debug_mode"
-                      checked={debugMode}
-                      onChange={(e) => setDebugMode(e.target.checked)}
-                      style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
-                    />
-                    <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
-                    <small style={{ color: 'var(--text-muted-color)', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
-                  </div>
-                </section>
-              )}
+              {sectionOrder.map((id) => (
+                <Fragment key={id}>{shows(id) && formSections[id as keyof typeof formSections]}</Fragment>
+              ))}
 
               <button type="submit" className="primary-btn" disabled={submitting} style={{ width: '100%' }}>
                 {submitting ? 'Saving...' : 'Save Settings'}

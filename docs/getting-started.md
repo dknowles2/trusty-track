@@ -25,26 +25,17 @@ _The Home page before any races exist. **Try a practice race** builds a whole re
 The first time you launch Trusty Track, or when you need to adjust your organization's details, you'll use the **System Settings** page — headed **Initial Setup** until you have saved it once. You can access this at any time by clicking the **Settings** gear icon in the top right corner of the navigation bar.
 
 The first time, everything below is on one page, in order — fill it in from top
-to bottom. Afterwards the page splits into sections listed down the left —
+to bottom, starting with the two things that actually change anything before a
+heat runs: your organization's name and your track's lane count. Afterwards
+the page splits into sections listed down the left —
 **General**, **Appearance**, **Access**, **Tracks**, **Advanced** and **Backup**
-— and shows one at a time.
+— and shows one at a time; a nav lets you jump straight to any of them, so
+their order there matters less than it does on this first page.
 **Save Settings** saves the lot, whichever section you are looking at.
 
 ### Organization Details
 
 - **Organization Name**: The name of your Cub Scout Pack, school, or group (e.g., "Pack 123").
-
-### Appearance
-
-Every picker here already defaults to the app's usual look, so this section
-is entirely safe to skip on a first run — come back to it later if you want
-the wall display to look different for an evening race, a patriotic-themed
-derby, or a print run that needs to save ink. See
-[Themes](reference/themes.md) for the full list.
-
-### Access
-
-Next comes a security decision, and it's fine to skip it for a kitchen-table first run: by default there's no PIN, so anyone who can reach the app on your network can change anything — including deleting the race mid-event. Setting an **Operator PIN** locks that down; an optional **Check-in PIN** limits a registration-desk device to adding and checking in racers. Both can be added later before race day. See [Access and Your Network](access-and-network.md) for what each PIN protects and how to set one.
 
 ### Setting Up Your Track
 
@@ -56,6 +47,19 @@ Trusty Track needs to know about your physical race track:
 - **Timer Type**: Select the device connected to your track. Use **Fake Timer (Manual Control)** for testing or practicing without physical hardware, or **No timer — I'll enter results by hand** if your pack genuinely has no electronic timer. If you have an electronic finish line, the [Hardware Timer guide](hardware-timer.md) covers plugging it in and checking it works — worth doing the week before, not on race morning.
 
 If you run more than one track, **+ Add Another Track** adds another to the same form.
+
+### Access
+
+Next comes a security decision, and it's fine to skip it for a kitchen-table first run: by default there's no PIN, so anyone who can reach the app on your network can change anything — including deleting the race mid-event. Setting an **Operator PIN** locks that down; an optional **Check-in PIN** limits a registration-desk device to adding and checking in racers. Both can be added later before race day. See [Access and Your Network](access-and-network.md) for what each PIN protects and how to set one.
+
+### Appearance
+
+Collapsed behind an **Appearance — pick a look** disclosure, closed by
+default: every picker here already defaults to the app's usual look, so it's
+entirely safe to skip on a first run. Open it now, or come back to it later,
+if you want the wall display to look different for an evening race, a
+patriotic-themed derby, or a print run that needs to save ink. See
+[Themes](reference/themes.md) for the full list.
 
 ### Advanced
 

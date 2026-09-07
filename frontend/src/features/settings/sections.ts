@@ -85,6 +85,33 @@ export const FORM_SECTIONS: readonly SectionId[] = [
 export const isFormSection = (id: SectionId): boolean => FORM_SECTIONS.includes(id);
 
 /**
+ * The order the first-run wizard renders its sections in (#851).
+ *
+ * `FORM_SECTIONS` above is the sectioned settings page's own order, and that
+ * page has a nav down the left — an operator jumps straight to whichever
+ * section they want, so the order it is offered in barely matters. The
+ * wizard has no nav (`sectionsFor(false)` is empty, on purpose — see below)
+ * and renders every section in a row, so *its* order is the one thing a
+ * first-timer actually has to scroll past.
+ *
+ * Two fields change anything before a heat runs: the organization's name
+ * (General) and a track's lane count (Tracks). Both now come first. Access
+ * (the operator/check-in PINs) is optional but still an operational
+ * decision, so it stays ahead of Appearance, which is purely cosmetic — a
+ * theme nobody picks is already a working default (`MATCH_APP` resolves to
+ * Field Uniform) — and Advanced (Debugging Mode) stays last, as it is on the
+ * sectioned page.
+ *
+ * Same five members as `FORM_SECTIONS`, reordered — nothing is added,
+ * removed, or hidden. `SystemSettings.tsx` additionally collapses Appearance
+ * behind a closed disclosure on the wizard only, so its twenty-three theme
+ * swatches and live preview are still in the document (a first-timer can
+ * still meet the setting) without competing with the track question for
+ * attention.
+ */
+export const WIZARD_FORM_ORDER: readonly SectionId[] = ['general', 'tracks', 'access', 'appearance', 'advanced'];
+
+/**
  * Which sections a nav should offer.
  *
  * On the first run this page is a setup wizard, and a wizard is not sectioned:
