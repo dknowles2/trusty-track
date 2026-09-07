@@ -111,6 +111,22 @@ describe('QRCodeDisplayView (#614)', () => {
         expect(screen.queryByAltText(/qr code/i)).toBeNull();
     });
 
+    // #772 — this is a Display surface, and `--warning-color` is an App
+    // token that lives in *this device's own* localStorage App theme, not
+    // the per-install Display theme every other display view reads. A kiosk
+    // that has never opened Settings must still render this alert in the
+    // Display theme the operator actually assigned it.
+    it('warns with the Display surface warning token, not the App one (#772)', () => {
+        stubOrigin('http://localhost:8000');
+        mockNetworkAddresses([]);
+
+        render(<QRCodeDisplayView raceId={7} target="STANDINGS" />);
+
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveStyle({ color: 'var(--display-warning-color)' });
+        expect(alert.style.color).not.toContain('--warning-color)');
+    });
+
     it('shows the venue wifi note when set', () => {
         stubOrigin('http://localhost:8000');
         mockNetworkAddresses(['192.168.1.42']);

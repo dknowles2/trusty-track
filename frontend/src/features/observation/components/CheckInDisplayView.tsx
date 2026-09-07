@@ -123,7 +123,7 @@ export default function CheckInDisplayView({
                         fontSize: compact ? '2.2vmin' : '3vmin',
                         fontWeight: 'bold',
                         color: summary.allCheckedIn
-                            ? 'var(--success-color, #2e7d32)'
+                            ? 'var(--display-success-color)'
                             : 'var(--display-accent-color)',
                     }}
                 >
@@ -147,7 +147,7 @@ export default function CheckInDisplayView({
                             width: `${Math.min(1, summary.checkedIn / summary.total) * 100}%`,
                             height: '100%',
                             background: summary.allCheckedIn
-                                ? 'var(--success-color, #2e7d32)'
+                                ? 'var(--display-success-color)'
                                 : 'var(--display-accent-color)',
                         }}
                     />
@@ -194,7 +194,7 @@ export default function CheckInDisplayView({
                                 style={{
                                     fontSize: compact ? '1.6vmin' : '2vmin',
                                     color: group.allCheckedIn
-                                        ? 'var(--success-color, #2e7d32)'
+                                        ? 'var(--display-success-color)'
                                         : 'var(--display-text-muted-color)',
                                 }}
                             >
@@ -217,7 +217,7 @@ export default function CheckInDisplayView({
                                     width: `${(group.total === 0 ? 0 : group.checkedIn / group.total) * 100}%`,
                                     height: '100%',
                                     background: group.allCheckedIn
-                                        ? 'var(--success-color, #2e7d32)'
+                                        ? 'var(--display-success-color)'
                                         : 'var(--display-accent-color)',
                                 }}
                             />
@@ -227,7 +227,7 @@ export default function CheckInDisplayView({
                             <div
                                 style={{
                                     fontSize: compact ? '1.6vmin' : '2vmin',
-                                    color: 'var(--success-color, #2e7d32)',
+                                    color: 'var(--display-success-color)',
                                 }}
                             >
                                 All checked in ✓
@@ -264,7 +264,7 @@ export default function CheckInDisplayView({
                                                 color: 'var(--display-text-faint-color)',
                                             }}
                                         >
-                                            <span aria-hidden style={{ color: 'var(--success-color, #2e7d32)' }}>
+                                            <span aria-hidden style={{ color: 'var(--display-success-color)' }}>
                                                 ✓{' '}
                                             </span>
                                             {racer.carNumber != null && `#${racer.carNumber} `}

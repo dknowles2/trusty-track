@@ -251,6 +251,19 @@ export const DISPLAY_TOKEN_NAMES: readonly string[] = [
   '--display-border-subtle-color',
   '--display-card-bg-color',
   '--display-accent-muted-color',
+  // Added by #772 — CheckInDisplayView.tsx and QRCodeDisplayView.tsx were
+  // reading the App tokens `--success-color`/`--warning-color`, which live
+  // in *this device's own* localStorage App theme rather than the
+  // per-install Display theme every other display view reads (see
+  // `applyDisplaySurface` above) — so a kiosk that had never opened
+  // Settings rendered the default App theme's colors whatever Display
+  // theme the operator actually assigned, and two kiosks showing the
+  // identical assignment could disagree if their browsers held different
+  // App themes. Every Display surface is dark (`isDark: true` on all
+  // seven), so these two are fixed values rather than themed per palette —
+  // the same shape as the other "Round N" additions above.
+  '--display-success-color',
+  '--display-warning-color',
 ];
 
 /**
@@ -464,6 +477,11 @@ export const THEMES: readonly Theme[] = [
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',
+        // #772 — bright enough to clear the body-text floor against every
+        // theme's Display background (all seven are dark); see the
+        // `DISPLAY_TOKEN_NAMES` comment above.
+        '--display-success-color': '#6fcf7a',
+        '--display-warning-color': '#e0c060',
       },
     },
     // Printables text #222222 on #ffffff: ~15.9:1.
@@ -660,6 +678,11 @@ export const THEMES: readonly Theme[] = [
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',
+        // #772 — bright enough to clear the body-text floor against every
+        // theme's Display background (all seven are dark); see the
+        // `DISPLAY_TOKEN_NAMES` comment above.
+        '--display-success-color': '#6fcf7a',
+        '--display-warning-color': '#e0c060',
       },
     },
     // Lightened: a dark app and a dark projector do not argue for a dark
@@ -854,6 +877,11 @@ export const THEMES: readonly Theme[] = [
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',
+        // #772 — bright enough to clear the body-text floor against every
+        // theme's Display background (all seven are dark); see the
+        // `DISPLAY_TOKEN_NAMES` comment above.
+        '--display-success-color': '#6fcf7a',
+        '--display-warning-color': '#e0c060',
       },
     },
     // As-is: a navy header band and a red rule cost about the same ink as
@@ -1056,6 +1084,11 @@ export const THEMES: readonly Theme[] = [
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',
+        // #772 — bright enough to clear the body-text floor against every
+        // theme's Display background (all seven are dark); see the
+        // `DISPLAY_TOKEN_NAMES` comment above.
+        '--display-success-color': '#6fcf7a',
+        '--display-warning-color': '#e0c060',
       },
     },
     // As-is, and the theme most robust to being photocopied — no mid-tone
@@ -1246,6 +1279,11 @@ export const THEMES: readonly Theme[] = [
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',
+        // #772 — bright enough to clear the body-text floor against every
+        // theme's Display background (all seven are dark); see the
+        // `DISPLAY_TOKEN_NAMES` comment above.
+        '--display-success-color': '#6fcf7a',
+        '--display-warning-color': '#e0c060',
       },
     },
     // As-is — this theme's real reason to exist: a certificate that reads
@@ -1434,6 +1472,11 @@ export const THEMES: readonly Theme[] = [
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',
+        // #772 — bright enough to clear the body-text floor against every
+        // theme's Display background (all seven are dark); see the
+        // `DISPLAY_TOKEN_NAMES` comment above.
+        '--display-success-color': '#6fcf7a',
+        '--display-warning-color': '#e0c060',
       },
     },
     // As-is; a green header band and an orange rule cost the same ink
@@ -1626,6 +1669,11 @@ export const THEMES: readonly Theme[] = [
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',
+        // #772 — bright enough to clear the body-text floor against every
+        // theme's Display background (all seven are dark); see the
+        // `DISPLAY_TOKEN_NAMES` comment above.
+        '--display-success-color': '#6fcf7a',
+        '--display-warning-color': '#e0c060',
       },
     },
     // Lightened, ink-minimal: no second spot color at all — accent equals
