@@ -6,6 +6,7 @@ import { useQuery, useMutation } from 'urql';
 import { GET_RACE_RACING_GROUPS, UPLOAD_IMAGE } from '../graphql/queries';
 import { carryOver } from '../racerEntry';
 import { weightNotice, weightVerdict } from '../weightCheck';
+import { duplicateCarNumberNotice, type CarNumberHolder } from '../carNumberCheck';
 import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 
@@ -38,6 +39,16 @@ interface RacerFormProps {
   raceId?: number;
   /** The race's weight limit in ounces, or null when it does not check (#205). */
   weightLimitOz?: number | null;
+  /**
+   * Every racer already in the race, for the duplicate car number warning
+   * (#811) — the roster page already has this in memory from the query it
+   * fetched to render the table, so the form takes it as a prop rather than
+   * asking the server again.
+   */
+  existingRacers?: readonly CarNumberHolder[];
+  /** The racer being edited, if any — their own unchanged number must not
+   * warn about itself (#811). */
+  excludeRacerId?: number;
   onSubmit: (data: RacerData) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
@@ -50,7 +61,7 @@ interface RacerFormProps {
   onSubmitAndContinue?: (data: RacerData) => Promise<void>;
 }
 
-export default function RacerForm({ initialData, raceId, onSubmit, onCancel, submitLabel, onSubmitAndContinue, weightLimitOz }: RacerFormProps) {
+export default function RacerForm({ initialData, raceId, onSubmit, onCancel, submitLabel, onSubmitAndContinue, weightLimitOz, existingRacers, excludeRacerId }: RacerFormProps) {
   // Seeded from the racer being edited, rather than emptied and then patched
   // by an effect. The form lives in a modal that unmounts when it closes, so a
   // fresh mount is a fresh form; the caller also keys it, so switching racers
@@ -96,6 +107,15 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   const overweightNotice = weightNotice(
     weightVerdict(formData.car_weight, weightLimitOz),
     weightLimitOz,
+  );
+
+  // Also advisory (#811) — MANUAL numbering deliberately allows two racers
+  // to share a number, and an operator can type an explicit one under
+  // GLOBAL/PER_GROUP too, so this only ever warns, never blocks the save.
+  const carNumberWarning = duplicateCarNumberNotice(
+    formData.car_number,
+    existingRacers ?? [],
+    excludeRacerId,
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -205,8 +225,18 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                    id="racer-car-number"
                    value={formData.car_number || ''}
                    onChange={handleChange}
+                   aria-describedby={carNumberWarning ? 'racer-car-number-notice' : undefined}
                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                  />
+                 {carNumberWarning && (
+                   <p
+                     id="racer-car-number-notice"
+                     data-testid="car-number-warning"
+                     style={{ margin: '4px 0 0', color: 'var(--warning-color)', fontSize: '0.8rem' }}
+                   >
+                     {carNumberWarning}
+                   </p>
+                 )}
             </div>
             <div>
                  <label htmlFor="racer-car-weight" style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Weight (oz)</label>

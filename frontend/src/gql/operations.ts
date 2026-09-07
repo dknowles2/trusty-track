@@ -172,6 +172,12 @@ export type RacerInput = {
   carNumber?: number | null | undefined;
   carPassedInspection?: boolean;
   carWeight?: number | null | undefined;
+  clearCarImage?: boolean;
+  clearCarName?: boolean;
+  clearCarNumber?: boolean;
+  clearCarWeight?: boolean;
+  clearRacerImage?: boolean;
+  clearRacingGroup?: boolean;
   excludedFromStandings?: boolean;
   firstName: string;
   lastName: string;

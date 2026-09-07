@@ -8,6 +8,7 @@ import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 
 import { getContrastColor } from '../../../utils/colors';
+import { errorText } from '../../../utils/errors';
 import RacerForm, { RacerData, RacingGroup } from '../components/RacerForm';
 import NoHeatsBadge from '../components/NoHeatsBadge';
 import ExcludedFromStandingsBadge from '../components/ExcludedFromStandingsBadge';
@@ -359,7 +360,10 @@ export default function RaceDetails() {
           refreshData();
       } catch (e: unknown) {
           console.error("Failed to update race", e);
-          showAlert("Failed to update race details", "Error");
+          // A rename to a name already in use is the one refusal this can
+          // actually reach (#748) — the server names the race, and a
+          // generic message gave no clue the fix was a different name.
+          showAlert(errorText(e, "Failed to update race details"), "Error");
       }
   };
 
@@ -427,19 +431,31 @@ export default function RaceDetails() {
   const [, updateRacerMutation] = useMutation(GQL.UPDATE_RACER);
 
   const saveRacer = async (formData: RacerData) => {
-      // Map snake_case to camelCase for GQL input
+      // Map snake_case to camelCase for GQL input. `updateRacer` used to
+      // drop an explicit null the same way it dropped an absent field
+      // (#747) — a form field left blank could never actually clear a
+      // stored value. `null` here, alongside the matching `clear*` flag, is
+      // what lets it: harmless on `createRacer`, which reads none of the
+      // clear flags and treats a null the same as never having been asked
+      // (#789's auto-numbering, say).
       const racerInput = {
           firstName: formData.first_name,
           lastName: formData.last_name,
-          carNumber: formData.car_number,
-          racingGroupId: formData.racing_group_id,
-          carName: formData.car_name,
+          carNumber: formData.car_number ?? null,
+          racingGroupId: formData.racing_group_id ?? null,
+          carName: formData.car_name || null,
           carPassedInspection: formData.car_passed_inspection,
-          carWeight: formData.car_weight,
-          racerImageUrl: formData.racer_image_url,
-          carImageUrl: formData.car_image_url,
+          carWeight: formData.car_weight ?? null,
+          racerImageUrl: formData.racer_image_url || null,
+          carImageUrl: formData.car_image_url || null,
           excludedFromStandings: formData.excluded_from_standings,
-          raceId: parsedRaceId
+          raceId: parsedRaceId,
+          clearRacingGroup: formData.racing_group_id == null,
+          clearCarNumber: formData.car_number == null,
+          clearCarName: !formData.car_name,
+          clearCarWeight: formData.car_weight == null,
+          clearRacerImage: !formData.racer_image_url,
+          clearCarImage: !formData.car_image_url,
       };
 
       if (editingRacer) {
@@ -458,7 +474,7 @@ export default function RaceDetails() {
           setShowRacerForm(false);
       } catch (e: unknown) {
           console.error("Failed to save", e);
-          showAlert("Failed to save racer", "Error");
+          showAlert(errorText(e, "Failed to save racer"), "Error");
       }
   };
 
@@ -470,7 +486,7 @@ export default function RaceDetails() {
           await saveRacer(formData);
       } catch (e: unknown) {
           console.error("Failed to save", e);
-          showAlert("Failed to save racer", "Error");
+          showAlert(errorText(e, "Failed to save racer"), "Error");
           throw e;
       }
   };
@@ -1446,6 +1462,10 @@ export default function RaceDetails() {
             onCancel={() => setShowRacerForm(false)}
             submitLabel={racerFormSubmitLabel}
             weightLimitOz={data?.race?.weightLimitOz}
+            // The roster this page already fetched, threaded down for the
+            // duplicate car number warning (#811) — no second query.
+            existingRacers={racers}
+            excludeRacerId={editingRacer?.id}
             // Only when adding: editing one racer has no "another" to go on
             // to, and check-in is a different act again.
             onSubmitAndContinue={editingRacer ? undefined : handleRacerFormSubmitAndContinue}
@@ -1534,7 +1554,7 @@ export default function RaceDetails() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <p style={{ color: 'var(--text-muted-color)', lineHeight: '1.5' }}>
                   Generate fake racers to test your race setup. You can specify how many racers to add.
-                  They will be assigned random names, ranks, and images.
+                  They will be assigned random names, {groupsLower}, and images.
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>

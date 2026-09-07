@@ -1318,6 +1318,12 @@ export type RacerInput = {
   carNumber?: InputMaybe<Scalars['Int']['input']>;
   carPassedInspection?: Scalars['Boolean']['input'];
   carWeight?: InputMaybe<Scalars['Float']['input']>;
+  clearCarImage?: Scalars['Boolean']['input'];
+  clearCarName?: Scalars['Boolean']['input'];
+  clearCarNumber?: Scalars['Boolean']['input'];
+  clearCarWeight?: Scalars['Boolean']['input'];
+  clearRacerImage?: Scalars['Boolean']['input'];
+  clearRacingGroup?: Scalars['Boolean']['input'];
   excludedFromStandings?: Scalars['Boolean']['input'];
   firstName: Scalars['String']['input'];
   lastName: Scalars['String']['input'];

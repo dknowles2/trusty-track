@@ -752,6 +752,12 @@ input RacerInput {
   carImageUrl: String = null
   raceId: Int = null
   excludedFromStandings: Boolean! = false
+  clearRacingGroup: Boolean! = false
+  clearCarNumber: Boolean! = false
+  clearCarName: Boolean! = false
+  clearCarWeight: Boolean! = false
+  clearRacerImage: Boolean! = false
+  clearCarImage: Boolean! = false
 }
 
 type RacerStat {

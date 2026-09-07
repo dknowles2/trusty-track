@@ -15,6 +15,7 @@ import {
     copiedGroups,
     copyableAwards,
     firstGroupProblem,
+    numberingStrategyFor,
     organizationKindFor,
     prefillFromRace,
     raceOverrideFor,
@@ -137,13 +138,16 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
         groupsLower: chosenWords.racingGroupPlural.toLowerCase(),
     };
 
-    const prefill: Partial<RaceFormData> = useMemo(
-        () =>
-            mode === 'copy' && sourceRace
-                ? prefillFromRace(sourceRace)
-                : raceOverrideFor(chosenWords, installDefault),
-        [mode, sourceRace, chosenWords, installDefault],
-    );
+    const prefill: Partial<RaceFormData> = useMemo(() => {
+        if (mode === 'copy' && sourceRace) {
+            // Carries the previous race's own numbering strategy verbatim
+            // already — this must not second-guess it (#811).
+            return prefillFromRace(sourceRace);
+        }
+        const words = raceOverrideFor(chosenWords, installDefault);
+        const numbering = numberingStrategyFor(groups);
+        return numbering ? { ...words, car_numbering_strategy: numbering } : words;
+    }, [mode, sourceRace, chosenWords, installDefault, groups]);
     const prefillKey = JSON.stringify(prefill);
 
     // Which of the previous race's awards will be copied, and why the rest

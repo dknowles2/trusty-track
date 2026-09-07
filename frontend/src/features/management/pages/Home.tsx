@@ -95,7 +95,11 @@ export default function Home() {
             navigate(`/race/${result.data.createRace.id}`);
         } catch (e) {
             console.error("Failed to create race", e);
-            showAlert("Failed to create race", "Error");
+            // A duplicate name is the one refusal the wizard can actually
+            // reach and the operator can actually fix (#748) — the server
+            // names the race, and a generic "Failed to create race" gave
+            // no clue that the fix was a different name.
+            showAlert(errorText(e, "Failed to create race"), "Error");
         }
     };
 

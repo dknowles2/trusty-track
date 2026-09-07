@@ -309,6 +309,22 @@ def get_races(db: Session, skip: int = 0, limit: int = 100) -> list[models.Race]
     return races
 
 
+def _raise_race_name_conflict(name: str, exc: IntegrityError) -> None:
+    """Turn `races.name`'s `UNIQUE` constraint into a readable sentence
+    (#748), the same shape `crud.create_scene`/`rename_scene` already use
+    for a scene name — a raw `IntegrityError` used to reach the operator as
+    the literal SQL statement and its bound parameters.
+
+    Only a violation of *this* constraint is translated: a different
+    `IntegrityError` (a foreign key the caller got wrong, say) is real
+    evidence of something else, and re-raising it unchanged is what keeps
+    this from misreporting it as a duplicate name.
+    """
+    if "races.name" not in str(getattr(exc, "orig", exc)):
+        raise exc
+    raise ValueError(f'A race named "{name}" already exists.') from exc
+
+
 def create_race(db: Session, race: schemas.RaceCreate) -> models.Race:
     """Create a race, and any racing groups and awards sent along with it
     (#662, #722).
@@ -328,6 +344,12 @@ def create_race(db: Session, race: schemas.RaceCreate) -> models.Race:
     racing group that was not carried over. `schemas.AwardCopyCreate` carries
     no `racer_id` at all, so a `SPECIAL` award's chosen winner cannot reach
     this path even by mistake — see #170.
+
+    A duplicate `name` is refused with a readable sentence rather than a raw
+    `IntegrityError` (#748) — caught at this first `flush()`, before any
+    racing group or award row is built from the same payload, so nothing
+    downstream of the name is ever begun on a race that was going to be
+    refused anyway.
     """
     race_data = race.model_dump()
     racing_groups = race_data.pop("racing_groups", [])
@@ -335,7 +357,11 @@ def create_race(db: Session, race: schemas.RaceCreate) -> models.Race:
     _refuse_bad_racing_group_ranges(racing_groups)
     db_race = models.Race(**race_data)
     db.add(db_race)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        _raise_race_name_conflict(race_data["name"], exc)
     group_id_map: dict[int, int] = {}
     new_groups: list[tuple[int | None, models.RacingGroup]] = []
     for racing_group in racing_groups:
@@ -395,6 +421,11 @@ def _create_copied_award(
 def update_race(
     db: Session, race_id: int, race_update: schemas.RaceUpdate
 ) -> models.Race | None:
+    """Update an existing race.
+
+    A rename to a name already in use is refused with a readable sentence
+    (#748), the same as `create_race` above — see `_raise_race_name_conflict`.
+    """
     db_race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not db_race:
         return None
@@ -402,8 +433,17 @@ def update_race(
     update_data = race_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_race, key, value)
+    # Captured before the commit attempt: a failed commit expires every
+    # object on the session by default, so reading `db_race.name` back
+    # afterwards would re-query the *stored* (unchanged) name rather than
+    # the one just refused.
+    attempted_name = db_race.name
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        _raise_race_name_conflict(attempted_name, exc)
     db.refresh(db_race)
     return db_race
 
@@ -747,6 +787,10 @@ def create_racer(db: Session, racer: schemas.RacerCreate) -> models.Racer | None
     if "race_id" in racer_data:
         del racer_data["race_id"]
 
+    # A den from a different race must not be accepted just because its id
+    # exists somewhere (#804) — see `_validate_racing_group_membership`.
+    _validate_racing_group_membership(db, race.id, racer_data.get("racing_group_id"))
+
     if racer_data.get("car_number") in (None, ""):
         racer_data["car_number"] = next_free_car_number(
             db, race, racer_data.get("racing_group_id")
@@ -843,6 +887,11 @@ def update_racer(
         return None
 
     update_data = racer_update.model_dump(exclude_unset=True)
+    # A racer's own race never changes here, so it is the scope the new
+    # `racing_group_id` (if any) is checked against (#804).
+    _validate_racing_group_membership(
+        db, db_racer.race_id, update_data.get("racing_group_id")
+    )
     for key, value in update_data.items():
         setattr(db_racer, key, value)
 
@@ -3573,8 +3622,12 @@ def bulk_move_racers_to_racing_group(
     """Reassign racers to a racing group, or to none.
 
     `racer_ids` are all expected to belong to `race_id`; scoped since #743,
-    the same reasoning as `bulk_delete_racers` above.
+    the same reasoning as `bulk_delete_racers` above. `racing_group_id` is
+    the call's own argument rather than a per-row value, so a group from a
+    different race is refused outright (#804) rather than skipped per row
+    the way a stray racer id is.
     """
+    _validate_racing_group_membership(db, race_id, racing_group_id)
     db.query(models.Racer).filter(
         models.Racer.id.in_(racer_ids), models.Racer.race_id == race_id
     ).update({"racing_group_id": racing_group_id}, synchronize_session=False)
@@ -3613,28 +3666,20 @@ def _next_award_sort_order(db: Session, race_id: int) -> int:
     return 0 if highest is None else int(highest) + 1
 
 
-def _validate_award_membership(
-    db: Session,
-    race_id: int,
-    racing_group_id: int | None,
-    racer_id: int | None,
+def _validate_racing_group_membership(
+    db: Session, race_id: int, racing_group_id: int | None
 ) -> None:
-    """Refuse a den or racer that does not belong to this award's own race
-    (#759).
+    """Refuse a racing group that does not belong to this race (#759, #804).
 
     The foreign key only proves the row exists *somewhere* — a stray id left
     over from a form that had not yet noticed the operator switched races,
-    or a hand-built GraphQL call, is otherwise accepted, and the award then
-    resolves against a den or racer that never appears in this race's
-    standings: it silently and permanently shows no recipient with nothing
-    saying why.
-
-    Checked regardless of the award's own `kind`: a client can set both
-    `racing_group_id` and `racer_id` in the same payload, and it is
-    `_clear_fields_of_other_kind` — called *after* this — that decides which
-    one actually survives. An id that does not exist at all is a different,
-    pre-existing question (the database's own foreign key refuses it); this
-    only refuses one that exists in the wrong race.
+    or a hand-built GraphQL call, is otherwise accepted. Shared by
+    `_validate_award_membership` (an award's own `racing_group_id`, #759) and
+    every place a racer's `racing_group_id` is written directly (#804):
+    `create_racer`, `update_racer` and `bulk_move_racers_to_racing_group`. An
+    id that does not exist at all is a different, pre-existing question (the
+    database's own foreign key refuses it); this only refuses one that
+    exists in the wrong race.
     """
     if racing_group_id is not None:
         owner = (
@@ -3644,6 +3689,26 @@ def _validate_award_membership(
         )
         if owner is not None and owner != race_id:
             raise ValueError("racingGroupId belongs to a different race")
+
+
+def _validate_award_membership(
+    db: Session,
+    race_id: int,
+    racing_group_id: int | None,
+    racer_id: int | None,
+) -> None:
+    """Refuse a den or racer that does not belong to this award's own race
+    (#759).
+
+    Resolving a den or racer from a different race would silently and
+    permanently show no recipient with nothing saying why.
+
+    Checked regardless of the award's own `kind`: a client can set both
+    `racing_group_id` and `racer_id` in the same payload, and it is
+    `_clear_fields_of_other_kind` — called *after* this — that decides which
+    one actually survives.
+    """
+    _validate_racing_group_membership(db, race_id, racing_group_id)
     if racer_id is not None:
         owner = (
             db.query(models.Racer.race_id).filter(models.Racer.id == racer_id).scalar()
