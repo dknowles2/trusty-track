@@ -177,6 +177,44 @@ describe('Leaderboard', () => {
     expect(screen.getByTestId('start-run-off-btn')).toBeInTheDocument();
   });
 
+  // #766: the metadata query now carries the track's laneCount and
+  // laneOutages so RunOffControl can disable "Start run-off" for a cluster
+  // wider than the track can actually race, before the operator ever
+  // clicks it.
+  it("passes the track's usable lane count through to RunOffControl (#766)", () => {
+    const tiedData = {
+      race: {
+        id: 1,
+        scoringStrategy: 'TIMED',
+        leaderboard: tiedLeaderboardEntries,
+        // One usable lane (2, less lane 2 out of service) for two tied
+        // racers — not enough to race them off against each other.
+        track: { id: 9, laneCount: 2, laneOutages: [2] },
+      },
+    };
+
+    (useQuery as any).mockReturnValue([{
+      data: { race: tiedData.race },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    (useSubscription as any).mockReturnValue([{
+      data: { leaderboard: tiedData.race.leaderboard },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={1} /></MemoryRouter></AlertProvider>);
+
+    const button = screen.getByTestId('start-run-off-btn');
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute(
+      'title',
+      'Not enough usable lanes for all 2 tied racers (only 1 available).',
+    );
+  });
+
   it('says how a resolved tie was broken, and stops sharing the rank (#540)', () => {
     const resolvedData = {
       race: {

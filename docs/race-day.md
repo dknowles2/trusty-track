@@ -452,6 +452,14 @@ _After a heat completes, each lane shows the racer's finish time and placement (
 ![The manual entry modal on a Points race](assets/screenshots/race-day/32-manual-place-entry-modal.png)
 _A Points race's entry modal: the **Place** column is what gets typed in — the finishing order somebody at the line called out — and an optional **Time** column sits beside it for correcting or clearing a time a timer recorded._
 
+On a Points race, two lanes can't share a place, and a place can't be higher
+than the number of racers actually in the heat — Trusty Track checks this as
+you type and disables **Save Results** with an explanation until it's fixed,
+rather than letting you find out after the fact. And if two lanes on a Timed
+race record the exact same time, a note says so — the finishing order between
+them still has to be saved as one, but at least you'll know it was a coin
+flip rather than a real photo finish.
+
 After reviewing results, click **Next Heat** to advance to the next heat — or enable **Auto-advance** to move forward automatically after 10 seconds.
 
 > [!TIP]

@@ -300,8 +300,12 @@ describe('RaceExecution', () => {
             fireEvent.click(screen.getByText('Edit'));
 
             const inputs = screen.getAllByRole('spinbutton');
-            // Correct the place by hand; leave the recorded time as-is.
+            // Correct the place by hand; leave the recorded time as-is. Swap
+            // lane 2's stored place (2) down to 1 in the same edit — leaving
+            // it untouched would give both lanes place 2, which #766's own
+            // duplicate-place check now refuses to save.
             fireEvent.change(inputs[0], { target: { value: '2' } });
+            fireEvent.change(inputs[2], { target: { value: '1' } });
 
             fireEvent.click(screen.getByText('Save Results'));
 
@@ -375,6 +379,113 @@ describe('RaceExecution', () => {
                 expect(mockOnUpdateResult).toHaveBeenCalled();
                 expect(mockOnUpdateResult.mock.calls[0][1][0].place).toBeNull();
             });
+        });
+    });
+
+    // #766: the modal's Place column had no client-side check at all — the
+    // only backstop was the server's `validate_lane_replacement`, and its
+    // refusal (since #765) leaves the modal open but still costs a round
+    // trip the operator has to interpret. These mirror the server's own
+    // rules (`lanes.placeIssue`) so a bad value is caught before Save is
+    // even clickable.
+    describe('hand-entered places are checked before Save (#766)', () => {
+        it('disables Save and names the lane when two places collide', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="POINTS" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            const inputs = screen.getAllByRole('spinbutton');
+            // Lane 1 is stored at place 1; giving it lane 2's place (2)
+            // collides without touching lane 2 at all.
+            fireEvent.change(inputs[0], { target: { value: '2' } });
+
+            expect(screen.getByText('Place 2 is assigned to more than one lane.')).toBeInTheDocument();
+            expect(screen.getByText('Save Results')).toBeDisabled();
+        });
+
+        it('disables Save and names the lane when a place exceeds the heat\'s field', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="POINTS" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            const inputs = screen.getAllByRole('spinbutton');
+            // Only two real racers in this heat — nobody to be 5th behind.
+            fireEvent.change(inputs[0], { target: { value: '5' } });
+
+            expect(
+                screen.getByText("Lane 1's place is higher than the 2 racer(s) in this heat."),
+            ).toBeInTheDocument();
+            expect(screen.getByText('Save Results')).toBeDisabled();
+        });
+
+        it('re-enables Save once the operator fixes the collision', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="POINTS" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            const inputs = screen.getAllByRole('spinbutton');
+            fireEvent.change(inputs[0], { target: { value: '2' } });
+            expect(screen.getByText('Save Results')).toBeDisabled();
+
+            // Swap instead of colliding.
+            fireEvent.change(inputs[2], { target: { value: '1' } });
+
+            expect(screen.queryByText(/is assigned to more than one lane/)).not.toBeInTheDocument();
+            expect(screen.getByText('Save Results')).not.toBeDisabled();
+        });
+
+        it('does not check places at all for a TIMED race — there is no Place column to collide', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="TIMED" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            expect(screen.getByText('Save Results')).not.toBeDisabled();
+        });
+
+        it('clicking a disabled Save never reaches onUpdateResult', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="POINTS" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            const inputs = screen.getAllByRole('spinbutton');
+            fireEvent.change(inputs[0], { target: { value: '2' } });
+            fireEvent.click(screen.getByText('Save Results'));
+
+            expect(mockOnUpdateResult).not.toHaveBeenCalled();
+        });
+    });
+
+    // #766's other note: `assignPlaces` breaks a genuine tie in recorded
+    // times by array order, with nothing on screen saying a tie happened.
+    // This does not change what gets saved — the modal has no place column
+    // to correct it from under a TIMED strategy anyway — it only tells the
+    // operator the tie exists so they can retime the heat if it matters.
+    describe('an equal-time tie is shown, not silently broken (#766)', () => {
+        it('says nothing when every recorded time is distinct', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="TIMED" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            expect(screen.queryByTestId('tied-times-note')).not.toBeInTheDocument();
+        });
+
+        it('names the lanes that recorded the identical time', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="TIMED" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            // mockHeat's lane 1 is 3.5s; retype lane 2's 3.6s to match it.
+            const inputs = screen.getAllByRole('spinbutton');
+            fireEvent.change(inputs[1], { target: { value: '3.5' } });
+
+            expect(screen.getByTestId('tied-times-note')).toHaveTextContent('Lanes 1 and 2');
+            expect(screen.getByTestId('tied-times-note')).toHaveTextContent(/same time/);
+        });
+
+        it('does not block Save — the tie is informational, not an error', async () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="TIMED" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            const inputs = screen.getAllByRole('spinbutton');
+            fireEvent.change(inputs[1], { target: { value: '3.5' } });
+
+            expect(screen.getByText('Save Results')).not.toBeDisabled();
+            fireEvent.click(screen.getByText('Save Results'));
+
+            await waitFor(() => expect(mockOnUpdateResult).toHaveBeenCalled());
         });
     });
 

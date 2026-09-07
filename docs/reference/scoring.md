@@ -158,6 +158,12 @@ through the ordinary race-day screen, same as any other heat. Whoever wins
 the run-off takes the tie — no need to change the Tiebreaker setting, and
 no need to hand-edit anyone's time.
 
+If more cars are tied than the track has usable lanes for — a five-way tie
+on a four-lane track, say, or one lane out of service leaving even fewer —
+**Start run-off** is disabled and says why, naming both counts. There's
+nothing to click here; settle it a different way, for example a corrected
+time or the race's Tiebreaker setting.
+
 A run-off's own time never joins anybody's average, sum, or any other
 number the standings compute. It settles one thing only — the shared rank
 it was created against — and leaves everything else exactly as it was,

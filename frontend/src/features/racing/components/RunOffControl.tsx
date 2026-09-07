@@ -10,7 +10,7 @@ import {
 } from '../graphql/queries';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
-import { runOffAnnouncement } from '../runOff';
+import { runOffAnnouncement, tooManyForRunOff } from '../runOff';
 import type { GetRunOffHeatsQuery } from '../../../gql/operations';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
@@ -33,6 +33,13 @@ interface RunOffControlProps {
   settlesRoundId: number | null;
   /** Exactly the racers sharing the rank this control is attached to. */
   racers: TiedRacer[];
+  /** Lanes the race's track can actually use right now (#171's lane-outage
+   * bound, see `usableLaneCount` in `runOff.ts`) — or `null`/absent when
+   * that is not known (no track, or a caller that has not looked it up).
+   * `crud.create_run_off_heat` refuses more racers than this; the button
+   * disables itself and says so rather than letting that refusal be the
+   * first the operator hears of it (#766). */
+  usableLaneCount?: number | null;
 }
 
 /**
@@ -50,6 +57,7 @@ export default function RunOffControl({
   trackId,
   settlesRoundId,
   racers,
+  usableLaneCount = null,
 }: RunOffControlProps) {
   const { showAlert } = useAlert();
   const [manualTimes, setManualTimes] = useState<Record<number, string>>({});
@@ -71,6 +79,14 @@ export default function RunOffControl({
   // rather than "the most recent one".
   const raceLocked = existingResult.data?.race?.isLocked ?? false;
   const lockedTitle = RACE_LOCKED_MESSAGE;
+
+  // #766: why "Start run-off" would be refused before the operator ever
+  // clicks it. The lock wins when both apply — it means nothing here can be
+  // created at all right now, where the lane count is specifically about
+  // this cluster.
+  const laneShortage = tooManyForRunOff(racers.length, usableLaneCount);
+  const startDisabled = raceLocked || !!laneShortage;
+  const startTitle = raceLocked ? lockedTitle : laneShortage ?? undefined;
 
   const runOffHeats: RunOffHeatRow[] = existingResult.data?.race?.runOffHeats ?? [];
   const existing = runOffHeats.find((heat: RunOffHeatRow) => {
@@ -163,17 +179,33 @@ export default function RunOffControl({
 
   if (!existing) {
     return (
-      <button
-        type="button"
-        className="secondary-btn"
-        data-testid="start-run-off-btn"
-        onClick={handleCreate}
-        disabled={raceLocked}
-        title={raceLocked ? lockedTitle : undefined}
-        style={{ padding: '6px 12px', fontSize: '0.85rem' }}
-      >
-        Start run-off
-      </button>
+      <div>
+        <button
+          type="button"
+          className="secondary-btn"
+          data-testid="start-run-off-btn"
+          onClick={handleCreate}
+          disabled={startDisabled}
+          title={startTitle}
+          style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+        >
+          Start run-off
+        </button>
+        {/* A disabled button's own `title` is not a reliable way to learn
+            why (some browsers never fire a tooltip on a disabled control) —
+            unlike the race lock, which also has a page-level banner
+            (`RaceControl.tsx`'s `race-locked-banner`), nothing else on
+            screen says this, so it's spelled out rather than left to a
+            hover (#766). */}
+        {laneShortage && !raceLocked && (
+          <p
+            data-testid="run-off-lane-shortage"
+            style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--warning-strong-color)' }}
+          >
+            {laneShortage}
+          </p>
+        )}
+      </div>
     );
   }
 

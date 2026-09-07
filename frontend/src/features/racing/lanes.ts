@@ -164,3 +164,127 @@ export const shouldDerivePlaces = (scoringStrategy: string | null | undefined): 
  * what the operator just typed.
  */
 export const shouldDerivePlacesForFreeRace = (hasTimer: boolean): boolean => hasTimer;
+
+/**
+ * Real racers assigned a lane — an empty lane or an undecided championship
+ * slot is not a competitor to place behind. Mirrors
+ * `backend/domain/lanes.py`'s `real_racer_ids`.
+ */
+const realRacerCount = (results: readonly LaneInput[]): number =>
+  results.filter((r) => r.racerId !== null).length;
+
+/**
+ * Lane numbers whose hand-entered place is not a positive number (issue
+ * #766, extending #524's server-side rule to the client). `handleResultChange`
+ * in `RaceExecution.tsx` already refuses to store one of these as the
+ * operator types, so this mostly documents that the invariant holds rather
+ * than catching anything live — but it is what makes {@link placeIssue} a
+ * complete mirror of `crud.validate_lane_replacement` rather than an
+ * incomplete one somebody has to remember not to trust. Mirrors
+ * `backend/domain/lanes.py`'s `places_below_one`.
+ */
+export const placesBelowOne = (results: readonly LaneInput[]): number[] =>
+  results.filter((r) => r.place != null && r.place < 1).map((r) => r.lane);
+
+/**
+ * Lane numbers whose place exceeds the number of real racers in the heat
+ * (issue #766). Mirrors `backend/domain/lanes.py`'s `places_above_field` —
+ * see there for why an empty field checks nothing.
+ */
+export const placesAboveField = (results: readonly LaneInput[]): number[] => {
+  const field = realRacerCount(results);
+  if (!field) return [];
+  return results.filter((r) => r.place != null && r.place > field).map((r) => r.lane);
+};
+
+/**
+ * Place values claimed by more than one lane, each named once (issue #766).
+ * Mirrors `backend/domain/lanes.py`'s `duplicate_places`.
+ */
+export const duplicatePlaces = (results: readonly LaneInput[]): number[] => {
+  const seen = new Set<number>();
+  const dupes: number[] = [];
+  for (const r of results) {
+    if (r.place == null) continue;
+    if (seen.has(r.place)) {
+      if (!dupes.includes(r.place)) dupes.push(r.place);
+    } else {
+      seen.add(r.place);
+    }
+  }
+  return dupes;
+};
+
+/**
+ * The first problem with a hand-entered set of places, or `null` if there
+ * isn't one (issue #766).
+ *
+ * Mirrors `crud.validate_lane_replacement`'s own place checks — same order,
+ * same wording — so the client catches what the server would refuse before
+ * the operator ever clicks Save, and reads the identical sentence in the
+ * rare case something still reaches the server unchecked (a stale prop, a
+ * second tab). It is a *first* check, not a replacement one: the server
+ * remains the backstop for anything this can't see, e.g. a lane set that
+ * does not match the heat's own schedule.
+ *
+ * Deliberately does not check lane numbers themselves (duplicate or unknown
+ * lanes) — those come from the heat's own stored schedule, never from
+ * anything the operator types, so there is nothing here to mistype.
+ */
+export const placeIssue = (results: readonly LaneInput[]): string | null => {
+  const belowOne = placesBelowOne(results);
+  if (belowOne.length) return `Lane ${belowOne[0]}'s place must be 1 or higher.`;
+
+  const aboveField = placesAboveField(results);
+  if (aboveField.length) {
+    const field = realRacerCount(results);
+    return `Lane ${aboveField[0]}'s place is higher than the ${field} racer(s) in this heat.`;
+  }
+
+  const dupes = duplicatePlaces(results);
+  if (dupes.length) return `Place ${dupes[0]} is assigned to more than one lane.`;
+
+  return null;
+};
+
+/**
+ * A typed time field as the number it will be saved as, or `null` for
+ * blank or unparsable text — factored out of `RaceExecution.tsx`'s
+ * `handleSaveResults` (issue #766) so the equal-time tie detector below
+ * reads the exact value that will be saved, rather than a second copy of
+ * the same parsing rule free to drift from it.
+ */
+export const parseTimeText = (timeText: string): number | null => {
+  const time = Number(timeText);
+  return timeText.trim() === '' || isNaN(time) ? null : time;
+};
+
+/**
+ * Lanes that recorded the identical time, grouped by that time (issue
+ * #766). `assignPlaces` breaks a genuine tie by array order with nothing on
+ * screen to say a tie happened — two identical hand-typed times silently
+ * become 2nd and 3rd. This does not change what gets saved: for a
+ * `TIMED` race there is no Place column to correct it from, and rewriting
+ * the times themselves is not this function's business. It exists so
+ * `RaceExecution` can show the operator the tie exists, the same "computed,
+ * never rewritten" shape {@link placeIssue} follows for the Place column.
+ *
+ * Mirrors `assignPlaces`'s own finisher filter — only a real time (`> 0`)
+ * counts, so a DNF's `0` or a negative marker never reads as a three-way
+ * tie with every other DNF in the heat.
+ */
+export const tiedTimeGroups = (
+  results: readonly { lane: number; time: number | null }[],
+): { time: number; lanes: number[] }[] => {
+  const byTime = new Map<number, number[]>();
+  for (const r of results) {
+    if (r.time === null || r.time <= 0) continue;
+    const group = byTime.get(r.time) ?? [];
+    group.push(r.lane);
+    byTime.set(r.time, group);
+  }
+  return [...byTime.entries()]
+    .filter(([, lanes]) => lanes.length > 1)
+    .map(([time, lanes]) => ({ time, lanes: [...lanes].sort((a, b) => a - b) }))
+    .sort((a, b) => a.time - b.time);
+};
