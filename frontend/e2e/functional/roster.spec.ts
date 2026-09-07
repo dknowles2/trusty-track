@@ -21,8 +21,8 @@ const RACERS = [
 
 /** A configured system with one race and two racers.
  *
- * Each test gets its own race: race names are unique per install, and the
- * three tests share one backend.
+ * Each test gets its own race: race names are unique per install, and these
+ * tests share one backend.
  */
 async function seed(page: Page, raceName: string): Promise<number> {
     await ensureConfigured(page);
@@ -101,11 +101,10 @@ test('a racer checked in through the UI stays checked in', async ({ page }) => {
         .filter({ hasText: 'Alpha' })
         .getByRole('button', { name: 'Check In' })
         .click();
-    // The checkbox itself is visually hidden behind the slider, so click what
-    // the operator clicks. By id, not just `label.toggle-switch`, now that
-    // the form holds a second one for "Racing, not ranked" (#548).
+    // Opened from the row's Check In button, the toggle already defaults on
+    // (#848) — pressing Check In already said what the operator wants, so
+    // there is nothing to click before saving.
     const checkIn = page.getByRole('dialog', { name: 'Racer Check In' });
-    await checkIn.locator('label.toggle-switch:has(#car-passed-inspection)').click();
     await expect(page.getByLabel('Passed Inspection / Checked In')).toBeChecked();
     await checkIn.getByRole('button', { name: 'Save Check-in' }).click();
 
@@ -117,6 +116,37 @@ test('a racer checked in through the UI stays checked in', async ({ page }) => {
 
     await page.reload();
     await expect(checkedIn).toBeVisible();
+});
+
+test('declining a check-in from the toggle is honoured, not overridden by the default (#848)', async ({ page }) => {
+    // The toggle defaults on so the obvious path actually checks a racer in,
+    // but an inspector who declines a car must still be believed — the
+    // default is a starting point, not a floor.
+    const raceId = await seed(page, 'Roster Check-In Decline');
+    await page.goto(`/race/${raceId}`);
+
+    await page
+        .getByRole('row')
+        .filter({ hasText: 'Alpha' })
+        .getByRole('button', { name: 'Check In' })
+        .click();
+
+    const checkIn = page.getByRole('dialog', { name: 'Racer Check In' });
+    await expect(page.getByLabel('Passed Inspection / Checked In')).toBeChecked();
+    await checkIn.locator('label.toggle-switch:has(#car-passed-inspection)').click();
+    await expect(page.getByLabel('Passed Inspection / Checked In')).not.toBeChecked();
+
+    // The button says what it is actually about to do rather than repeating
+    // "Save Check-in" over a toggle it would contradict.
+    const saveButton = checkIn.getByRole('button', { name: 'Save without checking in' });
+    await expect(saveButton).toBeVisible();
+    await saveButton.click();
+
+    const stillNotCheckedIn = page
+        .getByRole('row')
+        .filter({ hasText: 'Alpha' })
+        .getByRole('button', { name: 'Check In' });
+    await expect(stillNotCheckedIn).toBeVisible();
 });
 
 test('editing a race keeps it on the track it was on', async ({ page }) => {
