@@ -13,7 +13,7 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { activeFreeRaceHeatId, ensureConfigured, gql, organizationId, photosFor, runFakeHeat } from './support';
+import { activeFreeRaceHeatId, ensureConfigured, gql, organizationId, ownTrack, photosFor, runFakeHeat } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/free-race');
@@ -36,13 +36,11 @@ test('screenshot free race', async ({ page }) => {
     const raceOrganizationId = await organizationId(page);
     // Its own track, created through the API so the backend spins up a timer
     // manager for it — that is what puts the fake timer mole on screen.
-    const track = await gql(
-        page,
-        `mutation Track($track: TrackInput!) { createTrack(track: $track) { id } }`,
-        { track: { name: 'Free Race Track', laneCount: 4, timerType: 'FAKE' } },
-    );
-
-    const trackId = track.createTrack.id;
+    // Suffixed on retry (#829) so a retry does not collide on track name if
+    // attempt 1 leaked before cleanup.
+    const retry = test.info().retry;
+    const trackName = retry > 0 ? `Free Race Track (retry ${retry})` : 'Free Race Track';
+    const trackId = await ownTrack(page, trackName, 4, 'FAKE');
 
     const race = await gql(
         page,

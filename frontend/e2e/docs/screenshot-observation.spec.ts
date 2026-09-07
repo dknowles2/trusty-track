@@ -96,7 +96,11 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     // A configured length (#610) — `ownTrack` otherwise leaves it null, and
     // with no length there is nothing for scale speed to compute from, so
     // the results overlay and timing view would show no speed at all.
-    const trackId = await ownTrack(page, 'Audience Display Track', 4, 'FAKE', 40);
+    // Suffixed on retry (#829) so a retry does not collide on track name if
+    // attempt 1 leaked before cleanup.
+    const retry = test.info().retry;
+    const trackName = retry > 0 ? `Audience Display Track (retry ${retry})` : 'Audience Display Track';
+    const trackId = await ownTrack(page, trackName, 4, 'FAKE', 40);
     await seedHistoricalRecord(page, trackId, PREVIOUS_RECORD);
 
     const raceId = await seedRace(page, {
