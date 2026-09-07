@@ -105,10 +105,14 @@ export interface TrackForValidation {
   // The vehicle-to-real-life ratio scale speed is computed against (#610).
   // The input carries `min`/`step`, which catches a bad value while the
   // track's own card is on screen — this is the same "the browser cannot
-  // point at a field it is not rendering" case `laneCount` already covers,
-  // and the server refuses a non-positive ratio regardless of whether scale
-  // speed is even switched on for this track.
+  // point at a field it is not rendering" case `laneCount` already covers.
   scaleRatio: number;
+  // Whether the ratio input is even on screen right now (#773). Unlike
+  // `laneCount`, this field's own input is conditionally rendered — ticking
+  // "Show scale speed" off hides it, and a value left over from before it
+  // was hidden must not block Save with a message pointing at a field the
+  // operator cannot see or fix from the section this switches to.
+  showScaleSpeed: boolean;
 }
 
 export interface Problem {
@@ -164,7 +168,7 @@ export function firstProblem(
         message: `${track.name} needs between 1 and 8 lanes.`,
       };
     }
-    if (!(track.scaleRatio > 0)) {
+    if (track.showScaleSpeed && !(track.scaleRatio > 0)) {
       return {
         section: 'tracks',
         message: `${track.name} needs a scale ratio greater than zero.`,

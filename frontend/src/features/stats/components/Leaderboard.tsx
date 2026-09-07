@@ -7,6 +7,7 @@ import { excludedCount, excludedNotice } from '../excludedFromStandings';
 import { dropWorstNotice } from '../dropWorstNotice';
 import { standingsRows, standingsSuffix } from '../standingsExport';
 import { slowestFirst } from '../slowestFirst';
+import { shouldShowDivision } from '../racingGroupLabel';
 import { resolutionNote } from '../tiebreakText';
 import { formatScore, scoreLabel } from '../scoringStrategyText';
 import { Link } from 'react-router-dom';
@@ -452,7 +453,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                 </td>
                 <td style={{ padding: '12px', color: 'var(--text-muted-color)' }}>
                   {entry.racingGroupName}
-                  {entry.racingGroupDivision && (
+                  {shouldShowDivision(entry.racingGroupName, entry.racingGroupDivision) && (
                     <span style={{ fontSize: '0.8rem' }}> ({entry.racingGroupDivision})</span>
                   )}
                 </td>

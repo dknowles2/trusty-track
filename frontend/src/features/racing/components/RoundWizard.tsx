@@ -65,7 +65,15 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     id: 'champ-1',
     name: 'Grand Finals',
     source: 'ALL',
-    numTopRacers: Math.max(championshipTrophies, laneCount), // Default to filling a heat
+    // `Race.championship_trophies` is how many cars advance to the final — a
+    // scheduling input the operator has already set on the race's own
+    // settings (#775). This used to default to `Math.max(championshipTrophies,
+    // laneCount)` "to fill a heat", which silently disagreed with that
+    // setting on the very first screen that offers a number for it whenever
+    // the track had more lanes than trophies. `RoundConfigModal` — the same
+    // control reached later, from the add-round dialog — already defaults to
+    // `championshipTrophies` alone; this now matches it.
+    numTopRacers: championshipTrophies,
     runsPerLane: 1
   }]);
   const [loading, setLoading] = useState(false);
