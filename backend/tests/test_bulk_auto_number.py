@@ -149,3 +149,104 @@ def test_auto_numbering_the_whole_race_still_works(db: Session) -> None:
     db.refresh(a)
     db.refresh(b)
     assert {a.car_number, b.car_number} == {1, 2}
+
+
+def test_an_ungrouped_racer_is_left_unnumbered_under_per_group(db: Session) -> None:
+    """Under `PER_GROUP`, a racer with no racing group has no range to draw
+    a number from — the docstring says they are "left unnumbered, same as
+    before", and nothing had ever exercised that this is what actually
+    happens rather than, say, an unhandled `None` key crashing the sort, or
+    the racer silently being counted in `updated_count` with no number
+    written.
+    """
+    race = _race(db, models.CarNumberingStrategy.PER_GROUP)
+    lions = crud.create_racing_group(
+        db,
+        schemas.RacingGroupCreate(
+            name="Lions",
+            color="#F4D03F",
+            car_number_range_start=100,
+            car_number_range_end=199,
+        ),
+        race_id=race.id,
+    )
+
+    grouped = _racer(db, race, "Ace", "Bolt", racing_group_id=lions.id)
+    # No racing_group_id at all — a sibling car, or a racer added before a
+    # racing group was assigned.
+    ungrouped = _racer(db, race, "Zoe", "Zephyr", racing_group_id=None)
+
+    updated = crud.auto_number_racers(db, race.id, racer_ids=[grouped.id, ungrouped.id])
+
+    # Only the grouped racer is counted and numbered.
+    assert updated == 1
+
+    db.refresh(grouped)
+    db.refresh(ungrouped)
+    assert grouped.car_number == 100
+    assert ungrouped.car_number is None
+
+
+def test_an_exhausted_racing_group_range_leaves_the_remainder_unnumbered(
+    db: Session,
+) -> None:
+    """A group's range is a hard ceiling — once it is exhausted, the racers
+    past that point stay unnumbered "for the operator to notice" rather than
+    spilling into a neighbouring group's range or wrapping around.
+    """
+    race = _race(db, models.CarNumberingStrategy.PER_GROUP)
+    # Only two numbers available: 100 and 101.
+    lions = crud.create_racing_group(
+        db,
+        schemas.RacingGroupCreate(
+            name="Lions",
+            color="#F4D03F",
+            car_number_range_start=100,
+            car_number_range_end=101,
+        ),
+        race_id=race.id,
+    )
+
+    a = _racer(db, race, "Ace", "Bolt", racing_group_id=lions.id)
+    b = _racer(db, race, "Bea", "Bolt", racing_group_id=lions.id)
+    c = _racer(db, race, "Cy", "Bolt", racing_group_id=lions.id)
+
+    updated = crud.auto_number_racers(
+        db, race.id, racer_ids=[a.id, b.id, c.id]
+    )
+
+    # Sorted by (last_name, first_name) — Bolt, Bolt, Bolt then by first
+    # name: Ace, Bea, Cy — so Ace and Bea take the two available numbers and
+    # Cy is the one left over.
+    assert updated == 2
+
+    db.refresh(a)
+    db.refresh(b)
+    db.refresh(c)
+    assert a.car_number == 100
+    assert b.car_number == 101
+    assert c.car_number is None
+
+
+def test_a_racing_group_with_no_configured_range_is_skipped_entirely(
+    db: Session,
+) -> None:
+    """A racing group created with no `car_number_range_start` has nothing
+    to draw a number from either — the same "left unnumbered" outcome as an
+    ungrouped racer, but reached through the group's own configuration
+    rather than the racer's.
+    """
+    race = _race(db, models.CarNumberingStrategy.PER_GROUP)
+    unconfigured = crud.create_racing_group(
+        db,
+        schemas.RacingGroupCreate(name="Tigers", color="#FF8C00"),
+        race_id=race.id,
+    )
+
+    racer = _racer(db, race, "Ace", "Bolt", racing_group_id=unconfigured.id)
+
+    updated = crud.auto_number_racers(db, race.id, racer_ids=[racer.id])
+
+    assert updated == 0
+    db.refresh(racer)
+    assert racer.car_number is None

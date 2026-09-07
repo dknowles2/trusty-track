@@ -49,6 +49,42 @@ describe('pageForElapsed', () => {
     it('does not divide by a zero interval', () => {
         expect(pageForElapsed(5000, 0, 4)).toBe(0);
     });
+
+    // The one call site (`StandingsOnlyView.tsx`) always derives its page
+    // count from `pageCount(itemCount, pageSize)` and hands that straight to
+    // `pageForElapsed` as `count` — the two are only correct together
+    // because that pairing holds. Nothing before this pinned that a page
+    // index can never come out ahead of (or behind) the count that produced
+    // it, which is exactly the kind of thing `test_domain_scheduling.py`
+    // sweeps rather than trusts from reading the arithmetic. A page index
+    // outside `[0, count)` would mean `pageSlice` renders past the end of
+    // the standings, or before its start.
+    it('stays in range for pageCount(itemCount, pageSize) across a sweep of inputs', () => {
+        const itemCounts = [0, 1, 2, 3, 5, 7, 10, 23, 40];
+        const pageSizes = [0, 1, 2, 3, 5, 8, 10, 15];
+        const cycleMses = [0, 1, 100, 5000, 10000];
+        // Elapsed time is unbounded in practice — a projector left running
+        // for hours — so this sweeps well past any one cycle to catch a
+        // wraparound bug the first cycle alone would not show.
+        const elapsedSamples = [0, 1, 500, 4999, 5000, 9999, 10000, 10001, 54321, 999999];
+
+        for (const itemCount of itemCounts) {
+            for (const pageSize of pageSizes) {
+                const count = pageCount(itemCount, pageSize);
+                // `pageCount` promises at least one page always.
+                expect(count).toBeGreaterThanOrEqual(1);
+
+                for (const cycleMs of cycleMses) {
+                    for (const elapsedMs of elapsedSamples) {
+                        const page = pageForElapsed(elapsedMs, cycleMs, count);
+                        expect(page).toBeGreaterThanOrEqual(0);
+                        expect(page).toBeLessThan(count);
+                        expect(Number.isInteger(page)).toBe(true);
+                    }
+                }
+            }
+        }
+    });
 });
 
 describe('pageSlice', () => {

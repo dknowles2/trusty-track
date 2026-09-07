@@ -13,11 +13,16 @@ import { join } from 'node:path';
  * setting into a shortened string (`formatDisplayName`) or decides whether
  * a photo may show (`shouldShowRacerPhoto`). This guard is the enforcement
  * half, in the spirit of `terminologyGuard.test.ts`'s AST walk: rather than
- * scanning the whole tree for a pattern, it pins two explicit, reasoned
+ * scanning the whole tree for a pattern, it pins three explicit, reasoned
  * lists — every surface known to abbreviate must still import at least one
- * of the two functions, and every operator surface named here must import
- * neither. Getting either list wrong in either direction is exactly the
- * failure this feature is built to avoid.
+ * of the two functions, every operator surface named here must import
+ * neither, and every public surface with no racer name on it yet is named
+ * too so it cannot quietly grow one unformatted. Getting any of the three
+ * wrong is exactly the failure this feature is built to avoid — and so is
+ * a surface reachable from the audience display that this file has simply
+ * never heard of, which is why every entry in `displayView.ts`'s
+ * `VIEW_OPTIONS` has a component named in exactly one of the three lists
+ * below.
  *
  * A file that merely imports `NAME_DISPLAY_OPTIONS` or the `NameDisplay`
  * type (the settings pages that render the picker itself: `SystemSettings.tsx`,
@@ -71,6 +76,26 @@ const ABBREVIATING_SURFACES: Record<string, string> = {
         'The check-in progress kiosk (#612) — a screen for the entrance or the gym wall, on the same public display route as the rest of Observation.tsx.',
     'features/observation/components/BroadcastOverlayView.tsx':
         'The OBS broadcast overlay (#616) — a stream reaches further than a gym wall, so this public surface abbreviates exactly like every other one on Observation.tsx.',
+    'features/observation/components/StandingsOnlyView.tsx':
+        'The `STANDINGS_ONLY` view (#663) — a dedicated leaderboard screen for a pack too big for one screenful, on the same public display route as the rest of Observation.tsx.',
+};
+
+/**
+ * Public audience surfaces that currently show no racer name at all, so
+ * neither list above quite describes them: unlike `OPERATOR_SURFACES` they
+ * are not a desk somebody is working from, and unlike `ABBREVIATING_SURFACES`
+ * there is nothing on screen yet for a resolved setting to shorten. Pinned
+ * here anyway, asserting the same "does not read the formatter" as an
+ * operator surface — not because that assertion is doing real work today
+ * (there is no name being shown correctly *or* incorrectly), but because an
+ * unenumerated file is exactly the gap this guard exists to close: a future
+ * change that adds a name to one of these screens without going through
+ * `formatDisplayName` would otherwise ship with nothing here noticing it was
+ * ever added to a *public* screen at all.
+ */
+const NO_NAME_PUBLIC_SURFACES: Record<string, string> = {
+    'features/observation/components/QRCodeDisplayView.tsx':
+        'The `QRCODE` view (#614) — a QR code, a URL and an optional Wi-Fi note. No racer is named on this screen.',
 };
 
 /**
@@ -107,6 +132,14 @@ describe('surfaces that abbreviate a racer name under the resolved setting (#552
 
 describe('operator surfaces that always show the full name (#552)', () => {
     for (const [path, reason] of Object.entries(OPERATOR_SURFACES)) {
+        it(`${path} does not read the formatter (${reason})`, () => {
+            expect(readsTheFormatter(contents(path))).toBe(false);
+        });
+    }
+});
+
+describe('public audience surfaces that currently show no racer name (#552)', () => {
+    for (const [path, reason] of Object.entries(NO_NAME_PUBLIC_SURFACES)) {
         it(`${path} does not read the formatter (${reason})`, () => {
             expect(readsTheFormatter(contents(path))).toBe(false);
         });
