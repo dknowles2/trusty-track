@@ -138,3 +138,45 @@ def test_upload_image_within_limit_succeeds() -> None:
 def test_max_upload_bytes_matches_production_cap() -> None:
     """MAX_UPLOAD_BYTES in schema matches the 16 MB production cap (#744)."""
     assert schema.MAX_UPLOAD_BYTES == 16 * 1024 * 1024
+
+
+def test_upload_image_refuses_unreadable_bytes() -> None:
+    """Garbage bytes used to reach Pillow's own `UnidentifiedImageError`
+    uncaught (#885); the resolver should refuse with a plain sentence, the
+    same shape every other refusal in this mutation already uses."""
+    mutation = schema.Mutation()
+
+    garbage_data_url = "data:image/jpeg;base64," + base64.b64encode(
+        b"not an image, just some text"
+    ).decode("ascii")
+
+    try:
+        mutation.upload_image(garbage_data_url)
+    except ValueError as err:
+        assert "not a photo" in str(err)
+    else:
+        raise AssertionError("Expected ValueError for unreadable image bytes")
+
+
+def test_upload_image_mutation_refuses_unreadable_bytes_via_graphql(
+    client: TestClient,
+) -> None:
+    """Same refusal, through the actual GraphQL round trip: an uncaught
+    `UnidentifiedImageError` used to surface as an opaque 500-shaped GraphQL
+    error rather than this message."""
+    garbage_data_url = "data:image/jpeg;base64," + base64.b64encode(
+        b"not an image, just some text"
+    ).decode("ascii")
+
+    response = client.post(
+        "/graphql",
+        json={
+            "query": "mutation($d: String!) { uploadImage(dataUrl: $d) }",
+            "variables": {"d": garbage_data_url},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "errors" in payload
+    assert "not a photo" in payload["errors"][0]["message"]

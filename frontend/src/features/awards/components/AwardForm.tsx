@@ -22,6 +22,7 @@ import {
   NamedRound,
   ALL_SOURCE,
   awardHolderWarning,
+  lastChampionshipRound,
   positionLabel,
   racerLabel,
   roundLabel,
@@ -102,7 +103,20 @@ export default function AwardForm({
   excludeAwardId = null,
 }: Props) {
   const { groupLower, orgLower, vehicleLower } = useTerminology();
-  const [draft, setDraft] = useState<AwardDraft>({ ...EMPTY, ...initial });
+  // A new speed award defaults to the race's last championship round rather
+  // than the qualifying standings, when the race has one (#862). "Pack
+  // Champion" created after Grand Finals almost always means the finals;
+  // `ALL_SOURCE` is the *qualifying* standings (#17, deliberately — a
+  // championship field is drawn from them, so folding the final back in
+  // would be circular), and defaulting to it silently announced the
+  // qualifying leader rather than the actual champion. Editing an existing
+  // award is unaffected: `initial` always wins, spread after this default.
+  const defaultSource = lastChampionshipRound(rounds);
+  const [draft, setDraft] = useState<AwardDraft>({
+    ...EMPTY,
+    source: defaultSource ? `ROUND:${defaultSource.id}` : ALL_SOURCE,
+    ...initial,
+  });
   // Which template the picker last applied, purely to show its blurb as help
   // text (#440) — the name and artwork fields it wrote are the only lasting
   // effect, and stay free text from the moment `applyTemplate` runs. Cleared
@@ -203,13 +217,27 @@ export default function AwardForm({
               onChange={(e) => set('source', e.target.value)}
               className="form-control"
             >
-              <option value={ALL_SOURCE}>Overall standings</option>
+              {/* Same wording as the Standings page's own selector (#862) —
+                  one vocabulary for one concept. "Overall" on its own reads,
+                  to a volunteer, as "the whole race, final included", which
+                  is the opposite of what it means. */}
+              <option value={ALL_SOURCE}>Overall (qualifying rounds)</option>
               {rounds.map((round) => (
                 <option key={round.id} value={`ROUND:${round.id}`}>
                   {roundLabel(round)}
                 </option>
               ))}
             </select>
+            {/* Shown only while Overall is picked, mirroring the Standings
+                page's own conditional note (#862) — the one place a speed
+                award decides who wins deserves the same warning that page
+                already gives about what "Overall" leaves out. */}
+            {(draft.source ?? ALL_SOURCE) === ALL_SOURCE && (
+              <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.3rem' }}>
+                Overall standings cover the qualifying rounds. Championship results are
+                listed separately — pick a round above.
+              </small>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>

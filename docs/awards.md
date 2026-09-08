@@ -24,9 +24,14 @@ from.
 You describe the award rather than naming a winner: *which standings*, *which
 end*, *which position*, and optionally *which den*.
 
-- **Standings to use** — the overall standings, or one round's. Pick a round for
-  the trophy that goes to the winner of the final; pick the overall standings
-  for a trophy based on the whole event.
+- **Standings to use** — **Overall (qualifying rounds)**, or one round's. These
+  are not the same thing: overall standings cover the qualifying rounds only —
+  a championship round's field is picked *from* those standings, so a final's
+  times never feed back into them (see [Scoring](reference/scoring.md)). A new
+  speed award defaults to the last championship round when the race has one,
+  since a "Pack Champion" trophy almost always means the winner of the final —
+  pick **Overall (qualifying rounds)** instead if you want the fastest
+  qualifier rather than the finalist.
 - **Counting from** — *The fastest car* or *The slowest car*. Most awards count
   from the fastest; see [The slowest car](#the-slowest-car) below.
 - **Position** — Fastest, 2nd, 3rd, and so on. Counting from the slowest, these

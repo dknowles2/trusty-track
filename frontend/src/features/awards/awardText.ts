@@ -18,6 +18,26 @@ export interface NamedRound {
   id: number;
   name?: string | null;
   roundNumber: number;
+  /** Non-null for a championship round — its field is drawn from the
+   * standings rather than being the roster (#862). Optional so the many
+   * existing call sites that never needed to tell the two apart stay
+   * unaffected; `AwardForm`'s default-source logic is the one reader. */
+  advancementSource?: string | null;
+}
+
+/** The last championship round in *rounds* (drawn from the standings, as
+ * opposed to a general round), by round number — or `null` if the race has
+ * none. `AwardForm` uses this to default a new speed award's standings
+ * source to the final rather than the qualifying standings (#862): a
+ * "Pack Champion" award created after Grand Finals almost always means the
+ * finals, and `ALL_SOURCE` — the qualifying standings (#17) — is what
+ * silently announced the wrong car when it was the unconditional default. */
+export function lastChampionshipRound(rounds: NamedRound[]): NamedRound | null {
+  const championshipRounds = rounds.filter((round) => Boolean(round.advancementSource));
+  if (championshipRounds.length === 0) return null;
+  return championshipRounds.reduce((latest, round) =>
+    round.roundNumber > latest.roundNumber ? round : latest,
+  );
 }
 
 export interface NamedRacingGroup {
