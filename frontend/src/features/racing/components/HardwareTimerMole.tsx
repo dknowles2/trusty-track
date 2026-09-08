@@ -28,9 +28,10 @@ function renderData(data: string): React.ReactNode {
 interface HardwareTimerMoleProps {
     trackId: number;
     timerType?: string | null;
+    docked?: boolean;
 }
 
-export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, timerType }) => {
+export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, timerType, docked = false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const logEndRef = useRef<HTMLDivElement>(null);
     const { showAlert } = useAlert();
@@ -86,17 +87,21 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
 
     return (
         <div
+            data-testid="hardware-timer-mole"
             style={{
-                position: 'fixed',
-                bottom: '30px',
-                right: '30px',
+                position: docked ? undefined : 'fixed',
+                bottom: docked ? undefined : '30px',
+                right: docked ? undefined : '30px',
+                marginTop: docked ? '20px' : undefined,
+                width: docked ? '100%' : undefined,
+                boxSizing: 'border-box',
                 background: 'var(--surface-color)',
                 padding: '20px',
                 borderRadius: '12px',
-                boxShadow: '0 5px 20px rgba(0,0,0,0.2)',
-                zIndex: 1000,
+                boxShadow: docked ? '0 2px 8px rgba(0,0,0,0.1)' : '0 5px 20px rgba(0,0,0,0.2)',
+                zIndex: docked ? undefined : 1000,
                 minWidth: '260px',
-                maxWidth: '420px',
+                maxWidth: docked ? '100%' : '420px',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '10px',

@@ -22,7 +22,9 @@ const COLLAPSED_KEY = 'trustytrack.fakeTimerMole.collapsed';
 
 function readCollapsed(): boolean {
     try {
-        return window.localStorage.getItem(COLLAPSED_KEY) === 'true';
+        const stored = window.localStorage.getItem(COLLAPSED_KEY);
+        if (stored !== null) return stored === 'true';
+        return false;
     } catch {
         return false;
     }
@@ -41,9 +43,10 @@ interface FakeTimerMoleProps {
     heatId: number;        // passed to both mutations
     trackId: number;       // scopes the timerStatus subscription
     isFreeRace?: boolean;
+    docked?: boolean;      // when true, renders in-flow inside right column instead of fixed overlay
 }
 
-export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, trackId, isFreeRace = false }) => {
+export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, trackId, isFreeRace = false, docked = false }) => {
     const { showAlert } = useAlert();
 
     // Expanded by default. Unlike the hardware panel's serial log — which is a
@@ -125,15 +128,19 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
     return (
         <div
             className="fake-timer-mole"
+            data-testid="fake-timer-mole"
             style={{
-                position: 'fixed',
-                bottom: '30px',
-                right: '30px',
+                position: docked ? undefined : 'fixed',
+                bottom: docked ? undefined : '30px',
+                right: docked ? undefined : '30px',
+                marginTop: docked ? '20px' : undefined,
+                width: docked ? '100%' : undefined,
+                boxSizing: 'border-box',
                 background: 'var(--surface-color)',
                 padding: '20px',
                 borderRadius: '12px',
-                boxShadow: '0 5px 20px rgba(0,0,0,0.2)',
-                zIndex: 1000,
+                boxShadow: docked ? '0 2px 8px rgba(0,0,0,0.1)' : '0 5px 20px rgba(0,0,0,0.2)',
+                zIndex: docked ? undefined : 1000,
                 minWidth: '260px',
                 display: 'flex',
                 flexDirection: 'column',

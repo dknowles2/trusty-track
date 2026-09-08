@@ -41,9 +41,9 @@ vi.mock('../../../components/ui/Modal', () => ({
 
 // Mock FakeTimerMole
 vi.mock('./FakeTimerMole', () => ({
-  FakeTimerMole: ({ isOpen }: any) =>
+  FakeTimerMole: ({ isOpen, docked }: any) =>
     isOpen ? (
-      <div data-testid="fake-timer-mole">
+      <div data-testid="fake-timer-mole" data-docked={docked ? 'true' : 'false'}>
         Fake Timer Controls
       </div>
     ) : null,
@@ -1504,6 +1504,30 @@ describe('RaceExecution', () => {
 
             expect(screen.queryByTestId('mock-modal')).not.toBeInTheDocument();
         });
+    });
+
+    it('docks the fake timer mole into the right column (#783)', () => {
+        const { getByTestId, queryByTestId, rerender } = render(
+            <RaceExecution
+                {...defaultProps}
+                timerType="FAKE"
+                activeExecutionHeat={{ ...mockHeat, lanes: [lane({ lane: 1, racerId: 101 })] }}
+            />
+        );
+
+        const rightCol = getByTestId('race-execution-right-column');
+        const mole = getByTestId('fake-timer-mole');
+        expect(rightCol).toContainElement(mole);
+        expect(mole).toHaveAttribute('data-docked', 'true');
+
+        rerender(
+            <RaceExecution
+                {...defaultProps}
+                timerType="NONE"
+                activeExecutionHeat={{ ...mockHeat, lanes: [lane({ lane: 1, racerId: 101 })] }}
+            />
+        );
+        expect(queryByTestId('fake-timer-mole')).not.toBeInTheDocument();
     });
 });
 

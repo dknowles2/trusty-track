@@ -193,4 +193,20 @@ describe('collapsing the panel out of the way', () => {
             getItem.mockRestore();
         }
     });
+
+    it('renders with docked layout styles when docked=true (#783)', () => {
+        const { getByTestId, unmount } = renderWithProviders(
+            <FakeTimerMole isOpen heatId={1} trackId={1} docked={true} />
+        );
+
+        const mole = getByTestId('fake-timer-mole');
+        expect(mole).toHaveStyle({ width: '100%' });
+        expect(mole.style.position).toBe('');
+        unmount();
+
+        const { getByTestId: getByTestIdFloating } = renderWithProviders(
+            <FakeTimerMole isOpen heatId={1} trackId={1} docked={false} />
+        );
+        expect(getByTestIdFloating('fake-timer-mole')).toHaveStyle({ position: 'fixed' });
+    });
 });

@@ -920,7 +920,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 </div>
 
                 {/* RIGHT COLUMN: On Deck */}
-                <div>
+                <div
+                    data-testid="race-execution-right-column"
+                >
                     <h3 style={{ marginTop: 0, marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-heading-alt-color)' }}>
                         <Icon path={mdiChevronDoubleRight} size={1} /> On Deck
                     </h3>
@@ -1019,6 +1021,16 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 ))}
                             </div>
                         </div>
+                    )}
+                    <FakeTimerMole
+                        isOpen={showFakeControls}
+                        heatId={activeExecutionHeat.id}
+                        trackId={trackId ?? 0}
+                        docked={true}
+                    />
+
+                    {showHardwareMole && trackId != null && (
+                        <HardwareTimerMole trackId={trackId} timerType={timerType} docked={true} />
                     )}
                 </div>
             </div>
@@ -1300,18 +1312,6 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     </div>
                 </div>
             </Modal>
-
-            {/* Fake Timer Mole */}
-            <FakeTimerMole
-                isOpen={showFakeControls}
-                heatId={activeExecutionHeat.id}
-                trackId={trackId ?? 0}
-            />
-
-            {/* Hardware Timer Mole */}
-            {showHardwareMole && trackId != null && (
-                <HardwareTimerMole trackId={trackId} timerType={timerType} />
-            )}
         </>
     );
 };
