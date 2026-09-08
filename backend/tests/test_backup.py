@@ -292,6 +292,43 @@ class TestRefusingAnArchive:
         with pytest.raises(backup.ArchiveError, match="unexpected file"):
             self._restore(archive, data_dir)
 
+    def test_a_database_member_larger_than_the_cap_is_refused(
+        self, data_dir: Path, source_engine, monkeypatch
+    ) -> None:
+        # The declared size is checked before anything is unpacked, the same
+        # "refuse before anything moves" discipline as the schema check
+        # above (#888).
+        monkeypatch.setattr(backup, "MAX_ARCHIVE_DATABASE_BYTES", 4)
+        archive = _make_archive(data_dir, source_engine)
+        with pytest.raises(backup.ArchiveError, match="larger than this install accepts"):
+            self._restore(archive, data_dir)
+
+    def test_an_upload_member_larger_than_the_cap_is_refused(
+        self, data_dir: Path, source_engine, monkeypatch
+    ) -> None:
+        (data_dir / "uploads" / "racer.png").write_bytes(b"a rather large photograph")
+        monkeypatch.setattr(backup, "MAX_ARCHIVE_UPLOAD_BYTES", 4)
+        archive = _make_archive(data_dir, source_engine)
+        with pytest.raises(backup.ArchiveError, match="larger than this install accepts"):
+            self._restore(archive, data_dir)
+
+    def test_an_oversized_member_is_refused_before_anything_is_staged(
+        self, data_dir: Path, source_engine, monkeypatch
+    ) -> None:
+        # Everything refusable is refused before anything moves. A member
+        # over the cap must not leave partial bytes sitting in the staging
+        # directory the backup exists to protect.
+        (data_dir / "uploads" / "racer.png").write_bytes(b"a rather large photograph")
+        monkeypatch.setattr(backup, "MAX_ARCHIVE_UPLOAD_BYTES", 4)
+        archive = _make_archive(data_dir, source_engine)
+
+        with pytest.raises(backup.ArchiveError):
+            self._restore(archive, data_dir)
+
+        assert not (data_dir / "staging").exists() or not any(
+            (data_dir / "staging").iterdir()
+        )
+
     def test_an_archive_with_no_database(self, data_dir: Path) -> None:
         buffer = io.BytesIO()
         manifest = backup.Manifest(
@@ -513,3 +550,71 @@ class TestWhoMayCall:
         # in production and 404s in development — the same trap the printables
         # barcode carries a comment about.
         assert client.get("/backup").status_code == 200
+
+
+class TestOtherDevicesLearnOfARestore:
+    """A restore replaces every race in the room at once — the strongest case
+    there is for the same `racesChanged` signal `createRace`, `updateRace`,
+    `deleteRace` and `createPracticeRace` already publish (#300, #888).
+    Without it, a wall display, the check-in tablet or a second operator tab
+    keeps rendering the replaced event with nothing telling it to refetch.
+    """
+
+    @pytest.fixture(autouse=True)
+    def isolated_data_dir(self, tmp_path: Path, monkeypatch, source_engine):
+        uploads = tmp_path / "endpoint-uploads"
+        uploads.mkdir()
+        monkeypatch.setattr("backend.api.main.UPLOAD_DIR", str(uploads))
+        monkeypatch.setattr("backend.api.main.DATA_DIR", str(tmp_path))
+        monkeypatch.setattr("backend.api.main.engine", source_engine)
+        monkeypatch.setattr(
+            "backend.api.main.database_path",
+            lambda: Path(source_engine.url.database),
+        )
+        monkeypatch.setattr("backend.api.main.init_db", lambda: None)
+        monkeypatch.setattr("backend.api.main.TIMER_MANAGERS", {})
+
+    def test_a_successful_restore_publishes_races_changed(
+        self, client, data_dir: Path, source_engine, monkeypatch
+    ) -> None:
+        archive_path = _make_archive(data_dir, source_engine)
+
+        publishes: list[None] = []
+
+        async def _fake_publish() -> None:
+            publishes.append(None)
+
+        monkeypatch.setattr("backend.api.main._publish_races_list", _fake_publish)
+
+        response = client.post(
+            "/api/backup/restore",
+            files={
+                "file": (
+                    "backup.zip",
+                    archive_path.read_bytes(),
+                    "application/zip",
+                )
+            },
+        )
+
+        assert response.status_code == 200, response.text
+        assert publishes == [None]
+
+    def test_a_refused_restore_does_not_publish(
+        self, client, monkeypatch
+    ) -> None:
+        """Nothing moved, so there is nothing for another tab to learn."""
+        publishes: list[None] = []
+
+        async def _fake_publish() -> None:
+            publishes.append(None)
+
+        monkeypatch.setattr("backend.api.main._publish_races_list", _fake_publish)
+
+        response = client.post(
+            "/api/backup/restore",
+            files={"file": ("holiday.jpg", b"not a backup", "image/jpeg")},
+        )
+
+        assert response.status_code == 400
+        assert publishes == []

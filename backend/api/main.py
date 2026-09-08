@@ -39,7 +39,7 @@ from strawberry.fastapi import GraphQLRouter
 from backend import demo_content, demo_mode
 from backend.api import auth
 from backend.api.loaders import RequestLoaders
-from backend.api.schema import MAX_UPLOAD_BYTES, schema
+from backend.api.schema import MAX_UPLOAD_BYTES, _publish_races_list, schema
 from backend.db import crud, models
 from backend.db.database import (
     DATA_DIR,
@@ -815,6 +815,15 @@ async def restore_backup(
     # same path a pre-Alembic database already takes at startup.
     init_db()
     await initialize_timer_managers(TIMER_MANAGERS, session_factory=SessionLocal)
+
+    # Every race in the room just changed underneath whoever is looking at
+    # one — a wall display, the check-in tablet, a second operator tab. The
+    # same signal `createRace`/`updateRace`/`deleteRace`/`createPracticeRace`
+    # already publish (#300), for the same reason: without it, a normalized
+    # cache elsewhere keeps rendering the replaced event with nothing telling
+    # it to refetch, and a restore replacing every race at once is the
+    # strongest case there is for sending it (#888).
+    await _publish_races_list()
 
     # Recorded *after* the swap and through a new session, which is the whole
     # subtlety here: the request's own session was closed and its database has

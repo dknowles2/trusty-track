@@ -4165,11 +4165,20 @@ def cast_vote(db: Session, award_id: int, racer_id: int, ballot_key: str) -> str
     caller with no other feedback needs told in a sentence, not a stack trace
     from a phone that has no console open.
 
-    A retried submission — the same ``ballot_key`` for the same award — is
-    silently accepted rather than refused a second time: the `IntegrityError`
-    from ``uq_award_ballot`` is caught and treated as success. The guard is
-    against a doubled click or a retried request, never against a second vote
-    from the same device (#305) — a fresh key is a new ballot.
+    A retried submission — the same ``ballot_key`` for the same award, naming
+    the *same* car — is silently accepted rather than refused a second time:
+    the `IntegrityError` from ``uq_award_ballot`` is caught and treated as
+    success. The guard is against a doubled click or a retried request, never
+    against a second vote from the same device (#305) — a fresh key is a new
+    ballot.
+
+    A reused key naming a *different* car is not that request (#868): the
+    doubled-click case is one submission arriving twice with identical
+    contents, and this one disagrees with the ballot already on file. Letting
+    it through silently would mean "success" no longer means "your vote for
+    this car is in" — the one thing a voter relies on — so it is refused with
+    the ordinary already-voted message instead, and nothing is recorded for
+    the second racer.
     """
     award = db.query(models.Award).filter(models.Award.id == award_id).first()
     if award is None:
@@ -4201,6 +4210,16 @@ def cast_vote(db: Session, award_id: int, racer_id: int, ballot_key: str) -> str
         db.commit()
     except IntegrityError:
         db.rollback()
+        existing = (
+            db.query(models.AwardVote)
+            .filter(
+                models.AwardVote.award_id == award_id,
+                models.AwardVote.ballot_key == ballot_key,
+            )
+            .first()
+        )
+        if existing is not None and existing.racer_id != racer_id:
+            return "This ballot has already been cast for a different car."
     return None
 
 

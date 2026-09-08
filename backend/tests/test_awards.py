@@ -583,6 +583,25 @@ class TestVoting:
 
         assert crud.vote_counts_for_awards(db, [award.id]) == {award.id: {racers[0]: 1}}
 
+    def test_a_retried_submission_naming_a_different_car_is_refused(self, db):
+        # A reused ballot_key with a *different* racer is not the doubled
+        # click or retried request the idempotency guard exists for (#868) —
+        # it must not report success while recording nothing.
+        race_id, _dens, racers = build_race(db)
+        award = self._votable_award(db, race_id)
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        race.voting_open = True
+        db.commit()
+
+        assert crud.cast_vote(db, award.id, racers[0], "same-key") is None
+
+        reason = crud.cast_vote(db, award.id, racers[1], "same-key")
+
+        assert reason is not None
+        assert crud.vote_counts_for_awards(db, [award.id]) == {
+            award.id: {racers[0]: 1}
+        }
+
     def test_a_shared_device_may_vote_more_than_once(self, db):
         # No per-device lock, by decision: the primary use case is one iPad
         # shared by many voters (#305).

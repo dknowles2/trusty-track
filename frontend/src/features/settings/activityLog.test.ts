@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { byDay, detailPairs, humanise, localDay, roleLabel, type LogEntry } from './activityLog';
+import {
+    appendPage,
+    byDay,
+    detailPairs,
+    hasAnotherPage,
+    humanise,
+    localDay,
+    roleLabel,
+    type LogEntry,
+} from './activityLog';
 
 const entry = (over: Partial<LogEntry> & { id: number; at: string }): LogEntry => ({
     action: 'createRace',
@@ -106,6 +115,16 @@ describe('detailPairs', () => {
     it('renders a number as text rather than dropping it', () => {
         expect(detailPairs('{"heatId": 4}')).toEqual([{ label: 'Heat id', value: '4' }]);
     });
+
+    it('drops a refusal reason, which the summary sentence already carries', () => {
+        // `domain/audit.describe` folds this into the bolded summary itself
+        // ("Deleted a round — refused: VIEWER is not allowed to run
+        // deleteRound", #889) — showing it again in the details line below
+        // would say the same thing twice.
+        expect(
+            detailPairs('{"id": 4, "reason": "VIEWER is not allowed to run deleteRound"}'),
+        ).toEqual([{ label: 'Id', value: '4' }]);
+    });
 });
 
 describe('humanise', () => {
@@ -121,6 +140,42 @@ describe('humanise', () => {
 
     it('leaves a plain key alone but for its capital', () => {
         expect(humanise('id')).toBe('Id');
+    });
+});
+
+describe('appendPage', () => {
+    it('replaces the list for a fresh first page', () => {
+        const loaded = [entry({ id: 1, at: '2026-08-09T00:00:00Z' })];
+        const page = [entry({ id: 9, at: '2026-08-09T00:00:00Z' })];
+
+        expect(appendPage(loaded, page, true)).toEqual(page);
+    });
+
+    it('appends onto what is already on screen when continuing', () => {
+        const loaded = [entry({ id: 9, at: '2026-08-09T00:00:00Z' })];
+        const page = [entry({ id: 1, at: '2026-08-08T00:00:00Z' })];
+
+        expect(appendPage(loaded, page, false)).toEqual([...loaded, ...page]);
+    });
+});
+
+describe('hasAnotherPage', () => {
+    it('says yes when a full page came back', () => {
+        const page = Array.from({ length: 200 }, (_, i) =>
+            entry({ id: i, at: '2026-08-09T00:00:00Z' }),
+        );
+
+        expect(hasAnotherPage(page, 200)).toBe(true);
+    });
+
+    it('says no once a page comes back short', () => {
+        const page = [entry({ id: 1, at: '2026-08-09T00:00:00Z' })];
+
+        expect(hasAnotherPage(page, 200)).toBe(false);
+    });
+
+    it('says no for an empty page', () => {
+        expect(hasAnotherPage([], 200)).toBe(false);
     });
 });
 

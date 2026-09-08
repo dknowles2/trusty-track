@@ -234,9 +234,13 @@ Three things worth knowing:
 
 - **Heat results say how they arrived** — *recorded by the timer*, or
   *entered by hand*. That is the distinction a disputed time turns on.
-- **Refusals are recorded too**, in red — a check-in device trying to delete
-  a round appears, though nothing was deleted.
+- **Refusals are recorded too**, in red, and say why — a check-in device
+  trying to delete a round reads differently from the same attempt on the
+  public demo or against a locked race, though nothing was deleted any of
+  the three ways.
 - **No PIN is ever written down.**
+- **Load older entries** at the foot of the page reaches further back than
+  what is shown at first.
 
 The log is operator-only. The rest of the rules — how long it keeps, what
 survives a race deletion — are in

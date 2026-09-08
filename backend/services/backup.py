@@ -48,6 +48,29 @@ MANIFEST_NAME = "manifest.json"
 DATABASE_NAME = "trusty-track.db"
 UPLOADS_PREFIX = "uploads/"
 
+#: The most a restored database snapshot may be, declared or actual.
+#:
+#: Unlike a photograph, nothing else in this app already caps how large a
+#: SQLite file can grow, so this is a fresh number rather than a reused one:
+#: generous — comfortably above anything a real install's database has ever
+#: been observed to reach — and nowhere near the "tens of gigabytes" an
+#: unchecked member could otherwise stage into the data directory the backup
+#: exists to protect.
+MAX_ARCHIVE_DATABASE_BYTES = 500 * 1024 * 1024
+
+#: The most a single `uploads/` member may be, declared or actual.
+#:
+#: Not imported from `api/main.py`'s `MAX_UPLOAD_BYTES` — this module
+#: imports nothing from the app, by design, so the tests here can exercise a
+#: real restore with no server running. The value is the same for the same
+#: reason it would be if it were shared: every legitimate archive's uploads
+#: are photographs `POST /upload/`/`uploadImage` themselves already refused
+#: past this size, so nothing a real backup produced can ever trip it.
+MAX_ARCHIVE_UPLOAD_BYTES = 16 * 1024 * 1024
+
+#: How much is read at a time while enforcing the caps above.
+_ARCHIVE_COPY_CHUNK = 1024 * 1024
+
 #: Where the previous database and uploads go when a restore replaces them.
 #: One level of undo, deliberately: the common mistake is restoring the wrong
 #: file and noticing immediately, and an unbounded history of 60-photo
@@ -246,8 +269,62 @@ def check_restorable(manifest: Manifest, known_revisions: Iterable[str]) -> None
         )
 
 
+def _max_declared_bytes(name: str) -> int:
+    """The cap a member's own name puts it under."""
+    return MAX_ARCHIVE_DATABASE_BYTES if name == DATABASE_NAME else MAX_ARCHIVE_UPLOAD_BYTES
+
+
+def _refuse_if_oversized(name: str, declared_bytes: int) -> None:
+    """A fast pre-check on a member's *declared* size, before anything is
+    unpacked — the same "refuse before anything moves" shape as
+    ``check_restorable``'s manifest check. It is not the defence that
+    actually matters: a zip entry's declared size is metadata the archive
+    supplies about itself, and Python's own zip reader does not bound a read
+    by it, so a hand-built entry could in principle claim almost nothing and
+    still decompress to far more. ``_copy_capped`` below is what enforces the
+    cap against what is actually read, chunk by chunk, regardless of what
+    this check found. This one exists so an honestly-labelled oversized
+    member — the ordinary way this actually happens, an install whose photos
+    grew large, or a hand-edited archive — is refused without spending the
+    time to unpack it first.
+    """
+    limit = _max_declared_bytes(name)
+    if declared_bytes > limit:
+        raise ArchiveError(
+            f"This backup's {name} is larger than this install accepts "
+            f"({limit // (1024 * 1024)} MB), so it was refused before "
+            "anything was written."
+        )
+
+
+def _copy_capped(source: IO[bytes], destination: IO[bytes], name: str) -> None:
+    """Copy ``source`` to ``destination``, refusing once the cap for ``name``
+    is exceeded.
+
+    Chunked and measured while reading — the same rule ``_read_capped`` in
+    ``api/main.py`` and ``MaxGraphQLBodySizeMiddleware`` already follow for
+    an upload and a GraphQL request body — rather than trusting the zip
+    entry's own declared ``file_size``, which `_refuse_if_oversized` above
+    already explains cannot be relied on alone. This is the check that
+    actually stops an archive from staging more than its cap into the data
+    directory the backup exists to protect.
+    """
+    limit = _max_declared_bytes(name)
+    total = 0
+    while chunk := source.read(_ARCHIVE_COPY_CHUNK):
+        total += len(chunk)
+        if total > limit:
+            raise ArchiveError(
+                f"This backup's {name} is larger than this install accepts "
+                f"({limit // (1024 * 1024)} MB), so it was refused before "
+                "anything was written."
+            )
+        destination.write(chunk)
+
+
 def _safe_members(archive: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
-    """The archive's entries, refusing anything that would write outside it.
+    """The archive's entries, refusing anything that would write outside it
+    or that declares itself larger than this install accepts.
 
     An archive arrives from whoever is holding the operator PIN, and a zip entry
     named ``../../etc/something`` is the oldest trick there is. Names are
@@ -260,6 +337,8 @@ def _safe_members(archive: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
         if name.endswith("/"):
             continue
         if name in (MANIFEST_NAME, DATABASE_NAME):
+            if name == DATABASE_NAME:
+                _refuse_if_oversized(name, info.file_size)
             members.append(info)
             continue
         if not name.startswith(UPLOADS_PREFIX):
@@ -269,6 +348,7 @@ def _safe_members(archive: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
             raise ArchiveError(f"This backup contains an unexpected file: {name}")
         if relative in (".", "..") or Path(relative).is_absolute():
             raise ArchiveError(f"This backup contains an unexpected file: {name}")
+        _refuse_if_oversized(name, info.file_size)
         members.append(info)
     return members
 
@@ -338,11 +418,11 @@ def restore_archive(
                     continue
                 if info.filename == DATABASE_NAME:
                     with zf.open(info) as src, open(staged_database, "wb") as dst:
-                        shutil.copyfileobj(src, dst)
+                        _copy_capped(src, dst, info.filename)
                     continue
                 name = info.filename[len(UPLOADS_PREFIX) :]
                 with zf.open(info) as src, open(staged_uploads / name, "wb") as dst:
-                    shutil.copyfileobj(src, dst)
+                    _copy_capped(src, dst, info.filename)
 
         staged_revision = _revision_of(staged_database)
         if staged_revision is None:

@@ -37,8 +37,11 @@ Trusty Track asks before it does anything, and names the file it is about to
 restore. Confirming replaces **everything** currently in the app.
 
 The page reloads afterwards. Any other screen — a display on the wall, the
-check-in tablet — needs reloading too, because it is still showing the event you
-just replaced.
+check-in tablet, a second operator tab — notices the race list changed and
+refreshes it on its own, so a race picker never goes stale. If a screen was
+open to one particular race, though, it stays there rather than leaving on
+its own — that race's id may now belong to something else entirely — so
+reload it by hand once the restore is done.
 
 ### Undoing a restore
 

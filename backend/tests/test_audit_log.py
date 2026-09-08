@@ -176,6 +176,36 @@ class TestRefusals:
 
         assert db.query(models.Race).count() == before
 
+    def test_the_refusal_records_which_policy_turned_it_away(self, client, db):
+        """`RolePolicyExtension`'s own message, not just the fact of a
+        refusal — the same entry used to look identical whether a viewer, the
+        demo, or a race lock was the reason (#889)."""
+        client.post(
+            "/graphql",
+            json={"query": "mutation { deleteRace(id: 1) }"},
+            headers={"x-trustytrack-pin": "2222"},
+        )
+
+        details = json.loads(entries(db, "deleteRace")[0].details)
+        assert details["reason"] == "CHECKIN is not allowed to run deleteRace"
+
+    def test_two_different_refusals_read_differently(self, client, db):
+        """The one question a dispute about a refused action asks."""
+        client.post(
+            "/graphql",
+            json={"query": "mutation { deleteRace(id: 1) }"},
+            headers={"x-trustytrack-pin": "2222"},
+        )
+        # No PIN at all: a VIEWER, refused for a different reason than the
+        # CHECKIN desk was above.
+        client.post("/graphql", json={"query": "mutation { deleteRace(id: 2) }"})
+
+        checkin_reason = json.loads(entries(db, "deleteRace")[0].details)["reason"]
+        viewer_reason = json.loads(entries(db, "deleteRace")[1].details)["reason"]
+        assert checkin_reason != viewer_reason
+        assert "CHECKIN" in checkin_reason
+        assert "VIEWER" in viewer_reason
+
 
 class TestTheHeatResultSeam:
     """The route a mutation-only log would miss entirely."""

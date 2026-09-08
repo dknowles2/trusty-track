@@ -21,8 +21,13 @@ The file is named for the moment it was taken.
 
 Restoring replaces **everything** currently in the app with the backup's
 contents, then reloads the page. Every other screen — displays, the
-check-in tablet — needs reloading too, since they are still showing the
-event that was just replaced.
+check-in tablet, a second operator tab — learns the race list itself
+changed and refreshes it on its own, so a race picker or a browser tab
+title never goes stale. A screen that was showing one specific race,
+though — a display's Live view, Race Control open to a particular event —
+does not leave that page by itself, since the race id it was showing may
+now belong to something else entirely. Reload those by hand once the
+restore is done.
 
 Nothing is touched unless the whole file checks out first, so a refusal
 costs nothing.
