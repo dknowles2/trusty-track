@@ -80,7 +80,13 @@ def _official_heat(db, race, racers):
 def _racers(db, race, *names):
     return [
         crud.create_racer(
-            db, schemas.RacerCreate(first_name=n, last_name="R", race_id=race.id)
+            db,
+            schemas.RacerCreate(
+                first_name=n,
+                last_name="R",
+                race_id=race.id,
+                car_passed_inspection=True,
+            ),
         )
         for n in names
     ]
