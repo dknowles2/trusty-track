@@ -4586,6 +4586,13 @@ class Mutation:
         else. Under `POINTS` that would make their score *better*, so a
         disrupted round is dropped from `POINTS` standings; under `TIMED`,
         which averages, it still counts.
+
+        Refused, before any outage row is written, if it would leave an
+        unraced elimination or balanced round with fewer than two usable
+        lanes — those formats need an opponent, and `crud.set_lane_outages`
+        raises naming the round rather than the change being committed and
+        the "nobody has raced it" case above raising three calls later with
+        the outages already in place and nothing to say why (#877).
         """
         db = info.context["db"]
         outages = crud.set_lane_outages(db, track_id, lanes)
@@ -4737,6 +4744,13 @@ class Mutation:
         Shrinking `lane_count` is brought into line the same way `setLaneOutages`
         brings a newly out-of-service lane into line (#325): existing heats can
         hold racers on lanes that no longer exist, and nothing else notices.
+
+        Refuses the whole update — before anything is written — if shrinking
+        would leave an unraced elimination or balanced round with fewer than
+        two usable lanes; see `crud.guard_against_stranding_a_round` (#877).
+        Checked ahead of `crud.update_track` rather than after, so a refusal
+        leaves the track's row untouched instead of landing with the new
+        `lane_count` already committed and only the schedule left stale.
         """
         db = info.context["db"]
         db_track = crud.get_track(db, id)
@@ -4747,6 +4761,14 @@ class Mutation:
         old_serial_port = db_track.serial_port
         old_profile = db_track.timer_profile
         old_lane_count = db_track.lane_count
+
+        if track.lane_count < old_lane_count:
+            crud.guard_against_stranding_a_round(
+                db,
+                id,
+                lane_count=track.lane_count,
+                out_of_service=crud.lane_outages_for_track(db, id),
+            )
 
         track_update = schemas.TrackBase(**typing.cast(Any, strawberry.asdict(track)))
         updated_track = typing.cast(Any, crud.update_track(db, db_track, track_update))

@@ -236,3 +236,126 @@ class TestDeleteHeatRenumbering:
         db.refresh(heat3)
         assert heat1.heat_number == 1
         assert heat3.heat_number == 2
+
+
+def _second_race(
+    db: Session, lane_count: int = 4
+) -> tuple[models.Race, list[models.Racer]]:
+    """A second, unrelated race — same organization and track are fine, since
+    the bug this guards is about `round_id IS NULL` matching across every
+    race in the *database*, not about anything track- or org-scoped."""
+    org = crud.create_organization(db, schemas.OrganizationCreate(name="Pack 2"))
+    track = crud.create_track(
+        db,
+        schemas.TrackCreate(name="Track 2", lane_count=lane_count, timer_type="FAKE"),
+    )
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            name="Race 2",
+            organization_id=org.id,
+            track_id=track.id,
+        ),
+    )
+    racers = [
+        crud.create_racer(
+            db,
+            schemas.RacerCreate(
+                first_name=f"Other{i}",
+                last_name="Test",
+                race_id=race.id,
+                car_passed_inspection=True,
+            ),
+        )
+        for i in range(lane_count)
+    ]
+    return race, racers
+
+
+class TestDeleteHeatRoundlessCrossRace:
+    """A FREE or RUN_OFF heat has ``round_id = None`` — #878.
+
+    Comparing a column to ``None`` compiles to ``IS NULL``, so a query meant
+    to mean "this heat's round" instead matches every round-less heat of
+    every race the install has ever run. `deleteHeat` reaches a round-less
+    heat because its resolver takes no ``kind`` (#550 made run-off heats
+    newly reachable there); the dedicated `deleteFreeRaceHeat` and
+    `deleteRunOffHeat` mutations go through `crud.delete_free_race_heat` and
+    `crud.delete_run_off_heat` instead, neither of which renumbers anything.
+    """
+
+    def test_deleting_a_free_heat_leaves_another_races_free_heats_untouched(
+        self, db: Session
+    ) -> None:
+        race_a, round_a, racers_a = _setup_race(db)
+        heat_a1 = crud.create_free_race_heat(
+            db,
+            race_a.id,
+            [lanes.Lane(lane=1, racer_id=racers_a[0].id)],
+        )
+        heat_a2 = crud.create_free_race_heat(
+            db,
+            race_a.id,
+            [lanes.Lane(lane=1, racer_id=racers_a[1].id)],
+        )
+        assert heat_a1.heat_number == 1
+        assert heat_a2.heat_number == 2
+
+        race_b, racers_b = _second_race(db)
+        b_heats = [
+            crud.create_free_race_heat(
+                db, race_b.id, [lanes.Lane(lane=1, racer_id=racers_b[i].id)]
+            )
+            for i in range(3)
+        ]
+        b_numbers_before = [h.heat_number for h in b_heats]
+        assert b_numbers_before == [1, 2, 3]
+
+        assert crud.delete_heat(db, heat_a1.id) is True
+
+        for heat, before in zip(b_heats, b_numbers_before, strict=True):
+            db.refresh(heat)
+            assert heat.heat_number == before, (
+                "deleting a free heat in another race renumbered this one"
+            )
+
+        # The round-less heat's own number is a label, not a sequence to
+        # compact: the survivor in race A keeps the number it already had.
+        db.refresh(heat_a2)
+        assert heat_a2.heat_number == 2
+
+    def test_deleting_a_free_heat_leaves_another_races_run_off_heats_untouched(
+        self, db: Session
+    ) -> None:
+        race_a, round_a, racers_a = _setup_race(db)
+        heat_a1 = crud.create_free_race_heat(
+            db,
+            race_a.id,
+            [lanes.Lane(lane=1, racer_id=racers_a[0].id)],
+        )
+        heat_a2 = crud.create_free_race_heat(
+            db,
+            race_a.id,
+            [lanes.Lane(lane=1, racer_id=racers_a[1].id)],
+        )
+        assert heat_a1.heat_number == 1
+        assert heat_a2.heat_number == 2
+
+        race_b, racers_b = _second_race(db)
+        run_off_heats_b = [
+            crud.create_run_off_heat(
+                db, race_b.id, None, [racers_b[0].id, racers_b[1].id]
+            )
+            for _ in range(3)
+        ]
+        run_off_numbers_before = [h.heat_number for h in run_off_heats_b]
+        assert run_off_numbers_before == [1, 2, 3]
+
+        assert crud.delete_heat(db, heat_a1.id) is True
+
+        for heat, before in zip(run_off_heats_b, run_off_numbers_before, strict=True):
+            db.refresh(heat)
+            assert heat.heat_number == before, (
+                "deleting a free heat in another race renumbered a run-off "
+                "heat in a different one"
+            )
