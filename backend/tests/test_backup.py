@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import io
 import sqlite3
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -472,6 +473,52 @@ class TestRestoring:
     ) -> None:
         self._restore(archive, data_dir)
         assert not (data_dir / "staging").exists()
+
+
+class TestSpooledUploads:
+    """`starlette.UploadFile.file` — what a real restore request hands this
+    module through `api/main.py`'s `restore_backup` — is always a
+    `tempfile.SpooledTemporaryFile`, never the `io.BytesIO` or real `Path`
+    every other test in this file uses. Both of those already have a working
+    `seekable()` on every Python version this project supports; a
+    `SpooledTemporaryFile` does not, before 3.11 — and `pyproject.toml`'s
+    floor is 3.10, the same one a Raspberry Pi's system interpreter gives
+    you. `backup._ensure_seekable` is the fix; these are the regression it
+    exists for. Without it, both tests below fail on 3.10 with
+    ``AttributeError: 'SpooledTemporaryFile' object has no attribute
+    'seekable'`` — raised by `zipfile` itself the moment a member inside the
+    zip is opened — and pass on 3.12, which is exactly what the two-version
+    CI matrix (`.claude/rules/ci.md`) is for.
+    """
+
+    def _spooled_copy(self, path: Path) -> tempfile.SpooledTemporaryFile:
+        # Handed back open, the same shape `UploadFile.file` arrives in for
+        # the duration of a real request — a context manager here would
+        # close it before the caller ever gets to read it.
+        spooled: tempfile.SpooledTemporaryFile = tempfile.SpooledTemporaryFile()  # noqa: SIM115
+        spooled.write(path.read_bytes())
+        spooled.seek(0)
+        return spooled
+
+    def test_read_manifest_accepts_a_spooled_upload(
+        self, data_dir: Path, source_engine
+    ) -> None:
+        archive = _make_archive(data_dir, source_engine)
+        manifest = backup.read_manifest(self._spooled_copy(archive))
+        assert manifest.app_version == "1.2.3"
+
+    def test_restore_archive_accepts_a_spooled_upload(
+        self, data_dir: Path, source_engine
+    ) -> None:
+        archive = _make_archive(data_dir, source_engine)
+        manifest = backup.restore_archive(
+            self._spooled_copy(archive),
+            database_path=data_dir / "trusty-track.db",
+            upload_dir=data_dir / "uploads",
+            staging_dir=data_dir / "staging",
+            known_revisions=known_revisions(),
+        )
+        assert manifest.app_version == "1.2.3"
 
 
 class TestWhoMayCall:

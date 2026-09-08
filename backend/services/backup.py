@@ -212,8 +212,45 @@ def write_archive(
     return manifest
 
 
+def _ensure_seekable(source: IO[bytes] | Path) -> IO[bytes] | Path:
+    """Give ``source`` a working ``seekable()`` before it reaches ``zipfile``.
+
+    ``zipfile.ZipFile.open()`` reads ``.seekable`` straight off whatever it is
+    given (``_SharedFile.__init__`` in the standard library's ``zipfile.py``)
+    rather than going through a module-level ``io`` helper — so an object
+    that supports seeking but does not *advertise* it raises
+    ``AttributeError`` the moment a member inside the zip is opened, not when
+    the archive itself is. ``tempfile.SpooledTemporaryFile`` is exactly that
+    object on Python 3.10, this project's floor (``pyproject.toml``'s
+    ``requires-python``, and a Raspberry Pi's own system interpreter): it
+    proxies ``read``/``seek``/``tell``/``write`` explicitly but never grew
+    ``seekable``/``readable``/``writable`` until 3.11's "fully implements
+    ``io.IOBase``" rewrite. ``starlette.UploadFile.file`` — what
+    ``api/main.py``'s ``restore_backup`` hands this module — is always a
+    ``SpooledTemporaryFile``, so a real restore hit this on the very first
+    well-formed archive, on the one platform this project cares most about
+    getting right.
+
+    Safe to patch rather than route around: the file already supports every
+    operation ``seekable`` promises — a spooled file is always seek-and-tell
+    capable, on 3.10 exactly as on any later version — so this only supplies
+    an attribute a caller happens to be missing. It never changes what the
+    object can actually do, and is a no-op past 3.10 or for anything (an
+    ``io.BytesIO``, a real file) that already has the attribute.
+    """
+    if isinstance(source, Path) or hasattr(source, "seekable"):
+        return source
+    source.seekable = lambda: True  # type: ignore[method-assign]
+    if not hasattr(source, "readable"):
+        source.readable = lambda: True  # type: ignore[method-assign]
+    if not hasattr(source, "writable"):
+        source.writable = lambda: True  # type: ignore[method-assign]
+    return source
+
+
 def read_manifest(archive: IO[bytes] | Path) -> Manifest:
     """The manifest of an archive, or an `ArchiveError` explaining why not."""
+    archive = _ensure_seekable(archive)
     try:
         with zipfile.ZipFile(archive) as zf, zf.open(MANIFEST_NAME) as handle:
             raw = json.loads(handle.read().decode("utf-8"))
