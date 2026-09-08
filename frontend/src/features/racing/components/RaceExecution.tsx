@@ -386,8 +386,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     const handleResultChange = (index: number, field: 'time' | 'place', value: string) => {
         const newResults = [...editingResults];
-        if (field === 'time') newResults[index].timeText = value;
-        else if (field === 'place') {
+        if (field === 'time') {
+            newResults[index].timeText = value;
+            newResults[index].time = parseTimeText(value);
+        } else if (field === 'place') {
             // `min="1"` on the input below is not a fourth layer of
             // validation (#524): the field lives outside a <form> and Save is
             // a plain button, so the browser never runs constraint
@@ -404,6 +406,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
         }
         setEditingResults(newResults);
     };
+
 
 
     // #766: the first problem with what's on screen, checked live rather
@@ -1228,12 +1231,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             ? 'Manually enter finishing order for this heat. If a time was recorded, you can correct or clear it below too — it will not change the finishing order.'
                             : 'Manually update times for this heat.'}
                     </p>
-                    {/* #766: two identical hand-typed times are a real tie —
-                        `assignPlaces` still has to pick an order to save,
-                        breaking it by lane number, but the operator should
-                        know that happened rather than read a confident 2nd
-                        and 3rd that were actually a coin flip. Informational
-                        only; nothing here is wrong enough to block Save. */}
+                    {/* #766/#816: two identical hand-typed times are a real tie —
+                        they share a place (competition ranking, e.g. 1, 1, 3).
+                        Informational note for the operator; does not block Save. */}
                     {tiedTimes.length > 0 && (
                         <p
                             data-testid="tied-times-note"
@@ -1243,11 +1243,12 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             {tiedTimes
                                 .map(
                                     (group) =>
-                                        `Lanes ${group.lanes.join(' and ')} recorded the same time (${group.time.toFixed(4)}s) — their order below was picked by lane number, not decided.`,
+                                        `Lanes ${group.lanes.join(' and ')} recorded the same time (${group.time.toFixed(4)}s) — they share a place.`,
                                 )
                                 .join(' ')}
                         </p>
                     )}
+
                     <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
                         <thead>
                             <tr>

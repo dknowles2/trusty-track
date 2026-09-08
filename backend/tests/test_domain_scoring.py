@@ -89,6 +89,20 @@ def test_points_ignores_a_missing_place():
     assert scores[1].score == 2
 
 
+def test_points_scores_tied_heat_places():
+    """#816. Two racers sharing a place in a heat both score that placement."""
+    heats = [
+        _heat((1, 3.1, 1), (2, 3.1, 1), (3, 3.3, 3)),
+    ]
+    scores = score_heats(heats, POINTS)
+    assert scores[1].score == 1.0
+    assert scores[1].total_points == 1
+    assert scores[2].score == 1.0
+    assert scores[2].total_points == 1
+    assert scores[3].score == 3.0
+    assert scores[3].total_points == 3
+
+
 class TestPointsPenalisesAMissingPlacement:
     """#225. POINTS sums placements, so a missing one used to be a *reward* —
     the failure `counts_a_disrupted_round` guards, arriving by two more routes

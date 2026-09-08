@@ -446,6 +446,74 @@ def test_duplicate_places_are_refused(client, db, race, racer):
     assert [row.place for row in _lanes(db, heat.id)] == [None, None]
 
 
+def test_tied_places_with_matching_times_are_accepted(client, db, race, racer):
+    """Lanes sharing a place with identical recorded times are accepted (#816)."""
+    other = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Bea", last_name="B", race_id=race.id, car_passed_inspection=True
+        ),
+    )
+    heat = _heat(
+        db,
+        race,
+        [{"lane": 1, "racer_id": racer.id}, {"lane": 2, "racer_id": other.id}],
+    )
+
+    body = _post(
+        client,
+        UPDATE_HEAT_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [
+                lane_input(
+                    {"lane": 1, "racer_id": racer.id, "time": 3.123, "place": 1}
+                ),
+                lane_input(
+                    {"lane": 2, "racer_id": other.id, "time": 3.123, "place": 1}
+                ),
+            ],
+        },
+    )
+
+    assert "errors" not in body
+    assert [row.place for row in _lanes(db, heat.id)] == [1, 1]
+
+
+def test_tied_places_with_differing_times_are_refused(client, db, race, racer):
+    other = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Bea", last_name="B", race_id=race.id, car_passed_inspection=True
+        ),
+    )
+    heat = _heat(
+        db,
+        race,
+        [{"lane": 1, "racer_id": racer.id}, {"lane": 2, "racer_id": other.id}],
+    )
+
+    body = _post(
+        client,
+        UPDATE_HEAT_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [
+                lane_input(
+                    {"lane": 1, "racer_id": racer.id, "time": 3.123, "place": 1}
+                ),
+                lane_input(
+                    {"lane": 2, "racer_id": other.id, "time": 3.124, "place": 1}
+                ),
+            ],
+        },
+    )
+
+    assert "errors" in body
+    assert "Place 1 is assigned to more than one lane." in body["errors"][0]["message"]
+    assert [row.place for row in _lanes(db, heat.id)] == [None, None]
+
+
 def test_a_negative_place_is_refused_for_a_free_race_heat(client, db, race, racer):
     heat = crud.create_free_race_heat(
         db, race.id, as_lanes([{"lane": 1, "racer_id": racer.id}])
