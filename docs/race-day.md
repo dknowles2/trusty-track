@@ -426,7 +426,7 @@ _The Race Execution view showing the active heat with lane assignments. The On D
 How a heat starts depends on your track timer:
 
 - **With a hardware timer**: Trusty Track automatically prepares the timer for the next heat. Place the cars on the track and release them as normal — the timer records finish times automatically.
-- **With the fake timer** (for testing without a physical track): A **Fake Timer Controls** panel appears in the bottom-right corner. Once the heat is staged the panel reads "Ready to start" — click **Start Timer** to send the cars off. The heat then finishes on its own a few seconds later, or you can click **Finish Heat** to end it immediately.
+- **With the fake timer** (for testing without a physical track): A **Fake Timer Controls** panel appears below the current heat. Once the heat is staged the panel reads "Ready to start" — click **Start Timer** to send the cars off. The heat then finishes on its own a few seconds later, or you can click **Finish Heat** to end it immediately.
 - **With no timer at all**: nothing is armed and there is no "Waiting for Timer…" message — the main button on the heat is **Enter Results**, and hand entry is how every heat gets recorded. See [No timer](reference/race-settings.md#no-timer).
 
 ![Fake Timer Controls](assets/screenshots/race-day/13-fake-timer-controls.png)
