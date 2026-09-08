@@ -26,6 +26,7 @@ import {
 } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
+import { isSoundEffectEnabled, playFinishSound, playRecordBreakSound } from '../../audio/soundEffects';
 import { formatScaleMph } from '../scaleSpeed';
 import { runOffAnnouncement } from '../../racing/runOff';
 import { formatLaneTime } from '../../racing/lanes';
@@ -356,6 +357,18 @@ export default function Observation() {
       return () => clearTimeout(timer);
     }
   }, [showResultsOverlay, seenHeatResult, behaviour.overlay]);
+
+  // Play sound effects for heat finish or track record break (#554).
+  // Off by default on audience displays, remembered per device.
+  useEffect(() => {
+    if (showResultsOverlay && overlayData) {
+      if (overlayData.recordBreak && isSoundEffectEnabled('recordBreak')) {
+        playRecordBreakSound();
+      } else if (isSoundEffectEnabled('finish')) {
+        playFinishSound();
+      }
+    }
+  }, [showResultsOverlay, seenHeatResult, overlayData]);
 
   interface Racer {
     id: number;

@@ -1,0 +1,140 @@
+import { render } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('urql', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('urql')>();
+    return { ...actual, useMutation: vi.fn(), useSubscription: vi.fn() };
+});
+
+import { useMutation, useSubscription } from 'urql';
+import { RaceExecution, type Heat } from './RaceExecution';
+import { AlertProvider } from '../../../context/AlertContext';
+import { lane } from '../testFixtures';
+import * as soundModule from '../../audio/soundEffects';
+
+describe('RaceExecution sound effect transitions (#554)', () => {
+    beforeEach(() => {
+        window.localStorage.clear();
+        vi.restoreAllMocks();
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn().mockResolvedValue({ data: {} })]);
+    });
+
+    const activeHeat: Heat = {
+        id: 1,
+        roundNumber: 1,
+        roundId: 1,
+        heatNumber: 1,
+        roundName: 'Round 1',
+        recordedAt: null,
+        lanes: [
+            lane({ lane: 1, racerId: 101 }),
+            lane({ lane: 2, racerId: 102 }),
+        ],
+    };
+
+    const racers = {
+        101: { id: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, racerImageUrl: null, carImageUrl: null, carPassedInspection: true },
+        102: { id: 102, firstName: 'Jane', lastName: 'Smith', carNumber: 2, racerImageUrl: null, carImageUrl: null, carPassedInspection: true },
+    };
+
+    const props = {
+        raceId: 1,
+        activeExecutionHeat: activeHeat,
+        nextExecutionHeat: null,
+        upcomingHeats: [],
+        activeHeatId: null,
+        onRunHeat: vi.fn(),
+        onNextHeat: vi.fn(),
+        getRacerName: (id: number) => racers[id as keyof typeof racers]?.firstName ?? '',
+        slowestRoundIds: new Set<number>(),
+        onUpdateResult: vi.fn(),
+        scoringStrategy: 'TIMED' as const,
+        timerType: 'FAKE',
+        trackId: 1,
+        laneColors: [],
+        racers,
+        roundSummary: null,
+        autoAdvanceHeat: false,
+    };
+
+    it('plays gate release sound when phase changes to RUNNING with gate release enabled', () => {
+        const startSpy = vi.spyOn(soundModule, 'playGateReleaseSound').mockImplementation(() => {});
+        soundModule.writeSoundSettings(window.localStorage, {
+            ...soundModule.DEFAULT_SOUND_SETTINGS,
+            master: true,
+            gateRelease: true,
+        });
+
+        // Start at WAITING
+        let currentPhase = 'WAITING';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+
+        const { rerender } = render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+        expect(startSpy).not.toHaveBeenCalled();
+
+        // Transition to RUNNING
+        currentPhase = 'RUNNING';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+
+        rerender(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+        expect(startSpy).toHaveBeenCalled();
+    });
+
+    it('plays staging sound when phase changes to WAITING from NOT_READY with staging enabled', () => {
+        const stagingSpy = vi.spyOn(soundModule, 'playStagingReadySound').mockImplementation(() => {});
+        soundModule.writeSoundSettings(window.localStorage, {
+            ...soundModule.DEFAULT_SOUND_SETTINGS,
+            master: true,
+            stagingReady: true,
+        });
+
+        // Start at NOT_READY
+        let currentPhase = 'NOT_READY';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+
+        const { rerender } = render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+        expect(stagingSpy).not.toHaveBeenCalled();
+
+        // Transition to WAITING
+        currentPhase = 'WAITING';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+
+        rerender(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+        expect(stagingSpy).toHaveBeenCalled();
+    });
+
+    it('does not play sounds when sound master toggle is off', () => {
+        const startSpy = vi.spyOn(soundModule, 'playGateReleaseSound').mockImplementation(() => {});
+        const stagingSpy = vi.spyOn(soundModule, 'playStagingReadySound').mockImplementation(() => {});
+        soundModule.writeSoundSettings(window.localStorage, {
+            ...soundModule.DEFAULT_SOUND_SETTINGS,
+            master: false,
+        });
+
+        let currentPhase = 'WAITING';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+
+        const { rerender } = render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        currentPhase = 'RUNNING';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+
+        rerender(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        expect(startSpy).not.toHaveBeenCalled();
+        expect(stagingSpy).not.toHaveBeenCalled();
+    });
+});

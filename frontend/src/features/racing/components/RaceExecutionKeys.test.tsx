@@ -146,4 +146,14 @@ describe('race day keys and sound', () => {
 
         expect(screen.getByTestId('finish-chime-toggle')).toBeChecked();
     });
+
+    it('offers sound options button to configure race sound effects (#554)', () => {
+        render(<AlertProvider><RaceExecution {...props()} /></AlertProvider>);
+
+        const btn = screen.getByTestId('sound-effects-modal-trigger');
+        expect(btn).toBeInTheDocument();
+        fireEvent.click(btn);
+        expect(screen.getByTestId('sound-settings-section')).toBeInTheDocument();
+    });
 });
+
