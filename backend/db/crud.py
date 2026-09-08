@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import random
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from typing import Any
 
@@ -1224,8 +1224,23 @@ def delete_heat(db: Session, heat_id: int) -> bool:
 
     When master running order is enabled on the race, remaining heat numbers are
     left untouched so the interleaved schedule across rounds is preserved.
-    Otherwise, remaining pending heats are renumbered sequentially via
-    :func:`_write_heat_numbers`, leaving recorded heat numbers unchanged.
+    Otherwise, remaining pending heats **in the same round** are renumbered
+    sequentially via :func:`_write_heat_numbers`, leaving recorded heat
+    numbers unchanged.
+
+    A heat with no round — ``FREE`` or ``RUN_OFF`` — is never renumbered here,
+    for two reasons. First, ``round_id`` is ``None`` for both, and comparing a
+    column to ``None`` compiles to ``IS NULL``: a query meant to mean "this
+    heat's round" would instead match every round-less heat of every race the
+    install has ever run (#878). Second, and independent of that: a
+    round-less heat's number is only a label — :func:`_next_free_heat_number`
+    and :func:`_next_run_off_heat_number` hand out ``max + 1`` and never
+    compact it — so there is no round for the renumbering to keep 1..N over,
+    the same reasoning :func:`delete_free_race_heat` and
+    :func:`delete_run_off_heat` already follow. This function reaches such a
+    heat only via the generic ``deleteHeat`` mutation, whose resolver takes no
+    ``kind``; the dedicated ``deleteFreeRaceHeat``/``deleteRunOffHeat``
+    mutations go through those two functions directly.
     """
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
     if heat:
@@ -1245,7 +1260,7 @@ def delete_heat(db: Session, heat_id: int) -> bool:
         db.delete(heat)
         db.flush()
 
-        if master_running_order:
+        if round_id is None or master_running_order:
             db.commit()
             return True
 
@@ -1989,12 +2004,19 @@ def set_lane_outages(db: Session, track_id: int, lanes: Sequence[int]) -> list[i
     Lanes outside ``1..lane_count`` are dropped rather than stored. A stale
     outage on lane 6 of a track that has been reconfigured to four lanes would
     never be visible to un-set, and would silently shrink nothing.
+
+    Refuses — before writing any ``LaneOutage`` row — a set that would leave
+    an unraced elimination or balanced round with fewer than two usable
+    lanes; see :func:`guard_against_stranding_a_round` (#877).
     """
     track = db.query(models.Track).filter(models.Track.id == track_id).first()
     if track is None:
         return []
 
     wanted = {lane for lane in lanes if 1 <= lane <= track.lane_count}
+    guard_against_stranding_a_round(
+        db, track_id, lane_count=track.lane_count, out_of_service=wanted
+    )
 
     existing = (
         db.query(models.LaneOutage).filter(models.LaneOutage.track_id == track_id).all()
@@ -2074,6 +2096,111 @@ def delete_historical_track_record(db: Session, record_id: int) -> bool:
     db.delete(row)
     db.commit()
     return True
+
+
+def usable_lane_count_if(*, lane_count: int, out_of_service: Iterable[int]) -> int:
+    """What `usable_lanes_for_race` would report under a hypothetical
+    ``lane_count`` and set of out-of-service lanes, without writing either.
+
+    Pure — it takes both hypothetical inputs directly rather than reading
+    anything off a track or its `LaneOutage` rows. `usable_lanes_for_race`
+    can only read what those already say, and `setLaneOutages` and
+    `updateTrack`'s lane-count shrink both need to know the answer *before*
+    either writes anything — see :func:`guard_against_stranding_a_round`
+    (#877).
+    """
+    excluded = set(out_of_service)
+    return len([lane for lane in range(1, lane_count + 1) if lane not in excluded])
+
+
+def unraced_elimination_or_balanced_rounds(
+    db: Session, track_id: int
+) -> list[models.Round]:
+    """Every unraced elimination or balanced round scheduled on this track.
+
+    "Unraced" here means every one of the round's heats is still pending —
+    the one case :func:`apply_outages_to_scheduled_heats` tries to
+    *regenerate* outright rather than vacate lanes from. Regeneration goes
+    through :func:`generate_heats_for_round`, which refuses an elimination or
+    balanced round fewer than two usable lanes can serve (#791): the format
+    needs an opponent. A part-raced round is vacated instead (its dead lanes
+    dropped from the pending heats, `Round.disrupted` set) and a finished one
+    is left alone — neither of those calls `generate_heats_for_round`, so
+    neither can hit that refusal.
+
+    Callers use this to decide, *before* committing a lane-count change that
+    would leave fewer than two lanes usable, whether the change is one they
+    can safely make (#877) — rather than committing it and finding out from
+    an unhandled exception three calls deep.
+    """
+    races = db.query(models.Race).filter(models.Race.track_id == track_id).all()
+    rounds: list[models.Round] = []
+    for race in races:
+        candidates = (
+            db.query(models.Round)
+            .filter(
+                models.Round.race_id == race.id,
+                models.Round.scheduling_strategy.in_(
+                    (
+                        models.SchedulingStrategy.ELIMINATION,
+                        models.SchedulingStrategy.BALANCED,
+                    )
+                ),
+            )
+            .all()
+        )
+        for round_obj in candidates:
+            heats = models.official_heats(
+                db.query(models.Heat).filter(models.Heat.round_id == round_obj.id)
+            ).all()
+            if not heats:
+                continue
+            pending = [h for h in heats if not lanes.has_results(heat_lanes_of(db, h))]
+            if pending and len(pending) == len(heats):
+                rounds.append(round_obj)
+    return rounds
+
+
+def guard_against_stranding_a_round(
+    db: Session, track_id: int, *, lane_count: int, out_of_service: Iterable[int]
+) -> None:
+    """Refuse a lane change that would maroon an unraced elimination or
+    balanced round below two usable lanes (#877).
+
+    The one seam both `setLaneOutages` and a shrinking `Track.lane_count`
+    (#325) call, before either writes anything: `generate_heats_for_round`
+    already refuses to build such a round for fewer than two lanes (#791),
+    but by the time `apply_outages_to_scheduled_heats` reaches that refusal
+    the caller has usually already committed the very change that caused it
+    — `set_lane_outages` writes its `LaneOutage` rows unconditionally, and
+    `update_track` writes a shrunk `lane_count` the same way — leaving an
+    opaque exception, half-applied outages, and a schedule still naming dead
+    lanes. Checking first, against the hypothetical result rather than what
+    is already stored, is what lets the caller commit normally when this
+    returns and refuse cleanly — naming the round, not a stack trace — when
+    it does not.
+
+    Only a round nothing has been raced in yet is ever refused this way: a
+    part-raced round is vacated instead of regenerated, and a finished one is
+    left alone, so neither can reach `generate_heats_for_round` in the first
+    place. A round already blocked by too few lanes stays blocked until the
+    operator does one of the three things the message names.
+    """
+    usable = usable_lane_count_if(lane_count=lane_count, out_of_service=out_of_service)
+    if usable >= 2:
+        return
+    blocked = unraced_elimination_or_balanced_rounds(db, track_id)
+    if not blocked:
+        return
+    names = ", ".join(f"'{r.name}'" for r in blocked)
+    plural = "s" if len(blocked) > 1 else ""
+    raise ValueError(
+        f"Cannot leave fewer than two usable lanes on this track: round{plural} "
+        f"{names} use elimination or balanced racing, have not been raced yet, "
+        "and need at least two lanes to schedule. Delete the round, wait until "
+        "enough lanes are back in service, or switch it to a different "
+        "scheduling style before making this change."
+    )
 
 
 def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
