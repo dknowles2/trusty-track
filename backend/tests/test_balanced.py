@@ -7,6 +7,8 @@ on the recorded-result cascade. GPRM calls the method "Dynamic".
 
 import random
 
+import pytest
+
 from backend.db import crud, models, schemas
 from backend.domain import balanced
 from backend.domain import lanes as lanes_module
@@ -88,29 +90,29 @@ class TestThePhase:
     def test_a_lone_car_races_nobody(self):
         assert balanced.next_phase([1], {}, [1, 2, 3, 4]) == []
 
-    def test_next_phase_usable_lanes_under_two_returns_empty(self):
-        assert balanced.next_phase([1, 2], {}, usable_lanes=[1]) == []
+    def test_next_phase_usable_lanes_under_two_raises_value_error(self):
+        with pytest.raises(ValueError, match="Heat size must be at least 2."):
+            balanced.next_phase([1, 2], {}, usable_lanes=[1])
+        with pytest.raises(ValueError, match="Heat size must be at least 2."):
+            balanced.next_phase([1, 2], {}, usable_lanes=[])
 
-    def test_next_phase_two_lanes_odd_racers_no_intermediate_solo_heat(self):
+    def test_next_phase_two_lanes_odd_racers_nobody_races_alone(self):
         phase = balanced.next_phase(
             [1, 2, 3, 4, 5], {}, usable_lanes=[1, 2], rng=random.Random(1)
         )
-        assert all(len(h) == 2 for h in phase[:-1])
-        assert all(len(h) > 0 for h in phase)
+        assert all(len(h) >= 2 for h in phase)
+        assert sum(len(h) for h in phase) == 5
 
-    def test_tail_rebalancing_property(self):
-        for num_lanes in range(1, 6):
-            usable = list(range(1, num_lanes + 1))
-            for n in range(2, 16):
-                racers = list(range(1, n + 1))
-                phase = balanced.next_phase(racers, {}, usable_lanes=usable)
-                if num_lanes < 2:
-                    assert phase == []
-                elif num_lanes >= 3:
-                    assert all(len(h) >= 2 for h in phase)
-                else:
-                    assert all(len(h) == 2 for h in phase[:-1])
-                    assert all(len(h) > 0 for h in phase)
+    @pytest.mark.parametrize("heat_size", range(2, 9))
+    @pytest.mark.parametrize("racer_count", range(2, 26))
+    def test_tail_rebalancing_property(self, heat_size: int, racer_count: int):
+        usable = list(range(1, heat_size + 1))
+        racers = list(range(1, racer_count + 1))
+        phase = balanced.next_phase(racers, {}, usable_lanes=usable)
+        assert all(len(h) >= 2 for h in phase)
+        assert all(len(h) > 0 for h in phase)
+        flattened = [r for h in phase for _lane, r in h]
+        assert sorted(flattened) == racers
 
 
 # --------------------------------------------------------------------------- #

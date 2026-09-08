@@ -100,6 +100,28 @@ def performance_order(entries: Iterable[Record]) -> list[int]:
     ]
 
 
+def chunk_heats(ordered: Sequence[int], heat_size: int) -> list[list[int]]:
+    """Partition ordered racers into heats of at least 2 racers.
+
+    Racers are distributed evenly across the required number of heats so that
+    no heat is left with a single racer (avoiding meaningless guaranteed wins)
+    and no heat is empty.
+    """
+    if len(ordered) < 2:
+        return []
+    num_heats = max(
+        1, min(len(ordered) // 2, (len(ordered) + heat_size - 1) // heat_size)
+    )
+    base, rem = divmod(len(ordered), num_heats)
+    heats: list[list[int]] = []
+    idx = 0
+    for i in range(num_heats):
+        size = base + (1 if i < rem else 0)
+        heats.append(list(ordered[idx : idx + size]))
+        idx += size
+    return heats
+
+
 def next_phase(
     ordered: Sequence[int],
     lane_uses: dict[int, dict[int, int]],
@@ -109,30 +131,30 @@ def next_phase(
     """One phase of heats as ``(lane, racer_id)`` assignments.
 
     Neighbours in ``ordered`` race each other, chunked to the track's width;
-    a final one-car heat borrows from the heat before it when that heat has
-    more than two cars, so solo runs are avoided without stranding the heat it
-    borrowed from. Within each heat, lanes go to whoever has used them least
-    (``lane_uses`` is per racer, per lane) — the "best effort" lane balance
-    the method promises, which cannot be a guarantee when the groupings are
-    decided by results.
+    heats are rebalanced so that no heat ever holds a single car (avoiding
+    meaningless guaranteed wins). Within each heat, lanes go to whoever has
+    used them least (``lane_uses`` is per racer, per lane) — the "best effort"
+    lane balance the method promises, which cannot be a guarantee when the
+    groupings are decided by results.
     """
-    if len(usable_lanes) < 2 or len(ordered) < 2:
+    heat_size = len(usable_lanes)
+    if heat_size < 2:
+        raise ValueError("Heat size must be at least 2.")
+    if len(ordered) < 2:
         return []
     if rng is None:
         rng = random.Random()
 
-    size = len(usable_lanes)
-    groups = [list(ordered[i : i + size]) for i in range(0, len(ordered), size)]
-    if len(groups) > 1 and len(groups[-1]) == 1 and len(groups[-2]) > 2:
-        groups[-1].insert(0, groups[-2].pop())
+    groups = chunk_heats(ordered, heat_size)
 
     phase: list[list[tuple[int, int]]] = []
     for group in groups:
         remaining = list(group)
         assignment: list[tuple[int, int]] = []
-        for lane in usable_lanes:
-            if not remaining:
-                break
+        assigned_lanes = [
+            usable_lanes[i % len(usable_lanes)] for i in range(len(group))
+        ]
+        for lane in assigned_lanes:
             uses = {r: lane_uses.get(r, {}).get(lane, 0) for r in remaining}
             least = min(uses.values())
             candidates = [r for r in remaining if uses[r] == least]

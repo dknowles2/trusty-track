@@ -1337,7 +1337,10 @@ def _write_elimination_wave(
         set_heat_lanes(
             heat,
             [
-                lanes.Lane(lane=usable_lanes[position], racer_id=racer_id)
+                lanes.Lane(
+                    lane=usable_lanes[position % len(usable_lanes)],
+                    racer_id=racer_id,
+                )
                 for position, racer_id in enumerate(group)
             ],
         )
@@ -1395,6 +1398,8 @@ def extend_elimination_round(db: Session, round_id: int) -> list[models.Heat]:
             losses.setdefault(racer_id, 0)
 
     usable = usable_lanes_for_race(db, round_obj.race_id)
+    if len(usable) < 2:
+        return []
     # `run` keys the seeded shuffle to the wave, so regenerating wave three
     # alone draws the same heats wave three drew beside the others.
     wave = elimination.next_wave(
@@ -1476,6 +1481,8 @@ def extend_balanced_round(db: Session, round_id: int) -> list[models.Heat]:
         return []
 
     usable = usable_lanes_for_race(db, round_obj.race_id)
+    if len(usable) < 2:
+        return []
     target = round_obj.balanced_phases or len(usable) or 1
     apps = balanced.appearances(heat_lanes)
     if apps and max(apps.values()) >= target:

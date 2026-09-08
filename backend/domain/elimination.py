@@ -91,6 +91,28 @@ def eliminated(losses: dict[int, int], max_losses: int) -> set[int]:
     return {racer_id for racer_id, count in losses.items() if count >= max_losses}
 
 
+def chunk_heats(ordered: Sequence[int], heat_size: int) -> list[list[int]]:
+    """Partition ordered racers into heats of at least 2 racers.
+
+    Racers are distributed evenly across the required number of heats so that
+    no heat is left with a single racer (avoiding meaningless guaranteed wins)
+    and no heat is empty.
+    """
+    if len(ordered) < 2:
+        return []
+    num_heats = max(
+        1, min(len(ordered) // 2, (len(ordered) + heat_size - 1) // heat_size)
+    )
+    base, rem = divmod(len(ordered), num_heats)
+    heats: list[list[int]] = []
+    idx = 0
+    for i in range(num_heats):
+        size = base + (1 if i < rem else 0)
+        heats.append(list(ordered[idx : idx + size]))
+        idx += size
+    return heats
+
+
 def next_wave(
     losses: dict[int, int],
     max_losses: int,
@@ -100,13 +122,11 @@ def next_wave(
     """The next round of heats, or ``[]`` when the race is decided.
 
     Cars are grouped by loss count (fewest first), shuffled within their
-    group, and chunked into heats of ``heat_size``. A group's leftover cars
-    spill into the next group rather than racing short-handed, and a final
-    one-car heat borrows from the heat before it when that heat has more than
-    two cars, so solo runs are avoided without stranding the heat it borrowed from.
+    group, and chunked into heats of ``heat_size``. Heats are rebalanced so
+    that no heat ever holds a single car (avoiding meaningless guaranteed wins).
     """
     if heat_size < 2:
-        return []
+        raise ValueError("Heat size must be at least 2.")
     alive = [racer_id for racer_id, count in losses.items() if count < max_losses]
     if len(alive) < 2:
         return []
@@ -122,10 +142,7 @@ def next_wave(
         rng.shuffle(group)
         ordered.extend(group)
 
-    heats = [ordered[i : i + heat_size] for i in range(0, len(ordered), heat_size)]
-    if len(heats) > 1 and len(heats[-1]) == 1 and len(heats[-2]) > 2:
-        heats[-1].insert(0, heats[-2].pop())
-    return heats
+    return chunk_heats(ordered, heat_size)
 
 
 def is_decided(losses: dict[int, int], max_losses: int) -> bool:

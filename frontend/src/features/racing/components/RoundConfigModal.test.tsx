@@ -265,5 +265,18 @@ describe('RoundConfigModal', () => {
       screen.getByText(/4 of 10 cars checked in\. Only checked-in cars are put into heats\./i)
     ).toBeInTheDocument();
   });
+
+  it('disables elimination and balanced options when laneCount is less than 2', () => {
+    render(<RoundConfigModal {...defaultProps} laneCount={1} />);
+    expect(
+      screen.getByLabelText("Elimination — lose too many heats and you're out")
+    ).toBeDisabled();
+    expect(
+      screen.getByLabelText('Balanced — each round of heats matches cars doing about as well')
+    ).toBeDisabled();
+    expect(
+      screen.getByText('Elimination and balanced rounds require at least 2 usable lanes.')
+    ).toBeInTheDocument();
+  });
 });
 

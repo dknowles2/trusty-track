@@ -276,3 +276,67 @@ def test_create_round_refuses_balanced_on_track_with_fewer_than_two_usable_lanes
         in body["errors"][0]["message"]
     )
     assert _rounds(db, race.id) == []
+
+
+def test_create_round_wizard_refuses_elimination_on_narrow_track(db, client):
+    race = _race(db, lane_count=1, label="OneLaneWizardElim")
+    response = client.post(
+        "/graphql",
+        json={
+            "query": """
+            mutation Build($raceId: Int!, $config: WizardConfigurationInput!) {
+                createRoundWizard(raceId: $raceId, config: $config) { id }
+            }
+            """,
+            "variables": {
+                "raceId": race.id,
+                "config": {
+                    "generalRound": {
+                        "type": "ALL",
+                        "runsPerLane": 1,
+                        "schedulingStrategy": "ELIMINATION",
+                    },
+                    "championshipRounds": [],
+                },
+            },
+        },
+    )
+    body = response.json()
+    assert "errors" in body, body
+    assert (
+        "An elimination or balanced round requires at least two usable lanes."
+        in body["errors"][0]["message"]
+    )
+    assert _rounds(db, race.id) == []
+
+
+def test_create_round_wizard_refuses_balanced_on_narrow_track(db, client):
+    race = _race(db, lane_count=1, label="OneLaneWizardBal")
+    response = client.post(
+        "/graphql",
+        json={
+            "query": """
+            mutation Build($raceId: Int!, $config: WizardConfigurationInput!) {
+                createRoundWizard(raceId: $raceId, config: $config) { id }
+            }
+            """,
+            "variables": {
+                "raceId": race.id,
+                "config": {
+                    "generalRound": {
+                        "type": "ALL",
+                        "runsPerLane": 1,
+                        "schedulingStrategy": "BALANCED",
+                    },
+                    "championshipRounds": [],
+                },
+            },
+        },
+    )
+    body = response.json()
+    assert "errors" in body, body
+    assert (
+        "An elimination or balanced round requires at least two usable lanes."
+        in body["errors"][0]["message"]
+    )
+    assert _rounds(db, race.id) == []
