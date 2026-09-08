@@ -257,6 +257,97 @@ test('the last heat of the race raises a summary pointing at standings, awards a
     await expect(page.getByRole('dialog', { name: 'Race Complete!' })).toHaveCount(0);
 });
 
+test('finishing a round built via Add Round, with no championship yet, offers to add one rather than claiming the race is over (#874)', async ({
+    page,
+}) => {
+    // The reported bug: the summary modal said "Race Complete!" — "Every
+    // heat has been run. Here's where to go next: See Final Standings" — the
+    // moment a race's sole preliminary round finished, when the operator had
+    // not yet had a chance to add a championship round from **Add Round**
+    // (as opposed to the wizard, which pre-creates one up front, which is
+    // why `createSchedule`'s wizard-built races above never tripped this).
+    //
+    // The tempting fix — only claim completion once a championship round
+    // exists — was tried and reverted: a race that really is prelims-only
+    // (raced via the wizard with no championship configured, exactly
+    // `createSchedule(page, raceId)` with no second argument, as the
+    // adjacent #856 test does) produces the identical shape and must still
+    // raise the summary. There is no stored fact distinguishing "done" from
+    // "not done building the schedule yet," so the fix is honesty rather
+    // than suppression: the modal still appears, but says "No More Heats
+    // Scheduled" and offers a way to add the round it might be missing,
+    // alongside — never instead of — the standings link that always applies.
+    //
+    // `createRound` here is exactly the shape "Add Round" sends for a plain
+    // general round: no `advancementSource`, unlike `createSchedule`'s
+    // wizard call which can pre-create a championship round too.
+    const { raceId, racers, laneCount } = await seedRace(page, 'Race Day One Round At A Time');
+
+    await gql(
+        page,
+        `mutation AddGeneralRound($raceId: Int!, $roundData: RoundCreateInput!) {
+            createRound(raceId: $raceId, roundData: $roundData) { id }
+        }`,
+        {
+            raceId,
+            roundData: { schedulingStrategy: 'PPC', name: 'Round 1', generalType: 'ALL', runsPerLane: 1 },
+        },
+    );
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+
+    const heats = await readHeats(page, raceId);
+    await recordRound(page, heats, racers);
+
+    // Not "Race Complete!" — this schedule has no round that could only be a
+    // genuine ending yet.
+    const notDone = page.getByRole('dialog', { name: 'No More Heats Scheduled' });
+    await expect(notDone).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('dialog', { name: 'Race Complete!' })).toHaveCount(0);
+    await expect(notDone.getByRole('link', { name: 'Add a Championship Round' })).toHaveAttribute(
+        'href',
+        `/race/${raceId}/control`,
+    );
+    // The standings link is still offered — a prelims-only race really is
+    // done here, and this modal cannot tell the two apart.
+    await expect(notDone.getByRole('link', { name: /Final Standings/i })).toHaveAttribute(
+        'href',
+        `/race/${raceId}/standings`,
+    );
+    await notDone.getByRole('button', { name: '×' }).click();
+    await expect(notDone).toBeHidden();
+
+    // The operator now adds the championship round the modal offered.
+    // Once *that* is fully raced too, the real "Race Complete!" must show.
+    const rounds = await readRounds(page, raceId);
+    const prelim = rounds.find((r) => r.advancementSource === null)!;
+    await gql(
+        page,
+        `mutation AddFinal($raceId: Int!, $roundData: RoundCreateInput!) {
+            createRound(raceId: $raceId, roundData: $roundData) { id }
+        }`,
+        {
+            raceId,
+            roundData: {
+                schedulingStrategy: 'PPC',
+                name: 'Pack Final',
+                advancementSource: 'ALL',
+                advancementNumRacers: laneCount,
+                runsPerLane: 1,
+            },
+        },
+    );
+
+    const final = (await readRounds(page, raceId)).find((r) => r.id !== prelim.id)!;
+    const finalHeats = (await readHeats(page, raceId)).filter((h) => h.roundId === final.id);
+    await recordRound(page, finalHeats, racers);
+
+    const summary = page.getByRole('dialog', { name: 'Race Complete!' });
+    await expect(summary).toBeVisible({ timeout: 30000 });
+    await expect(summary.getByRole('link', { name: 'Add a Championship Round' })).toHaveCount(0);
+});
+
 test('a round summary can be raised again once its round is decided a second time (#856)', async ({
     page,
 }) => {
@@ -352,8 +443,13 @@ test('clearing a result un-completes a race whose summary was already shown (#85
     // `raceJustCompleted` had no clear path at all — once the race finished
     // once, the flag stayed true for the rest of the page's life (see the
     // comment this replaced), so finishing the race a second time, after
-    // fixing a result that turned out to be wrong, could never raise "Race
-    // Complete!" again.
+    // fixing a result that turned out to be wrong, could never raise the
+    // summary again.
+    //
+    // This race has no championship round (`createSchedule` with no second
+    // argument), so the modal is titled "No More Heats Scheduled" rather
+    // than "Race Complete!" (#874) — a detail this test does not otherwise
+    // care about; only the sticky/un-complete mechanic below does.
     const { raceId, racers } = await seedRace(page, 'Race Day Completion Reset');
     await createSchedule(page, raceId);
 
@@ -363,7 +459,7 @@ test('clearing a result un-completes a race whose summary was already shown (#85
     const heats = await readHeats(page, raceId);
     await recordRound(page, heats, racers);
 
-    const summary = page.getByRole('dialog', { name: 'Race Complete!' });
+    const summary = page.getByRole('dialog', { name: 'No More Heats Scheduled' });
     await expect(summary).toBeVisible({ timeout: 30000 });
 
     // Left open deliberately, and cleared from elsewhere — the same shape as

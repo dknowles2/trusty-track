@@ -56,16 +56,21 @@ describe('formatScore', () => {
     expect(formatScore(7, 'POINTS', { unit: false })).toBe('7');
   });
 
-  it('labels a score equal to the DNF penalty sentinel as DNF, not 9.999s', () => {
-    expect(formatScore(DNF_PENALTY_SECONDS, 'TIMED')).toBe('DNF');
-    expect(formatScore(DNF_PENALTY_SECONDS, 'CUMULATIVE_TIME')).toBe('DNF');
+  // #873: #779 removed exactly this magnitude test from the backend
+  // (`services/stats.py`), on the reasoning that 9.999s is a *penalty*
+  // substituted for a real DNF, never a sentinel a genuine finish cannot
+  // reach — a long track, a slow rocket, or a Space Derby boat routinely
+  // finishes at or past 9.999s. `formatScore` must not disagree with that:
+  // a score of exactly `DNF_PENALTY_SECONDS` prints as an ordinary time,
+  // the same way `formatLaneTime` already treats only a non-positive time
+  // (never a magnitude) as the DNF marker.
+  it('does not relabel a genuine 9.999s-or-slower score as DNF', () => {
+    expect(formatScore(DNF_PENALTY_SECONDS, 'TIMED')).toBe('9.999s');
+    expect(formatScore(DNF_PENALTY_SECONDS, 'CUMULATIVE_TIME')).toBe('9.999s');
+    expect(formatScore(12.5, 'TIMED')).toBe('12.500s');
   });
 
   it('does not relabel an ordinary Points score that happens to equal 9.999', () => {
-    // POINTS never produces a fractional score, but the guard is a strict
-    // equality on the raw number regardless of strategy, so this pins that
-    // the check is scoped to time-based strategies and not to the literal
-    // value alone.
     expect(formatScore(DNF_PENALTY_SECONDS, 'POINTS')).toBe('9.999');
   });
 });

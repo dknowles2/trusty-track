@@ -1504,6 +1504,55 @@ describe('RaceExecution', () => {
 
             expect(screen.queryByTestId('mock-modal')).not.toBeInTheDocument();
         });
+
+        // #874: "every heat that exists has run" is not "the race is over"
+        // for a schedule with no round drawn from another round's standings
+        // yet — see `hasChampionshipRound`'s own docstring in
+        // `raceCompletion.ts` for why this is a wording change rather than a
+        // suppressed trigger.
+        it('softens the wording and offers to add a championship round when none exists yet', () => {
+            render(
+                <MemoryRouter>
+                    <RaceExecution
+                        {...defaultProps}
+                        raceId={7}
+                        raceJustCompleted
+                        hasChampionshipRound={false}
+                    />
+                </MemoryRouter>
+            );
+
+            const modal = screen.getByTestId('mock-modal');
+            expect(within(modal).getByText('No More Heats Scheduled')).toBeInTheDocument();
+            expect(within(modal).queryByText('Race Complete!')).not.toBeInTheDocument();
+
+            const addRound = within(modal).getByRole('link', { name: /Add a Championship Round/i });
+            expect(addRound).toHaveAttribute('href', '/race/7/control');
+
+            // The standings link is still offered — a prelims-only race
+            // really is done here, and this modal cannot tell the two apart.
+            expect(within(modal).getByRole('link', { name: /standings/i })).toHaveAttribute(
+                'href',
+                '/race/7/standings',
+            );
+        });
+
+        it('does not offer to add a championship round once one already exists', () => {
+            // The default — `hasChampionshipRound` defaults to `true`, the
+            // same "don't second-guess a caller that has not supplied one"
+            // shape `raceJustCompleted` uses.
+            render(
+                <MemoryRouter>
+                    <RaceExecution {...defaultProps} raceId={7} raceJustCompleted />
+                </MemoryRouter>
+            );
+
+            const modal = screen.getByTestId('mock-modal');
+            expect(within(modal).getByText('Race Complete!')).toBeInTheDocument();
+            expect(
+                within(modal).queryByRole('link', { name: /Add a Championship Round/i }),
+            ).not.toBeInTheDocument();
+        });
     });
 
     it('docks the fake timer mole into the right column (#783)', () => {
