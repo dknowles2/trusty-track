@@ -1,13 +1,26 @@
 import io
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 
 # Formats natively supported by all major browsers.
 _BROWSER_NATIVE_FORMATS = {"JPEG", "PNG", "GIF", "WEBP"}
 
 # Maximum dimension for uploaded images (racer photos, etc.)
 MAX_IMAGE_SIZE = 1024
+
+
+class UnreadableImageError(ValueError):
+    """*image_bytes* could not be decoded as an image at all.
+
+    A `ValueError` subclass so a caller that already treats a `ValueError`
+    as a user-facing refusal (both upload doors do — see `Mutation.
+    upload_image` and `POST /upload/`) needs no extra branch. Before this
+    existed, a corrupt or truncated upload (flaky venue wifi, a half-written
+    camera capture) reached Pillow's own `UnidentifiedImageError` uncaught,
+    which neither door handled — it surfaced as a raw 500 rather than a
+    sentence a check-in volunteer could act on (#885).
+    """
 
 
 def resize_image(img: Image.Image, max_size: int = MAX_IMAGE_SIZE) -> Image.Image:
@@ -35,40 +48,89 @@ def convert_to_browser_safe_png(
     exceeds *max_size* in either dimension.
 
     If the image is already a native format and within *max_size*, the original
-    bytes are returned unchanged.
+    bytes are returned unchanged — including whatever EXIF orientation tag
+    they carry, which a browser already honours when displaying the file
+    as-is, so there is nothing to correct on that path.
+
+    Raises:
+        UnreadableImageError: *image_bytes* is not decodable as an image at
+            all — garbage bytes, or a truncated upload.
     """
-    img: Image.Image = Image.open(io.BytesIO(image_bytes))
+    try:
+        img: Image.Image = Image.open(io.BytesIO(image_bytes))
+        width, height = img.size
+        needs_resize = width > max_size or height > max_size
+        needs_conversion = img.format not in _BROWSER_NATIVE_FORMATS
 
-    # Check if we need to resize or convert
-    width, height = img.size
-    needs_resize = width > max_size or height > max_size
-    needs_conversion = img.format not in _BROWSER_NATIVE_FORMATS
-
-    if not needs_resize and not needs_conversion:
-        # Even if we don't need to resize or convert format, we still apply
-        # auto-cropping if there's transparency information.
-        if img.mode == "RGBA":
-            img = crop_to_content(img)
-            # If cropping changed the image, we must continue to re-encoding.
-            # Otherwise we can still return original bytes.
-            if img.size[0] == width and img.size[1] == height:
+        if not needs_resize and not needs_conversion:
+            # Even if we don't need to resize or convert format, we still apply
+            # auto-cropping if there's transparency information.
+            if img.mode == "RGBA":
+                # `crop_to_content` already forces a full pixel decode via
+                # `getbbox()`, so correcting orientation first is free here
+                # and keeps the crop bounds meaningful for a rotated image.
+                img = _exif_transposed(img)
+                img = crop_to_content(img)
+                # If cropping changed the image, we must continue to
+                # re-encoding. Otherwise we can still return original bytes.
+                if img.size[0] == width and img.size[1] == height:
+                    return image_bytes
+            else:
                 return image_bytes
         else:
-            return image_bytes
+            # Resizing or converting format is about to happen, which means
+            # re-encoding the pixels from scratch — so a phone photo stored
+            # in sensor orientation (`Orientation=6`, say) must be corrected
+            # *before* that, or the orientation is lost for good once the
+            # PNG re-encode below drops the tag that would have corrected it
+            # on display (#885). Not done unconditionally above: it forces a
+            # full pixel decode (`ImageOps.exif_transpose` always calls
+            # `image.load()`), which the fast "return unchanged" path above
+            # exists specifically to avoid.
+            img = _exif_transposed(img)
 
-    if needs_resize:
-        img = resize_image(img, max_size)
+        if needs_resize:
+            img = resize_image(img, max_size)
 
-    # Convert to RGBA so transparency is preserved for any source mode.
-    if img.mode not in ("RGB", "RGBA"):
-        img = img.convert("RGBA")
+        # Convert to RGBA so transparency is preserved for any source mode.
+        if img.mode not in ("RGB", "RGBA"):
+            img = img.convert("RGBA")
 
-    # Apply auto-cropping as per SPEC
-    img = crop_to_content(img)
+        # Apply auto-cropping as per SPEC
+        img = crop_to_content(img)
 
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return buf.getvalue()
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+    except UnidentifiedImageError as error:
+        raise UnreadableImageError(
+            "That file is not a photo Trusty Track can read."
+        ) from error
+    except OSError as error:
+        # A truncated upload (flaky venue wifi, a half-written camera
+        # capture) can have a header intact enough for `Image.open` to
+        # identify the format and report a size, and only fail once
+        # something above actually reads the pixel data it never received.
+        raise UnreadableImageError(
+            "That file is not a photo Trusty Track can read."
+        ) from error
+
+
+def _exif_transposed(img: Image.Image) -> Image.Image:
+    """Return *img* rotated/flipped to match its EXIF orientation tag, with
+    the tag itself cleared from the result (`ImageOps.exif_transpose`'s own
+    behaviour). A phone photo is stored in sensor orientation with a tag
+    saying how to display it upright; skipping this before a resize or a
+    format conversion is #885 — the pixels are processed sideways, and the
+    PNG this function re-encodes to has nowhere to put a tag that would have
+    corrected it afterwards.
+    """
+    transposed = ImageOps.exif_transpose(img)
+    # `in_place` defaults to False, so this is never actually None — Pillow's
+    # own return type just allows for the `in_place=True` case, which is not
+    # used here.
+    assert transposed is not None
+    return transposed
 
 
 def remove_green_screen(

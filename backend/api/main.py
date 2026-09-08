@@ -52,7 +52,10 @@ from backend.db.database import (
 )
 from backend.domain import audit
 from backend.services import backup, discovery, printables
-from backend.services.image_processing import convert_to_browser_safe_png
+from backend.services.image_processing import (
+    UnreadableImageError,
+    convert_to_browser_safe_png,
+)
 from backend.services.timer import devices
 from backend.services.timer.manager import TimerManager, initialize_timer_managers
 from backend.services.timer.proxy import ProxySession, WebSocketTransport
@@ -1104,7 +1107,13 @@ async def upload_file(
         raise HTTPException(status_code=400, detail="Filename is missing")
 
     raw_bytes = await _read_capped(file, MAX_UPLOAD_BYTES)
-    image_bytes = convert_to_browser_safe_png(raw_bytes)
+    try:
+        image_bytes = convert_to_browser_safe_png(raw_bytes)
+    except UnreadableImageError as error:
+        # A corrupt or truncated upload (flaky venue wifi, a half-written
+        # camera capture) used to reach here as an uncaught
+        # `PIL.UnidentifiedImageError` and surface as a raw 500 (#885).
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
     # The stored extension comes from the sniffed image content, never from
     # the caller-supplied filename (#322) — a filename claiming `.html` on a

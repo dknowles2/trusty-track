@@ -292,17 +292,13 @@ class TestCreateValidation:
             ),
         )
         other_racer = _racer(db, other_race, "Other")
-        with pytest.raises(
-            ValueError, match="All racers in a run-off must belong to the race."
-        ):
+        with pytest.raises(ValueError, match="does not belong to this race"):
             crud.create_run_off_heat(db, race.id, round_obj.id, [a.id, other_racer.id])
 
     def test_nonexistent_racers_are_refused(self, db: Session) -> None:
         """Non-existent racer IDs cannot enter a run-off (#753)."""
         race, round_obj, a, _b = _tied_pair(db)
-        with pytest.raises(
-            ValueError, match="All racers in a run-off must belong to the race."
-        ):
+        with pytest.raises(ValueError, match="does not belong to this race"):
             crud.create_run_off_heat(db, race.id, round_obj.id, [a.id, 999999])
 
     def test_uninspected_racers_are_refused(self, db: Session) -> None:
@@ -317,10 +313,28 @@ class TestCreateValidation:
                 car_passed_inspection=False,
             ),
         )
-        with pytest.raises(
-            ValueError, match="All racers in a run-off must belong to the race."
-        ):
+        with pytest.raises(ValueError, match="is not checked in"):
             crud.create_run_off_heat(db, race.id, round_obj.id, [a.id, uninspected.id])
+
+    def test_withdrawn_racer_is_named_specifically(self, db: Session) -> None:
+        """The refusal names the withdrawn racer rather than reporting the
+        generic "must belong to the race" message — #901. A withdrawn racer
+        (#228) still belongs to the race and still appears in a tied
+        cluster on the Standings page, which is exactly where "Start
+        run-off" is clicked; the old message sent the operator looking for
+        a bad racer id when the real issue was check-in status."""
+        race, round_obj, a, _b = _tied_pair(db)
+        withdrawn = crud.create_racer(
+            db,
+            schemas.RacerCreate(
+                first_name="With",
+                last_name="Drawn",
+                race_id=race.id,
+                car_passed_inspection=False,
+            ),
+        )
+        with pytest.raises(ValueError, match="With Drawn is not checked in"):
+            crud.create_run_off_heat(db, race.id, round_obj.id, [a.id, withdrawn.id])
 
     def test_more_racers_than_usable_lanes_is_refused(self, db):
         race, track = _seed(db)  # 4 lanes
@@ -581,8 +595,7 @@ class TestGraphQLMutations:
         body = response.json()
         assert "errors" in body
         assert any(
-            "All racers in a run-off must belong to the race." in err["message"]
-            for err in body["errors"]
+            "does not belong to this race" in err["message"] for err in body["errors"]
         )
 
     def test_delete_run_off_heat_through_graphql(self, client, db):

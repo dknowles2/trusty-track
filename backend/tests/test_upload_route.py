@@ -173,3 +173,28 @@ def test_sniffed_extension_refuses_a_format_outside_the_allowlist():
         main._sniffed_extension(_tiff_bytes())
 
     assert excinfo.value.status_code == 400
+
+
+def test_a_corrupt_upload_is_a_400_not_a_500(client, group):  # noqa: ARG001
+    """Garbage bytes used to reach Pillow's own `UnidentifiedImageError`
+    uncaught, surfacing as a raw internal error rather than a message a
+    check-in volunteer could act on (#885)."""
+    response = client.post(
+        "/upload/",
+        files={"file": ("car.jpg", b"not an image, just some text", "image/jpeg")},
+    )
+
+    assert response.status_code == 400
+    assert "not a photo" in response.json()["detail"]
+
+
+def test_nothing_is_written_for_a_corrupt_upload(client, group):  # noqa: ARG001
+    """A refused upload must not leave a file behind either."""
+    before = set(os.listdir(main.UPLOAD_DIR))
+
+    client.post(
+        "/upload/",
+        files={"file": ("car.jpg", b"not an image, just some text", "image/jpeg")},
+    )
+
+    assert set(os.listdir(main.UPLOAD_DIR)) == before

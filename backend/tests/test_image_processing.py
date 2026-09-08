@@ -2,6 +2,7 @@ import os
 from typing import Any
 
 import numpy as np
+import pytest
 from PIL import Image
 
 from backend.services.image_processing import (
@@ -176,3 +177,46 @@ def test_convert_to_browser_safe_png_no_resize_if_small() -> None:
 
     # Should be identical
     assert processed_bytes == small_bytes
+
+
+def test_convert_to_browser_safe_png_honours_exif_orientation() -> None:
+    """A phone photo stored in sensor orientation (`Orientation=6`, meaning
+    "rotate 270 degrees" to display upright) must come back rotated to match
+    what the photo actually shows, not resized from the raw sensor pixels
+    (#885). Before the fix, `convert_to_browser_safe_png` never called
+    `ImageOps.exif_transpose`, so a 2000x1000 landscape-stored image that
+    should *display* as 1000x2000 portrait came back 1024x512 landscape."""
+    import io
+
+    from backend.services.image_processing import convert_to_browser_safe_png
+
+    # 2000x1000 raw sensor pixels, tagged Orientation=6 ("rotate 270 CW to
+    # display upright") — a real phone photo taken in portrait and stored
+    # sideways, which is what #885 describes.
+    img = Image.new("RGB", (2000, 1000), color=(255, 0, 0))
+    exif = Image.Exif()
+    exif[0x0112] = 6  # Orientation
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", exif=exif.tobytes())
+    raw_bytes = buf.getvalue()
+
+    processed_bytes = convert_to_browser_safe_png(raw_bytes)
+    processed = Image.open(io.BytesIO(processed_bytes))
+
+    # Transposed and then downscaled to fit MAX_IMAGE_SIZE on the long edge:
+    # portrait in, portrait out.
+    assert processed.width < processed.height
+
+
+def test_convert_to_browser_safe_png_refuses_unreadable_bytes() -> None:
+    """Garbage bytes must not surface as an uncaught
+    `PIL.UnidentifiedImageError` — that is what reached a check-in volunteer
+    as a raw internal error in #885. The function should raise something
+    callers can turn into a plain sentence."""
+    from backend.services.image_processing import (
+        UnreadableImageError,
+        convert_to_browser_safe_png,
+    )
+
+    with pytest.raises(UnreadableImageError):
+        convert_to_browser_safe_png(b"this is not an image, just text bytes")

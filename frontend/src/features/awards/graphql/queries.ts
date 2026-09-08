@@ -76,6 +76,10 @@ export const RACE_AWARDS_QUERY = gql`
         id
         name
         roundNumber
+        # Non-null for a championship round — lets AwardForm default a new
+        # speed award's standings source to the final rather than the
+        # qualifying standings (#862).
+        advancementSource
       }
       racingGroups {
         id

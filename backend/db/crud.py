@@ -3675,9 +3675,21 @@ def create_run_off_heat(
     order given — the whole point is that these specific cars race each
     other once, not that the operator picks who stands where. Raises if
     there are duplicate racers, fewer than two racers (nothing to break a tie
-    between), more racers than usable lanes (nowhere to put them), or any
-    racer does not belong to the race and pass inspection (#753); the resolver
-    turns that into a GraphQL error.
+    between), or more racers than usable lanes (nowhere to put them).
+
+    Two more checks, kept separate because they are different facts and want
+    different fixes (#901): a racer id that names nobody in this race at all
+    (a stale id, or one from a different race), and a racer who belongs to
+    the race but has not passed inspection — which includes a *withdrawn*
+    racer, since un-checking a car leaves its results on the leaderboard
+    (#228) and so leaves it visible in a tied cluster on the Standings page,
+    exactly where the operator clicks "Start run-off". A run-off is a heat
+    yet to run, and the rule is the same one `get_advancing_racers` already
+    follows for a championship field: a slot in a race yet to run never goes
+    to a car that has left the building. Refusing is deliberate rather than
+    silently dropping the racer from the heat — the operator asked to settle
+    a *specific* tie, and quietly racing a smaller one would settle a
+    different question than the one they clicked.
     """
     if len(racer_ids) != len(set(racer_ids)):
         raise ValueError("Duplicate racers are not allowed in a run-off.")
@@ -3687,17 +3699,30 @@ def create_run_off_heat(
     if len(racer_ids) > len(usable):
         raise ValueError("More tied racers than usable lanes.")
 
-    valid_racers = (
-        db.query(models.Racer.id)
-        .filter(
-            models.Racer.id.in_(racer_ids),
-            models.Racer.race_id == race_id,
-            models.Racer.car_passed_inspection.is_(True),
-        )
+    racers_by_id = {
+        racer.id: racer
+        for racer in db.query(models.Racer)
+        .filter(models.Racer.id.in_(racer_ids), models.Racer.race_id == race_id)
         .all()
-    )
-    if len(valid_racers) != len(racer_ids):
-        raise ValueError("All racers in a run-off must belong to the race.")
+    }
+    missing_ids = sorted(set(racer_ids) - racers_by_id.keys())
+    if missing_ids:
+        raise ValueError(f"Racer {missing_ids[0]} does not belong to this race.")
+
+    not_checked_in = [
+        racers_by_id[racer_id]
+        for racer_id in racer_ids
+        if not racers_by_id[racer_id].car_passed_inspection
+    ]
+    if not_checked_in:
+        racer = not_checked_in[0]
+        label = f"{racer.first_name} {racer.last_name}".strip() or f"racer #{racer.id}"
+        raise ValueError(
+            f"{label} is not checked in, so this tie cannot be settled by "
+            "racing them. Check them back in, or settle it another way — "
+            "correct a time, or start a run-off among only the racers who "
+            "are still checked in."
+        )
 
     assignments = [
         lanes.Lane(lane=lane_num, racer_id=racer_id)

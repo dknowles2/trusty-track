@@ -73,8 +73,62 @@ describe('AwardForm', () => {
       .getAllByRole('option')
       .map((o) => o.textContent)
       .filter(Boolean);
-    expect(options).toContain('Overall standings');
+    // Matches the Standings page's own wording exactly (#862) — "Overall"
+    // on its own reads as "the whole race, final included", the opposite
+    // of what it means.
+    expect(options).toContain('Overall (qualifying rounds)');
     expect(options).toContain('Finals');
+  });
+
+  it('shows a note about what "Overall" leaves out, only while it is picked', async () => {
+    // The Standings page has always carried this warning next to its own
+    // "Overall" option; the award form is the one place a mix-up actually
+    // hands out the wrong trophy (#862).
+    renderForm();
+    await userEvent.click(screen.getByLabelText(/speed-based/i));
+
+    expect(screen.getByText(/cover the qualifying rounds/i)).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText('Standings to use'), 'Finals');
+
+    expect(screen.queryByText(/cover the qualifying rounds/i)).toBeNull();
+  });
+
+  it('defaults a new speed award to the last championship round, not the qualifying standings', async () => {
+    // #862: a "Pack Champion" award left on its old default (`ALL`, the
+    // qualifying standings — #17) silently announced the qualifying leader
+    // rather than the Grand Finals winner. `ALL` is still one click away.
+    const onSubmit = vi.fn();
+    render(
+      <AwardForm
+        rounds={[
+          { id: 1, name: 'All Pack', roundNumber: 1 },
+          { id: 4, name: 'Grand Finals', roundNumber: 2, advancementSource: 'ALL' },
+        ]}
+        racingGroups={RACING_GROUPS}
+        racers={RACERS}
+        submitLabel="Add award"
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByLabelText(/speed-based/i));
+
+    expect(screen.getByLabelText('Standings to use')).toHaveValue('ROUND:4');
+
+    await userEvent.type(screen.getByLabelText('Award name'), 'Pack Champion');
+    await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Pack Champion', source: 'ROUND:4' }),
+    );
+  });
+
+  it('still defaults to the qualifying standings when the race has no championship round', async () => {
+    renderForm(); // ROUNDS has no advancementSource — a general round only.
+    await userEvent.click(screen.getByLabelText(/speed-based/i));
+
+    expect(screen.getByLabelText('Standings to use')).toHaveValue('ALL');
   });
 
   it('submits a judged award with its chosen racer', async () => {
