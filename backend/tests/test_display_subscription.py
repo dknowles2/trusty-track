@@ -16,7 +16,7 @@ import contextlib
 import pytest
 
 import backend.api.schema as schema_mod
-from backend.api.pubsub import _PubSub
+from backend.api.pubsub import MAX_QUEUE_SIZE, _PubSub
 from backend.api.schema import Mutation, Query, Subscription
 from backend.db import crud, schemas
 from backend.domain.displays import DisplayView
@@ -337,4 +337,70 @@ async def test_a_theme_unchanged_by_the_save_does_not_nudge_a_connected_display(
     following.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await following
+
+
+# --------------------------------------------------------------------------- #
+# #881 — a backed-up queue must not collapse two ceremony steps into one      #
+# --------------------------------------------------------------------------- #
+#
+# `display_assignment`'s payload is always `None` — every event on the
+# channel is a "go re-read the registry" nudge, not data of its own — but
+# what it nudges the subscriber to re-read is not a snapshot in the sense
+# #776's bound assumed. `Display.slide_delta` is overwritten on every
+# `advanceDisplay` call, not accumulated, and `AwardCeremony.tsx` applies it
+# exactly once per distinct `slideSeq` it observes. So the channel's actual
+# unit of information is "one more nudge happened", and a bound that drops
+# an older nudge in favour of a newer one silently discards an operator's
+# "Next" click the same way it would discard a stale snapshot — except there
+# is no newer snapshot standing in for it, because the one that got dropped
+# was never redundant to begin with.
+
+
+@pytest.mark.asyncio
+async def test_the_display_assignment_channel_does_not_bound_its_queue(db):
+    """Wiring check: this is the one subscription #881 names, and it must be
+    the one opted out of #776's drop-oldest bound."""
+    stream = Subscription().display_assignment(_info(db), display_id="abc", race_id=1)
+    await _first(stream)
+
+    queue = displays_service_queue(schema_mod.pubsub, "abc")
+    assert queue.maxsize == 0
     await stream.aclose()
+
+
+@pytest.mark.asyncio
+async def test_two_advance_display_steps_are_not_collapsed_by_a_backed_up_queue(db):
+    """Two `advanceDisplay` calls landing while a display's queue is already
+    backed up — a projector on flaky wifi, the case the ping watchdog is
+    meant to make rare but not impossible — must both still be waiting to be
+    delivered once the connection catches up. On `main`, #776's bound caps
+    the queue at `MAX_QUEUE_SIZE` and drops the oldest entry once it is full,
+    so two more real steps arriving on top of an already-full backlog cannot
+    grow the queue at all: two markers are silently destroyed to make room,
+    and whichever step they represented never reaches the screen."""
+    stream = Subscription().display_assignment(_info(db), display_id="abc", race_id=1)
+    await _first(stream)  # drains the opening payload
+
+    queue = displays_service_queue(schema_mod.pubsub, "abc")
+
+    # Simulate a connection that has already fallen behind: MAX_QUEUE_SIZE
+    # unrelated nudges (a rename, a theme change, a forget-and-reconnect)
+    # sitting unread.
+    for _ in range(MAX_QUEUE_SIZE):
+        await schema_mod.pubsub.publish("display_assignment:abc", None)
+    assert queue.qsize() == MAX_QUEUE_SIZE
+
+    # Two real operator "Next" clicks land on top of that backlog.
+    d1 = await Mutation().advance_display(display_id="abc", delta=1)
+    d2 = await Mutation().advance_display(display_id="abc", delta=1)
+    assert d1.slide_seq == 1
+    assert d2.slide_seq == 2
+
+    # The queue must grow to hold every nudge a genuinely-stalled connection
+    # is owed, not stay capped at MAX_QUEUE_SIZE with two of them thrown away.
+    assert queue.qsize() == MAX_QUEUE_SIZE + 2
+    await stream.aclose()
+
+
+def displays_service_queue(bus, display_id: str):
+    return bus._subscribers[f"display_assignment:{display_id}"][0]

@@ -374,6 +374,132 @@ def test_bulk_assign_photos_is_in_the_demo_denylist():
 
 
 # --------------------------------------------------------------------------- #
+# #879 — the #746 validator must not block a save that merely echoes back a   #
+# racer's own already-stored (legacy or hand-assigned) photo URL              #
+# --------------------------------------------------------------------------- #
+
+
+def _legacy_photo_racer(db, race: models.Race, url: str) -> models.Racer:
+    """A racer whose stored photo URL predates #746's validator — exactly the
+    shape `bulkAssignPhotos` accepted with no check before that fix, or a
+    hand-edited row from an install reachable by a LAN IP rather than
+    `localhost`. `crud.create_racer` is bypassed on purpose: going through it
+    would hit `RacerBase`'s own validator and refuse the very fixture this
+    test needs to set up.
+    """
+    racer = models.Racer(
+        first_name="Legacy",
+        last_name="Racer",
+        race_id=race.id,
+        car_passed_inspection=True,
+        racer_image_url=url,
+    )
+    db.add(racer)
+    db.commit()
+    db.refresh(racer)
+    return racer
+
+
+def test_update_racer_accepts_a_legacy_url_unchanged(client, db):
+    """`RaceDetails.tsx` seeds its edit form from the stored URL and resends
+    it on every save. A racer whose stored `racer_image_url` predates #746 —
+    a `.jpeg` extension `uploadImage` has never produced, here — must still
+    be renamable: the validator exists to stop a *new* bad value, not to
+    freeze every field on a row that already has one (#879)."""
+    race = _org_track_race(db, "PhotoLegacyUnchanged")
+    racer = _legacy_photo_racer(db, race, "/static/photo.jpeg")
+
+    body = _post(
+        client,
+        UPDATE_RACER,
+        {
+            "id": racer.id,
+            "racer": {
+                "firstName": "Renamed",
+                "lastName": racer.last_name,
+                "racerImageUrl": "/static/photo.jpeg",
+            },
+        },
+    ).json()
+
+    assert not body.get("errors"), body
+    db.expire_all()
+    updated = db.get(models.Racer, racer.id)
+    assert updated.first_name == "Renamed"
+    assert updated.racer_image_url == "/static/photo.jpeg"
+
+
+def test_update_racer_accepts_a_legacy_absolute_url_unchanged(client, db):
+    """The same as above for an absolute, LAN-IP-qualified URL — the other
+    shape #879 names, from an install reached by its network address rather
+    than `localhost`."""
+    race = _org_track_race(db, "PhotoLegacyAbsolute")
+    racer = _legacy_photo_racer(db, race, "http://192.168.1.5:8000/static/abc.png")
+
+    body = _post(
+        client,
+        UPDATE_RACER,
+        {
+            "id": racer.id,
+            "racer": {
+                "firstName": racer.first_name,
+                "lastName": "Renamed",
+                "racerImageUrl": "http://192.168.1.5:8000/static/abc.png",
+            },
+        },
+    ).json()
+
+    assert not body.get("errors"), body
+    db.expire_all()
+    assert db.get(models.Racer, racer.id).last_name == "Renamed"
+
+
+def test_update_racer_still_refuses_changing_to_a_new_external_url(client, db):
+    """The exemption is for an *unchanged* value only — swapping a legacy URL
+    for a *different* external one is exactly the hole #746 closed, and must
+    stay closed (#879)."""
+    race = _org_track_race(db, "PhotoLegacyChanged")
+    racer = _legacy_photo_racer(db, race, "/static/photo.jpeg")
+
+    body = _post(
+        client,
+        UPDATE_RACER,
+        {
+            "id": racer.id,
+            "racer": {
+                "firstName": racer.first_name,
+                "lastName": racer.last_name,
+                "racerImageUrl": "https://evil.example.com/child.png",
+            },
+        },
+    ).json()
+
+    assert body.get("errors")
+    db.expire_all()
+    assert db.get(models.Racer, racer.id).racer_image_url == "/static/photo.jpeg"
+
+
+def test_check_in_racer_accepts_a_legacy_url_unchanged(db):
+    """`checkInRacer` funnels through the same `crud.update_racer`, and a
+    check-in that resends a racer's own legacy photo URL (rather than a
+    fresh one) must not be refused either (#879)."""
+    race = _org_track_race(db, "PhotoLegacyCheckIn")
+    racer = _legacy_photo_racer(db, race, "/static/photo.jpeg")
+
+    updated = crud.update_racer(
+        db,
+        racer.id,
+        schemas.RacerUpdate(
+            car_passed_inspection=True, racer_image_url="/static/photo.jpeg"
+        ),
+    )
+
+    assert updated is not None
+    assert updated.car_passed_inspection is True
+    assert updated.racer_image_url == "/static/photo.jpeg"
+
+
+# --------------------------------------------------------------------------- #
 # #759 — an award must not name a den or racer from a different race          #
 # --------------------------------------------------------------------------- #
 

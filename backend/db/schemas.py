@@ -229,14 +229,30 @@ class InitialConfigCreate(BaseModel):
 def _reject_url_uploadimage_did_not_produce(
     value: str | None, info: ValidationInfo
 ) -> str | None:
-    """Shared body for the `racer_image_url`/`car_image_url` validators on
-    `RacerBase` and `RacerUpdate` (#746).
+    """Validator body for `RacerBase.racer_image_url`/`car_image_url` (#746).
 
-    A plain function rather than a mixin class: the two models are not
-    otherwise related (`RacerUpdate` does not extend `RacerBase`), and a
-    `field_validator` has to be declared on each Pydantic model it applies
-    to regardless — this is the one place the actual rule lives, so the two
-    declarations differ only in which class they are attached to.
+    `RacerCreate` (which extends `RacerBase`) has no "current" row to compare
+    a new value against — every value it carries is being written for the
+    first time — so it is safe to refuse anything that is not `uploadImage`'s
+    own `/static/<name>.<ext>` shape unconditionally, right here.
+
+    `RacerUpdate` deliberately does **not** use this validator (#879). A
+    Pydantic `field_validator` only ever sees the value a caller just sent,
+    with no way to ask what the racer's own row already holds — and
+    `RaceDetails.tsx`'s edit form seeds itself from the stored URL and
+    resends it on every save. Attaching this same check to `RacerUpdate`
+    therefore refused *any* edit to a racer whose stored URL predates this
+    validator — the very rows `bulkAssignPhotos` accepted before #746 shipped,
+    or a legacy value from an install once reached by a LAN IP rather than
+    `localhost` — blocking a rename, a car number, or a check-in for a reason
+    that has nothing to do with the field being changed.
+
+    `crud.update_racer` carries the equivalent check instead, where the
+    racer's current stored value is available to exempt: a value that is not
+    changing is not a new value to validate. Only a value that is both new
+    *and* not `uploadImage`'s own shape is refused there — which still closes
+    #746's hole (a client cannot introduce a URL this app did not produce),
+    it just no longer punishes an old row for existing.
     """
     if value is not None and not is_valid_photo_url(value):
         assert info.field_name is not None
@@ -281,16 +297,13 @@ class RacerUpdate(BaseModel):
     car_name: str | None = None
     car_passed_inspection: bool | None = None
     car_weight: float | None = None
+    #: No field-level validator here, unlike `RacerBase` above — see
+    #: `_reject_url_uploadimage_did_not_produce`'s docstring (#879).
+    #: `crud.update_racer` validates these against the racer's *current*
+    #: stored value instead, which this model has no way to see.
     racer_image_url: str | None = None
     car_image_url: str | None = None
     excluded_from_standings: bool | None = None
-
-    @field_validator("racer_image_url", "car_image_url")
-    @classmethod
-    def photo_url_is_one_uploadimage_produced(
-        cls, value: str | None, info: ValidationInfo
-    ) -> str | None:
-        return _reject_url_uploadimage_did_not_produce(value, info)
 
 
 class AwardCopyCreate(BaseModel):

@@ -6713,9 +6713,24 @@ class Subscription:
         later mutation to publish to) is the bug. The screen lands back on
         an unassigned payload, the same "fall back to your own URL" state
         every display starts in, and the operator's list gets it back too.
+
+        **This queue is not bounded (#881).** Every payload here is `None`,
+        and on wake this loop re-reads `DisplayRegistry`'s *current* row
+        rather than the payload — which reads as the same "it's a snapshot,
+        drop the stale ones" shape every other subscription here relies on,
+        but the row itself is not one: `Display.slide_delta` is overwritten
+        by each `advanceDisplay` call rather than accumulated, and
+        `AwardCeremony.tsx` applies it exactly once per distinct `slide_seq`
+        it sees. Two operator "Next" clicks that land while this connection
+        is backed up are two separate steps nothing else will ever resupply
+        — dropping the older nudge in favour of the newer one silently
+        erases one of them, not a stale-but-harmless duplicate. See
+        `MAX_QUEUE_SIZE`'s own docstring in `api/pubsub.py`.
         """
         db = info.context["db"]
-        async with pubsub.subscribe(f"display_assignment:{display_id}") as stream:
+        async with pubsub.subscribe(
+            f"display_assignment:{display_id}", drop_oldest_when_full=False
+        ) as stream:
             display = displays_service.registry.connect(display_id, race_id, name)
             await _publish_displays(race_id)
             try:

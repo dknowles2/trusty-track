@@ -889,6 +889,42 @@ def write_imported_roster(
     return count
 
 
+#: The two photo fields `update_racer` validates against the racer's own
+#: current value rather than unconditionally (#879) — see
+#: `_validate_photo_url_change` below.
+_PHOTO_URL_FIELDS = ("racer_image_url", "car_image_url")
+
+
+def _validate_photo_url_change(
+    db_racer: models.Racer, field: str, new_value: str | None
+) -> None:
+    """Refuse a *new* photo URL that is not `uploadImage`'s own shape (#746)
+    — unless it is exactly the value already on `db_racer` (#879).
+
+    `RacerUpdate` no longer carries a Pydantic validator for
+    `racer_image_url`/`car_image_url`, because a field validator only ever
+    sees the incoming value and cannot ask what the row already holds.
+    `RaceDetails.tsx` seeds its edit form from the stored URL and resends it
+    on every save, so a racer whose stored URL predates #746's validator —
+    `bulkAssignPhotos` accepted anything before that fix, and a hand-edited
+    or LAN-IP-qualified URL is another way one gets there — could not be
+    renamed, numbered, or checked in at all: every save re-sent the same old
+    URL and was refused for a field nobody was trying to change.
+
+    A value that is not changing is not a new value to validate — checking
+    it here, against `db_racer`'s current column, is what a Pydantic
+    validator could never do. #746's actual protection is unchanged: a
+    client still cannot introduce a URL this app did not produce, because
+    that is a value that *is* changing.
+    """
+    if new_value is None or new_value == getattr(db_racer, field):
+        return
+    if not is_valid_photo_url(new_value):
+        raise ValueError(
+            f"{field} must be a path returned by uploadImage, not an external URL"
+        )
+
+
 def update_racer(
     db: Session, racer_id: int, racer_update: schemas.RacerUpdate
 ) -> models.Racer | None:
@@ -902,6 +938,9 @@ def update_racer(
     _validate_racing_group_membership(
         db, db_racer.race_id, update_data.get("racing_group_id")
     )
+    for field in _PHOTO_URL_FIELDS:
+        if field in update_data:
+            _validate_photo_url_change(db_racer, field, update_data[field])
     for key, value in update_data.items():
         setattr(db_racer, key, value)
 
