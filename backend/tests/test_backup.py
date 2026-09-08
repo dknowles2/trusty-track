@@ -300,7 +300,9 @@ class TestRefusingAnArchive:
         # above (#888).
         monkeypatch.setattr(backup, "MAX_ARCHIVE_DATABASE_BYTES", 4)
         archive = _make_archive(data_dir, source_engine)
-        with pytest.raises(backup.ArchiveError, match="larger than this install accepts"):
+        with pytest.raises(
+            backup.ArchiveError, match="larger than this install accepts"
+        ):
             self._restore(archive, data_dir)
 
     def test_an_upload_member_larger_than_the_cap_is_refused(
@@ -309,7 +311,9 @@ class TestRefusingAnArchive:
         (data_dir / "uploads" / "racer.png").write_bytes(b"a rather large photograph")
         monkeypatch.setattr(backup, "MAX_ARCHIVE_UPLOAD_BYTES", 4)
         archive = _make_archive(data_dir, source_engine)
-        with pytest.raises(backup.ArchiveError, match="larger than this install accepts"):
+        with pytest.raises(
+            backup.ArchiveError, match="larger than this install accepts"
+        ):
             self._restore(archive, data_dir)
 
     def test_an_oversized_member_is_refused_before_anything_is_staged(
@@ -600,9 +604,7 @@ class TestOtherDevicesLearnOfARestore:
         assert response.status_code == 200, response.text
         assert publishes == [None]
 
-    def test_a_refused_restore_does_not_publish(
-        self, client, monkeypatch
-    ) -> None:
+    def test_a_refused_restore_does_not_publish(self, client, monkeypatch) -> None:
         """Nothing moved, so there is nothing for another tab to learn."""
         publishes: list[None] = []
 

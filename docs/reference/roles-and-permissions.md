@@ -157,10 +157,12 @@ one event, not a setting anybody has to think about to get HTTPS.
 - **Heat results say how they arrived**: *recorded by the timer* or
   *entered by hand*. That is the distinction a disputed time turns on.
 - **Refusals are recorded too**, in red, and each names which of three
-  separate reasons stopped it: a role limit ("VIEWER is not allowed to run
-  deleteRound"), the public demo, or a locked race — a check-in device
-  trying to delete a round reads differently from either of the other two,
-  though nothing was deleted any of the three ways.
+  deliberately separate rules stopped it — a role limit ("That needs the
+  operator PIN. Enter it with the lock icon in the top bar."), the public
+  demo, or a locked race — so a role refusal reads differently from either
+  of the other two, though nothing was deleted any of the three ways. Which
+  *device* a role refusal came from is the log's own role column, next to
+  it on the same line.
 - **No PIN is ever written down.** Setting or changing one appears as an
   action; the PIN itself does not, under any spelling.
 - The log is trimmed to its most recent 50,000 entries when the app starts

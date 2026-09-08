@@ -146,12 +146,17 @@ class TestDescribe:
         entry = _entry(
             action="deleteRound",
             outcome=audit.Outcome.REFUSED,
-            details={"reason": "VIEWER is not allowed to run deleteRound"},
+            details={
+                "reason": (
+                    "That needs the operator PIN. Enter it with the lock "
+                    "icon in the top bar."
+                )
+            },
         )
 
-        assert (
-            audit.describe(entry)
-            == "Deleted a round — refused: VIEWER is not allowed to run deleteRound"
+        assert audit.describe(entry) == (
+            "Deleted a round — refused: That needs the operator PIN. Enter "
+            "it with the lock icon in the top bar."
         )
 
     def test_a_heat_result_says_how_it_arrived(self):

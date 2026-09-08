@@ -178,8 +178,8 @@ class TestRefusals:
 
     def test_the_refusal_records_which_policy_turned_it_away(self, client, db):
         """`RolePolicyExtension`'s own message, not just the fact of a
-        refusal — the same entry used to look identical whether a viewer, the
-        demo, or a race lock was the reason (#889)."""
+        refusal — the same entry used to look identical whether a role
+        limit, the demo, or a race lock was the reason (#889)."""
         client.post(
             "/graphql",
             json={"query": "mutation { deleteRace(id: 1) }"},
@@ -187,24 +187,44 @@ class TestRefusals:
         )
 
         details = json.loads(entries(db, "deleteRace")[0].details)
-        assert details["reason"] == "CHECKIN is not allowed to run deleteRace"
+        assert details["reason"] == (
+            "That needs the operator PIN. Enter it with the lock icon in the top bar."
+        )
 
-    def test_two_different_refusals_read_differently(self, client, db):
-        """The one question a dispute about a refused action asks."""
+    def test_a_role_refusal_and_a_demo_refusal_read_differently(
+        self, client, db, monkeypatch
+    ):
+        """The one question a dispute about a refused action asks — a role
+        limit and the demo are two of the three deliberately separate
+        policies here, and #889 is about telling their entries apart.
+        `test_race_lock.py::test_the_refusal_records_the_lock_message` and
+        `test_demo_mode.py::test_the_refusal_names_the_demo_as_the_reason`
+        each pin one of the other two reasons on their own; this is the one
+        place two of them are compared side by side."""
+        from backend import demo_mode
+
         client.post(
             "/graphql",
             json={"query": "mutation { deleteRace(id: 1) }"},
             headers={"x-trustytrack-pin": "2222"},
         )
-        # No PIN at all: a VIEWER, refused for a different reason than the
-        # CHECKIN desk was above.
-        client.post("/graphql", json={"query": "mutation { deleteRace(id: 2) }"})
+        role_reason = json.loads(entries(db, "deleteRace")[0].details)["reason"]
 
-        checkin_reason = json.loads(entries(db, "deleteRace")[0].details)["reason"]
-        viewer_reason = json.loads(entries(db, "deleteRace")[1].details)["reason"]
-        assert checkin_reason != viewer_reason
-        assert "CHECKIN" in checkin_reason
-        assert "VIEWER" in viewer_reason
+        monkeypatch.setenv(demo_mode.DEMO_VARIABLE, "1")
+        client.post(
+            "/graphql",
+            json={
+                "query": (
+                    "mutation { updateInitialConfig(config: "
+                    '{organizationName: "x", tracks: []}) { pinRequired } }'
+                )
+            },
+        )
+        demo_reason = json.loads(entries(db, "updateInitialConfig")[0].details)[
+            "reason"
+        ]
+
+        assert role_reason != demo_reason
 
 
 class TestTheHeatResultSeam:

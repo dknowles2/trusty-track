@@ -272,10 +272,14 @@ class RolePolicyExtension(SchemaExtension):
                 # said nothing about the one thing that would actually help:
                 # there is a PIN control in the header, and which PIN it
                 # needs. The raw role/mutation pair is still exactly what
-                # the activity log records for this refusal (`api/auth.py`'s
-                # `AuditExtension`, reading `resolve_role` and
-                # `info.field_name` itself) — that reader is the person
-                # auditing, not the person who just got turned away.
+                # the activity log records for this refusal, in its own
+                # `role`/`action` columns (`AuditExtension`, reading
+                # `resolve_role` and `info.field_name` itself, independent of
+                # this exception's message) — that reader is the person
+                # auditing, not the person who just got turned away. This
+                # humane message reaches the log too, in a `reason` detail
+                # (#889) — it is what tells a role refusal apart from the
+                # demo's or a locked race's own, which read differently.
                 pin_kind = _pin_needed_for(info.field_name)
                 raise PermissionDeniedError(
                     f"That needs the {pin_kind} PIN. Enter it with the lock "

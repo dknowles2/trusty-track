@@ -598,9 +598,7 @@ class TestVoting:
         reason = crud.cast_vote(db, award.id, racers[1], "same-key")
 
         assert reason is not None
-        assert crud.vote_counts_for_awards(db, [award.id]) == {
-            award.id: {racers[0]: 1}
-        }
+        assert crud.vote_counts_for_awards(db, [award.id]) == {award.id: {racers[0]: 1}}
 
     def test_a_shared_device_may_vote_more_than_once(self, db):
         # No per-device lock, by decision: the primary use case is one iPad

@@ -271,7 +271,11 @@ def check_restorable(manifest: Manifest, known_revisions: Iterable[str]) -> None
 
 def _max_declared_bytes(name: str) -> int:
     """The cap a member's own name puts it under."""
-    return MAX_ARCHIVE_DATABASE_BYTES if name == DATABASE_NAME else MAX_ARCHIVE_UPLOAD_BYTES
+    return (
+        MAX_ARCHIVE_DATABASE_BYTES
+        if name == DATABASE_NAME
+        else MAX_ARCHIVE_UPLOAD_BYTES
+    )
 
 
 def _refuse_if_oversized(name: str, declared_bytes: int) -> None:
