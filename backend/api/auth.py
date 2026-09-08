@@ -272,10 +272,14 @@ class RolePolicyExtension(SchemaExtension):
                 # said nothing about the one thing that would actually help:
                 # there is a PIN control in the header, and which PIN it
                 # needs. The raw role/mutation pair is still exactly what
-                # the activity log records for this refusal (`api/auth.py`'s
-                # `AuditExtension`, reading `resolve_role` and
-                # `info.field_name` itself) — that reader is the person
-                # auditing, not the person who just got turned away.
+                # the activity log records for this refusal, in its own
+                # `role`/`action` columns (`AuditExtension`, reading
+                # `resolve_role` and `info.field_name` itself, independent of
+                # this exception's message) — that reader is the person
+                # auditing, not the person who just got turned away. This
+                # humane message reaches the log too, in a `reason` detail
+                # (#889) — it is what tells a role refusal apart from the
+                # demo's or a locked race's own, which read differently.
                 pin_kind = _pin_needed_for(info.field_name)
                 raise PermissionDeniedError(
                     f"That needs the {pin_kind} PIN. Enter it with the lock "
@@ -369,6 +373,28 @@ class AuditExtension(SchemaExtension):
 
     Failures are recorded and re-raised. An audit log that swallowed the
     exception would turn a broken mutation into a silent one.
+
+    A refusal's own message is recorded too (#889), because role policy,
+    demo policy and race lock are three deliberately separate reasons a
+    mutation can be turned away, and without it every one of them rendered
+    as the identical "{action} — refused" — the log could not tell "a viewer
+    tried to delete a round" from "the demo blocks this" from "this race is
+    locked", which is the one question a dispute about a refusal asks.
+
+    Recording it is safe because of what it *is*, not because it is filtered
+    like an ordinary argument. Every ``PermissionDeniedError`` raised in this
+    tree (``RolePolicyExtension``, ``DemoPolicyExtension``,
+    ``RaceLockExtension``) builds its message from a fixed ``Role`` enum
+    value, the mutation's own field name — a name the schema declares, never
+    text a caller supplied — or a plain constant (``race_lock.LOCK_MESSAGE``);
+    none of the three ever echoes back an argument, so none of them can carry
+    a PIN the way recording ``kwargs`` unfiltered would.
+    ``test_demo_mode.py::test_the_recorded_reason_never_carries_the_pin``
+    exercises the real case that matters — ``updateInitialConfig`` refused on
+    the demo while its own arguments carry a plaintext PIN. Belt and braces,
+    the message is still passed through the same ``redact`` every other
+    detail uses (a value-shaped check, the length cap, catches a future
+    raise site that forgets this rule) rather than written in unfiltered.
     """
 
     def resolve(
@@ -384,10 +410,13 @@ class AuditExtension(SchemaExtension):
         details = audit_domain.redact(kwargs)
         race_id = _race_id_from(kwargs)
 
-        def record(outcome: audit_domain.Outcome) -> None:
+        def record(outcome: audit_domain.Outcome, reason: str | None = None) -> None:
             # Never let the record-keeping take down the thing it is recording.
             # A full disk or a locked table should cost an audit line, not the
             # operator's heat result.
+            entry_details = details
+            if reason:
+                entry_details = {**details, **audit_domain.redact({"reason": reason})}
             try:
                 crud.record_audit(
                     context["db"],
@@ -396,15 +425,15 @@ class AuditExtension(SchemaExtension):
                     outcome=outcome.value,
                     source_ip=context.get("source_ip"),
                     race_id=race_id,
-                    details=details,
+                    details=entry_details,
                 )
             except Exception:  # pragma: no cover - defensive
                 logger.exception("Could not record an audit entry")
 
         try:
             result = _next(root, info, *args, **kwargs)
-        except PermissionDeniedError:
-            record(audit_domain.Outcome.REFUSED)
+        except PermissionDeniedError as exc:
+            record(audit_domain.Outcome.REFUSED, reason=str(exc))
             raise
         except Exception:
             record(audit_domain.Outcome.FAILED)
@@ -424,8 +453,8 @@ class AuditExtension(SchemaExtension):
 async def _record_when_done(awaitable: Any, record: Any, audit_domain: Any) -> Any:
     try:
         value = await awaitable
-    except PermissionDeniedError:
-        record(audit_domain.Outcome.REFUSED)
+    except PermissionDeniedError as exc:
+        record(audit_domain.Outcome.REFUSED, reason=str(exc))
         raise
     except Exception:
         record(audit_domain.Outcome.FAILED)

@@ -12,6 +12,8 @@ turn off, so the fixtures here set the flag explicitly and the suite's default
 leaves it unset.
 """
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -169,6 +171,34 @@ class TestTheInstanceCannotBeLockedOut:
             .all()
         )
         assert [e.outcome for e in entries] == [audit.Outcome.REFUSED.value]
+
+    def test_the_refusal_names_the_demo_as_the_reason(self, client, db, group, demo):  # noqa: ARG002
+        """The one question a dispute about a refusal asks — this reads
+        differently from a role refusal or a locked-race refusal (#889)."""
+        client.post("/graphql", json={"query": CONFIG_MUTATION})
+
+        entry = (
+            db.query(models.AuditEntry)
+            .filter(models.AuditEntry.action == "updateInitialConfig")
+            .first()
+        )
+        details = json.loads(entry.details)
+        assert details["reason"] == "updateInitialConfig is not available on the demo"
+
+    def test_the_recorded_reason_never_carries_the_pin(self, client, db, group, demo):  # noqa: ARG002
+        """`CONFIG_MUTATION` above carries a real PIN in plaintext, the same
+        shape `createInitialConfig` does — this is the mutation redaction
+        exists to protect. `DemoPolicyExtension`'s message is built only from
+        the mutation's own field name, never from its arguments, so recording
+        it cannot repeat that mistake by a second route."""
+        client.post("/graphql", json={"query": CONFIG_MUTATION})
+
+        entry = (
+            db.query(models.AuditEntry)
+            .filter(models.AuditEntry.action == "updateInitialConfig")
+            .first()
+        )
+        assert "1234" not in (entry.details or "")
 
 
 CREATE_TRACK_MUTATION = """

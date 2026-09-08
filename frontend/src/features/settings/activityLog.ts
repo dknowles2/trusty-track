@@ -98,6 +98,34 @@ export function byDay(entries: readonly LogEntry[], now: Date): DaySection[] {
 }
 
 /**
+ * Merge one more fetched page onto what is already on screen (#889).
+ *
+ * `replace` is true for a fresh first page — the race filter changed, or the
+ * operator hit Refresh — and false for "Load older entries" continuing the
+ * same list. Both arrive from the same query as "the entries this call
+ * returned"; only the caller, which knows what cursor it asked for, can tell
+ * the two apart.
+ */
+export function appendPage(
+    loaded: readonly LogEntry[],
+    page: readonly LogEntry[],
+    replace: boolean,
+): LogEntry[] {
+    return replace ? [...page] : [...loaded, ...page];
+}
+
+/**
+ * Whether a fetched page might be followed by another.
+ *
+ * A page shorter than what was asked for is the last one — the server never
+ * holds entries back, so coming up short means there was nothing left to
+ * fill it.
+ */
+export function hasAnotherPage(page: readonly LogEntry[], pageSize: number): boolean {
+    return page.length >= pageSize;
+}
+
+/**
  * The stored details, as label/value pairs.
  *
  * Never throws. The column holds JSON this app wrote, but an audit log is
@@ -114,10 +142,15 @@ export function detailPairs(details: string | null | undefined): DetailPair[] {
     }
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
 
-    return Object.entries(parsed as Record<string, unknown>).map(([key, value]) => ({
-        label: humanise(key),
-        value: String(value),
-    }));
+    return Object.entries(parsed as Record<string, unknown>)
+        // `reason` (#889) is a refusal's own message, already folded into the
+        // bolded summary sentence by `domain/audit.describe` — showing it
+        // again here would say the same thing twice.
+        .filter(([key]) => key !== 'reason')
+        .map(([key, value]) => ({
+            label: humanise(key),
+            value: String(value),
+        }));
 }
 
 /**

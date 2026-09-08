@@ -139,6 +139,26 @@ class TestDescribe:
 
         assert audit.describe(entry) == "Deleted a race — failed"
 
+    def test_a_refusal_with_a_reason_says_which_one(self):
+        # Three deliberately separate policies raise `PermissionDeniedError`
+        # for a refusal — role, demo, and race lock (#889) — and the entry
+        # is the only place that distinction survives to be read later.
+        entry = _entry(
+            action="deleteRound",
+            outcome=audit.Outcome.REFUSED,
+            details={
+                "reason": (
+                    "That needs the operator PIN. Enter it with the lock "
+                    "icon in the top bar."
+                )
+            },
+        )
+
+        assert audit.describe(entry) == (
+            "Deleted a round — refused: That needs the operator PIN. Enter "
+            "it with the lock icon in the top bar."
+        )
+
     def test_a_heat_result_says_how_it_arrived(self):
         """The distinction a dispute turns on."""
         by_timer = _entry(

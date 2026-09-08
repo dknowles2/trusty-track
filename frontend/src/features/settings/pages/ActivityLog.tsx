@@ -18,8 +18,10 @@ import { mdiAlertCircleOutline, mdiArrowLeft, mdiRefresh } from '@mdi/js';
 
 import { ACTIVITY_LOG_QUERY } from '../graphql/queries';
 import {
+    appendPage,
     byDay,
     detailPairs,
+    hasAnotherPage,
     roleLabel,
     timeOfDay,
     type LogEntry,
@@ -36,16 +38,65 @@ export default function ActivityLog() {
     // evening somebody needs to know which device did something.
     const [showAddresses, setShowAddresses] = useState(false);
 
+    // `beforeId` is the page cursor; `loaded` is every page fetched so far,
+    // merged (#889). A race filter change has to start back at page one — a
+    // cursor from one filter names nothing under another — so that reset
+    // happens during render (comparing against the previous render's
+    // `raceId`, the officially documented "adjusting state when a prop
+    // changes" shape — see https://react.dev/learn/you-might-not-need-an-effect),
+    // rather than in an effect that would show a stale page for one frame
+    // first. `RaceControl` uses the same shape for its own pinned selection.
+    const [beforeId, setBeforeId] = useState<number | null>(null);
+    const [loaded, setLoaded] = useState<LogEntry[]>([]);
+    const [previousRaceId, setPreviousRaceId] = useState(raceId);
+    if (previousRaceId !== raceId) {
+        setPreviousRaceId(raceId);
+        if (beforeId !== null) setBeforeId(null);
+    }
+
     const [{ data, fetching, error }, refetch] = useQuery({
         query: ACTIVITY_LOG_QUERY,
-        variables: { raceId, limit: PAGE_SIZE, beforeId: null },
+        variables: { raceId, limit: PAGE_SIZE, beforeId },
         requestPolicy: 'network-only',
     });
 
-    const entries: LogEntry[] = useMemo(() => data?.auditLog ?? [], [data]);
+    const page: LogEntry[] = useMemo(() => data?.auditLog ?? [], [data]);
+
+    // Merge this page onto what is loaded the moment new data arrives — the
+    // same "adjust state during render" shape as the race-filter reset
+    // above, rather than an effect: this is "sync a newly arrived response
+    // into state" with no further computation, exactly what
+    // `react-hooks/set-state-in-effect` flags, and an effect would show a
+    // stale page for one extra frame regardless. `processedData` guards
+    // against looping — `setLoaded` triggers a re-render, but `data` itself
+    // only changes when urql completes a new fetch, so the check is false on
+    // the very next pass. `beforeId === null` means this is a fresh first
+    // page (a filter change or Refresh) rather than "Load older entries"
+    // continuing the list already on screen.
+    const [processedData, setProcessedData] = useState(data);
+    if (data && data !== processedData) {
+        setProcessedData(data);
+        setLoaded((prev) => appendPage(prev, page, beforeId === null));
+    }
+
+    const canLoadMore = hasAnotherPage(page, PAGE_SIZE);
+
+    const handleRefresh = () => {
+        if (beforeId === null) {
+            refetch({ requestPolicy: 'network-only' });
+        } else {
+            setBeforeId(null);
+        }
+    };
+
+    const handleLoadMore = () => {
+        const last = loaded[loaded.length - 1];
+        if (last) setBeforeId(last.id);
+    };
+
     // `new Date()` at render rather than in the rules, which stay pure and let
     // a test pin what "Today" means.
-    const sections = useMemo(() => byDay(entries, new Date()), [entries]);
+    const sections = useMemo(() => byDay(loaded, new Date()), [loaded]);
 
     if (error) {
         // The query is operator-only and enforces that itself, so the ordinary
@@ -110,7 +161,7 @@ export default function ActivityLog() {
                     <button
                         className="secondary-btn"
                         data-testid="refresh-activity"
-                        onClick={() => refetch({ requestPolicy: 'network-only' })}
+                        onClick={handleRefresh}
                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 12px', fontSize: '0.85rem' }}
                     >
                         <Icon path={mdiRefresh} size={0.7} /> Refresh
@@ -146,9 +197,9 @@ export default function ActivityLog() {
                 )}
             </p>
 
-            {fetching && entries.length === 0 && <p>Loading…</p>}
+            {fetching && loaded.length === 0 && <p>Loading…</p>}
 
-            {!fetching && entries.length === 0 && (
+            {!fetching && loaded.length === 0 && (
                 <p data-testid="activity-empty" style={{ color: 'var(--text-muted-color)' }}>
                     Nothing recorded yet.
                 </p>
@@ -233,9 +284,17 @@ export default function ActivityLog() {
                 </section>
             ))}
 
-            {entries.length >= PAGE_SIZE && (
-                <p style={{ color: 'var(--text-subtle-color)', fontSize: '0.85rem', marginTop: '1rem' }}>
-                    Showing the most recent {PAGE_SIZE} entries.
+            {canLoadMore && (
+                <p style={{ marginTop: '1rem' }}>
+                    <button
+                        className="secondary-btn"
+                        data-testid="load-older-activity"
+                        onClick={handleLoadMore}
+                        disabled={fetching}
+                        style={{ fontSize: '0.85rem', padding: '4px 12px' }}
+                    >
+                        {fetching ? 'Loading…' : 'Load older entries'}
+                    </button>
                 </p>
             )}
         </div>

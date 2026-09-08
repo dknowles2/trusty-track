@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import io
 import sqlite3
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -292,6 +293,47 @@ class TestRefusingAnArchive:
         with pytest.raises(backup.ArchiveError, match="unexpected file"):
             self._restore(archive, data_dir)
 
+    def test_a_database_member_larger_than_the_cap_is_refused(
+        self, data_dir: Path, source_engine, monkeypatch
+    ) -> None:
+        # The declared size is checked before anything is unpacked, the same
+        # "refuse before anything moves" discipline as the schema check
+        # above (#888).
+        monkeypatch.setattr(backup, "MAX_ARCHIVE_DATABASE_BYTES", 4)
+        archive = _make_archive(data_dir, source_engine)
+        with pytest.raises(
+            backup.ArchiveError, match="larger than this install accepts"
+        ):
+            self._restore(archive, data_dir)
+
+    def test_an_upload_member_larger_than_the_cap_is_refused(
+        self, data_dir: Path, source_engine, monkeypatch
+    ) -> None:
+        (data_dir / "uploads" / "racer.png").write_bytes(b"a rather large photograph")
+        monkeypatch.setattr(backup, "MAX_ARCHIVE_UPLOAD_BYTES", 4)
+        archive = _make_archive(data_dir, source_engine)
+        with pytest.raises(
+            backup.ArchiveError, match="larger than this install accepts"
+        ):
+            self._restore(archive, data_dir)
+
+    def test_an_oversized_member_is_refused_before_anything_is_staged(
+        self, data_dir: Path, source_engine, monkeypatch
+    ) -> None:
+        # Everything refusable is refused before anything moves. A member
+        # over the cap must not leave partial bytes sitting in the staging
+        # directory the backup exists to protect.
+        (data_dir / "uploads" / "racer.png").write_bytes(b"a rather large photograph")
+        monkeypatch.setattr(backup, "MAX_ARCHIVE_UPLOAD_BYTES", 4)
+        archive = _make_archive(data_dir, source_engine)
+
+        with pytest.raises(backup.ArchiveError):
+            self._restore(archive, data_dir)
+
+        assert not (data_dir / "staging").exists() or not any(
+            (data_dir / "staging").iterdir()
+        )
+
     def test_an_archive_with_no_database(self, data_dir: Path) -> None:
         buffer = io.BytesIO()
         manifest = backup.Manifest(
@@ -433,6 +475,52 @@ class TestRestoring:
         assert not (data_dir / "staging").exists()
 
 
+class TestSpooledUploads:
+    """`starlette.UploadFile.file` — what a real restore request hands this
+    module through `api/main.py`'s `restore_backup` — is always a
+    `tempfile.SpooledTemporaryFile`, never the `io.BytesIO` or real `Path`
+    every other test in this file uses. Both of those already have a working
+    `seekable()` on every Python version this project supports; a
+    `SpooledTemporaryFile` does not, before 3.11 — and `pyproject.toml`'s
+    floor is 3.10, the same one a Raspberry Pi's system interpreter gives
+    you. `backup._ensure_seekable` is the fix; these are the regression it
+    exists for. Without it, both tests below fail on 3.10 with
+    ``AttributeError: 'SpooledTemporaryFile' object has no attribute
+    'seekable'`` — raised by `zipfile` itself the moment a member inside the
+    zip is opened — and pass on 3.12, which is exactly what the two-version
+    CI matrix (`.claude/rules/ci.md`) is for.
+    """
+
+    def _spooled_copy(self, path: Path) -> tempfile.SpooledTemporaryFile:
+        # Handed back open, the same shape `UploadFile.file` arrives in for
+        # the duration of a real request — a context manager here would
+        # close it before the caller ever gets to read it.
+        spooled: tempfile.SpooledTemporaryFile = tempfile.SpooledTemporaryFile()  # noqa: SIM115
+        spooled.write(path.read_bytes())
+        spooled.seek(0)
+        return spooled
+
+    def test_read_manifest_accepts_a_spooled_upload(
+        self, data_dir: Path, source_engine
+    ) -> None:
+        archive = _make_archive(data_dir, source_engine)
+        manifest = backup.read_manifest(self._spooled_copy(archive))
+        assert manifest.app_version == "1.2.3"
+
+    def test_restore_archive_accepts_a_spooled_upload(
+        self, data_dir: Path, source_engine
+    ) -> None:
+        archive = _make_archive(data_dir, source_engine)
+        manifest = backup.restore_archive(
+            self._spooled_copy(archive),
+            database_path=data_dir / "trusty-track.db",
+            upload_dir=data_dir / "uploads",
+            staging_dir=data_dir / "staging",
+            known_revisions=known_revisions(),
+        )
+        assert manifest.app_version == "1.2.3"
+
+
 class TestWhoMayCall:
     """The role policy guards GraphQL mutations, and these are not GraphQL."""
 
@@ -513,3 +601,69 @@ class TestWhoMayCall:
         # in production and 404s in development — the same trap the printables
         # barcode carries a comment about.
         assert client.get("/backup").status_code == 200
+
+
+class TestOtherDevicesLearnOfARestore:
+    """A restore replaces every race in the room at once — the strongest case
+    there is for the same `racesChanged` signal `createRace`, `updateRace`,
+    `deleteRace` and `createPracticeRace` already publish (#300, #888).
+    Without it, a wall display, the check-in tablet or a second operator tab
+    keeps rendering the replaced event with nothing telling it to refetch.
+    """
+
+    @pytest.fixture(autouse=True)
+    def isolated_data_dir(self, tmp_path: Path, monkeypatch, source_engine):
+        uploads = tmp_path / "endpoint-uploads"
+        uploads.mkdir()
+        monkeypatch.setattr("backend.api.main.UPLOAD_DIR", str(uploads))
+        monkeypatch.setattr("backend.api.main.DATA_DIR", str(tmp_path))
+        monkeypatch.setattr("backend.api.main.engine", source_engine)
+        monkeypatch.setattr(
+            "backend.api.main.database_path",
+            lambda: Path(source_engine.url.database),
+        )
+        monkeypatch.setattr("backend.api.main.init_db", lambda: None)
+        monkeypatch.setattr("backend.api.main.TIMER_MANAGERS", {})
+
+    def test_a_successful_restore_publishes_races_changed(
+        self, client, data_dir: Path, source_engine, monkeypatch
+    ) -> None:
+        archive_path = _make_archive(data_dir, source_engine)
+
+        publishes: list[None] = []
+
+        async def _fake_publish() -> None:
+            publishes.append(None)
+
+        monkeypatch.setattr("backend.api.main._publish_races_list", _fake_publish)
+
+        response = client.post(
+            "/api/backup/restore",
+            files={
+                "file": (
+                    "backup.zip",
+                    archive_path.read_bytes(),
+                    "application/zip",
+                )
+            },
+        )
+
+        assert response.status_code == 200, response.text
+        assert publishes == [None]
+
+    def test_a_refused_restore_does_not_publish(self, client, monkeypatch) -> None:
+        """Nothing moved, so there is nothing for another tab to learn."""
+        publishes: list[None] = []
+
+        async def _fake_publish() -> None:
+            publishes.append(None)
+
+        monkeypatch.setattr("backend.api.main._publish_races_list", _fake_publish)
+
+        response = client.post(
+            "/api/backup/restore",
+            files={"file": ("holiday.jpg", b"not a backup", "image/jpeg")},
+        )
+
+        assert response.status_code == 400
+        assert publishes == []

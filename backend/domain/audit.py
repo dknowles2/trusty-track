@@ -328,6 +328,15 @@ def describe(entry: Entry) -> str:
             phrase = "Heat result entered by hand"
 
     if entry.outcome is Outcome.REFUSED:
+        # Role policy, demo policy and race lock are three deliberately
+        # separate reasons a mutation is turned away (#889), and `reason` is
+        # each one's own `PermissionDeniedError` message — "VIEWER is not
+        # allowed to run deleteRound", "deleteRound is not available on the
+        # demo", or the fixed lock sentence. An older entry, written before
+        # this detail existed, has none, and reads exactly as it always did.
+        reason = entry.details.get("reason")
+        if isinstance(reason, str) and reason:
+            return f"{phrase} — refused: {reason}"
         return f"{phrase} — refused"
     if entry.outcome is Outcome.FAILED:
         return f"{phrase} — failed"

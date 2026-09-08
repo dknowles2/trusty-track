@@ -9,6 +9,8 @@ everything; `RaceLockExtension` uses `resolve` for that reason, and these
 tests look at the database rather than trusting the response.
 """
 
+import json
+
 import pytest
 
 from backend.api import auth, race_lock
@@ -696,6 +698,17 @@ def test_the_refusal_is_recorded(client, db, race):
 
     recorded = entries(db, "updateRace")
     assert [e.outcome for e in recorded] == [audit.Outcome.REFUSED.value]
+
+
+def test_the_refusal_records_the_lock_message(client, db, race):
+    """The one question a dispute about a refused edit asks — a lock refusal
+    must not read like a role refusal or a demo refusal (#889)."""
+    _lock(db, race)
+
+    _post(client, UPDATE_RACE, {"id": race.id, "race": {"name": "Renamed"}})
+
+    details = json.loads(entries(db, "updateRace")[0].details)
+    assert details["reason"] == race_lock.LOCK_MESSAGE
 
 
 def test_the_role_policy_is_asked_before_the_lock(client, db, race, heat):
