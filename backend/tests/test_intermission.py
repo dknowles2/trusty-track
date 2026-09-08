@@ -80,6 +80,19 @@ class TestCrud:
         with pytest.raises(ValueError):
             crud.start_intermission(db, 999999, 60, None)
 
+    def test_start_refuses_a_duration_past_the_cap(self, db):
+        """#886 — `startIntermission(durationSeconds: 100000000)` used to be
+        accepted outright, landing `endsAt` in 2029. `crud.start_intermission`
+        is a thin wrapper over `domain.intermission.start`, which now refuses
+        anything past `MAX_DURATION_SECONDS`."""
+        from backend.domain import intermission as domain_intermission
+
+        race = _seed(db)
+        with pytest.raises(ValueError):
+            crud.start_intermission(
+                db, race.id, domain_intermission.MAX_DURATION_SECONDS + 1, None
+            )
+
 
 # --------------------------------------------------------------------------- #
 # GraphQL, end to end                                                         #

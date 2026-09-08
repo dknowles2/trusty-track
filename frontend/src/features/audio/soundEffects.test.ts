@@ -143,15 +143,29 @@ describe('event trigger predicates', () => {
     });
 
     describe('shouldStagingReadySound', () => {
-        it('sounds when heat becomes staged/armed (WAITING) from unready or empty', () => {
+        it('sounds on any arrival at WAITING, stated as an edge rather than a list of previous phases', () => {
             expect(shouldStagingReadySound('NOT_READY', 'WAITING')).toBe(true);
             expect(shouldStagingReadySound('NO_HEAT', 'WAITING')).toBe(true);
+            // #872 — the transition that actually happens when a heat is
+            // staged on race day: advancing to the next heat by button,
+            // Space, or auto-advance. An earlier version only named
+            // NOT_READY/NO_HEAT -> WAITING, which excluded this — the common
+            // case — so the sound fired at most once per round.
+            expect(shouldStagingReadySound('RECORDED', 'WAITING')).toBe(true);
+            // An abort re-arms the gate too, the same shape `shouldFinishSound`
+            // and `shouldGateReleaseSound` already give any non-excluded prior
+            // phase.
+            expect(shouldStagingReadySound('RUNNING', 'WAITING')).toBe(true);
         });
 
-        it('does not sound on initial load or from already active phases', () => {
+        it('does not sound on initial load or when already at WAITING', () => {
             expect(shouldStagingReadySound(null, 'WAITING')).toBe(false);
             expect(shouldStagingReadySound('WAITING', 'WAITING')).toBe(false);
-            expect(shouldStagingReadySound('RUNNING', 'WAITING')).toBe(false);
+        });
+
+        it('does not sound on a transition that does not land on WAITING', () => {
+            expect(shouldStagingReadySound('WAITING', 'RUNNING')).toBe(false);
+            expect(shouldStagingReadySound('RUNNING', 'RECORDED')).toBe(false);
         });
     });
 

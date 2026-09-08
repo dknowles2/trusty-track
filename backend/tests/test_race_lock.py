@@ -78,6 +78,9 @@ def test_the_lock_leaves_reads_and_display_and_voting_mutations_alone():
         "startTimerTest",
         "releaseStartGate",
         "resetTimer",
+        "pauseIntermission",
+        "resumeIntermission",
+        "endIntermission",
     ):
         assert name not in LOCKED_MUTATION_RESOLVERS
 
@@ -397,6 +400,91 @@ def test_starting_an_intermission_is_refused(client, db, race):
     db.expire_all()
     db.refresh(race)
     assert race.intermission_ends_at is None
+
+
+PAUSE_INTERMISSION = """
+mutation($raceId: Int!) { pauseIntermission(raceId: $raceId) { id } }
+"""
+
+RESUME_INTERMISSION = """
+mutation($raceId: Int!) { resumeIntermission(raceId: $raceId) { id } }
+"""
+
+END_INTERMISSION = """
+mutation($raceId: Int!) { endIntermission(raceId: $raceId) { id } }
+"""
+
+EXTEND_INTERMISSION = """
+mutation($raceId: Int!, $seconds: Int!) {
+  extendIntermission(raceId: $raceId, seconds: $seconds) { id }
+}
+"""
+
+
+def test_a_paused_intermission_on_a_locked_race_can_still_be_ended(client, db, race):
+    """#886 — the state an operator could not get out of: start a break,
+    pause it (which drops its `ends_at`, so unlike a running one it never
+    expires on its own), lock the race, and `endIntermission` used to be
+    refused right along with every other mutation on the denylist — leaving
+    every display assigned to the race parked on the break overlay forever.
+
+    Pausing and resuming only ever hold steady or shorten the time already on
+    the clock — never lengthen it — so they stay reachable too; only
+    `startIntermission`/`extendIntermission`, which would hand a race
+    presumed done *more* break time than it already had, remain locked.
+    """
+    body = _post(
+        client, START_INTERMISSION, {"raceId": race.id, "durationSeconds": 300}
+    ).json()
+    assert not body.get("errors"), body.get("errors")
+
+    body = _post(client, PAUSE_INTERMISSION, {"raceId": race.id}).json()
+    assert not body.get("errors"), body.get("errors")
+
+    _lock(db, race)
+    db.expire_all()
+
+    body = _post(client, END_INTERMISSION, {"raceId": race.id}).json()
+
+    assert not body.get("errors"), body.get("errors")
+    db.expire_all()
+    ended = db.get(models.Race, race.id)
+    assert ended.intermission_ends_at is None
+    assert ended.intermission_paused_remaining_seconds is None
+
+
+def test_pausing_and_resuming_are_allowed_when_locked(client, db, race):
+    body = _post(
+        client, START_INTERMISSION, {"raceId": race.id, "durationSeconds": 300}
+    ).json()
+    assert not body.get("errors"), body.get("errors")
+
+    _lock(db, race)
+    db.expire_all()
+
+    body = _post(client, PAUSE_INTERMISSION, {"raceId": race.id}).json()
+    assert not body.get("errors"), body.get("errors")
+
+    body = _post(client, RESUME_INTERMISSION, {"raceId": race.id}).json()
+    assert not body.get("errors"), body.get("errors")
+
+
+def test_extending_an_intermission_is_still_refused_when_locked(client, db, race):
+    """Unlike ending or pausing, `extendIntermission` would hand a race
+    presumed done more break time than it already had, so it stays on the
+    denylist alongside `startIntermission`."""
+    body = _post(
+        client, START_INTERMISSION, {"raceId": race.id, "durationSeconds": 300}
+    ).json()
+    assert not body.get("errors"), body.get("errors")
+
+    _lock(db, race)
+    db.expire_all()
+
+    body = _post(client, EXTEND_INTERMISSION, {"raceId": race.id, "seconds": 60}).json()
+
+    assert body.get("errors")
+    assert race_lock.LOCK_MESSAGE in body["errors"][0]["message"]
 
 
 # --------------------------------------------------------------------------- #

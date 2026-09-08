@@ -16,12 +16,15 @@ import { errorText } from '../../../utils/errors';
 import {
   EXTEND_SECONDS,
   INTERMISSION_PRESETS,
+  MAX_DURATION_SECONDS,
   formatCountdown,
   isLiveActive,
   liveRemainingSeconds,
   NONE,
   type IntermissionData,
 } from '../intermission';
+
+const MAX_DURATION_MINUTES = MAX_DURATION_SECONDS / 60;
 import type { GetRaceIntermissionQuery } from '../../../gql/operations';
 
 interface IntermissionControlProps {
@@ -99,6 +102,13 @@ export default function IntermissionControl({ raceId }: IntermissionControlProps
       showAlert('Enter a number of minutes greater than zero.', 'Invalid duration');
       return;
     }
+    if (minutes > MAX_DURATION_MINUTES) {
+      showAlert(
+        `Enter a duration of ${MAX_DURATION_MINUTES} minutes or less.`,
+        'Invalid duration',
+      );
+      return;
+    }
     return handleStart(Math.round(minutes * 60));
   };
 
@@ -157,6 +167,7 @@ export default function IntermissionControl({ raceId }: IntermissionControlProps
             <input
               type="number"
               min={1}
+              max={MAX_DURATION_MINUTES}
               step={1}
               value={customMinutes}
               onChange={(e) => setCustomMinutes(e.target.value)}

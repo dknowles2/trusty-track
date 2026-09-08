@@ -42,6 +42,23 @@ class TestStart:
         with pytest.raises(ValueError):
             intermission.start(-5, None, NOW)
 
+    def test_refuses_a_duration_past_the_cap(self):
+        """#886 — nothing used to bound how long a break could run.
+        `startIntermission(durationSeconds: 100000000)` was accepted outright
+        (`endsAt` landing in 2029), and a units slip in the custom-minutes
+        field (1500 typed meaning "15:00") silently parked every display on a
+        25-hour break. `MAX_DURATION_SECONDS` is generous enough to cover a
+        legitimate all-day event's dinner break and still catches both."""
+        with pytest.raises(ValueError):
+            intermission.start(intermission.MAX_DURATION_SECONDS + 1, None, NOW)
+
+    def test_accepts_a_duration_exactly_at_the_cap(self):
+        state = intermission.start(intermission.MAX_DURATION_SECONDS, None, NOW)
+        assert (
+            intermission.resolve(state, NOW).remaining_seconds
+            == intermission.MAX_DURATION_SECONDS
+        )
+
     def test_restarting_an_active_one_is_allowed(self):
         """No precondition — a fresh click from the round-summary modal, or
         the operator changing their mind about the duration, is ordinary."""
@@ -104,6 +121,17 @@ class TestExtend:
         state = intermission.start(60, None, NOW)
         with pytest.raises(ValueError):
             intermission.extend(state, 0, NOW)
+
+    def test_refuses_extending_a_running_one_past_the_cap(self):
+        state = intermission.start(intermission.MAX_DURATION_SECONDS - 60, None, NOW)
+        with pytest.raises(ValueError):
+            intermission.extend(state, 120, NOW)
+
+    def test_refuses_extending_a_paused_one_past_the_cap(self):
+        state = intermission.start(intermission.MAX_DURATION_SECONDS - 60, None, NOW)
+        paused = intermission.pause(state, NOW)
+        with pytest.raises(ValueError):
+            intermission.extend(paused, 120, NOW)
 
 
 class TestPause:

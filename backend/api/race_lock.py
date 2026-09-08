@@ -51,7 +51,27 @@ Everything not named below, and in particular:
   it over a *different* race's lock would break that race for no reason;
 * ``createInitialConfig``/``updateInitialConfig``/``uploadImage``/
   ``createPracticeRace``/``createRace`` — none of these names an existing
-  race in its arguments, so there is nothing here to resolve a lock against.
+  race in its arguments, so there is nothing here to resolve a lock against;
+* ``pauseIntermission``, ``resumeIntermission`` and ``endIntermission``
+  (#886) — an intermission is stored on the race (``domain/intermission.py``
+  says why: every screen watching it has to agree after a refresh, unlike
+  the in-memory display assignments above), but it is a countdown for the
+  room, not a result or a schedule, and none of these three can ever hand a
+  race *more* break time than it already had — pausing and resuming only
+  hold the remaining time steady or let it keep ticking down, and ending
+  clears it outright. ``startIntermission`` and ``extendIntermission`` stay
+  locked, because both do add time, and a race presumed done getting a fresh
+  or a longer break is exactly the kind of change the lock exists to guard
+  against. The asymmetry closes a real trap rather than opening one: a
+  *paused* intermission has no ``ends_at`` and so never expires on its own
+  (unlike a running one, which is also now bounded — see
+  ``domain.intermission.MAX_DURATION_SECONDS``), so before this, locking a
+  race mid-break — accidentally, or because the operator believed the event
+  was over — left every display assigned to it parked on the break overlay
+  with no mutation left that could clear it short of unlocking the whole
+  race. ``endIntermission`` is idempotent and has no precondition on the
+  current state, so it is always a safe way out regardless of what pause and
+  resume are refused.
 
 Where this sits in the extension list
 --------------------------------------
@@ -287,11 +307,12 @@ LOCKED_MUTATION_RESOLVERS: dict[str, Callable[[Session, dict[str, Any]], bool]] 
     "populateRace": _direct_locked,
     "applyMasterRunningOrder": _direct_locked,
     "startFreeRaceHeat": _direct_locked,
+    # `pauseIntermission`, `resumeIntermission` and `endIntermission` are
+    # deliberately absent (#886) — see the module docstring's "Intermission
+    # mutations" paragraph. Only the two that could hand a race presumed
+    # done *more* break time than it already had stay locked.
     "startIntermission": _direct_locked,
     "extendIntermission": _direct_locked,
-    "pauseIntermission": _direct_locked,
-    "resumeIntermission": _direct_locked,
-    "endIntermission": _direct_locked,
     # Named `heatId`.
     "deleteHeat": _heat_locked,
     "deleteFreeRaceHeat": _heat_locked,

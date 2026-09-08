@@ -112,6 +112,36 @@ describe('RaceExecution sound effect transitions (#554)', () => {
         expect(stagingSpy).toHaveBeenCalled();
     });
 
+    it('plays staging sound when the next heat is staged from a recorded one (#872)', () => {
+        // This is the transition that actually happens at the gate on race
+        // day — advancing to the next heat by button, Space, or
+        // auto-advance — which an earlier version of `shouldStagingReadySound`
+        // excluded, so the sound the settings page advertises as "armed at
+        // the gate" fired at most once per round.
+        const stagingSpy = vi.spyOn(soundModule, 'playStagingReadySound').mockImplementation(() => {});
+        soundModule.writeSoundSettings(window.localStorage, {
+            ...soundModule.DEFAULT_SOUND_SETTINGS,
+            master: true,
+            stagingReady: true,
+        });
+
+        let currentPhase = 'RECORDED';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+
+        const { rerender } = render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+        expect(stagingSpy).not.toHaveBeenCalled();
+
+        currentPhase = 'WAITING';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+
+        rerender(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+        expect(stagingSpy).toHaveBeenCalled();
+    });
+
     it('does not play sounds when sound master toggle is off', () => {
         const startSpy = vi.spyOn(soundModule, 'playGateReleaseSound').mockImplementation(() => {});
         const stagingSpy = vi.spyOn(soundModule, 'playStagingReadySound').mockImplementation(() => {});

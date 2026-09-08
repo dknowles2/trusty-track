@@ -118,6 +118,21 @@ describe('no intermission is active', () => {
     expect(startIntermission).not.toHaveBeenCalled();
     expect(showAlert).toHaveBeenCalled();
   });
+
+  it('refuses a custom duration past the cap without calling the mutation', () => {
+    // #886 — a units slip (1500 typed meaning "15:00") used to be sent
+    // straight to the server, parking every display on a 25-hour break.
+    mockIntermission(NONE);
+    render(<IntermissionControl raceId={1} />);
+
+    fireEvent.click(screen.getByTestId('intermission-custom-btn'));
+    const input = screen.getByLabelText('Custom break length, in minutes');
+    fireEvent.change(input, { target: { value: '1500' } });
+    fireEvent.click(screen.getByText('Start'));
+
+    expect(startIntermission).not.toHaveBeenCalled();
+    expect(showAlert).toHaveBeenCalled();
+  });
 });
 
 describe('an intermission is running', () => {

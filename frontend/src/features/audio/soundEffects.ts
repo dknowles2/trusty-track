@@ -165,11 +165,23 @@ export function shouldGateReleaseSound(previous: HeatPhase | null, next: HeatPha
 
 /**
  * Whether a heat staging / ready transition occurred.
- * Only triggers when moving from NOT_READY or NO_HEAT to WAITING (staged/armed),
- * not on initial page load, nor after an abort (RUNNING -> WAITING).
+ *
+ * Stated as an edge into WAITING — any non-null previous phase that was not
+ * already WAITING — the same shape `shouldFinishSound` and
+ * `shouldGateReleaseSound` above already use, rather than a list of accepted
+ * previous phases. An earlier version only named NOT_READY -> WAITING and
+ * NO_HEAT -> WAITING, which excluded RECORDED -> WAITING (#872) — the
+ * transition that actually happens when a heat is staged on race day:
+ * advancing to the next heat by button, Space, or auto-advance. Enumerating
+ * the accepted transitions is how that bug happened, so the fix generalizes
+ * the rule rather than adding one more name to the list. An abort
+ * (RUNNING -> WAITING) now sounds too: the gate really is re-armed and
+ * waiting again, which is exactly what this sound announces, and there is
+ * nothing left in this phase machine that arrives at WAITING without the
+ * gate actually being staged.
  */
 export function shouldStagingReadySound(previous: HeatPhase | null, next: HeatPhase): boolean {
-    return previous !== null && (previous === 'NOT_READY' || previous === 'NO_HEAT') && next === 'WAITING';
+    return previous !== null && previous !== 'WAITING' && next === 'WAITING';
 }
 
 /**

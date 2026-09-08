@@ -42,6 +42,24 @@ demand" rule the standings, awards and track records already follow (#17):
 `resolve` is asked fresh every time, against the caller's own `now`, and once
 `remaining_seconds` reaches zero it reports `active=False` on its own. There
 is no background job sweeping expired intermissions, and none is needed.
+
+A cap on how much time may ever be on the clock, not on how long it may sit
+paused
+-------------------------------------------------------------------------
+`MAX_DURATION_SECONDS` bounds the one number a caller actually supplies —
+`start`'s `duration_seconds` and the total `extend` would leave on the
+clock, running or paused — so a units mistake (1500 typed meaning "15:00")
+or a bare API call with an absurd value can never park a break for hours
+longer than any real one runs. It does *not* put a clock on how long an
+already-paused intermission may sit paused: that would fight the feature's
+own point, which is letting the operator freeze the room for exactly as long
+as a stuck sprinkler or a missing prize table takes, however long that turns
+out to be. Nothing here auto-ends a stale pause. What makes that safe is
+`endIntermission` staying reachable regardless of lock state (#886, and see
+`api/race_lock.py`) — an operator always has a plain way to clear a break
+that has gone on too long, so a *cap on the input* is enough; a *timeout on
+the wait* is not needed and would take away the operator's own judgment
+about when the room is ready.
 """
 
 from __future__ import annotations
@@ -53,6 +71,7 @@ __all__ = [
     "State",
     "Intermission",
     "NONE",
+    "MAX_DURATION_SECONDS",
     "resolve",
     "start",
     "extend",
@@ -98,6 +117,13 @@ class Intermission:
 #: No intermission — every race starts here, and `end` returns here too.
 NONE = State()
 
+#: The longest a break may run in one sitting, in seconds — four hours,
+#: comfortably past a legitimate all-day event's dinner break, and a hard
+#: ceiling `start` and `extend` both refuse to cross. See the module
+#: docstring for why this bounds the *input* rather than how long a paused
+#: intermission may sit paused.
+MAX_DURATION_SECONDS = 4 * 60 * 60
+
 
 def resolve(state: State, now: datetime) -> Intermission:
     """The state, plus the current time, as what a screen should show."""
@@ -134,6 +160,8 @@ def start(duration_seconds: int, label: str | None, now: datetime) -> State:
     """
     if duration_seconds <= 0:
         raise ValueError("duration_seconds must be positive")
+    if duration_seconds > MAX_DURATION_SECONDS:
+        raise ValueError(f"duration_seconds must be at most {MAX_DURATION_SECONDS}")
     return State(
         ends_at=(now + timedelta(seconds=duration_seconds)).isoformat(),
         paused_remaining_seconds=None,
@@ -142,19 +170,28 @@ def start(duration_seconds: int, label: str | None, now: datetime) -> State:
 
 
 def extend(state: State, seconds: int, now: datetime) -> State:
-    """Add ``seconds`` to whatever time is left, running or paused."""
+    """Add ``seconds`` to whatever time is left, running or paused.
+
+    Refused, like `start`, once the *total* remaining time would cross
+    `MAX_DURATION_SECONDS` — a break already near the cap cannot be pushed
+    past it one "+5 min" click at a time.
+    """
     if seconds <= 0:
         raise ValueError("seconds must be positive")
     if not resolve(state, now).active:
         raise ValueError("no active intermission to extend")
     if state.paused_remaining_seconds is not None:
-        return replace(
-            state, paused_remaining_seconds=state.paused_remaining_seconds + seconds
-        )
+        total = state.paused_remaining_seconds + seconds
+        if total > MAX_DURATION_SECONDS:
+            raise ValueError(
+                f"remaining seconds must be at most {MAX_DURATION_SECONDS}"
+            )
+        return replace(state, paused_remaining_seconds=total)
     remaining = max(0, _seconds_until(state.ends_at, now)) if state.ends_at else 0
-    return replace(
-        state, ends_at=(now + timedelta(seconds=remaining + seconds)).isoformat()
-    )
+    total = remaining + seconds
+    if total > MAX_DURATION_SECONDS:
+        raise ValueError(f"remaining seconds must be at most {MAX_DURATION_SECONDS}")
+    return replace(state, ends_at=(now + timedelta(seconds=total)).isoformat())
 
 
 def pause(state: State, now: datetime) -> State:
