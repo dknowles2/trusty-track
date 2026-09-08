@@ -36,6 +36,9 @@ import {
 } from '../../stats/scoringStrategyText';
 import IdentifyPresence from '../IdentifyPresence';
 import IntermissionOverlay from '../components/IntermissionOverlay';
+import RaceFinishedOverlay from '../components/RaceFinishedOverlay';
+import { finalChampionshipRound, raceIsFinished } from '../raceFinished';
+import { roundLabel as championshipRoundLabel } from '../../stats/disruptedRounds';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { isLiveActive, NONE as NO_INTERMISSION, type IntermissionData } from '../../racing/intermission';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
@@ -73,6 +76,22 @@ const GET_INITIAL_DATA = `
         # track's card.
         laneColors
       }
+      # Whether the race is finished (issue 869) — every officially scheduled
+      # heat recorded, with nothing next — is decided from these two
+      # fields by raceFinished.ts's raceIsFinished/finalChampionshipRound,
+      # not asked of the server directly: it is a plain fact about data this
+      # screen already has the shape of, the same reasoning pace.ts
+      # computes client-side rather than as a new resolver.
+      heats {
+        id
+        recordedAt
+      }
+      rounds {
+        id
+        name
+        roundNumber
+        advancementSource
+      }
       racers {
         id
         firstName
@@ -93,6 +112,35 @@ const GET_INITIAL_DATA = `
     }
   }
 `;
+
+/**
+ * One championship round's own placings (#869) — a plain string rather than
+ * the `gql` tag, the same reason `Leaderboard.tsx`'s own round-scoped query
+ * is: the round id is runtime data, not something codegen can type ahead of
+ * time. There is no live channel for this the way there is for the prelim
+ * standings (`Subscription.leaderboard` carries no `roundId`), so it is a
+ * one-shot fetch, paused until the race is actually finished.
+ */
+function championshipResultQuery(roundId: number): string {
+  return `
+    query GetChampionshipResult($id: Int!) {
+      race(raceId: $id) {
+        id
+        leaderboard(roundId: ${roundId}) {
+          racerId
+          rank
+          score
+          heatsCompleted
+        }
+      }
+    }
+  `;
+}
+
+// A harmless, always-parseable document for the championship query while it
+// is paused (no championship round, or the race is not finished) — `useQuery`
+// still needs a valid `query` even when it never runs.
+const NOOP_CHAMPIONSHIP_QUERY = 'query Noop { __typename }';
 
 interface Standing {
   racerId: number;
@@ -437,6 +485,56 @@ export default function Observation() {
   // with no trailing unit rather than a second copy of the same word.
   const formatProjectorScore = (score: number) =>
     formatScoreShared(score, scoringStrategy, { unit: false });
+
+  // "The race is finished" (#869) — every officially scheduled heat
+  // recorded, nothing on the track, nothing on deck, no exhibition run
+  // armed. `raceFinished.ts` decides this purely off data the page already
+  // has the shape of, the same reasoning `pace.ts` computes client-side
+  // rather than as a new resolver.
+  const finished = raceIsFinished(
+    initialData?.race?.heats ?? [],
+    !!officialCurrentHeat,
+    !!onDeckHeat,
+    !!activeFreeRace,
+  );
+  // The *last* championship round, if the race ran one (#549's chained
+  // finals wire each round after the first to the previous, so this is the
+  // one whose result the room actually cares about) — `null` falls back to
+  // the overall standings below. Cheap enough (a filter and a reduce over a
+  // handful of rounds) to compute plainly rather than memoize.
+  const finalRound = finalChampionshipRound(initialData?.race?.rounds ?? []);
+  // A one-shot query for that round's own placings — only run once the race
+  // is actually finished, since it is a snapshot rather than a live
+  // subscription (there is no `roundId`-scoped leaderboard channel to
+  // subscribe to; see `Subscription.leaderboard` on the backend). urql keys
+  // an operation on the query's own text, so a fresh string with identical
+  // content each render is not a fresh request.
+  const finalRoundQuery = finalRound ? championshipResultQuery(finalRound.id) : NOOP_CHAMPIONSHIP_QUERY;
+  const [{ data: finalRoundData }] = useQuery({
+    query: finalRoundQuery,
+    variables: { id },
+    pause: !finished || !finalRound,
+  });
+  const finalRoundEntries = (finalRoundData?.race?.leaderboard ?? []) as Standing[];
+  // Only a round that has actually been raced supplies its own table — the
+  // same "nobody's raced yet is nobody's business" rule the printed results
+  // sheet's `championshipSections` follows (#869), so a championship round
+  // that exists but is still all placeholders never headlines this panel.
+  const hasFinalRoundResult = finalRoundEntries.some((s) => s.heatsCompleted > 0);
+  const finishedStandingsSource = hasFinalRoundResult ? finalRoundEntries : standings;
+  const finishedStandings = finishedStandingsSource.map((s) => {
+    const racer = racersMap[s.racerId];
+    return {
+      racerId: s.racerId,
+      rank: s.rank,
+      firstName: racer?.firstName ?? '',
+      lastName: racer?.lastName ?? '',
+      carNumber: racer?.carNumber,
+      racerImageUrl: racer?.racerImageUrl,
+      score: s.score,
+    };
+  });
+  const finishedRoundLabel = hasFinalRoundResult && finalRound ? championshipRoundLabel(finalRound) : null;
 
   /** Is the thing on the track an exhibition run? (#142)
    *
@@ -849,6 +947,29 @@ export default function Observation() {
           formatScore={formatScore}
           showStandingsTicker={behaviour.showStandingsTicker}
           finishBanner={showResultsOverlay && overlayData ? overlayData : null}
+        />
+      </div>
+    );
+  }
+
+  // --- RACE FINISHED (#869) ---
+  // Takes over the standard and projector layouts once nothing is on the
+  // track and nothing is next — the two places that used to fall back to
+  // "No heat scheduled" whether racing had not started or had already
+  // finished, with no result announced either way. Scoped to these two
+  // views only: the slideshow, check-in, QR code and broadcast-overlay
+  // views above have their own reason to keep running, and none of them
+  // shows the panels this replaces.
+  if (finished) {
+    return (
+      <div className="container projector-mode" data-theme={displayThemeKey} style={displayThemeStyle}>
+        <RaceFinishedOverlay
+          roundLabel={finishedRoundLabel}
+          standings={finishedStandings}
+          formatScore={formatScore}
+          scoreLabel={scoreLabel}
+          nameDisplay={nameDisplay}
+          vehicle={vehicle}
         />
       </div>
     );

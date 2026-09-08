@@ -15,6 +15,8 @@
  */
 
 import { formatDisplayName, type NameDisplay } from '../core/displayName';
+import { ordinal } from '../awards/awardText';
+import { executionComparator, type OrderedHeat } from '../racing/runningOrder';
 
 export interface SheetLane {
     lane: number;
@@ -43,6 +45,22 @@ export interface SheetRacer {
     carNumber?: number | null;
 }
 
+/**
+ * A run-off heat (#550) — a `Heat` with no `roundId` of its own, held to
+ * settle a tie. `settlesRoundId` names the round it is racing off for, or is
+ * null when it settles the race's overall standings, mirroring `Heat.
+ * settlesRoundId` / `RunOffHeat.settlesRoundId` on the GraphQL side exactly.
+ * `placement` is `RunOffHeat.placement` / `Heat.runOffPlacement` — the
+ * standings rank it is deciding, computed fresh on every read, or `null`
+ * once the tie it was created for has moved (#550, rule 4).
+ */
+export interface SheetRunOffHeat {
+    id: number;
+    settlesRoundId?: number | null;
+    placement?: number | null;
+    lanes: readonly SheetLane[];
+}
+
 /** What one lane of one heat says on the paper. */
 export interface Cell {
     lane: number;
@@ -56,6 +74,11 @@ export interface HeatRow {
     heatId: number;
     heatNumber: number;
     cells: Cell[];
+    /** Which round this row's heat belongs to, printed only on the flat
+     * master-running-order section (#890) — a round's own per-round table
+     * already says which round it is in the section heading, so every other
+     * row leaves this unset. */
+    roundLabel?: string;
 }
 
 export interface RoundSection {
@@ -69,11 +92,38 @@ export const TO_BE_DECIDED = 'To be decided';
 /** A lane nobody is in — an odd field, or a racer deleted after scheduling. */
 export const EMPTY_LANE = '—';
 
+/**
+ * The flat section's title when the master running order is on (#890) —
+ * mirroring `ScheduleManagement.tsx`'s own "Master running order" panel,
+ * the operator screen's answer to the same problem: a block per round is
+ * unreadable as a running order once heats interleave across rounds, so a
+ * flat table sorted the same way goes first and the per-round tables stay
+ * underneath as detail.
+ */
+export const MASTER_RUNNING_ORDER_TITLE = 'Master running order';
+
+/** A run-off heat with no matched tie to announce (#550, rule 4) — the heat
+ * still ran and still belongs on paper, just with nothing left to say about
+ * what it decided. */
+export const RUN_OFF_UNTITLED = 'Run-off';
+
 export function roundTitle(round: SheetRound): string {
     if (round.name) return round.name;
     return round.advancementSource
         ? `Championship round ${round.roundNumber}`
         : `Round ${round.roundNumber}`;
+}
+
+/**
+ * "Run-off for 2nd place" — or the plain fallback once the tie it was
+ * created for has moved and `placement` reads `null` (#550, rule 4). Mirrors
+ * `features/racing/runOff.ts`'s `runOffAnnouncement`, which says the same
+ * thing in the present tense for a heat racing right now; this sheet is
+ * printed either before or after the fact, so the tense is neutral instead.
+ */
+export function runOffTitle(placement: number | null | undefined): string {
+    if (placement == null) return RUN_OFF_UNTITLED;
+    return `Run-off for ${ordinal(placement)} place`;
 }
 
 /**
@@ -110,12 +160,35 @@ export function cellFor(
 }
 
 /**
- * The sheet: one section per round, in running order.
+ * A round id no real round can hold (ids come from the database and are
+ * always positive), used as a stable, unique key for a section that is not
+ * one round's own table.
+ */
+const MASTER_RUNNING_ORDER_ROUND_ID = -1;
+
+/**
+ * The sheet: one section per round, in schedule order (round number, then
+ * heat number within it) — the shape a *schedule* has, not necessarily the
+ * order heats are actually run in once the master running order interleaves
+ * them (see the flat section below).
  *
  * ``lanes`` is the track's lanes, not the heat's, so every row has the same
  * columns even when a lane is out of service (#171) or a racer was deleted out
  * of one. A table whose rows have different widths is unreadable, and the gap
  * is the point — that lane is empty and the announcer should know.
+ *
+ * A run-off heat (#550) has no round of its own, so it cannot join one of
+ * these tables; it gets a one-row section immediately after the round it
+ * settles, or after every round when it settles the race's overall
+ * standings — titled with what it is racing off to decide (#890).
+ *
+ * With the master running order on (#549), a block per round stops being a
+ * running order the moment heats interleave across rounds — the same reason
+ * `ScheduleManagement.tsx`'s own panel exists — so a flat section sorted
+ * with `runningOrder.ts`'s comparator, matching exactly what the Race tab
+ * and the wall displays are executing, is prepended ahead of the per-round
+ * tables. Championship rounds are exempt from the interleave and are left
+ * out of it, the same rule `execution_sort_key` states on the backend.
  */
 export function buildHeatSheet(
     rounds: readonly SheetRound[],
@@ -125,29 +198,91 @@ export function buildHeatSheet(
     /** How much of a racer's name this sheet prints (#552). Defaults to
      * `'FULL'`, today's only behaviour. */
     nameDisplay: NameDisplay | string = 'FULL',
+    /** Off by default, and every race that predates the flag (#549). */
+    masterRunningOrder = false,
+    /** Every run-off heat on this race (#550), matched to the round it
+     * settles by `settlesRoundId`. Defaults to none, today's only
+     * behaviour before #890. */
+    runOffHeats: readonly SheetRunOffHeat[] = [],
 ): RoundSection[] {
     const byId = new Map(racers.map((racer) => [racer.id, racer]));
     const lanesInOrder = [...new Set(lanes)].sort((a, b) => a - b);
+    const roundsById = new Map(rounds.map((round) => [round.id, round]));
     const ordered = [...rounds].sort((a, b) => a.roundNumber - b.roundNumber);
 
-    return ordered
+    const cellsFor = (heatLanes: readonly SheetLane[]) => {
+        const byLane = new Map(heatLanes.map((lane) => [lane.lane, lane]));
+        return lanesInOrder.map((lane) => cellFor(byLane.get(lane) ?? { lane }, byId, nameDisplay));
+    };
+
+    const roundSections = ordered
         .map((round) => {
             const rows = heats
                 .filter((heat) => heat.roundId === round.id)
                 .sort((a, b) => a.heatNumber - b.heatNumber)
-                .map((heat) => {
-                    const byLane = new Map(heat.lanes.map((lane) => [lane.lane, lane]));
-                    return {
-                        heatId: heat.id,
-                        heatNumber: heat.heatNumber,
-                        cells: lanesInOrder.map((lane) =>
-                            cellFor(byLane.get(lane) ?? { lane }, byId, nameDisplay),
-                        ),
-                    };
-                });
+                .map((heat) => ({
+                    heatId: heat.id,
+                    heatNumber: heat.heatNumber,
+                    cells: cellsFor(heat.lanes),
+                }));
             return { roundId: round.id, title: roundTitle(round), rows };
         })
         .filter((section) => section.rows.length > 0);
+
+    const runOffSection = (runOff: SheetRunOffHeat): RoundSection => ({
+        // Negated so it cannot collide with a real (positive) round id, and
+        // stable across calls for the same run-off heat.
+        roundId: -runOff.id - 1,
+        title: runOffTitle(runOff.placement),
+        rows: [{ heatId: runOff.id, heatNumber: 0, cells: cellsFor(runOff.lanes) }],
+    });
+
+    const sections: RoundSection[] = [];
+    for (const section of roundSections) {
+        sections.push(section);
+        for (const runOff of runOffHeats) {
+            if (runOff.settlesRoundId === section.roundId) sections.push(runOffSection(runOff));
+        }
+    }
+    // Settles the race's overall standings, not one round — sorts after
+    // every round, the same sentinel position `crud.heats_in_running_order`
+    // gives it.
+    for (const runOff of runOffHeats) {
+        if (runOff.settlesRoundId == null) sections.push(runOffSection(runOff));
+    }
+
+    if (!masterRunningOrder) return sections;
+
+    const championshipRoundIds = new Set(
+        rounds.filter((round) => round.advancementSource != null).map((round) => round.id),
+    );
+    const compare = executionComparator(true, championshipRoundIds);
+    const flatRows = heats
+        .filter((heat): heat is SheetHeat & { roundId: number } => heat.roundId != null)
+        .filter((heat) => !championshipRoundIds.has(heat.roundId))
+        .map((heat) => {
+            const round = roundsById.get(heat.roundId);
+            const ordered: OrderedHeat = {
+                roundId: heat.roundId,
+                roundNumber: round?.roundNumber ?? 0,
+                heatNumber: heat.heatNumber,
+            };
+            return { heat, ordered, roundLabel: round ? roundTitle(round) : undefined };
+        })
+        .sort((a, b) => compare(a.ordered, b.ordered))
+        .map(({ heat, roundLabel }) => ({
+            heatId: heat.id,
+            heatNumber: heat.heatNumber,
+            cells: cellsFor(heat.lanes),
+            roundLabel,
+        }));
+
+    if (flatRows.length === 0) return sections;
+
+    return [
+        { roundId: MASTER_RUNNING_ORDER_ROUND_ID, title: MASTER_RUNNING_ORDER_TITLE, rows: flatRows },
+        ...sections,
+    ];
 }
 
 /** How many heats the sheet covers, for the "before you commit paper" line. */

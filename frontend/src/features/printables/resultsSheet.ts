@@ -16,6 +16,7 @@
 
 import { scoreValue } from '../stats/standingsExport';
 import { formatDisplayName, type NameDisplay } from '../core/displayName';
+import { roundTitle, type SheetRound } from './heatSheet';
 
 export interface ResultsEntry {
     racerId: number;
@@ -42,7 +43,14 @@ export interface ResultsAward {
 
 export interface ResultRow {
     racerId: number;
-    /** Place within *this* section, which is not the pack rank in a racingGroup table. */
+    /**
+     * A shared competition rank (1, 1, 3), never renumbered to hide a tie
+     * (#883, mirroring #226's rule for the screen). On the overall table
+     * this is `entry.rank` as `standings_ranks` stamped it, unchanged; on a
+     * racingGroup table it is that same tie structure re-based to start at 1
+     * within the group — a *different* question from collapsing a tie, and
+     * `rowsFrom`'s own comment is what to read before touching either.
+     */
     place: number;
     name: string;
     carNumber: string;
@@ -82,18 +90,44 @@ function nameOf(
     return formatDisplayName(nameDisplay, entry.firstName, entry.lastName);
 }
 
+/**
+ * Re-based competition ranks for a *subset* of the standings (#883).
+ *
+ * `entries` is assumed already sorted the way the standings are (ascending
+ * rank), which is what `resultsSections` hands it. Two entries carrying the
+ * same `rank` in the pack scope are tied by definition — a score is a
+ * numeric equality, invariant to which subset of racers you look at it
+ * through — so re-basing preserves every tie in the pack's own rank column
+ * while starting the *numbering* at 1 for this table. An entry that has not
+ * raced keeps a strictly increasing pack rank (`domain.scoring.
+ * standings_ranks`'s own rule, so unraced entries never falsely tie here
+ * either), which this rides on rather than re-deriving.
+ */
+function rebasedPlaces(entries: readonly ResultsEntry[]): number[] {
+    const places: number[] = [];
+    entries.forEach((entry, index) => {
+        places.push(index > 0 && entry.rank === entries[index - 1].rank ? places[index - 1] : index + 1);
+    });
+    return places;
+}
+
 function rowsFrom(
     entries: readonly ResultsEntry[],
     scoringStrategy: string,
     noGroupLabel: string,
     nameDisplay: NameDisplay | string,
+    /**
+     * Overall table: print the pack rank exactly as the screen shows it,
+     * ties and all. RacingGroup table: re-base to 1 within the group, but
+     * still collapse ties — different question from *whether* to collapse
+     * them (#883). See `ResultRow.place`.
+     */
+    rebase: boolean,
 ): ResultRow[] {
+    const places = rebase ? rebasedPlaces(entries) : entries.map((entry) => entry.rank);
     return entries.map((entry, index) => ({
         racerId: entry.racerId,
-        // Numbered from 1 within the section rather than carrying the pack
-        // rank across. A racingGroup table headed 4, 9, 17 is a table of pack ranks,
-        // and the person reading it wants to know who won the racingGroup.
-        place: index + 1,
+        place: places[index],
         name: nameOf(entry, nameDisplay),
         carNumber: entry.carNumber == null ? '' : String(entry.carNumber),
         racingGroupName: entry.racingGroupName || noGroupLabel,
@@ -126,7 +160,7 @@ export function resultsSections(
     if (standings.length === 0) return [];
 
     const sections: ResultsSection[] = [
-        { title: OVERALL, rows: rowsFrom(standings, scoringStrategy, noGroupLabel, nameDisplay) },
+        { title: OVERALL, rows: rowsFrom(standings, scoringStrategy, noGroupLabel, nameDisplay, false) },
     ];
 
     const byRacingGroup = new Map<string, ResultsEntry[]>();
@@ -145,12 +179,67 @@ export function resultsSections(
         for (const [racingGroupName, entries] of byRacingGroup) {
             sections.push({
                 title: racingGroupName,
-                rows: rowsFrom(entries, scoringStrategy, noGroupLabel, nameDisplay),
+                rows: rowsFrom(entries, scoringStrategy, noGroupLabel, nameDisplay, true),
             });
         }
     }
 
     return sections;
+}
+
+/**
+ * One championship round's own leaderboard entries, matched to that round
+ * (#869) — the input `championshipSections` needs, since a championship
+ * round's placings come off a *separate*, round-scoped query
+ * (`championshipResultsQuery` in `graphql/queries.ts`) rather than the
+ * prelim-scoped `standings` `resultsSections` reads.
+ */
+export interface ChampionshipRoundResult {
+    round: SheetRound;
+    entries: readonly ResultsEntry[];
+}
+
+/**
+ * A table per championship round that has actually been raced (#869).
+ *
+ * Standings cover preliminary rounds only (#17) — a championship field is
+ * *drawn from* them, so folding its own result back in is circular — which
+ * is exactly why the results sheet used to leave the final out entirely:
+ * `resultsSections` never sees it. This is the missing half, kept separate
+ * on purpose rather than taught to `resultsSections`, since a championship
+ * round's placings come from `leaderboard(roundId:)`, a different query
+ * scope than the aggregate standings.
+ *
+ * **Nobody's raced yet is nobody's business here.** A round exists, and
+ * carries placeholder entries, from the moment the wizard creates it —
+ * printing it before a single heat has run would put blank names and zero
+ * scores on the noticeboard, so a round with no entry showing at least one
+ * completed heat is left out.
+ *
+ * **The round's own rank is printed exactly, with no re-basing.**
+ * `leaderboard(roundId:)` already scopes `standings_ranks` to this round
+ * alone (#226), so — unlike a racingGroup table, which narrows the
+ * pack-wide standings and so must re-derive its own tie structure — there
+ * is nothing to re-base here.
+ */
+export function championshipSections(
+    rounds: readonly ChampionshipRoundResult[],
+    scoringStrategy: string,
+    /** How much of a racer's name this sheet prints (#552). Defaults to
+     * `'FULL'`, today's only behaviour. */
+    nameDisplay: NameDisplay | string = 'FULL',
+): ResultsSection[] {
+    return rounds
+        .filter(({ entries }) => entries.some((entry) => entry.heatsCompleted > 0))
+        .slice()
+        .sort((a, b) => a.round.roundNumber - b.round.roundNumber)
+        .map(({ round, entries }) => ({
+            // A championship round's own table has no racingGroup column
+            // (see `ResultsSheet.tsx`), so the fallback label is never
+            // shown — passed through only because `rowsFrom` needs one.
+            title: roundTitle(round),
+            rows: rowsFrom(entries, scoringStrategy, '', nameDisplay, false),
+        }));
 }
 
 /**

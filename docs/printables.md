@@ -159,28 +159,35 @@ know which cars are next. Print it once the schedule is settled and put it on
 the table.
 
 A lane with nobody coming reads **—**, and a championship place not yet
-decided reads **To be decided** — somebody will write a name in. More in
+decided reads **To be decided** — somebody will write a name in. With
+[Interleave heats across every den](reference/running-order.md) turned on, a
+**Master running order** table leads the sheet, matching the order the Race
+tab and the wall displays actually run in; a run-off heat gets its own row
+too, right after the round it is settling. More in
 [Printed documents](reference/printing.md#the-heat-sheet).
 
 ## The results sheet
 
 The other half of the pair: the heat sheet goes on the table before the racing,
 this one goes on the noticeboard afterwards. Awards and their winners at the
-top, then the standings — overall, and one table per den.
+top, then the standings — overall, the championship round's own result if the
+race ran one, and one table per den.
 
 **Standings → Print results.** It lives there rather than in the roster's print
 menu, because that menu prints the *cards* — one per racer, before the event —
 and this is one document about the whole race once it is over.
 
 ![The printed results sheet](assets/screenshots/printables/results-sheet.png)
-_Awards first, then the overall standings, then a table per den. The den tables
-are the overall standings narrowed, so they cannot disagree with a "fastest
-Wolf" trophy about who won._
+_Awards first, then the overall standings, then the championship round's own
+table if the race ran one, then a table per den. The den tables are the
+overall standings narrowed, so they cannot disagree with a "fastest Wolf"
+trophy about who won._
 
 The standings on it are the **qualifying rounds only**, and the sheet says
-so — the championship trophies are in the awards table at the top. Each
-den's table is numbered from 1, and an undecided award prints as **Not
-awarded**. The rest of the rules are in
+so — right beside the championship round's own table, once that round has
+actually been raced. Two racers who tie keep the same place number, on the
+overall table and on a den's own. Each den's table is numbered from 1, and
+an undecided award prints as **Not awarded**. The rest of the rules are in
 [Printed documents](reference/printing.md#the-results-sheet).
 
 ## Certificates

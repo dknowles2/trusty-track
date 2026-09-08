@@ -16,7 +16,14 @@ import { useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import { mdiArrowLeft, mdiPrinter } from '@mdi/js';
 
-import { buildHeatSheet, totalHeats, type SheetHeat, type SheetRacer } from '../heatSheet';
+import {
+    MASTER_RUNNING_ORDER_TITLE,
+    buildHeatSheet,
+    totalHeats,
+    type SheetHeat,
+    type SheetRacer,
+    type SheetRunOffHeat,
+} from '../heatSheet';
 import { VehicleGlyph } from '../components/PrintDecor';
 import { formatEventDate } from '../documents';
 import { GET_HEAT_SHEET } from '../graphql/queries';
@@ -61,6 +68,12 @@ export default function HeatSheet() {
             (race.racers ?? []) as SheetRacer[],
             lanes,
             race.resolvedNameDisplay ?? 'FULL',
+            // Master running order (#549) and run-off heats (#550) — #890:
+            // the printed sheet used to ignore both, so it disagreed with
+            // what the operator's Race tab and the wall displays actually
+            // execute.
+            !!race.masterRunningOrder,
+            (race.runOffHeats ?? []) as SheetRunOffHeat[],
         );
     }, [race, track]);
 
@@ -127,13 +140,22 @@ export default function HeatSheet() {
                         </div>
                     </header>
 
-                    {sections.map((section) => (
+                    {sections.map((section) => {
+                        // The flat master-running-order section (#890) is
+                        // the one place a row's round is not already said by
+                        // the section heading, so it alone gets a Round
+                        // column — reusing `runOffTitle`'s `heatNumber: 0`
+                        // sentinel would be a number on paper worth nothing,
+                        // so a run-off's own row leaves that cell blank too.
+                        const isMasterOrder = section.title === MASTER_RUNNING_ORDER_TITLE;
+                        return (
                         <section key={section.roundId} className="heat-sheet-round">
                             <h2>{section.title}</h2>
                             <table>
                                 <thead>
                                     <tr>
                                         <th className="heat-sheet-num">Heat</th>
+                                        {isMasterOrder && <th>Round</th>}
                                         {laneColumns.map((cell) => (
                                             <th key={cell.lane}>
                                                 <LaneBadge color={colorForLane(laneColors, cell.lane)} style={{ justifyContent: 'center' }}>
@@ -147,7 +169,8 @@ export default function HeatSheet() {
                                 <tbody>
                                     {section.rows.map((row) => (
                                         <tr key={row.heatId}>
-                                            <td className="heat-sheet-num">{row.heatNumber}</td>
+                                            <td className="heat-sheet-num">{row.heatNumber || ''}</td>
+                                            {isMasterOrder && <td>{row.roundLabel}</td>}
                                             {row.cells.map((cell) => (
                                                 <td key={cell.lane}>
                                                     {cell.carNumber && (
@@ -164,7 +187,8 @@ export default function HeatSheet() {
                                 </tbody>
                             </table>
                         </section>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>

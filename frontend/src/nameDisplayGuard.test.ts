@@ -78,6 +78,8 @@ const ABBREVIATING_SURFACES: Record<string, string> = {
         'The OBS broadcast overlay (#616) — a stream reaches further than a gym wall, so this public surface abbreviates exactly like every other one on Observation.tsx.',
     'features/observation/components/StandingsOnlyView.tsx':
         'The `STANDINGS_ONLY` view (#663) — a dedicated leaderboard screen for a pack too big for one screenful, on the same public display route as the rest of Observation.tsx.',
+    'features/observation/components/RaceFinishedOverlay.tsx':
+        'The "race finished" takeover (#869) — the same public standings/projector surface as `Observation.tsx` itself, once nothing is left to race.',
 };
 
 /**

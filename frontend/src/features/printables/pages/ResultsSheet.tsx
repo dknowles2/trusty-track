@@ -19,12 +19,15 @@ import { mdiArrowLeft, mdiPrinter } from '@mdi/js';
 
 import { VehicleGlyph } from '../components/PrintDecor';
 import { formatEventDate } from '../documents';
-import { GET_RESULTS_SHEET } from '../graphql/queries';
+import { championshipResultsQuery, GET_RESULTS_SHEET } from '../graphql/queries';
+import type { SheetRound } from '../heatSheet';
 import {
     awardLines,
+    championshipSections,
     hasResults,
     OVERALL,
     resultsSections,
+    type ChampionshipRoundResult,
     type ResultsAward,
     type ResultsEntry,
 } from '../resultsSheet';
@@ -33,6 +36,11 @@ import { scoreHeading } from '../../stats/standingsExport';
 import { printablesThemeRootProps } from '../printablesTheme';
 import { useTerminology } from '../../../context/TerminologyContext';
 import '../PrintSheet.css';
+
+// A harmless, always-valid document for the championship-results query while
+// it is paused (no championship round exists yet) — urql still needs a
+// parseable `query`, even one that never runs.
+const NOOP_QUERY = 'query Noop { __typename }';
 
 export default function ResultsSheet() {
     const { raceId } = useParams<{ raceId: string }>();
@@ -64,6 +72,52 @@ export default function ResultsSheet() {
         () => awardLines((race?.awards ?? []) as ResultsAward[], nameDisplay),
         [race?.awards, nameDisplay],
     );
+
+    // The championship result (#869) — standings are prelim-scoped by
+    // design (#17), so the round that actually decides the race never
+    // reaches `resultsSections` above. A round's placings live behind
+    // `leaderboard(roundId:)`, a query scope `GET_RESULTS_SHEET` cannot
+    // express until the championship round's own id is known, so this is a
+    // second, dynamically-built query — see `championshipResultsQuery`.
+    const championshipRounds = useMemo(
+        () => ((race?.rounds ?? []) as SheetRound[]).filter((round) => round.advancementSource != null),
+        [race?.rounds],
+    );
+    const championshipRoundIds = useMemo(
+        () => championshipRounds.map((round) => round.id),
+        [championshipRounds],
+    );
+    const championshipQuery = useMemo(
+        () => (championshipRoundIds.length > 0 ? championshipResultsQuery(championshipRoundIds) : NOOP_QUERY),
+        [championshipRoundIds],
+    );
+    const [{ data: championshipData }] = useQuery({
+        query: championshipQuery,
+        variables: { raceId: parsedRaceId },
+        pause: !parsedRaceId || championshipRoundIds.length === 0,
+    });
+    const championshipResults: ChampionshipRoundResult[] = useMemo(
+        () =>
+            championshipRounds.map((round) => ({
+                round,
+                entries: (championshipData?.race?.[`round${round.id}`] ?? []) as ResultsEntry[],
+            })),
+        [championshipRounds, championshipData],
+    );
+    // Only a round that has actually been raced prints a table — see
+    // `championshipSections`'s own docstring for why an unraced round with
+    // nothing but placeholders is left out.
+    const championshipTables = useMemo(
+        () => championshipSections(championshipResults, scoringStrategy, nameDisplay),
+        [championshipResults, scoringStrategy, nameDisplay],
+    );
+    // Printed before the per-den tables, right after the overall table —
+    // the suggested order in #869, and what keeps the "qualifying rounds
+    // only" note beside the thing it distinguishes itself from.
+    const allSections = useMemo(
+        () => (sections.length === 0 ? sections : [sections[0], ...championshipTables, ...sections.slice(1)]),
+        [sections, championshipTables],
+    );
     // "Racing, not ranked" (#548) — the sheet's half of the same rule the
     // Standings page follows: a flagged car needs to look flagged, even on
     // paper, rather than simply being a shorter list than the roster.
@@ -78,6 +132,7 @@ export default function ResultsSheet() {
     if (!race) return <p style={{ padding: '2rem' }}>Race not found.</p>;
 
     const anything = hasResults(sections, awards);
+    const hasChampionshipTable = championshipTables.length > 0;
 
     return (
         <div className="printables-page" {...printablesThemeRootProps(data?.initialConfig?.printablesTheme)}>
@@ -102,7 +157,7 @@ export default function ResultsSheet() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <span className="printables-summary">
                         {awards.length} {awards.length === 1 ? 'award' : 'awards'} ·{' '}
-                        {sections.length} {sections.length === 1 ? 'table' : 'tables'}
+                        {allSections.length} {allSections.length === 1 ? 'table' : 'tables'}
                     </span>
                     <button
                         className="primary-btn"
@@ -163,7 +218,7 @@ export default function ResultsSheet() {
                         </section>
                     )}
 
-                    {sections.map((section) => {
+                    {allSections.map((section) => {
                         // The RacingGroup column says the same thing on every row of a
                         // racingGroup's own table, which is a column of noise on paper.
                         const isOverall = section.title === OVERALL;
@@ -173,11 +228,16 @@ export default function ResultsSheet() {
                             {/* Said once, on the table it applies to. The
                                 standings are the qualifying rounds only (#17),
                                 and a reader who does not know that will assume
-                                the final is folded in. */}
+                                the final is folded in. Now sits next to the
+                                championship table itself when there is one
+                                (#869), rather than pointing at an "awards
+                                above" section that a race with no awards
+                                defined never has. */}
                             {isOverall && (
                                 <p className="results-note">
-                                    Qualifying rounds only. Championship placings are in the
-                                    awards above.
+                                    {hasChampionshipTable
+                                        ? 'Qualifying rounds only — the championship result is above.'
+                                        : 'Qualifying rounds only.'}
                                 </p>
                             )}
                             <table>
