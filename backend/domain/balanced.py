@@ -24,6 +24,7 @@ import random
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
+from backend.domain.heat_chunks import chunk_heats
 from backend.domain.lanes import Lane
 
 
@@ -100,28 +101,6 @@ def performance_order(entries: Iterable[Record]) -> list[int]:
     ]
 
 
-def chunk_heats(ordered: Sequence[int], heat_size: int) -> list[list[int]]:
-    """Partition ordered racers into heats of at least 2 racers.
-
-    Racers are distributed evenly across the required number of heats so that
-    no heat is left with a single racer (avoiding meaningless guaranteed wins)
-    and no heat is empty.
-    """
-    if len(ordered) < 2:
-        return []
-    num_heats = max(
-        1, min(len(ordered) // 2, (len(ordered) + heat_size - 1) // heat_size)
-    )
-    base, rem = divmod(len(ordered), num_heats)
-    heats: list[list[int]] = []
-    idx = 0
-    for i in range(num_heats):
-        size = base + (1 if i < rem else 0)
-        heats.append(list(ordered[idx : idx + size]))
-        idx += size
-    return heats
-
-
 def next_phase(
     ordered: Sequence[int],
     lane_uses: dict[int, dict[int, int]],
@@ -130,12 +109,14 @@ def next_phase(
 ) -> list[list[tuple[int, int]]]:
     """One phase of heats as ``(lane, racer_id)`` assignments.
 
-    Neighbours in ``ordered`` race each other, chunked to the track's width;
-    heats are rebalanced so that no heat ever holds a single car (avoiding
-    meaningless guaranteed wins). Within each heat, lanes go to whoever has
-    used them least (``lane_uses`` is per racer, per lane) — the "best effort"
-    lane balance the method promises, which cannot be a guarantee when the
-    groupings are decided by results.
+    Neighbours in ``ordered`` race each other, chunked to the track's width
+    via :func:`backend.domain.heat_chunks.chunk_heats` — never a heat of one
+    car, and never a heat holding more cars than there are usable lanes; a
+    car that does not fit evenly sits the phase out rather than forcing
+    either. Within each heat, lanes go to whoever has used them least
+    (``lane_uses`` is per racer, per lane) — the "best effort" lane balance
+    the method promises, which cannot be a guarantee when the groupings are
+    decided by results.
     """
     heat_size = len(usable_lanes)
     if heat_size < 2:

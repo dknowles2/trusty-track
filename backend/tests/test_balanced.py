@@ -96,12 +96,30 @@ class TestThePhase:
         with pytest.raises(ValueError, match="Heat size must be at least 2."):
             balanced.next_phase([1, 2], {}, usable_lanes=[])
 
-    def test_next_phase_two_lanes_odd_racers_nobody_races_alone(self):
+    def test_next_phase_two_lanes_odd_racers_get_a_bye_not_a_third_lane(self):
+        # #751: the old tail-rebalance only ever inspected the last chunk,
+        # so an odd field at two usable lanes produced a heat of three cars
+        # — with only two lanes to hand out, one of them got assigned
+        # twice. The fix is a bye: the racer who does not fit sits this
+        # phase out rather than sharing a lane with somebody else.
         phase = balanced.next_phase(
             [1, 2, 3, 4, 5], {}, usable_lanes=[1, 2], rng=random.Random(1)
         )
-        assert all(len(h) >= 2 for h in phase)
-        assert sum(len(h) for h in phase) == 5
+        assert all(len(h) == 2 for h in phase)
+        raced = sum(len(h) for h in phase)
+        assert raced in (4, 5)  # at most one racer byes
+
+    def test_next_phase_never_assigns_a_lane_twice_in_one_heat(self):
+        # The exact shape reported in #751, through the write path: a heat
+        # holding more racers than usable lanes forces the lane-cycling in
+        # `next_phase` (and `_write_elimination_wave`'s mirror) to repeat a
+        # lane number, which is not runnable — one lane, two cars.
+        phase = balanced.next_phase(
+            [1, 2, 3], {}, usable_lanes=[1, 2], rng=random.Random(0)
+        )
+        for heat in phase:
+            lanes_used = [lane for lane, _racer in heat]
+            assert len(lanes_used) == len(set(lanes_used))
 
     @pytest.mark.parametrize("heat_size", range(2, 9))
     @pytest.mark.parametrize("racer_count", range(2, 26))
@@ -109,10 +127,18 @@ class TestThePhase:
         usable = list(range(1, heat_size + 1))
         racers = list(range(1, racer_count + 1))
         phase = balanced.next_phase(racers, {}, usable_lanes=usable)
-        assert all(len(h) >= 2 for h in phase)
         assert all(len(h) > 0 for h in phase)
+        # Nobody races alone, and nobody is asked onto a lane the track
+        # does not have (#751) — a heat never runs the track's width.
+        assert all(2 <= len(h) <= heat_size for h in phase)
+        for heat in phase:
+            lanes_used = [lane for lane, _racer in heat]
+            assert len(lanes_used) == len(set(lanes_used))
         flattened = [r for h in phase for _lane, r in h]
-        assert sorted(flattened) == racers
+        assert len(flattened) == len(set(flattened))
+        assert set(flattened) <= set(racers)
+        # At most one racer sits a phase out — a bye, never more.
+        assert racer_count - len(flattened) <= 1
 
 
 # --------------------------------------------------------------------------- #

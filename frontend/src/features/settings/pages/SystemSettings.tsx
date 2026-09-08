@@ -141,8 +141,9 @@ const DEFAULT_LENGTH_FEET = 40;
 
 // Mirrors `domain.scale_speed.DEFAULT_SCALE` on the backend — the standard
 // BSA Pinewood Derby ratio, and what `Track.scale_ratio` defaults to for a
-// track this screen has not yet saved. There is no control for either field
-// yet (#610 stage 3); this only has to round-trip what the server sends.
+// track this screen has not yet saved. `TrackCard.tsx` renders the "Show
+// scale speed" checkbox and the ratio input (#610 stage 3); this constant
+// is only the seed for a track that has never been saved.
 const DEFAULT_SCALE_RATIO = 25;
 
 const blankTrack = (name: string): TrackFields => ({

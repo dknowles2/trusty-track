@@ -90,7 +90,9 @@ export const UNMAPPED = null;
 export type Mapping = Record<Field, string | null>;
 
 export interface ParsedCsv {
-  /** Header names from the file, disambiguated with (2), (3) if duplicates appear. */
+  /** Header names from the file, disambiguated with (2), (3) if duplicates
+   * appear — except blank headers, which stay blank (see
+   * `disambiguateHeaders`). */
   headers: string[];
   /** One record per data row, keyed by header. */
   rows: Record<string, string>[];
@@ -162,7 +164,14 @@ function splitRows(text: string): string[][] {
 
 /**
  * Disambiguate duplicate headers by appending a counter: `Name (2)`, `Name (3)`, etc.
- * Keeps column names unique so columns are not silently overwritten.
+ * Keeps named columns unique so they are not silently overwritten.
+ *
+ * A blank header is left blank rather than renamed to `" (2)"` — an unnamed,
+ * unmappable column needs no distinguishing label (see the "preserves empty
+ * headers" test below). That means two blank-header columns still collide to
+ * one key once `parseCsv` builds each row's record, and the later one wins —
+ * harmless today only because a blank header can never be selected in the
+ * mapping UI, so nothing reads the column that lost (#875).
  */
 export function disambiguateHeaders(rawHeaders: readonly string[]): string[] {
   const seen = new Map<string, number>();

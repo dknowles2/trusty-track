@@ -88,21 +88,48 @@ class TestTheWave:
         with pytest.raises(ValueError, match="Heat size must be at least 2."):
             elimination.next_wave({1: 0, 2: 0}, 1, heat_size=0)
 
-    def test_next_wave_heat_size_two_odd_racers_nobody_races_alone(self):
+    def test_next_wave_heat_size_two_odd_racers_get_a_bye_not_a_third_lane(self):
+        # #751: the old tail-rebalance only ever inspected the last chunk,
+        # so an odd field at heat_size 2 produced a heat of *three* cars —
+        # two lanes cannot seat that heat at all. The fix is a bye: the
+        # racer who does not fit sits this wave out rather than being
+        # crammed onto a lane that does not exist.
         losses = dict.fromkeys(range(1, 6), 0)
         wave = elimination.next_wave(losses, 1, heat_size=2, rng=random.Random(1))
-        assert all(len(h) >= 2 for h in wave)
-        assert sum(len(h) for h in wave) == 5
+        assert all(len(h) == 2 for h in wave)
+        raced = sum(len(h) for h in wave)
+        assert raced in (4, 5)  # at most one racer byes
+
+    @pytest.mark.parametrize(
+        "racer_count", [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25]
+    )
+    def test_next_wave_heat_size_two_never_overfills_a_lane(self, racer_count):
+        # The exact shape reported in #751: a heat larger than `heat_size`
+        # is unrunnable — `_write_elimination_wave` has only `heat_size`
+        # lanes to give it. Every odd field here used to produce one heat
+        # holding three (or more) cars on two lanes.
+        losses = dict.fromkeys(range(1, racer_count + 1), 0)
+        wave = elimination.next_wave(losses, 1, heat_size=2, rng=random.Random(3))
+        assert all(len(h) == 2 for h in wave)
+        raced = [r for h in wave for r in h]
+        assert len(raced) == len(set(raced))
+        # An odd field byes exactly one racer; an even field byes nobody.
+        assert racer_count - len(raced) == racer_count % 2
 
     @pytest.mark.parametrize("heat_size", range(2, 9))
     @pytest.mark.parametrize("racer_count", range(2, 26))
     def test_tail_rebalancing_property(self, heat_size: int, racer_count: int):
         losses = dict.fromkeys(range(1, racer_count + 1), 0)
         wave = elimination.next_wave(losses, 1, heat_size=heat_size)
-        assert all(len(h) >= 2 for h in wave)
         assert all(len(h) > 0 for h in wave)
+        # Nobody races alone, and nobody is asked onto a lane the track
+        # does not have (#751) — a heat never runs the track's width.
+        assert all(2 <= len(h) <= heat_size for h in wave)
         flattened = [r for h in wave for r in h]
-        assert sorted(flattened) == list(range(1, racer_count + 1))
+        assert len(flattened) == len(set(flattened))
+        assert set(flattened) <= set(range(1, racer_count + 1))
+        # At most one racer sits a wave out — a bye, never more.
+        assert racer_count - len(flattened) <= 1
 
     def test_the_whole_race_terminates(self):
         # Play an entire event: racer 1 always wins, everyone else loses in
@@ -565,18 +592,26 @@ class TestAcrossLaneCounts:
     also the one place that would catch a track's lane count silently being
     ignored.
 
-    `heat_size` values below 3 are deliberately excluded: `next_wave`'s own
-    "nobody races alone" guarantee is narrower there (`TestTheWave.
-    test_tail_rebalancing_property` pins it) — with `heat_size == 2` the very
-    last heat of a wave may legitimately hold one car when the alive count is
-    odd, since the borrow rule that avoids a solo heat only fires when the
-    heat it would borrow from holds more than two cars. That is intended
-    behaviour for a two-lane track, not a bug this sweep should flag.
+    `lane_count == 2` used to be excluded here on the grounds that
+    `next_wave`'s "nobody races alone" guarantee was narrower there — the
+    tail-rebalance's borrow rule only fired when the heat it would borrow
+    from held more than two cars, so an odd field's very last heat could
+    legitimately hold one car. That was papering over #751: at two lanes
+    the same tail-rebalance did not just leave a solo heat sometimes, it
+    could leave a heat holding *three* cars on two lanes, which is not a
+    narrower guarantee but a broken one — unrunnable, not merely
+    unfortunate. `chunk_heats` (`domain/heat_chunks.py`) now gives the
+    odd-one-out a bye instead of forcing either shape, at every lane count
+    including two, so the exclusion is gone and `lane_count == 2` is swept
+    here like any other width.
     """
 
     @pytest.mark.parametrize(
         "lane_count,racer_count",
         [
+            (2, 5),
+            (2, 7),
+            (2, 12),
             (3, 7),
             (3, 10),
             (5, 11),
@@ -610,6 +645,12 @@ class TestAcrossLaneCounts:
                     f"on a {lane_count}-lane track"
                 )
                 assert len(racing) <= lane_count
+                # #751's write-path failure: a heat overfilled beyond the
+                # track's width forces the same lane onto two cars.
+                lane_numbers = [lane.lane for lane in racing]
+                assert len(lane_numbers) == len(set(lane_numbers)), (
+                    f"heat {heat.heat_number} assigned a lane twice: {lane_numbers}"
+                )
                 _run_heat(db, heat, ids)
         else:
             raise AssertionError("the elimination never finished")

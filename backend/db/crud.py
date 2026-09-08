@@ -1071,10 +1071,16 @@ def heats_in_running_order(db: Session, race_id: int) -> list[models.Heat]:
     interleaved `heat_number` sequence (championship rounds after every
     general round) once it is on.
 
-    Not a change to :func:`get_heats`, deliberately: that function feeds the
-    schedule readers — the heat sheet, `applyMasterRunningOrder` itself, the
-    stats — where round-then-heat is the shape a *schedule* has, and only the
-    execution surfaces ask about the running order.
+    Not a change to :func:`get_heats`, deliberately: `applyMasterRunningOrder`
+    (`apply_master_running_order`, which calls `get_heats` directly) and
+    `services/stats.py` (via the same `official_heats` filter `get_heats`
+    wraps) still read heats in round-then-heat order, the shape a *schedule*
+    has. The heat sheet also reads through `get_heats`, but is no longer one
+    of these schedule-only readers (#890, #907): it prepends its own flat
+    section, sorted client-side with `runningOrder.ts`'s mirror of
+    `execution_sort_key`, so what is printed matches what
+    `currentlyRacing`/`onDeck` show without this function growing a third
+    caller.
 
     A run-off heat (#550) is included here — not through
     `models.official_heats`, which excludes it along with every other
