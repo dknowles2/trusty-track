@@ -224,6 +224,88 @@ def test_apply_leaves_championship_rounds_alone(db, client, race):
     ] == final_numbers_before
 
 
+def test_apply_leaves_championship_rounds_alone_with_a_single_general_round(db, client):
+    """The test above proves the exemption across *several* general rounds,
+    where `running_order.interleave` is actually weaving anything together.
+    A race with exactly one general round is the degenerate case —
+    `interleave` folds down to a single `GroupSchedule` — and #875 flagged
+    that nothing pinned it: it had only been checked by hand.
+    """
+    org = crud.create_organization(db, schemas.OrganizationCreate(name="Solo Pack"))
+    track = crud.create_track(
+        db, schemas.TrackCreate(name="Solo Track", lane_count=4, timer_type="FAKE")
+    )
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            organization_id=org.id, name="Solo Den Derby", track_id=track.id
+        ),
+    )
+    racing_group = crud.create_racing_group(
+        db, schemas.RacingGroupCreate(name="Only Den", color="#123456"), race.id
+    )
+    for n in range(4):
+        crud.create_racer(
+            db,
+            schemas.RacerCreate(
+                race_id=race.id,
+                racing_group_id=racing_group.id,
+                first_name=f"Racer{n}",
+                last_name="Solo",
+                car_number=n + 1,
+                car_passed_inspection=True,
+            ),
+        )
+
+    body = client.post(
+        "/graphql",
+        json={
+            "query": """
+                mutation Wizard($raceId: Int!, $config: WizardConfigurationInput!) {
+                    createRoundWizard(raceId: $raceId, config: $config) {
+                        id
+                        roundNumber
+                    }
+                }
+            """,
+            "variables": {
+                "raceId": race.id,
+                "config": {
+                    "generalRound": {"type": "EACH_GROUP", "runsPerLane": 1},
+                    "championshipRounds": [
+                        {
+                            "name": "Finals",
+                            "source": "ALL",
+                            "numTopRacers": 2,
+                            "runsPerLane": 1,
+                        }
+                    ],
+                },
+            },
+        },
+    ).json()
+    assert "errors" not in body, body
+    rounds = body["data"]["createRoundWizard"]
+    final = next(r for r in rounds if r["roundNumber"] == 2)
+    final_numbers_before = [
+        h.heat_number for h in crud.get_heats(db, race.id, round_id=final["id"])
+    ]
+    general_pending = [
+        h
+        for h in crud.get_heats(db, race.id)
+        if h.round_id != final["id"] and h.recorded_at is None
+    ]
+    assert general_pending  # otherwise this proves nothing
+
+    updated = crud.apply_master_running_order(db, race.id)
+
+    assert {h.id for h in updated} == {h.id for h in general_pending}
+    db.expire_all()
+    assert [
+        h.heat_number for h in crud.get_heats(db, race.id, round_id=final["id"])
+    ] == final_numbers_before
+
+
 def test_championship_rounds_run_after_every_general_round(db, client, race):
     """Under the flag, the final's low per-round numbers must not put it at
     the head of the running order — it runs last, after both dens' interleaved

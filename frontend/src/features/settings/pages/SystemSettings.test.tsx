@@ -1302,6 +1302,49 @@ describe('Scale speed (#610 stage 3)', () => {
         });
     });
 
+    it('submits the default ratio, not the cleared zero, once the field is hidden (#773, #875)', async () => {
+        // The end-to-end version of the two halves `sections.test.ts` and
+        // `TrackCard`'s own `parseFloat(...) || 0` each cover in isolation:
+        // clearing the ratio input leaves `track.scaleRatio` at 0, and
+        // `firstProblem` deliberately does not block Save once "Show scale
+        // speed" is off — but `updateInitialConfig`'s `TrackInput.scaleRatio`
+        // is refused by the server at zero regardless of the flag. What
+        // actually keeps that zero off the wire is `SystemSettings.tsx`'s own
+        // `scaleRatio > 0 ? scaleRatio : DEFAULT_SCALE_RATIO` in its submit
+        // mapper — this proves the whole path, not just the two halves.
+        configuredWith([saved()]);
+        const mockUpdate = vi.fn().mockResolvedValue({ data: { updateInitialConfig: { initialized: true } } });
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('tracks');
+
+        const ratio = await screen.findByLabelText(/^Scale /);
+        await user.clear(ratio);
+
+        await user.click(screen.getByLabelText('Show scale speed'));
+        expect(screen.queryByLabelText(/^Scale /)).toBeNull();
+
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+        expect(mockUpdate.mock.calls[0][0].config.tracks[0]).toMatchObject({
+            scaleRatio: 25,
+            showScaleSpeed: false,
+        });
+    });
+
     it('refuses a non-positive ratio with a sentence naming the track', async () => {
         // The server refuses this regardless of "Show scale speed" — a
         // stored ratio nothing could ever use is wrong to save, not just

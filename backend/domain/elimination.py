@@ -20,10 +20,14 @@ Three decisions worth writing down:
   fourth — that is what makes the method ladderless double/triple elimination
   rather than a points race. A DNF is a loss. A *skipped* lane is neither a
   win nor a loss: the car never ran.
-- **Nobody races alone.** Heats are chunked within a loss group, and a
-  leftover single car spills into the next group's pool rather than making a
-  solo run — a one-car heat on a timer records a meaningless win. If the last
-  heat of the wave would hold one car, it borrows from the heat before it.
+- **Nobody races alone, and nobody is asked onto a track with too few
+  lanes.** Every heat in a wave holds between 2 and the track's usable lane
+  count — never a solo run (a meaningless guaranteed win) and never more
+  cars than the track can seat. When the field cannot be split that way (an
+  odd field on a two-lane track, say), the car it cannot fit sits that wave
+  out and rejoins the next one, rather than forcing an unrunnable heat. See
+  :func:`backend.domain.heat_chunks.chunk_heats`, shared with
+  :mod:`backend.domain.balanced`.
 - **Everything is recomputed from the recorded heats.** Losses, eliminations
   and the next wave are all answers about the state of the round *now*, never
   about which heat just finished — a corrected earlier result changes the
@@ -37,6 +41,7 @@ import random
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
+from backend.domain.heat_chunks import chunk_heats
 from backend.domain.lanes import Lane, is_finished
 
 
@@ -91,28 +96,6 @@ def eliminated(losses: dict[int, int], max_losses: int) -> set[int]:
     return {racer_id for racer_id, count in losses.items() if count >= max_losses}
 
 
-def chunk_heats(ordered: Sequence[int], heat_size: int) -> list[list[int]]:
-    """Partition ordered racers into heats of at least 2 racers.
-
-    Racers are distributed evenly across the required number of heats so that
-    no heat is left with a single racer (avoiding meaningless guaranteed wins)
-    and no heat is empty.
-    """
-    if len(ordered) < 2:
-        return []
-    num_heats = max(
-        1, min(len(ordered) // 2, (len(ordered) + heat_size - 1) // heat_size)
-    )
-    base, rem = divmod(len(ordered), num_heats)
-    heats: list[list[int]] = []
-    idx = 0
-    for i in range(num_heats):
-        size = base + (1 if i < rem else 0)
-        heats.append(list(ordered[idx : idx + size]))
-        idx += size
-    return heats
-
-
 def next_wave(
     losses: dict[int, int],
     max_losses: int,
@@ -122,8 +105,10 @@ def next_wave(
     """The next round of heats, or ``[]`` when the race is decided.
 
     Cars are grouped by loss count (fewest first), shuffled within their
-    group, and chunked into heats of ``heat_size``. Heats are rebalanced so
-    that no heat ever holds a single car (avoiding meaningless guaranteed wins).
+    group, and chunked into heats of at most ``heat_size`` via
+    :func:`backend.domain.heat_chunks.chunk_heats` — which also guarantees no
+    heat ever holds a single car, and gives a bye rather than an oversized
+    heat to whichever car does not fit evenly.
     """
     if heat_size < 2:
         raise ValueError("Heat size must be at least 2.")
