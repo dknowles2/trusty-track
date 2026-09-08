@@ -1230,6 +1230,7 @@ class WizardGeneralRoundInput:
 
     type: str  # "ALL" or "EACH_GROUP"
     runs_per_lane: int = 1
+    scheduling_strategy: str | None = None
 
 
 @strawberry.input
@@ -4857,13 +4858,18 @@ class Mutation:
         current_round_number = 1
 
         try:
+            gen_strat = (
+                models.SchedulingStrategy(config.general_round.scheduling_strategy)
+                if config.general_round.scheduling_strategy
+                else models.SchedulingStrategy.PPC
+            )
             # General Round
             if config.general_round.type == "ALL":
                 round_obj = crud.create_round(
                     db,
                     race_id,
                     current_round_number,
-                    models.SchedulingStrategy.PPC,
+                    gen_strat,
                     crud.default_general_round_name(db, race),
                 )
                 # On the rollback list from the moment the row exists —
@@ -4891,7 +4897,7 @@ class Mutation:
                         db,
                         race_id,
                         current_round_number,
-                        models.SchedulingStrategy.PPC,
+                        gen_strat,
                         racing_group.name,
                         racing_group_id=racing_group.id,
                     )

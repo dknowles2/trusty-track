@@ -246,6 +246,7 @@ export type WizardConfigurationInput = {
 
 export type WizardGeneralRoundInput = {
   runsPerLane?: number;
+  schedulingStrategy?: string | null | undefined;
   type: string;
 };
 

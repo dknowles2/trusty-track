@@ -247,25 +247,30 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                     />
                     <span>Everyone races in every lane</span>
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: laneCount < 2 ? 'not-allowed' : 'pointer' }}>
                     <input
                       type="radio"
                       checked={raceStyle === 'ELIMINATION'}
                       onChange={() => chooseStyle('ELIMINATION')}
-                      disabled={loading}
+                      disabled={loading || laneCount < 2}
                     />
                     <span>Elimination — lose too many heats and you&apos;re out</span>
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: laneCount < 2 ? 'not-allowed' : 'pointer' }}>
                     <input
                       type="radio"
                       checked={raceStyle === 'BALANCED'}
                       onChange={() => chooseStyle('BALANCED')}
-                      disabled={loading}
+                      disabled={loading || laneCount < 2}
                     />
                     <span>Balanced — each round of heats matches {vehiclesLower} doing about as well</span>
                   </label>
                 </div>
+                {laneCount < 2 && (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--wizard-text-muted-color)', marginTop: '4px' }}>
+                    Elimination and balanced rounds require at least 2 usable lanes.
+                  </p>
+                )}
                 {raceStyle === 'BALANCED' && (
                   <div style={{ marginTop: '12px' }}>
                     <label htmlFor="balancedPhases" style={labelStyle}>Times each {vehicleLower} races</label>

@@ -82,29 +82,27 @@ class TestTheWave:
     def test_a_decided_race_schedules_nothing(self):
         assert elimination.next_wave({1: 0, 2: 3}, 3, 4, rng=random.Random(7)) == []
 
-    def test_next_wave_heat_size_under_two_returns_empty(self):
-        assert elimination.next_wave({1: 0, 2: 0}, 1, heat_size=1) == []
+    def test_next_wave_heat_size_under_two_raises_value_error(self):
+        with pytest.raises(ValueError, match="Heat size must be at least 2."):
+            elimination.next_wave({1: 0, 2: 0}, 1, heat_size=1)
+        with pytest.raises(ValueError, match="Heat size must be at least 2."):
+            elimination.next_wave({1: 0, 2: 0}, 1, heat_size=0)
 
-    def test_next_wave_heat_size_two_odd_racers_no_intermediate_solo_heat(self):
+    def test_next_wave_heat_size_two_odd_racers_nobody_races_alone(self):
         losses = dict.fromkeys(range(1, 6), 0)
         wave = elimination.next_wave(losses, 1, heat_size=2, rng=random.Random(1))
-        # Intermediate heats must not be left as a 1-car heat
-        # while borrowing left another heat with 2 cars.
-        assert all(len(h) == 2 for h in wave[:-1])
-        assert all(len(h) > 0 for h in wave)
+        assert all(len(h) >= 2 for h in wave)
+        assert sum(len(h) for h in wave) == 5
 
-    def test_tail_rebalancing_property(self):
-        for heat_size in range(1, 6):
-            for n in range(2, 16):
-                losses = dict.fromkeys(range(1, n + 1), 0)
-                wave = elimination.next_wave(losses, 1, heat_size=heat_size)
-                if heat_size < 2:
-                    assert wave == []
-                elif heat_size >= 3:
-                    assert all(len(h) >= 2 for h in wave)
-                else:
-                    assert all(len(h) == 2 for h in wave[:-1])
-                    assert all(len(h) > 0 for h in wave)
+    @pytest.mark.parametrize("heat_size", range(2, 9))
+    @pytest.mark.parametrize("racer_count", range(2, 26))
+    def test_tail_rebalancing_property(self, heat_size: int, racer_count: int):
+        losses = dict.fromkeys(range(1, racer_count + 1), 0)
+        wave = elimination.next_wave(losses, 1, heat_size=heat_size)
+        assert all(len(h) >= 2 for h in wave)
+        assert all(len(h) > 0 for h in wave)
+        flattened = [r for h in wave for r in h]
+        assert sorted(flattened) == list(range(1, racer_count + 1))
 
     def test_the_whole_race_terminates(self):
         # Play an entire event: racer 1 always wins, everyone else loses in
