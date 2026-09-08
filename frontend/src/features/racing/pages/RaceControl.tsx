@@ -34,7 +34,7 @@ import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane, Eliminatio
 import { hasRun, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shouldDerivePlaces } from '../lanes';
 import { executionComparator } from '../runningOrder';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
-import { observeRaceComplete, type SeenComplete } from '../raceCompletion';
+import { hasTerminalRound, observeRaceComplete, type SeenComplete } from '../raceCompletion';
 import { shouldShowReadiness } from '../readiness';
 import { estimatePace } from '../pace';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
@@ -123,9 +123,34 @@ export default function RaceControl() {
   // "Race Complete!" text, which only asks about the position of the
   // *active* heat and so would say the same thing about the second-to-last
   // heat of the race as about the truly last one.
+  //
+  // Tightening this to "and a championship round exists" was tried and
+  // reverted (#874): a race built one round at a time from the Add Round
+  // dialog has no championship round yet the moment its sole preliminary
+  // finishes, and nothing in the data says the operator is not about to add
+  // one — but a race that was *always* going to be prelims-only produces the
+  // identical shape (one general round, fully raced, no advancement
+  // source), and #856's own test races exactly that through the wizard and
+  // expects this summary. The two cases are not distinguishable from what is
+  // stored; there is no "the operator does not intend to add another round"
+  // fact anywhere to read. See `hasTerminalRound` in `raceCompletion.ts` for
+  // where that distinction is used instead — not to gate whether this fires,
+  // but to soften what it *says* when firing might be premature.
   const isRaceComplete = useMemo(
     () => heats.length > 0 && heats.every((h: Heat) => hasRun(h.lanes)),
     [heats]
+  );
+
+  // Whether the schedule already holds a round that could only be a genuine
+  // ending — a round drawing its field from another round's standings
+  // (#874). Passed to the summary modal so it can tell "every heat that
+  // exists has run, and this looks like the real end" from "...and a
+  // championship could still be coming," without ever refusing to show up:
+  // silence would be just as wrong for the race #856 tests, which really is
+  // done after its one and only round.
+  const hasChampionshipRound = useMemo(
+    () => hasTerminalRound(race?.rounds ?? []),
+    [race?.rounds]
   );
 
   // This race's learned turnaround pace (#591), over every recorded heat in
@@ -964,6 +989,7 @@ export default function RaceControl() {
               racers={racers}
               roundSummary={roundSummary}
               raceJustCompleted={raceJustCompleted}
+              hasChampionshipRound={hasChampionshipRound}
               autoAdvanceHeat={race?.autoAdvanceHeat ?? false}
               masterRunningOrder={masterRunningOrder}
               remainingHeatsInRound={remainingHeatsInRound}

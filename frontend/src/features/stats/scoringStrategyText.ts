@@ -98,16 +98,22 @@ export function scoreLabel(scoringStrategy: string | null | undefined): string {
 }
 
 /**
- * `backend/domain/scoring.py`'s `DNF_PENALTY_SECONDS` — a DNF (a recorded
- * time of zero or less) is scored as a bad-but-finite result under `TIMED`
- * and `CUMULATIVE_TIME` rather than erasing the racer's average outright.
- * A racer whose *only* counted heat was a DNF therefore has an average of
- * exactly this value, and printing "9.999s" with nothing marking it as the
- * penalty sentinel reads as an unusually slow car rather than a scratch
- * (#763). Mirrored here, rather than sent across the wire, for the same
- * reason `DEFAULT_SCALE` and the other small numeric constants this app
- * shares between the two languages are: it is a fact about the domain rule,
- * not something a race configures.
+ * `backend/domain/scoring.py`'s `DNF_PENALTY_SECONDS` — the value `TIMED`
+ * and `CUMULATIVE_TIME` substitute for an actual DNF (a recorded time of
+ * zero or less) when averaging or summing, so a scratch counts as a
+ * bad-but-finite result rather than erasing the racer's score outright.
+ *
+ * It is **not** a sentinel a real time cannot reach (#873, undoing #763's
+ * mistake on this side of the same regression #779 fixed on the backend:
+ * `407e56e` removed exactly this magnitude test from `services/stats.py`,
+ * on the reasoning that a genuine 9.999s-or-slower finish — a long track, a
+ * slow rocket, a Raingutter Regatta boat — is not a DNF). `formatScore`
+ * below must not test a score's magnitude against this value for the same
+ * reason; only `formatLaneTime`'s `time <= 0` is ever the DNF marker.
+ * Mirrored here, rather than sent across the wire, for the same reason
+ * `DEFAULT_SCALE` and the other small numeric constants this app shares
+ * between the two languages are: it is a fact about the domain rule, kept
+ * for reference even though nothing here branches on it any more.
  */
 export const DNF_PENALTY_SECONDS = 9.999;
 
@@ -125,12 +131,13 @@ export const DNF_PENALTY_SECONDS = 9.999;
  * `true`, which is every other caller's shape: the number stands alone in its
  * own column with nothing else saying what it is.
  *
- * A score exactly equal to `DNF_PENALTY_SECONDS` — reachable when a racer's
- * one and only counted heat was a DNF — prints "DNF" instead of "9.999s",
- * the same labelling `features/racing/lanes.ts`'s `formatLaneTime` applies
- * to a raw per-lane time of zero or less. A multi-heat average landing on
- * that exact value by genuine coincidence is not a real floating-point
- * concern.
+ * A score is never relabelled as "DNF" by its magnitude (#873) — a value at
+ * or past `DNF_PENALTY_SECONDS` is exactly as real a result as any other,
+ * matching `backend/services/stats.py`'s own rule since #779. There is
+ * nothing in a leaderboard row today that distinguishes a genuine slow
+ * finish from a racer whose only counted heat was an actual DNF; that is a
+ * real gap (see #873's own suggestion of a backend-supplied DNF flag), not
+ * one this function can close by guessing from the number alone.
  */
 export function formatScore(
   score: number,
@@ -139,9 +146,6 @@ export function formatScore(
 ): string {
   if (!isTimeBasedStrategy(scoringStrategy)) {
     return score.toString();
-  }
-  if (score === DNF_PENALTY_SECONDS) {
-    return 'DNF';
   }
   const formatted = score.toFixed(3);
   return unit ? `${formatted}s` : formatted;

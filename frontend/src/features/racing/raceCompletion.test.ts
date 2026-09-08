@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { observeRaceComplete, type SeenComplete } from './raceCompletion';
+import { hasTerminalRound, observeRaceComplete, type SeenComplete } from './raceCompletion';
 
 /** Feed a series of observations through, keeping the running `seen`. */
 const sequence = (looks: boolean[]) => {
@@ -43,5 +43,37 @@ describe('noticing the whole race has finished', () => {
 
     test('re-running the last heat un-completes the race, and finishing it again is news', () => {
         expect(sequence([true, false, true])).toEqual([false, false, true]);
+    });
+});
+
+describe('hasTerminalRound (#874)', () => {
+    // Not the completion trigger itself (see its own docstring for why that
+    // was tried and reverted) — this is what `RaceExecution`'s summary modal
+    // reads to decide whether to present "Race Complete!" outright or to
+    // soften its wording and offer a link to add a championship round.
+    test('no rounds at all is not a terminal schedule', () => {
+        expect(hasTerminalRound([])).toBe(false);
+    });
+
+    test('a single general round with no advancement source is not terminal', () => {
+        expect(hasTerminalRound([{ advancementSource: null }])).toBe(false);
+    });
+
+    test('several general rounds with no championship are still not terminal', () => {
+        expect(
+            hasTerminalRound([{ advancementSource: null }, { advancementSource: null }]),
+        ).toBe(false);
+    });
+
+    test('a championship round (any advancement source) makes the schedule terminal', () => {
+        expect(hasTerminalRound([{ advancementSource: null }, { advancementSource: 'ALL' }])).toBe(
+            true,
+        );
+        expect(hasTerminalRound([{ advancementSource: 'EACH_GROUP' }])).toBe(true);
+        expect(hasTerminalRound([{ advancementSource: 'ROUND:4' }])).toBe(true);
+    });
+
+    test('undefined is treated the same as null (a general round)', () => {
+        expect(hasTerminalRound([{}])).toBe(false);
     });
 });

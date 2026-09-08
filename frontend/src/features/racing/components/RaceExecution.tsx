@@ -131,6 +131,18 @@ interface RaceExecutionProps {
      * modal exactly once per genuine completion; see `raceFlow.ts`.
      */
     raceJustCompleted?: boolean;
+    /**
+     * The schedule already holds a round that could only be a genuine
+     * ending — a round drawing its field from another round's standings
+     * (#874). Softens the summary's own wording, and offers a link to add
+     * one, when this is false: "every heat that exists has run" is not
+     * "the race is over" for a schedule built one round at a time, and
+     * there is no way to tell that case apart from a race that really is
+     * done after its one and only round — see `hasTerminalRound` in
+     * `raceCompletion.ts`. Defaults to `true`, the same "don't second-guess
+     * a caller that has not supplied one" shape `raceJustCompleted` uses.
+     */
+    hasChampionshipRound?: boolean;
     autoAdvanceHeat: boolean;
     onToggleAutoAdvance?: (value: boolean) => void;
     remainingHeatsInRound?: number;
@@ -169,6 +181,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     racers,
     roundSummary,
     raceJustCompleted = false,
+    hasChampionshipRound = true,
     autoAdvanceHeat,
     onToggleAutoAdvance,
     remainingHeatsInRound,
@@ -1190,23 +1203,44 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 left at with nothing pointing anywhere: every heat has run,
                 and the roster's checklist stops well short of what happens
                 next. The three routes below already exist; this is only the
-                prompt at the moment they become relevant. */}
+                prompt at the moment they become relevant.
+
+                "Every heat that exists has run" is not "the race is over"
+                (#874) for a schedule built one round at a time — there is no
+                stored fact that tells a prelims-only race, genuinely done,
+                apart from one whose championship round has not been added
+                yet. Rather than guess (and get it wrong for one of the two,
+                as the reverted fix did — see `hasChampionshipRound`'s own
+                docstring in `raceCompletion.ts`), this softens what it says
+                and offers the other path, instead of trying to suppress
+                itself. */}
             <Modal
                 isOpen={isRaceSummaryOpen}
                 onClose={flow.dismissSummary}
-                title="Race Complete!"
+                title={hasChampionshipRound ? 'Race Complete!' : 'No More Heats Scheduled'}
             >
                 <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                     <Icon path={mdiTrophy} size={3} color="var(--cub-scouting-gold)" />
                     <p style={{ fontSize: '1.2rem', color: 'var(--text-muted-color)', marginTop: '10px' }}>
-                        Every heat has been run. Here&apos;s where to go next:
+                        {hasChampionshipRound
+                            ? "Every heat has been run. Here's where to go next:"
+                            : "Every heat that's currently scheduled has been run. If you're not done yet, add a championship round below — otherwise, here's where to go next:"}
                     </p>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                    {!hasChampionshipRound && (
+                        <Link
+                            to={`/race/${raceId}/control`}
+                            className="primary-btn"
+                            style={{ textAlign: 'center', textDecoration: 'none' }}
+                        >
+                            Add a Championship Round
+                        </Link>
+                    )}
                     <Link
                         to={`/race/${raceId}/standings`}
-                        className="primary-btn"
+                        className={hasChampionshipRound ? 'primary-btn' : 'secondary-btn'}
                         style={{ textAlign: 'center', textDecoration: 'none' }}
                     >
                         See Final Standings
@@ -1287,7 +1321,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             {tiedTimes
                                 .map(
                                     (group) =>
-                                        `Lanes ${group.lanes.join(' and ')} recorded the same time (${group.time.toFixed(4)}s) — they share a place.`,
+                                        `Lanes ${group.lanes.join(' and ')} recorded the same time (${formatLaneTime(group.time)}) — they share a place.`,
                                 )
                                 .join(' ')}
                         </p>
