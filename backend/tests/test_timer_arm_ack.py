@@ -329,3 +329,43 @@ async def test_reconnect_rearm_confirmed_ack_stays_armed(monkeypatch):
     assert manager._last_error is None
 
     await manager.stop()
+
+
+async def test_the_watch_survives_the_ack_log_wrapping_around(monkeypatch):
+    """#876: `_ack_log` is a bounded `deque(maxlen=64)`, and the watch used to
+    remember its own starting point as `len(self._ack_log)` — an absolute
+    index into that deque. `len()` cannot exceed 64, so once the deque had
+    filled even once, every later watch recorded a starting point of 64 and
+    `list(self._ack_log)[64:]` is always `[]`: the acknowledgement could
+    never be found again, however promptly the device answered, and every
+    arm from that point on timed out into a false FAULT.
+
+    A four-lane MicroWizard logs five acknowledgements per confirmed arm
+    (unmask's echo carries no ack, but each of the four masks and the arm
+    command itself do), so the deque fills after roughly thirteen heats — a
+    quarter of the way through a real pack derby. This arms, confirms and
+    disarms enough heats to wrap the deque at least once, then arms one more
+    time and checks the confirmation still resolves rather than timing out.
+    """
+    _fast(monkeypatch)
+    manager, _ = await _idle_microwizard()
+
+    async def arm_and_confirm(heat_id: int) -> None:
+        await manager.prepare_heat(
+            heat_id=heat_id, kind=models.HeatKind.OFFICIAL, lane_mask=0b0011
+        )
+        for cmd in (b"MG", b"MC", b"MD", b"ME", b"MF", b"LR"):
+            await manager.receive_bytes(cmd + b"\r")
+            if cmd != b"MG":
+                await manager.receive_bytes(b"*\r")
+        await _wait_settled(manager)
+        assert manager._state is TimerState.ARMED, f"heat {heat_id} faulted"
+        assert manager._last_error is None, f"heat {heat_id}: {manager._last_error}"
+
+    # 5 logged acks per heat (MC, MD, ME, MF, LR) x 16 heats = 80, well past
+    # the deque's maxlen of 64 -- it wraps around several times over before
+    # this loop finishes, and every one of these must still confirm cleanly.
+    for i in range(1, 17):
+        await arm_and_confirm(i)
+
+    await manager.stop()

@@ -278,12 +278,22 @@ def _compute_racer_stats(
     Sorted by mean_time ascending (None last).
 
     A DNF (a recorded time of zero or less) is folded to ``DNF_PENALTY`` for
-    averaging — the same rule ``domain/scoring.py``'s ``TIMED`` strategy
-    applies — but each entry also carries whether it *was* a DNF, tracked
-    alongside the value rather than inferred from it afterwards. Comparing a
-    later value against ``DNF_PENALTY`` to ask "was this a real time" folds a
-    genuine 9.999s-or-slower finish into "no time" (#754); tracking the flag
-    at the point the penalty is applied is what keeps the two apart.
+    a racer's own min/mean/max/std_dev — the same rule ``domain/scoring.py``'s
+    ``TIMED`` strategy applies — but each entry also carries whether it *was*
+    a DNF, tracked alongside the value rather than inferred from it
+    afterwards. Comparing a later value against ``DNF_PENALTY`` to ask "was
+    this a real time" folds a genuine 9.999s-or-slower finish into "no time"
+    (#754); tracking the flag at the point the penalty is applied is what
+    keeps the two apart.
+
+    ``times_per_lane`` discards a DNF entirely rather than folding it to
+    ``DNF_PENALTY`` — the same rule ``_compute_lane_stats`` applies to the
+    race-wide lane averages one card up, and for the same reason: a per-lane
+    average is exactly the sort of small sample a DNF penalty would drag
+    toward 9.999s, and a racer's own per-lane card disagreeing with the
+    lane-fairness table above it about whether a 9.999s finish means "slow"
+    or "did not finish" is the confusion #754 removed from the one table and
+    left in the other (#880).
     """
     racer_times: dict[int, list[tuple[float, bool]]] = {}
     racer_lane_times: dict[int, dict[int, list[float]]] = {}
@@ -306,7 +316,7 @@ def _compute_racer_stats(
 
         racer_times[racer_id].append((t, is_dnf))
 
-        if lane is not None:
+        if lane is not None and not is_dnf:
             if lane not in racer_lane_times[racer_id]:
                 racer_lane_times[racer_id][lane] = []
             racer_lane_times[racer_id][lane].append(t)

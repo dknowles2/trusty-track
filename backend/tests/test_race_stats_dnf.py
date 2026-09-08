@@ -142,3 +142,62 @@ def test_a_real_dnf_is_still_excluded_as_no_time(db):
     # A DNF never counts toward lane fairness.
     lane_stats = {ls["lane"]: ls for ls in stats["lane_stats"]}
     assert lane_stats[1]["avg_time"] is None
+
+
+def test_a_racers_own_per_lane_average_also_excludes_a_dnf(db):
+    """#880: `_compute_lane_stats` (the race-wide lane-fairness table) has
+    excluded a DNF from a lane's average since #754, but `_compute_racer_stats`
+    — in the same module, computed from the same lane rows — still folded the
+    same DNF to `DNF_PENALTY` (9.999) before averaging it into a racer's own
+    `times_per_lane`. So the card above showed one number for lane 1 and a
+    racer's own card below it showed a different, DNF-dragged number for the
+    same lane, and a genuine 9.999s finish and an actual DNF were
+    indistinguishable in `times_per_lane` — exactly the confusion #754 was
+    written to remove.
+
+    Racer 1 DNFs in lane 1 in heat 1, then genuinely finishes lane 1 in
+    4.0s in heat 2. Before the fix, lane 1's average for this racer was
+    (9.999 + 4.0) / 2 == 6.9995; after it, the DNF is dropped the same way
+    `_compute_lane_stats` drops it, leaving a plain 4.0.
+    """
+    race = _race(db)
+    racers = _racers(db, race, 2)
+
+    _heat_with(
+        db,
+        race,
+        [
+            {"lane": 1, "racer_id": racers[0].id, "time": 0.0, "place": None},
+            {"lane": 2, "racer_id": racers[1].id, "time": 3.0, "place": 1},
+        ],
+        heat_number=1,
+    )
+    _heat_with(
+        db,
+        race,
+        [
+            {"lane": 1, "racer_id": racers[0].id, "time": 4.0, "place": 1},
+            {"lane": 2, "racer_id": racers[1].id, "time": 5.0, "place": 2},
+        ],
+        heat_number=2,
+    )
+
+    stats = compute_race_stats(db, race.id)
+    assert stats is not None
+
+    racer_stats = {rs["racer_id"]: rs for rs in stats["racer_stats"]}
+    dnf_then_finish = racer_stats[racers[0].id]
+
+    lane_1_avg = next(
+        entry["avg_time"]
+        for entry in dnf_then_finish["times_per_lane"]
+        if entry["lane"] == 1
+    )
+    assert lane_1_avg == 4.0
+
+    # The racer's overall min/mean/max are untouched by this fix — those
+    # still fold the DNF to the TIMED penalty, per the module's existing
+    # (unchanged) rule for the race-wide summary columns.
+    assert dnf_then_finish["min_time"] == 4.0
+    assert dnf_then_finish["max_time"] == 9.999
+    assert dnf_then_finish["mean_time"] == (9.999 + 4.0) / 2

@@ -326,6 +326,52 @@ async def test_a_recorded_reconnect_rearm_confirms_rather_than_faults():
     assert mgr._last_error is None
 
 
+async def test_a_recorded_arm_sequence_survives_the_ack_log_wrapping_around():
+    """#876, checked against the same real K3 recording as the arm-sequence
+    test above.
+
+    `_ack_log` is a bounded `deque(maxlen=64)`, and the watch used to record
+    its own starting point as `len(self._ack_log)` — an absolute index into
+    that deque. Once the deque had filled once, `len()` was pinned at its
+    `maxlen` forever, so a watch started after that point could never find
+    its own acknowledgement again: a real, correctly-answering K3 would fault
+    every arm from partway through the pack on. This replays the same
+    mask/arm sequence as `test_a_recorded_arm_sequence_confirms_rather_than_faults`
+    enough times to wrap the deque several times over, and checks that every
+    single one of those replays still confirms — not just the first.
+    """
+    mgr = TimerManager(track_id=1, device=MICROWIZARD)
+
+    async def write(data: bytes) -> None:
+        pass
+
+    mgr.set_write_fn(write)
+    mgr._state = TimerState.IDLE
+
+    heat_prep_triggers = {"MG", "ME", "MF", "LR"}
+
+    async def arm_and_confirm(heat_id: int) -> None:
+        await mgr.prepare_heat(
+            heat_id=heat_id, kind=models.HeatKind.OFFICIAL, lane_mask=0b001111
+        )
+        for trigger, line in device_lines("fasttrack-mark-set"):
+            if trigger not in heat_prep_triggers:
+                continue
+            await mgr.receive_bytes(line + b"\r")
+        if mgr._arm_ack_task is not None:
+            await mgr._arm_ack_task
+        assert mgr._state is TimerState.ARMED, f"heat {heat_id} faulted"
+        assert mgr._last_error is None, f"heat {heat_id}: {mgr._last_error}"
+
+    # 3 logged acks per replay (ME, MF, LR -- MG's declared "AC" never
+    # actually arrives in this recording, only an echo, exactly as the
+    # single-replay test above establishes) x 25 replays = 75, well past the
+    # deque's maxlen of 64: it wraps around more than once before this loop
+    # finishes.
+    for i in range(1, 26):
+        await arm_and_confirm(i)
+
+
 async def test_a_recorded_session_is_mirrored_through_the_manager():
     """Stage 1 of #553, proved against real device output rather than a line
     we wrote down ourselves.

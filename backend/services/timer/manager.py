@@ -229,15 +229,28 @@ class TimerManager:
         # Queue of (command, expected_response_pattern) for commands that have
         # been sent but whose acknowledgment has not yet been received.
         self._pending_acks: deque[tuple[bytes, re.Pattern[bytes]]] = deque()
-        #: Every acknowledgement resolved off `_pending_acks`, in order: the
-        #: command it was for, and whether it genuinely matched (``True``) or
-        #: was popped as a mismatch/dropped/out-of-order response (``False``)
-        #: — see `_process_line`. `_watch_arm_ack` (#780) reads this to find
-        #: out what happened to one specific command's promised
-        #: acknowledgement without racing whatever else shares the same
-        #: queue. Bounded generously against how many commands one
-        #: `prepare_heat_commands()` batch can hold.
-        self._ack_log: deque[tuple[bytes, bool]] = deque(maxlen=64)
+        #: Every acknowledgement resolved off `_pending_acks`, in order: a
+        #: monotonic sequence number, the command it was for, and whether it
+        #: genuinely matched (``True``) or was popped as a mismatch/dropped/
+        #: out-of-order response (``False``) — see `_process_line`.
+        #: `_watch_arm_ack` (#780) reads this to find out what happened to
+        #: one specific command's promised acknowledgement without racing
+        #: whatever else shares the same queue. Bounded generously against
+        #: how many commands one `prepare_heat_commands()` batch can hold —
+        #: which is why entries carry their own sequence number rather than
+        #: being found by position (#876): once the deque has filled, its
+        #: own length is pinned at `maxlen` forever, so a watch that
+        #: remembered "how many entries existed when I started" as a bare
+        #: index into *this* deque could never find its entry again, however
+        #: promptly the device answered. The counter never resets and is
+        #: never evicted, so a watch's own starting value cannot drift even
+        #: after the entries around it have been evicted many times over.
+        self._ack_log: deque[tuple[int, bytes, bool]] = deque(maxlen=64)
+        #: The next sequence number `_ack_log` will use. Strictly increasing
+        #: for the manager's whole lifetime — never reset, never bounded —
+        #: which is what makes it safe to compare against after arbitrarily
+        #: many entries have been evicted from `_ack_log` itself.
+        self._ack_seq: int = 0
         #: Bumped by anything that changes what is currently being armed —
         #: `prepare_heat`, `prepare_test_heat`, `abort_heat`, `reset` — so a
         #: background arm-ack watch (#780) started by an earlier call can
@@ -610,6 +623,15 @@ class TimerManager:
     # Confirming arming (#780)                                             #
     # ------------------------------------------------------------------ #
 
+    def _log_ack(self, cmd: bytes, success: bool) -> None:
+        """Append one resolved acknowledgement to `_ack_log`, tagged with the
+        next value of `_ack_seq` (#876). The one place either is written, so
+        the sequence number and the deque entry it belongs to can never
+        drift apart.
+        """
+        self._ack_seq += 1
+        self._ack_log.append((self._ack_seq, cmd, success))
+
     def _cancel_arm_ack_watch(self) -> None:
         if self._arm_ack_task is not None:
             self._arm_ack_task.cancel()
@@ -644,7 +666,14 @@ class TimerManager:
         if not arm_cmd or self._device.expected_response_for(arm_cmd) is None:
             return
         generation = self._arm_generation
-        start = len(self._ack_log)
+        # `self._ack_seq` (#876), never `len(self._ack_log)` — the deque is
+        # bounded, so its own length is pinned at `maxlen` forever once
+        # filled, and a start point recorded that way could never again be
+        # found in the deque's own (also-bounded) length. The sequence
+        # counter is unbounded and keeps advancing after this call, so
+        # "everything logged after this point" stays a meaningful question
+        # however many entries are evicted before the answer arrives.
+        start = self._ack_seq
         self._arm_ack_task = asyncio.create_task(
             self._watch_arm_ack(arm_cmd, generation, start)
         )
@@ -668,12 +697,19 @@ class TimerManager:
         about which *command* was involved — `_ack_log` keeps that, so this
         can wait for `arm_cmd` specifically even if something else's ack
         resolves first or after it.
+
+        Filters on `seq > start` — `start` is a snapshot of the monotonic
+        `_ack_seq` counter taken before this watch's own arm command was
+        even sent, not a position in the deque itself (#876). The deque
+        evicts old entries as new ones arrive, but the counter does not, so
+        this keeps working correctly no matter how many acknowledgements
+        for *other* commands have been logged, and evicted, in the meantime.
         """
         deadline = asyncio.get_event_loop().time() + ARM_ACK_WAIT_SECONDS
         outcome: bool | None = None
         while True:
-            for cmd, success in list(self._ack_log)[start:]:
-                if cmd == arm_cmd:
+            for seq, cmd, success in self._ack_log:
+                if seq > start and cmd == arm_cmd:
                     outcome = success
                     break
             if outcome is not None:
@@ -1008,7 +1044,7 @@ class TimerManager:
             pending_cmd, expected_pattern = self._pending_acks[0]
             if expected_pattern.match(line):
                 self._pending_acks.popleft()
-                self._ack_log.append((pending_cmd, True))
+                self._log_ack(pending_cmd, True)
                 logger.debug(
                     "Timer %d: command %r acknowledged by %r",
                     self._track_id,
@@ -1025,7 +1061,7 @@ class TimerManager:
                 # The line doesn't match what we expected. Pop the stale entry,
                 # log a warning, and continue so the line is still parsed normally.
                 self._pending_acks.popleft()
-                self._ack_log.append((pending_cmd, False))
+                self._log_ack(pending_cmd, False)
                 logger.warning(
                     "Timer %d: expected ack for %r but received %r; "
                     "command may have been dropped or response was out of order",
