@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import '../../setupTests';
 import { useState } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Modal from './Modal';
 
@@ -141,5 +141,107 @@ describe('Modal accessibility and focus management (#788)', () => {
 
         expect(screen.queryByTestId('first-input')).not.toBeInTheDocument();
         expect(document.activeElement).toBe(openBtn);
+    });
+});
+
+// A nested modal (#788's own focus trap opened the door to it) mirrors the
+// real shape of the bug: an editor open first, an alert raised over it once
+// a save is refused (#765/#807). `outerOpen` and `innerOpen` are independent
+// state, and the inner Modal is always mounted — same as AlertContext, which
+// always renders its own <Modal> and toggles `isOpen` — so the inner one's
+// stack registration happens strictly after the outer's, exactly as it does
+// when an alert is raised over an already-open editor.
+function StackedModalHarness({
+    onCloseOuter,
+    onCloseInner,
+}: {
+    onCloseOuter: () => void;
+    onCloseInner: () => void;
+}) {
+    const [outerOpen, setOuterOpen] = useState(true);
+    const [innerOpen, setInnerOpen] = useState(false);
+
+    return (
+        <div>
+            <button
+                type="button"
+                data-testid="raise-inner"
+                onClick={() => setInnerOpen(true)}
+            >
+                Raise inner modal
+            </button>
+            <Modal
+                isOpen={outerOpen}
+                onClose={() => {
+                    setOuterOpen(false);
+                    onCloseOuter();
+                }}
+                title="Outer"
+            >
+                <div data-testid="outer-content">Outer content</div>
+                <Modal
+                    isOpen={innerOpen}
+                    onClose={() => {
+                        setInnerOpen(false);
+                        onCloseInner();
+                    }}
+                    title="Inner"
+                >
+                    <div data-testid="inner-content">Inner content</div>
+                </Modal>
+            </Modal>
+        </div>
+    );
+}
+
+describe('Modal stacking — Escape and scroll lock (#870)', () => {
+    it('one Escape closes only the topmost modal, not every open modal', async () => {
+        const user = userEvent.setup();
+        const onCloseOuter = vi.fn();
+        const onCloseInner = vi.fn();
+        render(<StackedModalHarness onCloseOuter={onCloseOuter} onCloseInner={onCloseInner} />);
+
+        await user.click(screen.getByTestId('raise-inner'));
+        expect(screen.getByTestId('inner-content')).toBeInTheDocument();
+        expect(screen.getByTestId('outer-content')).toBeInTheDocument();
+
+        fireEvent.keyDown(document, { key: 'Escape' });
+
+        // Only the inner (topmost, most-recently-raised) modal responds.
+        expect(onCloseInner).toHaveBeenCalledTimes(1);
+        expect(onCloseOuter).not.toHaveBeenCalled();
+        expect(screen.queryByTestId('inner-content')).not.toBeInTheDocument();
+        expect(screen.getByTestId('outer-content')).toBeInTheDocument();
+
+        // A second Escape now reaches the outer modal, since it is topmost
+        // once the inner one is gone.
+        fireEvent.keyDown(document, { key: 'Escape' });
+        expect(onCloseOuter).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps scrolling locked until the last open modal closes, even out of order', async () => {
+        const user = userEvent.setup();
+        const onCloseOuter = vi.fn();
+        const onCloseInner = vi.fn();
+        const { rerender } = render(
+            <StackedModalHarness onCloseOuter={onCloseOuter} onCloseInner={onCloseInner} />,
+        );
+
+        expect(document.body.style.overflow).toBe('hidden');
+
+        await user.click(screen.getByTestId('raise-inner'));
+        expect(document.body.style.overflow).toBe('hidden');
+
+        // Close the inner modal directly (not via Escape) — the nested
+        // modal unmounting must not re-enable scrolling while the outer
+        // modal is still open.
+        fireEvent.keyDown(document, { key: 'Escape' });
+        expect(screen.queryByTestId('inner-content')).not.toBeInTheDocument();
+        expect(document.body.style.overflow).toBe('hidden');
+
+        // Unmounting the whole tree without an orderly close (e.g. a route
+        // change) must not leave the lock counter positive forever.
+        rerender(<div />);
+        expect(document.body.style.overflow).toBe('unset');
     });
 });
