@@ -7,6 +7,7 @@ validates before sending, and why the fields it can send are pinned here.
 
 import pytest
 
+from backend.api import schema
 from backend.db import crud, models, schemas
 
 IMPORT = """
@@ -136,3 +137,47 @@ def test_dens_named_in_the_file_are_created_once(client, db, race):
         db.query(models.RacingGroup).filter(models.RacingGroup.race_id == race.id).all()
     )
     assert [racing_group.name for racing_group in racing_groups] == ["Wolves"]
+
+
+def test_import_racers_exceeding_csv_length_is_refused(
+    client: pytest.FixtureRequest, race: models.Race, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An oversized CSV payload is rejected with a GraphQL error (#744)."""
+    monkeypatch.setattr(schema, "MAX_UPLOAD_BYTES", 100)
+    huge_csv = "first_name,last_name\n" * 10
+    response = client.post(  # type: ignore[union-attr]
+        "/graphql",
+        json={
+            "query": IMPORT,
+            "variables": {"raceId": race.id, "csvData": huge_csv},
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert "errors" in payload
+    assert "CSV data is larger than" in payload["errors"][0]["message"]
+
+
+def test_import_racers_exceeding_utf8_bytes_is_refused(
+    client: pytest.FixtureRequest, race: models.Race, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A CSV payload whose multi-byte UTF-8 encoding exceeds MAX_UPLOAD_BYTES
+    is rejected (#744).
+    """
+    monkeypatch.setattr(schema, "MAX_UPLOAD_BYTES", 50)
+    # 10 emojis are 40+ bytes in UTF-8, pushing encoded bytes over 50.
+    multibyte_csv = "first_name,last_name\n" + ("🏎️" * 10)
+    assert len(multibyte_csv) < 50
+    assert len(multibyte_csv.encode("utf-8")) > 50
+
+    response = client.post(  # type: ignore[union-attr]
+        "/graphql",
+        json={
+            "query": IMPORT,
+            "variables": {"raceId": race.id, "csvData": multibyte_csv},
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert "errors" in payload
+    assert "CSV data is larger than" in payload["errors"][0]["message"]

@@ -39,7 +39,7 @@ from strawberry.fastapi import GraphQLRouter
 from backend import demo_content, demo_mode
 from backend.api import auth
 from backend.api.loaders import RequestLoaders
-from backend.api.schema import schema
+from backend.api.schema import MAX_UPLOAD_BYTES, schema
 from backend.db import crud, models
 from backend.db.database import (
     DATA_DIR,
@@ -1022,7 +1022,9 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
 #: limit is generous rather than tight — what it exists to stop is a caller
 #: naming their own size. Without it `file.read()` pulls an arbitrary body
 #: straight into memory on a machine with a gigabyte of RAM.
-MAX_UPLOAD_BYTES = 16 * 1024 * 1024
+#: Sourced from `schema.py` so the REST route and GraphQL mutations share
+#: the exact same limit (#744).
+MAX_UPLOAD_BYTES: int = MAX_UPLOAD_BYTES
 
 #: How much is read at a time while checking that limit.
 _UPLOAD_CHUNK = 1024 * 1024

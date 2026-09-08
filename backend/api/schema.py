@@ -3646,6 +3646,10 @@ def _apply_terminology(organization: Any, config: "InitialConfigInput") -> None:
 #: `MAX_UPLOAD_BYTES` in `api/main.py` is the same idea for `POST /upload/`.
 MAX_GPRM_IMPORT_BYTES = 64 * 1024 * 1024
 
+#: The largest image or CSV upload this app accepts (16 MB), matching
+#: `POST /upload/`'s cap in `api/main.py` (#744).
+MAX_UPLOAD_BYTES: int = 16 * 1024 * 1024
+
 
 @strawberry.type
 class GprmImportGroup:
@@ -5816,6 +5820,13 @@ class Mutation:
     @strawberry.mutation
     async def import_racers(self, info: Info, race_id: int, csv_data: str) -> int:
         """Import racers from a CSV data string."""
+        max_mb = MAX_UPLOAD_BYTES // (1024 * 1024)
+        limit_desc = f"{max_mb} MB" if max_mb > 0 else f"{MAX_UPLOAD_BYTES} bytes"
+        if len(csv_data) > MAX_UPLOAD_BYTES:
+            raise ValueError(f"CSV data is larger than {limit_desc}.")
+        if len(csv_data.encode("utf-8")) > MAX_UPLOAD_BYTES:
+            raise ValueError(f"CSV data is larger than {limit_desc}.")
+
         db = info.context["db"]
         # Verification: ensure race exists
         race = db.query(models.Race).filter(models.Race.id == race_id).first()
@@ -6240,12 +6251,31 @@ class Mutation:
     @strawberry.mutation
     def upload_image(self, data_url: str) -> str:
         """Upload an image from a Base64 data URL."""
+        max_b64_len = ((MAX_UPLOAD_BYTES + 2) // 3) * 4
+        max_mb = MAX_UPLOAD_BYTES // (1024 * 1024)
+        limit_desc = f"{max_mb} MB" if max_mb > 0 else f"{MAX_UPLOAD_BYTES} bytes"
+
+        # Refuse oversized payloads before splitting or base64 decoding to avoid
+        # exhausting memory on the Raspberry Pi target (#744).
+        if len(data_url) > max_b64_len + 1024:
+            raise ValueError(f"Image is larger than {limit_desc}.")
+
         # Parse data URL: data:<mime>;base64,<data>
         if "," not in data_url:
             raise ValueError("Invalid data URL format")
         header, encoded = data_url.split(",", 1)
 
-        raw_data = base64.b64decode(encoded)
+        if len(encoded) > max_b64_len:
+            raise ValueError(f"Image is larger than {limit_desc}.")
+
+        try:
+            raw_data = base64.b64decode(encoded)
+        except (ValueError, binascii.Error) as error:
+            raise ValueError("Invalid data URL format") from error
+
+        if len(raw_data) > MAX_UPLOAD_BYTES:
+            raise ValueError(f"Image is larger than {limit_desc}.")
+
         image_data = convert_to_browser_safe_png(raw_data)
 
         # If conversion happened (non-browser-safe format like HEIC), the
