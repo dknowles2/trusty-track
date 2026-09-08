@@ -6,6 +6,7 @@ import PinFieldRow from '../components/PinFieldRow';
 import SettingsNav from '../components/SettingsNav';
 import ThemePicker from '../components/ThemePicker';
 import AppearancePreview from '../components/AppearancePreview';
+import SoundSettingsSection from '../../audio/components/SoundSettingsSection';
 import TrackCard, { type TimerModel, type TrackFields } from '../components/TrackCard';
 import { blankPin, pinInput, pinToSend, type PinField } from '../pinFields';
 import {
@@ -551,6 +552,9 @@ export default function SystemConfig() {
         displaySetting={displayTheme}
         printablesSetting={printablesTheme}
       />
+      <div style={{ marginTop: '2rem' }}>
+        <SoundSettingsSection />
+      </div>
     </>
   );
 

@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useQuery, useSubscription } from 'urql';
 import AwardCeremony from './AwardCeremony';
+import * as soundModule from '../../audio/soundEffects';
 
 vi.mock('urql', async () => {
   const actual = await vi.importActual<typeof import('urql')>('urql');
@@ -351,3 +352,48 @@ describe('the Display theme, pushed live (#586)', () => {
     expect(document.querySelector('[data-theme]')).toHaveAttribute('data-theme', 'newsprint');
   });
 });
+
+describe('ceremony sound effects (#554)', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('plays award fanfare when stepping forward with fanfare enabled', async () => {
+    const fanfareSpy = vi.spyOn(soundModule, 'playAwardFanfareSound').mockImplementation(() => {});
+    soundModule.writeSoundSettings(window.localStorage, {
+      ...soundModule.DEFAULT_SOUND_SETTINGS,
+      master: true,
+      awardFanfare: true,
+    });
+
+    renderCeremony();
+    expect(fanfareSpy).not.toHaveBeenCalled();
+
+    await userEvent.keyboard('{ArrowRight}');
+    expect(fanfareSpy).toHaveBeenCalled();
+  });
+
+  it('does not play award fanfare when stepping backwards or when sound is disabled', async () => {
+    const fanfareSpy = vi.spyOn(soundModule, 'playAwardFanfareSound').mockImplementation(() => {});
+    soundModule.writeSoundSettings(window.localStorage, {
+      ...soundModule.DEFAULT_SOUND_SETTINGS,
+      master: false,
+    });
+
+    renderCeremony();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(fanfareSpy).not.toHaveBeenCalled();
+  });
+
+  it('offers fanfare toggle in the presentation controls', async () => {
+    renderCeremony();
+    const toggle = screen.getByTestId('ceremony-sound-toggle');
+    expect(toggle).not.toBeChecked();
+
+    fireEvent.click(toggle);
+    expect(toggle).toBeChecked();
+    expect(soundModule.readSoundSettings(window.localStorage).awardFanfare).toBe(true);
+  });
+});
+

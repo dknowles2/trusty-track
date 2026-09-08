@@ -22,6 +22,12 @@ import IdentifyPresence from '../../observation/IdentifyPresence';
 import { resolveDisplayTheme } from '../../../theming/applyTheme';
 import type { SurfaceThemeSetting } from '../../../theming/themes';
 import { useTerminology } from '../../../context/TerminologyContext';
+import {
+  isSoundEffectEnabled,
+  playAwardFanfareSound,
+  readSoundSettings,
+  writeSoundSettings,
+} from '../../audio/soundEffects';
 
 export default function AwardCeremony() {
   const { raceId } = useParams<{ raceId: string }>();
@@ -88,8 +94,17 @@ export default function AwardCeremony() {
   const { key: displayThemeKey, theme: displayTheme } = resolveDisplayTheme(displayThemeSetting);
   const displayThemeStyle = displayTheme.tokens as React.CSSProperties;
 
+  const [soundOn, setSoundOn] = useState(() => isSoundEffectEnabled('awardFanfare', window.localStorage));
+
   const step = useCallback(
-    (delta: number) => setIndex((current) => stepIndex(current, delta, awards.length)),
+    (delta: number) =>
+      setIndex((current) => {
+        const next = stepIndex(current, delta, awards.length);
+        if (delta > 0 && next !== current && isSoundEffectEnabled('awardFanfare', window.localStorage)) {
+          playAwardFanfareSound();
+        }
+        return next;
+      }),
     [awards.length],
   );
 
@@ -269,6 +284,36 @@ export default function AwardCeremony() {
       >
         {slide && <span>{slide.position}</span>}
         <span>Click or press → for the next award</span>
+        <label
+          style={{
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            userSelect: 'none',
+          }}
+          title="Play award fanfare sound when presenting awards"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            data-testid="ceremony-sound-toggle"
+            checked={soundOn}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              const current = readSoundSettings(window.localStorage);
+              const updated = {
+                ...current,
+                master: checked ? true : current.master,
+                awardFanfare: checked,
+              };
+              writeSoundSettings(window.localStorage, updated);
+              setSoundOn(checked);
+              if (checked) playAwardFanfareSound();
+            }}
+          />
+          Fanfare
+        </label>
       </div>
     </div>
   );

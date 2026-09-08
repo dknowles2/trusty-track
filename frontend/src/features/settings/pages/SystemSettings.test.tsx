@@ -892,6 +892,23 @@ describe('the Appearance section (#498)', () => {
             expect(window.localStorage.getItem('trustytrack.appTheme')).toBe('old-glory'),
         );
     });
+
+    it('offers per-device sound effects controls (#554)', async () => {
+        (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('appearance');
+        expect(screen.getByTestId('sound-settings-section')).toBeInTheDocument();
+        const toggle = screen.getByTestId('sound-master-toggle');
+        expect(toggle).not.toBeChecked();
+    });
 });
 
 describe('Terminology (#496 stage 3; #551 adds the vehicle term, and stage 4 of that issue its artwork)', () => {

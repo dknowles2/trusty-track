@@ -31,7 +31,19 @@ export type {
 import type { Heat, Racer, AdvancementStatus, LaneInput, Lane, LiveLane } from '../types';
 import type { HeatPhase } from '../../../gql/operations';
 import { formatLaneTime, hasRun, hasTimes, isTimeBasedStrategy, toInput, placeIssue, parseTimeText, tiedTimeGroups } from '../lanes';
-import { chimeEnabled, playChime, setChimeEnabled, shouldChime } from '../chime';
+import { chimeEnabled, setChimeEnabled, shouldChime } from '../chime';
+import {
+    playFinishSound,
+    playGateReleaseSound,
+    playStagingReadySound,
+    readSoundSettings,
+    shouldFinishSound,
+    shouldGateReleaseSound,
+    shouldStagingReadySound,
+    writeSoundSettings,
+    type SoundEffectsSettings,
+} from '../../audio/soundEffects';
+import SoundSettingsSection from '../../audio/components/SoundSettingsSection';
 import { isTypingTarget, shortcutFor, SHORTCUT_HINTS } from '../shortcuts';
 import { useRaceFlow } from '../useRaceFlow';
 import { useAlert } from '../../../context/AlertContext';
@@ -283,15 +295,28 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     );
     const autoAdvanceCountdown = flow.countdown;
 
-    // The finish chime (#208). The edge, not the state: RECORDED persists for
-    // as long as the operator leaves the heat on screen, and a payload arrives
-    // for every lane time and every check-in.
+    // Sound effects for race events (#208, #554). The edge, not the state:
+    // transitions trigger audio only when crossing the boundary, never on
+    // render or page reload.
+    const [soundSettings, setSoundSettings] = useState<SoundEffectsSettings>(() => readSoundSettings(window.localStorage));
     const [chimeOn, setChimeOn] = useState(() => chimeEnabled(window.localStorage));
+    const [isSoundModalOpen, setIsSoundModalOpen] = useState(false);
     const previousPhase = useRef<HeatPhase | null>(null);
+
     useEffect(() => {
-        if (chimeOn && shouldChime(previousPhase.current, phase)) playChime();
+        if (soundSettings.master) {
+            if (soundSettings.finish && shouldFinishSound(previousPhase.current, phase)) {
+                playFinishSound();
+            } else if (soundSettings.gateRelease && shouldGateReleaseSound(previousPhase.current, phase)) {
+                playGateReleaseSound();
+            } else if (soundSettings.stagingReady && shouldStagingReadySound(previousPhase.current, phase)) {
+                playStagingReadySound();
+            }
+        } else if (chimeOn && shouldChime(previousPhase.current, phase)) {
+            playFinishSound();
+        }
         previousPhase.current = phase;
-    }, [phase, chimeOn]);
+    }, [phase, soundSettings, chimeOn]);
 
 
     const isRoundSummaryOpen = flow.screen.kind === 'ROUND_SUMMARY';
@@ -852,17 +877,36 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     data-testid="finish-chime-toggle"
                                     checked={chimeOn}
                                     onChange={(e) => {
-                                        setChimeEnabled(window.localStorage, e.target.checked);
-                                        setChimeOn(e.target.checked);
+                                        const nextChime = e.target.checked;
+                                        setChimeEnabled(window.localStorage, nextChime);
+                                        setChimeOn(nextChime);
+                                        const current = readSoundSettings(window.localStorage);
+                                        const updated: SoundEffectsSettings = {
+                                            ...current,
+                                            master: nextChime ? true : current.master,
+                                            finish: nextChime,
+                                        };
+                                        writeSoundSettings(window.localStorage, updated);
+                                        setSoundSettings(updated);
                                         // Played on the way on, never on the way
                                         // off: it is the only way to find out
                                         // whether the machine's sound is muted
                                         // without waiting for a heat to finish.
-                                        if (e.target.checked) playChime();
+                                        if (nextChime) playFinishSound();
                                     }}
                                 />
                                 Finish sound
                             </label>
+                            <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                style={{ fontSize: '0.8rem', padding: '2px 8px' }}
+                                onClick={() => setIsSoundModalOpen(true)}
+                                title="Configure race sound effects"
+                                data-testid="sound-effects-modal-trigger"
+                            >
+                                Sound options
+                            </button>
                             {onToggleAutoAdvance && (
                                 <div
                                     style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '10px' }}
@@ -1311,6 +1355,34 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         <button className="secondary-btn" onClick={() => setIsEditModalOpen(false)}>Cancel</button>
                         <button className="primary-btn" onClick={handleSaveResults} disabled={!!placeError}>Save Results</button>
                     </div>
+                </div>
+            </Modal>
+
+            {/* Sound Effects Modal (#554) */}
+            <Modal
+                isOpen={isSoundModalOpen}
+                onClose={() => {
+                    setIsSoundModalOpen(false);
+                    const refreshed = readSoundSettings(window.localStorage);
+                    setSoundSettings(refreshed);
+                    setChimeOn(refreshed.master && refreshed.finish);
+                }}
+                title="Race Sound Effects"
+            >
+                <SoundSettingsSection />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => {
+                            setIsSoundModalOpen(false);
+                            const refreshed = readSoundSettings(window.localStorage);
+                            setSoundSettings(refreshed);
+                            setChimeOn(refreshed.master && refreshed.finish);
+                        }}
+                    >
+                        Done
+                    </button>
                 </div>
             </Modal>
         </>
