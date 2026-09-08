@@ -1675,5 +1675,6 @@ export type WizardConfigurationInput = {
 
 export type WizardGeneralRoundInput = {
   runsPerLane?: Scalars['Int']['input'];
+  schedulingStrategy?: InputMaybe<Scalars['String']['input']>;
   type: Scalars['String']['input'];
 };
