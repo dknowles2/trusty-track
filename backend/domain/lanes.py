@@ -280,21 +280,80 @@ def places_above_field(lanes: Sequence[Lane]) -> list[int]:
 def duplicate_places(lanes: Sequence[Lane]) -> list[int]:
     """Place values claimed by more than one lane, each named once.
 
-    Two lanes both placed 1st is accepted silently without this: both cars
-    score a point under ``POINTS`` and nobody scores two, which is not what a
-    finishing order means. Mirrors :func:`duplicate_lane_numbers`.
+    A genuine tie in recorded times — multiple lanes sharing the identical
+    positive finish time — genuinely shares a place and is not flagged (#816).
+    Duplicate places without matching times (e.g. hand-typed places with no
+    times, or conflicting times) are flagged so an operator cannot
+    double-count a placement by typo. Mirrors :func:`duplicate_lane_numbers`.
     """
-    seen: set[int] = set()
-    dupes: list[int] = []
+    by_place: dict[int, list[Lane]] = {}
     for lane in lanes:
         if lane.place is None:
             continue
-        if lane.place in seen:
-            if lane.place not in dupes:
-                dupes.append(lane.place)
-        else:
-            seen.add(lane.place)
+        by_place.setdefault(lane.place, []).append(lane)
+
+    dupes: list[int] = []
+    for place, place_lanes in by_place.items():
+        if len(place_lanes) > 1:
+            first_seconds = place_lanes[0].seconds
+            if (
+                first_seconds is not None
+                and first_seconds > 0
+                and all(entry.seconds == first_seconds for entry in place_lanes)
+            ):
+                continue
+            dupes.append(place)
     return dupes
+
+
+def assign_places(lanes: Sequence[Lane]) -> list[Lane]:
+    """Assign competition ranks (1, 1, 3) to lanes based on recorded times.
+
+    Finishers with positive times are sorted ascending by time. Equal times
+    share the same place, and subsequent places skip accordingly. Lanes with no
+    time or non-positive times (DNFs) receive ``place = None``.
+    Lanes with any recorded time have ``skipped`` cleared, matching
+    the frontend's ``assignPlaces``.
+    """
+    has_any_time = any(entry.time is not None for entry in lanes)
+    if not has_any_time:
+        return [
+            Lane(
+                lane=entry.lane,
+                racer_id=entry.racer_id,
+                placeholder_slot=entry.placeholder_slot,
+                time=entry.time,
+                place=None,
+                skipped=entry.skipped,
+            )
+            for entry in lanes
+        ]
+
+    finishers = [
+        entry for entry in lanes if entry.seconds is not None and entry.seconds > 0
+    ]
+    finishers.sort(
+        key=lambda entry: entry.seconds if entry.seconds is not None else 0.0
+    )
+
+    place_by_lane: dict[int, int] = {}
+    current_place = 1
+    for i, lane in enumerate(finishers):
+        if i > 0 and (lane.seconds or 0.0) > (finishers[i - 1].seconds or 0.0):
+            current_place = i + 1
+        place_by_lane[lane.lane] = current_place
+
+    return [
+        Lane(
+            lane=entry.lane,
+            racer_id=entry.racer_id,
+            placeholder_slot=entry.placeholder_slot,
+            time=entry.time,
+            place=place_by_lane.get(entry.lane),
+            skipped=False,
+        )
+        for entry in lanes
+    ]
 
 
 def resolve_placeholders(lanes: Sequence[Lane], racer_ids: Sequence[int]) -> bool:

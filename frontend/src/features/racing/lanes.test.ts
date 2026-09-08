@@ -113,6 +113,31 @@ describe('assignPlaces', () => {
     expect(placed.find((r) => r.lane === 1)?.place).toBe(3);
   });
 
+  it('assigns shared places and skips ranks for tied times (1, 1, 3 and 1, 2, 2, 4) (#816)', () => {
+    const twoWayFirst = [
+      input({ lane: 1, racerId: 1, time: 3.1 }),
+      input({ lane: 2, racerId: 2, time: 3.1 }),
+      input({ lane: 3, racerId: 3, time: 3.2 }),
+    ];
+    const placedFirst = assignPlaces(twoWayFirst);
+    expect(placedFirst.find((r) => r.lane === 1)?.place).toBe(1);
+    expect(placedFirst.find((r) => r.lane === 2)?.place).toBe(1);
+    expect(placedFirst.find((r) => r.lane === 3)?.place).toBe(3);
+
+    const twoWaySecond = [
+      input({ lane: 1, racerId: 1, time: 3.1 }),
+      input({ lane: 2, racerId: 2, time: 3.2 }),
+      input({ lane: 3, racerId: 3, time: 3.2 }),
+      input({ lane: 4, racerId: 4, time: 3.3 }),
+    ];
+    const placedSecond = assignPlaces(twoWaySecond);
+    expect(placedSecond.find((r) => r.lane === 1)?.place).toBe(1);
+    expect(placedSecond.find((r) => r.lane === 2)?.place).toBe(2);
+    expect(placedSecond.find((r) => r.lane === 3)?.place).toBe(2);
+    expect(placedSecond.find((r) => r.lane === 4)?.place).toBe(4);
+  });
+
+
   it('a recorded 0.0 (a DNF) gets no place, and does not steal first', () => {
     const results = [
       input({ lane: 1, racerId: 1, time: 0 }),
@@ -422,6 +447,23 @@ describe('duplicatePlaces', () => {
     ];
     expect(duplicatePlaces(results)).toEqual([]);
   });
+
+  it('allows duplicate places when lanes have identical positive times (#816)', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: 3.5, place: 1 }),
+      input({ lane: 2, racerId: 2, time: 3.5, place: 1 }),
+      input({ lane: 3, racerId: 3, time: 3.6, place: 3 }),
+    ];
+    expect(duplicatePlaces(results)).toEqual([]);
+  });
+
+  it('refuses duplicate places when lanes have differing times (#816)', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: 3.5, place: 1 }),
+      input({ lane: 2, racerId: 2, time: 3.6, place: 1 }),
+    ];
+    expect(duplicatePlaces(results)).toEqual([1]);
+  });
 });
 
 describe('placeIssue', () => {
@@ -432,6 +474,16 @@ describe('placeIssue', () => {
     ];
     expect(placeIssue(results)).toBeNull();
   });
+
+  it('allows tied places when times match genuinely (#816)', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: 3.5, place: 1 }),
+      input({ lane: 2, racerId: 2, time: 3.5, place: 1 }),
+      input({ lane: 3, racerId: 3, time: 3.6, place: 3 }),
+    ];
+    expect(placeIssue(results)).toBeNull();
+  });
+
 
   it('reports the first duplicate place — the exact sentence a client following the server backstop would show', () => {
     const results = [

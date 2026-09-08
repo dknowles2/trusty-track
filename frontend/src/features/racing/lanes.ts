@@ -99,7 +99,14 @@ export const assignPlaces = (results: readonly LaneInput[]): LaneInput[] => {
   const finishers = results
     .filter((r): r is LaneInput & { time: number } => typeof r.time === 'number' && r.time > 0)
     .sort((a, b) => a.time - b.time);
-  const placeByLane = new Map(finishers.map((r, idx) => [r.lane, idx + 1]));
+  const placeByLane = new Map<number, number>();
+  let currentPlace = 1;
+  for (let i = 0; i < finishers.length; i++) {
+    if (i > 0 && finishers[i].time > finishers[i - 1].time) {
+      currentPlace = i + 1;
+    }
+    placeByLane.set(finishers[i].lane, currentPlace);
+  }
 
   return results.map((r) => ({
     ...r,
@@ -233,16 +240,34 @@ export const placesAboveField = (results: readonly LaneInput[]): number[] => {
 /**
  * Place values claimed by more than one lane, each named once (issue #766).
  * Mirrors `backend/domain/lanes.py`'s `duplicate_places`.
+ *
+ * A genuine tie in recorded times — multiple lanes sharing the identical
+ * positive finish time — genuinely shares a place and is not flagged (#816).
+ * Duplicate places without matching times are flagged.
  */
 export const duplicatePlaces = (results: readonly LaneInput[]): number[] => {
-  const seen = new Set<number>();
-  const dupes: number[] = [];
+  const byPlace = new Map<number, LaneInput[]>();
   for (const r of results) {
     if (r.place == null) continue;
-    if (seen.has(r.place)) {
-      if (!dupes.includes(r.place)) dupes.push(r.place);
-    } else {
-      seen.add(r.place);
+    const group = byPlace.get(r.place) ?? [];
+    group.push(r);
+    byPlace.set(r.place, group);
+  }
+
+  const dupes: number[] = [];
+  for (const [place, group] of byPlace.entries()) {
+    if (group.length > 1) {
+      const firstTime = group[0].time;
+      const isGenuineTie =
+        firstTime !== null &&
+        firstTime !== undefined &&
+        typeof firstTime === 'number' &&
+        firstTime > 0 &&
+        group.every((r) => r.time === firstTime);
+
+      if (!isGenuineTie) {
+        dupes.push(place);
+      }
     }
   }
   return dupes;

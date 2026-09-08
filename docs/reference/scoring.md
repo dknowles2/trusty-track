@@ -40,10 +40,11 @@ reward:
 - A lane left blank in Override has **no place** and is not counted — a
   genuinely unfinished entry, not a result.
 - A typed-in place has to make sense: **1st or better**, no higher than the
-  number of cars in the heat, and not reused for two cars. Trusty Track
-  refuses the save and says why, rather than storing a number that would
-  score wrong — a `0` or a negative place would otherwise *subtract* from a
-  car's total.
+  number of cars in the heat, and not reused for two cars unless their recorded
+  times genuinely match (#816). Trusty Track refuses the save and says why,
+  rather than storing a number that would score wrong — a `0` or a negative
+  place would otherwise *subtract* from a car's total.
+
 
 ## Cumulative time
 

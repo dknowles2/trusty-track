@@ -270,6 +270,79 @@ def test_duplicate_places_ignores_unplaced_lanes():
     assert lanes.duplicate_places(parsed) == []
 
 
+def test_duplicate_places_allows_genuine_tie_in_recorded_times():
+    """Lanes sharing a place with identical positive times are a genuine tie (#816)."""
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 5, "time": 3.123, "place": 1},
+        {"lane": 2, "racer_id": 9, "time": 3.123, "place": 1},
+        {"lane": 3, "racer_id": 3, "time": 3.456, "place": 3},
+    )
+    assert lanes.duplicate_places(parsed) == []
+
+
+def test_duplicate_places_refuses_tied_places_with_differing_times():
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 5, "time": 3.123, "place": 1},
+        {"lane": 2, "racer_id": 9, "time": 3.124, "place": 1},
+    )
+    assert lanes.duplicate_places(parsed) == [1]
+
+
+def test_duplicate_places_refuses_tied_places_with_dnf_times():
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 5, "time": 0.0, "place": 1},
+        {"lane": 2, "racer_id": 9, "time": 0.0, "place": 1},
+    )
+    assert lanes.duplicate_places(parsed) == [1]
+
+
+def test_assign_places_standard_competition_ranking():
+    """Tied times share a place and subsequent places skip (1, 1, 3 and 1, 2, 2, 4).
+
+    Addresses #816.
+    """
+
+    two_way_first = [
+        lanes.Lane(lane=1, racer_id=1, time=3.1),
+        lanes.Lane(lane=2, racer_id=2, time=3.1),
+        lanes.Lane(lane=3, racer_id=3, time=3.2),
+    ]
+    placed = lanes.assign_places(two_way_first)
+    assert [lane.place for lane in placed] == [1, 1, 3]
+
+    two_way_second = [
+        lanes.Lane(lane=1, racer_id=1, time=3.1),
+        lanes.Lane(lane=2, racer_id=2, time=3.2),
+        lanes.Lane(lane=3, racer_id=3, time=3.2),
+        lanes.Lane(lane=4, racer_id=4, time=3.3),
+    ]
+    placed = lanes.assign_places(two_way_second)
+    assert [lane.place for lane in placed] == [1, 2, 2, 4]
+
+
+def test_assign_places_dnf_gets_no_place():
+    heat = [
+        lanes.Lane(lane=1, racer_id=1, time=0.0),
+        lanes.Lane(lane=2, racer_id=2, time=3.2),
+        lanes.Lane(lane=3, racer_id=3, time=None),
+    ]
+    placed = lanes.assign_places(heat)
+    assert placed[0].place is None
+    assert placed[1].place == 1
+    assert placed[2].place is None
+    assert not any(lane.skipped for lane in placed)
+
+
+def test_assign_places_empty_times_clears_places():
+    heat = [
+        lanes.Lane(lane=1, racer_id=1, skipped=True),
+        lanes.Lane(lane=2, racer_id=2, skipped=True),
+    ]
+    placed = lanes.assign_places(heat)
+    assert all(lane.place is None for lane in placed)
+    assert all(lane.skipped for lane in placed)
+
+
 def test_real_racer_ids_is_dense():
     """It drops unused lanes and undecided slots rather than yielding None."""
     assert lanes.real_racer_ids(
