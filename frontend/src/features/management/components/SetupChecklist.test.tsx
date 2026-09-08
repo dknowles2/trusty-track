@@ -10,6 +10,8 @@ const progress = (over: Partial<SetupProgress> = {}): SetupProgress => ({
     racerCount: 0,
     checkedInCount: 0,
     roundCount: 0,
+    awardCount: 0,
+    isLocked: false,
     ...over,
 });
 
@@ -17,7 +19,42 @@ describe('SetupChecklist', () => {
     it('renders nothing once the race is set up', () => {
         render(
             <SetupChecklist
+                progress={progress({
+                    racingGroupCount: 1,
+                    racerCount: 5,
+                    checkedInCount: 5,
+                    roundCount: 1,
+                    awardCount: 2,
+                })}
+                onAction={{}}
+            />,
+        );
+
+        expect(screen.queryByTestId('setup-checklist')).not.toBeInTheDocument();
+    });
+
+    it('still shows while awards are undefined and the race is not locked (#847)', () => {
+        render(
+            <SetupChecklist
                 progress={progress({ racingGroupCount: 1, racerCount: 5, checkedInCount: 5, roundCount: 1 })}
+                onAction={{}}
+            />,
+        );
+
+        expect(screen.getByTestId('setup-checklist')).toBeInTheDocument();
+        expect(screen.getByTestId('setup-step-awards')).toHaveAttribute('data-done', 'false');
+    });
+
+    it('quiets the awards and printables steps once the race is locked', () => {
+        render(
+            <SetupChecklist
+                progress={progress({
+                    racingGroupCount: 1,
+                    racerCount: 5,
+                    checkedInCount: 5,
+                    roundCount: 1,
+                    isLocked: true,
+                })}
                 onAction={{}}
             />,
         );

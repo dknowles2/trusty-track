@@ -1,5 +1,5 @@
 /**
- * What a new operator has to do next (#199).
+ * What a new operator has to do next (#199, extended by #847).
  *
  * The operator is a parent volunteer who uses this app once a year. After the
  * first-run settings page they land on an empty roster, and the rest of the
@@ -14,6 +14,25 @@
  * `checklistFor` takes the resolved terminology words rather than reading
  * `useTerminology()` itself — same split as `raceFlow.ts`, a rule here and
  * the one React hook that supplies it in `SetupChecklist.tsx` (#496 stage 4).
+ *
+ * **Awards and printables stayed out of the first four for a data reason,
+ * not a taste one, and #847 is what supplied the missing signal.** Both are
+ * genuinely optional — a pack that hands out no trophies, or prints nothing
+ * because check-in is done by typing a car number — and every one of the
+ * first four steps is satisfied either by the thing itself existing *or* by
+ * a later step in the same sequence overtaking it (racing groups by a
+ * roster, check-in by nobody having a number left to fear losing). Awards
+ * and printables had no such "overtaken by" signal until a race can be
+ * *locked* (#585): locking is the operator's own "I am done deciding this"
+ * action, already the suggested wrap-up step in the end-of-race panel
+ * (#855/#897), so it is the one fact that can quiet an award or a print run
+ * nobody ever asked for without inventing a dismiss control the rest of this
+ * module deliberately has none of. They stay in the same card, under the
+ * same "Setting up this race" heading, rather than a second panel: setting
+ * up an award and printing a pit pass are still setup — of the ceremony and
+ * of the paper on the table — not race-day mechanics, and the issue's own
+ * framing ("the same card that already teaches the order of the evening")
+ * is the one place an operator is already looking.
  */
 
 import type { TerminologyWords } from '../../context/TerminologyContext';
@@ -23,9 +42,14 @@ export interface SetupProgress {
     racerCount: number;
     checkedInCount: number;
     roundCount: number;
+    /** Speed or special, whole-race — same count `awards { id }` gives the page (#170). */
+    awardCount: number;
+    /** Locked against further edits (#585) — the "I am done" signal that quiets
+     *  the two steps below when nothing else would. */
+    isLocked: boolean;
 }
 
-export type StepKey = 'racingGroups' | 'racers' | 'checkin' | 'schedule';
+export type StepKey = 'racingGroups' | 'racers' | 'checkin' | 'schedule' | 'awards' | 'printables';
 
 export interface ChecklistStep {
     key: StepKey;
@@ -46,7 +70,7 @@ export interface ChecklistStep {
 }
 
 /**
- * The four steps, and whether each is behind us.
+ * The six steps, and whether each is behind us.
  *
  * **Racing groups are optional, and that is the trap.** A pack that numbers cars some
  * other way never creates one, so a step that is done only when a racing group exists
@@ -63,7 +87,7 @@ export interface ChecklistStep {
  * after the step is ticked.
  */
 export function checklistFor(progress: SetupProgress, words: TerminologyWords): ChecklistStep[] {
-    const { racingGroupCount, racerCount, checkedInCount, roundCount } = progress;
+    const { racingGroupCount, racerCount, checkedInCount, roundCount, awardCount, isLocked } = progress;
     const { groupsLower, vehiclesLower } = words;
 
     return [
@@ -105,6 +129,33 @@ export function checklistFor(progress: SetupProgress, words: TerminologyWords): 
             done: roundCount > 0,
             action: 'Go to Race Control',
         },
+        {
+            key: 'awards',
+            label: 'Set up awards',
+            hint: 'Judged awards want photos and voting opened well before racing ends — do not leave this for the ceremony.',
+            // A pack that hands out no trophies is a decision, and locking
+            // the race (#585) is how that decision reaches this checklist —
+            // the same shape the racingGroups step uses for a pack that
+            // never creates one: satisfied by the thing itself, or by
+            // whatever later fact means asking again would only argue with
+            // a choice already made.
+            done: awardCount > 0 || isLocked,
+            action: 'Set up awards',
+        },
+        {
+            key: 'printables',
+            label: 'Print pit passes',
+            hint: 'Pit passes and check-in codes are usually printed the night before check-in opens.',
+            // There is no stored fact for "a sheet came out of a printer" —
+            // printing is HTML the browser renders, never a server round
+            // trip (see the Printables docs) — so this cannot be satisfied
+            // the way the other five are, by something the database holds.
+            // The nearest honest signal is the same one the checkin step
+            // above uses: once check-in is under way, whatever printing was
+            // going to help already has, so asking again offers nothing.
+            done: checkedInCount > 0 || isLocked,
+            action: 'Go to Printables',
+        },
     ];
 }
 
@@ -113,8 +164,9 @@ export function checklistFor(progress: SetupProgress, words: TerminologyWords): 
  *
  * It disappears on its own once every step is behind us, which is why there is
  * no dismiss control: every state in which it appears is a state where
- * something genuinely has not been done yet. A race that is over has all four,
- * so revisiting an old race does not get lectured.
+ * something genuinely has not been done yet. A locked race has all six —
+ * locking is itself what quiets awards and printables, above — so revisiting
+ * an old race does not get lectured.
  */
 export function shouldShowChecklist(steps: readonly ChecklistStep[]): boolean {
     return steps.some((step) => !step.done);

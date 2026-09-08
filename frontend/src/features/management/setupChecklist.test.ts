@@ -31,6 +31,8 @@ const progress = (over: Partial<SetupProgress> = {}): SetupProgress => ({
     racerCount: 0,
     checkedInCount: 0,
     roundCount: 0,
+    awardCount: 0,
+    isLocked: false,
     ...over,
 });
 
@@ -46,8 +48,36 @@ describe('checklistFor', () => {
 
     it('ticks every step off once the race is set up', () => {
         expect(
-            doneKeys(progress({ racingGroupCount: 3, racerCount: 20, checkedInCount: 20, roundCount: 1 })),
-        ).toEqual(['racingGroups', 'racers', 'checkin', 'schedule']);
+            doneKeys(
+                progress({
+                    racingGroupCount: 3,
+                    racerCount: 20,
+                    checkedInCount: 20,
+                    roundCount: 1,
+                    awardCount: 2,
+                }),
+            ),
+        ).toEqual(['racingGroups', 'racers', 'checkin', 'schedule', 'awards', 'printables']);
+    });
+
+    it('checking racers in also quiets the printables step, but not awards (#847)', () => {
+        // Once check-in is under way, whatever printing was going to help
+        // already has — the same "done at the first racer" shape the
+        // checkin step itself uses. Awards has no such proxy: a pack that
+        // never defines one is a decision only locking can express.
+        const keys = doneKeys(progress({ racerCount: 20, checkedInCount: 1, roundCount: 1 }));
+        expect(keys).toContain('printables');
+        expect(keys).not.toContain('awards');
+    });
+
+    it('locking the race quiets both awards and printables even with neither done', () => {
+        const keys = doneKeys(progress({ racerCount: 20, roundCount: 1, isLocked: true }));
+        expect(keys).toContain('awards');
+        expect(keys).toContain('printables');
+    });
+
+    it('an award on its own is enough for the awards step, with no lock needed', () => {
+        expect(doneKeys(progress({ awardCount: 1 }))).toContain('awards');
     });
 
     it('counts the racingGroups step done once there is a roster, even with no racingGroups', () => {
@@ -121,7 +151,43 @@ describe('shouldShowChecklist', () => {
     it('goes away once the race is set up, which is why there is no dismiss', () => {
         expect(
             shouldShowChecklist(
-                checklistFor(progress({ racingGroupCount: 2, racerCount: 5, checkedInCount: 5, roundCount: 1 })),
+                checklistFor(
+                    progress({
+                        racingGroupCount: 2,
+                        racerCount: 5,
+                        checkedInCount: 5,
+                        roundCount: 1,
+                        awardCount: 1,
+                    }),
+                ),
+            ),
+        ).toBe(false);
+    });
+
+    it('stays up for an unlocked, award-less race even once racing has started', () => {
+        // #847: a first-time operator can otherwise complete every step the
+        // app used to ask of them and never be told awards exist.
+        expect(
+            shouldShowChecklist(
+                checklistFor(
+                    progress({ racingGroupCount: 2, racerCount: 5, checkedInCount: 5, roundCount: 1 }),
+                ),
+            ),
+        ).toBe(true);
+    });
+
+    it('a locked race with no awards does not get lectured', () => {
+        expect(
+            shouldShowChecklist(
+                checklistFor(
+                    progress({
+                        racingGroupCount: 2,
+                        racerCount: 5,
+                        checkedInCount: 5,
+                        roundCount: 1,
+                        isLocked: true,
+                    }),
+                ),
             ),
         ).toBe(false);
     });
@@ -139,8 +205,26 @@ describe('nextStep', () => {
     it('is nothing once everything is done', () => {
         expect(
             nextStep(
-                checklistFor(progress({ racingGroupCount: 1, racerCount: 1, checkedInCount: 1, roundCount: 1 })),
+                checklistFor(
+                    progress({
+                        racingGroupCount: 1,
+                        racerCount: 1,
+                        checkedInCount: 1,
+                        roundCount: 1,
+                        awardCount: 1,
+                    }),
+                ),
             ),
         ).toBeNull();
+    });
+
+    it('points at awards once the schedule is generated', () => {
+        expect(
+            nextStep(
+                checklistFor(
+                    progress({ racingGroupCount: 1, racerCount: 1, checkedInCount: 1, roundCount: 1 }),
+                ),
+            )?.key,
+        ).toBe('awards');
     });
 });

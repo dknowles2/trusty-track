@@ -8,10 +8,24 @@ import { buildCreateRaceInput, type RaceSetupData } from '../raceInput';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { Icon } from '@mdi/react';
-import { mdiPlus, mdiFlagCheckered, mdiVideo, mdiSchool, mdiDotsHorizontal, mdiAccountGroup, mdiPencil } from '@mdi/js';
+import { mdiPlus, mdiFlagCheckered, mdiVideo, mdiSchool, mdiDotsHorizontal, mdiAccountGroup, mdiPencil, mdiTrophy } from '@mdi/js';
 import logoFullUrl from '../../../assets/logo_full_transparent.png';
 import LockedBadge from '../../core/components/LockedBadge';
 
+// #847 asked for a "finished / in progress / not started" badge on each row
+// alongside the results route below, derived from whether every heat has
+// run. Deliberately not built: that question needs a race's heats and their
+// lanes, and this query is the one #749 pinned to a *constant* SQL cost
+// regardless of race count (`test_get_races_query_count_does_not_scale_with_race_count`)
+// — the one list on the whole site that is never pruned, so a per-race
+// fetch here reintroduces exactly the linear-scaling bug that test exists to
+// catch, this time for heats/lanes rather than the two counts already
+// below. Doing it properly wants a batched field alongside
+// `registeredCount`/`checkedInCount` (`RequestLoaders.racer_counts_for_race`'s
+// shape), which is backend work outside this change. `isLocked` is the one
+// "this is over" signal available for free — an operator locks a race as
+// its own wrap-up step (see the end-of-race panel, #855/#897) — so a
+// finished-but-unlocked race still shows no badge here.
 const GET_RACES = gql`
     query GetRaces {
         races {
@@ -300,6 +314,25 @@ export default function Home() {
                                                         style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                                                     >
                                                         <Icon path={mdiAccountGroup} size={0.7} /> Roster
+                                                    </button>
+                                                    {/* The route to a race's results Home never had (#847):
+                                                        Control and Live are both race-day screens, and once
+                                                        the last heat is recorded neither one is where an
+                                                        operator reading standings, printing certificates or
+                                                        finding an old race's results the next morning wants
+                                                        to land. Same word, same route as the navigation row's
+                                                        own "Standings" — not gated on the race being "finished",
+                                                        since that reads fine mid-race too, and the alternative
+                                                        (a per-row heats-and-lanes fetch to decide) would put
+                                                        this never-pruned list's own query back on the O(races)
+                                                        path #749 removed it from — see
+                                                        .claude/rules/roster.md's "The Home page race list". */}
+                                                    <button
+                                                        onClick={() => { setOpenMenuRaceId(null); navigate(`/race/${race.id}/standings`); }}
+                                                        data-testid={`race-menu-standings-${race.id}`}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                                    >
+                                                        <Icon path={mdiTrophy} size={0.7} /> Standings
                                                     </button>
                                                     {/* Opens the edit form that has always lived on the
                                                         Roster page, rather than a new `/settings` route

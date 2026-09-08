@@ -89,6 +89,14 @@ export const GET_RACE_DETAILS = gql`
       rounds {
         id
       }
+      # Only the count, for the setup checklist's awards step (#847) — whether
+      # any award has been defined yet. A single race's own awards, already
+      # batched whole-race server-side (loaders.awards_for_race), so this
+      # costs nothing extra here the way it would on Home's never-pruned race
+      # list (see .claude/rules/roster.md's "The Home page race list").
+      awards {
+        id
+      }
     }
     tracks {
       id

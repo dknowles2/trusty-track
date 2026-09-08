@@ -584,6 +584,12 @@ top navigation bar at any time, including if you come back to this tab
 later — a race that finished before you opened the page does not throw this
 summary up on you again.
 
+Coming back later — a phone at the track, or the next morning to print
+certificates — rather than to this same tab? The Home page's race list has a
+**Standings** action in each row's **⋯** menu, right beside **Roster** and
+**Edit race**, so you do not need to open the roster first just to reach the
+results.
+
 After all heats are complete, the **Standings** page shows the final ranked results. Navigate there from the top nav bar.
 
 The Standings page can be put on a large screen or projector so everyone can see the final results.
