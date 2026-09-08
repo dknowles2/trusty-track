@@ -627,6 +627,86 @@ test('a refused Override save keeps the modal open with what was typed (#765)', 
     expect(heat.lanes.every((l) => l.place === null)).toBe(true);
 });
 
+test('one Escape over a refused-save alert dismisses only the alert, not the editor underneath (#870)', async ({ page }) => {
+    // #788's focus-trap Escape handler listened on `document` and closed
+    // unconditionally, so with the Error alert (raised by the test above)
+    // open over the Edit Results editor, a single Escape closed *both* at
+    // once — discarding exactly the typed-but-unsaved values #807 exists to
+    // protect, and reopening #765 by a second route. Same provocation as the
+    // test above, but pressing Escape instead of clicking the alert's OK.
+    const { raceId } = await seedRace(page, 'Race Day Escape Stacking');
+    await gql(
+        page,
+        `mutation SetPoints($id: Int!, $race: RaceUpdateInput!) {
+            updateRace(id: $id, race: $race) { id }
+        }`,
+        { id: raceId, race: { scoringStrategy: 'POINTS' } },
+    );
+    await createSchedule(page, raceId);
+
+    const seeded = (await readHeats(page, raceId)).sort((a, b) => a.heatNumber - b.heatNumber);
+    const [heat1, heat2] = seeded;
+    const heat1Lanes = [...heat1.lanes].sort((a, b) => a.lane - b.lane);
+    const doomedRacerId = heat1Lanes[0].racerId;
+    if (doomedRacerId === null) {
+        throw new Error("heat 1's own lane 1 has no racer to delete — check the seeded schedule");
+    }
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible({ timeout: 30000 });
+
+    await page.getByRole('button', { name: 'Override' }).click();
+    const editor = page.getByRole('dialog', { name: /Edit Results/ });
+    await expect(editor).toBeVisible();
+
+    const placeInputs = editor.locator('input[type="number"]');
+    await placeInputs.nth(0).fill('1');
+    await placeInputs.nth(2).fill('2');
+
+    // Record heat 2 so the round can no longer be silently regenerated, then
+    // delete the racer sitting in heat 1's own lane 1 so the Save this
+    // editor is about to send names a racer the server no longer has.
+    await gql(
+        page,
+        `mutation RecordOtherHeat($heatId: Int!, $lanes: [HeatLaneInput!]!) {
+            updateHeatResult(heatId: $heatId, lanes: $lanes) { id }
+        }`,
+        {
+            heatId: heat2.id,
+            lanes: heat2.lanes.map((l, idx) => ({
+                lane: l.lane,
+                racerId: l.racerId,
+                placeholderSlot: l.placeholderSlot,
+                time: idx === 0 ? 5.0 : l.time,
+                place: l.place,
+            })),
+        },
+    );
+    await gql(page, `mutation DeleteDoomedRacer($id: Int!) { deleteRacer(id: $id) }`, {
+        id: doomedRacerId,
+    });
+
+    await editor.getByRole('button', { name: 'Save Results' }).click();
+
+    const errorDialog = page.getByRole('dialog', { name: 'Error' });
+    await expect(errorDialog).toBeVisible({ timeout: 30000 });
+
+    // One Escape: the alert (topmost — raised over the already-open editor)
+    // closes. The editor underneath must still be open, with what was typed
+    // still in it.
+    await page.keyboard.press('Escape');
+    await expect(errorDialog).not.toBeVisible();
+    await expect(editor).toBeVisible();
+    await expect(placeInputs.nth(0)).toHaveValue('1');
+    await expect(placeInputs.nth(2)).toHaveValue('2');
+
+    // A second Escape now reaches the editor, since it is topmost once the
+    // alert is gone — confirming this isn't "Escape does nothing now", only
+    // that it targets one modal at a time.
+    await page.keyboard.press('Escape');
+    await expect(editor).not.toBeVisible();
+});
+
 test('a duplicate place is refused before Save is even clickable (#766)', async ({ page }) => {
     // The client-side half of the story above: giving two lanes the same
     // place under POINTS scoring used to reach the server and come back as

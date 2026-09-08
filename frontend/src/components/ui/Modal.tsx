@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef } from 'react';
+import { ReactNode, useEffect, useId, useRef } from 'react';
 import ReactDOM from 'react-dom';
 
 interface ModalProps {
@@ -18,11 +18,68 @@ const FOCUSABLE_SELECTOR = [
     '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
 
+// Module-level, not React state or context: every Modal instance — however
+// deep in the tree, however unrelated its owner — shares one stack and one
+// scroll-lock count. That is what lets "am I topmost" and "is anything still
+// open" be answered without a provider every Modal user would otherwise have
+// to remember to wrap in (#870's lesson: a rule reaching only the call sites
+// that remember reaches only some of them). Escape used to close *every*
+// open modal — AlertContext renders its own Modal for every alert, so an
+// alert raised over a still-open editor (#765/#807, the Edit Results modal
+// that must survive a refused save) closed both on one Escape, discarding
+// exactly what #807 exists to keep.
+//
+// A plain array of ids in open order; the *last* entry is topmost. Order is
+// "most recently opened", not "mounted first" or "declared first in JSX" —
+// AlertContext's own Modal is mounted once, near the root, with `isOpen`
+// toggling later; it only belongs on top once an alert actually raises it,
+// which is exactly when it pushes.
+let openModalStack: string[] = [];
+let scrollLockCount = 0;
+
+function pushModal(id: string) {
+    openModalStack = [...openModalStack, id];
+}
+
+function popModal(id: string) {
+    // Filtered by id rather than assumed to be the top of the stack: a modal
+    // can close or unmount out of order — closed from underneath a modal
+    // raised over it, or a parent tearing down its whole subtree without
+    // ever calling onClose.
+    openModalStack = openModalStack.filter((existingId) => existingId !== id);
+}
+
+function isTopmost(id: string): boolean {
+    return openModalStack.length > 0 && openModalStack[openModalStack.length - 1] === id;
+}
+
+function lockScroll() {
+    scrollLockCount += 1;
+    if (scrollLockCount === 1) {
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function unlockScroll() {
+    // Clamped rather than trusted to stay non-negative: push/unlock stay
+    // paired through this module's own effect (see below), but a stray
+    // extra unlock must not drive the count permanently negative, which
+    // would mean no future modal could lock scrolling again.
+    scrollLockCount = Math.max(0, scrollLockCount - 1);
+    if (scrollLockCount === 0) {
+        document.body.style.overflow = 'unset';
+    }
+}
+
 export default function Modal({ isOpen, onClose, title, children, maxWidth = '500px' }: ModalProps) {
     const modalRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const triggerElementRef = useRef<HTMLElement | null>(null);
     const onCloseRef = useRef(onClose);
+    // A stable per-instance id for the stack — not tied to isOpen, so the
+    // same Modal re-opening still reads as "the same modal" to anything that
+    // might (it doesn't currently, but this is the honest identity to use).
+    const modalId = useId();
 
     useEffect(() => {
         onCloseRef.current = onClose;
@@ -88,7 +145,16 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
 
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
-                onCloseRef.current();
+                // Read the stack live, at keydown time, rather than trust
+                // whatever it was when this listener was attached — a modal
+                // that stops being topmost because something opened over it
+                // (an alert raised over an editor mid-edit) must stop
+                // responding to Escape without needing to know that
+                // happened. Every open modal's own listener fires on this
+                // keydown; only the one whose id is on top acts on it.
+                if (isTopmost(modalId)) {
+                    onCloseRef.current();
+                }
                 return;
             }
 
@@ -131,14 +197,19 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
         };
 
         document.addEventListener('keydown', handleKeyDown);
-        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        // This modal only just became open, so it is the most recently
+        // opened one — the correct place for it in the stack regardless of
+        // where it sits in the React tree or when it first mounted.
+        pushModal(modalId);
+        lockScroll();
 
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
-            document.body.style.overflow = 'unset';
+            popModal(modalId);
+            unlockScroll();
             triggerElementRef.current?.focus?.();
         };
-    }, [isOpen]);
+    }, [isOpen, modalId]);
 
     if (!isOpen) return null;
 
