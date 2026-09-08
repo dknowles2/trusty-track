@@ -35,6 +35,12 @@ interface SerialPort {
     close: () => Promise<void>;
 }
 
+interface SerialApi {
+    getPorts?: () => Promise<SerialPort[]>;
+    requestPort: () => Promise<SerialPort>;
+}
+
+
 /**
  * The port framing the backend asked for.
  *
@@ -173,8 +179,14 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
             setErrorMsg(null);
             setActiveTrackId(trackId);
 
-            // 1. Request port (shows browser dialog)
-            const port = await (navigator as unknown as { serial: { requestPort: () => Promise<SerialPort> } }).serial.requestPort();
+            // 1. Obtain port: reuse previously granted port if exactly one
+            // exists (promptless reconnect for returning operators and kiosk setups),
+            // otherwise prompt the user to select one.
+            const serial = (navigator as unknown as { serial: SerialApi }).serial;
+            const existingPorts = typeof serial.getPorts === 'function' ? await serial.getPorts() : [];
+            const port = existingPorts.length === 1
+                ? existingPorts[0]
+                : await serial.requestPort();
 
             // 2. Open WebSocket
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

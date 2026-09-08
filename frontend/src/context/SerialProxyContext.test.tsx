@@ -377,3 +377,80 @@ describe('disconnecting (#331)', () => {
         expect(screen.getByTestId('error')).toHaveTextContent('');
     });
 });
+
+describe('promptless reconnect via getPorts', () => {
+    it('uses the single granted port directly without calling requestPort', async () => {
+        const grantedPort = new FakePort();
+        const requestPort = vi.fn(async () => port);
+        const getPorts = vi.fn(async () => [grantedPort]);
+        vi.stubGlobal('navigator', {
+            ...navigator,
+            serial: { getPorts, requestPort },
+        });
+
+        const ws = await connect();
+        await ws.deliver(MICROWIZARD_FRAMING);
+
+        expect(getPorts).toHaveBeenCalledTimes(1);
+        expect(requestPort).not.toHaveBeenCalled();
+        expect(grantedPort.opened).toHaveLength(1);
+        expect(screen.getByTestId('status')).toHaveTextContent('connected');
+    });
+
+    it('falls back to requestPort when getPorts returns 0 ports', async () => {
+        const requestedPort = new FakePort();
+        const requestPort = vi.fn(async () => requestedPort);
+        const getPorts = vi.fn(async () => []);
+        vi.stubGlobal('navigator', {
+            ...navigator,
+            serial: { getPorts, requestPort },
+        });
+
+        const ws = await connect();
+        await ws.deliver(MICROWIZARD_FRAMING);
+
+        expect(getPorts).toHaveBeenCalledTimes(1);
+        expect(requestPort).toHaveBeenCalledTimes(1);
+        expect(requestedPort.opened).toHaveLength(1);
+        expect(screen.getByTestId('status')).toHaveTextContent('connected');
+    });
+
+    it('falls back to requestPort when getPorts returns multiple ports', async () => {
+        const portA = new FakePort();
+        const portB = new FakePort();
+        const chosenPort = new FakePort();
+        const requestPort = vi.fn(async () => chosenPort);
+        const getPorts = vi.fn(async () => [portA, portB]);
+        vi.stubGlobal('navigator', {
+            ...navigator,
+            serial: { getPorts, requestPort },
+        });
+
+        const ws = await connect();
+        await ws.deliver(MICROWIZARD_FRAMING);
+
+        expect(getPorts).toHaveBeenCalledTimes(1);
+        expect(requestPort).toHaveBeenCalledTimes(1);
+        expect(chosenPort.opened).toHaveLength(1);
+        expect(portA.opened).toHaveLength(0);
+        expect(portB.opened).toHaveLength(0);
+        expect(screen.getByTestId('status')).toHaveTextContent('connected');
+    });
+
+    it('falls back to requestPort when getPorts is not supported', async () => {
+        const requestedPort = new FakePort();
+        const requestPort = vi.fn(async () => requestedPort);
+        vi.stubGlobal('navigator', {
+            ...navigator,
+            serial: { requestPort },
+        });
+
+        const ws = await connect();
+        await ws.deliver(MICROWIZARD_FRAMING);
+
+        expect(requestPort).toHaveBeenCalledTimes(1);
+        expect(requestedPort.opened).toHaveLength(1);
+        expect(screen.getByTestId('status')).toHaveTextContent('connected');
+    });
+});
+
