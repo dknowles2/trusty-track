@@ -25,6 +25,21 @@ who is using it:
   whole race, and any phone on the network may vote for a judged award while
   it is on. See [Letting people vote](../awards.md#letting-people-vote).
 
+### What a screen shows for its own role
+
+The roster (**Roster**) and **Race Control**'s schedule greys out the
+buttons a device's current role cannot use — Add Racer or Check In on a
+display, Add Round or Re-Run on the check-in desk — rather than only saying
+so once a button is pressed. Hovering a greyed-out button explains which PIN
+would unlock it. Some other screens do not grey anything out yet and still
+rely on the message below; either way, nothing is ever actually allowed
+just because a button was clickable.
+
+If a button *is* pressed and the role behind it cannot do that, the app
+answers in one sentence — *"That needs the operator PIN. Enter it with the
+lock icon in the top bar."*, or *check-in* for the lower PIN — rather than
+naming the role or the underlying operation.
+
 ## How PINs behave
 
 - A PIN is remembered **per device**: the laptop holds the operator PIN,

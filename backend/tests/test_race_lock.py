@@ -720,5 +720,5 @@ def test_the_role_policy_is_asked_before_the_lock(client, db, race, heat):
     body = _post(client, UPDATE_HEAT_RESULT, {"heatId": heat.id, "lanes": lanes}).json()
 
     assert body.get("errors")
-    assert "VIEWER is not allowed" in body["errors"][0]["message"]
+    assert "operator PIN" in body["errors"][0]["message"]
     assert race_lock.LOCK_MESSAGE not in body["errors"][0]["message"]

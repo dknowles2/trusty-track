@@ -46,6 +46,7 @@ import { formatLaneTime, hasRun, hasTimes } from '../lanes';
 import { executionComparator } from '../runningOrder';
 import { advancingFromLabel } from '../roundSummaryText';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
+import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 import LaneBadge from '../../../components/ui/LaneBadge';
 import { colorForLane } from '../../settings/laneColors';
 import type { RacerOption } from '../../management/components/RacerCombobox';
@@ -99,6 +100,17 @@ interface ScheduleManagementProps {
    * unlocking would restore.
    */
   raceLocked?: boolean;
+  /**
+   * #892: whether this device holds the operator role. Adding, regenerating
+   * and deleting a round, running or re-running a heat, reordering by drag
+   * and applying the master running order all reach operator-only
+   * mutations; a check-in device sees them disabled with the same "needs
+   * the operator PIN" message the mutation itself would refuse with.
+   * Defaults `true` — every existing caller that has not been taught about
+   * roles yet, and any install with no PIN set at all, renders exactly as
+   * it always has.
+   */
+  isOperator?: boolean;
   /**
    * A round's own racing group, by round id — what labels a heat below with
    * the group whose cars are on the track. Absent for a round scoped to no
@@ -194,6 +206,9 @@ interface SortableHeatRowProps {
   isUpcoming: boolean;
   masterRunningOrder: boolean;
   raceLocked: boolean;
+  /** #892: whether this device holds the operator role — running, deleting
+   * or reordering a heat all reach operator-only mutations. */
+  isOperator: boolean;
   getRacerName: (id: number) => string;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
   onDeleteHeat: (heatId: number) => Promise<void>;
@@ -213,6 +228,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   isUpcoming,
   masterRunningOrder,
   raceLocked,
+  isOperator,
   getRacerName,
   onRunHeat,
   onDeleteHeat,
@@ -227,8 +243,9 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   // Disable dragging if heat is running, reordering is in progress, or heat
   // has results — or the race runs a master running order, where a drag's
   // 1..N renumbering would silently pull this round out of the interleave —
-  // or the race is locked (#585).
-  const isDraggingDisabled = isRunning || isReordering || hasRecordedTimes || masterRunningOrder || raceLocked;
+  // or the race is locked (#585) or this device is not the operator (#892):
+  // reordering writes heat_number through the same door prepareHeat needs.
+  const isDraggingDisabled = isRunning || isReordering || hasRecordedTimes || masterRunningOrder || raceLocked || !isOperator;
 
   const {
     attributes,
@@ -250,14 +267,16 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
     borderLeft: isRunning ? '5px solid orange' : (isSkipped && !hasRecordedTimes) ? '5px solid var(--danger-accent-color)' : isCompleted ? '5px solid green' : '5px solid transparent',
   };
 
-  const isRunDisabled = isRunning || hasPlaceholders || isUpcoming || raceLocked;
+  const isRunDisabled = isRunning || hasPlaceholders || isUpcoming || raceLocked || !isOperator;
   const runBtnTitle = raceLocked
     ? RACE_LOCKED_MESSAGE
     : hasPlaceholders
       ? "Racers not yet determined for this round"
       : isUpcoming
         ? "Complete previous rounds first"
-        : "";
+        : !isOperator
+          ? NEEDS_OPERATOR_PIN_MESSAGE
+          : "";
 
   return (
     <tr ref={setNodeRef} style={style}>
@@ -303,7 +322,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
       })}
       <td style={{ padding: '12px', textAlign: 'right', width: '120px' }}>
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
-          {!isCompleted && !isRunning && !raceLocked && (
+          {!isCompleted && !isRunning && !raceLocked && isOperator && (
             <button
               onClick={() => onDeleteHeat(heat.id)}
               className="icon-btn-delete"
@@ -351,6 +370,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   onReorderHeats,
   masterRunningOrder = false,
   raceLocked = false,
+  isOperator = true,
   roundGroupLabel = {},
   onApplyMasterRunningOrder,
   getRacerName,
@@ -374,6 +394,16 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   onUnpinRoundField,
 }) => {
   const { group, groupLower, orgLower } = useTerminology();
+  // #892: adding, regenerating and deleting a round all reach operator-only
+  // mutations (createRound/createRoundWizard, regenerateRound, deleteRound,
+  // deleteHeat) — a check-in tablet used to see these fully enabled and
+  // find out only from a refused mutation. `isOperator` is a prop, resolved
+  // once by the parent (`RaceControl.tsx`'s own `useRole()`) rather than
+  // queried again here — this component renders in tests with no urql
+  // `Provider` at all, and a second copy of the same read is also simply
+  // unnecessary.
+  const operatorTitle = raceLocked ? RACE_LOCKED_MESSAGE : !isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined;
+  const operatorDisabled = raceLocked || !isOperator;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [reordering, setReordering] = useState(false);
@@ -630,8 +660,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             <button
                 className="primary-btn"
                 onClick={() => setIsModalOpen(true)}
-                disabled={generating || reordering || raceLocked}
-                title={raceLocked ? RACE_LOCKED_MESSAGE : undefined}
+                disabled={generating || reordering || operatorDisabled}
+                title={operatorTitle}
                 style={{
                   boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
                   whiteSpace: 'nowrap',
@@ -680,7 +710,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
               <button
                 className="secondary-btn"
                 onClick={handleApplyMasterRunningOrder}
-                disabled={generating || reordering || applyingOrder || raceLocked || !onApplyMasterRunningOrder}
+                disabled={generating || reordering || applyingOrder || operatorDisabled || !onApplyMasterRunningOrder}
+                title={operatorTitle}
                 data-testid="apply-master-running-order"
                 style={{ whiteSpace: 'nowrap' }}
               >
@@ -972,8 +1003,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                         <button
                           onClick={() => onOpenHandPickModal(Number(roundId))}
                           className="secondary-btn"
-                          disabled={generating || reordering || raceLocked}
-                          title={raceLocked ? RACE_LOCKED_MESSAGE : undefined}
+                          disabled={generating || reordering || operatorDisabled}
+                          title={operatorTitle}
                           data-testid={`hand-pick-field-btn-${roundId}`}
                           style={{
                             padding: '6px 16px',
@@ -991,8 +1022,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                         <button
                           onClick={() => onUnpinRoundField(Number(roundId))}
                           className="secondary-btn"
-                          disabled={generating || reordering || raceLocked}
-                          title={raceLocked ? RACE_LOCKED_MESSAGE : "Let the standings choose this round's line-up again"}
+                          disabled={generating || reordering || operatorDisabled}
+                          title={operatorTitle || "Let the standings choose this round's line-up again"}
                           data-testid={`unpin-field-btn-${roundId}`}
                           style={{
                             padding: '6px 16px',
@@ -1009,7 +1040,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                         <button
                           onClick={() => onRegenerateRound(roundId)}
                           className="secondary-btn"
-                          disabled={generating || reordering || raceLocked}
+                          disabled={generating || reordering || operatorDisabled}
+                          title={operatorTitle}
                           aria-label={`Regenerate ${roundHeats[0]?.roundName || `Round ${roundNum}`}`}
                           style={{
                             padding: '6px 16px',
@@ -1026,11 +1058,11 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                         <button
                           onClick={() => onDeleteRound(roundId)}
                           className="secondary-btn"
-                          disabled={generating || reordering || raceLocked || isAnyStarted || roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))}
+                          disabled={generating || reordering || operatorDisabled || isAnyStarted || roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))}
                           aria-label={`Delete ${roundHeats[0]?.roundName || `Round ${roundNum}`}`}
                           title={
-                              raceLocked
-                                ? RACE_LOCKED_MESSAGE
+                              operatorTitle
+                                ? operatorTitle
                                 : isAnyStarted
                                   ? "Cannot delete round: it has heats with results"
                                   : roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))
@@ -1094,6 +1126,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                 isUpcoming={masterRunningOrder ? false : roundNum > firstUncompletedRoundNumber}
                                 masterRunningOrder={masterRunningOrder}
                                 raceLocked={raceLocked}
+                                isOperator={isOperator}
                                 getRacerName={getRacerName}
                                 onRunHeat={onRunHeat}
                                 onDeleteHeat={onDeleteHeat}

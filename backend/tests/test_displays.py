@@ -727,7 +727,7 @@ class TestIdentifyDisplayMutation:
         body = resp.json()
 
         assert body.get("errors"), "a viewer must not be able to identify a display"
-        assert "VIEWER is not allowed" in body["errors"][0]["message"]
+        assert "operator PIN" in body["errors"][0]["message"]
         assert displays_service.registry.get("gql-display").identify_seq == 0
 
 

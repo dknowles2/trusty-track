@@ -204,7 +204,7 @@ def test_a_viewer_cannot_delete_a_race(client, db, secured):
     body = _post(client, DELETE_RACE, {"id": secured.id}).json()
 
     assert body.get("errors"), "the mutation was not refused"
-    assert "VIEWER is not allowed" in body["errors"][0]["message"]
+    assert "operator PIN" in body["errors"][0]["message"]
     # The assertion that matters. A check that "ran" and let the row go is the
     # exact failure mode the sketch warns about.
     assert (
@@ -216,10 +216,45 @@ def test_check_in_cannot_delete_a_race_either(client, db, secured):
     body = _post(client, DELETE_RACE, {"id": secured.id}, pin="2222").json()
 
     assert body.get("errors")
-    assert "CHECKIN is not allowed" in body["errors"][0]["message"]
+    assert "operator PIN" in body["errors"][0]["message"]
     assert (
         db.query(models.Race).filter(models.Race.id == secured.id).first() is not None
     )
+
+
+def test_a_refusal_is_said_in_the_apps_own_voice(client, secured):
+    """#892: the message a volunteer reads names the PIN, not the role and
+    the mutation.
+
+    ``VIEWER``/``CHECKIN``/``OPERATOR`` and a bare mutation name like
+    ``deleteRace`` are this module's own vocabulary — the docs' own rule is
+    that a person reads what they see or do, not an enum value and a
+    GraphQL field name glued together with "is not allowed to run".
+    """
+    body = _post(client, DELETE_RACE, {"id": secured.id}).json()
+
+    message = body["errors"][0]["message"]
+    assert "VIEWER" not in message
+    assert "deleteRace" not in message
+    assert "is not allowed to run" not in message
+    # The one thing that actually helps: which PIN, and where to enter it.
+    assert "operator PIN" in message
+    assert "lock icon" in message
+
+
+def test_a_checkin_level_refusal_names_the_lower_pin(client, secured):
+    """A viewer refused a *check-in* mutation is told the lower PIN would
+    work — not sent straight to the operator for something the desk tablet
+    could do (#892)."""
+    body = _post(
+        client,
+        CREATE_RACER,
+        {"racer": {"firstName": "Ada", "lastName": "A", "raceId": secured.id}},
+    ).json()
+
+    message = body["errors"][0]["message"]
+    assert "check-in PIN" in message
+    assert "operator PIN" not in message
 
 
 def test_check_in_can_register_a_racer(client, db, secured):
@@ -327,7 +362,9 @@ def test_a_viewer_still_cannot_run_any_other_mutation(client, db, secured):
     ).json()
 
     assert body.get("errors")
-    assert "VIEWER is not allowed" in body["errors"][0]["message"]
+    # `updateRacer` is a check-in mutation, not an operator-only one, so a
+    # viewer is told the lower PIN would let them in.
+    assert "check-in PIN" in body["errors"][0]["message"]
 
 
 def test_the_operator_can_delete_a_race(client, db, secured):
@@ -390,7 +427,7 @@ def test_a_viewer_is_refused_over_the_websocket_too(client, secured):
     if message["type"] == "error":
         errors = message["payload"]
     assert errors, f"the socket ran the mutation: {message}"
-    assert "not allowed" in str(errors)
+    assert "operator PIN" in str(errors)
 
 
 # --------------------------------------------------------------------------- #

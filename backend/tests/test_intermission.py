@@ -276,7 +276,7 @@ class TestRoles:
             client, START, {"raceId": secured.id, "duration": 300, "label": None}
         ).json()
         assert body.get("errors")
-        assert "VIEWER is not allowed" in body["errors"][0]["message"]
+        assert "operator PIN" in body["errors"][0]["message"]
 
     def test_check_in_cannot_start_an_intermission(self, client, secured):
         body = _post(
@@ -286,7 +286,7 @@ class TestRoles:
             pin="2222",
         ).json()
         assert body.get("errors")
-        assert "CHECKIN is not allowed" in body["errors"][0]["message"]
+        assert "operator PIN" in body["errors"][0]["message"]
 
     def test_the_operator_can_start_one(self, client, secured):
         body = _post(
@@ -301,7 +301,7 @@ class TestRoles:
         crud.start_intermission(db, secured.id, 300, None)
         body = _post(client, END, {"raceId": secured.id}).json()
         assert body.get("errors")
-        assert "VIEWER is not allowed" in body["errors"][0]["message"]
+        assert "operator PIN" in body["errors"][0]["message"]
 
 
 # --------------------------------------------------------------------------- #

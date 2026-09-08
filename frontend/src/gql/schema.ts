@@ -388,6 +388,7 @@ export type InitialConfigStatus = {
   racingGroupPlural?: Maybe<Scalars['String']['output']>;
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
   resolvedNameDisplay: Scalars['String']['output'];
+  role: Role;
   terminology: Terminology;
   tracks: Array<Track>;
   vehicleArtworkKey?: Maybe<Scalars['String']['output']>;
@@ -1375,6 +1376,11 @@ export type RacingGroupStat = {
   racingGroupId: Scalars['Int']['output'];
   racingGroupName: Scalars['String']['output'];
 };
+
+export type Role =
+  | 'CHECKIN'
+  | 'OPERATOR'
+  | 'VIEWER';
 
 export type Round = {
   advancementFromBottom: Scalars['Boolean']['output'];

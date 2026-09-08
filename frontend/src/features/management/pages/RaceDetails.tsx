@@ -3,6 +3,8 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import type { GetRaceDetailsQuery } from '../../../gql/operations';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
+import { useRole } from '../../core/hooks/useRole';
+import { NEEDS_CHECKIN_PIN_MESSAGE, NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
 import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
@@ -205,6 +207,27 @@ export default function RaceDetails() {
   const loading = fetching && !data;
   const lockedTitle = RACE_LOCKED_MESSAGE;
 
+  // #892: a VIEWER (a wall display, or a phone with nobody's PIN) reaching
+  // this page used to see every roster control fully enabled and find out
+  // it could do nothing only after pressing Save Racer. Everything on this
+  // page that mutates is check-in-level or higher (createRacer,
+  // checkInRacer, bulkCheckIn, ... — see backend/api/auth.py's
+  // CHECKIN_MUTATIONS) except "Manage {group}" and "Edit Details", which
+  // are operator-only.
+  //
+  // Two pairs each: the *combined* one folds in the existing lock check,
+  // for controls that are already disabled while the race is locked; the
+  // *role* one is role alone, for "Edit Details" — the one control that has
+  // to stay reachable on a locked race, since it is how an operator unlocks
+  // one (`RaceForm`'s own isLocked checkbox).
+  const { canCheckIn, isOperator } = useRole();
+  const checkinRoleTitle = !canCheckIn ? NEEDS_CHECKIN_PIN_MESSAGE : undefined;
+  const checkinTitle = race?.is_locked ? lockedTitle : checkinRoleTitle;
+  const checkinDisabled = !!race?.is_locked || !canCheckIn;
+  const operatorRoleTitle = !isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined;
+  const operatorTitle = race?.is_locked ? lockedTitle : operatorRoleTitle;
+  const operatorDisabled = !!race?.is_locked || !isOperator;
+
   // Racer Form State
   const [showRacerForm, setShowRacerForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -256,7 +279,14 @@ export default function RaceDetails() {
   const [prevEditParam, setPrevEditParam] = useState<string | null>(null);
   if (editParam !== prevEditParam) {
     setPrevEditParam(editParam);
-    if (editParam === 'true') setIsEditingRace(true);
+    // #892: the button that sets this same state is disabled for anyone but
+    // the operator, but a `?edit=true` link — Race Control's own "Edit
+    // race" button, or a bookmark — reaches this state directly and would
+    // otherwise open the form for a role that cannot save it. `isOperator`
+    // below is read from `useRole()`, declared further down; this branch
+    // still runs after it because the whole component body runs top to
+    // bottom on every render before anything is returned.
+    if (editParam === 'true' && isOperator) setIsEditingRace(true);
   }
 
   // Stripping the param is a genuine effect — synchronizing the browser's
@@ -773,8 +803,8 @@ export default function RaceDetails() {
               <button
                   onClick={() => handleCheckInClick(racer)}
                   className="secondary-btn"
-                  disabled={race?.is_locked}
-                  title={race?.is_locked ? lockedTitle : undefined}
+                  disabled={checkinDisabled}
+                  title={checkinTitle}
                   style={{
                       background: racer.car_passed_inspection ? 'var(--success-bg-color)' : 'var(--cub-scouting-gold)',
                       borderColor: racer.car_passed_inspection ? 'var(--success-accent-color)' : 'var(--border-color)',
@@ -834,7 +864,13 @@ export default function RaceDetails() {
                   Race Settings
                   {race?.is_locked && <LockedBadge />}
               </h3>
-              <button onClick={() => setIsEditingRace(true)} className="secondary-btn" style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.85rem' }}>
+              <button
+                  onClick={() => setIsEditingRace(true)}
+                  className="secondary-btn"
+                  disabled={!isOperator}
+                  title={operatorRoleTitle}
+                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.85rem' }}
+              >
                   <Icon path={mdiPencil} size={0.6} /> Edit Details
               </button>
           </div>
@@ -935,8 +971,8 @@ export default function RaceDetails() {
                         <button
                             className="secondary-btn split-btn-main"
                             onClick={handleAddRacerClick}
-                            disabled={race?.is_locked}
-                            title={race?.is_locked ? lockedTitle : undefined}
+                            disabled={checkinDisabled}
+                            title={checkinTitle}
                             style={{ backgroundColor: 'var(--scouting-blue)', color: 'var(--on-primary-color)', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px', whiteSpace: 'nowrap' }}
                         >
                             <Icon path={mdiPlus} size={0.7} /> Add Racer
@@ -948,8 +984,8 @@ export default function RaceDetails() {
                                 e.stopPropagation();
                                 setIsAddRacerDropdownOpen(!isAddRacerDropdownOpen);
                             }}
-                            disabled={race?.is_locked}
-                            title={race?.is_locked ? lockedTitle : undefined}
+                            disabled={checkinDisabled}
+                            title={checkinTitle}
                             aria-label="More ways to add racers"
                         >
                             <Icon path={mdiChevronDown} size={0.7} />
@@ -961,12 +997,19 @@ export default function RaceDetails() {
                             style={{ display: 'block' }}
                             onClick={(e) => e.stopPropagation()}
                         >
+                            {/* populateRace is operator-only (it also seeds a
+                                schedule and, until now, was one confirm click
+                                away for the desk) — gated on role alone, not
+                                the combined check-in title, since a check-in
+                                device reaching this menu at all means the
+                                race is not locked. */}
                             <button
                                 onClick={() => {
                                     setShowPopulateModal(true);
                                     setIsAddRacerDropdownOpen(false);
                                 }}
-                                title="Populate Test Data"
+                                disabled={!isOperator}
+                                title={operatorRoleTitle || 'Populate Test Data'}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 <Icon path={mdiLightningBolt} size={0.7} color="var(--cub-scouting-gold)" /> Populate Test Data
@@ -976,6 +1019,8 @@ export default function RaceDetails() {
                                     setShowImportModal(true);
                                     setIsAddRacerDropdownOpen(false);
                                 }}
+                                disabled={!canCheckIn}
+                                title={checkinRoleTitle}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 <Icon path={mdiFileUpload} size={0.7} /> Import from CSV
@@ -985,6 +1030,8 @@ export default function RaceDetails() {
                                     setShowGprmImportModal(true);
                                     setIsAddRacerDropdownOpen(false);
                                 }}
+                                disabled={!canCheckIn}
+                                title={checkinRoleTitle}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 <Icon path={mdiDatabaseImport} size={0.7} /> Import from GrandPrix Race Manager
@@ -994,6 +1041,8 @@ export default function RaceDetails() {
                                     setShowDerbynetImportModal(true);
                                     setIsAddRacerDropdownOpen(false);
                                 }}
+                                disabled={!canCheckIn}
+                                title={checkinRoleTitle}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 <Icon path={mdiDatabaseImport} size={0.7} /> Import from DerbyNet
@@ -1005,8 +1054,8 @@ export default function RaceDetails() {
                 <button
                     className="secondary-btn"
                     onClick={() => setShowScanner(true)}
-                    disabled={race?.is_locked}
-                    title={race?.is_locked ? lockedTitle : undefined}
+                    disabled={checkinDisabled}
+                    title={checkinTitle}
                     style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px', whiteSpace: 'nowrap' }}
                 >
                     <Icon path={mdiQrcodeScan} size={0.7} /> Scan
@@ -1027,16 +1076,16 @@ export default function RaceDetails() {
                         <div className="dropdown-content" style={{ display: 'block', right: 0, left: 'auto', minWidth: '190px' }}>
                             <button
                                 onClick={() => { setShowRacingGroupManager(true); setIsMoreMenuOpen(false); }}
-                                disabled={race?.is_locked}
-                                title={race?.is_locked ? lockedTitle : undefined}
+                                disabled={operatorDisabled}
+                                title={operatorTitle}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 <Icon path={mdiAccountGroup} size={0.7} /> Manage {groups}
                             </button>
                             <button
                                 onClick={() => { setShowBulkPhotoUpload(true); setIsMoreMenuOpen(false); }}
-                                disabled={race?.is_locked}
-                                title={race?.is_locked ? lockedTitle : undefined}
+                                disabled={checkinDisabled}
+                                title={checkinTitle}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 <Icon path={mdiCamera} size={0.7} /> Upload Photos
@@ -1125,8 +1174,8 @@ export default function RaceDetails() {
                 <button
                     className="secondary-btn"
                     onClick={handleBulkCheckIn}
-                    disabled={race?.is_locked}
-                    title={race?.is_locked ? lockedTitle : undefined}
+                    disabled={checkinDisabled}
+                    title={checkinTitle}
                     style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
                     data-testid="bulk-check-in-btn"
                 >
@@ -1135,18 +1184,21 @@ export default function RaceDetails() {
                 <button
                     className="secondary-btn"
                     onClick={handleBulkSetExcludedFromStandings}
-                    disabled={race?.is_locked}
+                    disabled={checkinDisabled}
                     style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
                     data-testid="bulk-excluded-from-standings-btn"
-                    title={race?.is_locked ? lockedTitle : "Still races and shows on the audience displays — just left out of the standings, advancement and awards"}
+                    title={
+                        checkinTitle ||
+                        'Still races and shows on the audience displays — just left out of the standings, advancement and awards'
+                    }
                 >
                     <Icon path={mdiTrophyBroken} size={0.6} /> Racing, not ranked
                 </button>
                 <button
                     className="secondary-btn"
                     onClick={handleBulkAutoNumber}
-                    disabled={race?.is_locked}
-                    title={race?.is_locked ? lockedTitle : undefined}
+                    disabled={checkinDisabled}
+                    title={checkinTitle}
                     style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
                     data-testid="bulk-auto-number-btn"
                 >
@@ -1155,8 +1207,8 @@ export default function RaceDetails() {
                 <button
                     className="secondary-btn"
                     onClick={handleBulkClearNumbers}
-                    disabled={race?.is_locked}
-                    title={race?.is_locked ? lockedTitle : undefined}
+                    disabled={checkinDisabled}
+                    title={checkinTitle}
                     style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
                     data-testid="bulk-clear-numbers-btn"
                 >
@@ -1171,8 +1223,8 @@ export default function RaceDetails() {
                     <button
                         className="secondary-btn"
                         onClick={() => setIsMoveToRacingGroupOpen(!isMoveToRacingGroupOpen)}
-                        disabled={race?.is_locked}
-                        title={race?.is_locked ? lockedTitle : undefined}
+                        disabled={checkinDisabled}
+                        title={checkinTitle}
                         style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
                         data-testid="bulk-move-to-racing-group-expand-btn"
                         aria-expanded={isMoveToRacingGroupOpen}
@@ -1201,8 +1253,8 @@ export default function RaceDetails() {
                 <button
                     className="secondary-btn"
                     onClick={handleBulkDelete}
-                    disabled={race?.is_locked}
-                    title={race?.is_locked ? lockedTitle : undefined}
+                    disabled={checkinDisabled}
+                    title={checkinTitle}
                     style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px', color: 'var(--error)' }}
                     data-testid="bulk-delete-btn"
                 >
@@ -1330,8 +1382,8 @@ export default function RaceDetails() {
                                             <td data-label="Status/Edit" style={{ padding: '12px', textAlign: 'center' }}>
                                                 <button
                                                     onClick={() => handleCheckInClick(racer)}
-                                                    disabled={race?.is_locked}
-                                                    title={race?.is_locked ? lockedTitle : undefined}
+                                                    disabled={checkinDisabled}
+                                                    title={checkinTitle}
                                                     style={{
                                                         background: racer.car_passed_inspection ? 'var(--success-bg-color)' : 'var(--cub-scouting-gold)',
                                                         border: `1px solid ${racer.car_passed_inspection ? 'var(--success-accent-color)' : 'var(--border-color)'}`,
@@ -1425,6 +1477,8 @@ export default function RaceDetails() {
                                     <span className="cell-value" style={{ display: 'flex', justifyContent: 'center' }}>
                                         <button
                                             onClick={() => handleCheckInClick(racer)}
+                                            disabled={checkinDisabled}
+                                            title={checkinTitle}
                                             style={{
                                                 background: racer.car_passed_inspection ? 'var(--success-bg-color)' : 'var(--cub-scouting-gold)',
                                                 border: `1px solid ${racer.car_passed_inspection ? 'var(--success-accent-color)' : 'var(--border-color)'}`,

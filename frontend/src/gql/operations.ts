@@ -195,6 +195,11 @@ export type RacingGroupInput = {
   name: string;
 };
 
+export type Role =
+  | 'CHECKIN'
+  | 'OPERATOR'
+  | 'VIEWER';
+
 export type RoundCreateInput = {
   advancementFromBottom?: boolean;
   advancementNumRacers?: number | null | undefined;
@@ -386,7 +391,7 @@ export type RacesChangedSubscription = { racesChanged: boolean };
 export type GetInitialConfigStatusQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetInitialConfigStatusQuery = { initialConfig: { initialized: boolean, version: string, debugMode: boolean, pinRequired: boolean, isOperator: boolean, demoMode: boolean, terminology: { racingGroupSingular: string, racingGroupPlural: string, organizationSingular: string, organizationPlural: string, vehicleSingular: string, vehiclePlural: string, vehicleArtworkKey: string } } };
+export type GetInitialConfigStatusQuery = { initialConfig: { initialized: boolean, version: string, debugMode: boolean, pinRequired: boolean, isOperator: boolean, role: Types.Role, demoMode: boolean, terminology: { racingGroupSingular: string, racingGroupPlural: string, organizationSingular: string, organizationPlural: string, vehicleSingular: string, vehiclePlural: string, vehicleArtworkKey: string } } };
 
 export type GetRaceTerminologyQueryVariables = Exact<{
   raceId: number;
