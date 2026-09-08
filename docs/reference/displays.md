@@ -109,6 +109,18 @@ Notes on six of them:
   one, so it disappears everywhere it is not actively drawing a bar or a
   banner — see [below](#broadcast-overlay).
 
+## When the race is over
+
+Once every scheduled heat has a recorded result and nothing is next, the
+**Standings** and **Projector** views stop showing empty Now Racing / On Deck
+panels and switch to a full-screen "Race complete!" panel instead — a
+championship round's own placings, if the race ran one, otherwise the
+overall standings. This is the same kind of takeover a break is: it replaces
+whichever of the two views a screen was on, and clears itself the moment a
+new heat is scheduled (a latecomer admitted, another round added). The other
+views — Racer photos, Standings only, Check-in progress, QR code, Broadcast
+overlay, the ceremony — keep doing their own job and are unaffected.
+
 ## Check-in progress
 
 The gym-wall answer to "are there any more Wolves who haven't checked in?" —

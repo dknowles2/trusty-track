@@ -1543,4 +1543,105 @@ describe('Observation Page', () => {
             vi.useRealTimers();
         });
     });
+
+    // #869 — the screen used to end an event with two "No heat scheduled"
+    // panels and a leaderboard headed by whoever led the qualifying rounds,
+    // not the champion.
+    describe('race finished (#869)', () => {
+        const finishedRacersData = {
+            race: {
+                id: 1,
+                racers: [
+                    { id: 1, firstName: 'Dot', lastName: 'Power', carNumber: 103, racerImageUrl: null },
+                    { id: 2, firstName: 'Uma', lastName: 'Spark', carNumber: 104, racerImageUrl: null },
+                ],
+                heats: [
+                    { id: 1, recordedAt: '2026-03-14T09:30:00Z' },
+                    { id: 2, recordedAt: '2026-03-14T09:40:00Z' },
+                ],
+                rounds: [{ id: 10, name: null, roundNumber: 1, advancementSource: null }],
+            },
+        };
+
+        it('replaces the Now Racing / On Deck panels with a finished takeover once every heat has run', () => {
+            setupMocks({}, finishedRacersData);
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            expect(screen.getByTestId('race-finished-overlay')).toBeInTheDocument();
+            expect(screen.getByText('Race complete!')).toBeInTheDocument();
+            expect(screen.queryByText('Now Racing')).not.toBeInTheDocument();
+        });
+
+        it("shows the championship round's own placings when there is a raced one", () => {
+            const withChampionship = {
+                race: {
+                    ...finishedRacersData.race,
+                    rounds: [
+                        { id: 10, name: null, roundNumber: 1, advancementSource: null },
+                        { id: 20, name: 'Grand Finals', roundNumber: 2, advancementSource: 'ALL' },
+                    ],
+                    // The same `useQuery` mock answers both the initial-data
+                    // call and the championship round's own query, so this
+                    // is what `finalRoundData?.race?.leaderboard` reads.
+                    leaderboard: [
+                        { racerId: 2, rank: 1, score: 3.0, heatsCompleted: 1 },
+                        { racerId: 1, rank: 2, score: 3.2, heatsCompleted: 1 },
+                    ],
+                },
+            };
+            setupMocks({}, withChampionship);
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            expect(screen.getByText('Grand Finals results')).toBeInTheDocument();
+            expect(screen.getByText('Uma Spark')).toBeInTheDocument();
+        });
+
+        it('does not show the takeover while something is still on deck', () => {
+            setupMocks(
+                { onDeck: [{ id: 3, roundNumber: 1, heatNumber: 3, lanes: [] }] },
+                finishedRacersData,
+            );
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            expect(screen.queryByTestId('race-finished-overlay')).not.toBeInTheDocument();
+        });
+
+        it('does not show the takeover before racing has started', () => {
+            // No heats at all — the pre-race state, which already showed
+            // "No heat scheduled" correctly and is not what #869 is about.
+            setupMocks({}, mockRacersData);
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            expect(screen.queryByTestId('race-finished-overlay')).not.toBeInTheDocument();
+            expect(screen.getByText('Now Racing')).toBeInTheDocument();
+        });
+    });
 });

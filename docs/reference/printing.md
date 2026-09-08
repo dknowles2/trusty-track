@@ -103,13 +103,31 @@ laptop runs flat, and the announcer still has to know which cars are next.
   small dot beside the number, when one is configured — the lane number
   itself is always there too, since a dot alone means nothing on a
   black-and-white printout.
+- With [Interleave heats across every den](running-order.md) on, a
+  **Master running order** table leads the sheet: one flat list, in the
+  same interleaved sequence the operator's Race tab and the wall displays
+  actually run, so the announcer's paper matches the screen rather than
+  running one den's heats to completion before the next den's. The
+  per-round tables still follow underneath, unchanged, for the detail of
+  one round at a time.
+- A [run-off heat](scoring.md#settling-a-tie-with-a-race-off) prints too,
+  as its own one-row table titled **Run-off for Nth place**, right after
+  the round it is settling — or after every round, if it is settling the
+  overall standings.
 
 ## The results sheet
 
-- The standings on it are the **qualifying rounds only**, and the sheet says
-  so — championship placings are in the awards table at the top.
+- The standings on it are the **qualifying rounds only**, and the sheet
+  says so. A championship round's own table — titled with the round's own
+  name — prints right after the overall table, whenever that round has
+  actually been raced; one that exists but has not been run yet is left
+  off, the same as an unraced round never gets a heat-sheet table either.
+- Two racers who tie keep the **same place number** — 1, 1, 3, never
+  renumbered to break the tie — matching the shared rank the Standings page
+  itself shows.
 - Each den's table is numbered from 1: what a reader wants there is who won
-  the den, not pack ranks.
+  the den, not pack ranks. A tie there stays a tie too, re-based to the
+  den rather than the pack.
 - An award nobody has decided prints as **Not awarded** rather than being
   left out — a missing line reads as an award that does not exist.
 - A race with one den gets no per-den tables; racers in no den appear only

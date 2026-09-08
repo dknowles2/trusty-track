@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     awardLines,
+    championshipSections,
     hasResults,
     NO_DEN,
     OVERALL,
@@ -82,6 +83,41 @@ describe('resultsSections', () => {
         const wolves = sections.find((s) => s.title === 'Wolves')!;
 
         expect(wolves.rows.map((r) => r.place)).toEqual([1, 2]);
+    });
+
+    // #883 — the printed sheet used to number every row `index + 1`, so two
+    // racers tied for first (both `rank: 1`, the shared competition rank
+    // `standings_ranks` stamps, #226) printed as 1 / 2. That is exactly the
+    // "resolved by registration order and no screen ever said so" failure
+    // #226 closed for the screen, back on paper.
+    it('keeps a shared rank on the overall table rather than renumbering ties away', () => {
+        const [overall] = resultsSections(
+            [
+                entry({ racerId: 1, rank: 1, score: 3.0 }),
+                entry({ racerId: 2, rank: 1, score: 3.0 }),
+                entry({ racerId: 3, rank: 3, score: 3.5 }),
+            ],
+            'TIMED',
+        );
+
+        expect(overall.rows.map((r) => r.place)).toEqual([1, 1, 3]);
+    });
+
+    it('also collapses a tie within a racingGroup table, re-based to that group', () => {
+        // Two Wolves tied for the pack's overall 1st/2nd should still read
+        // as tied — 1, 1 — once the table is re-based to the den, rather
+        // than the tie being silently resolved by table position.
+        const sections = resultsSections(
+            [
+                entry({ racerId: 1, rank: 1, racingGroupName: 'Wolves', score: 3.0 }),
+                entry({ racerId: 2, rank: 1, racingGroupName: 'Wolves', score: 3.0 }),
+                entry({ racerId: 3, rank: 3, racingGroupName: 'Bears', score: 3.5 }),
+            ],
+            'TIMED',
+        );
+        const wolves = sections.find((s) => s.title === 'Wolves')!;
+
+        expect(wolves.rows.map((r) => r.place)).toEqual([1, 1]);
     });
 
     it('keeps a racer in no racingGroup out of the per-racing-group tables', () => {
@@ -204,6 +240,84 @@ describe('awardLines', () => {
         );
 
         expect(line.winner).toBe('Ada A. (#42)');
+    });
+});
+
+// #869 — the printed results sheet named seven per-den tables and an
+// "Overall standings" table (prelim only, #17), but never the Grand Finals
+// itself: the round that actually decides who won. `championshipSections`
+// is what supplies that missing table.
+describe('championshipSections', () => {
+    const round = (over: Partial<Parameters<typeof championshipSections>[0][number]['round']> = {}) => ({
+        id: 40,
+        roundNumber: 3,
+        name: null,
+        advancementSource: 'ALL',
+        ...over,
+    });
+
+    it('prints nothing for a championship round nobody has raced yet', () => {
+        // A round exists as soon as the wizard creates it, placeholders and
+        // all — printing it before anybody has run a heat would put "0.000"
+        // and empty names on the noticeboard.
+        const sections = championshipSections(
+            [{ round: round(), entries: [entry({ racerId: 1, heatsCompleted: 0 })] }],
+            'TIMED',
+        );
+
+        expect(sections).toEqual([]);
+    });
+
+    it('prints a table for a championship round that has been raced', () => {
+        const sections = championshipSections(
+            [{ round: round({ name: 'Grand Finals' }), entries: [entry({ racerId: 1, heatsCompleted: 1 })] }],
+            'TIMED',
+        );
+
+        expect(sections.map((s) => s.title)).toEqual(['Grand Finals']);
+    });
+
+    it('falls back to the same round-title rule the heat sheet uses', () => {
+        const sections = championshipSections(
+            [{ round: round({ name: null, roundNumber: 2 }), entries: [entry({ racerId: 1, heatsCompleted: 1 })] }],
+            'TIMED',
+        );
+
+        expect(sections[0].title).toBe('Championship round 2');
+    });
+
+    it('prints the round-scoped rank exactly, ties included, with no re-basing', () => {
+        // A round-scoped `leaderboard(roundId:)` already stamps a
+        // competition rank scoped to *this* round (#226), so unlike a
+        // racingGroup table (which narrows the pack-wide standings) there
+        // is nothing here to re-base.
+        const sections = championshipSections(
+            [
+                {
+                    round: round(),
+                    entries: [
+                        entry({ racerId: 1, rank: 1, heatsCompleted: 1 }),
+                        entry({ racerId: 2, rank: 1, heatsCompleted: 1 }),
+                        entry({ racerId: 3, rank: 3, heatsCompleted: 1 }),
+                    ],
+                },
+            ],
+            'TIMED',
+        );
+
+        expect(sections[0].rows.map((r) => r.place)).toEqual([1, 1, 3]);
+    });
+
+    it('orders chained championship rounds by round number', () => {
+        const sections = championshipSections(
+            [
+                { round: round({ id: 50, roundNumber: 4, name: 'Grand Finals' }), entries: [entry({ racerId: 1, heatsCompleted: 1 })] },
+                { round: round({ id: 40, roundNumber: 3, name: 'Semifinal' }), entries: [entry({ racerId: 2, heatsCompleted: 1 })] },
+            ],
+            'TIMED',
+        );
+
+        expect(sections.map((s) => s.title)).toEqual(['Semifinal', 'Grand Finals']);
     });
 });
 
