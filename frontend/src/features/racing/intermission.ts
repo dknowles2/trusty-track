@@ -85,3 +85,14 @@ export const INTERMISSION_PRESETS: ReadonlyArray<{ readonly label: string; reado
 
 /** How much a single "+5 min" click adds. */
 export const EXTEND_SECONDS = 5 * 60;
+
+/**
+ * The longest a break may run in one sitting, in seconds — the same number
+ * `domain.intermission.MAX_DURATION_SECONDS` enforces server-side (#886).
+ * Four hours comfortably covers a legitimate all-day event's dinner break;
+ * this exists to catch a units mistake in the custom-minutes field (1500
+ * typed meaning "15:00" parking every display on a 25-hour break) at the
+ * point of entry, not to second-guess a real one — the server is still the
+ * one that actually refuses it.
+ */
+export const MAX_DURATION_SECONDS = 4 * 60 * 60;

@@ -251,7 +251,12 @@ While a race is locked:
   operator might delete without reading every word of a confirmation, so
   deleting one asks for the race's exact name to be typed first, rather than
   the ordinary yes/no confirmation every other race gets.
-- Unlocking is the one change a locked race still accepts — from the same
+- **A break already under way can still be paused, resumed or ended.**
+  Starting a fresh break is not offered — a locked race is presumed done
+  racing — but none of pause, resume or end can hand it more time than it
+  already had, so there is always a way to clear one rather than leaving
+  every assigned display parked on the break overlay.
+- Unlocking is the other change a locked race still accepts — from the same
   **Lock race** checkbox, now labelled **Unlock race**, at the top of the edit
   form's **Event** section, reached from the Roster page, from Race Control,
   or from a race row's **⋯** menu on Home.
