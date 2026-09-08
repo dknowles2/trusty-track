@@ -426,7 +426,7 @@ _The Race Execution view showing the active heat with lane assignments. The On D
 How a heat starts depends on your track timer:
 
 - **With a hardware timer**: Trusty Track automatically prepares the timer for the next heat. Place the cars on the track and release them as normal — the timer records finish times automatically.
-- **With the fake timer** (for testing without a physical track): A **Fake Timer Controls** panel appears in the bottom-right corner. Once the heat is staged the panel reads "Ready to start" — click **Start Timer** to send the cars off. The heat then finishes on its own a few seconds later, or you can click **Finish Heat** to end it immediately.
+- **With the fake timer** (for testing without a physical track): A **Fake Timer Controls** panel appears below the current heat. Once the heat is staged the panel reads "Ready to start" — click **Start Timer** to send the cars off. The heat then finishes on its own a few seconds later, or you can click **Finish Heat** to end it immediately.
 - **With no timer at all**: nothing is armed and there is no "Waiting for Timer…" message — the main button on the heat is **Enter Results**, and hand entry is how every heat gets recorded. See [No timer](reference/race-settings.md#no-timer).
 
 ![Fake Timer Controls](assets/screenshots/race-day/13-fake-timer-controls.png)
@@ -583,6 +583,12 @@ Race tab; every one of those destinations is also one click away from the
 top navigation bar at any time, including if you come back to this tab
 later — a race that finished before you opened the page does not throw this
 summary up on you again.
+
+Coming back later — a phone at the track, or the next morning to print
+certificates — rather than to this same tab? The Home page's race list has a
+**Standings** action in each row's **⋯** menu, right beside **Roster** and
+**Edit race**, so you do not need to open the roster first just to reach the
+results.
 
 After all heats are complete, the **Standings** page shows the final ranked results. Navigate there from the top nav bar.
 

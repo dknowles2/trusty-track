@@ -21,7 +21,7 @@ _The timer section of a track's card in System Settings, with **Fake Timer (Manu
 
 With the Fake Timer chosen, open the **Race Control** page for a race and switch to the **Race** view.
 
-When you enter a heat, you will see the **Fake Timer Controls** panel docked in the bottom right corner of the screen.
+When you enter a heat, you will see the **Fake Timer Controls** panel docked below the current heat.
 
 ### Workflow
 
@@ -35,7 +35,7 @@ When you enter a heat, you will see the **Fake Timer Controls** panel docked in 
     *   The heat is marked as complete.
 
 ![The Fake Timer Controls panel, with Start Timer and Finish Heat](assets/screenshots/race-day/13-fake-timer-controls.png)
-_The panel docked in the bottom-right corner. It collapses to its title bar when you click it, which is how the other screenshots in these guides show Race Control._
+_The panel docked below the current heat, on the Race tab. It collapses to its title bar when you click it, which is how the other screenshots in these guides show Race Control._
 
 ## Tips
 

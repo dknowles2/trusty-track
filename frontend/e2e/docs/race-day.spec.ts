@@ -289,7 +289,13 @@ test('take screenshots', async ({ page }) => {
     // its own refetch a beat after the roster row updates — a screenshot taken
     // between the two shows "Check in cars" still undone above a row that says
     // Checked In, and whether it does depends on the machine's load that run.
-    await expect(page.getByText('3 of 4 done')).toBeVisible();
+    // Asserted on the checkin step's own `data-done` rather than the "X of Y
+    // done" counter text: the counter's total grew from four to six when
+    // #847 added the awards/printables steps, which made a literal count
+    // here a second place that number had to be kept in step with
+    // `setupChecklist.ts` for no benefit — the row itself is the exact
+    // condition this wait exists to settle.
+    await expect(page.getByTestId('setup-step-checkin')).toHaveAttribute('data-done', 'true');
 
     // 04: the roster with one racer checked in.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/04-racer-list-after-check-in.png') });
@@ -396,8 +402,21 @@ test('take screenshots', async ({ page }) => {
     // 13: the Fake Timer Controls panel itself, which is the one screenshot
     // that is *of* the panel, so it expands it again. It was a second copy of
     // 12, so the close-up the caption describes did not exist (#144).
+    //
+    // `boundingBox()` is in viewport coordinates, and this spec's 800px
+    // viewport is no longer tall enough to hold the docked, expanded panel
+    // above the fold — its own bounding box reported a height in the 220s
+    // while sitting well past y=713, past the viewport's own bottom edge.
+    // `page.screenshot({ clip })` does not error on a clip region that runs
+    // past what is currently rendered; it silently clips to the viewport, so
+    // the previous version of this capture was a truncated header-and-one-
+    // button image nobody had looked at closely. Scrolling the panel to the
+    // top of the viewport first is what the other close-up screenshots on
+    // this page already get for free by virtue of sitting higher up it.
     await expandFakeTimer(page);
     const timerPanel = page.locator('.fake-timer-mole');
+    await expect(timerPanel.getByRole('button', { name: 'Finish Heat' })).toBeVisible();
+    await timerPanel.scrollIntoViewIfNeeded();
     const panelBox = await timerPanel.boundingBox();
     await page.screenshot({
         path: path.join(screenshotsDir, 'race-day/13-fake-timer-controls.png'),

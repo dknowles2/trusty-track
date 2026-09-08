@@ -191,15 +191,19 @@ export default function RaceDetails() {
   );
   const anyHeatsScheduled = scheduledRacerIds.length > 0;
 
-  // What the setup checklist reads (#199). Every number is one the page
-  // already had, except the round count — see the query for why
-  // `scheduledRacerIds` cannot stand in for it.
+  // What the setup checklist reads (#199, extended by #847). Every number is
+  // one the page already had, except the round count — see the query for why
+  // `scheduledRacerIds` cannot stand in for it. `awardCount` and `isLocked`
+  // back the awards/printables steps — see `setupChecklist.ts` for why
+  // locking, not a dismiss control, is what quiets either of them.
   const setupProgress = useMemo(
     () => ({
       racingGroupCount: data?.race?.racingGroups?.length ?? 0,
       racerCount: data?.race?.registeredCount ?? 0,
       checkedInCount: data?.race?.checkedInCount ?? 0,
       roundCount: data?.race?.rounds?.length ?? 0,
+      awardCount: data?.race?.awards?.length ?? 0,
+      isLocked: data?.race?.isLocked ?? false,
     }),
     [data],
   );
@@ -854,6 +858,8 @@ export default function RaceDetails() {
               racers: handleAddRacerClick,
               checkin: handleChecklistCheckIn,
               schedule: () => navigate(`/race/${parsedRaceId}/control`),
+              awards: () => navigate(`/race/${parsedRaceId}/awards`),
+              printables: () => navigate(`/race/${parsedRaceId}/print`),
           }}
       />
 

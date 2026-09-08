@@ -261,19 +261,39 @@ describe('Home Page', () => {
             expect(titleLink).toHaveAttribute('title', expect.stringMatching(/roster/i));
         });
 
-        it('offers Roster and Edit race behind the row\'s overflow menu', async () => {
+        it('offers Roster, Standings and Edit race behind the row\'s overflow menu', async () => {
             renderHome({
                 races: [{ id: 7, name: 'Annual Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0 }],
             });
 
             await screen.findByText('Annual Derby');
             expect(screen.queryByTestId('race-menu-roster-7')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('race-menu-standings-7')).not.toBeInTheDocument();
             expect(screen.queryByTestId('race-menu-edit-7')).not.toBeInTheDocument();
 
             fireEvent.click(screen.getByTestId('race-more-menu-7'));
 
             expect(screen.getByTestId('race-menu-roster-7')).toBeInTheDocument();
+            expect(screen.getByTestId('race-menu-standings-7')).toBeInTheDocument();
             expect(screen.getByTestId('race-menu-edit-7')).toBeInTheDocument();
+        });
+
+        // #847: Home used to offer only Control and Live, with no route to a
+        // race's results at all — the gap named explicitly in the reopening
+        // comment ("the finished race's row ... nothing distinguishes a
+        // finished race from one that has not begun").
+        it('sends the Standings action to that race\'s standings page', async () => {
+            renderHome({
+                races: [{ id: 7, name: 'Annual Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0 }],
+            });
+
+            await screen.findByText('Annual Derby');
+            fireEvent.click(screen.getByTestId('race-more-menu-7'));
+            fireEvent.click(screen.getByTestId('race-menu-standings-7'));
+
+            await waitFor(() => {
+                expect(mockNavigate).toHaveBeenCalledWith('/race/7/standings');
+            });
         });
 
         it('sends the Edit race action to the roster page with the edit modal requested', async () => {

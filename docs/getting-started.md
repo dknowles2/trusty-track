@@ -146,14 +146,16 @@ Once your system settings are configured, you're ready to create a race event.
 
 ## 6. Following the Setup Checklist
 
-A new race opens with a **Setting up this race** panel at the top of the Roster page, listing the four things that have to happen before you can run a heat:
+A new race opens with a **Setting up this race** panel at the top of the Roster page, listing the four things that have to happen before you can run a heat, plus two more worth doing before the trophies are handed out:
 
 1. **Set up dens**
 2. **Add racers**
 3. **Check in cars**
 4. **Generate a schedule**
+5. **Set up awards**
+6. **Print pit passes**
 
-Each item ticks itself off as you do it — there is nothing to mark complete by hand — and the panel shows a button for whichever step you are on. Once all four are behind you it disappears, so it is only ever on screen while something is genuinely outstanding.
+Each item ticks itself off as you do it — there is nothing to mark complete by hand — and the panel shows a button for whichever step you are on. It disappears once everything is behind it, which for the last two means either doing them or locking the race once the event is over; see [Awards](awards.md) and [Printed documents](reference/printing.md) for what those two steps actually involve.
 
 If you set the race up with the wizard, the first step is already done — the dens it made are
 there. If your pack does not use dens, skip that step: it counts as done as soon as you have racers.
@@ -172,7 +174,7 @@ already made yours; this is where you change them — or add them, for a race th
 With your dens in place, your race is ready for racer registration and check-in!
 
 ![Empty Race Details](assets/screenshots/getting-started/05-race-details-empty.png)
-_A race with no racers yet. The setup checklist at the top is pointing at the next thing to do; it will remove itself once all four steps are done._
+_A race with no racers yet. The setup checklist at the top is pointing at the next thing to do; it will remove itself once everything on it is behind you._
 
 ## What's Next?
 
