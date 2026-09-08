@@ -5033,7 +5033,16 @@ class Mutation:
 
     @strawberry.mutation
     async def delete_free_race_heat(self, info: Info, heat_id: int) -> bool:
-        """Delete a single free race heat."""
+        """Delete a single free race heat.
+
+        Calls `_revalidate_timers` for the same reason `deleteHeat` and
+        `deleteRunOffHeat` do (#887): the operator may have armed this heat
+        and then changed their mind rather than running it, and without this
+        the manager stayed `ARMED` on a heat row that no longer existed —
+        discovered only after the cars ran, through `_record_results`'
+        `_abandon_run`, holding times the operator then had to key in by
+        hand (#50).
+        """
         db = info.context["db"]
         heat = crud.get_free_race_heat(db, heat_id)
         race_id = heat.race_id if heat else None
@@ -5041,6 +5050,7 @@ class Mutation:
             result = crud.delete_free_race_heat(db, heat_id)
         except ValueError:
             return False
+        await _revalidate_timers(info)
         if race_id:
             await _publish_race_state(race_id)
         return result
@@ -5649,8 +5659,43 @@ class Mutation:
     async def update_initial_config(
         self, info: Info, config: InitialConfigInput
     ) -> InitialConfigStatus:
-        """Update system organization name and tracks."""
+        """Update system organization name and tracks.
+
+        A shrinking `lane_count` here is the same problem `updateTrack`
+        solves for (#325): existing heats can hold racers on lanes that no
+        longer exist. This is the settings page's own **Save Settings**
+        button — the way an operator ordinarily changes a lane count — so it
+        gets the same reconciliation (`crud.apply_outages_to_scheduled_heats`,
+        an awaited `_revalidate_timers`, a published race state) rather than
+        writing the new count and stopping (#903).
+
+        It also gets `crud.guard_against_stranding_a_round` (#877) — but
+        checked once, over every track in the submission, *before* the
+        organization name or any track is written. This form carries the
+        organization name, both PINs, the theme fields and every track at
+        once, so a refusal reached partway through (as `updateTrack`'s own
+        ahead-of-write check would be if simply copied into this function's
+        per-track loop) would still leave earlier tracks and the
+        organization update committed. Checking every shrink first is what
+        keeps a refusal here total rather than partial.
+        """
         db = info.context["db"]
+
+        db_tracks_by_id = {t.id: t for t in crud.get_tracks(db)}
+        for input_track in config.tracks:
+            if input_track.id is None:
+                continue
+            db_track = db_tracks_by_id.get(input_track.id)
+            if db_track is None:
+                continue  # reported below, once matching is done for real
+            if input_track.lane_count < db_track.lane_count:
+                crud.guard_against_stranding_a_round(
+                    db,
+                    input_track.id,
+                    lane_count=input_track.lane_count,
+                    out_of_service=crud.lane_outages_for_track(db, input_track.id),
+                )
+
         organization = db.query(models.Organization).first()
         if organization and (
             organization.name != config.organization_name
@@ -5682,12 +5727,19 @@ class Mutation:
         # the list, and matching by index would then update the wrong row —
         # renaming and reconfiguring it into whichever track happened to
         # follow, and deleting the track actually meant to survive.
-        db_tracks = crud.get_tracks(db)
-        db_tracks_by_id = {t.id: t for t in db_tracks}
+        #
+        # Reuses the snapshot the guard check above already took: no track
+        # row has been written since (only the organization has), so it is
+        # still current, and re-querying it would risk disagreeing about
+        # which tracks exist.
+        db_tracks = list(db_tracks_by_id.values())
         input_tracks = config.tracks
         timer_managers = info.context.get("timer_managers", {})
 
         matched_ids: set[int] = set()
+        # Tracks whose lane_count just shrank, reconciled once every track
+        # in the submission has been written (#903).
+        shrunk_track_ids: set[int] = set()
 
         for input_track in input_tracks:
             if input_track.id is None:
@@ -5716,10 +5768,19 @@ class Mutation:
             old_timer_type = db_track.timer_type
             old_serial_port = db_track.serial_port
             old_profile = db_track.timer_profile
+            old_lane_count = db_track.lane_count
             track_update = schemas.TrackBase(
                 **typing.cast(Any, strawberry.asdict(input_track))
             )
             crud.update_track(db, db_track, track_update)
+
+            if input_track.lane_count < old_lane_count:
+                # Same reconciliation `updateTrack` makes for the same shrink
+                # (#325); the guard above has already refused anything this
+                # would strand, so it is safe to apply here.
+                crud.apply_outages_to_scheduled_heats(db, db_track.id)
+                shrunk_track_ids.add(db_track.id)
+
             mgr = timer_managers.get(db_track.id)
             if mgr:
                 await mgr.set_remote_start_installed(input_track.remote_start_installed)
@@ -5770,6 +5831,18 @@ class Mutation:
             raise ValueError(
                 f"Could not remove {names}: still has races recorded against it."
             )
+
+        if shrunk_track_ids:
+            # Regenerating a round replaces its heats, so anything armed
+            # against the old ids has to be told (#50) — the same await
+            # `updateTrack` makes for the same reason. One call covers every
+            # shrunk track in this submission: `_revalidate_timers` checks
+            # every manager itself rather than being told which track.
+            await _revalidate_timers(info)
+            for shrunk_race in db.query(models.Race).filter(
+                models.Race.track_id.in_(shrunk_track_ids)
+            ):
+                await _publish_race_state(shrunk_race.id)
 
         db.commit()
         tracks = crud.get_tracks(db)

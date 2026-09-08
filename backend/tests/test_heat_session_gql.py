@@ -100,7 +100,12 @@ def _racers(db, race, *names):
     return [
         crud.create_racer(
             db,
-            schemas.RacerCreate(first_name=name, last_name="R", race_id=race.id),
+            schemas.RacerCreate(
+                first_name=name,
+                last_name="R",
+                race_id=race.id,
+                car_passed_inspection=True,
+            ),
         )
         for name in names
     ]

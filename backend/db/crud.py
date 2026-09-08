@@ -3516,8 +3516,57 @@ def create_free_race_heat(
     Takes lanes rather than dicts so it goes through ``lanes.serialize`` like
     every other write. It used to ``json.dumps`` its own dicts, which is a
     second copy of the codec in the two places #72 has to change.
+
+    Validated before anything is written (#882) — the same shape
+    :func:`create_run_off_heat` checks for the same reason, since a free
+    heat is exactly as much "not part of a generated round's schedule" as a
+    run-off is. ``Query.randomFreeRaceLanes`` already narrows its own draw to
+    ``usable_lanes_for_race`` and to checked-in racers of this race; nothing
+    enforced the same on the write that persists one, so a stale cached lane
+    list or a hand-built payload could name a lane out of service, a lane
+    past the track, a racer belonging to a different race, or the same racer
+    twice. The racer case is the worst of these: it makes the heat
+    permanently unrecordable, since ``recordFreeRaceResult`` only discovers
+    it afterwards through ``validate_lane_replacement``.
     """
     from datetime import datetime, timezone
+
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None:
+        raise ValueError(f"Race {race_id} does not exist.")
+
+    # An empty list is deliberately allowed through — `prepareHeat`'s
+    # anonymous-arm fallback is tested against exactly that shape (a free
+    # heat that somehow holds no rows at all), and there is nothing about a
+    # missing lane to validate.
+    dupe_lanes = lanes.duplicate_lane_numbers(lane_assignments)
+    if dupe_lanes:
+        raise ValueError(f"Lane {dupe_lanes[0]} is assigned to more than one row.")
+
+    usable = set(usable_lanes_for_race(db, race_id))
+    bad_lanes = sorted({a.lane for a in lane_assignments} - usable)
+    if bad_lanes:
+        raise ValueError(f"Lane {bad_lanes[0]} is not usable on this track.")
+
+    racer_ids = [a.racer_id for a in lane_assignments if a.racer_id is not None]
+    if len(racer_ids) != len(set(racer_ids)):
+        raise ValueError("The same racer cannot be in two lanes at once.")
+
+    if racer_ids:
+        checked_in = {
+            row[0]
+            for row in db.query(models.Racer.id).filter(
+                models.Racer.id.in_(racer_ids),
+                models.Racer.race_id == race_id,
+                models.Racer.car_passed_inspection.is_(True),
+            )
+        }
+        missing_racers = set(racer_ids) - checked_in
+        if missing_racers:
+            raise ValueError(
+                f"Racer {sorted(missing_racers)[0]} is not a checked-in racer "
+                "in this race."
+            )
 
     heat = models.Heat(
         race_id=race_id,

@@ -29,7 +29,13 @@ async def test_free_race_heat_recording_in_manager(db):
     race_id = race.id
 
     r1 = crud.create_racer(
-        db, schemas.RacerCreate(first_name="Alice", last_name="Test", race_id=race.id)
+        db,
+        schemas.RacerCreate(
+            first_name="Alice",
+            last_name="Test",
+            race_id=race.id,
+            car_passed_inspection=True,
+        ),
     )
     heat = crud.create_free_race_heat(
         db,
