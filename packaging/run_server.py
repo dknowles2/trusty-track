@@ -34,6 +34,7 @@ from pathlib import Path
 # shadow or collide with it). Python and PyInstaller both resolve a bare
 # `import log_viewer` against this script's own directory, which is the
 # ordinary way a launcher script keeps a helper module beside it.
+import alert_response
 import cert_requirements
 import http_mode
 from log_viewer import build_view_logs_command, console_app_available
@@ -430,6 +431,11 @@ if sys.platform == "darwin":
             )
 
         def _reset_db(self, _) -> None:
+            # See `alert_response.py`: rumps 0.4.0's `alert()` returns a
+            # plain int, not an object with a `.clicked` attribute
+            # (dknowles2/trusty-track#884). `ok="Reset"` is this alert's
+            # default button, so `confirmed()` is true exactly when the
+            # operator chose to reset rather than cancel.
             resp = rumps.alert(
                 title="Reset Database",
                 message=(
@@ -439,7 +445,7 @@ if sys.platform == "darwin":
                 ok="Reset",
                 cancel="Cancel",
             )
-            if resp.clicked:
+            if alert_response.confirmed(resp):
 
                 def _do() -> None:
                     self._controller.stop()

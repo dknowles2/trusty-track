@@ -25,12 +25,17 @@ fi
 # entry point. Dev's HTTPS frontend variant (:5174) exists to exercise the
 # secure-context-only features against a real certificate, so it is skipped
 # too — there is no backend certificate left for it to proxy to.
+#
+# Lower-cased with `tr`, not bash 4's `${var,,}` — macOS ships bash 3.2 at
+# /bin/bash, which `#!/usr/bin/env bash` resolves to with no Homebrew bash
+# installed over it, and 3.2 rejects `${var,,}` with "bad substitution"
+# (dknowles2/trusty-track#891). `case` rather than `[[ =~ ]]`, so there is no
+# regex-quoting question to get wrong on top of it.
 http_only="${TRUSTYTRACK_HTTP_ONLY:-}"
-if [[ "${http_only,,}" =~ ^(1|true|yes|on)$ ]]; then
-    HTTP_ONLY=true
-else
-    HTTP_ONLY=false
-fi
+case "$(printf '%s' "$http_only" | tr '[:upper:]' '[:lower:]')" in
+    1|true|yes|on) HTTP_ONLY=true ;;
+    *) HTTP_ONLY=false ;;
+esac
 
 if [[ "$HTTP_ONLY" == "true" ]]; then
     export VITE_BACKEND_URL=http://localhost:8005

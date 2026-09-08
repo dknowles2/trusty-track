@@ -37,14 +37,24 @@ REPO_URL="https://github.com/dknowles2/trusty-track.git"
 # environment by default, so setting this means running the script as
 # `sudo TRUSTYTRACK_HTTP_ONLY=1 ./scripts/install-pi.sh` (or `sudo -E`), not
 # `export`ing it beforehand.
+#
+# Lower-cased with `tr`, not bash 4's `${var,,}` — this script is also
+# sourced and exercised by the test suite under whatever `bash` a
+# contributor's machine resolves to, which on a stock Mac with no Homebrew
+# bash is 3.2 at /bin/bash; 3.2 rejects `${var,,}` with "bad substitution"
+# (dknowles2/trusty-track#891). `case` rather than `[[ =~ ]]`, so there is no
+# regex-quoting question to get wrong on top of it.
 http_only_raw="${TRUSTYTRACK_HTTP_ONLY:-}"
-if [[ "${http_only_raw,,}" =~ ^(1|true|yes|on)$ ]]; then
-    HTTP_ONLY=true
-    SCHEME="http"
-else
-    HTTP_ONLY=false
-    SCHEME="https"
-fi
+case "$(printf '%s' "$http_only_raw" | tr '[:upper:]' '[:lower:]')" in
+    1|true|yes|on)
+        HTTP_ONLY=true
+        SCHEME="http"
+        ;;
+    *)
+        HTTP_ONLY=false
+        SCHEME="https"
+        ;;
+esac
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -267,9 +277,12 @@ setup_mdns() {
 setup_hotspot() {
     echo
     read -r -p "Set up Wi-Fi hotspot mode? (recommended for venues without Wi-Fi) [y/N] " HOTSPOT
-    if [[ "${HOTSPOT,,}" != "y" ]]; then
-        return
-    fi
+    # Lower-cased with `tr`, not bash 4's `${var,,}` — see the note above
+    # `TRUSTYTRACK_HTTP_ONLY`'s own parsing (dknowles2/trusty-track#891).
+    case "$(printf '%s' "$HOTSPOT" | tr '[:upper:]' '[:lower:]')" in
+        y) ;;
+        *) return ;;
+    esac
 
     info "Installing hostapd and dnsmasq..."
     apt-get install -y -q hostapd dnsmasq

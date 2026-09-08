@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Define the directory for certificates
 CERT_DIR="$(dirname "$0")/../certs"
