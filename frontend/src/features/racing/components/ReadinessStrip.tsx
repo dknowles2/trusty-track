@@ -112,6 +112,7 @@ export default function ReadinessStrip({
             data-testid="readiness-strip"
             data-level={level}
             style={{
+                boxSizing: 'border-box',
                 margin: '0 auto 1.25rem',
                 maxWidth: '900px',
                 width: '100%',

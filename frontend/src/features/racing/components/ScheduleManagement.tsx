@@ -635,7 +635,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
       <div style={{ width: '100%', maxWidth: '1200px' }}>
-        <div style={{ display: 'flex', justifyContent: sortedRoundIds.length > 0 ? 'space-between' : 'flex-end', alignItems: 'center', marginBottom: '20px', gap: '20px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: sortedRoundIds.length > 0 ? 'space-between' : 'flex-end', alignItems: 'center', marginBottom: '20px', gap: '20px' }}>
           {sortedRoundIds.length > 0 && (
             <div style={{ flex: 1 }}>
               <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--text-color)' }}>
@@ -858,6 +858,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                 }}>
                   <div style={{
                     display: 'flex',
+                    flexWrap: 'wrap',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     marginBottom: '20px',
@@ -866,7 +867,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     borderBottom: '2px solid var(--surface-soft-color)',
                     paddingBottom: '15px'
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '12px' }}>
                       <h2 style={{
                         margin: 0,
                         color: 'var(--scouting-blue)',
@@ -964,7 +965,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                       {chart && (
                         <button
                           onClick={() => toggleChartView(Number(roundId))}
