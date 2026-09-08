@@ -46,6 +46,12 @@ export const INITIAL_CONFIG_QUERY = gql`
       debugMode
       pinRequired
       isOperator
+      # The caller's full role — VIEWER, CHECKIN or OPERATOR (#892) —
+      # rather than only isOperator's operator-or-not. Read through
+      # features/core/useRole.ts, not destructured here directly, so
+      # there is one place on the frontend that turns this into UI
+      # decisions.
+      role
       demoMode
       terminology {
         racingGroupSingular

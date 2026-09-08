@@ -808,6 +808,19 @@ def _name_display_status_kwargs(organization: Any) -> dict[str, Any]:
     }
 
 
+#: The caller's own role (#15), published so the UI can reflect what it may
+#: do rather than every screen offering every control to every role and
+#: discovering the boundary from a refused mutation (#892). Wrapped the same
+#: way `HeatPhase`/`DisplayViewEnum` below wrap their own domain enums —
+#: `auth.py` stays the one place the three values are spelled, and `POLICY`
+#: is still the one place a mutation is actually classified. A screen
+#: reading this is deciding what to *show*; it is never what decides what is
+#: *allowed* — that is `RolePolicyExtension` alone, and always will be, so a
+#: UI that drifts from this value fails safe into the humane refusal message
+#: rather than into anything permitted.
+RoleEnum = strawberry.enum(auth.Role, name="Role")
+
+
 @strawberry.type
 class InitialConfigStatus:
     """
@@ -839,6 +852,14 @@ class InitialConfigStatus:
     #: Whether the *caller* currently holds the operator role. Lets the UI ask
     #: for the PIN before an action fails rather than after.
     is_operator: bool = True
+    #: The caller's full resolved role — `VIEWER`, `CHECKIN` or `OPERATOR`
+    #: (#892). `is_operator` above only ever answers "operator or not", which
+    #: cannot tell a wall display apart from the check-in desk; a screen that
+    #: wants to hide or disable a check-in-level control (Add Racer, Check
+    #: In) rather than only an operator-only one needs the third value. Read
+    #: through `auth.resolve_role`, the exact function `RolePolicyExtension`
+    #: itself asks — never a second copy of that decision.
+    role: RoleEnum = auth.Role.OPERATOR  # type: ignore[assignment]
     #: Which theme the Display and Printables surfaces render, install-wide
     #: (#498). A `ThemeKey` or `"MATCH_APP"` — see `models.Organization.display_theme`
     #: for why this is a plain string rather than a GraphQL enum. There is
@@ -3223,6 +3244,12 @@ class Query:
             organization = db.query(models.Organization).first()
             race = db.query(models.Race).first()
             pin_required = bool(organization and organization.operator_pin_hash)
+            # Resolved once here rather than left to the extension: this is a
+            # *query*, so nothing has asked for a role yet, and the point is
+            # to let the UI prompt before an action fails. `resolve_role`
+            # remembers its answer on the context, so `role` below costs
+            # nothing extra.
+            role = auth.resolve_role(info.context)
             return InitialConfigStatus(
                 initialized=True,
                 version=_version,
@@ -3233,10 +3260,8 @@ class Query:
                 current_race_id=race.id if race else None,
                 pin_required=pin_required,
                 checkin_pin_set=bool(organization and organization.checkin_pin_hash),
-                # Resolved here rather than left to the extension: this is a
-                # *query*, so nothing has asked for a role yet, and the point is
-                # to let the UI prompt before an action fails.
-                is_operator=auth.resolve_role(info.context) is auth.Role.OPERATOR,
+                is_operator=role is auth.Role.OPERATOR,
+                role=role,
                 display_theme=organization.display_theme
                 if organization
                 else "MATCH_APP",
@@ -5638,7 +5663,10 @@ class Mutation:
             checkin_pin_set=bool(organization.checkin_pin_hash),
             # The caller who just set the PIN keeps the role they had for this
             # response; the next request resolves it from what they send.
+            # `createInitialConfig` is operator-only, so the caller already
+            # held that role to reach here.
             is_operator=True,
+            role=auth.Role.OPERATOR,
             display_theme=organization.display_theme,
             printables_theme=organization.printables_theme,
             **_terminology_status_kwargs(organization),
@@ -5862,7 +5890,10 @@ class Mutation:
             tracks=typing.cast(Any, tracks),
             pin_required=bool(organization and organization.operator_pin_hash),
             checkin_pin_set=bool(organization and organization.checkin_pin_hash),
+            # `updateInitialConfig` is operator-only, so the caller already
+            # held that role to reach here.
             is_operator=True,
+            role=auth.Role.OPERATOR,
             display_theme=organization.display_theme if organization else "MATCH_APP",
             printables_theme=organization.printables_theme
             if organization

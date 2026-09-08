@@ -235,6 +235,25 @@ class PermissionDeniedError(Exception):
     """A caller ran a mutation their role does not carry."""
 
 
+def _pin_needed_for(field_name: str) -> str:
+    """Which PIN unlocks a mutation, in the volunteer's own words (#892).
+
+    Not the role: ``VIEWER``, ``CHECKIN`` and a bare mutation name are this
+    module's own vocabulary, and a refusal that quoted them read as a
+    developer's error rather than something a parent at a desk could act on.
+    The unlock control already says the right thing — "Enter the PIN to make
+    changes" — so a refusal echoes it rather than inventing a second voice.
+
+    A mutation in ``CHECKIN_MUTATIONS`` is reachable with either PIN, so the
+    lower one is what is missing; anything else — ``OPERATOR_ONLY_MUTATIONS``,
+    or a future mutation nobody has classified yet, which :func:`resolve_role`
+    would only ever let through as ``OPERATOR`` — needs the operator's.
+    """
+    if field_name in CHECKIN_MUTATIONS:
+        return "check-in"
+    return "operator"
+
+
 class RolePolicyExtension(SchemaExtension):
     """Refuse a mutation the caller's role does not allow.
 
@@ -248,8 +267,19 @@ class RolePolicyExtension(SchemaExtension):
         if info.parent_type.name == "Mutation":
             role = resolve_role(info.context)
             if info.field_name not in POLICY[role]:
+                # Said in the app's own voice, not the role and the mutation
+                # name (#892) — that pair means nothing to a volunteer, and
+                # said nothing about the one thing that would actually help:
+                # there is a PIN control in the header, and which PIN it
+                # needs. The raw role/mutation pair is still exactly what
+                # the activity log records for this refusal (`api/auth.py`'s
+                # `AuditExtension`, reading `resolve_role` and
+                # `info.field_name` itself) — that reader is the person
+                # auditing, not the person who just got turned away.
+                pin_kind = _pin_needed_for(info.field_name)
                 raise PermissionDeniedError(
-                    f"{role.value} is not allowed to run {info.field_name}"
+                    f"That needs the {pin_kind} PIN. Enter it with the lock "
+                    "icon in the top bar."
                 )
         return _next(root, info, *args, **kwargs)
 

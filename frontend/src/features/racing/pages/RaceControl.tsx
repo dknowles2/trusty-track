@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useSubscription } from 'urql';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
+import { useRole } from '../../core/hooks/useRole';
+import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
@@ -46,6 +48,11 @@ export default function RaceControl() {
   const { raceId } = useParams<{ raceId: string }>();
   const navigate = useNavigate();
   const id = parseInt(raceId || '0');
+  // #892: "Edit race" reaches updateRace, operator-only — a check-in
+  // tablet used to see it fully enabled next to Add Round/Delete/Regenerate/
+  // Re-Run (gated in `ScheduleManagement.tsx`) and find out only when a
+  // mutation came back refused.
+  const { isOperator } = useRole();
 
   const [selectedHeatId, setSelectedHeatId] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -894,6 +901,8 @@ export default function RaceControl() {
           <button
             onClick={() => navigate(`/race/${id}?edit=true`)}
             className="secondary-btn"
+            disabled={!isOperator}
+            title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
             data-testid="race-control-edit-race"
             style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
           >
@@ -1097,6 +1106,7 @@ export default function RaceControl() {
           onReorderHeats={handleReorderHeats}
           masterRunningOrder={masterRunningOrder}
           raceLocked={race?.isLocked ?? false}
+          isOperator={isOperator}
           championshipRoundIds={championshipRoundIds}
           roundGroupLabel={roundGroupLabel}
           eliminationCharts={eliminationCharts}

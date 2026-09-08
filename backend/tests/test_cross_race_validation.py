@@ -560,6 +560,28 @@ def test_create_award_refuses_a_racer_from_another_race(client, db):
     assert db.query(models.Award).filter(models.Award.race_id == race_a.id).count() == 0
 
 
+def test_create_award_cross_race_racer_message_has_no_raw_field_name(client, db):
+    """#867's sibling: `_validate_award_membership` used to say
+    ``racerId belongs to a different race`` — the GraphQL argument name
+    rather than plain English."""
+    race_a = _org_track_race(db, "AwardRacerTermA")
+    race_b = _org_track_race(db, "AwardRacerTermB")
+    racer_b = _racer(db, race_b)
+
+    body = _post(
+        client,
+        CREATE_AWARD,
+        {
+            "raceId": race_a.id,
+            "award": {"name": "Best Paint", "kind": "SPECIAL", "racerId": racer_b.id},
+        },
+    ).json()
+
+    message = body["errors"][0]["message"]
+    assert "racerId" not in message
+    assert "racer" in message.lower()
+
+
 def test_update_award_refuses_reassigning_to_a_racer_from_another_race(client, db):
     race_a = _org_track_race(db, "AwardUpdateA")
     race_b = _org_track_race(db, "AwardUpdateB")
@@ -664,6 +686,37 @@ def test_create_racer_refuses_a_racing_group_from_another_race(client, db):
         .first()
         is None
     )
+
+
+def test_create_racer_cross_race_group_message_uses_resolved_terminology(client, db):
+    """#867: `_validate_racing_group_membership` used to say
+    ``racingGroupId belongs to a different race`` — the GraphQL argument
+    name, not a word a volunteer reads anywhere else. The message should
+    name the racing group the way this race's own terminology does (a "den"
+    by default), and never the raw internal field name.
+    """
+    race_a = _org_track_race(db, "TermGroupA")
+    race_b = _org_track_race(db, "TermGroupB")
+    group_b = crud.create_racing_group(
+        db, schemas.RacingGroupCreate(name="Wolves"), race_b.id
+    )
+
+    body = _post(
+        client,
+        CREATE_RACER_WITH_GROUP,
+        {
+            "racer": {
+                "firstName": "New",
+                "lastName": "Comer",
+                "raceId": race_a.id,
+                "racingGroupId": group_b.id,
+            }
+        },
+    ).json()
+
+    message = body["errors"][0]["message"]
+    assert "racingGroupId" not in message
+    assert "den" in message.lower()
 
 
 def test_update_racer_refuses_reassigning_to_a_racing_group_from_another_race(

@@ -221,6 +221,28 @@ def create_racing_group(
     return db_racing_group
 
 
+def _racing_group_word(db: Session, race_id: int) -> str:
+    """The lowercase word a volunteer uses for a racing group in this race —
+    "den" by default (#867).
+
+    Resolved the same way `default_general_round_name` resolves "Pack": race
+    override over organization default over the built-in Scouting words.
+    Only called on a refusal path, never on the happy path of an ordinary
+    write — the two extra queries (the race, then its organization) are the
+    cost of a sentence a volunteer can read rather than the column name
+    `racing_group`, and nothing pays it unless something is about to fail.
+    """
+    race = get_race(db, race_id)
+    organization = get_organization(db, race.organization_id) if race else None
+    resolved = terminology.resolve_terminology(
+        organization=terminology.overrides_from_row(organization)
+        if organization is not None
+        else None,
+        race=terminology.overrides_from_row(race) if race is not None else None,
+    )
+    return resolved.racing_group_singular.lower()
+
+
 def delete_racing_group(db: Session, racing_group_id: int) -> models.RacingGroup | None:
     db_racing_group = (
         db.query(models.RacingGroup)
@@ -244,10 +266,15 @@ def delete_racing_group(db: Session, racing_group_id: int) -> models.RacingGroup
             # Named the same way the award case below already names its
             # blocker (#823) — a round created with no name of its own
             # (the common case) falls back to "Round <n>" rather than
-            # leaving the operator to guess which one it is.
+            # leaving the operator to guess which one it is. The word for
+            # the thing being deleted is the resolved terminology, not the
+            # `racing_group` column name (#867) — a volunteer reads "den"
+            # everywhere else this screen talks about one.
             round_label = round_scoped.name or f"Round {round_scoped.round_number}"
+            word = _racing_group_word(db, db_racing_group.race_id)
             raise ValueError(
-                f'Cannot delete racing_group: round "{round_label}" is scoped to it.'
+                f'This {word} cannot be deleted: the round "{round_label}" '
+                "is for it. Change or delete the round first."
             )
 
         # A `SPEED` award narrowed to this racing group (#755) — "Fastest
@@ -264,9 +291,18 @@ def delete_racing_group(db: Session, racing_group_id: int) -> models.RacingGroup
             .all()
         )
         if awards_scoped:
-            names = ", ".join(f'"{award.name}"' for award in awards_scoped)
+            word = _racing_group_word(db, db_racing_group.race_id)
+            award_names = [award.name for award in awards_scoped]
+            if len(award_names) == 1:
+                raise ValueError(
+                    f"This {word} cannot be deleted: the award "
+                    f'"{award_names[0]}" is for it. Change or delete the '
+                    "award first."
+                )
+            quoted = ", ".join(f'"{name}"' for name in award_names)
             raise ValueError(
-                f"Cannot delete racing_group: award(s) scoped to it: {names}."
+                f"This {word} cannot be deleted: the awards {quoted} are "
+                "for it. Change or delete them first."
             )
 
         racers = (
@@ -3713,7 +3749,12 @@ def create_run_off_heat(
     }
     missing_ids = sorted(set(racer_ids) - racers_by_id.keys())
     if missing_ids:
-        raise ValueError(f"Racer {missing_ids[0]} does not belong to this race.")
+        # There is no row left to name — the id is stale or from another
+        # race — so there is nothing to say beyond that, and a bare database
+        # id is not something a volunteer can act on (#867's shape, one step
+        # further: not a column name this time, but a number with no
+        # meaning outside a debugger).
+        raise ValueError("One of the tied racers does not belong to this race.")
 
     not_checked_in = [
         racers_by_id[racer_id]
@@ -3951,7 +3992,11 @@ def _validate_racing_group_membership(
             .scalar()
         )
         if owner is not None and owner != race_id:
-            raise ValueError("racingGroupId belongs to a different race")
+            # `racing_group_id` is the GraphQL argument name, not a word a
+            # volunteer should read (#867) — say it with the resolved
+            # terminology, the same as `delete_racing_group`'s own refusals.
+            word = _racing_group_word(db, race_id)
+            raise ValueError(f"That {word} belongs to a different race.")
 
 
 def _validate_award_membership(
@@ -3977,7 +4022,7 @@ def _validate_award_membership(
             db.query(models.Racer.race_id).filter(models.Racer.id == racer_id).scalar()
         )
         if owner is not None and owner != race_id:
-            raise ValueError("racerId belongs to a different race")
+            raise ValueError("That racer belongs to a different race.")
 
 
 def create_award(db: Session, race_id: int, award: schemas.AwardCreate) -> models.Award:

@@ -373,6 +373,7 @@ type InitialConfigStatus {
   pinRequired: Boolean!
   checkinPinSet: Boolean!
   isOperator: Boolean!
+  role: Role!
   displayTheme: String!
   printablesTheme: String!
   racingGroupSingular: String
@@ -802,6 +803,12 @@ type RacingGroupStat {
   racerCount: Int!
   avgScore: Float
   bestRacerName: String
+}
+
+enum Role {
+  VIEWER
+  CHECKIN
+  OPERATOR
 }
 
 type Round {
