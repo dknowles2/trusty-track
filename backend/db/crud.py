@@ -195,7 +195,10 @@ def _refuse_bad_racing_group_ranges(racing_groups: list[dict[str, Any]]) -> None
 
 
 def create_racing_group(
-    db: Session, racing_group: schemas.RacingGroupCreate, race_id: int
+    db: Session,
+    racing_group: schemas.RacingGroupCreate,
+    race_id: int,
+    commit: bool = True,
 ) -> models.RacingGroup:
     """Add one racing group to an existing race — `Manage Dens`' own mutation.
 
@@ -216,8 +219,11 @@ def create_racing_group(
     )
     db_racing_group = models.RacingGroup(**data, race_id=race_id)
     db.add(db_racing_group)
-    db.commit()
-    db.refresh(db_racing_group)
+    if commit:
+        db.commit()
+        db.refresh(db_racing_group)
+    else:
+        db.flush()
     return db_racing_group
 
 
@@ -803,7 +809,9 @@ def next_free_car_number(
     return None
 
 
-def create_racer(db: Session, racer: schemas.RacerCreate) -> models.Racer:
+def create_racer(
+    db: Session, racer: schemas.RacerCreate, commit: bool = True
+) -> models.Racer:
     """Create a new racer in the database.
 
     If ``racer.car_number`` is not provided, automatically assigns the next
@@ -844,8 +852,11 @@ def create_racer(db: Session, racer: schemas.RacerCreate) -> models.Racer:
 
     db_racer = models.Racer(**racer_data, race_id=race.id)
     db.add(db_racer)
-    db.commit()
-    db.refresh(db_racer)
+    if commit:
+        db.commit()
+        db.refresh(db_racer)
+    else:
+        db.flush()
     return db_racer
 
 
