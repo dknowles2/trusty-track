@@ -6,6 +6,8 @@ validates before sending, and why the fields it can send are pinned here.
 """
 
 import pytest
+from sqlalchemy.orm import Session
+from starlette.testclient import TestClient
 
 from backend.api import schema
 from backend.db import crud, models, schemas
@@ -181,3 +183,62 @@ def test_import_racers_exceeding_utf8_bytes_is_refused(
     payload = response.json()
     assert "errors" in payload
     assert "CSV data is larger than" in payload["errors"][0]["message"]
+
+
+def test_whitespace_padded_car_number_is_parsed(
+    client: TestClient, db: Session, race: models.Race
+) -> None:
+    """Car number cells padded with spaces are stripped before parsing (#864)."""
+    count = _import(
+        client,
+        race.id,
+        "first_name,last_name,car_number\nAlex,Rivera,  12  \n",
+    )
+
+    assert count == 1
+    racer = _racers(db, race.id)[0]
+    assert racer.car_number == 12
+
+
+def test_failed_import_leaves_no_racers_behind(
+    client: TestClient,
+    db: Session,
+    race: models.Race,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When an import fails midway, the transaction rolls back cleanly (#864)."""
+    original_create_racer = crud.create_racer
+    calls = 0
+
+    def fail_on_second(
+        db: Session, racer: schemas.RacerCreate, **kwargs: object
+    ) -> models.Racer:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("Midway failure during racer creation")
+        return original_create_racer(db, racer, **kwargs)
+
+    monkeypatch.setattr(crud, "create_racer", fail_on_second)
+
+    csv_data = (
+        "first_name,last_name,car_number,racing_group\n"
+        "Alex,Rivera,101,Wolves\n"
+        "Sam,Okafor,102,Wolves\n"
+    )
+
+    response = client.post(
+        "/graphql",
+        json={"query": IMPORT, "variables": {"raceId": race.id, "csvData": csv_data}},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert "errors" in payload
+    assert "Midway failure" in payload["errors"][0]["message"]
+
+    # Verify atomic rollback: no racers or racing groups should remain
+    assert _racers(db, race.id) == []
+    racing_groups = (
+        db.query(models.RacingGroup).filter(models.RacingGroup.race_id == race.id).all()
+    )
+    assert racing_groups == []
