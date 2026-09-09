@@ -264,39 +264,45 @@ export const test = base.extend({
                     });
                 })
                 .catch(() => {});
-            // A hover style set from JS is the same shape as `.settings-nav
-            // button`'s CSS `:hover`, below, and needs the same fix — but no
-            // spec should have to remember to ask for it a third time (#843,
-            // reopened). `Navigation.tsx`'s race selector pill sets its
-            // background from `onMouseEnter`/`onMouseLeave` against
-            // `transition: all 0.2s ease`, and no spec here ever hovers or
-            // clicks it — but Playwright's virtual cursor is not reset
-            // between actions or navigations within one spec, so a click on
-            // *anything else* earlier in the same flow can leave it resting
-            // exactly inside the pill's own bounding box once a later page
-            // renders the pill in that same screen position, firing the
-            // handler with nobody having asked for it.
+            // A defence against a specific, plausible-but-unconfirmed cause
+            // of #843's reopened residual — not a fix proven to work, and
+            // said so here rather than left to read as one.
             //
-            // Confirmed from the diff images themselves, not assumed: every
-            // failing pixel across all 40 of the reopened issue's images sat
-            // tightly inside the pill's own text glyphs — including on the
-            // Home page, where the pill's text ("Select a Race") is a static
-            // string that never changes at all. That is what a background
-            // colour caught mid-transition looks like on anti-aliased text —
-            // the blended edge pixels shift a few values, the flat interior
-            // mostly does not — and not what a fully-settled pill stuck on
-            // the wrong side of hover would look like (a solid-colour diff
-            // across the whole shape). So this is `settleTransitions`'s own
-            // failure mode, not a second one: a transition genuinely
-            // in-flight when the shutter fires.
+            // Every failing pixel across all 40 of the reopened issue's
+            // images sat tightly inside the navigation bar race selector
+            // pill's own text glyphs — including on the Home page, where the
+            // pill's text ("Select a Race") is a static string that never
+            // changes at all. That shape (edges of anti-aliased text, not
+            // the pill's flat background or border) is what a background
+            // colour caught mid-transition looks like, which pointed at
+            // `Navigation.tsx`'s pill: it sets its background from
+            // `onMouseEnter`/`onMouseLeave` against `transition: all 0.2s
+            // ease`, the same shape `.settings-nav button`'s CSS `:hover`
+            // already needed `settleTransitions` for, and nothing called it
+            // here. No spec hovers or clicks the pill directly, but
+            // Playwright's virtual cursor is never reset between actions or
+            // navigations within one spec, so a click on anything else
+            // earlier in the same flow could in principle leave it resting
+            // inside the pill's bounding box once a later page renders it in
+            // the same screen position.
             //
-            // Moving the pointer off every control first, then settling
-            // whatever transition that produces, covers the pill and every
-            // future control with the same shape at once. `(-1, -1)` is
-            // deliberately outside the viewport rather than some on-page
-            // "safe" corner — the pill's own bounding box is centred and
-            // page-relative, so no fixed on-page point is safe against a
-            // future layout change, where off-page is safe by construction.
+            // That hypothesis did not survive verification: two bootstrap
+            // passes against fresh CI runs, each rebuilding the baseline
+            // from that run's own output, reproduced the identical ~40-image
+            // signature both times with the total pixel count moving from
+            // 1,510 to 5,714 between passes rather than shrinking toward
+            // zero — not what a real fix converging on noise looks like, and
+            // consistent with `settleTransitions` finding nothing to await
+            // (no spec triggers the handler, so there is no in-flight
+            // transition here to catch). The mechanism remains open; see
+            // `.claude/rules/documentation.md`'s screenshot section for the
+            // full record, including the leading unconfirmed hypothesis
+            // (Chromium rendering non-determinism specific to this element's
+            // anti-aliased text over a semi-transparent, alpha-blended
+            // background). Left in rather than reverted because it is a
+            // correct defence against the class of bug it targets even
+            // though it is not sufficient on its own, and because removing
+            // it would not shrink the residual it did not cause.
             await page.mouse.move(-1, -1).catch(() => {});
             await settleTransitions(page.locator('body')).catch(() => {});
             return takeScreenshot({ animations: 'disabled', ...options });
