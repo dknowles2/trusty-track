@@ -16,6 +16,21 @@ import logoUrl from '../../../assets/logo_transparent.png';
 import { UnlockButton } from './UnlockButton';
 import { useChrome } from '../../../context/ChromeContext';
 
+// The race-selector pill sits directly on the nav's own `--scouting-blue`
+// background with nothing else behind it, so an opaque `color-mix` against
+// that same custom property renders byte-identical to alpha-compositing
+// white at the same weight -- but as a single resolved colour rather than a
+// paint-time blend of a translucent layer under anti-aliased bold text. That
+// distinction is the fix for dknowles2/trusty-track#918's ~40-image
+// pill-glyph-only drift: two bootstrap passes against fresh CI runs found the
+// signature confined to the glyphs and never the pill's flat fill or border,
+// which is the class of non-reproducibility this removes. Keep these as
+// `color-mix` against `--scouting-blue` (never a hardcoded hex) so a themed
+// install (#498) still renders the right colour.
+const PILL_BACKGROUND = 'color-mix(in srgb, #ffffff 10%, var(--scouting-blue))';
+const PILL_BACKGROUND_HOVER = 'color-mix(in srgb, #ffffff 20%, var(--scouting-blue))';
+const PILL_BORDER = '1px solid color-mix(in srgb, #ffffff 20%, var(--scouting-blue))';
+
 export default function Navigation() {
   const { hidden: chromeHidden } = useChrome();
   const { showAlert } = useAlert();
@@ -134,8 +149,8 @@ export default function Navigation() {
               data-testid="race-selector-pill"
               onClick={() => setIsRaceDropdownOpen(!isRaceDropdownOpen)}
               style={{
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.2)',
+                background: PILL_BACKGROUND,
+                border: PILL_BORDER,
                 color: 'var(--on-primary-color)',
                 padding: '5px 16px',
                 borderRadius: '20px',
@@ -147,8 +162,8 @@ export default function Navigation() {
                 gap: '8px',
                 transition: 'all 0.2s ease'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = PILL_BACKGROUND_HOVER}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = PILL_BACKGROUND}
             >
               <Icon path={mdiFlagCheckered} size={0.8} color="var(--on-primary-color)" />
               {activeRace ? activeRace.name : raceContextUnresolved ? '' : 'Select a Race'}
