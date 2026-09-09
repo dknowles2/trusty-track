@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -166,5 +166,79 @@ describe('RaceExecution sound effect transitions (#554)', () => {
 
         expect(startSpy).not.toHaveBeenCalled();
         expect(stagingSpy).not.toHaveBeenCalled();
+    });
+
+    it('ticking finish sound only toggles finish and does not switch master sound on (#871)', () => {
+        soundModule.writeSoundSettings(window.localStorage, {
+            ...soundModule.DEFAULT_SOUND_SETTINGS,
+            master: false,
+            finish: false,
+            gateRelease: true,
+        });
+
+        render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        const toggle = screen.getByTestId('finish-chime-toggle');
+        expect(toggle).not.toBeChecked();
+
+        fireEvent.click(toggle);
+        expect(toggle).toBeChecked();
+
+        const stored = soundModule.readSoundSettings(window.localStorage);
+        expect(stored.finish).toBe(true);
+        expect(stored.master).toBe(false);
+        expect(window.localStorage.getItem(soundModule.FINISH_CHIME_STORAGE_KEY)).toBe('on');
+    });
+
+    it('unticking finish sound does not leave master on (#871)', () => {
+        soundModule.writeSoundSettings(window.localStorage, {
+            ...soundModule.DEFAULT_SOUND_SETTINGS,
+            master: false,
+            finish: true,
+        });
+
+        render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        const toggle = screen.getByTestId('finish-chime-toggle');
+        expect(toggle).toBeChecked();
+
+        fireEvent.click(toggle);
+        expect(toggle).not.toBeChecked();
+
+        const stored = soundModule.readSoundSettings(window.localStorage);
+        expect(stored.finish).toBe(false);
+        expect(stored.master).toBe(false);
+        expect(window.localStorage.getItem(soundModule.FINISH_CHIME_STORAGE_KEY)).toBe('off');
+    });
+
+    it('ticking finish sound does not silently enable gate release horn (#871)', () => {
+        const startSpy = vi.spyOn(soundModule, 'playGateReleaseSound').mockImplementation(() => {});
+        soundModule.writeSoundSettings(window.localStorage, {
+            ...soundModule.DEFAULT_SOUND_SETTINGS,
+            master: false,
+            finish: false,
+            gateRelease: true,
+        });
+
+        let currentPhase = 'WAITING';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+
+        const { rerender } = render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        // Operator ticks finish sound
+        fireEvent.click(screen.getByTestId('finish-chime-toggle'));
+
+        // Gate drops: WAITING -> RUNNING
+        currentPhase = 'RUNNING';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+
+        rerender(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        // Gate release horn must NOT have sounded
+        expect(startSpy).not.toHaveBeenCalled();
     });
 });

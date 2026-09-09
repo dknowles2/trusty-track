@@ -70,7 +70,7 @@ describe('soundEffects settings storage', () => {
         expect(reloaded).toEqual(custom);
     });
 
-    it('syncs legacy finish chime to off when finish is disabled or master is off', () => {
+    it('syncs legacy finish chime with finish setting regardless of master', () => {
         const store = mockStorage();
         writeSoundSettings(store, {
             ...DEFAULT_SOUND_SETTINGS,
@@ -84,7 +84,7 @@ describe('soundEffects settings storage', () => {
             master: false,
             finish: true,
         });
-        expect(store.setItem).toHaveBeenCalledWith(FINISH_CHIME_STORAGE_KEY, 'off');
+        expect(store.setItem).toHaveBeenCalledWith(FINISH_CHIME_STORAGE_KEY, 'on');
     });
 
     it('safely handles corrupted json or storage errors', () => {

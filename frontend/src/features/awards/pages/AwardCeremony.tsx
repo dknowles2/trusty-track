@@ -97,14 +97,9 @@ export default function AwardCeremony() {
   const [soundOn, setSoundOn] = useState(() => isSoundEffectEnabled('awardFanfare', window.localStorage));
 
   const step = useCallback(
-    (delta: number) =>
-      setIndex((current) => {
-        const next = stepIndex(current, delta, awards.length);
-        if (delta > 0 && next !== current && isSoundEffectEnabled('awardFanfare', window.localStorage)) {
-          playAwardFanfareSound();
-        }
-        return next;
-      }),
+    (delta: number) => {
+      setIndex((current) => stepIndex(current, delta, awards.length));
+    },
     [awards.length],
   );
 
@@ -127,7 +122,12 @@ export default function AwardCeremony() {
     // The value it arrives holding is a reconnection, not an instruction.
     // Obeying it would jump the ceremony a trophy every time the wifi
     // hiccupped — the `seen === null` rule from `roundCompletion.ts`.
-    if (obeyedSeq !== null) step(assignment.slideDelta);
+    if (obeyedSeq !== null) {
+      if (assignment.slideDelta > 0 && index < awards.length - 1 && isSoundEffectEnabled('awardFanfare', window.localStorage)) {
+        playAwardFanfareSound();
+      }
+      step(assignment.slideDelta);
+    }
   }
 
   useEffect(() => {
@@ -137,11 +137,14 @@ export default function AwardCeremony() {
       // Space scrolls and the arrows move the page otherwise, and a ceremony
       // that jumps a line every time the announcer clicks forward is a mess.
       event.preventDefault();
+      if (delta > 0 && index < awards.length - 1 && isSoundEffectEnabled('awardFanfare', window.localStorage)) {
+        playAwardFanfareSound();
+      }
       step(delta);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [step]);
+  }, [step, index, awards.length]);
 
   // A projector wants no scrollbars and no page chrome.
   useEffect(() => {
@@ -161,7 +164,12 @@ export default function AwardCeremony() {
 
   return (
     <div
-      onClick={() => step(1)}
+      onClick={() => {
+        if (index < awards.length - 1 && isSoundEffectEnabled('awardFanfare', window.localStorage)) {
+          playAwardFanfareSound();
+        }
+        step(1);
+      }}
       role="presentation"
       data-theme={displayThemeKey}
       style={{
@@ -304,7 +312,6 @@ export default function AwardCeremony() {
               const current = readSoundSettings(window.localStorage);
               const updated = {
                 ...current,
-                master: checked ? true : current.master,
                 awardFanfare: checked,
               };
               writeSoundSettings(window.localStorage, updated);

@@ -1,3 +1,4 @@
+import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -394,6 +395,36 @@ describe('ceremony sound effects (#554)', () => {
     fireEvent.click(toggle);
     expect(toggle).toBeChecked();
     expect(soundModule.readSoundSettings(window.localStorage).awardFanfare).toBe(true);
+    expect(soundModule.readSoundSettings(window.localStorage).master).toBe(false);
+  });
+
+  it('does not play award fanfare twice in React StrictMode when advancing slides (#871)', async () => {
+    const fanfareSpy = vi.spyOn(soundModule, 'playAwardFanfareSound').mockImplementation(() => {});
+    soundModule.writeSoundSettings(window.localStorage, {
+      ...soundModule.DEFAULT_SOUND_SETTINGS,
+      master: true,
+      awardFanfare: true,
+    });
+
+    (useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue([
+      { data: { race: RACE }, fetching: false, error: undefined },
+      vi.fn(),
+    ]);
+
+    render(
+      <React.StrictMode>
+        <MemoryRouter initialEntries={['/race/1/awards/present']}>
+          <Routes>
+            <Route path="/race/:raceId/awards/present" element={<AwardCeremony />} />
+          </Routes>
+        </MemoryRouter>
+      </React.StrictMode>,
+    );
+
+    expect(fanfareSpy).not.toHaveBeenCalled();
+
+    await userEvent.keyboard('{ArrowRight}');
+    expect(fanfareSpy).toHaveBeenCalledTimes(1);
   });
 });
 

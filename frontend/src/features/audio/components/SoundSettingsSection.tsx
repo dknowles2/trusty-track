@@ -145,7 +145,7 @@ export default function SoundSettingsSection(): React.ReactElement {
                                     type="checkbox"
                                     data-testid={`sound-effect-${opt.key}`}
                                     disabled={!settings.master}
-                                    checked={settings.master && settings[opt.key]}
+                                    checked={settings[opt.key]}
                                     onChange={(e) => handleEffectChange(opt.key, e.target.checked)}
                                 />
                                 {opt.title}
