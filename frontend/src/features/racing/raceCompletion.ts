@@ -55,26 +55,63 @@ export function hasTerminalRound(rounds: readonly TerminalCheckRound[]): boolean
     return rounds.some((r) => r.advancementSource != null);
 }
 
-/** What the previous look reported, or `null` before the first one. */
-export type SeenComplete = boolean | null;
+/**
+ * What the previous look reported, or `null` before the first one.
+ *
+ * Carries the heat-id set completion was last computed over, not only the
+ * boolean (#916). A plain boolean cannot tell "still the race we already
+ * celebrated" from "a *different*, newly-grown schedule that happens to
+ * read complete again" — and a round appended mid-event (`Add Round`, not
+ * the wizard) can go from placeholders to a fully recorded final inside one
+ * refetch, so the client never renders the in-between incomplete state at
+ * all. Without the id set, that in-between state is exactly what the old
+ * boolean-only `!seen` check depended on seeing.
+ */
+export type SeenComplete = { readonly complete: boolean; readonly heatIds: readonly number[] } | null;
 
 export interface RaceCompletion {
     /** To carry into the next call. */
-    readonly seen: boolean;
+    readonly seen: SeenComplete;
     /** True exactly on the call where completion is first observed. */
     readonly justCompleted: boolean;
 }
 
 /**
+ * A fingerprint of a heat-id set, order ignored — a refetch is not promised
+ * to return them in the same sequence as the last one. Exported so
+ * `RaceControl.tsx` can hand the same identity to `raceFlow.ts`'s
+ * `raceSummaryKey`, which needs to tell one completed schedule from another
+ * for exactly the reason this module does (#916) — one fingerprint rule
+ * rather than two copies free to disagree.
+ */
+export function heatSetKey(heatIds: readonly number[]): string {
+    return [...heatIds].sort((a, b) => a - b).join(',');
+}
+
+/**
  * @param seen  the `seen` from the previous call, or `null` on the first.
  * @param isComplete  whether every heat the race will ever run has now run.
+ * @param heatIds  every heat id currently in the race's schedule, of either
+ *   kind of round — what `isComplete` was computed over. Used only to tell
+ *   one completed schedule from another; not otherwise interpreted.
  */
-export function observeRaceComplete(seen: SeenComplete, isComplete: boolean): RaceCompletion {
+export function observeRaceComplete(
+    seen: SeenComplete,
+    isComplete: boolean,
+    heatIds: readonly number[],
+): RaceCompletion {
+    const nextSeen: SeenComplete = { complete: isComplete, heatIds };
     if (seen === null) {
-        return { seen: isComplete, justCompleted: false };
+        return { seen: nextSeen, justCompleted: false };
     }
-    // A result cleared on the last heat un-completes the race; carrying
-    // forward exactly what is true now is what lets it be news again if the
-    // operator finishes it a second time.
-    return { seen: isComplete, justCompleted: isComplete && !seen };
+    // News either the ordinary way — the race was not complete a moment ago
+    // and is now (a result cleared on the last heat un-completes it, so
+    // finishing it again is news the same way) — or because the schedule
+    // completion was computed over has changed since the last time we saw
+    // it complete, even though completeness itself never visibly toggled
+    // off in between (#916: a championship round appended and immediately
+    // fully recorded before the next refetch lands).
+    const justCompleted =
+        isComplete && (!seen.complete || heatSetKey(seen.heatIds) !== heatSetKey(heatIds));
+    return { seen: nextSeen, justCompleted };
 }

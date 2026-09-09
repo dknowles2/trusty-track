@@ -71,6 +71,15 @@ interface Props {
   // and the backend already refuses that WebSocket on a demo — this only
   // stops the settings page offering a control that cannot work.
   demoMode?: boolean;
+  // #892: passed straight through to `TrackLanes`/`TrackRecords`, the two
+  // panels on this card that save on click rather than on **Save
+  // Settings** and so need their own role check rather than riding on the
+  // form's single submit button. The rest of the card's own fields (name,
+  // lane count, timer, lane colours…) do not need it here — they save
+  // through the parent form's Save Settings button, which does the
+  // gating. Defaults `true` so every existing caller (and any install
+  // with no PIN set) renders exactly as before.
+  isOperator?: boolean;
   onChange: (field: string, value: string | number | boolean) => void;
   onRemove: () => void;
   onLaneOutages: (outages: number[]) => void;
@@ -110,6 +119,7 @@ export default function TrackCard({
   timerModels,
   canRemove,
   demoMode,
+  isOperator = true,
   onChange,
   onRemove,
   onLaneOutages,
@@ -350,6 +360,7 @@ export default function TrackCard({
           laneCount={track.laneCount}
           outages={track.laneOutages ?? []}
           onChange={onLaneOutages}
+          isOperator={isOperator}
         />
       )}
 
@@ -360,6 +371,7 @@ export default function TrackCard({
           trackId={track.id}
           records={track.historicalRecords ?? []}
           onChange={onRecords}
+          isOperator={isOperator}
         />
       )}
 

@@ -25,6 +25,7 @@ import type { SurfaceThemeSetting, ThemeKey } from '../../../theming/themes';
 import type { HistoricalRecord } from '../components/TrackRecords';
 import { DEFAULT_TERMINOLOGY, VEHICLE_ARTWORK_OPTIONS } from '../terminologyDefaults';
 import { NAME_DISPLAY_OPTIONS } from '../../core/displayName';
+import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
 const GET_INITIAL_CONFIG = `
   query GetInitialConfig {
@@ -239,6 +240,16 @@ export default function SystemConfig() {
   const [modelsResult] = useQuery({ query: GET_TIMER_MODELS });
   const timerModels: TimerModel[] = modelsResult.data?.timerModels || [];
   const { data, fetching, error: queryError } = configResult;
+  // #892: `createInitialConfig`/`updateInitialConfig` are operator-only
+  // (backend/api/auth.py's OPERATOR_ONLY_MUTATIONS), and this page's own
+  // query already asks for `isOperator` — read here rather than through
+  // `useRole()`, which would fire the shared `INITIAL_CONFIG_QUERY`
+  // document a second time (this page has its own, wider query rather than
+  // reusing that one). `!== false` mirrors `Navigation.tsx`'s own default,
+  // so the button does not flash disabled for the render before the first
+  // response lands, and matches what an install with no PIN actually
+  // resolves to for every caller.
+  const isOperator = data?.initialConfig?.isOperator !== false;
 
   const [, createInitialConfig] = useMutation(CREATE_INITIAL_CONFIG);
   const [, updateInitialConfig] = useMutation(UPDATE_INITIAL_CONFIG);
@@ -801,6 +812,7 @@ export default function SystemConfig() {
             timerModels={timerModels}
             canRemove={tracks.length > 1}
             demoMode={!!data?.initialConfig?.demoMode}
+            isOperator={isOperator}
             onChange={(field, value) => handleTrackChange(index, field, value)}
             onRemove={() => removeTrack(index)}
             onLaneOutages={(laneOutages) =>
@@ -891,7 +903,18 @@ export default function SystemConfig() {
                 <Fragment key={id}>{shows(id) && formSections[id as keyof typeof formSections]}</Fragment>
               ))}
 
-              <button type="submit" className="primary-btn" disabled={submitting} style={{ width: '100%' }}>
+              {/* #892: on the first-run wizard `isOperator` is always true —
+                  there is no PIN yet, so every caller resolves as OPERATOR
+                  (backend/api/auth.py) — so this only ever disables on the
+                  sectioned settings page, once an install already has one
+                  set. */}
+              <button
+                type="submit"
+                className="primary-btn"
+                disabled={submitting || !isOperator}
+                title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
+                style={{ width: '100%' }}
+              >
                 {submitting ? 'Saving...' : 'Save Settings'}
               </button>
             </form>
@@ -905,7 +928,7 @@ export default function SystemConfig() {
           {isEditing && shows('backup') && (
             <section>
               <SectionHeading id="backup" sectioned={sectioned} />
-              <BackupPanel />
+              <BackupPanel isOperator={isOperator} />
             </section>
           )}
 

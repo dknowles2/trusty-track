@@ -36,7 +36,7 @@ import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane, Eliminatio
 import { hasRun, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shouldDerivePlaces } from '../lanes';
 import { executionComparator } from '../runningOrder';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
-import { hasTerminalRound, observeRaceComplete, type SeenComplete } from '../raceCompletion';
+import { hasTerminalRound, heatSetKey, observeRaceComplete, type SeenComplete } from '../raceCompletion';
 import { shouldShowReadiness } from '../readiness';
 import { estimatePace } from '../pace';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
@@ -63,6 +63,12 @@ export default function RaceControl() {
   // race does not greet the operator with a celebration (see
   // `raceCompletion.ts`'s `seen === null` rule).
   const [raceJustCompleted, setRaceJustCompleted] = useState(false);
+  // Which completed schedule that was (#916) — `raceFlow.ts`'s
+  // `raceSummaryKey`, threaded through so a *different* schedule completing
+  // while `raceJustCompleted` is still (or again) `true` is told apart from
+  // the one already celebrated, even with no observed dip in between. See
+  // `raceCompletion.ts`'s `heatSetKey` and `raceFlow.ts`'s own docstring.
+  const [raceSummaryKey, setRaceSummaryKey] = useState<string | null>(null);
 
   // Whether any audience display is known for this race (#850) — read off
   // `DisplaysPanel`, which already asks the question for its own list,
@@ -147,6 +153,14 @@ export default function RaceControl() {
     () => heats.length > 0 && heats.every((h: Heat) => hasRun(h.lanes)),
     [heats]
   );
+
+  // What `isRaceComplete` was computed over (#916) — a championship round
+  // appended mid-event and then immediately fully recorded can go straight
+  // from one completed schedule to a *different*, larger completed one
+  // inside a single refetch, with the client never rendering the
+  // in-between incomplete state. `observeRaceComplete` needs the id set to
+  // tell those two completions apart; see its own docstring.
+  const heatIds = useMemo(() => heats.map((h: Heat) => h.id), [heats]);
 
   // Whether the schedule already holds a round that could only be a genuine
   // ending — a round drawing its field from another round's standings
@@ -246,12 +260,17 @@ export default function RaceControl() {
   useEffect(() => {
     if (fetching || !race?.heats) return;
 
-    const { seen, justCompleted } = observeRaceComplete(seenRaceComplete.current, isRaceComplete);
+    const { seen, justCompleted } = observeRaceComplete(
+      seenRaceComplete.current,
+      isRaceComplete,
+      heatIds
+    );
     seenRaceComplete.current = seen;
     if (justCompleted) {
       setRaceJustCompleted(true);
+      setRaceSummaryKey(heatSetKey(heatIds));
     }
-  }, [fetching, race?.heats, isRaceComplete]);
+  }, [fetching, race?.heats, isRaceComplete, heatIds]);
 
   // Opens the hand-pick picker for a round the wizard just created with
   // "I'll choose who races myself" checked (#711), the moment that round
@@ -297,6 +316,7 @@ export default function RaceControl() {
   }
   if (raceJustCompleted && race?.heats && !fetching && !isRaceComplete) {
     setRaceJustCompleted(false);
+    setRaceSummaryKey(null);
   }
 
   const handleAddRound = async (config: {
@@ -998,6 +1018,7 @@ export default function RaceControl() {
               racers={racers}
               roundSummary={roundSummary}
               raceJustCompleted={raceJustCompleted}
+              raceSummaryKey={raceSummaryKey}
               hasChampionshipRound={hasChampionshipRound}
               autoAdvanceHeat={race?.autoAdvanceHeat ?? false}
               masterRunningOrder={masterRunningOrder}

@@ -30,7 +30,7 @@ const seen = (overrides: Partial<Observation> = {}): Observation => ({
     hasNextHeat: true,
     autoAdvanceEnabled: true,
     hasRoundSummary: false, roundSummaryId: null,
-    hasRaceSummary: false,
+    hasRaceSummary: false, raceSummaryKey: null,
     ...overrides,
 });
 
@@ -486,5 +486,35 @@ describe('the race summary (#847)', () => {
             ),
         ]);
         expect(result.state.screen).toEqual({ kind: 'RACE_SUMMARY' });
+    });
+
+    // #916: a championship round appended via Add Round (not the wizard) and
+    // then immediately, fully recorded can leap the client straight from one
+    // completed schedule to a different, larger one, with no render of the
+    // in-between "one heat still pending" state — so `hasRaceSummary` can
+    // read `true` continuously across two genuinely different completions.
+    // `raceSummaryKey` (`raceCompletion.ts`'s heat-id fingerprint) is what
+    // lets this machine tell them apart when the level alone cannot.
+    test('completing again over a different schedule re-raises the summary, even with hasRaceSummary never seen false (#916)', () => {
+        const result = run([
+            observe(seen({ hasRaceSummary: false })),
+            observe(recorded({ hasRaceSummary: true, raceSummaryKey: '1,2,3', hasNextHeat: false })),
+            dismissSummary(),
+            // No intervening `hasRaceSummary: false` observation at all.
+            observe(
+                recorded({ hasRaceSummary: true, raceSummaryKey: '1,2,3,4,5', hasNextHeat: false }),
+            ),
+        ]);
+        expect(result.state.screen).toEqual({ kind: 'RACE_SUMMARY' });
+    });
+
+    test('completing again over the identical schedule does not re-raise it', () => {
+        const result = run([
+            observe(seen({ hasRaceSummary: false })),
+            observe(recorded({ hasRaceSummary: true, raceSummaryKey: '1,2,3', hasNextHeat: false })),
+            dismissSummary(),
+            observe(recorded({ hasRaceSummary: true, raceSummaryKey: '1,2,3', hasNextHeat: false })),
+        ]);
+        expect(result.state.screen.kind).not.toBe('RACE_SUMMARY');
     });
 });

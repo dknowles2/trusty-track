@@ -16,6 +16,7 @@ import { useState } from 'react';
 import { gql, useMutation } from 'urql';
 import { useRunMutation } from '../../../context/runMutation';
 import { lanesOf, outageSummary, toggleLane } from '../laneOutages';
+import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
 const SET_LANE_OUTAGES_MUTATION = gql`
   mutation SetLaneOutages($trackId: Int!, $lanes: [Int!]!) {
@@ -28,9 +29,17 @@ interface Props {
   laneCount: number;
   outages: number[];
   onChange: (outages: number[]) => void;
+  /**
+   * #892: `setLaneOutages` is operator-only (backend/api/auth.py's
+   * OPERATOR_ONLY_MUTATIONS) — a lane going out of service changes every
+   * schedule generated from now on. Defaults `true` so every existing
+   * caller (and any install with no PIN set, where every caller resolves
+   * as OPERATOR) renders exactly as before.
+   */
+  isOperator?: boolean;
 }
 
-export default function TrackLanes({ trackId, laneCount, outages, onChange }: Props) {
+export default function TrackLanes({ trackId, laneCount, outages, onChange, isOperator = true }: Props) {
   const [, setLaneOutages] = useMutation(SET_LANE_OUTAGES_MUTATION);
   const runMutation = useRunMutation();
   const [busy, setBusy] = useState(false);
@@ -76,7 +85,8 @@ export default function TrackLanes({ trackId, laneCount, outages, onChange }: Pr
               <input
                 type="checkbox"
                 checked={!out}
-                disabled={busy}
+                disabled={busy || !isOperator}
+                title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
                 onChange={() => toggle(lane)}
                 aria-label={`Lane ${lane} works`}
               />

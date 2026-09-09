@@ -93,6 +93,7 @@ export function useRaceFlow(observation: Observation, handlers: RaceFlowHandlers
         hasRoundSummary,
         roundSummaryId,
         hasRaceSummary,
+        raceSummaryKey,
     } = observation;
     useEffect(() => {
         dispatch(
@@ -107,6 +108,7 @@ export function useRaceFlow(observation: Observation, handlers: RaceFlowHandlers
                 hasRoundSummary,
                 roundSummaryId,
                 hasRaceSummary,
+                raceSummaryKey,
             }),
         );
     }, [
@@ -121,6 +123,7 @@ export function useRaceFlow(observation: Observation, handlers: RaceFlowHandlers
         hasRoundSummary,
         roundSummaryId,
         hasRaceSummary,
+        raceSummaryKey,
     ]);
 
     // The clock. Keyed on `kind`, not on the whole screen, so counting from 10

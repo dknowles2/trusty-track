@@ -54,6 +54,8 @@ import {
 } from '../displayView';
 import { newDisplayWindowUrl } from '../displayIdentity';
 import ConnectDisplayAddress from './ConnectDisplayAddress';
+import { useRole } from '../../core/hooks/useRole';
+import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
 interface DisplayRow {
     displayId: string;
@@ -99,6 +101,17 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
         requestPolicy: 'cache-and-network',
     });
     const hasAwards = (awardsResult.data?.race?.awards?.length ?? 0) > 0;
+
+    // #892: every mutation this panel runs (assignDisplay, advanceDisplay,
+    // renameDisplay, forgetDisplay, identifyDisplay) is operator-only
+    // (backend/api/auth.py's OPERATOR_ONLY_MUTATIONS) — a display holds no
+    // PIN by design and registers by *subscribing*, never by calling one of
+    // these itself (see ".claude/rules/displays.md"), so a check-in tablet
+    // opening Race Control's Displays tab used to see every control here
+    // fully enabled. "Open a new display window" is untouched: it is a
+    // plain `window.open`, not a mutation.
+    const { isOperator } = useRole();
+    const operatorTitle = !isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined;
 
     const [, assignDisplay] = useMutation(ASSIGN_DISPLAY);
     const [, advanceDisplay] = useMutation(ADVANCE_DISPLAY);
@@ -238,14 +251,21 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                                 <button
                                     type="button"
                                     aria-label="Suggest a new name"
-                                    title="Suggest a new name"
+                                    title={operatorTitle ?? 'Suggest a new name'}
+                                    disabled={!isOperator}
                                     onClick={() => void rerollName(display.displayId, draftName)}
                                     className="secondary-btn"
                                     style={{ padding: '0.3rem 0.5rem' }}
                                 >
                                     <Icon path={mdiDice5} size={0.7} />
                                 </button>
-                                <button type="submit" className="secondary-btn" style={{ padding: '0.3rem 0.7rem' }}>
+                                <button
+                                    type="submit"
+                                    className="secondary-btn"
+                                    disabled={!isOperator}
+                                    title={operatorTitle}
+                                    style={{ padding: '0.3rem 0.7rem' }}
+                                >
                                     Save
                                 </button>
                             </form>
@@ -255,6 +275,8 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                                 <button
                                     type="button"
                                     aria-label={`Rename ${display.name}`}
+                                    disabled={!isOperator}
+                                    title={operatorTitle}
                                     onClick={() => {
                                         setRenaming(display.displayId);
                                         setDraftName(display.name);
@@ -273,6 +295,8 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                     <select
                         aria-label={`What ${display.name} shows`}
                         value={display.view}
+                        disabled={!isOperator}
+                        title={operatorTitle}
                         onChange={(e) =>
                             assignDisplay({
                                 displayId: display.displayId,
@@ -306,6 +330,8 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                                 min={1}
                                 aria-label={`Cycle interval for ${display.name}`}
                                 value={display.cycleSeconds}
+                                disabled={!isOperator}
+                                title={operatorTitle}
                                 onChange={(e) => {
                                     const seconds = parseInt(e.target.value);
                                     // Refused by the server too — a zero
@@ -334,6 +360,8 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                         <select
                             aria-label={`How ${display.name} moves through the standings`}
                             value={display.scrollBehavior}
+                            disabled={!isOperator}
+                            title={operatorTitle}
                             onChange={(e) =>
                                 assignDisplay({
                                     displayId: display.displayId,
@@ -356,6 +384,8 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                         <select
                             aria-label={`Who ${display.name} lists`}
                             value={display.showCheckedIn ? 'ALL' : 'PENDING'}
+                            disabled={!isOperator}
+                            title={operatorTitle}
                             onChange={(e) =>
                                 assignDisplay({
                                     displayId: display.displayId,
@@ -376,6 +406,8 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                         <select
                             aria-label={`What ${display.name}'s QR code opens`}
                             value={display.qrTarget}
+                            disabled={!isOperator}
+                            title={operatorTitle}
                             onChange={(e) =>
                                 assignDisplay({
                                     displayId: display.displayId,
@@ -398,6 +430,8 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                         <select
                             aria-label={`Whether ${display.name} shows the standings ticker`}
                             value={display.showStandingsTicker ? 'ON' : 'OFF'}
+                            disabled={!isOperator}
+                            title={operatorTitle}
                             onChange={(e) =>
                                 assignDisplay({
                                     displayId: display.displayId,
@@ -423,7 +457,8 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                             <button
                                 type="button"
                                 aria-label={`Previous award on ${display.name}`}
-                                disabled={!display.connected}
+                                disabled={!display.connected || !isOperator}
+                                title={operatorTitle}
                                 onClick={() => advanceDisplay({ displayId: display.displayId, delta: -1 })}
                                 className="secondary-btn"
                                 style={{ padding: '0.25rem 0.6rem' }}
@@ -436,7 +471,8 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                             <button
                                 type="button"
                                 aria-label={`Next award on ${display.name}`}
-                                disabled={!display.connected}
+                                disabled={!display.connected || !isOperator}
+                                title={operatorTitle}
                                 onClick={() => advanceDisplay({ displayId: display.displayId, delta: 1 })}
                                 className="secondary-btn"
                                 style={{ padding: '0.25rem 0.6rem' }}
@@ -453,8 +489,8 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                     <button
                         type="button"
                         aria-label={`Identify ${display.name}`}
-                        title="Flash this screen's name"
-                        disabled={!display.connected}
+                        title={operatorTitle ?? "Flash this screen's name"}
+                        disabled={!display.connected || !isOperator}
                         onClick={() => identifyDisplay({ displayId: display.displayId })}
                         className="secondary-btn"
                         style={{ padding: '0.25rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
@@ -467,6 +503,8 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                         <button
                             type="button"
                             aria-label={`Forget ${display.name}`}
+                            disabled={!isOperator}
+                            title={operatorTitle}
                             onClick={() => forgetDisplay({ displayId: display.displayId })}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}
                         >
