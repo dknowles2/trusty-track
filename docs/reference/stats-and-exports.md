@@ -11,7 +11,7 @@ exhibition runs are excluded from every number on the page and every export.
 ### Overview cards
 
 - **Scoring** — the race's scoring method.
-- **Racers** — total registered racers.
+- **Racers** — racers who have raced at least once, out of the roster (e.g. "14 / 19").
 - **Heats Completed** — heats run out of heats scheduled.
 
 ### Lane fairness
@@ -26,6 +26,10 @@ track maintenance. The numbers mean most after a full
 everyone-in-every-lane round, where every car has run every lane.
 
 ### Per-racer stats
+
+The section heading shows how many of the roster have raced so far
+("3 of 19 have raced") while the race is still in progress, and drops the
+count once everyone has run at least one heat.
 
 | Column | What it means |
 | --- | --- |
@@ -47,7 +51,9 @@ everyone-in-every-lane round, where every car has run every lane.
 ### Den comparison
 
 Each den's average score as a bar in the den's colour, with racer count and
-the den's best performer in the table.
+the den's best performer in the table. The chart's scale is padded tightly
+around the dens' actual scores rather than starting at zero, so a small real
+difference between two dens still shows as a visible gap in bar length.
 
 ### The track record
 
