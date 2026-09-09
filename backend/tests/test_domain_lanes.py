@@ -263,6 +263,46 @@ def test_duplicate_places_names_each_repeat_once():
     assert lanes.duplicate_places(parsed) == [2]
 
 
+def test_negative_times_flags_negative_values() -> None:
+    """#863: a negative time is impossible and distorts both ranking and standings."""
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 5, "time": -2.5},
+        {"lane": 2, "racer_id": 9, "time": 0.0},
+        {"lane": 3, "racer_id": 3, "time": 3.123},
+        {"lane": 4, "racer_id": 7, "time": None},
+    )
+    assert lanes.negative_times(parsed) == [1]
+
+
+def test_negative_times_empty_for_clean_and_zero_times() -> None:
+    """0 is a valid DNF marker and must not be flagged as negative."""
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 5, "time": 0.0},
+        {"lane": 2, "racer_id": 9, "time": 3.456},
+    )
+    assert lanes.negative_times(parsed) == []
+
+
+def test_duplicate_racer_ids_finds_duplicate() -> None:
+    """#863: the same racer appearing in more than one lane is refused."""
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 25},
+        {"lane": 2, "racer_id": 25},
+        {"lane": 3, "racer_id": 9},
+    )
+    assert lanes.duplicate_racer_ids(parsed) == [25]
+
+
+def test_duplicate_racer_ids_ignores_empty_lanes() -> None:
+    """Multiple empty lanes (racer_id=None) do not count as duplicate racers."""
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 25},
+        {"lane": 2, "racer_id": None},
+        {"lane": 3, "racer_id": None},
+    )
+    assert lanes.duplicate_racer_ids(parsed) == []
+
+
 def test_duplicate_places_ignores_unplaced_lanes():
     parsed = _lanes(
         {"lane": 1, "racer_id": 5, "place": None}, {"lane": 2, "racer_id": 9}

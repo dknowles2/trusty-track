@@ -533,6 +533,131 @@ def test_a_negative_place_is_refused_for_a_free_race_heat(client, db, race, race
     assert [row.place for row in _lanes(db, heat.id)] == [None]
 
 
+# --------------------------------------------------------------------------- #
+# Validating time and racer uniqueness (#863)                                 #
+# --------------------------------------------------------------------------- #
+#
+# `updateHeatResult` and `recordFreeRaceResult` must refuse negative times
+# (0 remains the valid DNF marker) and duplicate racers in the same heat.
+
+
+def test_a_negative_time_is_refused(client, db, race, racer) -> None:
+    """A negative recorded time must be refused and leave lanes untouched (#863)."""
+    heat = _heat(db, race, [{"lane": 1, "racer_id": racer.id}])
+
+    body = _post(
+        client,
+        UPDATE_HEAT_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [lane_input({"lane": 1, "racer_id": racer.id, "time": -2.5})],
+        },
+    )
+
+    assert "errors" in body
+    assert "A recorded time cannot be negative." in body["errors"][0]["message"]
+    assert [row.time_seconds for row in _lanes(db, heat.id)] == [None]
+
+
+def test_zero_time_dnf_is_accepted(client, db, race, racer) -> None:
+    """A time of 0 is the valid DNF marker and must be accepted (#863)."""
+    heat = _heat(db, race, [{"lane": 1, "racer_id": racer.id}])
+
+    body = _post(
+        client,
+        UPDATE_HEAT_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [lane_input({"lane": 1, "racer_id": racer.id, "time": 0.0})],
+        },
+    )
+
+    assert "errors" not in body
+    assert [row.time_seconds for row in _lanes(db, heat.id)] == [0.0]
+
+
+def test_duplicate_racers_in_a_heat_are_refused(client, db, race, racer) -> None:
+    """The same racer cannot appear in multiple lanes in one heat (#863)."""
+    heat = _heat(
+        db,
+        race,
+        [{"lane": 1, "racer_id": racer.id}, {"lane": 2, "racer_id": None}],
+    )
+
+    body = _post(
+        client,
+        UPDATE_HEAT_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [
+                lane_input({"lane": 1, "racer_id": racer.id}),
+                lane_input({"lane": 2, "racer_id": racer.id}),
+            ],
+        },
+    )
+
+    assert "errors" in body
+    assert (
+        "The same racer cannot race in multiple lanes in one heat."
+        in body["errors"][0]["message"]
+    )
+    assert [row.racer_id for row in _lanes(db, heat.id)] == [racer.id, None]
+
+
+def test_a_negative_time_is_refused_for_a_free_race_heat(
+    client, db, race, racer
+) -> None:
+    """Free race results also refuse negative times (#863)."""
+    heat = crud.create_free_race_heat(
+        db, race.id, as_lanes([{"lane": 1, "racer_id": racer.id}])
+    )
+    db.commit()
+
+    body = _post(
+        client,
+        RECORD_FREE_RACE_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [lane_input({"lane": 1, "racer_id": racer.id, "time": -0.5})],
+        },
+    )
+
+    assert "errors" in body
+    assert "A recorded time cannot be negative." in body["errors"][0]["message"]
+    assert [row.time_seconds for row in _lanes(db, heat.id)] == [None]
+
+
+def test_duplicate_racers_are_refused_for_a_free_race_heat(
+    client, db, race, racer
+) -> None:
+    """Free race results also refuse duplicate racers (#863)."""
+    heat = crud.create_free_race_heat(
+        db,
+        race.id,
+        as_lanes([{"lane": 1, "racer_id": racer.id}, {"lane": 2, "racer_id": None}]),
+    )
+    db.commit()
+
+    body = _post(
+        client,
+        RECORD_FREE_RACE_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [
+                lane_input({"lane": 1, "racer_id": racer.id}),
+                lane_input({"lane": 2, "racer_id": racer.id}),
+            ],
+        },
+    )
+
+    assert "errors" in body
+    assert (
+        "The same racer cannot race in multiple lanes in one heat."
+        in body["errors"][0]["message"]
+    )
+    assert [row.racer_id for row in _lanes(db, heat.id)] == [racer.id, None]
+
+
 def test_only_one_place_writes_a_heats_lanes():
     """`crud.set_heat_lanes` is the one door (#72).
 

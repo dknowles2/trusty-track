@@ -246,6 +246,42 @@ def duplicate_lane_numbers(lanes: Sequence[Lane]) -> list[int]:
     return dupes
 
 
+def duplicate_racer_ids(lanes: Sequence[Lane]) -> list[int]:
+    """Assigned racer ids appearing in more than one lane, each named once (#863).
+
+    A heat can never have the same racer in multiple lanes. Named in the order
+    they first repeat, so callers can point to the offending racer.
+    """
+    seen: set[int] = set()
+    dupes: list[int] = []
+    for lane in lanes:
+        if lane.racer_id is not None:
+            if lane.racer_id in seen:
+                if lane.racer_id not in dupes:
+                    dupes.append(lane.racer_id)
+            else:
+                seen.add(lane.racer_id)
+    return dupes
+
+
+def negative_times(lanes: Sequence[Lane]) -> list[int]:
+    """Lane numbers whose recorded time is negative (#863).
+
+    Scoring treats any time <= 0 as a DNF, but negative time is impossible and
+    distorts both finish ranking and standings. 0 remains the valid DNF marker.
+    """
+    return [
+        lane.lane
+        for lane in lanes
+        if (lane.seconds is not None and lane.seconds < 0)
+        or (
+            lane.time is not None
+            and isinstance(lane.time, (int, float))
+            and lane.time < 0
+        )
+    ]
+
+
 def places_below_one(lanes: Sequence[Lane]) -> list[int]:
     """Lane numbers whose hand-entered place is not a positive number (#524).
 
