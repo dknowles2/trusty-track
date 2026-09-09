@@ -11,8 +11,23 @@ import { useRef, useState } from 'react';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { downloadBackup, restoreBackup } from '../backupClient';
+import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
-export default function BackupPanel() {
+interface Props {
+  /**
+   * #892: `/api/backup` and `/api/backup/restore` each check the role
+   * themselves (`_require_operator`, since they are REST, not GraphQL —
+   * see `.claude/rules/auth-and-demo.md`) and already answer a refusal in
+   * plain language ("Only the operator can ... Enter the operator PIN
+   * first."). This is the same gate applied before the click, rather than
+   * after — the archive holds every racer's name and photograph, and a
+   * restore replaces the running event. Defaults `true` so every existing
+   * caller (and any install with no PIN set) renders exactly as before.
+   */
+  isOperator?: boolean;
+}
+
+export default function BackupPanel({ isOperator = true }: Props) {
   const { showConfirm, showToast } = useAlert();
   const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<'backup' | 'restore' | null>(null);
@@ -86,7 +101,8 @@ export default function BackupPanel() {
           type="button"
           className="primary-btn"
           onClick={handleDownload}
-          disabled={busy !== null}
+          disabled={busy !== null || !isOperator}
+          title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
         >
           {busy === 'backup' ? 'Preparing…' : 'Download a backup'}
         </button>
@@ -94,7 +110,8 @@ export default function BackupPanel() {
           type="button"
           className="secondary-btn"
           onClick={() => fileInput.current?.click()}
-          disabled={busy !== null}
+          disabled={busy !== null || !isOperator}
+          title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
         >
           {busy === 'restore' ? 'Restoring…' : 'Restore from a backup…'}
         </button>

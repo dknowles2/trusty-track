@@ -34,6 +34,8 @@ import {
 import { readAppTheme } from '../../../theming/appTheme';
 import { themeByKey } from '../../../theming/themes';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
+import { useRole } from '../../core/hooks/useRole';
+import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
 type VoteTallyRow = {
   racerId: number;
@@ -111,6 +113,17 @@ export default function Awards() {
   const votingOpen = race?.votingOpen ?? false;
   const raceLocked = race?.isLocked ?? false;
   const lockedTitle = RACE_LOCKED_MESSAGE;
+  // #892: every mutation this page runs — createAward, updateAward,
+  // deleteAward, reorderAwards, updateRaceVoting (via updateRace) — is
+  // operator-only (backend/api/auth.py's OPERATOR_ONLY_MUTATIONS). A
+  // check-in tablet or an unauthenticated display used to see Add an
+  // award, Edit, Delete, reorder and Open/Close voting fully enabled and
+  // find out only from a refused mutation. `castVote` on the voting ballot
+  // itself (VotingBallot.tsx) is the deliberate exception — that page is
+  // the one a VIEWER is meant to reach with no PIN, and stays untouched.
+  const { isOperator } = useRole();
+  const operatorTitle = raceLocked ? lockedTitle : !isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined;
+  const operatorDisabled = raceLocked || !isOperator;
   // The ballot shows every car's photo (or a gray placeholder where there is
   // none) beside a name and number — for an award about the car's looks, a
   // room of placeholders is worse than no ballot at all (#419). The operator
@@ -271,8 +284,8 @@ export default function Awards() {
             type="button"
             className="primary-btn"
             onClick={() => setAdding(true)}
-            disabled={raceLocked}
-            title={raceLocked ? lockedTitle : undefined}
+            disabled={operatorDisabled}
+            title={operatorTitle}
           >
             Add an award
           </button>
@@ -291,8 +304,8 @@ export default function Awards() {
             type="button"
             className={votingOpen ? 'secondary-btn' : 'primary-btn'}
             onClick={toggleVoting}
-            disabled={raceLocked}
-            title={raceLocked ? lockedTitle : undefined}
+            disabled={operatorDisabled}
+            title={operatorTitle}
           >
             {votingOpen ? 'Close voting' : 'Open voting'}
           </button>
@@ -328,8 +341,8 @@ export default function Awards() {
             type="button"
             className="primary-btn"
             onClick={() => setAdding(true)}
-            disabled={raceLocked}
-            title={raceLocked ? lockedTitle : undefined}
+            disabled={operatorDisabled}
+            title={operatorTitle}
           >
             Add an award
           </button>
@@ -356,7 +369,7 @@ export default function Awards() {
                 type="button"
                 className="secondary-btn"
                 aria-label={`Move ${award.name} earlier`}
-                disabled={index === 0 || raceLocked}
+                disabled={index === 0 || operatorDisabled}
                 onClick={() => move(index, -1)}
                 style={{ padding: '2px 6px' }}
               >
@@ -366,7 +379,7 @@ export default function Awards() {
                 type="button"
                 className="secondary-btn"
                 aria-label={`Move ${award.name} later`}
-                disabled={index === awards.length - 1 || raceLocked}
+                disabled={index === awards.length - 1 || operatorDisabled}
                 onClick={() => move(index, 1)}
                 style={{ padding: '2px 6px' }}
               >
@@ -457,8 +470,8 @@ export default function Awards() {
               className="secondary-btn"
               aria-label={`Edit ${award.name}`}
               onClick={() => setEditing(award)}
-              disabled={raceLocked}
-              title={raceLocked ? lockedTitle : undefined}
+              disabled={operatorDisabled}
+              title={operatorTitle}
             >
               <Icon path={mdiPencil} size={0.8} />
             </button>
@@ -467,8 +480,8 @@ export default function Awards() {
               className="secondary-btn"
               aria-label={`Delete ${award.name}`}
               onClick={() => handleDelete(award)}
-              disabled={raceLocked}
-              title={raceLocked ? lockedTitle : undefined}
+              disabled={operatorDisabled}
+              title={operatorTitle}
             >
               <Icon path={mdiTrashCan} size={0.8} />
             </button>
@@ -495,8 +508,8 @@ export default function Awards() {
                       className="secondary-btn"
                       style={{ marginLeft: '0.4rem', padding: '0.1rem 0.4rem' }}
                       onClick={() => applyTallyWinner(award, row.racerId)}
-                      disabled={raceLocked}
-                      title={raceLocked ? lockedTitle : undefined}
+                      disabled={operatorDisabled}
+                      title={operatorTitle}
                     >
                       Use this result
                     </button>

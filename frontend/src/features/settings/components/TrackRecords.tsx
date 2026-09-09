@@ -17,6 +17,7 @@ import { gql, useMutation } from 'urql';
 import { useAlert } from '../../../context/AlertContext';
 import { useRunMutation } from '../../../context/runMutation';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
 const CREATE_TRACK_RECORD = gql`
   mutation CreateTrackRecord($trackId: Int!, $record: HistoricalTrackRecordInput!) {
@@ -53,6 +54,13 @@ interface Props {
   trackId: number;
   records: HistoricalRecord[];
   onChange: (records: HistoricalRecord[]) => void;
+  /**
+   * #892: createTrackRecord/updateTrackRecord/deleteTrackRecord are
+   * operator-only (backend/api/auth.py's OPERATOR_ONLY_MUTATIONS) — the
+   * record board is what the room sees. Defaults `true` so every existing
+   * caller (and any install with no PIN set) renders exactly as before.
+   */
+  isOperator?: boolean;
 }
 
 interface FormState {
@@ -71,7 +79,7 @@ const EMPTY_FORM: FormState = {
   raceDate: '',
 };
 
-export default function TrackRecords({ trackId, records, onChange }: Props) {
+export default function TrackRecords({ trackId, records, onChange, isOperator = true }: Props) {
   const { showToast } = useAlert();
   const runMutation = useRunMutation();
   const { vehicle } = useTerminology();
@@ -185,7 +193,8 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
               <button
                 type="button"
                 onClick={() => startEditing(record)}
-                disabled={busy}
+                disabled={busy || !isOperator}
+                title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
                 aria-label={`Edit the record held by ${record.racerName}`}
                 style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }}
               >
@@ -194,7 +203,8 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
               <button
                 type="button"
                 onClick={() => remove(record.id)}
-                disabled={busy}
+                disabled={busy || !isOperator}
+                title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
                 aria-label={`Remove the record held by ${record.racerName}`}
                 style={{ background: 'none', border: 'none', cursor: 'pointer' }}
               >
@@ -254,7 +264,8 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
         <button
           type="button"
           onClick={save}
-          disabled={busy}
+          disabled={busy || !isOperator}
+          title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
           style={{
             padding: '0.4rem 0.9rem',
             borderRadius: '4px',

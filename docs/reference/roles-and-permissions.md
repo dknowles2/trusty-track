@@ -27,13 +27,26 @@ who is using it:
 
 ### What a screen shows for its own role
 
-The roster (**Roster**) and **Race Control**'s schedule greys out the
-buttons a device's current role cannot use — Add Racer or Check In on a
-display, Add Round or Re-Run on the check-in desk — rather than only saying
-so once a button is pressed. Hovering a greyed-out button explains which PIN
-would unlock it. Some other screens do not grey anything out yet and still
-rely on the message below; either way, nothing is ever actually allowed
-just because a button was clickable.
+Every screen that mutates something greys out the buttons a device's
+current role cannot use, rather than only saying so once one is pressed:
+the roster (**Roster**), **Race Control**'s schedule, **Awards**, **System
+Settings** (including the per-track lanes-in-service and track-records
+panels, and Backup), the **Timer check** page, and Race Control's
+**Displays** tab (both the display list and Scenes). Hovering a greyed-out
+control explains which PIN would unlock it.
+
+**Stats** and **Standings** make no change to the race at all, so there is
+nothing on them to gate. **Voting** and the audience display itself
+(**Live**, the awards ceremony) are the deliberate opposite case: a display
+holds no PIN by design, and the one mutation it may run — casting a vote —
+stays fully available, since that is the screen a display is meant to
+reach with no credential.
+
+This is presentation only. The check that actually matters runs on the
+server for every mutation regardless of what a screen shows — see "The
+three roles" above — so a control that is ever wrongly left enabled fails
+safe into the humane refusal below, never into something being allowed that
+should not be.
 
 If a button *is* pressed and the role behind it cannot do that, the app
 answers in one sentence — *"That needs the operator PIN. Enter it with the
