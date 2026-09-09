@@ -5,6 +5,7 @@ import { render, screen, within, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { print } from 'graphql';
 import RaceStats from './RaceStats';
+import { groupScoreDomain } from '../groupScoreDomain';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useQuery } from 'urql';
 import { GET_RACE_STATS } from '../graphql/queries';
@@ -197,6 +198,44 @@ describe('loading, error and empty states', () => {
         // to render nothing interesting for.
         expect(screen.getByText('Heats Completed')).toBeInTheDocument();
         expect(screen.queryByText('Lane Fairness')).toBeNull();
+    });
+
+    it('shows raced count out of total racers in the Racers overview card', () => {
+        renderStats(statsPayload({
+            totalRacers: 19,
+            totalHeatsCompleted: 4,
+            racerStats: [
+                { racerId: 1, firstName: 'Ada', lastName: 'Lovelace', carNumber: 3, racingGroupName: 'Wolves', heatsCompleted: 4, heatsScheduled: 4, minTime: 3.1, maxTime: 3.9, meanTime: 3.5, stdDev: 0.3, timesPerLane: [] },
+                { racerId: 2, firstName: 'Bea', lastName: 'Swift', carNumber: 1, racingGroupName: 'Tigers', heatsCompleted: 4, heatsScheduled: 4, minTime: 2.8, maxTime: 3.2, meanTime: 3.0, stdDev: 0.15, timesPerLane: [] },
+            ],
+        }));
+
+        const racersCard = screen.getByText('Racers').closest('.race-stats__overview-card')!;
+        expect(racersCard).toHaveTextContent('2 / 19');
+    });
+
+    it('shows subtitle on Per-Racer Stats when some registered racers have not raced yet', () => {
+        renderStats(statsPayload({
+            totalRacers: 19,
+            totalHeatsCompleted: 4,
+            racerStats: [
+                { racerId: 1, firstName: 'Ada', lastName: 'Lovelace', carNumber: 3, racingGroupName: 'Wolves', heatsCompleted: 4, heatsScheduled: 4, minTime: 3.1, maxTime: 3.9, meanTime: 3.5, stdDev: 0.3, timesPerLane: [] },
+            ],
+        }));
+
+        expect(screen.getByText('(1 of 19 have raced)')).toBeInTheDocument();
+    });
+
+    it('omits subtitle on Per-Racer Stats when all registered racers have raced', () => {
+        renderStats(statsPayload({
+            totalRacers: 1,
+            totalHeatsCompleted: 4,
+            racerStats: [
+                { racerId: 1, firstName: 'Ada', lastName: 'Lovelace', carNumber: 3, racingGroupName: 'Wolves', heatsCompleted: 4, heatsScheduled: 4, minTime: 3.1, maxTime: 3.9, meanTime: 3.5, stdDev: 0.3, timesPerLane: [] },
+            ],
+        }));
+
+        expect(screen.queryByText(/have raced/)).toBeNull();
     });
 });
 
@@ -408,4 +447,23 @@ describe('racingGroup comparison', () => {
         renderStats(statsPayload({ racingGroupStats: [] }));
         expect(screen.queryByText('Dens Comparison')).toBeNull();
     });
+
+    it('calculates dynamic domain focused tightly around racing group average scores', () => {
+        // Range 3.36 to 3.74: spread = 0.38, pad = max(0.1, 0.057) = 0.1
+        // dMin = floor((3.36 - 0.1) * 10) / 10 = 3.2
+        // dMax = ceil((3.74 + 0.1) * 10) / 10 = 3.9
+        const domain = groupScoreDomain([
+            { racingGroupId: 1, racingGroupName: 'Wolves', racingGroupColor: '#ff0000', racerCount: 5, avgScore: 3.36, bestRacerName: 'Ada' },
+            { racingGroupId: 2, racingGroupName: 'Bears', racingGroupColor: '#00ff00', racerCount: 4, avgScore: 3.74, bestRacerName: 'Bob' },
+        ]);
+        expect(domain).toEqual([3.2, 3.9]);
+    });
+
+    it('handles racing groups with null or zero scores gracefully', () => {
+        const domain = groupScoreDomain([
+            { racingGroupId: 1, racingGroupName: 'Wolves', racingGroupColor: '#ff0000', racerCount: 5, avgScore: null, bestRacerName: null },
+        ]);
+        expect(domain).toEqual([0, 'auto']);
+    });
 });
+

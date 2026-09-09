@@ -17,6 +17,7 @@ import {
 import { GET_RACE_STATS } from '../graphql/queries';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { formatScaleMph } from '../../observation/scaleSpeed';
+import { groupScoreDomain } from '../groupScoreDomain';
 import './RaceStats.css';
 
 // ---- Types ----
@@ -238,7 +239,9 @@ export default function RaceStats() {
         </div>
         <div className="race-stats__overview-card">
           <div className="race-stats__overview-card-label">Racers</div>
-          <div className="race-stats__overview-card-value">{stats.totalRacers}</div>
+          <div className="race-stats__overview-card-value">
+            {stats.racerStats.length} / {stats.totalRacers}
+          </div>
         </div>
         <div className="race-stats__overview-card">
           <div className="race-stats__overview-card-label">Heats Completed</div>
@@ -309,7 +312,14 @@ export default function RaceStats() {
 
           {/* Per-Racer Stats */}
           <div className="race-stats__section">
-            <h2 className="race-stats__section-title">Per-Racer Stats</h2>
+            <h2 className="race-stats__section-title">
+              Per-Racer Stats
+              {stats.racerStats.length !== stats.totalRacers && (
+                <span className="race-stats__section-subtitle">
+                  ({stats.racerStats.length} of {stats.totalRacers} have raced)
+                </span>
+              )}
+            </h2>
             <div style={{ overflowX: 'auto' }}>
               <table className="race-stats__table">
                 <thead>
@@ -478,7 +488,12 @@ export default function RaceStats() {
                     margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" unit="s" tickFormatter={(v: number) => v.toFixed(2)} />
+                    <XAxis
+                      type="number"
+                      unit="s"
+                      tickFormatter={(v: number) => v.toFixed(2)}
+                      domain={groupScoreDomain(stats.racingGroupStats)}
+                    />
                     <YAxis type="category" dataKey="racingGroupName" width={75} />
                     <Tooltip
                       formatter={(value: unknown) => [`${Number(value).toFixed(3)}s`, 'Avg Score']}
