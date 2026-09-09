@@ -28,6 +28,9 @@ export interface StandingsOnlyStanding {
     racingGroupDivision?: string | null;
     score: number;
     heatsCompleted: number;
+    /** How many of `heatsCompleted` were an actual DNF rather than a
+     * genuine slow finish (#898). See `dnfAnnotation`. */
+    dnfCount?: number;
     rank: number;
 }
 
@@ -37,6 +40,10 @@ interface Props {
     nameDisplay: NameDisplay | string;
     scoreLabel: string;
     formatScore: (score: number) => string;
+    /** The DNF note beside a score — "(1 DNF)" — or `null` when there is
+     * nothing to say (#898). See `scoringStrategyText.ts`'s own
+     * `dnfAnnotation`, which this is the caller's resolved copy of. */
+    dnfAnnotation: (dnfCount: number) => string | null;
     vehicle: string;
     scrollBehavior: ScrollBehavior;
     /** The time a page stays up, or a full top-to-bottom pass takes. */
@@ -57,6 +64,7 @@ export default function StandingsOnlyView({
     nameDisplay,
     scoreLabel,
     formatScore,
+    dnfAnnotation,
     vehicle,
     scrollBehavior,
     cycleMs,
@@ -264,6 +272,18 @@ export default function StandingsOnlyView({
                                             }}
                                         >
                                             {formatScore(s.score)}
+                                            {dnfAnnotation(s.dnfCount ?? 0) && (
+                                                <div
+                                                    style={{
+                                                        fontSize: '1.2vmin',
+                                                        fontWeight: 'normal',
+                                                        fontFamily: 'var(--font-body)',
+                                                        color: 'var(--display-text-muted-color)',
+                                                    }}
+                                                >
+                                                    {dnfAnnotation(s.dnfCount ?? 0)}
+                                                </div>
+                                            )}
                                         </td>
                                         <td style={{ padding: '15px', textAlign: 'right', fontSize: '2vmin' }}>
                                             {s.heatsCompleted}

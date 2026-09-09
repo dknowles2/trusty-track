@@ -37,6 +37,7 @@ function renderView(overrides: Partial<React.ComponentProps<typeof BroadcastOver
             }}
             scoreLabel="Avg Time"
             formatScore={(score) => `${score.toFixed(3)}s`}
+            dnfAnnotation={(n) => (n > 0 ? `(${n} DNF${n === 1 ? '' : 's'})` : null)}
             showStandingsTicker={true}
             finishBanner={null}
             {...overrides}
@@ -86,6 +87,15 @@ describe('BroadcastOverlayView (#616)', () => {
         expect(ticker).toHaveTextContent('Speedy McQueen');
         expect(ticker).toHaveTextContent('3.501s');
         expect(ticker).toHaveTextContent('Doc Hudson');
+    });
+
+    it('notes a DNF beside the score in the ticker, without replacing it (#898)', () => {
+        renderView({
+            standings: [{ racerId: 1, score: 9.999, dnfCount: 1, rank: 1 }],
+        });
+        const ticker = screen.getByTestId('overlay-standings-ticker');
+        expect(ticker).toHaveTextContent('9.999s');
+        expect(ticker).toHaveTextContent('(1 DNF)');
     });
 
     it('hides the ticker entirely when the operator turns it off', () => {

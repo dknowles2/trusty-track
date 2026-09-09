@@ -420,6 +420,7 @@ type LeaderboardEntry {
   racingGroupDivision: String
   score: Float!
   heatsCompleted: Int!
+  dnfCount: Int!
   racerImageUrl: String
   rank: Int!
   resolvedBy: String

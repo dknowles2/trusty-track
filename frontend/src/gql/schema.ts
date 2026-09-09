@@ -421,6 +421,7 @@ export type LaneTimeStat = {
 
 export type LeaderboardEntry = {
   carNumber?: Maybe<Scalars['Int']['output']>;
+  dnfCount: Scalars['Int']['output'];
   dropWorstRunsApplied: Scalars['Boolean']['output'];
   firstName: Scalars['String']['output'];
   heatsCompleted: Scalars['Int']['output'];

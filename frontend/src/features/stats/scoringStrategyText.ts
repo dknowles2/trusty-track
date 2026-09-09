@@ -133,11 +133,9 @@ export const DNF_PENALTY_SECONDS = 9.999;
  *
  * A score is never relabelled as "DNF" by its magnitude (#873) — a value at
  * or past `DNF_PENALTY_SECONDS` is exactly as real a result as any other,
- * matching `backend/services/stats.py`'s own rule since #779. There is
- * nothing in a leaderboard row today that distinguishes a genuine slow
- * finish from a racer whose only counted heat was an actual DNF; that is a
- * real gap (see #873's own suggestion of a backend-supplied DNF flag), not
- * one this function can close by guessing from the number alone.
+ * matching `backend/services/stats.py`'s own rule since #779. This function
+ * cannot say whether a score was ever a real DNF, by design; see
+ * `dnfAnnotation` below for the backend-supplied fact #873 found missing.
  */
 export function formatScore(
   score: number,
@@ -149,4 +147,46 @@ export function formatScore(
   }
   const formatted = score.toFixed(3);
   return unit ? `${formatted}s` : formatted;
+}
+
+/**
+ * The DNF note to show beside a formatted score — "(1 DNF)", "(2 DNFs)" — or
+ * `null` when there is nothing to say (#898).
+ *
+ * `formatScore` cannot tell a real DNF apart from a genuine 9.999s-or-slower
+ * finish, and #873/#897 settled that it must never guess from the score's
+ * own magnitude — a long track, a slow rocket, a Raingutter Regatta boat can
+ * all genuinely finish that slowly. `dnfCount` (`LeaderboardEntry.dnfCount`,
+ * `RacerScore.dnf_count` on the backend) is the fact itself, carried
+ * alongside the score rather than inferred from it, and this is the one
+ * place it becomes words — the same "one function, every screen" shape
+ * `formatScore` and `scoreLabel` already use.
+ *
+ * Only for the time-based strategies, and deliberately not `POINTS`: a DNF
+ * there is already scored as last place in its heat (#225), the identical
+ * value an honestly-earned last place gets, so the score is already the
+ * complete, accurate answer — there is no ambiguous shared number for a note
+ * to resolve, unlike `TIMED`/`CUMULATIVE_TIME`'s shared `DNF_PENALTY_SECONDS`.
+ * `FASTEST_TIME` needs no special case to reach the same "nothing to show"
+ * outcome: a DNF is excluded outright as a candidate under that strategy (see
+ * `domain/scoring.py`'s module docstring), so a counted heat is never a DNF
+ * there and `dnfCount` is always `0` — `isTimeBasedStrategy` covers all
+ * three time-based strategies uniformly, and the zero count does the rest.
+ *
+ * Worded as a neutral annotation *beside* the score, never a label replacing
+ * it — the row still reports what the car scored, with the DNF noted. Shown
+ * on both the operator's own Standings page and the audience-facing
+ * displays: the per-lane view already says DNF outright wherever a time is
+ * shown (`formatLaneTime` treats any non-positive stored time that way, on
+ * the projector included), so this completes a disclosure that already
+ * exists rather than creating a new one.
+ */
+export function dnfAnnotation(
+  dnfCount: number,
+  scoringStrategy: string | null | undefined,
+): string | null {
+  if (!isTimeBasedStrategy(scoringStrategy) || dnfCount <= 0) {
+    return null;
+  }
+  return dnfCount === 1 ? '(1 DNF)' : `(${dnfCount} DNFs)`;
 }

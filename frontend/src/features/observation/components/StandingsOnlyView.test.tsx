@@ -27,6 +27,7 @@ function renderView(overrides: Partial<React.ComponentProps<typeof StandingsOnly
             nameDisplay="FULL"
             scoreLabel="Avg Time"
             formatScore={(s) => `${s.toFixed(3)}s`}
+            dnfAnnotation={(n) => (n > 0 ? `(${n} DNF${n === 1 ? '' : 's'})` : null)}
             vehicle="Car"
             scrollBehavior="PAGING"
             cycleMs={10000}
@@ -54,6 +55,21 @@ describe('StandingsOnlyView (#663)', () => {
         renderView();
 
         expect(screen.getByTestId('standings-only-view')).toBeInTheDocument();
+    });
+
+    it('notes a DNF beside the score, without replacing it (#898)', () => {
+        renderView({
+            standings: [{ racerId: 1, score: 9.999, heatsCompleted: 2, dnfCount: 1, rank: 1 }],
+        });
+
+        expect(screen.getByText('9.999s')).toBeInTheDocument();
+        expect(screen.getByText('(1 DNF)')).toBeInTheDocument();
+    });
+
+    it('shows nothing extra when the caller says there is nothing to say', () => {
+        renderView();
+
+        expect(screen.queryByText(/DNF/)).not.toBeInTheDocument();
     });
 
     it('never shows a page indicator while scrolling smoothly, even with more racers than fit', () => {

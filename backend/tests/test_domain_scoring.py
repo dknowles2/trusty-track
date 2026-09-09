@@ -168,6 +168,94 @@ class TestPointsPenalisesAMissingPlacement:
         assert score_heats(heats, POINTS)[1].score == 1
 
 
+class TestDnfCount:
+    """#898. `score` alone cannot say whether a counted heat was an actual
+    DNF or a genuine slow finish — #873/#897 settled that no display may
+    guess from the number, so `RacerScore.dnf_count` carries the fact
+    instead."""
+
+    def test_timed_counts_an_actual_dnf(self):
+        scores = score_heats([_heat((1, 0.0, None)), _heat((1, 3.0, 1))], TIMED)
+        assert scores[1].dnf_count == 1
+
+    def test_timed_does_not_count_a_genuine_finish_at_the_penalty_value(self):
+        # #873's own trap: a real 9.999s (or slower) finish is not a DNF.
+        scores = score_heats([_heat((1, DNF_PENALTY_SECONDS, 1))], TIMED)
+        assert scores[1].score == DNF_PENALTY_SECONDS
+        assert scores[1].dnf_count == 0
+
+    def test_cumulative_time_counts_an_actual_dnf(self):
+        scores = score_heats(
+            [_heat((1, 0.0, None)), _heat((1, 3.0, 1))], CUMULATIVE_TIME
+        )
+        assert scores[1].dnf_count == 1
+
+    def test_points_counts_a_dnf_but_not_a_skip(self):
+        heats = [
+            _heat((1, 0.0, None), (2, 3.0, 1)),
+            [
+                Lane(lane=1, racer_id=1, skipped=True),
+                Lane(lane=2, racer_id=2, time=3.0, place=1),
+            ],
+        ]
+        scores = score_heats(heats, POINTS)
+        assert scores[1].dnf_count == 1  # one DNF, one skip — only the DNF counts
+        assert scores[2].dnf_count == 0
+
+    def test_points_does_not_count_a_hand_entered_last_place(self):
+        # A real placement, however it landed, is not a DNF to disambiguate.
+        heats = [_heat((1, None, 2), (2, None, 1))]
+        scores = score_heats(heats, POINTS)
+        assert scores[1].dnf_count == 0
+
+    def test_fastest_time_never_counts_a_dnf(self):
+        # A DNF is excluded as a candidate outright under FASTEST_TIME, never
+        # a counted value — so there is nothing here to disambiguate.
+        heats = [_heat((1, 0.0, None)), _heat((1, 4.0, 1))]
+        scores = score_heats(heats, FASTEST_TIME)
+        assert scores[1].dnf_count == 0
+        assert scores[1].heats_completed == 1
+
+    def test_multiple_dnfs_are_all_counted(self):
+        heats = [_heat((1, 0.0, None)), _heat((1, -1.0, None)), _heat((1, 3.0, 1))]
+        scores = score_heats(heats, TIMED)
+        assert scores[1].dnf_count == 2
+
+    def test_a_scheduled_but_unraced_racer_has_no_dnfs(self):
+        scores = score_heats([_heat((1, None, None))], TIMED)
+        assert scores[1].dnf_count == 0
+
+    def test_dropping_the_worst_run_can_drop_the_dnf_along_with_it(self):
+        # The DNF penalty (9.999) is usually the highest value a racer has,
+        # so dropping the worst run usually drops it — and the count should
+        # reflect what actually survived into the score, not the raw raced
+        # count.
+        heats = [
+            _heat((1, 0.0, None)),
+            _heat((1, 3.0, 1)),
+            _heat((1, 4.0, 1)),
+        ]
+        scores = score_heats(heats, TIMED, drop_worst_runs=1)
+        assert scores[1].dnf_count == 0
+        assert scores[1].heats_completed == 3  # participation is unaffected
+
+    def test_a_second_dnf_survives_a_drop_that_removes_only_one(self):
+        heats = [
+            _heat((1, 0.0, None)),
+            _heat((1, -1.0, None)),
+            _heat((1, 3.0, 1)),
+            _heat((1, 4.0, 1)),
+        ]
+        scores = score_heats(heats, TIMED, drop_worst_runs=1)
+        # Both DNFs score 9.999, tied for worst; only one is dropped, so one
+        # DNF remains among the three counted results.
+        assert scores[1].dnf_count == 1
+
+    def test_as_dict_carries_the_count(self):
+        scores = score_heats([_heat((1, 0.0, None))], TIMED)
+        assert scores[1].as_dict()["dnf_count"] == 1
+
+
 def test_rank_key_sorts_lower_scores_first():
     assert rank_key(3.0, 2, 1) < rank_key(4.0, 2, 1)
 
