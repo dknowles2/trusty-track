@@ -13,7 +13,9 @@ fastest average wins.
   five are compared on the same footing.
 - A car that leaves the gate but never reaches the finish — a wheel comes
   off, it jumps the lane — is given **9.999 seconds** for that heat. One bad
-  run hurts the average; it does not erase a morning of good ones.
+  run hurts the average; it does not erase a morning of good ones. The
+  standings [mark it separately](#marking-a-dnf-on-the-standings), so it is
+  never confused with a car that genuinely finished that slowly.
 - A heat that was skipped is simply not part of anyone's average.
 
 ## Points
@@ -61,10 +63,27 @@ missing heat that Points guards against. Cumulative time follows both of
 Points's own protections for that reason:
 
 - A car that never reaches the finish is given **9.999 seconds** for that
-  heat, the same DNF penalty Timed uses — a bad time, not a vanished one.
+  heat, the same DNF penalty Timed uses — a bad time, not a vanished one,
+  and [marked separately](#marking-a-dnf-on-the-standings) on the standings
+  for the same reason.
 - A round where some cars ended up racing fewer times than others is
   [set aside](#rounds-that-are-set-aside) from the standings entirely, the
   same as under Points.
+
+## Marking a DNF on the standings
+
+Under Timed and Cumulative time, a DNF is folded into the score as 9.999
+seconds — a real number the scoring math can add up, not a sentinel. That
+number alone cannot say whether a car genuinely finished at 9.999 seconds
+or slower (a long track, a slow rocket, a Raingutter Regatta boat) or never
+finished at all, so the standings say so directly: a car with one or more
+DNFs among its counted heats shows **(1 DNF)** or **(2 DNFs)** beside its
+score, wherever the standings are shown — the operator's own Standings
+page, the audience Standings tab, and the projector view.
+
+Points does not show this note. A DNF there is already scored as last
+place in its heat, the same as a skipped one — the score already carries
+the full penalty, so there is nothing left for a note to add.
 
 ## Fastest single run
 
@@ -75,7 +94,9 @@ is quick once and unlucky twice places on the once.
 - A car that never reaches the finish is not a candidate at all for that
   heat: the DNF is **ignored outright**, not penalised. A bad run never
   drags a car's best time down, because it was never in the running to be
-  the racer's score.
+  the racer's score — so there is no DNF note to show here, the way there
+  is under Timed and Cumulative time: the score a DNF *could* have produced
+  was never counted in the first place.
 - A car whose *every* run is a DNF has no time to offer, and sorts **below
   every car that finished at least one heat** — worse than being left out
   of an average, the way a DNF is under Timed.
@@ -106,7 +127,9 @@ the same number for every racer.
   whose one bad heat was a DNF ends up scored entirely on the heats they
   actually finished, as if the bad one had never been scheduled — no
   9.999 seconds, no invented last place, because it was never counted in
-  the first place.
+  the first place. The DNF note above follows the same rule: a dropped DNF
+  no longer shows in it either, since it is no longer one of the heats the
+  score is drawn from.
 - A racer with more than one DNF still has the extras count. Dropping the
   worst run removes exactly as many results as the setting says, however
   many of a racer's results were bad ones.

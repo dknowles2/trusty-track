@@ -66,6 +66,9 @@ export interface OverlayLane {
 export interface OverlayStanding {
     racerId: number;
     score: number;
+    /** How many of this racer's counted heats were an actual DNF rather
+     * than a genuine slow finish (#898). See `dnfAnnotation`. */
+    dnfCount?: number;
     rank: number;
 }
 
@@ -105,6 +108,10 @@ interface Props {
     racersMap: Readonly<Record<number, OverlayStandingRacer | undefined>>;
     scoreLabel: string;
     formatScore: (score: number) => string;
+    /** The DNF note beside a score — "(1 DNF)" — or `null` when there is
+     * nothing to say (#898). See `scoringStrategyText.ts`'s own
+     * `dnfAnnotation`, which this is the caller's resolved copy of. */
+    dnfAnnotation: (dnfCount: number) => string | null;
     /** Whether the compact top-5 ticker renders at all — the display's own
      * rider (`Assignment.show_standings_ticker`). */
     showStandingsTicker: boolean;
@@ -136,6 +143,7 @@ export default function BroadcastOverlayView({
     racersMap,
     scoreLabel,
     formatScore,
+    dnfAnnotation,
     showStandingsTicker,
     finishBanner,
 }: Props) {
@@ -199,6 +207,9 @@ export default function BroadcastOverlayView({
                                     }}
                                 >
                                     {formatScore(s.score)}
+                                    {dnfAnnotation(s.dnfCount ?? 0) && (
+                                        <> {dnfAnnotation(s.dnfCount ?? 0)}</>
+                                    )}
                                 </span>
                             </span>
                         );

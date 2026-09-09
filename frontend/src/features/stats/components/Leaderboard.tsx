@@ -9,7 +9,7 @@ import { standingsRows, standingsSuffix } from '../standingsExport';
 import { slowestFirst } from '../slowestFirst';
 import { shouldShowDivision } from '../racingGroupLabel';
 import { resolutionNote } from '../tiebreakText';
-import { formatScore, scoreLabel } from '../scoringStrategyText';
+import { dnfAnnotation, formatScore, scoreLabel } from '../scoringStrategyText';
 import { Link } from 'react-router-dom';
 import { downloadCsv, filenameFor } from '../../../utils/csv';
 import { useTerminology } from '../../../context/TerminologyContext';
@@ -25,6 +25,9 @@ export interface LeaderboardEntry {
   racingGroupDivision?: string | null;
   score: number;
   heatsCompleted: number;
+  /** How many of `heatsCompleted` were an actual DNF rather than a genuine
+   * slow finish (#898). See `dnfAnnotation`. */
+  dnfCount?: number;
   rank: number;
   racerImageUrl?: string;
   /** How a shared score was broken, or null if it was never tied or the tie
@@ -93,6 +96,7 @@ const GET_ROUND_STANDINGS = `
         racingGroupDivision
         score
         heatsCompleted
+        dnfCount
         rank
         racerImageUrl
         resolvedBy
@@ -485,6 +489,23 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                     ? formatScoreCell(entry.score, scoringStrategy)
                     : '-'
                   }
+                  {/* A neutral note beside the score, never a label
+                      replacing it (#898) — the row still reports what the
+                      car scored. Elimination rounds never carry a dnfCount
+                      (survival is scored by loss count), so this is a
+                      no-op there without needing its own guard. */}
+                  {entry.heatsCompleted > 0 && dnfAnnotation(entry.dnfCount ?? 0, scoringStrategy) && (
+                    <span
+                      style={{
+                        display: 'block',
+                        fontSize: '0.75rem',
+                        fontWeight: 'normal',
+                        color: 'var(--text-muted-color)',
+                      }}
+                    >
+                      {dnfAnnotation(entry.dnfCount ?? 0, scoringStrategy)}
+                    </span>
+                  )}
                 </td>
                   </tr>
                   {isEndOfTiedCluster && !isEliminationRound && (

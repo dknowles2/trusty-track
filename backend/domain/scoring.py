@@ -57,6 +57,21 @@ Drop the worst run (#547 stage 2)
     ``N`` counted values, then re-aggregate what is left") produces that
     outcome on its own; nothing here pretends dropping did something it
     could not have.
+
+Carrying the DNF fact (#898)
+    ``score`` alone cannot say whether a counted result was an actual DNF (a
+    recorded time of zero or less) or a genuine slow finish — ``TIMED`` and
+    ``CUMULATIVE_TIME`` both substitute ``DNF_PENALTY_SECONDS`` for the
+    missing time before aggregating, so the two are the identical number by
+    the time this module is done with them. #873 found a screen guessing
+    "DNF" from that magnitude, and #897 correctly removed the guess without
+    replacing it with anything — a real 9.999s-or-slower finish (a long
+    track, a slow rocket, a Raingutter Regatta boat) is not a DNF, and no
+    display may infer one from a score alone. :attr:`RacerScore.dnf_count`
+    is the fact itself, tracked at the one place the substitution happens
+    (:func:`_counted_values`) rather than reconstructed from the aggregate
+    afterwards, which is what keeps a caller from ever needing to make the
+    same guess this module refuses to make.
 """
 
 from __future__ import annotations
@@ -98,12 +113,25 @@ DNF_PENALTY_SECONDS = 9.999
 
 @dataclass
 class RacerScore:
-    """A racer's aggregate across the heats considered."""
+    """A racer's aggregate across the heats considered.
+
+    ``dnf_count`` (#898) is how many of the heats folded into ``score`` were
+    an actual DNF — a recorded time of zero or less — rather than a genuine
+    slow finish. It exists because #873/#897 settled that ``score`` alone
+    can never say that: ``TIMED`` and ``CUMULATIVE_TIME`` substitute
+    ``DNF_PENALTY_SECONDS`` for the real (missing) time before this ever
+    aggregates, so a racer whose only counted heat was a DNF and one who
+    genuinely finished in 9.999s or slower produce the identical ``score``.
+    Carrying the count is what lets a caller say so without guessing from
+    the number — see the module docstring's own rule against exactly that
+    guess.
+    """
 
     score: float = 0.0
     heats_completed: int = 0
     total_time: float = 0.0
     total_points: int = 0
+    dnf_count: int = 0
 
     def as_dict(self) -> dict[str, float]:
         return {
@@ -111,12 +139,13 @@ class RacerScore:
             "heats_completed": self.heats_completed,
             "total_time": self.total_time,
             "total_points": self.total_points,
+            "dnf_count": self.dnf_count,
         }
 
 
 def _counted_values(
     heats: Iterable[Sequence[Lane]], strategy: str
-) -> dict[int, list[float]]:
+) -> dict[int, list[tuple[float, bool]]]:
     """Per-racer list of the value each of their counted results contributes.
 
     One list entry per heat this racer's result counts toward ``strategy`` —
@@ -127,6 +156,21 @@ def _counted_values(
     of — factored out so it and :func:`drop_worst_status` read one list
     rather than keeping two copies of "what counts" free to disagree.
 
+    Each entry is a ``(value, is_dnf)`` pair (#898) — whether *this*
+    counted result was an actual DNF (a recorded time of zero or less),
+    tracked alongside the value at the point the substitution happens
+    rather than inferred afterwards by comparing the value against
+    ``DNF_PENALTY_SECONDS``, which is the exact mistake #873/#897 fixed (a
+    genuine 9.999s-or-slower finish is not a DNF). See
+    ``backend/services/stats.py``'s ``_compute_racer_stats`` for the same
+    shape, chosen for the same reason (#880). Under ``POINTS``, only a DNF
+    that actually produced the last-place substitution is marked — a
+    *skipped* lane is not a DNF, and a lane that already carries a real
+    hand-entered place is left alone. Under ``FASTEST_TIME`` a DNF is never
+    a counted value at all (it is skipped as a candidate below), so it is
+    never marked here either — there is no substitution for it to
+    disambiguate.
+
     A racer who is scheduled but has recorded nothing yet still gets an
     entry, with an empty list — the leaderboard shows them as unranked rather
     than omitting them, and :func:`score_heats` needs that entry to do so.
@@ -134,7 +178,7 @@ def _counted_values(
     Lanes with no racer are ignored: empty lanes, and unadvanced championship
     slots, whose ``racer_id`` is ``None`` since #164.
     """
-    values: dict[int, list[float]] = {}
+    values: dict[int, list[tuple[float, bool]]] = {}
 
     for lanes in heats:
         # Last place in this heat, for POINTS's skip/DNF penalty below. The
@@ -152,16 +196,19 @@ def _counted_values(
                 seconds = lane.seconds
                 if seconds is None:
                     continue
-                entry.append(DNF_PENALTY_SECONDS if seconds <= 0.0 else seconds)
+                is_dnf = seconds <= 0.0
+                entry.append((DNF_PENALTY_SECONDS if is_dnf else seconds, is_dnf))
             elif strategy == POINTS:
                 place = lane.place
+                is_dnf = False
                 if place is None:
                     seconds = lane.seconds
                     dnf = seconds is not None and seconds <= 0.0
                     if not (lane.skipped or dnf):
                         continue
                     place = field
-                entry.append(float(place))
+                    is_dnf = dnf
+                entry.append((float(place), is_dnf))
             elif strategy == FASTEST_TIME:
                 seconds = lane.seconds
                 # Not a candidate: unrecorded, or a DNF — ignored entirely
@@ -170,13 +217,13 @@ def _counted_values(
                 # finite time exists to be a candidate.
                 if seconds is None or seconds <= 0.0:
                     continue
-                entry.append(seconds)
+                entry.append((seconds, False))
 
     return values
 
 
 def _drop_applies(
-    values_by_racer: dict[int, list[float]], drop_worst_runs: int
+    values_by_racer: dict[int, list[tuple[float, bool]]], drop_worst_runs: int
 ) -> bool:
     """Whether dropping ``drop_worst_runs`` per racer keeps counts equal.
 
@@ -275,19 +322,38 @@ def score_heats(
     ``heats_completed`` always reports the racer's full raced count, whether
     or not a drop happened — it is a fact about participation, not about the
     scoring math a modifier changed.
+
+    ``dnf_count`` (#898) is how many of the *counted* results — after a drop,
+    if one applied — were an actual DNF rather than a genuine slow finish.
+    Computed from the surviving subset rather than the full raced count:
+    dropping the worst run under ``TIMED``/``CUMULATIVE_TIME`` usually drops
+    the DNF penalty itself (it is the highest value), and a count taken
+    before the drop would then overstate how many of the heats actually
+    folded into ``score`` were DNFs.
     """
     per_racer = _counted_values(heats, strategy)
     drop = drop_worst_runs if _drop_applies(per_racer, drop_worst_runs) else 0
 
     scores: dict[int, RacerScore] = {}
-    for racer_id, values in per_racer.items():
-        entry = RacerScore(heats_completed=len(values))
-        counted = sorted(values)[: len(values) - drop] if drop else values
+    for racer_id, entries in per_racer.items():
+        result = RacerScore(heats_completed=len(entries))
+        # Sorted on the value alone — a stable sort, so two entries tied on
+        # value (a genuine finish exactly at DNF_PENALTY_SECONDS alongside an
+        # actual DNF, say) keep their original relative order rather than
+        # being reordered by `is_dnf`, which would decide *which* of an
+        # identical pair gets dropped for no reason connected to the score.
+        counted = (
+            sorted(entries, key=lambda e: e[0])[: len(entries) - drop]
+            if drop
+            else entries
+        )
+        result.dnf_count = sum(1 for _, is_dnf in counted if is_dnf)
         if counted:
-            entry.score, entry.total_time, entry.total_points = _aggregate(
-                counted, strategy
+            values = [value for value, _ in counted]
+            result.score, result.total_time, result.total_points = _aggregate(
+                values, strategy
             )
-        scores[racer_id] = entry
+        scores[racer_id] = result
 
     return scores
 

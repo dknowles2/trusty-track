@@ -12,6 +12,9 @@ export const LeaderboardSubscription = gql`
       racingGroupDivision
       score
       heatsCompleted
+      # How many of heatsCompleted were an actual DNF rather than a genuine
+      # slow finish (#898) — see scoringStrategyText.ts's dnfAnnotation.
+      dnfCount
       racerImageUrl
       rank
       resolvedBy

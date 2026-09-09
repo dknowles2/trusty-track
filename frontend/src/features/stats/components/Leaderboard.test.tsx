@@ -85,6 +85,93 @@ describe('Leaderboard', () => {
     expect(rows[2]).toHaveTextContent('4.200s');
   });
 
+  it('notes a DNF beside a TIMED score, without inferring it from the score (#898)', async () => {
+    const raceWithDnf = {
+      id: 1,
+      scoringStrategy: 'TIMED',
+      leaderboard: [
+        {
+          racerId: 1,
+          firstName: 'John',
+          lastName: 'Doe',
+          carNumber: 101,
+          racingGroupName: 'Tigers',
+          score: 9.999,
+          heatsCompleted: 2,
+          dnfCount: 1,
+          rank: 1,
+        },
+        {
+          // Same score, genuinely — #873/#897's own trap — but no DNF.
+          racerId: 2,
+          firstName: 'Jane',
+          lastName: 'Smith',
+          carNumber: 102,
+          racingGroupName: 'Wolves',
+          score: 9.999,
+          heatsCompleted: 2,
+          dnfCount: 0,
+          rank: 1,
+        },
+      ],
+    };
+
+    (useQuery as any).mockReturnValue([{
+      data: { race: raceWithDnf },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    (useSubscription as any).mockReturnValue([{
+      data: { leaderboard: raceWithDnf.leaderboard },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={1} /></MemoryRouter></AlertProvider>);
+
+    // The note, not a replacement — both rows still show the score.
+    expect(screen.getAllByText('9.999s')).toHaveLength(2);
+    expect(screen.getByText('(1 DNF)')).toBeInTheDocument();
+  });
+
+  it('shows no DNF note under POINTS, where a DNF already scores last place (#898)', async () => {
+    const pointsWithDnf = {
+      id: 1,
+      scoringStrategy: 'POINTS',
+      leaderboard: [
+        {
+          racerId: 1,
+          firstName: 'John',
+          lastName: 'Doe',
+          carNumber: 101,
+          racingGroupName: 'Tigers',
+          score: 5,
+          heatsCompleted: 2,
+          dnfCount: 1,
+          rank: 1,
+        },
+      ],
+    };
+
+    (useQuery as any).mockReturnValue([{
+      data: { race: pointsWithDnf },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    (useSubscription as any).mockReturnValue([{
+      data: { leaderboard: pointsWithDnf.leaderboard },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={1} /></MemoryRouter></AlertProvider>);
+
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.queryByText(/DNF/)).not.toBeInTheDocument();
+  });
+
   it('omits the parenthetical when the division only repeats the group name (#774)', () => {
     // The setup wizard's Cub Scout scaffold gives every den a Category equal
     // to its own name — "Bear" the den, "Bear" the Category — so the raw

@@ -31,6 +31,7 @@ import { formatScaleMph } from '../scaleSpeed';
 import { runOffAnnouncement } from '../../racing/runOff';
 import { formatLaneTime } from '../../racing/lanes';
 import {
+  dnfAnnotation as dnfAnnotationShared,
   formatScore as formatScoreShared,
   scoreLabel as scoreLabelFor,
 } from '../../stats/scoringStrategyText';
@@ -147,6 +148,12 @@ interface Standing {
   racingGroupDivision?: string | null;
   score: number;
   heatsCompleted: number;
+  /** How many of `heatsCompleted` were an actual DNF rather than a genuine
+   * slow finish (#898). Optional: the one-shot championship-round query
+   * above does not carry it — that panel's own `RaceFinishedOverlay` was
+   * left out of this issue's scope, so nothing there reads it. See
+   * `dnfAnnotation`. */
+  dnfCount?: number;
   rank: number;
 }
 
@@ -485,6 +492,11 @@ export default function Observation() {
   // with no trailing unit rather than a second copy of the same word.
   const formatProjectorScore = (score: number) =>
     formatScoreShared(score, scoringStrategy, { unit: false });
+  // The DNF note beside a score (#898) — one function for every standings
+  // surface this page renders (the audience Standings tab, the projector's
+  // top-5 panel, and the Standings-only and Broadcast Overlay views below),
+  // the same "resolve once, pass down" shape `formatScore` itself uses.
+  const dnfAnnotation = (dnfCount: number) => dnfAnnotationShared(dnfCount, scoringStrategy);
 
   // "The race is finished" (#869) — every officially scheduled heat
   // recorded, nothing on the track, nothing on deck, no exhibition run
@@ -818,6 +830,7 @@ export default function Observation() {
           nameDisplay={nameDisplay}
           scoreLabel={scoreLabel}
           formatScore={formatScore}
+          dnfAnnotation={dnfAnnotation}
           vehicle={vehicle}
           scrollBehavior={behaviour.scrollBehavior}
           cycleMs={behaviour.cycleMs}
@@ -945,6 +958,7 @@ export default function Observation() {
           racersMap={racersMap}
           scoreLabel={scoreLabel}
           formatScore={formatScore}
+          dnfAnnotation={dnfAnnotation}
           showStandingsTicker={behaviour.showStandingsTicker}
           finishBanner={showResultsOverlay && overlayData ? overlayData : null}
         />
@@ -1149,7 +1163,14 @@ export default function Observation() {
                           </div>
                         </div>
                       </td>
-                      <td className="standing-time" style={{ padding: '15px', textAlign: 'right', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontSize: '1.4rem', fontWeight: 'bold' }}>{formatScore(s.score)}</td>
+                      <td className="standing-time" style={{ padding: '15px', textAlign: 'right', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontSize: '1.4rem', fontWeight: 'bold' }}>
+                        {formatScore(s.score)}
+                        {dnfAnnotation(s.dnfCount ?? 0) && (
+                          <div className="standing-dnf-note" style={{ fontSize: '0.7rem', fontWeight: 'normal', fontFamily: 'var(--font-body)', color: 'var(--display-text-muted-color)' }}>
+                            {dnfAnnotation(s.dnfCount ?? 0)}
+                          </div>
+                        )}
+                      </td>
                       <td className="standing-runs" style={{ padding: '15px', textAlign: 'right', fontSize: '1.1rem' }}>{s.heatsCompleted}</td>
                     </tr>
                   );
@@ -1411,6 +1432,11 @@ export default function Observation() {
                             <span style={{ fontSize: '1.5vmin', color: 'var(--display-text-faintest-color)', textTransform: 'uppercase', letterSpacing: '0.1vmin', marginTop: '0.5vmin' }}>
                               {scoreLabel}
                             </span>
+                            {dnfAnnotation(s.dnfCount ?? 0) && (
+                              <span style={{ fontSize: '1.5vmin', color: 'var(--display-text-faintest-color)', marginTop: '0.3vmin' }}>
+                                {dnfAnnotation(s.dnfCount ?? 0)}
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>
