@@ -2884,7 +2884,7 @@ def validate_lane_replacement(
     db: Session, heat: models.Heat, heat_lanes: Sequence[lanes.Lane]
 ) -> str | None:
     """The first problem with replacing ``heat``'s lanes with ``heat_lanes``,
-    or ``None`` if there isn't one (#307, extended by #524).
+    or ``None`` if there isn't one (#307, extended by #524, #863).
 
     ``updateHeatResult`` and ``recordFreeRaceResult`` replace a heat's whole
     lane set with whatever a client sends, and until now nothing checked it
@@ -2900,6 +2900,11 @@ def validate_lane_replacement(
     duplicate or out-of-range one is silently wrong. Checked here for the
     same reason the lane-set checks are — this is the boundary a client's
     malformed input actually crosses.
+
+    #863 closes two other impossible payloads: negative recorded times
+    (scoring treats ``time <= 0`` as a DNF, so negative time would be first on
+    a heat card and penalised in standings; 0 remains the valid DNF marker) and
+    the same racer appearing in more than one lane of the same heat.
 
     Every legitimate caller — the Edit Results modal, the skip button, the
     re-run clear, the timer's own write, the demo seed — builds its payload by
@@ -2937,6 +2942,10 @@ def validate_lane_replacement(
         )
         return f"The lanes sent don't match this heat's schedule ({detail})."
 
+    dupe_racers = lanes.duplicate_racer_ids(heat_lanes)
+    if dupe_racers:
+        return "The same racer cannot race in multiple lanes in one heat."
+
     racer_ids = {lane.racer_id for lane in heat_lanes if lane.racer_id is not None}
     if racer_ids:
         found = {
@@ -2949,6 +2958,10 @@ def validate_lane_replacement(
         missing_racers = racer_ids - found
         if missing_racers:
             return f"Racer {sorted(missing_racers)[0]} is not part of this heat's race."
+
+    neg_times = lanes.negative_times(heat_lanes)
+    if neg_times:
+        return "A recorded time cannot be negative."
 
     # A place has never been validated (#524). It cost nothing while a timer
     # supplied every one of them; #490 lets a person type one directly, and
