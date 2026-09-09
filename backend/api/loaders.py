@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from backend.db import crud, models
 from backend.domain import lanes
+from backend.domain import race_status as domain_race_status
 from backend.domain import roll_down as domain_roll_down
 from backend.domain import scoring as domain_scoring
 from backend.services import awards as awards_service
@@ -54,6 +55,7 @@ class RequestLoaders:
         self._award_contested: dict[int, dict[int, bool]] = {}
         self._races: dict[int, models.Race | None] = {}
         self._racer_counts: dict[int, tuple[int, int]] = {}
+        self._race_status: dict[int, str] = {}
 
         event.listen(db, "after_commit", self._on_commit)
 
@@ -78,6 +80,7 @@ class RequestLoaders:
         self._award_contested.clear()
         self._races.clear()
         self._racer_counts.clear()
+        self._race_status.clear()
 
     # ------------------------------------------------------------------ #
     # Collections, loaded once per race                                    #
@@ -272,6 +275,71 @@ class RequestLoaders:
         if race_id not in self._racer_counts:
             self.prime_racer_counts([race_id])
         return self._racer_counts[race_id]
+
+    def prime_race_status(self, race_ids: list[int]) -> None:
+        """Load whether each race's schedule has been run yet, in a fixed
+        number of queries however many races are asked for (#847).
+
+        Same reasoning as :meth:`prime_racer_counts`, which this mirrors:
+        `Query.races` is `#749`'s never-pruned list, pinned to a constant SQL
+        cost regardless of how many races the install has ever run
+        (`test_get_races_query_count_does_not_scale_with_race_count`,
+        documented in `.claude/rules/roster.md`'s "The Home page race list").
+        A per-race heats-and-lanes fetch here would reintroduce exactly that
+        bug for a different field.
+
+        Two queries, not one, and both scoped to every race in ``race_ids``
+        at once: which official heats belong to which race, then every lane
+        belonging to one of those heats. `domain.race_status.status_of` does
+        the actual rollup, off `crud.lane_from_row`-converted `Lane`s — the
+        same conversion `lane_values_for_heat` already uses — so the
+        `is_finished` predicate it reuses is called exactly once, in the
+        domain layer, rather than its condition being restated a second time
+        in SQL.
+        """
+        missing = [race_id for race_id in race_ids if race_id not in self._race_status]
+        if not missing:
+            return
+
+        heats = models.official_heats(
+            self._db.query(models.Heat.id, models.Heat.race_id).filter(
+                models.Heat.race_id.in_(missing)
+            )
+        ).all()
+        heat_ids_by_race: dict[int, list[int]] = {}
+        for heat_id, race_id in heats:
+            heat_ids_by_race.setdefault(race_id, []).append(heat_id)
+
+        all_heat_ids = [heat_id for heat_id, _race_id in heats]
+        lane_rows = (
+            self._db.query(models.HeatLane)
+            .filter(models.HeatLane.heat_id.in_(all_heat_ids))
+            .all()
+            if all_heat_ids
+            else []
+        )
+        lanes_by_heat: dict[int, list[models.HeatLane]] = {}
+        for row in lane_rows:
+            lanes_by_heat.setdefault(row.heat_id, []).append(row)
+
+        for race_id in missing:
+            heat_lane_lists = (
+                [crud.lane_from_row(row) for row in lanes_by_heat.get(heat_id, [])]
+                for heat_id in heat_ids_by_race.get(race_id, [])
+            )
+            self._race_status[race_id] = domain_race_status.status_of(heat_lane_lists)
+
+    def race_status_for_race(self, race_id: int) -> str:
+        """NOT_STARTED/IN_PROGRESS/FINISHED for one race — see
+        :meth:`prime_race_status`.
+
+        Falls back to loading just this one race's status if nothing primed
+        it first, matching `racer_counts_for_race`'s fallback for a single
+        `race(raceId:)` query.
+        """
+        if race_id not in self._race_status:
+            self.prime_race_status([race_id])
+        return self._race_status[race_id]
 
     # ------------------------------------------------------------------ #
     # Derived values                                                       #

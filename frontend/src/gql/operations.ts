@@ -621,7 +621,7 @@ export type CreatePracticeRaceMutation = { createPracticeRace: { id: number, nam
 export type GetRacesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetRacesQuery = { races: Array<{ id: number, name: string, dateTime: string | null, location: string | null, registeredCount: number, checkedInCount: number, isLocked: boolean }>, practiceRace: { id: number, name: string } | null };
+export type GetRacesQuery = { races: Array<{ id: number, name: string, dateTime: string | null, location: string | null, registeredCount: number, checkedInCount: number, isLocked: boolean, status: string }>, practiceRace: { id: number, name: string } | null };
 
 export type LeaderboardSubscriptionSubscriptionVariables = Exact<{
   raceId: number;

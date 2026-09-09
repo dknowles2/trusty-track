@@ -2022,6 +2022,23 @@ class Race:
         return _loaders(info).racer_counts_for_race(self.id)[1]
 
     @strawberry.field
+    def status(self, info: Info) -> str:
+        """Whether this race's schedule has been run yet — ``NOT_STARTED``,
+        ``IN_PROGRESS`` or ``FINISHED`` (#847), for Home's per-race badge.
+
+        Computed on demand from the race's official heats, never stored —
+        the same rule the standings (#17), a `SPEED` award's recipient
+        (#170) and the track records all follow, so a corrected or deleted
+        result cannot leave a stale word on screen. See
+        `domain.race_status` for which of the three heat predicates this
+        reuses and why the other two answer a different question; batched
+        through `RequestLoaders.prime_race_status` for the same reason
+        `registered_count`/`checked_in_count` are (#749) — see
+        `.claude/rules/roster.md`'s "The Home page race list".
+        """
+        return _loaders(info).race_status_for_race(self.id)
+
+    @strawberry.field
     def racing_groups(self, info: Info) -> list[RacingGroup]:
         """Get all racing groups associated with this race."""
         return typing.cast(Any, _loaders(info).racing_groups_for_race(self.id))
@@ -3117,12 +3134,14 @@ class Query:
     def races(self, info: Info, skip: int = 0, limit: int = 100) -> list[Race]:
         """Get a list of races with pagination.
 
-        Primes `registered_count`/`checked_in_count` for the whole page in
-        one grouped query (#749), rather than letting each row's field
-        resolvers pay for their own.
+        Primes `registered_count`/`checked_in_count` and `status` for the
+        whole page in a fixed number of grouped queries (#749, #847), rather
+        than letting each row's field resolvers pay for their own.
         """
         races = crud.get_races(info.context["db"], skip=skip, limit=limit)
-        _loaders(info).prime_racer_counts([race.id for race in races])
+        race_ids = [race.id for race in races]
+        _loaders(info).prime_racer_counts(race_ids)
+        _loaders(info).prime_race_status(race_ids)
         return typing.cast(Any, races)
 
     @strawberry.field

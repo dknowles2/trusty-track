@@ -11,21 +11,14 @@ import { Icon } from '@mdi/react';
 import { mdiPlus, mdiFlagCheckered, mdiVideo, mdiSchool, mdiDotsHorizontal, mdiAccountGroup, mdiPencil, mdiTrophy } from '@mdi/js';
 import logoFullUrl from '../../../assets/logo_full_transparent.png';
 import LockedBadge from '../../core/components/LockedBadge';
+import RaceStatusBadge, { type RaceStatus } from '../components/RaceStatusBadge';
 
-// #847 asked for a "finished / in progress / not started" badge on each row
-// alongside the results route below, derived from whether every heat has
-// run. Deliberately not built: that question needs a race's heats and their
-// lanes, and this query is the one #749 pinned to a *constant* SQL cost
-// regardless of race count (`test_get_races_query_count_does_not_scale_with_race_count`)
-// — the one list on the whole site that is never pruned, so a per-race
-// fetch here reintroduces exactly the linear-scaling bug that test exists to
-// catch, this time for heats/lanes rather than the two counts already
-// below. Doing it properly wants a batched field alongside
-// `registeredCount`/`checkedInCount` (`RequestLoaders.racer_counts_for_race`'s
-// shape), which is backend work outside this change. `isLocked` is the one
-// "this is over" signal available for free — an operator locks a race as
-// its own wrap-up step (see the end-of-race panel, #855/#897) — so a
-// finished-but-unlocked race still shows no badge here.
+// #847 item 3's other half: "finished / in progress / not started" per
+// race, alongside the Standings route below. `status` is computed
+// server-side from the race's official heats and batched the same way
+// `registeredCount`/`checkedInCount` are (`RequestLoaders.prime_race_status`)
+// — see `.claude/rules/roster.md`'s "The Home page race list" for why this
+// query has to stay at a constant SQL cost regardless of race count.
 const GET_RACES = gql`
     query GetRaces {
         races {
@@ -38,6 +31,9 @@ const GET_RACES = gql`
             # Whether the race is locked against further edits — the row's
             # "Locked" badge (issue 585).
             isLocked
+            # NOT_STARTED / IN_PROGRESS / FINISHED — the row's status badge
+            # (issue 847).
+            status
         }
         practiceRace {
             id
@@ -54,6 +50,7 @@ interface Race {
     registeredCount: number;
     checkedInCount: number;
     isLocked: boolean;
+    status: RaceStatus;
 }
 
 interface PracticeRace {
@@ -275,6 +272,7 @@ export default function Home() {
                                             >
                                                 {race.name}
                                             </Link>
+                                            {race.status && <RaceStatusBadge status={race.status} />}
                                             {race.isLocked && <LockedBadge />}
                                         </span>
                                     </td>
