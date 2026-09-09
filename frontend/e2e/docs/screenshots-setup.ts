@@ -31,8 +31,23 @@
 
 import { test as base, expect, type Locator } from '@playwright/test';
 
-/** Hidden rather than removed, so nothing reflows around the gap it leaves. */
-const HIDE_UNSTABLE = `[data-testid="app-version"] { visibility: hidden !important; }`;
+/**
+ * `visibility: hidden` alone hides the ink but keeps the box: the element
+ * still occupies the rendered width of `v{version}`, in a proportional font,
+ * and that width changes on every commit because the version string is built
+ * from the git hash. In `Navigation.tsx` this element sits in the nav's
+ * right-hand `flexShrink: 0` group, with the race-selector pill immediately
+ * to its left in a `flex: 1` centred container — so the pill's position
+ * moved by half of whatever the hash's width changed by, on every commit,
+ * which is why committing a baseline was itself what invalidated it
+ * (dknowles2/trusty-track#938). `width: 0` plus `overflow: hidden` removes
+ * that horizontal footprint entirely rather than merely hiding what is
+ * inside it, while `visibility: hidden` (rather than `display: none`) keeps
+ * the element in flow, preserving the vertical space its line takes in the
+ * two-line block above the GitHub link so nothing reflows around *that* gap
+ * — the concern the original comment named, kept alongside the new one.
+ */
+const HIDE_UNSTABLE = `[data-testid="app-version"] { visibility: hidden !important; width: 0 !important; overflow: hidden !important; }`;
 
 /**
  * A fixed instant, so anything computed from `new Date()`/`Date.now()` reads
