@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import sys
+import urllib.parse
 import uuid
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
@@ -51,7 +52,7 @@ from backend.db.database import (
     known_revisions,
 )
 from backend.domain import audit
-from backend.services import backup, discovery, printables
+from backend.services import backup, discovery, network, printables
 from backend.services.image_processing import (
     UnreadableImageError,
     convert_to_browser_safe_png,
@@ -600,9 +601,76 @@ def check_in_barcode(racer_id: int, db: Session = Depends(get_db)) -> Response:
 _QR_ALLOWED_PATHS = ("/vote", "/observation")
 
 
+def _validate_vote_qr_url(url: str, race_id: int, request: Request) -> None:
+    """Validate that `url` points to an audience-facing page on this Trusty
+    Track instance.
+
+    Rejects non-HTTP(S) schemes, paths outside the allowed vote and
+    observation endpoints for this race, and hostnames/ports that do not
+    belong to this server instance (#866).
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid URL") from exc
+
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid URL scheme: must be http or https",
+        )
+
+    clean_path = parsed.path.rstrip("/")
+    expected_paths = tuple(f"/race/{race_id}{path}" for path in _QR_ALLOWED_PATHS)
+    if not any(clean_path == p or clean_path.endswith(p) for p in expected_paths):
+        raise HTTPException(
+            status_code=400,
+            detail="Not an audience-facing address for this race",
+        )
+
+    target_host = (parsed.hostname or "").lower().strip("[]")
+    if not target_host:
+        raise HTTPException(
+            status_code=400,
+            detail="URL must specify a valid host",
+        )
+
+    allowed_hosts: set[str] = {"localhost", "127.0.0.1", "::1"}
+    allowed_hosts.update(addr.lower().strip("[]") for addr in network.lan_addresses())
+
+    if MDNS_RESPONDER is not None and MDNS_RESPONDER.hostname:
+        allowed_hosts.add(MDNS_RESPONDER.hostname.lower())
+    allowed_hosts.add(f"{discovery.HOSTNAME}.local".lower())
+    allowed_hosts.add(discovery.HOSTNAME.lower())
+
+    if request.url.hostname:
+        allowed_hosts.add(request.url.hostname.lower().strip("[]"))
+
+    if target_host not in allowed_hosts:
+        raise HTTPException(
+            status_code=400,
+            detail=f"URL host '{target_host}' is not this server instance",
+        )
+
+    if parsed.port is not None:
+        allowed_ports: set[int] = {80, 443, discovery._candidate_port()}
+        if request.url.port is not None:
+            allowed_ports.add(request.url.port)
+        if parsed.port not in allowed_ports:
+            raise HTTPException(
+                status_code=400,
+                detail=f"URL port {parsed.port} does not match this server instance",
+            )
+
+
 @app.get("/printables/vote-qr/{race_id}.png")
 @app.get("/api/printables/vote-qr/{race_id}.png")
-def voting_qr(race_id: int, url: str, db: Session = Depends(get_db)) -> Response:
+def voting_qr(
+    race_id: int,
+    url: str,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> Response:
     """A QR code a phone can scan to reach this race, on the ballot or the
     audience display (#414, #614).
 
@@ -628,10 +696,7 @@ def voting_qr(race_id: int, url: str, db: Session = Depends(get_db)) -> Response
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if race is None:
         raise HTTPException(status_code=404, detail="Race not found")
-    if not any(f"/race/{race_id}{path}" in url for path in _QR_ALLOWED_PATHS):
-        raise HTTPException(
-            status_code=400, detail="Not an audience-facing address for this race"
-        )
+    _validate_vote_qr_url(url=url, race_id=race_id, request=request)
 
     return Response(
         content=printables.url_png(url),

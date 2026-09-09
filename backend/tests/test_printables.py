@@ -189,6 +189,13 @@ class TestVotingQrRendering:
 
 
 class TestVotingQrEndpoint:
+    @pytest.fixture(autouse=True)
+    def _stub_lan_addresses(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            "backend.services.network.lan_addresses",
+            lambda: ["192.168.1.42"],
+        )
+
     def test_it_serves_a_png(self, client, race):
         response = client.get(
             f"/api/printables/vote-qr/{race.id}.png",
@@ -276,3 +283,123 @@ class TestVotingQrEndpoint:
         )
 
         assert "immutable" not in response.headers.get("cache-control", "")
+
+    def test_phishing_host_is_refused(self, client, race) -> None:
+        """External hostnames pointing to phishing sites must be rejected (#866)."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"https://evil.example/race/{race.id}/vote"},
+        )
+        assert response.status_code == 400
+        assert "not this server instance" in response.json()["detail"].lower()
+
+    def test_phishing_url_with_path_in_query_is_refused(self, client, race) -> None:
+        """Raw substring matching must not accept paths hidden in query
+        params (#866)."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"https://evil.example.com/phish?x=/race/{race.id}/vote"},
+        )
+        assert response.status_code == 400
+
+    def test_invalid_scheme_is_refused(self, client, race) -> None:
+        """Only http and https schemes are allowed for QR codes (#866)."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"ftp://localhost:8000/race/{race.id}/vote"},
+        )
+        assert response.status_code == 400
+        assert "scheme" in response.json()["detail"].lower()
+
+    def test_mismatched_port_is_refused(self, client, race) -> None:
+        """A port that does not match this server or standard ports is
+        refused (#866)."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"http://localhost:8766/race/{race.id}/vote"},
+        )
+        assert response.status_code == 400
+        assert "port" in response.json()["detail"].lower()
+
+    @pytest.mark.parametrize(
+        "host",
+        ["localhost", "127.0.0.1", "[::1]"],
+    )
+    def test_localhost_and_loopback_are_allowed(self, client, race, host: str) -> None:
+        """Localhost and IPv4/IPv6 loopback addresses are recognized (#866)."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"http://{host}:8000/race/{race.id}/vote"},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+
+    def test_lan_address_is_allowed(
+        self, client, race, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Addresses found by network.lan_addresses() are allowed (#866)."""
+        monkeypatch.setattr(
+            "backend.services.network.lan_addresses",
+            lambda: ["10.42.0.10"],
+        )
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"http://10.42.0.10:8000/race/{race.id}/vote"},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+
+    def test_mdns_hostname_is_allowed(
+        self, client, race, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The discovery mDNS hostname is recognized as valid (#866)."""
+        from backend.api import main
+        from backend.services.discovery import MdnsResponder
+
+        fake_responder = MdnsResponder(
+            zeroconf=None,  # type: ignore[arg-type]
+            infos=[],
+            hostname="trustytrack-2.local",
+        )
+        monkeypatch.setattr(main, "MDNS_RESPONDER", fake_responder)
+
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"http://trustytrack-2.local:8000/race/{race.id}/vote"},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+
+    def test_incoming_request_host_is_allowed(self, client, race) -> None:
+        """Host matching request.url.hostname is allowed (#866)."""
+        # TestClient uses "testserver" as hostname
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"http://testserver:8000/race/{race.id}/vote"},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+
+    def test_missing_host_is_refused(self, client, race) -> None:
+        """A URL with no host component must be rejected (#866)."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"http:///race/{race.id}/vote"},
+        )
+        assert response.status_code == 400
+        assert "host" in response.json()["detail"].lower()
+
+    def test_unlisted_ip_is_refused(
+        self, client, race, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An IP address not belonging to this machine is refused (#866)."""
+        monkeypatch.setattr(
+            "backend.services.network.lan_addresses",
+            lambda: ["192.168.1.10"],
+        )
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"http://192.168.1.99:8000/race/{race.id}/vote"},
+        )
+        assert response.status_code == 400
+        assert "not this server instance" in response.json()["detail"].lower()
