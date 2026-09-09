@@ -451,13 +451,17 @@ _After a heat completes, each lane shows the racer's finish time and placement (
 ![The manual entry modal on a Points race](assets/screenshots/race-day/32-manual-place-entry-modal.png)
 _A Points race's entry modal: the **Place** column is what gets typed in — the finishing order somebody at the line called out — and an optional **Time** column sits beside it for correcting or clearing a time a timer recorded._
 
-On a Points race, two lanes can't share a place, and a place can't be higher
-than the number of racers actually in the heat — Trusty Track checks this as
-you type and disables **Save Results** with an explanation until it's fixed,
-rather than letting you find out after the fact. And if two lanes on a Timed
-race record the exact same time, a note says so — the finishing order between
-them still has to be saved as one, but at least you'll know it was a coin
-flip rather than a real photo finish.
+On a Points race, a place can't be higher than the number of racers actually
+in the heat, and two lanes can't claim the same place unless their recorded
+times genuinely tie — Trusty Track checks this as you type and disables
+**Save Results** with an explanation until it's fixed, rather than letting
+you find out after the fact. And if two lanes on a Timed race record the
+exact same time, a note says so, and they legitimately **share** that place
+on the standings (1st, 1st, 3rd) rather than one of them arbitrarily coming
+out ahead. See [Scoring](reference/scoring.md#points) for the exact rule.
+
+A typed time can never be negative, and the same racer can never be entered
+in two lanes of one heat — either is refused when you click **Save Results**.
 
 After reviewing results, click **Next Heat** to advance to the next heat — or enable **Auto-advance** to move forward automatically after 10 seconds.
 
@@ -491,6 +495,14 @@ It is off until you switch it on, and the setting is remembered on that device
 only — your laptop can have it while the wall displays stay silent. Switching it
 on plays the sound once, which is how you find out whether the machine is muted
 without waiting for a heat to finish.
+
+The **Sound options** button beside it opens a fuller panel with more event
+sounds — a heat being staged, the gate release, a track record broken, the
+award ceremony fanfare — all behind one shared **Enable sound effects on this
+device** switch. Each sound remembers its own on/off state independently, so
+turning one on in that panel no longer turns the whole switch (and every
+other sound already left checked) on with it — you'll need that switch on too
+before a sound you've enabled there will actually play.
 
 ---
 

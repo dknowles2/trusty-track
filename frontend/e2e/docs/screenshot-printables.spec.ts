@@ -15,15 +15,23 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { docsTrackId, ensureConfigured, gql, organizationId, photosFor } from './support';
+import { FONT_RENDERING_ARGS } from '../../playwright.screenshots.config';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/printables');
 
 // A camera that exists but sees a test pattern, so the scanner screenshots as
-// a live viewfinder instead of "could not open the camera".
+// a live viewfinder instead of "could not open the camera". `launchOptions`
+// is a plain option, not deep-merged across scopes — setting it here would
+// otherwise silently drop the config's own font-rendering flags for every
+// screenshot this file takes, so FONT_RENDERING_ARGS rides along.
 test.use({
     launchOptions: {
-        args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+        args: [
+            ...FONT_RENDERING_ARGS,
+            '--use-fake-device-for-media-stream',
+            '--use-fake-ui-for-media-stream',
+        ],
     },
     permissions: ['camera'],
 });
