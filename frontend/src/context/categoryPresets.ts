@@ -13,6 +13,13 @@
  * is gone: the migration that dropped the enum carried every stored value to
  * the label it used to compute, so the stored text already *is* the label —
  * there is nothing left to translate.
+ *
+ * Lives in `context/` rather than under `features/management/` (#928) — it
+ * is one of `organizationKinds.ts`'s own `cubScouts` entry, and both
+ * `features/management` (the roster's Category picker, the wizard's groups
+ * step) and `features/settings` (nothing here yet, but the same reasoning
+ * as `DEFAULT_TERMINOLOGY`) read it, so it belongs beside the vocabulary
+ * they share rather than inside either one.
  */
 
 /** In the order a Cub Scout meets them, which is how a pack lists its racing groups. */

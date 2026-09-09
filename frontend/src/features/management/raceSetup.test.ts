@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_TERMINOLOGY } from '../../context/TerminologyContext';
-import { CATEGORY_PRESETS } from './categoryPresets';
-import { VEHICLE_ARTWORK_OPTIONS } from '../settings/terminologyDefaults';
+import { CATEGORY_PRESETS } from '../../context/categoryPresets';
+import { DEFAULT_ANSWERS, wordsFor } from '../../context/organizationKinds';
 import {
-    DEFAULT_ANSWERS,
-    EVENT_KINDS,
-    ORGANIZATION_KINDS,
     blankGroup,
     copiedGroups,
     copyableAwards,
@@ -16,47 +13,12 @@ import {
     stepsFor,
     toAwardCopyInput,
     toRacingGroupInput,
-    wordsFor,
     type RacingGroupDraft,
     type SourceAward,
     type SourceRace,
 } from './raceSetup';
 
 const words = { groupLower: 'den', groupsLower: 'dens' };
-
-describe('wordsFor', () => {
-    it('opens on exactly the built-in words — a default install is unchanged', () => {
-        expect(wordsFor(DEFAULT_ANSWERS)).toEqual(DEFAULT_TERMINOLOGY);
-    });
-
-    it('a Space Derby is rockets, and only the vehicle word changes', () => {
-        expect(wordsFor({ ...DEFAULT_ANSWERS, eventKind: 'space' })).toEqual({
-            ...DEFAULT_TERMINOLOGY,
-            vehicleSingular: 'Rocket',
-            vehiclePlural: 'Rockets',
-            vehicleArtworkKey: 'rocket',
-        });
-    });
-
-    it('a district derby is still Cub Scouts, but its groups are ranks, not dens', () => {
-        const w = wordsFor({ ...DEFAULT_ANSWERS, scale: 'tournament' });
-        expect(w.organizationSingular).toBe('District');
-        expect(w.racingGroupSingular).toBe('Rank');
-        expect(w.vehicleSingular).toBe('Car');
-    });
-
-    it('the scale is ignored where the organization kind asks no such question', () => {
-        expect(wordsFor({ eventKind: 'pinewood', organizationKind: 'school', scale: 'tournament' }))
-            .toEqual(wordsFor({ eventKind: 'pinewood', organizationKind: 'school', scale: 'own' }));
-    });
-
-    it('every event kind names an artwork the picker knows', () => {
-        const known = VEHICLE_ARTWORK_OPTIONS.map((o) => o.value);
-        for (const kind of EVENT_KINDS) {
-            expect(known).toContain(kind.vehicleArtworkKey);
-        }
-    });
-});
 
 describe('raceOverrideFor', () => {
     it('stores nothing when the words are the install default — the race inherits', () => {
@@ -119,17 +81,6 @@ describe('scaffoldGroups', () => {
             .toEqual(['Cubbies', 'Sparks', 'T&T', 'Trek', 'Journey']);
         expect(scaffoldGroups({ ...DEFAULT_ANSWERS, organizationKind: 'school' })).toEqual([]);
         expect(scaffoldGroups({ ...DEFAULT_ANSWERS, organizationKind: 'other' })).toEqual([]);
-    });
-
-    it('every organization kind has a singular and a plural for both words', () => {
-        for (const kind of ORGANIZATION_KINDS) {
-            for (const w of [kind, ...(kind.scales ?? [])]) {
-                expect(w.organizationSingular).not.toBe('');
-                expect(w.organizationPlural).not.toBe('');
-                expect(w.racingGroupSingular).not.toBe('');
-                expect(w.racingGroupPlural).not.toBe('');
-            }
-        }
     });
 });
 

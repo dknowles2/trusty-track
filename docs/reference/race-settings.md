@@ -443,6 +443,16 @@ already filled in with the built-in words so none of them starts out blank.
 _Turning on custom terminology offers all six boxes at once — a singular
 and a plural for each word — plus the vehicle picture below them._
 
+**A picker sits above those six boxes**, asking the same two questions the
+setup wizard's **Kind of event** step asks a single race — what is being
+raced, and who is holding it — so the install-wide default gets the same
+help choosing its words that a race already does. Choosing an answer fills
+in the six boxes below and turns the checkbox on for you; nothing about the
+picker itself is saved, and nothing remembers which answer was chosen, so
+editing a box afterward is ordinary text editing and does not undo your
+choice. Answer nothing and the install stays Den/Pack/Car, exactly as it
+always has.
+
 **A race can override that default of its own** — one venue running a pack
 derby in March and a school's own derby in May, on the same install, without
 either one showing the other's words. The setup wizard's **Kind of event**
@@ -474,3 +484,11 @@ group that a Cub Scout rank or a school grade goes in — see
 [Adding a New Den](../race-setup.md#adding-a-new-den). It is a detail on one
 racing group, not vocabulary a whole screen is built from, so it keeps one
 name regardless of the words above.
+
+**What the Category box suggests follows the words too, not just its
+label.** Nothing records which answer a race or the install chose, so the
+suggestions come from the words themselves: Pack/Den (or a district's
+District/Rank) offers the six Cub Scout ranks, Club/Group offers Awana's
+Cubbies, Sparks, T&T, Trek and Journey, and any other vocabulary — a
+school's Grade, or your own custom pair of words — offers no suggestions at
+all. Typing your own is always there regardless.

@@ -1110,6 +1110,106 @@ describe('Terminology (#496 stage 3; #551 adds the vehicle term, and stage 4 of 
     });
 });
 
+describe('the organization/event kind picker in front of the six words (#928, part 2)', () => {
+    const configured = {
+        initialized: true,
+        organizationName: 'Pack 42',
+        debugMode: false,
+        displayTheme: 'MATCH_APP',
+        printablesTheme: 'MATCH_APP',
+        racingGroupSingular: null,
+        racingGroupPlural: null,
+        organizationSingular: null,
+        organizationPlural: null,
+        vehicleSingular: null,
+        vehiclePlural: null,
+        vehicleArtworkKey: null,
+        tracks: [
+            { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+        ],
+    };
+
+    const setup = async () => {
+        (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+        await openSection('general');
+        return (await import('@testing-library/user-event')).default.setup();
+    };
+
+    it('opens on Pinewood Derby and Cub Scouts, with the words box unchecked', async () => {
+        await setup();
+
+        expect(screen.getByLabelText(/^Pinewood Derby/)).toBeChecked();
+        expect(screen.getByLabelText(/^Cub Scouts/)).toBeChecked();
+        expect(screen.getByLabelText('Use different words for “Den”, “Pack” and “Car”')).not.toBeChecked();
+    });
+
+    it('choosing Awana fills in its words and checks the box', async () => {
+        const user = await setup();
+
+        await user.click(screen.getByLabelText(/^Awana/));
+
+        expect(screen.getByLabelText('Use different words for “Den”, “Pack” and “Car”')).toBeChecked();
+        expect(screen.getByLabelText('One racing group (was “Den”)')).toHaveValue('Group');
+        expect(screen.getByLabelText('The organization itself (was “Pack”)')).toHaveValue('Club');
+        expect(screen.getByLabelText('One vehicle (was “Car”)')).toHaveValue('Car');
+    });
+
+    it('a Space Derby changes only the vehicle word', async () => {
+        const user = await setup();
+
+        await user.click(screen.getByLabelText(/^Space Derby/));
+
+        expect(screen.getByLabelText('One vehicle (was “Car”)')).toHaveValue('Rocket');
+        expect(screen.getByLabelText('The organization itself (was “Pack”)')).toHaveValue('Pack');
+    });
+
+    it('a district or council derby is offered only once Cub Scouts is chosen, and sets District/Rank', async () => {
+        const user = await setup();
+
+        expect(screen.getByLabelText(/^A district or council derby/)).toBeInTheDocument();
+        await user.click(screen.getByLabelText(/^A district or council derby/));
+
+        expect(screen.getByLabelText('One racing group (was “Den”)')).toHaveValue('Rank');
+        expect(screen.getByLabelText('The organization itself (was “Pack”)')).toHaveValue('District');
+
+        // Switching to a kind with no scales removes the question rather
+        // than leaving it showing a choice that no longer applies.
+        await user.click(screen.getByLabelText(/^A school/));
+        expect(screen.queryByLabelText(/^A district or council derby/)).toBeNull();
+    });
+
+    it('choosing the built-in combination again leaves the box unchecked', async () => {
+        const user = await setup();
+
+        await user.click(screen.getByLabelText(/^Awana/));
+        expect(screen.getByLabelText('Use different words for “Den”, “Pack” and “Car”')).toBeChecked();
+
+        await user.click(screen.getByLabelText(/^Cub Scouts/));
+        expect(screen.getByLabelText('Use different words for “Den”, “Pack” and “Car”')).not.toBeChecked();
+    });
+
+    it('editing a word afterward does not change which answer is selected', async () => {
+        const user = await setup();
+
+        await user.click(screen.getByLabelText(/^Awana/));
+        await user.clear(screen.getByLabelText('One racing group (was “Den”)'));
+        await user.type(screen.getByLabelText('One racing group (was “Den”)'), 'Squad');
+
+        // Nothing records which preset was picked (#928) — the radio stays
+        // selected even though the field it seeded has since been hand-edited.
+        expect(screen.getByLabelText(/^Awana/)).toBeChecked();
+        expect(screen.getByLabelText('One racing group (was “Den”)')).toHaveValue('Squad');
+    });
+});
+
 describe('Name display (#552)', () => {
     const configured = {
         initialized: true,
