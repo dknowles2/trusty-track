@@ -245,4 +245,43 @@ describe('RacingGroupManager', () => {
         ).toBeInTheDocument();
         expect(screen.queryByText(/racers in this den will be unassigned/i)).not.toBeInTheDocument();
     });
+
+    // #928 part 1: the Category picker's suggestions are derived from the
+    // race's own resolved words, matched against `ORGANIZATION_KINDS`
+    // (`context/organizationKinds.ts`'s `categoryPresetsFor`) — not a fixed
+    // Cub Scout list offered to everybody, and not stored anywhere.
+    describe('the Category picker (#928)', () => {
+        it('offers the Cub Scout ranks for the built-in Pack/Den words, under the corrected label', () => {
+            renderManager();
+            fireEvent.click(screen.getByText('Add New Den'));
+
+            expect(screen.getByText('Choose a category, or type your own')).toBeInTheDocument();
+            expect(screen.getByRole('option', { name: 'Lion' })).toBeInTheDocument();
+        });
+
+        it('offers no suggestions for a vocabulary that matches no organization kind', () => {
+            renderManager({ terminology: CUSTOM_TERMINOLOGY });
+            fireEvent.click(screen.getByText('Add New Squad'));
+
+            // The label is still corrected even though the list is empty.
+            expect(screen.getByText('Choose a category, or type your own')).toBeInTheDocument();
+            expect(screen.queryByRole('option', { name: 'Lion' })).not.toBeInTheDocument();
+        });
+
+        it('offers the Awana age groups for a Club/Group vocabulary', () => {
+            renderManager({
+                terminology: {
+                    ...CUSTOM_TERMINOLOGY,
+                    organizationSingular: 'Club',
+                    organizationPlural: 'Clubs',
+                    racingGroupSingular: 'Group',
+                    racingGroupPlural: 'Groups',
+                },
+            });
+            fireEvent.click(screen.getByText('Add New Group'));
+
+            expect(screen.getByRole('option', { name: 'Cubbies' })).toBeInTheDocument();
+            expect(screen.queryByRole('option', { name: 'Lion' })).not.toBeInTheDocument();
+        });
+    });
 });

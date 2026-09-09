@@ -8,7 +8,7 @@ import { Icon } from '@mdi/react';
 import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js';
 import { useMutation, useQuery } from 'urql';
 import { CREATE_RACING_GROUP, UPDATE_RACING_GROUP, DELETE_RACING_GROUP, GET_RACE_DETAILS } from '../graphql/queries';
-import { CATEGORY_PRESETS } from '../categoryPresets';
+import { categoryPresetsFor } from '../../../context/organizationKinds';
 import { suggestedRange } from '../numberRanges';
 
 const RACING_GROUP_COLORS = COMMON_COLORS;
@@ -20,7 +20,14 @@ interface RacingGroupManagerProps {
 
 export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupManagerProps) {
     const { showAlert, showConfirm } = useAlert();
-    const { group, groupLower, groupsLower } = useTerminology();
+    const { group, groupLower, groupsLower, org } = useTerminology();
+    // Which category suggestions to offer (#928, part 1) — derived from
+    // this race's own resolved words, not stored anywhere: nothing records
+    // which `OrganizationKind` was chosen, so a school or an Awana club
+    // gets its own list and a custom vocabulary gets none at all, rather
+    // than everybody being offered Cub Scout ranks regardless of who is
+    // actually holding the race. See `categoryPresetsFor`.
+    const categoryPresets = categoryPresetsFor({ organizationSingular: org, racingGroupSingular: group });
 
     const [{ data }, reexecuteQuery] = useQuery({
         query: GET_RACE_DETAILS,
@@ -261,8 +268,8 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
                             onChange={e => { if (e.target.value) setNewRacingGroupDivision(e.target.value); }}
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', marginBottom: '6px' }}
                         >
-                            <option value="">Choose a Cub Scout rank, or type your own below</option>
-                            {CATEGORY_PRESETS.map((preset) => (
+                            <option value="">Choose a category, or type your own</option>
+                            {categoryPresets.map((preset) => (
                                 <option key={preset} value={preset}>
                                     {preset}
                                 </option>
@@ -340,8 +347,8 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
                                             onChange={e => { if (e.target.value) setEditRacingGroupDivision(e.target.value); }}
                                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', marginBottom: '6px' }}
                                         >
-                                    <option value="">Choose a Cub Scout rank, or type your own below</option>
-                                    {CATEGORY_PRESETS.map((preset) => (
+                                    <option value="">Choose a category, or type your own</option>
+                                    {categoryPresets.map((preset) => (
                                         <option key={preset} value={preset}>
                                             {preset}
                                         </option>

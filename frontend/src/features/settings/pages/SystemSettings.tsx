@@ -24,6 +24,14 @@ import { applyStoredAppTheme, readAppTheme, writeAppTheme } from '../../../themi
 import type { SurfaceThemeSetting, ThemeKey } from '../../../theming/themes';
 import type { HistoricalRecord } from '../components/TrackRecords';
 import { DEFAULT_TERMINOLOGY, VEHICLE_ARTWORK_OPTIONS } from '../terminologyDefaults';
+import {
+  DEFAULT_ANSWERS,
+  EVENT_KINDS,
+  ORGANIZATION_KINDS,
+  organizationKindFor,
+  wordsFor,
+  type SetupAnswers,
+} from '../../../context/organizationKinds';
 import { NAME_DISPLAY_OPTIONS } from '../../core/displayName';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
@@ -219,6 +227,33 @@ export default function SystemConfig() {
   const [vehicleSingular, setVehicleSingular] = useState<string>(DEFAULT_TERMINOLOGY.vehicleSingular);
   const [vehiclePlural, setVehiclePlural] = useState<string>(DEFAULT_TERMINOLOGY.vehiclePlural);
   const [vehicleArtworkKey, setVehicleArtworkKey] = useState<string>(DEFAULT_TERMINOLOGY.vehicleArtworkKey);
+
+  // The two questions in front of the six word fields above (#928, part
+  // 2) — the same ones `RaceSetupWizard` asks, reused here for the
+  // install-wide default rather than one race, since this is the screen
+  // `raceOverrideFor` treats as the thing worth getting right: a race
+  // matching this default stores no override at all. Nothing here is
+  // seeded from the saved configuration and nothing records which answer
+  // was picked — picking one overwrites the six fields below exactly once,
+  // and editing a field afterward is ordinary text editing that un-chooses
+  // nothing. See `context/organizationKinds.ts`.
+  const [presetAnswers, setPresetAnswers] = useState<SetupAnswers>(DEFAULT_ANSWERS);
+
+  function choosePreset(next: SetupAnswers) {
+    setPresetAnswers(next);
+    const words = wordsFor(next);
+    const isBuiltIn = (Object.keys(words) as (keyof typeof words)[]).every(
+      (k) => words[k] === DEFAULT_TERMINOLOGY[k],
+    );
+    setCustomTerminology(!isBuiltIn);
+    setRacingGroupSingular(words.racingGroupSingular);
+    setRacingGroupPlural(words.racingGroupPlural);
+    setOrganizationSingular(words.organizationSingular);
+    setOrganizationPlural(words.organizationPlural);
+    setVehicleSingular(words.vehicleSingular);
+    setVehiclePlural(words.vehiclePlural);
+    setVehicleArtworkKey(words.vehicleArtworkKey);
+  }
 
   // The install-wide default for how much of a racer's name a public
   // screen may show (#552) — same shape as `displayTheme`/`printablesTheme`
@@ -594,6 +629,84 @@ export default function SystemConfig() {
             style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
           />
         </div>
+
+        {/* What is being raced, and who is holding it (#928, part 2) — the
+            same two questions `RaceSetupWizard` asks a race, offered here
+            in front of the six word fields so the install-wide default gets
+            the same help choosing its words that a single race already
+            does. Always on screen, unlike the six fields themselves: this
+            is the "advanced option" shape's *front* half, not behind the
+            disclosure. Picking an answer overwrites the six fields below
+            (`choosePreset`); nothing here is saved on its own; nothing is
+            seeded from what is already configured, since no column
+            remembers which answer was picked. */}
+        <fieldset style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', marginBottom: '1.5rem' }}>
+          <legend style={{ fontSize: '0.9rem', padding: '0 0.4rem', fontWeight: 'bold' }}>What is being raced, and who is holding it?</legend>
+          <small style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: '0.75rem' }}>
+            A starting point for the words below — answer nothing and this install stays Den/Pack/Car, exactly as it always has.
+          </small>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <p style={{ fontWeight: 'bold', fontSize: '0.85rem', margin: '0 0 0.4rem' }}>What is being raced?</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {EVENT_KINDS.map((kind) => (
+                  <label key={kind.key} style={{ display: 'block', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="preset-event-kind"
+                      checked={presetAnswers.eventKind === kind.key}
+                      onChange={() => choosePreset({ ...presetAnswers, eventKind: kind.key })}
+                    />{' '}
+                    {kind.label}
+                    <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.1rem', marginLeft: '1.4rem' }}>
+                      {kind.description}
+                    </small>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p style={{ fontWeight: 'bold', fontSize: '0.85rem', margin: '0 0 0.4rem' }}>Who is holding it?</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {ORGANIZATION_KINDS.map((kind) => (
+                  <label key={kind.key} style={{ display: 'block', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="preset-organization-kind"
+                      checked={presetAnswers.organizationKind === kind.key}
+                      onChange={() => choosePreset({ ...presetAnswers, organizationKind: kind.key, scale: 'own' })}
+                    />{' '}
+                    {kind.label}
+                    <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.1rem', marginLeft: '1.4rem' }}>
+                      {kind.description}
+                    </small>
+                  </label>
+                ))}
+              </div>
+              {organizationKindFor(presetAnswers.organizationKind).scales && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <p style={{ fontWeight: 'bold', fontSize: '0.85rem', margin: '0 0 0.4rem' }}>How big is it?</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {organizationKindFor(presetAnswers.organizationKind).scales!.map((scale) => (
+                      <label key={scale.key} style={{ display: 'block', cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="preset-scale"
+                          checked={presetAnswers.scale === scale.key}
+                          onChange={() => choosePreset({ ...presetAnswers, scale: scale.key })}
+                        />{' '}
+                        {scale.label}
+                        <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.1rem', marginLeft: '1.4rem' }}>
+                          {scale.description}
+                        </small>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </fieldset>
 
         {/* Custom terminology (#496 stage 3, consumed by stage 4's
             useTerminology(); #551 adds the vehicle pair). A

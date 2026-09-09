@@ -5,26 +5,28 @@ import { mdiClose, mdiPlus } from '@mdi/js';
 
 import { DEFAULT_TERMINOLOGY, type Terminology } from '../../../context/TerminologyContext';
 import { GET_RACE_SETUP_CONTEXT, GET_RACE_SETUP_SOURCE } from '../graphql/queries';
-import { CATEGORY_PRESETS } from '../categoryPresets';
-import type { RaceSetupData } from '../raceInput';
+import { CATEGORY_PRESETS } from '../../../context/categoryPresets';
 import {
     DEFAULT_ANSWERS,
     EVENT_KINDS,
     ORGANIZATION_KINDS,
+    organizationKindFor,
+    wordsFor,
+    type SetupAnswers,
+} from '../../../context/organizationKinds';
+import type { RaceSetupData } from '../raceInput';
+import {
     blankGroup,
     copiedGroups,
     copyableAwards,
     firstGroupProblem,
     numberingStrategyFor,
-    organizationKindFor,
     prefillFromRace,
     raceOverrideFor,
     scaffoldGroups,
     stepsFor,
-    wordsFor,
     type GroupProblem,
     type RacingGroupDraft,
-    type SetupAnswers,
     type SetupMode,
     type SourceRace,
     type StepId,
