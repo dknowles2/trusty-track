@@ -40,6 +40,22 @@ from typing import Any
 #: always was — an event channel's rate is an operator's own pace, not a
 #: sensor's, and a subscriber stalled long enough for that to matter is the
 #: half-open connection the ping watchdog is about to close anyway.
+#:
+#: **A second, narrower exception** (#896). `race_state:{race_id}` carries
+#: `RaceStateChangedEvent` payloads, and most of that channel's subscribers
+#: (`heatSession`, `leaderboard`, `onDeck`, `currentlyRacing`, `timingStats`,
+#: `heats`, `freeRaceHeat`/`activeFreeRaceHeat`) do fit the snapshot premise —
+#: a wake-up just means "go re-read the database". `raceStateChanged` alone
+#: hands the event straight to the client, and a `HEAT_RESULT`/`RACER`
+#: payload is merged directly into the normalized cache (#12) rather than
+#: triggering a re-read, so an older one dropped in favour of a newer one is a
+#: genuine update lost, not a superseded snapshot — reachable, and pinned by
+#: `test_race_state_changed_queue_drop.py`, though self-healing on the next
+#: structural (non-mergeable) event kept it from ever being reported. Only
+#: `Subscription.race_state_changed`'s own `pubsub.subscribe` call opts out
+#: (`drop_oldest_when_full=False`); every other subscriber on the same
+#: channel keeps the ordinary bound, since `drop_oldest_when_full` is set per
+#: subscriber, not per channel.
 MAX_QUEUE_SIZE = 8
 
 

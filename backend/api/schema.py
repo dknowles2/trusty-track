@@ -5721,8 +5721,39 @@ class Mutation:
         per-track loop) would still leave earlier tracks and the
         organization update committed. Checking every shrink first is what
         keeps a refusal here total rather than partial.
+
+        A blank terminology word gets the same ahead-of-write treatment
+        (#905): `crud.update_organization` commits the organization name
+        and `debugMode` on its own, independently of the terminology, theme,
+        PIN, name-display and track writes still to come, so a rename
+        submitted alongside a whitespace-only word used to stick while
+        everything else in the same submission — including every track —
+        was silently discarded when `_apply_terminology` refused it
+        afterwards. Every other field this mutation writes is validated by
+        the settings page itself before it ever submits (`sections.ts`'s
+        `firstProblem` for the organization name and each track's lane
+        count; `SystemSettings.tsx` coerces a non-positive scale ratio
+        before sending it; a lane colour can only come from a native
+        `<input type="color">`); the terminology words are the one
+        exception, since HTML's `required` accepts a single space and
+        `firstProblem` never looks at them.
         """
         db = info.context["db"]
+
+        # #905: a blank terminology word used to be caught by `_apply_terminology`
+        # *after* the organization name/`debugMode` write below had already
+        # committed on its own (`crud.update_organization` commits
+        # immediately) — so a rename submitted alongside a whitespace-only
+        # word (HTML's `required` accepts a single space; `firstProblem`
+        # never checks these words at all) left the rename applied and every
+        # other field in the same submission, tracks included, silently
+        # discarded. Checked here, before anything is written, for the same
+        # reason the lane-shrink guard below is: a refusal must be total.
+        if not config.clear_terminology:
+            for field in domain_terminology.TERMINOLOGY_WORD_FIELDS:
+                value = getattr(config, field, None)
+                if value is not None:
+                    domain_terminology.reject_blank_word(field, value)
 
         db_tracks_by_id = {t.id: t for t in crud.get_tracks(db)}
         for input_track in config.tracks:
@@ -6818,8 +6849,26 @@ class Subscription:
     async def race_state_changed(
         self, race_id: int
     ) -> AsyncGenerator[RaceStateChangedEvent, None]:
-        """Subscribe to state changes for a specific race."""
-        async with pubsub.subscribe(f"race_state:{race_id}") as stream:
+        """Subscribe to state changes for a specific race.
+
+        This is the second exception to `MAX_QUEUE_SIZE`'s snapshot premise
+        (#896; the first is `display_assignment`, #881). Every other
+        `race_state:{race_id}` subscriber (`heatSession`, `leaderboard`,
+        `onDeck`, `currentlyRacing`, `timingStats`, `heats`,
+        `freeRaceHeat`/`activeFreeRaceHeat`) treats a wake-up as "go re-read
+        the database", so a bound queue dropping older wake-ups in favour of
+        the newest is safe there. This resolver alone hands the raw
+        `RaceStateChangedEvent` straight to the client, and `HEAT_RESULT`/
+        `RACER` payloads are merged directly into the normalized cache
+        (#12) rather than triggering a re-read — so an older one dropped in
+        favour of a newer one is a genuine, irreplaceable update lost, not a
+        superseded snapshot. `subscribe`'s `drop_oldest_when_full=False` is
+        the same opt-out `displayAssignment` already uses, applied here for
+        the same reason; see `api/pubsub.py`'s `MAX_QUEUE_SIZE` docstring.
+        """
+        async with pubsub.subscribe(
+            f"race_state:{race_id}", drop_oldest_when_full=False
+        ) as stream:
             async for event in stream:
                 yield event
 
