@@ -187,6 +187,26 @@ jobs:
             echo "The two runs produced byte-identical output."
           fi
 
+      # `diff -rq` above only says *which* images changed, not how much --
+      # not enough to tell a genuine content race (#918) from a one-glyph
+      # rasterisation residual, or to see whether a fix actually shrinks the
+      # non-determinism rather than just moving it. `compare-screenshots.ts`
+      # in its threshold-free "measure" mode (see its own docstring) does the
+      # same pixelmatch comparison the CI drift gate uses, between this job's
+      # own two runs rather than against the committed baseline. Only runs
+      # when the file-level check above found a difference, and never fails
+      # the job -- this is a measurement, not a gate.
+      - name: Measure the two runs' pixel-level disagreement
+        if: steps.determinism.outputs.identical == 'false'
+        working-directory: frontend
+        run: |
+          node e2e/docs/compare-screenshots.ts \
+            /tmp/screenshots-run1 \
+            "$GITHUB_WORKSPACE/docs/assets/screenshots" \
+            --json /tmp/determinism-pixels.json | tee -a "$GITHUB_STEP_SUMMARY"
+          total=$(jq '[.[].diffPixels // 0] | add' /tmp/determinism-pixels.json)
+          echo "Total drifted pixels across every image this pass: ${total}" | tee -a "$GITHUB_STEP_SUMMARY"
+
       # Runs before anything is proposed, for the reason set out at the top of
       # this file: a PR opened with GITHUB_TOKEN triggers no further workflow
       # runs, so nothing else will ever check this PR's own images unless this
