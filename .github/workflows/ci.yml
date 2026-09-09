@@ -369,9 +369,47 @@ jobs:
         run: npx playwright test --config=playwright.screenshots.config.ts --shard=${{ matrix.shard }}/2
         working-directory: frontend
 
-      # Runs only when the step above failed, so a reviewer opening this job
-      # for a red "Doc Screenshots" does not have to infer from a skipped step
-      # that the candidate screenshots were never compared — the summary says
+      # Hands the regenerated images back, so a red run here is something to
+      # act on rather than something to reproduce (#931). A committed baseline
+      # can only ever have been generated on *some* machine, and #931 found
+      # that machine and this runner rasterise the identical layout
+      # differently — every glyph, none of the geometry — so a baseline
+      # regenerated on a developer's own laptop can never make this gate agree
+      # with itself; only an image this runner produced can. `git status
+      # --porcelain` against the working tree, taken straight after the specs
+      # write into it, names exactly the files *this shard's own run* changed
+      # — which is never ambiguous about which shard owns which image, since
+      # each shard regenerates only its own slice of the suite (see the
+      # sharding note above), and it is never the whole directory: a file this
+      # run did not touch is still the byte-identical copy `actions/checkout`
+      # put there, and handing it back anyway would let a stale shard silently
+      # reinstate an old baseline over a newer one another shard already
+      # produced. `always()`, and no dependency on the drift step below having
+      # run at all — the whole point is to recover images from a run that
+      # *failed* the drift check, which is the only way anyone escapes
+      # regenerating locally and hoping it matches.
+      - name: List images this shard regenerated
+        id: regenerated
+        if: always()
+        run: |
+          {
+            echo 'files<<SCREENSHOT_EOF'
+            git status --porcelain -- docs/assets/screenshots | cut -c4-
+            echo 'SCREENSHOT_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload the images this shard regenerated
+        if: always() && steps.regenerated.outputs.files != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: regenerated-screenshots-${{ matrix.shard }}
+          path: ${{ steps.regenerated.outputs.files }}
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # Runs only when the specs step above failed, so a reviewer opening this
+      # job for a red "Doc Screenshots" does not have to infer from a skipped
+      # step that the candidate screenshots were never compared — the summary says
       # so directly, and distinctly from what the drift step's own summary
       # output below looks like. `always()` is required: without it GitHub
       # prepends an implicit `success()` to this condition and it would never

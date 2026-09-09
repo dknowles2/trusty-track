@@ -16,6 +16,33 @@ const FRONTEND_PORT = SCREENSHOT_FRONTEND_PORT;
 const BACKEND_URL = SCREENSHOT_BACKEND_URL;
 const TEST_DATA_DIR = SCREENSHOT_DATA_DIR;
 
+// #821/#825 fixed font *selection* — which family renders — and that holds:
+// the committed baselines and a fresh run agree on layout down to the pixel,
+// on every host. They did not, and could not have, fixed font
+// *rasterisation* — how FreeType turns a chosen glyph into pixels, which
+// depends on the library version and its hinting/subpixel configuration, not
+// on which font file was picked. #931 found the gap: turning the drift gate
+// on for the first time showed CI's `ubuntu-latest` runner rendering every
+// glyph at a handful of different subpixel offsets than whatever machine
+// generated the checked-in images, at identical layout. These three flags
+// remove the three host-dependent rasteriser inputs FreeType is most likely
+// to disagree on — hinting, subpixel positioning, and LCD subpixel
+// filtering — which narrows the class of difference; it is not a guarantee
+// that any two FreeType versions agree on an unhinted glyph. The durable fix
+// is pinning the whole rendering environment (a container, not flags) — see
+// #931's own comment for why that is follow-up work rather than done here.
+//
+// Exported, not inlined below, because `screenshot-printables.spec.ts` has
+// its own `test.use({ launchOptions: ... })` for its fake camera device —
+// `launchOptions` is a plain option, not deep-merged across scopes, so that
+// file's own args would silently replace these rather than add to them if it
+// didn't import and spread this same array.
+export const FONT_RENDERING_ARGS = [
+  '--font-render-hinting=none',
+  '--disable-font-subpixel-positioning',
+  '--disable-lcd-text',
+];
+
 export default defineConfig({
   testDir: './e2e/docs',
   testMatch: ['*.spec.ts'],
@@ -52,6 +79,9 @@ export default defineConfig({
     // says which control it was waiting for.
     actionTimeout: 15000,
     navigationTimeout: 30000,
+    launchOptions: {
+      args: FONT_RENDERING_ARGS,
+    },
   },
   // Two phases. `first-run` is a Playwright *setup project* every other
   // project depends on, so it runs first whatever is being filtered to, and it
