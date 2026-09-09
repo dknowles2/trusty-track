@@ -66,6 +66,13 @@
   font-size: 1.1rem;
 }
 
+.race-stats__section-subtitle {
+  margin-left: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: normal;
+  color: var(--text-muted-color);
+}
+
 .race-stats__table {
   width: 100%;
   border-collapse: collapse;
