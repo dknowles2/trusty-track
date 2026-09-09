@@ -16,6 +16,10 @@ Both were already refused for `elimination_losses` and `balanced_phases`;
 this closes the same gap for the other two.
 """
 
+import pytest
+from sqlalchemy.orm import Session
+from starlette.testclient import TestClient
+
 from backend.db import crud, models, schemas
 
 
@@ -339,4 +343,186 @@ def test_create_round_wizard_refuses_balanced_on_narrow_track(db, client):
         "An elimination or balanced round requires at least two usable lanes."
         in body["errors"][0]["message"]
     )
+    assert _rounds(db, race.id) == []
+
+
+def test_create_round_refuses_advancement_source_naming_nonexistent_round(
+    db: Session, client: TestClient
+) -> None:
+    """A championship round cannot advance from a round ID that does not exist."""
+    race = _race(db, label="NonexistentRoundAdv")
+    _create_round(client, race.id, name="All Pack", runsPerLane=1)
+
+    response = _create_round(
+        client,
+        race.id,
+        name="Finals",
+        advancementSource="ROUND:999",
+        advancementNumRacers=3,
+        runsPerLane=1,
+    )
+
+    body = response.json()
+    assert "errors" in body, body
+    assert "Invalid advancement source" in body["errors"][0]["message"]
+    # No half-made round left behind.
+    assert len(_rounds(db, race.id)) == 1
+
+
+def test_create_round_refuses_bogus_advancement_source(
+    db: Session, client: TestClient
+) -> None:
+    """A championship round refuses an unrecognised advancement source."""
+    race = _race(db, label="BogusAdv")
+    _create_round(client, race.id, name="All Pack", runsPerLane=1)
+
+    response = _create_round(
+        client,
+        race.id,
+        name="Finals",
+        advancementSource="BOGUS",
+        advancementNumRacers=3,
+        runsPerLane=1,
+    )
+
+    body = response.json()
+    assert "errors" in body, body
+    assert "Invalid advancement source" in body["errors"][0]["message"]
+    assert len(_rounds(db, race.id)) == 1
+
+
+def test_create_round_refuses_advancement_source_from_different_race(
+    db: Session, client: TestClient
+) -> None:
+    """A championship round cannot advance from another race's round."""
+    race1 = _race(db, label="OtherRace1")
+    _create_round(client, race1.id, name="Pack 1", runsPerLane=1)
+    r1 = _rounds(db, race1.id)[0]
+
+    race2 = _race(db, label="OtherRace2")
+    _create_round(client, race2.id, name="Pack 2", runsPerLane=1)
+
+    response = _create_round(
+        client,
+        race2.id,
+        name="Finals",
+        advancementSource=f"ROUND:{r1.id}",
+        advancementNumRacers=3,
+        runsPerLane=1,
+    )
+
+    body = response.json()
+    assert "errors" in body, body
+    assert "Invalid advancement source" in body["errors"][0]["message"]
+    assert len(_rounds(db, race2.id)) == 1
+
+
+def test_crud_create_round_refuses_invalid_advancement_sources(
+    db: Session,
+) -> None:
+    """`crud.create_round` refuses nonexistent, bogus, or foreign-race sources."""
+    race1 = _race(db, label="CrudAdv1")
+    r1 = crud.create_round(db, race_id=race1.id, round_number=1, name="Prelim 1")
+
+    race2 = _race(db, label="CrudAdv2")
+
+    with pytest.raises(ValueError, match="Invalid advancement source"):
+        crud.create_round(
+            db,
+            race_id=race1.id,
+            round_number=2,
+            advancement_source="ROUND:999",
+            advancement_num_racers=3,
+        )
+
+    with pytest.raises(ValueError, match="Invalid advancement source"):
+        crud.create_round(
+            db,
+            race_id=race1.id,
+            round_number=2,
+            advancement_source="BOGUS",
+            advancement_num_racers=3,
+        )
+
+    with pytest.raises(ValueError, match="Invalid advancement source"):
+        crud.create_round(
+            db,
+            race_id=race2.id,
+            round_number=1,
+            advancement_source=f"ROUND:{r1.id}",
+            advancement_num_racers=3,
+        )
+
+
+def test_the_wizard_refuses_bogus_advancement_source(
+    db: Session, client: TestClient
+) -> None:
+    """The wizard refuses a bogus championship source before creating rounds."""
+    race = _race(db, label="WizardBogusChamp")
+
+    response = client.post(
+        "/graphql",
+        json={
+            "query": """
+            mutation Build($raceId: Int!, $config: WizardConfigurationInput!) {
+                createRoundWizard(raceId: $raceId, config: $config) { id }
+            }
+            """,
+            "variables": {
+                "raceId": race.id,
+                "config": {
+                    "generalRound": {"type": "ALL", "runsPerLane": 1},
+                    "championshipRounds": [
+                        {
+                            "name": "Finals",
+                            "source": "BOGUS",
+                            "numTopRacers": 3,
+                            "runsPerLane": 1,
+                        }
+                    ],
+                },
+            },
+        },
+    )
+
+    body = response.json()
+    assert "errors" in body, body
+    assert "Invalid advancement source" in body["errors"][0]["message"]
+    assert _rounds(db, race.id) == []
+
+
+def test_the_wizard_refuses_advancement_source_naming_nonexistent_round(
+    db: Session, client: TestClient
+) -> None:
+    """The wizard refuses a nonexistent round source before creating any rounds."""
+    race = _race(db, label="WizardNonexistentChamp")
+
+    response = client.post(
+        "/graphql",
+        json={
+            "query": """
+            mutation Build($raceId: Int!, $config: WizardConfigurationInput!) {
+                createRoundWizard(raceId: $raceId, config: $config) { id }
+            }
+            """,
+            "variables": {
+                "raceId": race.id,
+                "config": {
+                    "generalRound": {"type": "ALL", "runsPerLane": 1},
+                    "championshipRounds": [
+                        {
+                            "name": "Finals",
+                            "source": "ROUND:999",
+                            "numTopRacers": 3,
+                            "runsPerLane": 1,
+                        }
+                    ],
+                },
+            },
+        },
+    )
+
+    body = response.json()
+    assert "errors" in body, body
+    assert "Invalid advancement source" in body["errors"][0]["message"]
     assert _rounds(db, race.id) == []
