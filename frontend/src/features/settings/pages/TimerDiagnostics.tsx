@@ -23,6 +23,8 @@ import { useTerminology } from '../../../context/TerminologyContext';
 import { errorText } from '../../../utils/errors';
 import { fetchTimerReport, issueUrl, testInstruction } from '../timerTest';
 import { claimedCapabilities } from '../timerCapabilities';
+import { useRole } from '../../core/hooks/useRole';
+import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
 const DIAGNOSTIC_TRACKS = gql`
   query DiagnosticTracks {
@@ -214,7 +216,12 @@ const TimerTestPanel: React.FC<{
     deviceName: string | null;
     lastError: string | null;
     pendingResults: PendingResult[];
-}> = ({ trackId, state, testRun, deviceName, lastError, pendingResults }) => {
+    // #892: `startTimerTest`/`forceResults` are operator-only
+    // (backend/api/auth.py's OPERATOR_ONLY_MUTATIONS). Defaults `true` so
+    // every existing caller (and any install with no PIN set) renders
+    // exactly as before.
+    isOperator?: boolean;
+}> = ({ trackId, state, testRun, deviceName, lastError, pendingResults, isOperator = true }) => {
     const { showAlert } = useAlert();
     const [, startTest] = useMutation(DIAGNOSTIC_START_TEST);
     const [, forceResults] = useMutation(DIAGNOSTIC_FORCE_RESULTS);
@@ -276,13 +283,24 @@ const TimerTestPanel: React.FC<{
                     type="button"
                     data-testid={`start-timer-test-${trackId}`}
                     onClick={handleStart}
-                    disabled={testActive || busyWithARealHeat}
-                    title={busyWithARealHeat ? 'A real heat is armed — finish it first.' : undefined}
+                    disabled={testActive || busyWithARealHeat || !isOperator}
+                    title={
+                        busyWithARealHeat
+                            ? 'A real heat is armed — finish it first.'
+                            : !isOperator
+                              ? NEEDS_OPERATOR_PIN_MESSAGE
+                              : undefined
+                    }
                 >
                     {testFinished ? 'Run it again' : 'Start a test run'}
                 </button>
                 {testActive && state === 'RUNNING' && (
-                    <button type="button" onClick={() => forceResults({ trackId })}>
+                    <button
+                        type="button"
+                        onClick={() => forceResults({ trackId })}
+                        disabled={!isOperator}
+                        title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
+                    >
                         Finish with what it has
                     </button>
                 )}
@@ -364,7 +382,15 @@ const TimerTestPanel: React.FC<{
     );
 };
 
-const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, highlighted }) => {
+const TrackTimer: React.FC<{
+    track: Track;
+    highlighted: boolean;
+    // #892: `reconnectTimer`/`resetTimer` are operator-only
+    // (backend/api/auth.py's OPERATOR_ONLY_MUTATIONS). Defaults `true` so
+    // every existing caller (and any install with no PIN set) renders
+    // exactly as before.
+    isOperator?: boolean;
+}> = ({ track, highlighted, isOperator = true }) => {
     const { showAlert } = useAlert();
     const { vehiclesLower } = useTerminology();
     const logEndRef = useRef<HTMLDivElement>(null);
@@ -541,11 +567,21 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
             {!noHardware && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
                     {track.timerType === 'AUTO_DETECT_BACKEND' && (
-                        <button type="button" onClick={() => run(reconnect, 'connect')}>
+                        <button
+                            type="button"
+                            onClick={() => run(reconnect, 'connect')}
+                            disabled={!isOperator}
+                            title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
+                        >
                             {track.serialPort ? 'Connect' : 'Search for the timer'}
                         </button>
                     )}
-                    <button type="button" onClick={() => run(reset, 'reset the timer')}>
+                    <button
+                        type="button"
+                        onClick={() => run(reset, 'reset the timer')}
+                        disabled={!isOperator}
+                        title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
+                    >
                         Reset
                     </button>
                     {/*
@@ -571,6 +607,7 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
                     deviceName={status?.deviceName ?? null}
                     lastError={status?.lastError ?? null}
                     pendingResults={status?.pendingResults ?? []}
+                    isOperator={isOperator}
                 />
             )}
 
@@ -633,6 +670,12 @@ const TimerDiagnostics: React.FC = () => {
     const [{ data, fetching, error }] = useQuery({ query: DIAGNOSTIC_TRACKS });
     const tracks: Track[] = data?.tracks ?? [];
     const { hash } = useLocation();
+    // #892: startTimerTest, forceResults, reconnectTimer and resetTimer are
+    // all operator-only (backend/api/auth.py's OPERATOR_ONLY_MUTATIONS).
+    // This page has no route-level role gate — a check-in tablet or an
+    // unauthenticated display can open /timer-check the same as the
+    // operator — so the buttons that reach those mutations gate themselves.
+    const { isOperator } = useRole();
 
     // A router navigation does not scroll to a fragment the way a page load
     // does, and the sections do not exist until the tracks have arrived — so
@@ -678,6 +721,7 @@ const TimerDiagnostics: React.FC = () => {
                     key={track.id}
                     track={track}
                     highlighted={hash === `#timer-${track.id}`}
+                    isOperator={isOperator}
                 />
             ))}
 

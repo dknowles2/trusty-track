@@ -29,6 +29,8 @@ import {
 import { summarizeApplyResult, type ApplySceneSummary } from '../scenes';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
+import { useRole } from '../../core/hooks/useRole';
+import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
 interface ScenePresetRow {
     key: string;
@@ -58,6 +60,18 @@ const CONNECT_A_SCREEN_FIRST = 'Connect a screen first — there is nothing yet 
 
 export default function ScenesPanel({ raceId, disabled = false }: ScenesPanelProps) {
     const { showToast, showConfirm } = useAlert();
+    // #892: every mutation this panel runs (applyScenePreset, applyScene,
+    // createScene, renameScene, deleteScene) is operator-only
+    // (backend/api/auth.py's OPERATOR_ONLY_MUTATIONS) — the same bucket as
+    // the display mutations `DisplaysPanel` gates, since a scene is a saved
+    // way to call several of them at once, not a different kind of
+    // authority. Folded into the existing `disabled` prop (no screen
+    // connected) the same way `RaceDetails.tsx` folds role into its
+    // existing race-lock check: whichever reason applies, the control is
+    // off and says why.
+    const { isOperator } = useRole();
+    const roleDisabled = disabled || !isOperator;
+    const roleTitle = disabled ? CONNECT_A_SCREEN_FIRST : !isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined;
 
     const [presetsResult] = useQuery({ query: SCENE_PRESETS_QUERY, pause: !raceId });
     const [scenesResult, reexecuteScenes] = useQuery({
@@ -174,8 +188,8 @@ export default function ScenesPanel({ raceId, disabled = false }: ScenesPanelPro
                         key={preset.key}
                         type="button"
                         className="secondary-btn"
-                        disabled={disabled}
-                        title={disabled ? CONNECT_A_SCREEN_FIRST : undefined}
+                        disabled={roleDisabled}
+                        title={roleTitle}
                         onClick={() => void handleApplyPreset(preset.key)}
                         style={{ padding: '0.4rem 0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                     >
@@ -230,8 +244,8 @@ export default function ScenesPanel({ raceId, disabled = false }: ScenesPanelPro
                             <button
                                 type="button"
                                 className="secondary-btn"
-                                disabled={disabled}
-                                title={disabled ? CONNECT_A_SCREEN_FIRST : undefined}
+                                disabled={roleDisabled}
+                                title={roleTitle}
                                 onClick={() => void handleApplyScene(scene.id)}
                                 style={{ padding: '0.3rem 0.7rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
                             >
@@ -241,6 +255,8 @@ export default function ScenesPanel({ raceId, disabled = false }: ScenesPanelPro
                             <button
                                 type="button"
                                 aria-label={`Rename ${scene.name}`}
+                                disabled={!isOperator}
+                                title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
                                 onClick={() => startRenaming(scene)}
                                 style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer' }}
                             >
@@ -249,6 +265,8 @@ export default function ScenesPanel({ raceId, disabled = false }: ScenesPanelPro
                             <button
                                 type="button"
                                 aria-label={`Delete ${scene.name}`}
+                                disabled={!isOperator}
+                                title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
                                 onClick={() => void handleDelete(scene)}
                                 style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer' }}
                             >
@@ -292,8 +310,8 @@ export default function ScenesPanel({ raceId, disabled = false }: ScenesPanelPro
                 <button
                     type="button"
                     className="secondary-btn"
-                    disabled={disabled}
-                    title={disabled ? CONNECT_A_SCREEN_FIRST : undefined}
+                    disabled={roleDisabled}
+                    title={roleTitle}
                     onClick={() => setSavingAs(true)}
                     style={{ justifySelf: 'start', padding: '0.4rem 0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >
