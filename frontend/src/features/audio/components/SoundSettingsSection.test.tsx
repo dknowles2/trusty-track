@@ -62,4 +62,41 @@ describe('SoundSettingsSection', () => {
         fireEvent.click(testButtons[0]);
         expect(playSpy).toHaveBeenCalled();
     });
+
+    it('renders sub-toggles from stored values when master is off, keeping them disabled (#871)', () => {
+        soundModule.writeSoundSettings(window.localStorage, {
+            master: false,
+            stagingReady: true,
+            gateRelease: true,
+            finish: false,
+            recordBreak: true,
+            awardFanfare: true,
+        });
+
+        render(<SoundSettingsSection />);
+
+        const masterToggle = screen.getByTestId('sound-master-toggle');
+        expect(masterToggle).not.toBeChecked();
+
+        const stagingToggle = screen.getByTestId('sound-effect-stagingReady');
+        const gateToggle = screen.getByTestId('sound-effect-gateRelease');
+        const finishToggle = screen.getByTestId('sound-effect-finish');
+        const recordToggle = screen.getByTestId('sound-effect-recordBreak');
+        const fanfareToggle = screen.getByTestId('sound-effect-awardFanfare');
+
+        expect(stagingToggle).toBeChecked();
+        expect(stagingToggle).toBeDisabled();
+
+        expect(gateToggle).toBeChecked();
+        expect(gateToggle).toBeDisabled();
+
+        expect(finishToggle).not.toBeChecked();
+        expect(finishToggle).toBeDisabled();
+
+        expect(recordToggle).toBeChecked();
+        expect(recordToggle).toBeDisabled();
+
+        expect(fanfareToggle).toBeChecked();
+        expect(fanfareToggle).toBeDisabled();
+    });
 });

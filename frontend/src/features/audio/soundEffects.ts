@@ -126,8 +126,7 @@ export function writeSoundSettings(
 ): void {
     try {
         storage.setItem(SOUND_STORAGE_KEY, JSON.stringify(settings));
-        const finishActive = settings.master && settings.finish;
-        storage.setItem(FINISH_CHIME_STORAGE_KEY, finishActive ? 'on' : 'off');
+        storage.setItem(FINISH_CHIME_STORAGE_KEY, settings.finish ? 'on' : 'off');
     } catch {
         // Ignore storage write failures
     }

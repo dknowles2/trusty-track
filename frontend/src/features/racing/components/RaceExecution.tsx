@@ -896,7 +896,6 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         const current = readSoundSettings(window.localStorage);
                                         const updated: SoundEffectsSettings = {
                                             ...current,
-                                            master: nextChime ? true : current.master,
                                             finish: nextChime,
                                         };
                                         writeSoundSettings(window.localStorage, updated);
