@@ -18,15 +18,19 @@ import { useChrome } from '../../../context/ChromeContext';
 
 // The race-selector pill sits directly on the nav's own `--scouting-blue`
 // background with nothing else behind it, so an opaque `color-mix` against
-// that same custom property renders byte-identical to alpha-compositing
-// white at the same weight -- but as a single resolved colour rather than a
-// paint-time blend of a translucent layer under anti-aliased bold text. That
-// distinction is the fix for dknowles2/trusty-track#918's ~40-image
-// pill-glyph-only drift: two bootstrap passes against fresh CI runs found the
-// signature confined to the glyphs and never the pill's flat fill or border,
-// which is the class of non-reproducibility this removes. Keep these as
-// `color-mix` against `--scouting-blue` (never a hardcoded hex) so a themed
-// install (#498) still renders the right colour.
+// that same custom property renders the same colour as alpha-compositing
+// white at the same weight would -- but as a single resolved value rather
+// than a paint-time blend of a translucent layer under anti-aliased bold
+// text. That was tried as the fix for dknowles2/trusty-track#918's ~40-image
+// pill-glyph-only drift (two bootstrap passes against fresh CI runs had found
+// the signature confined to the glyphs and never the pill's flat fill or
+// border) and it did NOT close the gap: the identical signature, at a larger
+// magnitude, reproduced against a baseline generated from this exact code --
+// see .claude/rules/documentation.md's screenshot section for the
+// measurements. Left in because it removes one candidate mechanism cleanly
+// and is not wrong on its own terms, not because it fixed anything. Keep
+// these as `color-mix` against `--scouting-blue` (never a hardcoded hex) so
+// a themed install (#498) still renders the right colour.
 const PILL_BACKGROUND = 'color-mix(in srgb, #ffffff 10%, var(--scouting-blue))';
 const PILL_BACKGROUND_HOVER = 'color-mix(in srgb, #ffffff 20%, var(--scouting-blue))';
 const PILL_BORDER = '1px solid color-mix(in srgb, #ffffff 20%, var(--scouting-blue))';
