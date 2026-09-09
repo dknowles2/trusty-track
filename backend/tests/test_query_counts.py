@@ -250,6 +250,7 @@ query GetRaces {
     name
     registeredCount
     checkedInCount
+    status
   }
 }
 """
@@ -284,6 +285,21 @@ def _seed_race_with_racers(db, organization, track, name, racer_count=3):
     return race
 
 
+def _seed_heat(db, race, rows, heat_number=1):
+    """One official heat with the given lanes, written the door production
+    uses (`crud.set_heat_lanes`). Lanes carry no racer here — `status_of`
+    only reads whether a lane holds a result or is skipped, not who is in
+    it, so there is nothing to gain from a real roster tie-in for this
+    guard.
+    """
+    heat = models.Heat(race_id=race.id, round_id=None, heat_number=heat_number)
+    db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(heat, as_lanes(rows))
+    db.commit()
+    return heat
+
+
 def test_get_races_query_count_does_not_scale_with_race_count(client, db):
     """The Home page lists every race the install has ever run (#749).
 
@@ -292,6 +308,14 @@ def test_get_races_query_count_does_not_scale_with_race_count(client, db):
     how many races an install had ever run — the one list that is never
     pruned, unlike every other page this guard already covers. A grouped
     query must serve any number of races at the same cost.
+
+    `Race.status` (#847) rides on the same guard rather than a sibling test:
+    it is exactly the shape #749 fixed once already, this time for a race's
+    heats and lanes instead of its racers, and a second copy of this test
+    would be free to drift from the first. Three races are seeded with
+    heats in each of the three states below, so the count assertion is
+    exercising real work rather than 26 races that all trivially have no
+    heats at all.
     """
     organization = crud.create_organization(
         db, schemas.OrganizationCreate(name="Count Pack")
@@ -301,13 +325,38 @@ def test_get_races_query_count_does_not_scale_with_race_count(client, db):
         schemas.TrackCreate(name="Count Track", lane_count=4, timer_type="FAKE"),
     )
 
+    finished_race = _seed_race_with_racers(db, organization, track, "Finished Race")
+    _seed_heat(db, finished_race, [{"lane": 1, "time": 5.0, "place": 1}])
+
+    in_progress_race = _seed_race_with_racers(
+        db, organization, track, "In Progress Race"
+    )
+    _seed_heat(
+        db, in_progress_race, [{"lane": 1, "time": 5.0, "place": 1}], heat_number=1
+    )
+    _seed_heat(db, in_progress_race, [{"lane": 1}], heat_number=2)
+
+    scheduled_race = _seed_race_with_racers(
+        db, organization, track, "Scheduled Not Started Race"
+    )
+    _seed_heat(db, scheduled_race, [{"lane": 1}])
+
     for i in range(3):
         _seed_race_with_racers(db, organization, track, f"Small Race {i}")
 
     with _QueryCounter() as few_races:
         body = _run_no_vars(client, GET_RACES_QUERY)
-    assert len(body["data"]["races"]) == 3, (
+    assert len(body["data"]["races"]) == 6, (
         "a cheap query that returns nothing proves nothing"
+    )
+    statuses = {race["name"]: race["status"] for race in body["data"]["races"]}
+    assert statuses["Finished Race"] == "FINISHED"
+    assert statuses["In Progress Race"] == "IN_PROGRESS"
+    assert statuses["Scheduled Not Started Race"] == "NOT_STARTED", (
+        "a heat exists but nothing has been raced or skipped yet"
+    )
+    assert statuses["Small Race 0"] == "NOT_STARTED", (
+        "no heats generated at all reads the same as a schedule nobody has run"
     )
 
     for i in range(20):
@@ -315,12 +364,12 @@ def test_get_races_query_count_does_not_scale_with_race_count(client, db):
 
     with _QueryCounter() as many_races:
         body = _run_no_vars(client, GET_RACES_QUERY)
-    assert len(body["data"]["races"]) == 23
+    assert len(body["data"]["races"]) == 26
 
     assert many_races.count <= few_races.count, (
-        f"23 races cost {many_races.count} SQL queries against "
-        f"{few_races.count} for 3; registeredCount/checkedInCount must not "
-        f"scale with the number of races."
+        f"26 races cost {many_races.count} SQL queries against "
+        f"{few_races.count} for 6; registeredCount/checkedInCount/status "
+        f"must not scale with the number of races."
     )
 
 

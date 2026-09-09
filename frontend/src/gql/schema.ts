@@ -1187,6 +1187,7 @@ export type Race = {
   runOffHeats: Array<RunOffHeat>;
   scheduledRacerIds: Array<Scalars['Int']['output']>;
   scoringStrategy: Scalars['String']['output'];
+  status: Scalars['String']['output'];
   terminology: Terminology;
   tiebreaker: Scalars['String']['output'];
   track?: Maybe<Track>;

@@ -621,6 +621,7 @@ type Race {
   awards: [Award!]!
   registeredCount: Int!
   checkedInCount: Int!
+  status: String!
   racingGroups: [RacingGroup!]!
   racers: [Racer!]!
   scheduledRacerIds: [Int!]!

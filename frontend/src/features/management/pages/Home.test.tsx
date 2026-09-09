@@ -145,6 +145,24 @@ describe('Home Page', () => {
         expect(screen.getAllByText('Locked')).toHaveLength(1);
     });
 
+    it("badges each race with its schedule's own status (#847)", async () => {
+        renderHome({
+            races: [
+                { id: 1, name: 'Done Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0, status: 'FINISHED' },
+                { id: 2, name: 'Racing Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0, status: 'IN_PROGRESS' },
+                { id: 3, name: 'Future Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0, status: 'NOT_STARTED' },
+            ],
+        });
+
+        await waitFor(() => {
+            expect(screen.getByText('Done Derby')).toBeInTheDocument();
+        });
+
+        expect(screen.getByText('Finished')).toBeInTheDocument();
+        expect(screen.getByText('In progress')).toBeInTheDocument();
+        expect(screen.getByText('Not started')).toBeInTheDocument();
+    });
+
     it('shows empty state when no races found', async () => {
         (useQuery as any).mockReturnValue([{
             data: { races: [] },

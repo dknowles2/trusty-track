@@ -600,7 +600,10 @@ Coming back later — a phone at the track, or the next morning to print
 certificates — rather than to this same tab? The Home page's race list has a
 **Standings** action in each row's **⋯** menu, right beside **Roster** and
 **Edit race**, so you do not need to open the roster first just to reach the
-results.
+results. Each row also carries a small badge beside the race name — **Not
+started**, **In progress** or **Finished** — so you can tell at a glance
+which of last season's races still has heats to run without opening any of
+them.
 
 After all heats are complete, the **Standings** page shows the final ranked results. Navigate there from the top nav bar.
 
