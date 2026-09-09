@@ -628,7 +628,7 @@ export type LeaderboardSubscriptionSubscriptionVariables = Exact<{
 }>;
 
 
-export type LeaderboardSubscriptionSubscription = { leaderboard: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, racingGroupId: number | null, racingGroupName: string, racingGroupDivision: string | null, score: number, heatsCompleted: number, racerImageUrl: string | null, rank: number, resolvedBy: string | null, dropWorstRunsApplied: boolean }> };
+export type LeaderboardSubscriptionSubscription = { leaderboard: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, racingGroupId: number | null, racingGroupName: string, racingGroupDivision: string | null, score: number, heatsCompleted: number, dnfCount: number, racerImageUrl: string | null, rank: number, resolvedBy: string | null, dropWorstRunsApplied: boolean }> };
 
 export type OnDeckSubscriptionSubscriptionVariables = Exact<{
   raceId: number;

@@ -129,6 +129,17 @@ class _LeaderboardRow(TypedDict):
     racing_group_division: str | None
     score: float
     heats_completed: int
+    #: How many of `heats_completed` were an actual DNF rather than a
+    #: genuine slow finish (#898) — `domain.scoring.RacerScore.dnf_count`,
+    #: read straight off `score_heats`'s output. Carried on every row so a
+    #: display can say "1 DNF" beside a `TIMED`/`CUMULATIVE_TIME` score
+    #: without inferring it from the score's own magnitude, which #873/#897
+    #: settled a display must never do — a genuine 9.999s-or-slower finish
+    #: is not a DNF. `0` under an elimination round's own leaderboard, which
+    #: never calls `domain.scoring.score_heats` at all — survival is scored
+    #: by loss count, and a "DNF" there is simply one more loss, no
+    #: different from any other.
+    dnf_count: int
     racer_image_url: str | None
     #: The tiebreak method that gave this row a rank it no longer shares with
     #: anyone (#540) — e.g. ``"BEST_TIME"`` — or ``None`` when the row was
@@ -310,6 +321,7 @@ def get_leaderboard(
                 else None,
                 score=score_data["score"],
                 heats_completed=int(score_data["heats_completed"]),
+                dnf_count=int(score_data["dnf_count"]),
                 racer_image_url=racer.racer_image_url,
                 resolved_by=None,
                 drop_worst_runs_applied=drop_worst_runs_applied,
@@ -581,6 +593,10 @@ def _elimination_leaderboard(
                 else None,
                 score=float(entry.losses),
                 heats_completed=completed.get(entry.racer_id, 0),
+                # Survival is scored by loss count, not by
+                # `domain.scoring.score_heats` — there is no substituted
+                # penalty here for a count to disambiguate (#898).
+                dnf_count=0,
                 racer_image_url=racer.racer_image_url,
                 rank=rank,
                 # #540 is deliberately out of scope for elimination — its

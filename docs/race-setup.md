@@ -85,6 +85,11 @@ Your file does not have to be in any particular format — you match its columns
 
 Any dens named in the file are created automatically and the racers assigned to them.
 
+If something goes wrong partway through — a dropped connection, a row the
+preview's warnings missed — nothing from that file is added. The import
+either fully succeeds or fully fails, so a failed attempt never leaves a
+half-imported roster behind for you to clean up before trying again.
+
 ![Roster after Import](assets/screenshots/race-setup/08-racer-list-after-import.png)
 
 ---

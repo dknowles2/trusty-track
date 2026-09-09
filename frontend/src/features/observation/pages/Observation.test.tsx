@@ -545,6 +545,43 @@ describe('Observation Page', () => {
         expect(screen.queryByText('3.4141s')).not.toBeInTheDocument();
     });
 
+    it('notes a DNF beside a TIMED score, without inferring it from the score (#898)', async () => {
+        const racersData = {
+            race: {
+                id: 1,
+                scoringStrategy: 'TIMED',
+                racers: [
+                    { id: 1, firstName: 'Speedy', lastName: 'McQueen', carNumber: 95, racerImageUrl: null },
+                    { id: 2, firstName: 'Doc', lastName: 'Hudson', carNumber: 51, racerImageUrl: null },
+                ],
+            }
+        };
+
+        setupMocks({
+            leaderboard: [
+                // A real DNF and a genuine slow finish reach the identical
+                // score — #873/#897's own trap — so only dnfCount tells them
+                // apart.
+                { racerId: 1, score: 9.999, heatsCompleted: 2, dnfCount: 1, rank: 1 },
+                { racerId: 2, score: 9.999, heatsCompleted: 2, dnfCount: 0, rank: 1 },
+            ],
+        }, racersData);
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getAllByText('9.999s').length).toBe(2);
+        });
+        // The note, not a replacement — both rows still show the score.
+        expect(screen.getByText('(1 DNF)')).toBeInTheDocument();
+    });
+
     it('projector standings label a POINTS race by points and keep the shared rank (#329)', async () => {
         const racersData = {
             race: {

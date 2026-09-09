@@ -25,7 +25,7 @@ _Click the Stats tab in the race navigation bar to open the Stats page._
 At the top of the page, three summary cards give you a quick snapshot of the race:
 
 - **Scoring** — the scoring method in use (e.g., "TIMED" for fastest average time).
-- **Racers** — the total number of registered racers.
+- **Racers** — how many registered racers have raced at least once, out of the roster (e.g., "14 / 19").
 - **Heats Completed** — how many heats have been run out of the total scheduled (e.g., "12 / 16").
 
 ![Overview Cards](assets/screenshots/race-stats/02-overview-cards.png)
@@ -55,7 +55,9 @@ _The Lane Fairness section. Blue bars rise above the line for faster-than-averag
 The Per-Racer Stats table shows every racer's numbers: heats completed,
 fastest and slowest time, average, and how consistent their times were.
 Every column except **Den** sorts — click its header, and click again to
-reverse.
+reverse. While the race is still going, the heading itself says how many of
+the roster have raced so far — "(3 of 19 have raced)" — and disappears once
+everyone has.
 
 What each column means exactly is in
 [Stats and exports](reference/stats-and-exports.md#per-racer-stats).
@@ -117,7 +119,7 @@ Exactly what counts toward a record is in
 
 The Den Comparison section shows how each den performed as a group — useful for pack leadership who want to recognize standout dens at the awards ceremony.
 
-- The **bar chart** plots each den's average score, with bars colored in the den's assigned color.
+- The **bar chart** plots each den's average score, with bars colored in the den's assigned color. The scale zooms in tightly around the dens' actual scores rather than starting at zero, so a real but small gap between two dens is still visible as a real difference in bar length.
 - The **table** shows each den's racer count, group average score, and the name of that den's best-performing racer.
 
 ![Den Comparison Section](assets/screenshots/race-stats/06-racing-group-comparison.png)

@@ -31,8 +31,23 @@
 
 import { test as base, expect, type Locator } from '@playwright/test';
 
-/** Hidden rather than removed, so nothing reflows around the gap it leaves. */
-const HIDE_UNSTABLE = `[data-testid="app-version"] { visibility: hidden !important; }`;
+/**
+ * `visibility: hidden` alone hides the ink but keeps the box: the element
+ * still occupies the rendered width of `v{version}`, in a proportional font,
+ * and that width changes on every commit because the version string is built
+ * from the git hash. In `Navigation.tsx` this element sits in the nav's
+ * right-hand `flexShrink: 0` group, with the race-selector pill immediately
+ * to its left in a `flex: 1` centred container — so the pill's position
+ * moved by half of whatever the hash's width changed by, on every commit,
+ * which is why committing a baseline was itself what invalidated it
+ * (dknowles2/trusty-track#938). `width: 0` plus `overflow: hidden` removes
+ * that horizontal footprint entirely rather than merely hiding what is
+ * inside it, while `visibility: hidden` (rather than `display: none`) keeps
+ * the element in flow, preserving the vertical space its line takes in the
+ * two-line block above the GitHub link so nothing reflows around *that* gap
+ * — the concern the original comment named, kept alongside the new one.
+ */
+const HIDE_UNSTABLE = `[data-testid="app-version"] { visibility: hidden !important; width: 0 !important; overflow: hidden !important; }`;
 
 /**
  * A fixed instant, so anything computed from `new Date()`/`Date.now()` reads
@@ -264,6 +279,47 @@ export const test = base.extend({
                     });
                 })
                 .catch(() => {});
+            // A defence against a specific, plausible-but-unconfirmed cause
+            // of #843's reopened residual — not a fix proven to work, and
+            // said so here rather than left to read as one.
+            //
+            // Every failing pixel across all 40 of the reopened issue's
+            // images sat tightly inside the navigation bar race selector
+            // pill's own text glyphs — including on the Home page, where the
+            // pill's text ("Select a Race") is a static string that never
+            // changes at all. That shape (edges of anti-aliased text, not
+            // the pill's flat background or border) is what a background
+            // colour caught mid-transition looks like, which pointed at
+            // `Navigation.tsx`'s pill: it sets its background from
+            // `onMouseEnter`/`onMouseLeave` against `transition: all 0.2s
+            // ease`, the same shape `.settings-nav button`'s CSS `:hover`
+            // already needed `settleTransitions` for, and nothing called it
+            // here. No spec hovers or clicks the pill directly, but
+            // Playwright's virtual cursor is never reset between actions or
+            // navigations within one spec, so a click on anything else
+            // earlier in the same flow could in principle leave it resting
+            // inside the pill's bounding box once a later page renders it in
+            // the same screen position.
+            //
+            // That hypothesis did not survive verification: two bootstrap
+            // passes against fresh CI runs, each rebuilding the baseline
+            // from that run's own output, reproduced the identical ~40-image
+            // signature both times with the total pixel count moving from
+            // 1,510 to 5,714 between passes rather than shrinking toward
+            // zero — not what a real fix converging on noise looks like, and
+            // consistent with `settleTransitions` finding nothing to await
+            // (no spec triggers the handler, so there is no in-flight
+            // transition here to catch). The mechanism remains open; see
+            // `.claude/rules/documentation.md`'s screenshot section for the
+            // full record, including the leading unconfirmed hypothesis
+            // (Chromium rendering non-determinism specific to this element's
+            // anti-aliased text over a semi-transparent, alpha-blended
+            // background). Left in rather than reverted because it is a
+            // correct defence against the class of bug it targets even
+            // though it is not sufficient on its own, and because removing
+            // it would not shrink the residual it did not cause.
+            await page.mouse.move(-1, -1).catch(() => {});
+            await settleTransitions(page.locator('body')).catch(() => {});
             return takeScreenshot({ animations: 'disabled', ...options });
         }) as typeof page.screenshot;
 

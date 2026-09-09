@@ -1473,6 +1473,19 @@ class LeaderboardEntry:
     racing_group_division: str | None
     score: float
     heats_completed: int
+    #: How many of `heatsCompleted` were an actual DNF rather than a genuine
+    #: slow finish (#898). `TIMED`/`CUMULATIVE_TIME` substitute the DNF
+    #: penalty for the missing time before `score` is ever computed, so a
+    #: real DNF and a genuine 9.999s-or-slower finish reach this field as
+    #: the identical number — carried here rather than guessed from `score`,
+    #: which #873/#897 settled a display must never do. Populated under
+    #: every strategy, including `POINTS` (where a DNF is already scored as
+    #: last place in its heat, #225) — the frontend's `dnfAnnotation` is what
+    #: decides `POINTS` has nothing worth adding to an already-accurate
+    #: score. Always `0` for an elimination round's own leaderboard, which
+    #: scores survival rather than calling `domain.scoring.score_heats` at
+    #: all.
+    dnf_count: int
     racer_image_url: str | None
     rank: int
     #: The tiebreak method that gave this row a rank it no longer shares with
