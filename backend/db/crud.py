@@ -1199,6 +1199,51 @@ def default_general_round_name(db: Session, race: models.Race) -> str:
     return f"All {resolved.organization_singular}"
 
 
+def validate_advancement_source(
+    db: Session,
+    race_id: int,
+    advancement_source: str | None,
+) -> None:
+    """Validate that an advancement source is permitted for the given race.
+
+    Allowed values:
+    - ``None`` (for general rounds)
+    - ``"ALL"``
+    - ``"EACH_GROUP"``
+    - ``"ROUND:<id>"`` where ``<id>`` is an integer ID of a round that exists
+      in this race (``race_id``).
+
+    Raises ``ValueError`` if the source is invalid or references a round
+    outside of this race.
+    """
+    if advancement_source is None:
+        return
+    if advancement_source in (advancement.ALL, advancement.EACH_GROUP):
+        return
+    if advancement.is_round_scoped(advancement_source):
+        round_id = advancement.round_id_in(advancement_source)
+        if round_id is not None and round_id > 0:
+            round_obj = (
+                db.query(models.Round.id)
+                .filter(
+                    models.Round.id == round_id,
+                    models.Round.race_id == race_id,
+                )
+                .first()
+            )
+            if round_obj is not None:
+                return
+            raise ValueError(
+                f"Invalid advancement source: round {round_id} "
+                "does not exist in this race."
+            )
+    raise ValueError(
+        f"Invalid advancement source: {advancement_source!r}. "
+        "Allowed sources are 'ALL', 'EACH_GROUP', or 'ROUND:<id>' "
+        "for a round in this race."
+    )
+
+
 def create_round(
     db: Session,
     race_id: int,
@@ -1213,6 +1258,7 @@ def create_round(
     balanced_phases: int | None = None,
 ) -> models.Round:
     """Create a new round for a race."""
+    validate_advancement_source(db, race_id, advancement_source)
     round_obj = models.Round(
         race_id=race_id,
         round_number=round_number,

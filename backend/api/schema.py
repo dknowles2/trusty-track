@@ -4885,6 +4885,8 @@ class Mutation:
                 raise ValueError("A round needs at least one run per lane.")
             if champ_cfg.num_top_racers < 1:
                 raise ValueError("num_top_racers must be at least 1.")
+            if champ_cfg.source != "PREVIOUS":
+                crud.validate_advancement_source(db, race_id, champ_cfg.source)
 
         gen_strategy = getattr(config.general_round, "scheduling_strategy", None)
         if (
@@ -6163,7 +6165,7 @@ class Mutation:
                 max((r.round_number for r in existing_rounds), default=0) + 1
             )
 
-            if not round_data.advancement_source:
+            if round_data.advancement_source is None:
                 # General Round
                 strategy = models.SchedulingStrategy(round_data.scheduling_strategy)
                 is_elimination = strategy == models.SchedulingStrategy.ELIMINATION
@@ -6217,6 +6219,9 @@ class Mutation:
                 return [typing.cast(Any, round_obj)]
             else:
                 # Championship Round (Placeholder)
+                crud.validate_advancement_source(
+                    db, race_id, round_data.advancement_source
+                )
                 if models.SchedulingStrategy(round_data.scheduling_strategy) in (
                     models.SchedulingStrategy.ELIMINATION,
                     models.SchedulingStrategy.BALANCED,
