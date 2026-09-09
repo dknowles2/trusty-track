@@ -340,8 +340,42 @@ test('finishing a round built via Add Round, with no championship yet, offers to
     );
 
     const final = (await readRounds(page, raceId)).find((r) => r.id !== prelim.id)!;
-    const finalHeats = (await readHeats(page, raceId)).filter((h) => h.roundId === final.id);
-    await recordRound(page, finalHeats, racers);
+    const finalHeats = (await readHeats(page, raceId))
+        .filter((h) => h.roundId === final.id)
+        .sort((a, b) => a.heatNumber - b.heatNumber);
+
+    // All but the last final heat go straight to the backend, the same
+    // shape the #856 test above uses. Two reasons, not one:
+    //
+    // `race_state:{raceId}`'s subscription used to be able to lose a
+    // `HEAT_RESULT` event outright under a fast enough burst — its bounded
+    // queue's drop-oldest policy assumes every payload is a superseded-by-
+    // the-next snapshot, which is false for a delta naming one heat's own
+    // result (#896, fixed in `backend/api/pubsub.py` — that channel no
+    // longer drops). Reloading before the last heat, and running that one
+    // heat live through the fake timer, is a second, independent line of
+    // defence that does not depend on that fix staying in place: a reload
+    // re-reads the true state fresh over plain HTTP regardless of what the
+    // subscription queue did, and `TimerManager`'s own result path
+    // publishes with no specific `kind`, which the client always treats as
+    // needing a refetch (`raceCompletion.ts`'s docstring covers the same
+    // "no event, so recovered by comparing snapshots" territory this event
+    // stream sits on top of).
+    //
+    // It also drives the completion this test is actually about the way an
+    // operator would: live, on the Race screen, rather than by writing the
+    // race's last own result from outside the browser entirely and hoping
+    // the summary catches up (#916 — see `raceCompletion.ts`'s
+    // `heatSetKey` and `raceFlow.ts`'s `raceSummaryKey` for the client-side
+    // half of that fix, which this test also exercises: the "Round
+    // Complete!" summary for the championship field filling in fires
+    // first, and "Race Complete!" has to override it rather than being
+    // masked by it).
+    await recordRound(page, finalHeats.slice(0, -1), racers);
+    await page.reload();
+    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+    await page.getByRole('button', { name: 'Start Timer' }).click();
+    await page.getByRole('button', { name: 'Finish Heat' }).click();
 
     const summary = page.getByRole('dialog', { name: 'Race Complete!' });
     await expect(summary).toBeVisible({ timeout: 30000 });
