@@ -132,6 +132,14 @@ interface RaceExecutionProps {
      */
     raceJustCompleted?: boolean;
     /**
+     * Which completed schedule `raceJustCompleted` refers to (#916) — the
+     * heat-id fingerprint `raceCompletion.ts` computed `raceJustCompleted`
+     * from. Passed straight through to `raceFlow.ts`'s `raceSummaryKey`;
+     * see that field's own docstring for why a level alone is not enough to
+     * tell two completions of a *different* schedule apart.
+     */
+    raceSummaryKey?: string | null;
+    /**
      * The schedule already holds a round that could only be a genuine
      * ending — a round drawing its field from another round's standings
      * (#874). Softens the summary's own wording, and offers a link to add
@@ -181,6 +189,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     racers,
     roundSummary,
     raceJustCompleted = false,
+    raceSummaryKey = null,
     hasChampionshipRound = true,
     autoAdvanceHeat,
     onToggleAutoAdvance,
@@ -284,6 +293,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             hasRoundSummary: !!roundSummary,
             roundSummaryId: roundSummary?.roundId ?? null,
             hasRaceSummary: raceJustCompleted,
+            raceSummaryKey,
         },
         {
             // Fire-and-forget here used to mean silently: neither a GraphQL

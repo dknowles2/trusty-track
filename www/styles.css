@@ -359,6 +359,15 @@ ul { margin: 0; padding: 0; list-style: none; }
   gap: 1.3rem;
 }
 
+/* Its own class rather than a smaller minimum on .grid-4, which the install
+   grid also uses: 240px fits exactly four tracks across the 1180px wrap, so
+   a fifth card lands alone on a second row. 205px fits five. */
+.grid-5 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 205px), 1fr));
+  gap: 1.3rem;
+}
+
 .card {
   background: var(--paper);
   border: 1px solid var(--rule);

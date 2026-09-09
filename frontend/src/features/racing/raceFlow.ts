@@ -82,11 +82,23 @@ export interface Observation {
      * Every heat the race will ever run has now run (#847).
      *
      * A level, made sticky upstream by `raceCompletion.ts` the same way
-     * `hasRoundSummary` is made sticky by `roundCompletion.ts` — there is
-     * only one race, so there is no id to carry alongside it the way
-     * {@link roundSummaryId} carries one for a round.
+     * `hasRoundSummary` is made sticky by `roundCompletion.ts`.
      */
     readonly hasRaceSummary: boolean;
+    /**
+     * Which completed schedule that is (#916) — `raceCompletion.ts`'s own
+     * heat-id fingerprint, opaque here. A race *can* be "decided" a second
+     * time, over a *different* set of heats: a championship round appended
+     * mid-event (`Add Round`, not the wizard) can go from placeholders to
+     * fully recorded before the client ever renders the in-between
+     * incomplete schedule, so `hasRaceSummary` can read `true` continuously
+     * across two genuinely different completions with no observed dip. Like
+     * {@link roundSummaryId}, this is what tells them apart when a level
+     * alone cannot — see {@link roundSummaryId}'s own docstring for the
+     * matching reasoning, restated here because a race was once assumed
+     * (wrongly) to never need it.
+     */
+    readonly raceSummaryKey: string | null;
 }
 
 /** What the operator is looking at. Exactly one of these is true. */
@@ -122,10 +134,11 @@ export interface FlowState {
     /**
      * Whether the race summary now on offer has already been raised once
      * (#847) — {@link haveSummarised}'s counterpart for the whole race
-     * rather than one round. There is no id to pair it with: unlike a
-     * round, a race cannot decide a second, different one.
+     * rather than one round.
      */
     readonly haveShownRaceSummary: boolean;
+    /** Which completed schedule that was, when it said (#916). */
+    readonly shownRaceSummaryKey: string | null;
     /**
      * The heat whose countdown the operator called off, if any.
      *
@@ -163,6 +176,7 @@ export const initialFlowState: FlowState = {
     haveSummarised: false,
     summarisedRoundId: null,
     haveShownRaceSummary: false,
+    shownRaceSummaryKey: null,
     countdownCancelledFor: null,
     observed: null,
 };
@@ -250,19 +264,29 @@ const observed = (state: FlowState, observation: Observation): FlowResult => {
     }
 
     // The whole race has just finished (#847). Same shape as the round
-    // summary above, minus an id — there is only one race. This runs after
-    // the round-summary block and can override its screen: the two should
-    // never both be true in practice (the final round's own completion has
-    // no later round left to decide), but if they ever were, the race
-    // finishing is the more useful of the two things to tell the operator.
+    // summary above. This runs after the round-summary block and can
+    // override its screen: the two should never both be true in practice
+    // (the final round's own completion has no later round left to decide),
+    // but if they ever were, the race finishing is the more useful of the
+    // two things to tell the operator.
+    //
+    // Keyed the same way `roundSummaryId` keys the round summary (#916): a
+    // race *can* be "decided" a second time, over a *different* set of
+    // heats (a championship round appended mid-event and immediately fully
+    // recorded), and `hasRaceSummary` can read `true` continuously across
+    // both completions with no observed dip in between — so `!haveShownRaceSummary`
+    // alone would never re-open it. Comparing the key does.
     let haveShownRaceSummary = state.haveShownRaceSummary;
+    let shownRaceSummaryKey = state.shownRaceSummaryKey;
     if (observation.hasRaceSummary) {
-        if (!haveShownRaceSummary) {
+        if (!haveShownRaceSummary || observation.raceSummaryKey !== shownRaceSummaryKey) {
             haveShownRaceSummary = true;
+            shownRaceSummaryKey = observation.raceSummaryKey;
             screen = { kind: 'RACE_SUMMARY' };
         }
     } else if (haveShownRaceSummary) {
         haveShownRaceSummary = false;
+        shownRaceSummaryKey = null;
         if (screen.kind === 'RACE_SUMMARY') screen = { kind: 'WATCHING' };
     }
 
@@ -277,6 +301,7 @@ const observed = (state: FlowState, observation: Observation): FlowResult => {
             haveSummarised,
             summarisedRoundId,
             haveShownRaceSummary,
+            shownRaceSummaryKey,
             countdownCancelledFor,
             observed: observation,
         },
