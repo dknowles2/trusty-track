@@ -4,6 +4,21 @@ The full rules for how a score is worked out and what makes the standings.
 For help *choosing* among the four methods, see
 [Scoring & Championships](../scoring-and-championships.md).
 
+## What a saved result can't be
+
+Two checks apply to every hand-entered result, whatever the scoring method,
+and Trusty Track refuses the save rather than storing either:
+
+- **A recorded time can never be negative.** `0` stays the valid DNF marker
+  ([see below](#marking-a-dnf-on-the-standings)), but a negative number would
+  be first on the heat card and would *subtract* from a car's score rather
+  than simply being wrong.
+- **The same racer can never be entered in two lanes of the same heat.**
+
+Both are checked when you click **Save Results**, not while you're typing —
+unlike the place checks under [Points](#points) below, which flag a problem
+live and disable the button until it's fixed.
+
 ## Timed
 
 Each car's score is the **average of its recorded heat times**, and the
