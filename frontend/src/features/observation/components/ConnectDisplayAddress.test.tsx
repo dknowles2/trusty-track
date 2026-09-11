@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useQuery } from 'urql';
@@ -114,6 +114,23 @@ describe('ConnectDisplayAddress', () => {
     render(<ConnectDisplayAddress raceId={1} />);
 
     expect(screen.queryByAltText(/qr code/i)).toBeNull();
+  });
+
+  it('hides the QR code once it fails to load, leaving the printed address (#944)', () => {
+    stubOrigin('http://localhost:8000');
+    mockNetworkAddresses(['192.168.1.42']);
+
+    render(<ConnectDisplayAddress raceId={1} />);
+
+    const image = screen.getByAltText(/qr code/i);
+    act(() => {
+      image.dispatchEvent(new Event('error'));
+    });
+
+    expect(screen.queryByAltText(/qr code/i)).toBeNull();
+    expect(
+      screen.getByText(/http:\/\/192\.168\.1\.42:8000\/race\/1\/observation/),
+    ).toBeInTheDocument();
   });
 
   it('copies the shown address on click', async () => {

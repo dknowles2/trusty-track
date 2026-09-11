@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '../../../setupTests';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { act, render, screen, cleanup } from '@testing-library/react';
 import { useQuery } from 'urql';
 import QRCodeDisplayView from './QRCodeDisplayView';
 
@@ -125,6 +125,24 @@ describe('QRCodeDisplayView (#614)', () => {
         const alert = screen.getByRole('alert');
         expect(alert).toHaveStyle({ color: 'var(--display-warning-color)' });
         expect(alert.style.color).not.toContain('--warning-color)');
+    });
+
+    it('falls back to the enlarged address once the code fails to load (#944)', () => {
+        stubOrigin('http://localhost:8000');
+        mockNetworkAddresses(['192.168.1.42']);
+
+        render(<QRCodeDisplayView raceId={7} target="STANDINGS" />);
+
+        const image = screen.getByAltText(/qr code/i);
+        act(() => {
+            image.dispatchEvent(new Event('error'));
+        });
+
+        expect(screen.queryByAltText(/qr code/i)).toBeNull();
+        expect(screen.getByRole('alert')).toHaveTextContent(/type the address below/i);
+        expect(
+            screen.getByText(/192\.168\.1\.42:8000\/race\/7\/observation/),
+        ).toBeInTheDocument();
     });
 
     it('shows the venue wifi note when set', () => {

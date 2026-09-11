@@ -321,6 +321,38 @@ class TestVotingQrEndpoint:
         assert response.status_code == 400
         assert "port" in response.json()["detail"].lower()
 
+    def test_a_referer_port_matching_the_page_is_allowed(self, client, race) -> None:
+        """The frontend builds `url` from `window.location.port` — the port
+        the *page* was served on — but under a dev proxy (or the e2e/docs
+        screenshot run) the request to this endpoint arrives with a
+        different port on `request.url`, because the proxy rewrites the Host
+        header it forwards (#944). The browser sets `Referer` to the page's
+        own address for an ordinary same-origin `<img>` fetch, which is
+        exactly the port `url` was built with, so a request carrying that
+        header for a matching host is accepted rather than refused."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"http://localhost:5173/race/{race.id}/vote"},
+            headers={"referer": f"http://localhost:5173/race/{race.id}/observation"},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+
+    def test_a_referer_port_for_an_unrelated_host_is_still_refused(
+        self, client, race
+    ) -> None:
+        """The `Referer` header only ever widens the allowed *port* for a
+        host this request has already proven belongs to this instance
+        (#866, #922) — it can never widen the allowed *host*. A phishing URL
+        stays refused even when the caller forges a matching `Referer`."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"https://evil.example:5173/race/{race.id}/vote"},
+            headers={"referer": f"https://evil.example:5173/race/{race.id}/vote"},
+        )
+        assert response.status_code == 400
+        assert "not this server instance" in response.json()["detail"].lower()
+
     @pytest.mark.parametrize(
         "host",
         ["localhost", "127.0.0.1", "[::1]"],

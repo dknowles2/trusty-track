@@ -16,6 +16,7 @@
  * display and its ballot, the same two pages the backend's own guard allows.
  */
 
+import { useState } from 'react';
 import { useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import { mdiAlertOutline, mdiQrcode } from '@mdi/js';
@@ -37,6 +38,7 @@ interface Props {
 
 export default function QRCodeDisplayView({ raceId, target, headline, wifiNote }: Props) {
     const [result] = useQuery({ query: NETWORK_ADDRESSES_QUERY });
+    const [qrFailed, setQrFailed] = useState(false);
     const networkAddresses = result.data?.networkAddresses ?? [];
     const mdnsHostname = result.data?.mdnsHostname ?? null;
 
@@ -48,6 +50,7 @@ export default function QRCodeDisplayView({ raceId, target, headline, wifiNote }
     const path = qrTargetPath(target, raceId);
     const { url, reachable } = shareUrl(window.location.origin, path, networkAddresses, mdnsHostname);
     const line = resolveQrHeadline(headline, target);
+    const showQr = reachable && !qrFailed;
 
     return (
         <div
@@ -75,8 +78,9 @@ export default function QRCodeDisplayView({ raceId, target, headline, wifiNote }
                 {line}
             </h1>
 
-            {reachable ? (
+            {showQr ? (
                 <img
+                    key={url}
                     src={qrCodeSrc(raceId, url)}
                     alt={`QR code that opens ${url}`}
                     style={{
@@ -87,6 +91,7 @@ export default function QRCodeDisplayView({ raceId, target, headline, wifiNote }
                         borderRadius: '1.5vmin',
                         boxShadow: '0 0.4vmin 1.5vmin rgba(0,0,0,0.2)',
                     }}
+                    onError={() => setQrFailed(true)}
                 />
             ) : (
                 <div
@@ -102,9 +107,9 @@ export default function QRCodeDisplayView({ raceId, target, headline, wifiNote }
                 >
                     <Icon path={mdiAlertOutline} size={3} />
                     <span style={{ fontSize: '2.4vmin' }}>
-                        Trusty Track could not find this machine&apos;s network address. Try
-                        typing the address below into a phone&apos;s browser to check whether it
-                        works from this venue&apos;s Wi-Fi.
+                        {reachable
+                            ? "Trusty Track could not draw a QR code for this address. Type the address below into a phone's browser instead."
+                            : "Trusty Track could not find this machine's network address. Try typing the address below into a phone's browser to check whether it works from this venue's Wi-Fi."}
                     </span>
                 </div>
             )}
