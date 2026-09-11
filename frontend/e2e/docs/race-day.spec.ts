@@ -114,7 +114,12 @@ test('take screenshots', async ({ page }) => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText(raceName)).toBeVisible();
+    // #949 gave the Roster page a heading of its own carrying the race's
+    // name, which reads back the identical text the nav's race-selector
+    // pill already shows — so a bare `getByText` is ambiguous between the
+    // two now. The heading is the more specific target: it is what this
+    // wait actually cares about (the roster page's own content has loaded).
+    await expect(page.getByRole('heading', { name: raceName, level: 1 })).toBeVisible();
 
     await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/05-race-details-empty.png') });
     await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/01-race-details-overview.png') });
