@@ -393,7 +393,14 @@ export default function Awards() {
               background: 'var(--surface-color)',
             }}
           >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {/* No `flexWrap` here — reorder arrows, artwork, name, recipient,
+              edit and delete in one unwrapped row let `minWidth: 0` on the
+              name block shrink to nothing at phone width, wrapping every
+              word of a long name onto its own line while Edit/Delete were
+              pushed past the viewport edge (#950). `.award-row-main`'s
+              media rule in index.css turns wrapping on below 768px, where
+              it is needed; nothing here changes at desktop widths. */}
+          <div className="award-row-main" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <button
                 type="button"

@@ -408,7 +408,14 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
       <div style={{
         background: 'var(--surface-color)',
         borderRadius: '8px',
-        overflow: 'hidden',
+        // A seven-column table is wider than a phone screen at its own
+        // column widths, and `overflow: 'hidden'` used to crop the Heats
+        // and score columns off entirely with nothing to reach them
+        // (#950) — the same shape the schedule's own heat tables already
+        // solve with a horizontal scroll container rather than a squeeze.
+        // At desktop widths the table already fits, so this never shows a
+        // scrollbar there.
+        overflowX: 'auto',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
       }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
