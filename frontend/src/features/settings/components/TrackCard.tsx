@@ -25,6 +25,7 @@ import TrackRecords, { type HistoricalRecord } from './TrackRecords';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { lanesOf } from '../laneOutages';
 import { colorForLane, presetColors, presetForLaneCount, presetNameForColor, setLaneColor } from '../laneColors';
+import { TIMER_TYPE_LABELS } from '../timerTypeText';
 
 export interface TrackFields {
   // Absent until the track has been saved, which is also when it can first
@@ -386,14 +387,14 @@ export default function TrackCard({
           onChange={(e) => onChange('timerType', e.target.value)}
           style={{ ...textInput, marginBottom: track.timerType === 'FAKE' || track.timerType === 'NONE' ? '0' : '1rem' }}
         >
-          <option value="FAKE">Fake Timer (Manual Control)</option>
+          <option value="FAKE">{TIMER_TYPE_LABELS.FAKE}</option>
           {showBackendOption && (
-            <option value="AUTO_DETECT_BACKEND">Plugged into this machine</option>
+            <option value="AUTO_DETECT_BACKEND">{TIMER_TYPE_LABELS.AUTO_DETECT_BACKEND}</option>
           )}
           {showProxyOption && (
-            <option value="AUTO_DETECT_PROXY">Plugged into the laptop running the browser</option>
+            <option value="AUTO_DETECT_PROXY">{TIMER_TYPE_LABELS.AUTO_DETECT_PROXY}</option>
           )}
-          <option value="NONE">No timer — I'll enter results by hand</option>
+          <option value="NONE">{TIMER_TYPE_LABELS.NONE}</option>
         </select>
       </div>
 

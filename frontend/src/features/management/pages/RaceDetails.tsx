@@ -38,6 +38,7 @@ import * as GQL from '../graphql/queries';
 import { DEFAULT_SORT, nextSortState, sortRacers, type SortKey, type SortState } from '../rosterSort';
 import { groupRacersByRacingGroup } from '../groupRacersByRacingGroup';
 import { strategyLabel } from '../../stats/scoringStrategyText';
+import { numberingStrategyLabel } from '../raceSetup';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
 /**
@@ -898,11 +899,7 @@ export default function RaceDetails() {
           )}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div><strong>Scoring:</strong> {strategyLabel(race?.scoring_strategy)}</div>
-              <div><strong>{vehicle} Numbering:</strong> {race?.car_numbering_strategy ? ({
-                  'MANUAL': 'Manual',
-                  'PER_GROUP': `Per ${group}`,
-                  'GLOBAL': 'Global'
-              }[race.car_numbering_strategy] || race.car_numbering_strategy) : '-'}</div>
+              <div><strong>{vehicle} Numbering:</strong> {numberingStrategyLabel(race?.car_numbering_strategy, group)}</div>
               <div><strong>Championship Trophies:</strong> {race?.championship_trophies || 3}</div>
               <div><strong>Track:</strong> {Array.isArray(tracks) && tracks.find(t => t.id === race?.track_id)?.name || 'Unknown'}</div>
           </div>

@@ -18,6 +18,7 @@ import { GET_RACE_STATS } from '../graphql/queries';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { formatScaleMph } from '../../observation/scaleSpeed';
 import { groupScoreDomain } from '../groupScoreDomain';
+import { strategyLabel } from '../scoringStrategyText';
 import './RaceStats.css';
 
 // ---- Types ----
@@ -235,7 +236,7 @@ export default function RaceStats() {
       <div className="race-stats__overview-cards">
         <div className="race-stats__overview-card race-stats__overview-card--badge">
           <div className="race-stats__overview-card-label">Scoring</div>
-          <div className="race-stats__overview-card-value">{stats.scoringStrategy}</div>
+          <div className="race-stats__overview-card-value">{strategyLabel(stats.scoringStrategy)}</div>
         </div>
         <div className="race-stats__overview-card">
           <div className="race-stats__overview-card-label">Racers</div>
