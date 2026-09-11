@@ -45,7 +45,7 @@ test('the wizard generates a schedule that fills every lane', async ({ page }) =
     await expect(page.getByRole('heading', { name: 'Race Schedule Wizard' })).toBeVisible();
     await page.getByRole('button', { name: 'Next' }).click();
     await page.getByRole('button', { name: 'Next' }).click();
-    await page.getByRole('button', { name: 'Generate Schedule' }).click();
+    await page.getByRole('button', { name: 'Generate schedule' }).click();
 
     await expect(page.getByText('Heat 1', { exact: true }).first()).toBeVisible({
         timeout: 30000,
@@ -1088,7 +1088,7 @@ test('the wizard promises the heat count the backend then generates', async ({ p
         (await page.getByText(/Total Heats: \d+/).innerText()).match(/\d+/)![0],
     );
 
-    await page.getByRole('button', { name: 'Generate Schedule' }).click();
+    await page.getByRole('button', { name: 'Generate schedule' }).click();
     await expect(page.getByText('Heat 1', { exact: true }).first()).toBeVisible({
         timeout: 30000,
     });

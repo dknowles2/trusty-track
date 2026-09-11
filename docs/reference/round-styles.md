@@ -1,8 +1,8 @@
 # Round styles
 
-A round everyone races can be run three ways. The Add Round dialog calls the
-choice **How it's raced**; this page holds the full rules for each. For help
-choosing, see
+A round everyone races can be run three ways. Both the Round Wizard (step 1)
+and the Add Round dialog call the choice **How it's raced**; this page holds
+the full rules for each. For help choosing, see
 [Scoring & Championships](../scoring-and-championships.md#choosing-how-a-round-is-raced).
 
 | | Schedule | Counts toward overall standings? | Ends when |

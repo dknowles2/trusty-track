@@ -1670,6 +1670,7 @@ export type TrackRecordBreak = {
 };
 
 export type WizardChampionshipRoundInput = {
+  advancementFromBottom?: Scalars['Boolean']['input'];
   name?: Scalars['String']['input'];
   numTopRacers?: Scalars['Int']['input'];
   runsPerLane?: Scalars['Int']['input'];
@@ -1682,6 +1683,8 @@ export type WizardConfigurationInput = {
 };
 
 export type WizardGeneralRoundInput = {
+  balancedPhases?: InputMaybe<Scalars['Int']['input']>;
+  eliminationLosses?: InputMaybe<Scalars['Int']['input']>;
   runsPerLane?: Scalars['Int']['input'];
   schedulingStrategy?: InputMaybe<Scalars['String']['input']>;
   type: Scalars['String']['input'];

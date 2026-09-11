@@ -201,39 +201,44 @@ A typical derby is one **qualifying round** (everyone) plus one optional
 
 ### Creating a Round with the Round Wizard
 
-The **Round Wizard** is the fastest way to set up your complete race schedule, including optional championship rounds. Click **Start Round Creation Wizard** to open it.
+The **Round Wizard** is the fastest way to set up your complete race schedule, including optional championship rounds. Click **Start Round Creation Wizard** to open it. It offers the same choices as **Add Round**, in the same words — see [Round styles](reference/round-styles.md) and [Championship rounds](reference/championship-rounds.md) for the full rules behind each one.
 
 #### Step 1: Qualifying Rounds
 
-Choose the format for your qualifying round:
+Choose **How it's raced**:
 
-- **All Pack** — Every racer races against everyone else. Best for events where den membership isn't important for heat grouping.
-- **By Den** — Racers race only against others in their own den during the qualifying round.
+- **Everyone races in every lane** — the default, and the fairest comparison. Choosing this also offers the **Format**:
+  - **All Pack** — Every racer races against everyone else. Best for events where den membership isn't important for heat grouping.
+  - **By Den** — Racers race only against others in their own den during the qualifying round.
+- **Elimination** — lose too many heats and you're out. See [Elimination Racing](#elimination-racing) below.
+- **Balanced** — each round of heats matches cars doing about as well. See [Balanced Racing](#balanced-racing) below.
 
-Set **Runs Per Lane** (default: 1). Increasing this number means each racer runs in every lane more than once, which produces fairer averages but takes more time.
+Set **Runs per lane** (default: 1, PPC only). Increasing this number means each racer runs in every lane more than once, which produces fairer averages but takes more time. Elimination and balanced rounds have their own count instead — losses before a car is out, or how many times each car races.
 
 ![Round Wizard — Step 1](assets/screenshots/race-day/07-round-wizard-step1.png)
-_Step 1: choose the qualifying round type. "All Pack" is the most common choice._
+_Step 1: "Everyone races in every lane" is the most common choice, and the most common format under it is "All Pack"._
 
 #### Step 2: Championship Rounds (Optional)
 
 Add one or more championship rounds. For each championship round, configure:
 
 - **Round Name** (e.g., "Grand Finals")
-- **Who advances**: **Top Overall (Pack)** or **Top per Den**
-- How many advance — the box is labelled **Number of Finalists** for Top Overall, and **Advancing per Den** for Top per Den
-- **Runs Per Lane** for this round — the finalists race the whole round again for each run, which is worth it when a final is close enough that one heat should not decide it
+- **Which cars race**: **The fastest cars** or **The slowest cars** — the latter is the [Slowest Race](#the-slowest-race) bracket
+- **Top performers from** (**Slowest cars from** when racing the slowest): **Overall** or **Each Den**
+- **Number to pick**
+- **Runs per lane** for this round — the finalists race the whole round again for each run, which is worth it when a final is close enough that one heat should not decide it
+- **I'll choose who races myself**, to [pick the line-up by hand](reference/championship-rounds.md#picking-a-line-up-by-hand) instead of letting the standings decide
 
 Click **+ Add Round** to add more championship rounds if needed. Only the first
 championship round chooses a source; any round after it always draws from the
 championship round before it, and says so instead of offering a choice.
 
 ![Round Wizard — Step 2](assets/screenshots/race-day/08-round-wizard-step2.png)
-_Step 2: configure optional championship rounds. Each round can advance a different number of racers._
+_Step 2: configure optional championship rounds. Each round can advance a different number of racers, from either end of the standings._
 
 #### Step 3: Review and Generate
 
-The wizard shows an estimate of total heats and approximate run time. Review the schedule summary, then click **Generate Schedule** to create all rounds and heats at once.
+The wizard shows an estimate of total heats and approximate run time — elimination and balanced rounds grow as results come in, so their heat count isn't part of that estimate. Review the schedule summary, then click **Generate schedule** to create all rounds and heats at once.
 
 ![Round Wizard — Step 3 Review](assets/screenshots/race-day/09-round-wizard-step3.png)
 _Step 3: the schedule preview shows total heats and estimated duration before you commit._
@@ -251,9 +256,10 @@ _The full schedule after generation. Each round has its own table; a heat's row 
 
 ### Adding a Round Later
 
-You do not have to decide everything in the wizard. **Add Round**, at the top
-of the Schedule tab, adds one more round at the end of the schedule — a
-qualifying round everyone races, or another championship round.
+You do not have to decide everything before the wizard runs. **Add Round**, at
+the top of the Schedule tab, adds one more round at the end of the schedule —
+a qualifying round everyone races, or another championship round — offering
+the same choices the wizard's own steps do.
 
 A championship round added here can draw its racers from the overall standings,
 from each den, or — once another championship round exists — from that round's
@@ -265,15 +271,18 @@ own the moment they are decided.
 The three ways a qualifying round can be raced — every lane for everyone,
 balanced, elimination — are compared in
 [Scoring & Championships](scoring-and-championships.md#choosing-how-a-round-is-raced),
-with the full rules in [Round styles](reference/round-styles.md). The
-sections below show how to set up each one.
+with the full rules in [Round styles](reference/round-styles.md). Either one is
+reached from the Round Wizard's step 1 or from **Add Round**; the sections
+below show it from **Add Round**, since that is where a round is most often
+added once racing is already under way.
 
 ### Balanced Racing
 
 More children win a heat: after a random start, the winners race the
 winners, so the other heats are winnable.
 
-1. Click **Add Round** and choose **Balanced**.
+1. Click **Add Round** and choose **Balanced** (or, in the Round Wizard's
+   step 1, choose **Balanced** under **How it's raced**).
 2. Pick how many times each car races. Once per lane is the usual advice
    and the default.
 3. Run the heats on the screen. The next set appears by itself when they
@@ -299,7 +308,8 @@ set at a time as results come in, so there is nothing to predict — only a
 record of what has already happened.
 
 1. Click **Add Round** and choose **Elimination — lose too many heats and
-   you're out**.
+   you're out** (or, in the Round Wizard's step 1, the same choice under
+   **How it's raced**).
 2. Pick how many losses a car is allowed. Three is a good default.
 3. Run the heats on the screen. New sets appear by themselves, matching
    cars with the same record — the undefeated race the undefeated.
@@ -335,8 +345,10 @@ including late arrivals and what counts as a loss, are in
 A crowd favorite: after the serious racing, let the slowest cars have their
 moment.
 
-1. Click **Add Round** and pick the **Championship Round** tab.
-2. Choose **The slowest cars** instead of the fastest.
+1. Click **Add Round** and pick the **Championship Round** tab (or, in the
+   Round Wizard, add a championship round in step 2).
+2. Under **Which cars race**, choose **The slowest cars** instead of the
+   fastest.
 3. The round fills itself with the slowest cars, and runs like any other.
 
 ![Add Round dialog set to the slowest cars](assets/screenshots/race-day/25-slowest-race-dialog.png)
