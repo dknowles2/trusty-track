@@ -1383,3 +1383,18 @@ input:checked + .slider:before {
     min-width: 44px !important;
   }
 }
+
+/*
+ * Awards row on a phone (#950). The row (reorder arrows, artwork, name,
+ * recipient, edit, delete) carries no `flexWrap` inline — a deliberate
+ * omission at desktop widths, where it comfortably fits one line — so at
+ * phone width `minWidth: 0` on the name block let it shrink to nothing,
+ * wrapping every word of a long award name onto its own line while Edit and
+ * Delete were pushed past the viewport edge. Same breakpoint as the roster
+ * and System Settings above.
+ */
+@media screen and (max-width: 768px) {
+  .award-row-main {
+    flex-wrap: wrap;
+  }
+}
