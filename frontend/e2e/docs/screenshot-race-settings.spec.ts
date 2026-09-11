@@ -51,6 +51,21 @@ test('screenshot the race settings form', async ({ page }) => {
     // doc comment) — without this, the picture sometimes shows "Event" and
     // "Scoring" mid-fade between the two states rather than settled.
     await settleTransitions(dialog);
+    // Park the pointer *before* the scroll reset below, not only in
+    // `screenshotLocator` afterwards. The click left it at "Scoring"'s screen
+    // position; resetting `scrollTop` slides a different nav item under those
+    // same coordinates — "Check-in" or "Displays", depending on the transient
+    // offset — and that item picks up `:hover` until `screenshotLocator`
+    // parks the pointer and its transition fades back out. Fading out is not
+    // the same as never having happened: Chromium keeps a just-animated
+    // element on its own compositor layer for a while afterwards, and text
+    // rasterised on that layer is not pixel-identical to text in the page. So
+    // even with the tint fully settled, the glyphs of whichever item had been
+    // hovered differed by ~270 px between two otherwise identical CI runs —
+    // which is what re-baselining this picture from CI's own output (#982)
+    // did not fix. With the pointer off-viewport before anything moves under
+    // it, no item is ever hovered, and there is no layer to rasterise on.
+    await page.mouse.move(-1, -1);
     // `Modal.tsx`'s dialog element is itself the scrollable container
     // (`overflowY: 'auto'`), and nothing resets its `scrollTop` when the
     // section changes — so whatever the "Event" section's height happened to
