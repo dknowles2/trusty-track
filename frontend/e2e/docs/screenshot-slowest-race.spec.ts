@@ -157,7 +157,7 @@ test('screenshot the slowest race bracket', async ({ page }) => {
         path: path.join(SCREENSHOT_DIR, '25-slowest-race-dialog.png'),
     });
 
-    await page.getByRole('button', { name: 'Add round' }).click();
+    await page.getByRole('button', { name: 'Add round', exact: true }).click();
     // The prelims are finished, so the bracket fills straight away; the
     // slowest car is in it, the fastest is not.
     await expect(page.getByText('Slowest Race').first()).toBeVisible();
