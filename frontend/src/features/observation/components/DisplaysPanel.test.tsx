@@ -322,16 +322,19 @@ describe('offering the ceremony as a view', () => {
 
     it('leaves every other view alone', () => {
         renderPanel('STANDINGS', 10, true, 0);
+        // Grouped (#948), not in `VIEW_OPTIONS`' own declaration order — see
+        // "grouping the options into optgroups" below for the grouping
+        // itself.
         expect(viewsOffered()).toEqual([
             'Standings',
             "Last heat's times",
             'Cycle between both',
             'Projector',
+            'Broadcast overlay (OBS)',
             'Racer photos',
             'Standings only',
-            'Check-in progress',
             'QR code',
-            'Broadcast overlay (OBS)',
+            'Check-in progress',
         ]);
     });
 
@@ -342,6 +345,75 @@ describe('offering the ceremony as a view', () => {
         renderPanel('AWARDS', 10, true, 0);
         const select = screen.getByLabelText('What Gym north shows') as HTMLSelectElement;
         expect(select.value).toBe('AWARDS');
+    });
+});
+
+describe('grouping the options into optgroups (#948)', () => {
+    function optgroupLabels() {
+        const select = screen.getByLabelText('What Gym north shows') as HTMLSelectElement;
+        return Array.from(select.querySelectorAll('optgroup')).map((group) => group.label);
+    }
+
+    it('offers the four groups the issue lists, in order', () => {
+        renderPanel('STANDINGS', 10, true, 2);
+        expect(optgroupLabels()).toEqual([
+            'During racing',
+            'Between heats',
+            'Before racing',
+            'After',
+        ]);
+    });
+
+    it('drops the After group along with the ceremony option for a race with no awards', () => {
+        renderPanel('STANDINGS', 10, true, 0);
+        expect(optgroupLabels()).toEqual(['During racing', 'Between heats', 'Before racing']);
+    });
+
+    it('puts each option under the group the issue names', () => {
+        renderPanel('STANDINGS', 10, true, 2);
+        const select = screen.getByLabelText('What Gym north shows') as HTMLSelectElement;
+        const byGroup = (label: string) =>
+            Array.from(
+                select.querySelector(`optgroup[label="${label}"]`)?.querySelectorAll('option') ??
+                    [],
+            ).map((option) => option.textContent);
+
+        expect(byGroup('During racing')).toEqual([
+            'Standings',
+            "Last heat's times",
+            'Cycle between both',
+            'Projector',
+            'Broadcast overlay (OBS)',
+        ]);
+        expect(byGroup('Between heats')).toEqual(['Racer photos', 'Standings only', 'QR code']);
+        expect(byGroup('Before racing')).toEqual(['Check-in progress']);
+        expect(byGroup('After')).toEqual(['Awards ceremony']);
+    });
+});
+
+describe('the description line under the select (#948)', () => {
+    // "Standings" vs "Standings only" vs "Projector" could otherwise only be
+    // told apart by walking to the screen — the thing the panel exists to
+    // avoid.
+    it('names what the chosen view actually shows', () => {
+        renderPanel('PROJECTOR');
+        expect(
+            screen.getByText(/live heat large on one side, top-five standings/),
+        ).toBeInTheDocument();
+    });
+
+    it('changes with the view', () => {
+        renderPanel('STANDINGS_ONLY');
+        expect(
+            screen.getByText(/leaderboard alone, filling the whole screen/),
+        ).toBeInTheDocument();
+    });
+
+    it('reads the racing-group and vehicle words through terminology rather than a literal', () => {
+        // The default vocabulary — a race with no terminology override reads
+        // "den" and "car", the built-in Scouting words.
+        renderPanel('CHECKIN');
+        expect(screen.getByText('Who has checked in and who has not, grouped by den.')).toBeInTheDocument();
     });
 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     behaviourFor,
+    groupedViewOptions,
     readUrl,
     resolveView,
     VIEW_OPTIONS,
@@ -11,6 +12,23 @@ import {
     viewOptionsFor,
     viewScrolls,
 } from './displayView';
+import type { TerminologyWords } from '../../context/TerminologyContext';
+
+const WORDS: TerminologyWords = {
+    group: 'Den',
+    groups: 'Dens',
+    org: 'Pack',
+    orgs: 'Packs',
+    vehicle: 'Car',
+    vehicles: 'Cars',
+    groupLower: 'den',
+    groupsLower: 'dens',
+    orgLower: 'pack',
+    orgsLower: 'packs',
+    vehicleLower: 'car',
+    vehiclesLower: 'cars',
+    vehicleArtworkKey: 'car',
+};
 
 const url = (query = '') => readUrl(new URLSearchParams(query));
 
@@ -349,6 +367,23 @@ describe('VIEW_OPTIONS', () => {
         for (const option of VIEW_OPTIONS) expect(option.label).toBeTruthy();
     });
 
+    it('describes each one (#948) — a view added later cannot ship silently undescribed', () => {
+        // The same shape as `test_every_mutation_is_classified`: a new entry
+        // with no `description` is a build failure here, not a blank line on
+        // the Displays panel discovered by an operator on race day.
+        for (const option of VIEW_OPTIONS) {
+            expect(option.description(WORDS).trim()).toBeTruthy();
+        }
+    });
+
+    it('assigns exactly one of the four groups to each view', () => {
+        for (const option of VIEW_OPTIONS) {
+            expect(['During racing', 'Between heats', 'Before racing', 'After']).toContain(
+                option.group,
+            );
+        }
+    });
+
     it('marks exactly the views that advance on a settable timer', () => {
         // The seconds control on the Displays panel follows this flag. The
         // slideshow missing from it was the bug: it cycled at an interval
@@ -462,5 +497,50 @@ describe('viewOptionsFor', () => {
     it('offers the broadcast overlay unconditionally too', () => {
         expect(views(false, 'STANDINGS')).toContain('OVERLAY');
         expect(views(true, 'STANDINGS')).toContain('OVERLAY');
+    });
+});
+
+describe('groupedViewOptions (#948)', () => {
+    it('buckets every view into the four groups the issue lists, in order', () => {
+        expect(groupedViewOptions(VIEW_OPTIONS).map((g) => g.group)).toEqual([
+            'During racing',
+            'Between heats',
+            'Before racing',
+            'After',
+        ]);
+    });
+
+    it('assigns the exact views the issue names to each group', () => {
+        const byGroup = (group: string) =>
+            groupedViewOptions(VIEW_OPTIONS).find((g) => g.group === group)?.options.map((o) => o.view);
+
+        expect(byGroup('During racing')).toEqual(['STANDINGS', 'TIMING', 'CYCLE', 'PROJECTOR', 'OVERLAY']);
+        expect(byGroup('Between heats')).toEqual(['SLIDESHOW', 'STANDINGS_ONLY', 'QRCODE']);
+        expect(byGroup('Before racing')).toEqual(['CHECKIN']);
+        expect(byGroup('After')).toEqual(['AWARDS']);
+    });
+
+    it('drops a group entirely once it has nothing in it', () => {
+        // The ceremony filtered out of a race with no awards — the "After"
+        // group would otherwise render as an empty <optgroup>.
+        const withoutAwards = VIEW_OPTIONS.filter((o) => o.view !== 'AWARDS');
+        expect(groupedViewOptions(withoutAwards).map((g) => g.group)).toEqual([
+            'During racing',
+            'Between heats',
+            'Before racing',
+        ]);
+    });
+
+    it('preserves each option within its group in the order VIEW_OPTIONS lists it', () => {
+        const duringRacing = groupedViewOptions(VIEW_OPTIONS).find(
+            (g) => g.group === 'During racing',
+        );
+        expect(duringRacing?.options.map((o) => o.view)).toEqual([
+            'STANDINGS',
+            'TIMING',
+            'CYCLE',
+            'PROJECTOR',
+            'OVERLAY',
+        ]);
     });
 });
