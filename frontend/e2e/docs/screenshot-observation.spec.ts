@@ -286,6 +286,20 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     const displayRow = page.locator('[data-testid^="display-"]', { hasText: 'Gym north' });
     await displayRow.getByRole('combobox').selectOption('AWARDS');
     await expect(displayRow.getByRole('button', { name: /Next award/ })).toBeVisible();
+    // The row itself crosses the same gap: while the audience screen's old
+    // subscription has closed and its ceremony page's has not yet opened, the
+    // row reads "Not connected" with a ✕ beside it and Identify disabled, and
+    // every wait above can be satisfied on either side of that beat — the
+    // Next-award buttons are rendered (merely disabled) throughout. The
+    // ordering that makes this a real guarantee is the server's: the ceremony
+    // page only reaches its route once the observation page has unmounted
+    // (its subscription's `complete` is on the wire), and the reconnect's
+    // `_publish_displays` runs before the new subscription's opening payload
+    // — so once the audience tab is on the ceremony route, a row that reads
+    // connected is the settled one, not the stale pre-navigation one.
+    await audienceScreen.waitForURL(/\/awards\/present/);
+    await expect(displayRow.getByText('Not connected')).toBeHidden();
+    await expect(displayRow.getByRole('button', { name: 'Identify Gym north' })).toBeEnabled();
     // Wait for the reconnect to settle the ordering before measuring the clip,
     // or the row can move between boundingBox() and the screenshot.
     await expect(page.locator('[data-testid^="display-"]').first()).toContainText('Gym north');
