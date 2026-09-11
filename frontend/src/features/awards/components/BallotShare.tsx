@@ -25,6 +25,7 @@ interface BallotShareProps {
 export default function BallotShare({ raceId }: BallotShareProps) {
   const [result] = useQuery({ query: NETWORK_ADDRESSES_QUERY });
   const [copied, setCopied] = useState(false);
+  const [qrFailed, setQrFailed] = useState(false);
 
   if (typeof window === 'undefined') return null;
 
@@ -78,13 +79,15 @@ export default function BallotShare({ raceId }: BallotShareProps) {
           it into a phone's browser to check before relying on it.
         </span>
       )}
-      {reachable && (
+      {reachable && !qrFailed && (
         <img
+          key={url}
           src={qrCodeSrc(raceId, url)}
           alt="QR code that opens the voting page"
           width={120}
           height={120}
           style={{ border: '1px solid var(--border-color)', borderRadius: '8px' }}
+          onError={() => setQrFailed(true)}
         />
       )}
       {/* The full-screen answer to this whole panel (#614): rather than

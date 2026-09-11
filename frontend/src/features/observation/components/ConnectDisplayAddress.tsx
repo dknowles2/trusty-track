@@ -29,6 +29,7 @@ import { NETWORK_ADDRESSES_QUERY } from '../graphql/queries';
 export default function ConnectDisplayAddress({ raceId }: { raceId: number }) {
     const [result] = useQuery({ query: NETWORK_ADDRESSES_QUERY });
     const [copied, setCopied] = useState(false);
+    const [qrFailed, setQrFailed] = useState(false);
 
     if (typeof window === 'undefined') return null;
 
@@ -84,13 +85,15 @@ export default function ConnectDisplayAddress({ raceId }: { raceId: number }) {
                     into the other screen's browser to check before relying on it.
                 </span>
             )}
-            {reachable && (
+            {reachable && !qrFailed && (
                 <img
+                    key={url}
                     src={qrCodeSrc(raceId, url)}
                     alt="QR code that opens this race's live display"
                     width={100}
                     height={100}
                     style={{ border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                    onError={() => setQrFailed(true)}
                 />
             )}
         </div>

@@ -656,6 +656,37 @@ def _validate_vote_qr_url(url: str, race_id: int, request: Request) -> None:
         allowed_ports: set[int] = {80, 443, discovery._candidate_port()}
         if request.url.port is not None:
             allowed_ports.add(request.url.port)
+
+        # `request.url.port` is the port *this process* answered the HTTP
+        # request on — right for a single-process production install, wrong
+        # under the Vite dev proxy (and the e2e/docs-screenshot run that
+        # inherits it): the browser fetches this image from the page's own
+        # origin, `changeOrigin` rewrites the Host header the backend sees,
+        # and `shareAddress.ts` built `url` from `window.location.port`, the
+        # port the *page* loaded on, not the one the proxied request
+        # arrives with (#944). For an ordinary same-origin `<img>` fetch a
+        # real browser sets `Referer` (and sometimes `Origin`) to the page's
+        # own address, which is exactly that port — so a request carrying
+        # one is worth widening the allowed *port* set for. A raw HTTP
+        # client can of course forge either header, so this is not treated
+        # as proof of anything beyond that: the port it names is only ever
+        # trusted for a *host* this request has already been checked against
+        # (`allowed_hosts`, computed above from this server's own addresses)
+        # — never against `parsed`'s own host — so forging the header can
+        # widen which port on this instance is accepted, never which host.
+        # That is exactly the guarantee #866/#922 added the host check for.
+        for header_name in ("referer", "origin"):
+            header_value = request.headers.get(header_name)
+            if not header_value:
+                continue
+            try:
+                header_parsed = urllib.parse.urlparse(header_value)
+            except Exception:
+                continue
+            header_host = (header_parsed.hostname or "").lower().strip("[]")
+            if header_host in allowed_hosts and header_parsed.port is not None:
+                allowed_ports.add(header_parsed.port)
+
         if parsed.port not in allowed_ports:
             raise HTTPException(
                 status_code=400,
