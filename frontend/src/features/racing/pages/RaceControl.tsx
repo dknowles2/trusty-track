@@ -957,7 +957,7 @@ export default function RaceControl() {
         </div>
 
         {/* Race settings had no route from Race Control at all — only from
-            the Roster page's own "Edit Details" button (#589). This opens
+            the Roster page's own "Edit race" button (#589, #949). This opens
             the same modal there rather than inventing a settings page of
             its own; the spacer this replaced existed only to balance the
             centered tab group against the title on the left. */}

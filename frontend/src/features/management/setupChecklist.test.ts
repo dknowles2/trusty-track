@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
     checklistFor as checklistForWords,
     nextStep,
+    outstandingSteps,
+    shouldCollapseChecklist,
     shouldShowChecklist,
     type SetupProgress,
     type StepKey,
@@ -226,5 +228,40 @@ describe('nextStep', () => {
                 ),
             )?.key,
         ).toBe('awards');
+    });
+});
+
+describe('shouldCollapseChecklist (#949)', () => {
+    it('stays expanded before anybody is checked in', () => {
+        expect(shouldCollapseChecklist(progress({ racerCount: 20 }))).toBe(false);
+    });
+
+    it('collapses the moment check-in starts, whether or not a schedule exists yet', () => {
+        // Plenty of packs start checking cars in before generating a round —
+        // admitting them as latecomers once the schedule exists rather than
+        // scheduling first. Requiring `roundCount > 0` here would leave the
+        // checklist expanded through exactly the desk queue this collapses
+        // it for.
+        expect(shouldCollapseChecklist(progress({ racerCount: 20, checkedInCount: 1, roundCount: 0 }))).toBe(true);
+    });
+
+    it('stays collapsed once the schedule exists too', () => {
+        expect(
+            shouldCollapseChecklist(progress({ racerCount: 20, checkedInCount: 20, roundCount: 1 })),
+        ).toBe(true);
+    });
+});
+
+describe('outstandingSteps', () => {
+    it('names only what is not done, in order', () => {
+        const steps = checklistFor(progress({ racerCount: 20, checkedInCount: 1, roundCount: 1 }));
+        expect(outstandingSteps(steps).map((step) => step.key)).toEqual(['awards']);
+    });
+
+    it('is empty once the checklist itself would disappear', () => {
+        const steps = checklistFor(
+            progress({ racingGroupCount: 1, racerCount: 1, checkedInCount: 1, roundCount: 1, awardCount: 1 }),
+        );
+        expect(outstandingSteps(steps)).toEqual([]);
     });
 });

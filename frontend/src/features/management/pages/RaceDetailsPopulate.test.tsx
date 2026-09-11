@@ -105,7 +105,7 @@ describe('RaceDetails Populate', () => {
 
         // Wait for race details to load
         await waitFor(() => {
-            expect(screen.getByText('Race Settings')).toBeInTheDocument();
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
         });
 
         // 1. Open dropdown
@@ -174,7 +174,7 @@ describe('RaceDetails Populate', () => {
             </AlertProvider>
         );
 
-        await waitFor(() => screen.getByText('Race Settings'));
+        await waitFor(() => screen.getByTestId('race-summary-line'));
 
         // Open dropdown and click
         await user.click(document.querySelector('.split-btn-arrow')!);

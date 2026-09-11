@@ -1,5 +1,5 @@
 /**
- * What a new operator has to do next (#199, extended by #847).
+ * What a new operator has to do next (#199, extended by #847 and #949).
  *
  * The operator is a parent volunteer who uses this app once a year. After the
  * first-run settings page they land on an empty roster, and the rest of the
@@ -175,4 +175,33 @@ export function shouldShowChecklist(steps: readonly ChecklistStep[]): boolean {
 /** The first thing still outstanding — the one worth pointing at. */
 export function nextStep(steps: readonly ChecklistStep[]): ChecklistStep | null {
     return steps.find((step) => !step.done) ?? null;
+}
+
+/**
+ * Whether the checklist should default to its one-line form (#949).
+ *
+ * The desk works a queue on race morning, on a tablet — the checklist's
+ * expanded six rows (~230px) sit above the roster table for as long as the
+ * last two steps stay outstanding, and they usually do: **Set up awards**
+ * and **Print pit passes** are the two steps `checklistFor` above can only
+ * quiet with a *lock*, which does not happen until the event is over.
+ *
+ * The trigger is `checkedInCount > 0`, not "the first four steps are
+ * done". The two read the same on the tidy path — racingGroups and racers
+ * are already behind a checked-in racer, since check-in needs a roster —
+ * but they diverge on `schedule`: plenty of packs start checking cars in
+ * before a round exists, admitting late arrivals into the schedule as they
+ * come rather than scheduling first and checking in second (see
+ * `domain/latecomers.py`). Requiring `schedule` too would leave the
+ * checklist expanded through exactly the queue this collapses it for.
+ * `checkedInCount` is also a number `setupProgress` already carries, so
+ * there is nothing new to compute it from.
+ */
+export function shouldCollapseChecklist(progress: SetupProgress): boolean {
+    return progress.checkedInCount > 0;
+}
+
+/** The steps still outstanding, in order — what a collapsed line names. */
+export function outstandingSteps(steps: readonly ChecklistStep[]): ChecklistStep[] {
+    return steps.filter((step) => !step.done);
 }

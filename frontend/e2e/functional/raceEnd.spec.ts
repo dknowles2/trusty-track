@@ -25,10 +25,15 @@ test('the setup checklist keeps guiding past the schedule, to awards and printab
     const checklist = page.getByTestId('setup-checklist');
     await expect(checklist).toBeVisible();
     // The first four steps are done; awards is what is left, and it is the
-    // one the checklist points at.
+    // one the checklist points at. `seedRace` checks every racer in, so
+    // the panel is already collapsed to its one-line form (#949) — reading
+    // `data-done` off a step's row works either way (it stays in the DOM,
+    // just unpainted, while collapsed — see `SetupChecklist.tsx`), but
+    // reaching the step's own action button needs the panel open first.
     await expect(page.getByTestId('setup-step-schedule')).toHaveAttribute('data-done', 'true');
     await expect(page.getByTestId('setup-step-awards')).toHaveAttribute('data-done', 'false');
 
+    await page.getByTestId('setup-checklist-summary').click();
     await page.getByRole('button', { name: 'Set up awards' }).click();
     await expect(page).toHaveURL(new RegExp(`/race/${raceId}/awards$`));
 });
@@ -41,7 +46,7 @@ test('locking the race quiets the awards and printables steps with no awards eve
 
     // Locking is the "I am done deciding this" signal the checklist reads
     // for both trailing steps (setupChecklist.ts) — done through the API,
-    // since driving the whole Edit Details form is not the step under test.
+    // since driving the whole Edit race form is not the step under test.
     await gql(
         page,
         `mutation Lock($id: Int!, $race: RaceUpdateInput!) { updateRace(id: $id, race: $race) { id } }`,

@@ -36,7 +36,7 @@ test('a per-race terminology change updates the roster column without a reload',
     const column = page.getByTestId('sort-racingGroup');
     await expect(column).toHaveText('Den');
 
-    await page.getByRole('button', { name: 'Edit Details' }).click();
+    await page.getByRole('button', { name: 'Edit race' }).click();
     const dialog = page.getByRole('dialog', { name: 'Edit Race Details' });
     await expect(dialog).toBeVisible();
 

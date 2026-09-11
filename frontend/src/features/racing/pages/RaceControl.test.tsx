@@ -703,7 +703,7 @@ describe('RaceControl Page', () => {
     // -----------------------------------------------------------------
     //
     // Race Control had no way to reach the race's own settings at all —
-    // only the Roster page's "Edit Details" button did. This sends the
+    // only the Roster page's "Edit race" button did. This sends the
     // operator to the Roster page with the same `?edit=true` Home's row
     // action uses, rather than a `/settings` route the edit form has never
     // had.

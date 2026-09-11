@@ -157,6 +157,8 @@ A new race opens with a **Setting up this race** panel at the top of the Roster 
 
 Each item ticks itself off as you do it — there is nothing to mark complete by hand — and the panel shows a button for whichever step you are on. It disappears once everything is behind it, which for the last two means either doing them or locking the race once the event is over; see [Awards](awards.md) and [Printed documents](reference/printing.md) for what those two steps actually involve.
 
+Once you start checking racers in, the panel collapses to one line — "Setting up: 4 of 6 done — Set up awards · Print pit passes" — so it stops sitting above the roster table for the rest of the day. Click it to open it back up; the two steps most packs never tick off (awards and pit passes are optional) are exactly the ones the collapsed line names.
+
 If you set the race up with the wizard, the first step is already done — the dens it made are
 there. If your pack does not use dens, skip that step: it counts as done as soon as you have racers.
 

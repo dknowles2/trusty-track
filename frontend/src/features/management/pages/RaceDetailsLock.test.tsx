@@ -95,7 +95,7 @@ describe('a locked race on the roster page', () => {
         renderRaceDetails();
 
         await waitFor(() => {
-            expect(screen.getByText('Race Settings')).toBeInTheDocument();
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
         });
 
         expect(screen.getByText('Locked')).toBeInTheDocument();
@@ -111,7 +111,7 @@ describe('a locked race on the roster page', () => {
         renderRaceDetails();
 
         await waitFor(() => {
-            expect(screen.getByText('Race Settings')).toBeInTheDocument();
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
         });
 
         expect(screen.queryByText('Locked')).not.toBeInTheDocument();
@@ -125,7 +125,7 @@ describe('a locked race on the roster page', () => {
         renderRaceDetails();
 
         await waitFor(() => {
-            expect(screen.getByText('Race Settings')).toBeInTheDocument();
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
         });
 
         expect(screen.getByRole('button', { name: /Add Racer/ })).toBeDisabled();
@@ -138,7 +138,7 @@ describe('a locked race on the roster page', () => {
         renderRaceDetails();
 
         await waitFor(() => {
-            expect(screen.getByText('Race Settings')).toBeInTheDocument();
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
         });
 
         expect(screen.getByRole('button', { name: /Add Racer/ })).toBeEnabled();
@@ -152,11 +152,11 @@ describe('a locked race on the roster page', () => {
         renderRaceDetails();
 
         await waitFor(() => {
-            expect(screen.getByText('Edit Details')).toBeInTheDocument();
+            expect(screen.getByText('Edit race')).toBeInTheDocument();
         });
 
         const user = userEvent.setup();
-        await user.click(screen.getByText('Edit Details'));
+        await user.click(screen.getByText('Edit race'));
 
         const deleteBtn = await screen.findByText('Delete Race');
         await user.click(deleteBtn);

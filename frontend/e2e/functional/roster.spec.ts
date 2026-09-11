@@ -153,7 +153,7 @@ test('editing a race keeps it on the track it was on', async ({ page }) => {
     // A missing field in one query made this destructive rather than cosmetic.
     // `GetRaceDetails` did not select `trackId`, so the settings panel showed
     // "Track: Unknown" and — because `RaceForm` defaults a missing track to the
-    // first one — opening Edit Details and saving moved the race to whichever
+    // first one — opening Edit race and saving moved the race to whichever
     // track happened to be first. Changing a race's name changed its lane count
     // and its timer.
     //
@@ -192,7 +192,7 @@ test('editing a race keeps it on the track it was on', async ({ page }) => {
         timeout: 30000,
     });
 
-    await page.getByRole('button', { name: /edit details/i }).click();
+    await page.getByRole('button', { name: /edit race/i }).click();
     // Preselected on the race's own track, not on the first one in the list.
     await expect(page.getByLabel(/track/i)).toHaveValue(String(createTrack.id));
 
@@ -278,4 +278,85 @@ test('the browser tab is named after the page and the race', async ({ page }) =>
 
     await page.goto('/system-settings');
     await expect(page).toHaveTitle('Settings — Trusty Track');
+});
+
+test('the roster table is above the fold at tablet width once check-in has started, and the search box stays reachable while it scrolls (#949)', async ({
+    page,
+}) => {
+    // #949: the check-in desk works a queue, usually on a tablet, and the
+    // table used to start about 660px down an 800px screen — under a
+    // checklist that only fully collapses once every step is done and a
+    // "Race Settings" card read once and never again. This is the proof: a
+    // real page, at the width the issue measured against, with an actual
+    // long roster to scroll.
+    await page.setViewportSize({ width: 1024, height: 768 });
+
+    const raceId = await seed(page, 'Roster Above Fold ' + Date.now());
+
+    // Enough racers that the table genuinely overflows the viewport — the
+    // second half of this test (the search box surviving a scroll) proves
+    // nothing on a roster short enough to fit on screen already.
+    for (let i = 0; i < 25; i++) {
+        await gql(
+            page,
+            `mutation SeedExtra($racer: RacerInput!) { createRacer(racer: $racer) { id } }`,
+            { racer: { raceId, firstName: `Extra${i}`, lastName: 'Racer', carNumber: 100 + i } },
+        );
+    }
+
+    // The checklist's own collapse trigger is `checkedInCount > 0`
+    // (`setupChecklist.shouldCollapseChecklist`), not "every step done" —
+    // one racer checked in is enough to flip it, which is the state the
+    // desk is actually in most of the morning.
+    const roster = await gql<{ race: { racers: { id: number; firstName: string }[] } }>(
+        page,
+        `query RosterIds($raceId: Int!) { race(raceId: $raceId) { racers { id firstName } } }`,
+        { raceId },
+    );
+    const alpha = roster.race.racers.find((r) => r.firstName === 'Alpha');
+    await gql(
+        page,
+        `mutation CheckInAlpha($id: Int!) { checkInRacer(id: $id, passedInspection: true, weight: null) { id } }`,
+        { id: alpha!.id },
+    );
+
+    await page.goto(`/race/${raceId}`);
+
+    // Above the fold: the table's own header row used to land at y≈660 of
+    // an 800px screen (the issue's own measurement, `race-day/01`). It now
+    // lands under 450 — measured at ~375–420px across a one- and a
+    // twenty-six-racer roster — comfortably in the top half of a 768px
+    // tablet viewport rather than almost off the bottom of one. The
+    // remaining budget above it is the app's own global chrome (the nav
+    // bar plus its ROSTER/CONTROL/… tab row, ~110px, present on every
+    // screen) and the page's standard 2rem top padding — neither of which
+    // this issue touches — plus the page header (race name, muted settings
+    // line) and the collapsed checklist line the mockup in #949 itself
+    // calls for. The setup checklist is already collapsed to one line by
+    // the time this loads (checked-in count arrives with the first query,
+    // not as a later update), and the old "Race Settings" card is gone —
+    // folded into the page header's muted summary line.
+    const header = page.locator('table thead').first();
+    await expect(header).toBeVisible();
+    const headerBox = await header.boundingBox();
+    expect(headerBox).not.toBeNull();
+    expect((headerBox as { y: number }).y).toBeLessThan(450);
+
+    // The checklist reads its own one-line, collapsed form rather than the
+    // six-row panel — the summary line names what is still outstanding. The
+    // step rows are still in the DOM inside the closed `<details>` (so a
+    // `data-done` check can find them without expanding anything — see
+    // `race-day.spec.ts`), just not painted.
+    await expect(page.getByTestId('setup-checklist-summary')).toBeVisible();
+    await expect(page.getByTestId('setup-step-checkin')).not.toBeVisible();
+
+    // Scrolling a long roster must not carry the search box away with it —
+    // the sticky toolbar row is the point of #949's third change. A racer
+    // far down the table is used as the scroll target rather than a fixed
+    // pixel count, so this does not depend on exactly how tall any one row
+    // renders.
+    const search = page.getByPlaceholder('Search racers...');
+    await expect(search).toBeVisible();
+    await page.getByText('Extra24', { exact: true }).scrollIntoViewIfNeeded();
+    await expect(search).toBeInViewport();
 });

@@ -92,7 +92,7 @@ test('the check can be turned off from the race form', async ({ page }) => {
     await setLimit(page, raceId, 5);
 
     await page.goto(`/race/${raceId}`);
-    await page.getByRole('button', { name: /Edit Details/ }).click();
+    await page.getByRole('button', { name: /Edit race/ }).click();
 
     const form = page.locator('form');
     // The edit form is sectioned (#587) and opens on Event; the weight check
