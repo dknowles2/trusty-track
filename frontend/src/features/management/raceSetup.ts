@@ -135,6 +135,33 @@ export function numberingStrategyFor(
 }
 
 /**
+ * A short, human name for `car_numbering_strategy` — "Global", "Per Den",
+ * "Manual" (#942) — for the race summary card and the activity log, both of
+ * which used to show the raw stored value. `group` is the resolved
+ * racing-group word, so a renamed install reads "Per Class" rather than a
+ * fixed "Per Den"; callers with no terminology in view (the activity log
+ * never fetches one, to keep an entry self-contained — see `describeValue`
+ * in `activityLog.ts`) get the built-in word via the default. Falls back to
+ * the raw string for a value this module does not recognise, the same
+ * "print something rather than throw" rule `strategyLabel` follows.
+ */
+export function numberingStrategyLabel(
+    strategy: string | null | undefined,
+    group: string = DEFAULT_TERMINOLOGY.racingGroupSingular,
+): string {
+    switch (strategy) {
+        case 'MANUAL':
+            return 'Manual';
+        case 'PER_GROUP':
+            return `Per ${group}`;
+        case 'GLOBAL':
+            return 'Global';
+        default:
+            return strategy ?? '-';
+    }
+}
+
+/**
  * The groups the answers scaffold, each with the number block Manage Dens
  * would have offered it in turn — 100–199, 200–299 — so a race set up here
  * numbers exactly as one set up by hand. Under global numbering the ranges

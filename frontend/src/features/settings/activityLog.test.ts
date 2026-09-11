@@ -125,6 +125,44 @@ describe('detailPairs', () => {
             detailPairs('{"id": 4, "reason": "VIEWER is not allowed to run deleteRound"}'),
         ).toEqual([{ label: 'Id', value: '4' }]);
     });
+
+    it('reads a known enum field through its label table (#942)', () => {
+        expect(detailPairs('{"race.scoring_strategy": "TIMED"}')).toEqual([
+            { label: 'Scoring strategy', value: 'Timed (average)' },
+        ]);
+        expect(detailPairs('{"race.display_theme": "MATCH_APP"}')).toEqual([
+            { label: 'Display theme', value: 'Field Uniform (default)' },
+        ]);
+    });
+
+    it('leaves an unmapped field as its raw value', () => {
+        expect(detailPairs('{"name": "Pack 42"}')).toEqual([{ label: 'Name', value: 'Pack 42' }]);
+    });
+
+    it('drops a clearX: false rider — a flag that did nothing is not something that happened', () => {
+        expect(
+            detailPairs('{"race.name": "2026 Derby", "race.clear_terminology": false}'),
+        ).toEqual([{ label: 'Name', value: '2026 Derby' }]);
+    });
+
+    it('keeps a clearX: true rider — that one changed something', () => {
+        expect(
+            detailPairs('{"race.name": "2026 Derby", "race.clear_terminology": true}'),
+        ).toEqual([
+            { label: 'Name', value: '2026 Derby' },
+            { label: 'Clear terminology', value: 'true' },
+        ]);
+    });
+
+    it('prefers the name over the id when the entry carries both', () => {
+        expect(detailPairs('{"id": 1, "race.name": "2026 Derby"}')).toEqual([
+            { label: 'Name', value: '2026 Derby' },
+        ]);
+    });
+
+    it('keeps the id when it is all there is', () => {
+        expect(detailPairs('{"id": 1}')).toEqual([{ label: 'Id', value: '1' }]);
+    });
 });
 
 describe('humanise', () => {

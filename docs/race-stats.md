@@ -24,7 +24,7 @@ _Click the Stats tab in the race navigation bar to open the Stats page._
 
 At the top of the page, three summary cards give you a quick snapshot of the race:
 
-- **Scoring** — the scoring method in use (e.g., "TIMED" for fastest average time).
+- **Scoring** — the scoring method in use (e.g., "Timed (average)").
 - **Racers** — how many registered racers have raced at least once, out of the roster (e.g., "14 / 19").
 - **Heats Completed** — how many heats have been run out of the total scheduled (e.g., "12 / 16").
 

@@ -10,6 +10,8 @@
  * Pure. No React, no urql.
  */
 
+import { describeValue } from './describeValue';
+
 export interface LogEntry {
     id: number;
     at: string;
@@ -125,6 +127,14 @@ export function hasAnotherPage(page: readonly LogEntry[], pageSize: number): boo
     return page.length >= pageSize;
 }
 
+/** `race.carNumberingStrategy` → `carNumberingStrategy` — the part
+ * `humanise` turns into words and `describeValue` (#942) matches a label
+ * table on. Its own function because both need it and neither should
+ * re-derive it differently. */
+function leafKey(key: string): string {
+    return key.split('.').pop() ?? key;
+}
+
 /**
  * The stored details, as label/value pairs.
  *
@@ -142,14 +152,32 @@ export function detailPairs(details: string | null | undefined): DetailPair[] {
     }
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
 
-    return Object.entries(parsed as Record<string, unknown>)
+    const entries = Object.entries(parsed as Record<string, unknown>)
         // `reason` (#889) is a refusal's own message, already folded into the
         // bolded summary sentence by `domain/audit.describe` — showing it
         // again here would say the same thing twice.
         .filter(([key]) => key !== 'reason')
+        // A `clearX: false` rider (`clearWeightLimit`, `clearTerminology`…)
+        // did nothing — absent already means "leave alone" for every one of
+        // these flags — so it is not something that happened (#942). A
+        // `true` rider stays: that one changed something.
+        .filter(([key, value]) => !(/^clear/i.test(leafKey(key)) && value === false));
+
+    // Prefer the name over the id when an entry carries both (#942) — the
+    // id beside a name that already identifies the same thing says nothing
+    // more. Kept when the name is all there is, or the id is all there is:
+    // nothing here is fetched to manufacture the half that is missing.
+    const hasName = entries.some(([key]) => leafKey(key).toLowerCase() === 'name');
+    const isIdLeaf = (key: string) => {
+        const leaf = leafKey(key);
+        return /^id$/i.test(leaf) || /_id$/i.test(leaf) || /Id$/.test(leaf);
+    };
+
+    return entries
+        .filter(([key]) => !(hasName && isIdLeaf(key)))
         .map(([key, value]) => ({
             label: humanise(key),
-            value: String(value),
+            value: describeValue(leafKey(key), String(value)),
         }));
 }
 

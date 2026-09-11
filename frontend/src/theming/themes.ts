@@ -1743,3 +1743,19 @@ export function themeByKey(key: string): Theme {
 /** Every key this build ships, for the picker and for validating a stored
  *  value. */
 export const THEME_KEYS: readonly ThemeKey[] = THEMES.map((t) => t.key);
+
+/**
+ * A short, human name for a `SurfaceThemeSetting` — a Display or Printables
+ * theme, straight off `Organization.display_theme`/`printables_theme` (#942)
+ * — for the activity log, which otherwise showed the raw stored value
+ * (`MATCH_APP`, `old-glory`). `'Field Uniform (default)'` mirrors
+ * `ThemePicker.tsx`'s own wording for the `MATCH_APP` sentinel (#528); every
+ * other value is an ordinary `ThemeKey` and reads its name off `themeByKey`,
+ * so this is not a second table of theme names, only the one extra case
+ * `themeByKey` itself does not cover.
+ */
+export function themeSettingLabel(setting: string | null | undefined): string {
+  if (setting === 'MATCH_APP') return 'Field Uniform (default)';
+  if (!setting) return '-';
+  return themeByKey(setting).name;
+}
