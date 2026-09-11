@@ -8,10 +8,19 @@
  * Advance with the arrow keys, space, or a click anywhere. A presenter remote
  * is a keyboard that sends Page Up and Page Down, which is why those are in
  * `deltaForKey` too.
+ *
+ * The way out (#955): the app chrome is hidden here (`Navigation.tsx`'s early
+ * return), so a browser with no visible Back button — a kiosk, a tablet in
+ * full-screen — would otherwise have no exit at all. A "Back to awards" link
+ * fades after a few seconds of no pointer movement, the way a video player's
+ * controls do, and returns on movement or on keyboard focus. Escape does the
+ * same thing from the keyboard, following `shortcuts.ts`'s shape: nothing
+ * fires with a modifier held, and `preventDefault` only once an action is
+ * decided.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useSubscription } from 'urql';
 import AwardArtwork from '../artwork';
 import { CeremonyAward, deltaForKey, slideFor, stepIndex } from '../ceremony';
@@ -28,6 +37,11 @@ import {
   readSoundSettings,
   writeSoundSettings,
 } from '../../audio/soundEffects';
+
+/** How long the back link stays up after the pointer last moved. A few
+ * seconds is long enough to find and click without haste, and short enough
+ * that it is gone for the photograph. */
+const BACK_LINK_IDLE_MS = 4000;
 
 export default function AwardCeremony() {
   const { raceId } = useParams<{ raceId: string }>();
@@ -130,8 +144,24 @@ export default function AwardCeremony() {
     }
   }
 
+  const goBack = useCallback(() => navigate(`/race/${id}/awards`), [navigate, id]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // A held modifier belongs to the browser, the same rule
+      // `shortcuts.ts` follows on the Race tab — Cmd/Ctrl-arrow switches tabs
+      // or spaces in some browsers, and quietly stealing that is worse than
+      // having no shortcut.
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+      if (event.key === 'Escape') {
+        // The one key `deltaForKey` never claims, so this never fights the
+        // ceremony's own → / ← stepping.
+        event.preventDefault();
+        goBack();
+        return;
+      }
+
       const delta = deltaForKey(event.key);
       if (delta === null) return;
       // Space scrolls and the arrows move the page otherwise, and a ceremony
@@ -144,13 +174,34 @@ export default function AwardCeremony() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [step, index, awards.length]);
+  }, [step, index, awards.length, goBack]);
 
   // A projector wants no scrollbars and no page chrome.
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = '';
+    };
+  }, []);
+
+  // The back link (#955): up on load, and again whenever the pointer moves —
+  // then gone after a few seconds of neither, the way a video player's own
+  // controls behave. Focus (Tab, from a keyboard with no pointer at all)
+  // reveals it the same way, so it is never hidden from something that can
+  // reach it only by keyboard.
+  const [backLinkVisible, setBackLinkVisible] = useState(true);
+  useEffect(() => {
+    let hideTimer: ReturnType<typeof setTimeout>;
+    const reveal = () => {
+      setBackLinkVisible(true);
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => setBackLinkVisible(false), BACK_LINK_IDLE_MS);
+    };
+    reveal();
+    window.addEventListener('pointermove', reveal);
+    return () => {
+      clearTimeout(hideTimer);
+      window.removeEventListener('pointermove', reveal);
     };
   }, []);
 
@@ -206,6 +257,33 @@ export default function AwardCeremony() {
           (#495) rather than inheriting Observation.tsx's — Identify used to
           do nothing here for exactly that reason (#519). */}
       <IdentifyPresence assignment={assignment} />
+
+      {/* The way out (#955). Stopping propagation keeps a click on the link
+          from also landing on the root's own onClick, which would advance
+          the slide underneath the navigation. Not `preventDefault` — the
+          `Link` still has to do its own client-side navigation, which is
+          what keeps this inside the SPA rather than a full reload. */}
+      <Link
+        to={`/race/${id}/awards`}
+        data-testid="ceremony-back-link"
+        onClick={(e) => e.stopPropagation()}
+        onFocus={() => setBackLinkVisible(true)}
+        style={{
+          position: 'absolute',
+          top: '2vh',
+          left: '2vw',
+          color: 'var(--display-text-color, #ffffff)',
+          fontSize: '1.8vh',
+          textDecoration: 'none',
+          opacity: backLinkVisible ? 0.7 : 0,
+          transition: 'opacity 0.4s ease',
+          // Never `display: none` — a link a keyboard cannot reach is not
+          // a way out for someone without a pointer.
+          pointerEvents: backLinkVisible ? 'auto' : 'none',
+        }}
+      >
+        ← Back to awards
+      </Link>
 
       {!slide ? (
         <p style={{ fontSize: '3vh', opacity: 0.8 }}>

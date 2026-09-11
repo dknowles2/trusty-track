@@ -494,10 +494,7 @@ describe('the awards page', () => {
   describe('Present and Print certificates on a race with no awards (#790)', () => {
     it('offers both, enabled, once the race has at least one award', () => {
       renderPage();
-      expect(screen.getByRole('link', { name: 'Present' })).toHaveAttribute(
-        'href',
-        '/race/1/awards/present',
-      );
+      expect(screen.getByRole('button', { name: /^Present/ })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Print certificates' })).toHaveAttribute(
         'href',
         '/race/1/print/certificates',
@@ -511,10 +508,17 @@ describe('the awards page', () => {
       // that can only disappoint is worse than one that is absent, the same
       // rule `displayView.viewOptionsFor` already applies to the ceremony
       // as a display view.
-      expect(screen.queryByRole('link', { name: 'Present' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Present/ })).not.toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Print certificates' })).not.toBeInTheDocument();
       expect(screen.getByText('Present')).toHaveAttribute('aria-disabled', 'true');
       expect(screen.getByText('Print certificates')).toHaveAttribute('aria-disabled', 'true');
+    });
+
+    it('opens the ceremony in a new tab, the same noopener behaviour Launch Projector Mode uses (#955)', async () => {
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+      renderPage();
+      await userEvent.click(screen.getByRole('button', { name: /^Present/ }));
+      expect(openSpy).toHaveBeenCalledWith('/race/1/awards/present', '_blank', 'noopener');
     });
 
     it('gives the empty state its own way to add an award, not just the corner button', () => {

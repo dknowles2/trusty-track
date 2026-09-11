@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -425,6 +425,111 @@ describe('ceremony sound effects (#554)', () => {
 
     await userEvent.keyboard('{ArrowRight}');
     expect(fanfareSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+/** Same as `renderCeremony`, plus the ordinary Awards page the back link and
+ * Escape both lead to — `renderCeremony`'s own route table only has
+ * `/observation`, for the assignment-leash tests above. */
+function renderCeremonyWithAwardsRoute(race: unknown = RACE) {
+  (useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue([
+    { data: { race }, fetching: false, error: undefined },
+    vi.fn(),
+  ]);
+  render(
+    <MemoryRouter initialEntries={['/race/1/awards/present']}>
+      <Routes>
+        <Route path="/race/:raceId/awards/present" element={<AwardCeremony />} />
+        <Route path="/race/:raceId/awards" element={<div>awards page</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe('the way out (#955)', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('is up when the page loads, fades after a few seconds with no pointer movement, and returns when the pointer moves', () => {
+    vi.useFakeTimers();
+    try {
+      renderCeremony();
+      const link = screen.getByTestId('ceremony-back-link');
+      expect(link.style.opacity).toBe('0.7');
+
+      act(() => vi.advanceTimersByTime(10_000));
+      expect(link.style.opacity).toBe('0');
+
+      fireEvent.pointerMove(window);
+      expect(link.style.opacity).toBe('0.7');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stays up while the pointer keeps moving — the idle clock resets on every move', () => {
+    vi.useFakeTimers();
+    try {
+      renderCeremony();
+      const link = screen.getByTestId('ceremony-back-link');
+
+      act(() => vi.advanceTimersByTime(3_000));
+      fireEvent.pointerMove(window);
+      act(() => vi.advanceTimersByTime(3_000));
+
+      // 6 seconds have passed in total, but no 4-second gap without a move.
+      expect(link.style.opacity).toBe('0.7');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('returns on keyboard focus, so it is never hidden from something with no pointer at all', () => {
+    vi.useFakeTimers();
+    try {
+      renderCeremony();
+      const link = screen.getByTestId('ceremony-back-link');
+      act(() => vi.advanceTimersByTime(10_000));
+      expect(link.style.opacity).toBe('0');
+
+      fireEvent.focus(link);
+      expect(link.style.opacity).toBe('0.7');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('navigates back to the awards page on Escape', () => {
+    renderCeremonyWithAwardsRoute();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByText('awards page')).toBeInTheDocument();
+  });
+
+  it('does not navigate on Escape while a modifier is held', () => {
+    renderCeremonyWithAwardsRoute();
+    fireEvent.keyDown(window, { key: 'Escape', metaKey: true });
+    expect(screen.queryByText('awards page')).not.toBeInTheDocument();
+    expect(screen.getByText('Fastest Wolf')).toBeInTheDocument();
+  });
+
+  it('does not fight the ceremony’s own arrow-key stepping — Escape claims a key `deltaForKey` never does', async () => {
+    renderCeremonyWithAwardsRoute();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByText('Best Paint')).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    // The route changed under the same MemoryRouter, so the ceremony is gone
+    // — nothing left here to assert a slide against.
+    expect(screen.getByText('awards page')).toBeInTheDocument();
+  });
+
+  it('clicking the link does not also advance the slide underneath it', async () => {
+    renderCeremonyWithAwardsRoute();
+    await userEvent.click(screen.getByTestId('ceremony-back-link'));
+    expect(screen.getByText('awards page')).toBeInTheDocument();
   });
 });
 
