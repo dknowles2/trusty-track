@@ -7,6 +7,9 @@ import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { minutesEstimate } from '../../../utils/duration';
 import Modal from '../../../components/ui/Modal';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { HowItsRacedFields, type RaceStyle } from './HowItsRacedFields';
+import { WhichCarsRaceFields } from './WhichCarsRaceFields';
+import { PickFieldByHandCheckbox } from './PickFieldByHandCheckbox';
 
 interface RoundWizardProps {
   isOpen: boolean;
@@ -22,12 +25,32 @@ interface RoundWizardProps {
    * baseline. Defaults to the baseline for a race with no heats recorded
    * yet — the ordinary case for the very first round. */
   minutesPerHeat?: number;
-  onCreated: () => void;
+  /**
+   * Called once the mutation lands. `handPickRoundId` names a championship
+   * round created with "I'll choose who races myself" checked (#711, #943)
+   * — the same hand-off `RoundConfigModal`'s own submit makes, so the
+   * caller can open the same `PickFieldModal` it already owns. Null when
+   * nothing in this batch asked for it. Only the first such round is
+   * reported: the picker shows one round at a time, the same limit a
+   * single Add Round submission already has (it can only ever create one
+   * championship round per click), so a wizard batch asking for the picker
+   * on more than one round opens it for whichever comes first and leaves
+   * the rest for the round's own "Pick by hand" button on the schedule.
+   */
+  onCreated: (handPickRoundId: number | null) => void | Promise<void>;
 }
 
 interface GeneralConfig {
   type: 'ALL' | 'EACH_GROUP';
   runsPerLane: number;
+  /** "How it's raced" (#943) — the same choice `RoundConfigModal` offers a
+   * general round. A championship round is always PPC (CLAUDE.md's
+   * "Ladderless elimination": an elimination round cannot also be a
+   * championship round), so this lives only on the general round's own
+   * config, never per championship round below. */
+  raceStyle: RaceStyle;
+  eliminationLosses: number;
+  balancedPhases: number;
 }
 
 interface ChampionshipConfig {
@@ -36,6 +59,34 @@ interface ChampionshipConfig {
   source: 'ALL' | 'EACH_GROUP' | 'PREVIOUS';
   numTopRacers: number;
   runsPerLane: number;
+  /** "Which cars race" — the Slowest Race bracket (#943). */
+  fromBottom: boolean;
+  /** "I'll choose who races myself" (#711, #943). */
+  pickFieldByHand: boolean;
+}
+
+/** The general round's name a fresh wizard session would produce, absent an
+ * operator's own choice — there is no Name field for it in step 1, so this
+ * mirrors what `create_round_wizard` itself now names it (`crud.
+ * default_general_round_name` for PPC, "Elimination Round"/"Balanced Round"
+ * otherwise) closely enough for the step 3 preview. */
+function generalRoundName(style: RaceStyle, type: 'ALL' | 'EACH_GROUP', org: string, group: string): string {
+  if (style === 'ELIMINATION') return 'Elimination Round';
+  if (style === 'BALANCED') return 'Balanced Round';
+  return `${type === 'ALL' ? `All ${org}` : group} Round`;
+}
+
+/** The three default names a championship round card has ever carried on
+ * its own, before an operator typed something else — used the same way
+ * `RoundConfigModal.chooseDirection` decides whether flipping the direction
+ * may still rename the round. */
+function isDefaultChampionshipName(name: string): boolean {
+  return name === 'Grand Finals' || name === 'New Championship Round' || name === 'Slowest Race';
+}
+
+function defaultChampionshipName(idx: number, fromBottom: boolean): string {
+  if (fromBottom) return 'Slowest Race';
+  return idx === 0 ? 'Grand Finals' : 'New Championship Round';
 }
 
 export const RoundWizard: React.FC<RoundWizardProps> = ({
@@ -55,6 +106,9 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   const [generalConfig, setGeneralConfig] = useState<GeneralConfig>({
     type: 'ALL',
     runsPerLane: 1,
+    raceStyle: 'PPC',
+    eliminationLosses: 3,
+    balancedPhases: Math.max(1, laneCount),
   });
   // Opening the wizard starts it over, which is what mounting already does —
   // the caller keys this on `isOpen`, so every open is a fresh component. The
@@ -74,7 +128,9 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     // control reached later, from the add-round dialog — already defaults to
     // `championshipTrophies` alone; this now matches it.
     numTopRacers: championshipTrophies,
-    runsPerLane: 1
+    runsPerLane: 1,
+    fromBottom: false,
+    pickFieldByHand: false,
   }]);
   const [loading, setLoading] = useState(false);
   const { showAlert } = useAlert();
@@ -93,21 +149,28 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
    * This preview is where an operator decides whether their evening fits, and
    * it feeds the run-time estimate too, so being out by a factor of the lane
    * count is out by a factor of the lane count on both numbers.
+   *
+   * Only PPC's heat count can be known up front. Balanced and elimination
+   * heats grow from results as the round is raced (`reference/round-styles.
+   * md`'s "Schedule: Grows as results come in") — a championship round is
+   * always PPC (see `ChampionshipConfig`'s own comment), so this only ever
+   * applies to the general round when it is not `PPC`.
    */
   const heatsFor = (racers: number, runs: number) => racers * runs;
 
   const getRaceBreakdown = () => {
-    const rounds: { name: string; heats: number; duration: number }[] = [];
+    const rounds: { name: string; heats: number | null; duration: number }[] = [];
 
     // General Round
-    const generalHeats = heatsFor(racerCount, generalConfig.runsPerLane);
+    const generalHeats =
+      generalConfig.raceStyle === 'PPC' ? heatsFor(racerCount, generalConfig.runsPerLane) : null;
     rounds.push({
-      name: `${generalConfig.type === 'ALL' ? `All ${org}` : group} Round`,
+      name: generalRoundName(generalConfig.raceStyle, generalConfig.type, org, group),
       heats: generalHeats,
-      duration: Math.ceil(generalHeats * minutesPerHeat)
+      duration: generalHeats == null ? 0 : Math.ceil(generalHeats * minutesPerHeat)
     });
 
-    // Championship Rounds
+    // Championship Rounds — always PPC, so their heat count is always known.
     for (const round of championshipRounds) {
       let participatingRacers;
       if (round.source === 'ALL' || round.source === 'PREVIOUS') {
@@ -123,16 +186,26 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       });
     }
 
-    const totalHeats = rounds.reduce((sum, r) => sum + r.heats, 0);
+    const totalHeats = rounds.reduce((sum, r) => sum + (r.heats ?? 0), 0);
     const totalDuration = rounds.reduce((sum, r) => sum + r.duration, 0);
+    const hasUnknownHeats = rounds.some((r) => r.heats == null);
 
-    return { rounds, totalHeats, totalDuration };
+    return { rounds, totalHeats, totalDuration, hasUnknownHeats };
   };
 
-  const { rounds: breakdown, totalHeats, totalDuration } = getRaceBreakdown();
+  const { rounds: breakdown, totalHeats, totalDuration, hasUnknownHeats } = getRaceBreakdown();
 
   const handleNext = () => setStep(s => s + 1);
   const handleBack = () => setStep(s => s - 1);
+
+  /** Same rule as `RoundConfigModal.chooseStyle` — switching styles renames
+   * the round for its new kind, but only while the name is still one the
+   * wizard itself put there. Step 1 has no Name field of its own (the
+   * general round is always named on the server), so this only decides what
+   * the step 3 preview calls it. */
+  const chooseGeneralStyle = (style: RaceStyle) => {
+    setGeneralConfig((prev) => ({ ...prev, raceStyle: style }));
+  };
 
   const handleAddChampionshipRound = () => {
     setChampionshipRounds(prev => [
@@ -142,7 +215,9 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
         name: 'New Championship Round',
         source: prev.length === 0 ? 'ALL' : 'PREVIOUS',
         numTopRacers: laneCount,
-        runsPerLane: 1
+        runsPerLane: 1,
+        fromBottom: false,
+        pickFieldByHand: false,
       }
     ]);
   };
@@ -159,19 +234,43 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     setChampionshipRounds(nextRounds);
   };
 
+  /** Flip a round's direction, and swap its default name along with it —
+   * but only if the operator has not typed their own. Mirrors
+   * `RoundConfigModal.chooseDirection`. */
+  const chooseChampionshipDirection = (id: string, nextFromBottom: boolean) => {
+    setChampionshipRounds(prev => prev.map((r, idx) => {
+      if (r.id !== id) return r;
+      const name = isDefaultChampionshipName(r.name)
+        ? defaultChampionshipName(idx, nextFromBottom)
+        : r.name;
+      return { ...r, fromBottom: nextFromBottom, name };
+    }));
+  };
+
   const handleCreate = async () => {
     setLoading(true);
     try {
+      const isElimination = generalConfig.raceStyle === 'ELIMINATION';
+      const isBalanced = generalConfig.raceStyle === 'BALANCED';
       const config = {
         generalRound: {
-          type: generalConfig.type,
+          // "By {group}" is offered only alongside "Everyone races in every
+          // lane" — `HowItsRacedFields`'s sibling Format picker is hidden for
+          // the other two styles, so nothing on screen can set `type` to
+          // anything but "ALL" while a style is chosen; sent explicitly all
+          // the same, matching the backend's own belt-and-braces rule.
+          type: generalConfig.raceStyle === 'PPC' ? generalConfig.type : 'ALL',
           runsPerLane: generalConfig.runsPerLane,
+          schedulingStrategy: generalConfig.raceStyle,
+          eliminationLosses: isElimination ? generalConfig.eliminationLosses : undefined,
+          balancedPhases: isBalanced ? generalConfig.balancedPhases : undefined,
         },
         championshipRounds: championshipRounds.map((r) => ({
           name: r.name,
           source: r.source,
           numTopRacers: r.numTopRacers,
           runsPerLane: r.runsPerLane,
+          advancementFromBottom: r.fromBottom,
         })),
       };
 
@@ -181,7 +280,19 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
           throw result.error;
       }
 
-      onCreated();
+      // "I'll choose who races myself" (#711) — the round is created and
+      // scheduled the usual way; this hands off to the picker once it has a
+      // real round to hand off to, the same way `RaceControl.handleAddRound`
+      // does for the Add Round dialog. Championship rounds are always the
+      // tail of the returned list, in the order they were submitted, however
+      // many general rounds (`EACH_GROUP` can create several) came first.
+      const created = result.data?.createRoundWizard ?? [];
+      const champCreated = created.slice(created.length - championshipRounds.length);
+      const handPickIndex = championshipRounds.findIndex((r) => r.pickFieldByHand);
+      const handPickRoundId =
+        handPickIndex >= 0 ? champCreated[handPickIndex]?.id ?? null : null;
+
+      await onCreated(handPickRoundId);
       onClose();
     } catch (error: unknown) {
       console.error('Failed to create rounds via wizard:', error);
@@ -289,38 +400,60 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                 </div>
               )}
 
-              <div>
-                <label style={labelStyle}>Qualifying Round Type</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div
-                    style={configCardStyle(generalConfig.type === 'ALL')}
-                    onClick={() => setGeneralConfig({ ...generalConfig, type: 'ALL' })}
-                  >
-                    <div style={{ fontWeight: 500 }}>All {org}</div>
-                    <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Every racer races against everyone else in the {orgLower}.</div>
-                  </div>
-                  <div
-                    style={configCardStyle(generalConfig.type === 'EACH_GROUP')}
-                    onClick={() => setGeneralConfig({ ...generalConfig, type: 'EACH_GROUP' })}
-                  >
-                    <div style={{ fontWeight: 500 }}>By {group}</div>
-                    <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Racers only race against others in their own {groupLower} initially.</div>
-                  </div>
-                </div>
-              </div>
+              {/* How it's raced (#943) — the same choice, and the same
+                  component, `RoundConfigModal`'s General tab offers. */}
+              <HowItsRacedFields
+                raceStyle={generalConfig.raceStyle}
+                onChooseStyle={chooseGeneralStyle}
+                laneCount={laneCount}
+                balancedPhases={generalConfig.balancedPhases}
+                onBalancedPhasesChange={(value) => setGeneralConfig({ ...generalConfig, balancedPhases: value })}
+                eliminationLosses={generalConfig.eliminationLosses}
+                onEliminationLossesChange={(value) => setGeneralConfig({ ...generalConfig, eliminationLosses: value })}
+                labelStyle={labelStyle}
+                mutedColor="var(--wizard-text-muted-color)"
+              />
 
-              <div>
-                <label style={labelStyle}>Runs Per Lane</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="4"
-                  className="form-control"
-                  value={generalConfig.runsPerLane}
-                  onChange={(e) => setGeneralConfig({ ...generalConfig, runsPerLane: parseInt(e.target.value) || 1 })}
-                />
-                <p style={{ fontSize: '0.75rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>How many times does each racer run in each lane? (Standard is 1)</p>
-              </div>
+              {/* "By {group}" only makes sense alongside "Everyone races in
+                  every lane" — an elimination or balanced round is always
+                  the whole {org}, the same rule `RoundConfigModal` follows
+                  by hiding its own Format picker for the other two styles. */}
+              {generalConfig.raceStyle === 'PPC' && (
+                <>
+                  <div>
+                    <label style={labelStyle}>Qualifying Round Type</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div
+                        style={configCardStyle(generalConfig.type === 'ALL')}
+                        onClick={() => setGeneralConfig({ ...generalConfig, type: 'ALL' })}
+                      >
+                        <div style={{ fontWeight: 500 }}>All {org}</div>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Every racer races against everyone else in the {orgLower}.</div>
+                      </div>
+                      <div
+                        style={configCardStyle(generalConfig.type === 'EACH_GROUP')}
+                        onClick={() => setGeneralConfig({ ...generalConfig, type: 'EACH_GROUP' })}
+                      >
+                        <div style={{ fontWeight: 500 }}>By {group}</div>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Racers only race against others in their own {groupLower} initially.</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>Runs per lane</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="4"
+                      className="form-control"
+                      value={generalConfig.runsPerLane}
+                      onChange={(e) => setGeneralConfig({ ...generalConfig, runsPerLane: parseInt(e.target.value) || 1 })}
+                    />
+                    <p style={{ fontSize: '0.75rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>How many times does each racer run in each lane? (Standard is 1)</p>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -358,8 +491,24 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                         onChange={(e) => updateChampionshipRound(round.id, { name: e.target.value })}
                       />
                     </div>
+                  </div>
+
+                  {/* Which cars race (#943) — the same choice, and the same
+                      component, `RoundConfigModal`'s Championship tab offers. */}
+                  <div style={{ marginTop: '1rem' }}>
+                    <WhichCarsRaceFields
+                      fromBottom={round.fromBottom}
+                      onChooseDirection={(value) => chooseChampionshipDirection(round.id, value)}
+                      labelStyle={{ ...labelStyle, fontSize: '0.75rem' }}
+                      mutedColor="var(--wizard-text-muted-color)"
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
                     <div>
-                      <label style={{ ...labelStyle, fontSize: '0.75rem' }}>Who advances</label>
+                      <label style={{ ...labelStyle, fontSize: '0.75rem' }}>
+                        {round.fromBottom ? `Slowest ${vehiclesLower} from` : 'Top performers from'}
+                      </label>
                       {idx === 0 ? (
                         <select
                           className="form-control"
@@ -367,33 +516,38 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                           value={round.source}
                           onChange={(e) => updateChampionshipRound(round.id, { source: e.target.value as 'ALL' | 'EACH_GROUP' })}
                         >
-                          <option value="ALL">Top Overall ({org})</option>
-                          <option value="EACH_GROUP">Top per {group}</option>
+                          <option value="ALL">Overall</option>
+                          <option value="EACH_GROUP">Each {group}</option>
                         </select>
                       ) : (
                         <div
                           className="form-control"
                           style={{ fontSize: '0.875rem', backgroundColor: 'var(--wizard-chip-bg-color)', color: 'var(--wizard-text-muted-color)', display: 'flex', alignItems: 'center' }}
                         >
-                          Previous Championship Round
+                          Previous championship round
                         </div>
                       )}
                     </div>
                     <div>
-                      <label style={{ ...labelStyle, fontSize: '0.75rem' }}>
-                        {round.source === 'ALL' ? 'Number of Finalists' : `Advancing per ${group}`}
-                      </label>
+                      <label style={{ ...labelStyle, fontSize: '0.75rem' }}>Number to pick</label>
                       <input
                         type="number"
-                        min="1"
+                        min={round.fromBottom ? 1 : championshipTrophies}
                         className="form-control"
                         style={{ fontSize: '0.875rem' }}
                         value={round.numTopRacers}
-                        onChange={(e) => updateChampionshipRound(round.id, { numTopRacers: parseInt(e.target.value) || 1 })}
+                        onChange={(e) =>
+                          updateChampionshipRound(round.id, {
+                            numTopRacers: Math.max(
+                              round.fromBottom ? 1 : championshipTrophies,
+                              parseInt(e.target.value) || 1
+                            )
+                          })
+                        }
                       />
                     </div>
                     <div>
-                      <label style={{ ...labelStyle, fontSize: '0.75rem' }}>Runs Per Lane</label>
+                      <label style={{ ...labelStyle, fontSize: '0.75rem' }}>Runs per lane</label>
                       <input
                         type="number"
                         min="1"
@@ -403,6 +557,23 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                         onChange={(e) => updateChampionshipRound(round.id, { runsPerLane: parseInt(e.target.value) || 1 })}
                       />
                     </div>
+                  </div>
+                  {/* The trophy minimum is about handing out championship
+                      trophies, which a slowest race does not do. */}
+                  {!round.fromBottom && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--wizard-text-muted-color)', fontStyle: 'italic', marginTop: '0.5rem' }}>
+                      Minimum pick count ({championshipTrophies}) enforced by trophy config.
+                    </div>
+                  )}
+
+                  {/* I'll choose who races myself (#711, #943) — the same
+                      checkbox `RoundConfigModal`'s Championship tab offers. */}
+                  <div style={{ marginTop: '1rem' }}>
+                    <PickFieldByHandCheckbox
+                      checked={round.pickFieldByHand}
+                      onChange={(value) => updateChampionshipRound(round.id, { pickFieldByHand: value })}
+                      mutedColor="var(--wizard-text-muted-color)"
+                    />
                   </div>
                 </div>
               ))}
@@ -416,6 +587,11 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                 <div>
                   <div style={{ fontWeight: 'bold', color: 'var(--accent-blue-emphasis-color)' }}>Estimated Grand Total: {minutesEstimate(totalDuration)}</div>
                   <div style={{ color: 'var(--accent-blue-strong-color)', fontSize: '0.875rem' }}>Total Heats: {totalHeats}</div>
+                  {hasUnknownHeats && (
+                    <div style={{ color: 'var(--accent-blue-strong-color)', fontSize: '0.75rem', marginTop: '0.25rem', fontStyle: 'italic' }}>
+                      Elimination and balanced rounds grow as results come in, so their heats aren&apos;t counted above.
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -429,15 +605,21 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <h4 style={{ fontWeight: 'bold', color: 'var(--wizard-heading-color)', margin: 0 }}>{idx + 1}. {roundInfo.name}</h4>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 600, color: 'var(--wizard-heading-color)', fontSize: '0.875rem' }}>{minutesEstimate(roundInfo.duration)}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--wizard-text-muted-color)' }}>{roundInfo.heats} {roundInfo.heats === 1 ? 'heat' : 'heats'}</div>
+                        <div style={{ fontWeight: 600, color: 'var(--wizard-heading-color)', fontSize: '0.875rem' }}>
+                          {roundInfo.heats == null ? 'Varies' : minutesEstimate(roundInfo.duration)}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--wizard-text-muted-color)' }}>
+                          {roundInfo.heats == null ? 'grows as results come in' : `${roundInfo.heats} ${roundInfo.heats === 1 ? 'heat' : 'heats'}`}
+                        </div>
                       </div>
                     </div>
                     <p style={{ fontSize: '0.875rem', color: 'var(--wizard-text-subtle-color)', margin: '0.25rem 0 0 0' }}>
                       {idx === 0 ? (
-                        generalConfig.type === 'ALL' ? 'All racers compete against each other.' : `Racers compete within their ${groupsLower}.`
+                        generalConfig.raceStyle === 'ELIMINATION' ? "Racers are eliminated after too many losses; the last one left wins."
+                        : generalConfig.raceStyle === 'BALANCED' ? 'Heats are matched by how well each racer has done so far.'
+                        : generalConfig.type === 'ALL' ? 'All racers compete against each other.' : `Racers compete within their ${groupsLower}.`
                       ) : (
-                        `Advances top ${championshipRounds[idx-1].numTopRacers} racers ${
+                        `${championshipRounds[idx-1].fromBottom ? 'The slowest' : 'Advances the top'} ${championshipRounds[idx-1].numTopRacers} racers${
                           championshipRounds[idx-1].source === 'EACH_GROUP' ? ` from each ${groupLower}` :
                           championshipRounds[idx-1].source === 'PREVIOUS' ? ` from ${championshipRounds[idx-2]?.name || 'previous round'}` :
                           ' overall'
@@ -482,7 +664,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
               className="primary-btn"
               disabled={loading || racerCount < 2}
             >
-              {loading ? 'Generating Schedule...' : 'Generate Schedule'}
+              {loading ? 'Generating schedule...' : 'Generate schedule'}
             </button>
           )}
         </div>

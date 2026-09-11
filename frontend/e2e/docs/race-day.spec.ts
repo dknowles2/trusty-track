@@ -365,7 +365,7 @@ test('take screenshots', async ({ page }) => {
         );
     }
 
-    await page.getByRole('button', { name: 'Generate Schedule' }).click();
+    await page.getByRole('button', { name: 'Generate schedule' }).click();
     await expect(page.getByRole('heading', { name: 'Race Schedule Wizard' })).toBeHidden({
         timeout: 30000,
     });

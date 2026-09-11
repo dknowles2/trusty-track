@@ -452,7 +452,7 @@ rule a computer should be guessing at:
 | Word | Default | Replaces |
 | --- | --- | --- |
 | Racing group | Den / Dens | "Den", **Manage Dens**, **Per Den** numbering, the Den column on the roster, standings and printouts |
-| Organization | Pack / Packs | "Pack", "Top Overall (Pack)" |
+| Organization | Pack / Packs | "Pack", the qualifying round's **All Pack** format |
 | Vehicle | Car / Cars | "Car", car numbers on the roster and check-in, "Fastest Car" on the awards screen, and the vehicle word on printouts |
 
 **Set install-wide** in **System Settings → General**, under **Use different

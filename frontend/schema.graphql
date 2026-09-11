@@ -1042,6 +1042,7 @@ input WizardChampionshipRoundInput {
   source: String! = "ALL"
   numTopRacers: Int! = 3
   runsPerLane: Int! = 1
+  advancementFromBottom: Boolean! = false
 }
 
 input WizardConfigurationInput {
@@ -1053,4 +1054,6 @@ input WizardGeneralRoundInput {
   type: String!
   runsPerLane: Int! = 1
   schedulingStrategy: String = null
+  eliminationLosses: Int = null
+  balancedPhases: Int = null
 }

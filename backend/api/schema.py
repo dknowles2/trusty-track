@@ -1253,6 +1253,14 @@ class WizardGeneralRoundInput:
     type: str  # "ALL" or "EACH_GROUP"
     runs_per_lane: int = 1
     scheduling_strategy: str | None = None
+    #: Ladderless elimination only: losses before a car is out. Defaults to
+    #: 3, the same as `RoundCreateInput.elimination_losses`, when the
+    #: strategy is ``ELIMINATION`` and this is not supplied.
+    elimination_losses: int | None = None
+    #: Balanced racing only: how many phases to run. Defaults to the
+    #: track's lane count, the same as `RoundCreateInput.balanced_phases`,
+    #: when the strategy is ``BALANCED`` and this is not supplied.
+    balanced_phases: int | None = None
 
 
 @strawberry.input
@@ -1265,6 +1273,9 @@ class WizardChampionshipRoundInput:
     source: str = "ALL"  # "ALL" (Overall) or "EACH_GROUP" (Each RacingGroup)
     num_top_racers: int = 3
     runs_per_lane: int = 1
+    #: Draw the field from the bottom of the standings — a Slowest Race
+    #: bracket. See `RoundCreateInput.advancement_from_bottom`.
+    advancement_from_bottom: bool = False
 
 
 @strawberry.input
@@ -4934,19 +4945,35 @@ class Mutation:
                 crud.validate_advancement_source(db, race_id, champ_cfg.source)
 
         gen_strategy = getattr(config.general_round, "scheduling_strategy", None)
-        if (
-            gen_strategy
-            in (
-                models.SchedulingStrategy.ELIMINATION,
-                models.SchedulingStrategy.BALANCED,
-                "ELIMINATION",
-                "BALANCED",
-            )
-            and len(crud.usable_lanes_for_race(db, race_id)) < 2
-        ):
+        is_gen_elimination = gen_strategy in (
+            models.SchedulingStrategy.ELIMINATION,
+            "ELIMINATION",
+        )
+        is_gen_balanced = gen_strategy in (
+            models.SchedulingStrategy.BALANCED,
+            "BALANCED",
+        )
+        if (is_gen_elimination or is_gen_balanced) and len(
+            crud.usable_lanes_for_race(db, race_id)
+        ) < 2:
             raise ValueError(
                 "An elimination or balanced round requires at least two usable lanes."
             )
+        # Same minimums `createRound` enforces (#321) — a bad value partway
+        # through the batch would need the same rollback as a scheduling
+        # failure, for a check that costs nothing to do first.
+        if (
+            is_gen_elimination
+            and config.general_round.elimination_losses is not None
+            and config.general_round.elimination_losses < 1
+        ):
+            raise ValueError("A car must be allowed at least one loss.")
+        if (
+            is_gen_balanced
+            and config.general_round.balanced_phases is not None
+            and config.general_round.balanced_phases < 1
+        ):
+            raise ValueError("A round needs at least one phase.")
 
         created_rounds = []
         current_round_number = 1
@@ -4957,14 +4984,47 @@ class Mutation:
                 if config.general_round.scheduling_strategy
                 else models.SchedulingStrategy.PPC
             )
+            # As many losses/phases as asked for, falling back to the same
+            # defaults `createRound` uses (three losses; one phase per lane)
+            # — the wizard's step 1 offers this as the same "How it's raced"
+            # choice (#943), so it inherits the same defaults.
+            gen_losses = (
+                config.general_round.elimination_losses or 3
+                if is_gen_elimination
+                else None
+            )
+            gen_phases = (
+                config.general_round.balanced_phases
+                or crud.lane_count_for_race(db, race_id)
+                if is_gen_balanced
+                else None
+            )
+            # No name field for the general round in step 1 (RoundConfigModal
+            # has one; the wizard names it the same way `createRound` would).
+            general_round_name = (
+                "Elimination Round"
+                if is_gen_elimination
+                else "Balanced Round"
+                if is_gen_balanced
+                else crud.default_general_round_name(db, race)
+            )
+            # "By {group}" is offered only alongside "Everyone races in every
+            # lane" (`RoundConfigModal` hides the Format picker for the other
+            # two styles, and the wizard's step 1 now matches) — so a
+            # non-PPC general round is always "ALL", whatever the frontend
+            # sent.
+            is_ppc = gen_strat == models.SchedulingStrategy.PPC
+            general_round_type = config.general_round.type if is_ppc else "ALL"
             # General Round
-            if config.general_round.type == "ALL":
+            if general_round_type == "ALL":
                 round_obj = crud.create_round(
                     db,
                     race_id,
                     current_round_number,
                     gen_strat,
-                    crud.default_general_round_name(db, race),
+                    general_round_name,
+                    elimination_losses=gen_losses,
+                    balanced_phases=gen_phases,
                 )
                 # On the rollback list from the moment the row exists —
                 # `create_round` commits, so a failure in heat generation
@@ -4977,7 +5037,7 @@ class Mutation:
                     runs=config.general_round.runs_per_lane,
                 )
                 current_round_number += 1
-            elif config.general_round.type == "EACH_GROUP":
+            elif general_round_type == "EACH_GROUP":
                 racing_groups = crud.get_racing_groups(db, race_id)
                 for racing_group in racing_groups:
                     racers = (
@@ -4994,6 +5054,8 @@ class Mutation:
                         gen_strat,
                         racing_group.name,
                         racing_group_id=racing_group.id,
+                        elimination_losses=gen_losses,
+                        balanced_phases=gen_phases,
                     )
                     created_rounds.append(round_obj)
                     p_ids = [r.id for r in racers]
@@ -5006,7 +5068,12 @@ class Mutation:
                     )
                     current_round_number += 1
 
-            # Championship Rounds
+            # Championship Rounds — always PPC. A championship round can
+            # never itself be elimination or balanced (CLAUDE.md's
+            # "Ladderless elimination": "An elimination round cannot also be
+            # a championship round"), and the wizard's step 2 never offers
+            # "How it's raced" for exactly that reason — there is nothing
+            # here to read the general round's own style from.
             previous_champ_round_id = None
             for champ_cfg in config.championship_rounds:
                 adv_source = champ_cfg.source
@@ -5025,6 +5092,7 @@ class Mutation:
                     champ_cfg.name,
                     advancement_source=adv_source,
                     advancement_num_racers=champ_cfg.num_top_racers,
+                    advancement_from_bottom=champ_cfg.advancement_from_bottom,
                 )
                 db.flush()  # Ensure the round ID is generated
                 previous_champ_round_id = round_obj.id

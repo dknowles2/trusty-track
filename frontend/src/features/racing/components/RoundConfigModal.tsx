@@ -3,6 +3,9 @@ import Modal from '../../../components/ui/Modal';
 import { Icon } from '@mdi/react';
 import { mdiFlagCheckered, mdiAccountGroup, mdiInformation } from '@mdi/js';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { HowItsRacedFields, type RaceStyle } from './HowItsRacedFields';
+import { WhichCarsRaceFields } from './WhichCarsRaceFields';
+import { PickFieldByHandCheckbox } from './PickFieldByHandCheckbox';
 
 interface RoundConfigModalProps {
   isOpen: boolean;
@@ -42,10 +45,10 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   hasGeneralRound,
   lastChampionshipRound
 }) => {
-  const { group, groupLower, org, vehicles, vehicleLower, vehiclesLower } = useTerminology();
+  const { group, groupLower, org, vehiclesLower } = useTerminology();
   const [type, setType] = useState<'GENERAL' | 'CHAMPIONSHIP'>('GENERAL');
   const [generalType, setGeneralType] = useState<'ALL' | 'EACH_GROUP'>('ALL');
-  const [raceStyle, setRaceStyle] = useState<'PPC' | 'ELIMINATION' | 'BALANCED'>('PPC');
+  const [raceStyle, setRaceStyle] = useState<RaceStyle>('PPC');
   const [eliminationLosses, setEliminationLosses] = useState(3);
   const [balancedPhases, setBalancedPhases] = useState(Math.max(1, laneCount));
   const [name, setName] = useState('');
@@ -98,7 +101,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   };
 
   /** Same rule for the general round's race style. */
-  const chooseStyle = (next: 'PPC' | 'ELIMINATION' | 'BALANCED') => {
+  const chooseStyle = (next: RaceStyle) => {
     setRaceStyle(next);
     if (name === '' || name === 'Elimination Round' || name === 'Balanced Round') {
       setName(
@@ -244,84 +247,18 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
           {effectiveType === 'GENERAL' ? (
             <>
               {/* How the round is raced. */}
-              <div>
-                <label style={labelStyle}>How it&apos;s raced</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      checked={raceStyle === 'PPC'}
-                      onChange={() => chooseStyle('PPC')}
-                      disabled={loading}
-                    />
-                    <span>Everyone races in every lane</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: laneCount < 2 ? 'not-allowed' : 'pointer' }}>
-                    <input
-                      type="radio"
-                      checked={raceStyle === 'ELIMINATION'}
-                      onChange={() => chooseStyle('ELIMINATION')}
-                      disabled={loading || laneCount < 2}
-                    />
-                    <span>Elimination — lose too many heats and you&apos;re out</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: laneCount < 2 ? 'not-allowed' : 'pointer' }}>
-                    <input
-                      type="radio"
-                      checked={raceStyle === 'BALANCED'}
-                      onChange={() => chooseStyle('BALANCED')}
-                      disabled={loading || laneCount < 2}
-                    />
-                    <span>Balanced — each round of heats matches {vehiclesLower} doing about as well</span>
-                  </label>
-                </div>
-                {laneCount < 2 && (
-                  <p style={{ fontSize: '0.75rem', color: 'var(--wizard-text-muted-color)', marginTop: '4px' }}>
-                    Elimination and balanced rounds require at least 2 usable lanes.
-                  </p>
-                )}
-                {raceStyle === 'BALANCED' && (
-                  <div style={{ marginTop: '12px' }}>
-                    <label htmlFor="balancedPhases" style={labelStyle}>Times each {vehicleLower} races</label>
-                    <input
-                      id="balancedPhases"
-                      type="number"
-                      min={1}
-                      max={8}
-                      value={balancedPhases}
-                      onChange={(e) => setBalancedPhases(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="form-control"
-                      style={{ width: '50%' }}
-                      disabled={loading}
-                    />
-                    <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)', fontStyle: 'italic' }}>
-                      The first heats are drawn at random; after that, winners
-                      race winners — so more children get a heat they can win.
-                      Times and points still count toward the standings.
-                    </p>
-                  </div>
-                )}
-                {raceStyle === 'ELIMINATION' && (
-                  <div style={{ marginTop: '12px' }}>
-                    <label htmlFor="eliminationLosses" style={labelStyle}>Losses before a {vehicleLower} is out</label>
-                    <input
-                      id="eliminationLosses"
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={eliminationLosses}
-                      onChange={(e) => setEliminationLosses(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="form-control"
-                      style={{ width: '50%' }}
-                      disabled={loading}
-                    />
-                    <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)', fontStyle: 'italic' }}>
-                      New heats appear after each round of racing, matching{' '}
-                      {vehiclesLower} with the same record. The last {vehicleLower} left wins.
-                    </p>
-                  </div>
-                )}
-              </div>
+              <HowItsRacedFields
+                raceStyle={raceStyle}
+                onChooseStyle={chooseStyle}
+                laneCount={laneCount}
+                loading={loading}
+                balancedPhases={balancedPhases}
+                onBalancedPhasesChange={setBalancedPhases}
+                eliminationLosses={eliminationLosses}
+                onEliminationLossesChange={setEliminationLosses}
+                labelStyle={labelStyle}
+                mutedColor="var(--text-muted-color)"
+              />
 
               {raceStyle !== 'PPC' ? null : (
               <div>
@@ -363,35 +300,13 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
           ) : (
             <>
               {/* Which end of the standings the field comes from. */}
-              <div>
-                <label style={labelStyle}>Which {vehiclesLower} race</label>
-                <div style={{ display: 'flex', gap: '20px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      checked={!fromBottom}
-                      onChange={() => chooseDirection(false)}
-                      disabled={loading}
-                    />
-                    <span>The fastest {vehiclesLower}</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      checked={fromBottom}
-                      onChange={() => chooseDirection(true)}
-                      disabled={loading}
-                    />
-                    <span>The slowest {vehiclesLower}</span>
-                  </label>
-                </div>
-                {fromBottom && (
-                  <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)', fontStyle: 'italic' }}>
-                    A just-for-fun race for the slowest {vehiclesLower}. {vehicles} without a
-                    recorded time are left out.
-                  </p>
-                )}
-              </div>
+              <WhichCarsRaceFields
+                fromBottom={fromBottom}
+                onChooseDirection={chooseDirection}
+                loading={loading}
+                labelStyle={labelStyle}
+                mutedColor="var(--text-muted-color)"
+              />
 
               {/* Championship Config */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
@@ -443,27 +358,16 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                   still created and scheduled the usual way, but this screen
                   hands off to the schedule's own picker for the line-up
                   itself rather than filling it from the standings above. */}
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={pickFieldByHand}
-                  onChange={(e) => setPickFieldByHand(e.target.checked)}
-                  disabled={loading}
-                  style={{ marginTop: '3px' }}
-                />
-                <span>
-                  <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>I&apos;ll choose who races myself</span>
-                  <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>
-                    Skip the standings&apos; own pick above — right after this round is
-                    created, you&apos;ll choose exactly which {vehiclesLower} are in it. You
-                    can still see what the standings would have suggested when you do.
-                  </p>
-                </span>
-              </label>
+              <PickFieldByHandCheckbox
+                checked={pickFieldByHand}
+                onChange={setPickFieldByHand}
+                loading={loading}
+                mutedColor="var(--text-muted-color)"
+              />
             </>
           )}
 
-          {/* Runs Per Lane — only for PPC. The growing styles have their own
+          {/* Runs per lane — only for PPC. The growing styles have their own
               count: losses for elimination, phases for balanced. */}
           {!(effectiveType === 'GENERAL' && raceStyle !== 'PPC') && (
           <div style={{ width: '50%' }}>
