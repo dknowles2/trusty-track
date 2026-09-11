@@ -279,7 +279,18 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
           : "";
 
   return (
-    <tr ref={setNodeRef} style={style}>
+    <tr
+      ref={setNodeRef}
+      style={style}
+      // Delete only shows on hover or focus (#939) — Run is the only
+      // always-visible action on a heat row, and deleting one heat out of a
+      // generated round (breaking "every racer, every lane", #26) is a rare
+      // repair rather than something to reach for on every row. The class
+      // hides `.heat-row-delete-btn` by default and reveals it on
+      // `:hover`/`:focus-within` in `index.css`; the button itself stays in
+      // the tab order the whole time, so focusing it also reveals it.
+      className="schedule-heat-row"
+    >
       <td
         {...attributes}
         {...listeners}
@@ -325,7 +336,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
           {!isCompleted && !isRunning && !raceLocked && isOperator && (
             <button
               onClick={() => onDeleteHeat(heat.id)}
-              className="icon-btn-delete"
+              className="icon-btn-delete heat-row-delete-btn"
               style={{
                 background: 'none',
                 border: 'none',
@@ -334,7 +345,6 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
                 padding: '4px',
                 display: 'flex',
                 alignItems: 'center',
-                opacity: 0.7
               }}
               title="Delete Heat"
             >

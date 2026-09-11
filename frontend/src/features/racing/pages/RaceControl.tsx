@@ -37,6 +37,11 @@ import { hasRun, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shoul
 import { executionComparator } from '../runningOrder';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
 import { hasTerminalRound, heatSetKey, observeRaceComplete, type SeenComplete } from '../raceCompletion';
+import {
+  deleteRoundConfirmMessage,
+  regenerateRoundConfirmMessage,
+  regenerateWouldDiscardChanges,
+} from '../scheduleConfirm';
 import { shouldShowReadiness } from '../readiness';
 import { estimatePace } from '../pace';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
@@ -372,7 +377,32 @@ export default function RaceControl() {
     }
   };
 
+  // A round's own name, falling back to its number when nothing was typed —
+  // the same fallback `ScheduleManagement.tsx`'s own aria-labels use, so a
+  // confirmation names the round the same way the button beside it does.
+  const roundLabel = (round: Round | undefined, roundId: number): string =>
+    round?.name || `Round ${round?.roundNumber ?? roundId}`;
+
   const handleRegenerateRound = async (roundId: number, silent: boolean = false) => {
+    if (!silent) {
+      const round = race?.rounds.find((r: Round) => r.id === roundId);
+      const roundHeats = heats.filter((h: Heat) => h.roundId === roundId);
+      // #939: skip the prompt only when nothing an operator did on purpose
+      // — a hand pick, an applied master running order, or a drag — is at
+      // stake. See `regenerateWouldDiscardChanges`'s own docstring for how
+      // "was this dragged" is told apart from an untouched round with only
+      // what the client already holds.
+      if (regenerateWouldDiscardChanges(roundHeats, !!round?.fieldPinned, !!race?.masterRunningOrder)) {
+        const confirmed = await showConfirm(
+          regenerateRoundConfirmMessage(roundLabel(round, roundId)),
+          "Regenerate Round",
+          "Regenerate",
+          "danger"
+        );
+        if (!confirmed) return;
+      }
+    }
+
     try {
       setGenerating(true);
       const result = await regenerateRoundMutation({ roundId });
@@ -392,6 +422,21 @@ export default function RaceControl() {
   };
 
   const handleDeleteRound = async (roundId: number) => {
+    // #939: the backend refuses a round holding a result (`crud.delete_round`),
+    // so what is always at stake here is an unraced round — one that may
+    // still hold a hand-picked field, a drag-reordered running order, or a
+    // place in an applied master running order. Always confirmed, the same
+    // bar `handleDeleteHeat` already holds itself to below.
+    const round = race?.rounds.find((r: Round) => r.id === roundId);
+    const roundHeats = heats.filter((h: Heat) => h.roundId === roundId);
+    const confirmed = await showConfirm(
+      deleteRoundConfirmMessage(roundLabel(round, roundId), roundHeats.length),
+      "Delete Round",
+      "Delete",
+      "danger"
+    );
+    if (!confirmed) return;
+
     try {
       setGenerating(true);
       const result = await deleteRoundMutation({ roundId });
