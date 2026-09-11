@@ -258,6 +258,10 @@ ready-made superlative or a speed award prints its artwork, and anything
 else prints plain. More in
 [Printed documents](reference/printing.md#certificates).
 
+Certificates are also one of the cards on the [print hub](printables.md) —
+useful if you are printing pit passes, the results sheet and certificates
+together in one sitting rather than hunting down each button in turn.
+
 ![Five certificates: a trophy or medal on each speed award, and a blank line where a judged award's winner has not been decided yet](assets/screenshots/awards/07-certificates.png)
 
 ## What awards do not do

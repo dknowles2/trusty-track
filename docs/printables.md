@@ -10,13 +10,23 @@ laid out to be printed and then cut up.
 
 ## Getting there
 
-Open a race, click **⋯** at the top right of the roster, and choose **Print**.
+Open a race, click **⋯** at the top right of the roster, and choose
+**Print…**.
 
 ![The Print button on the racer roster](assets/screenshots/printables/roster-print-button.png)
 
 Tick some racers first and the button prints just those — useful when a den
 turns up late, or a scout registers on the morning. With nothing ticked it
 prints the whole roster.
+
+That opens the print hub, which lists everything a race can print — not only
+the four cards below, but also the heat sheet, the results sheet and
+certificates, each a card that hands off to the page that actually owns it
+(described further down this guide, and each still reachable directly from
+its own button — nothing moved). If it's the hub you're after and not the
+roster, Home's own **⋯** menu has a **Print** entry beside **Standings**, so
+a visit back the next morning for certificates does not need to start at the
+roster at all.
 
 ## Choosing what to print
 

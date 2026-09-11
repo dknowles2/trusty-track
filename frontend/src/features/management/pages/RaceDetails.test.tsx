@@ -59,6 +59,32 @@ vi.mock('../../../context/AlertContext', () => ({
     }),
 }))
 
+/**
+ * Stands in for the real `SetupChecklist` so a test can fire any `onAction`
+ * handler directly — `checklistFor`'s own gating (`setupChecklist.test.ts`)
+ * means a step's handler is only reachable through the real component once a
+ * specific, sometimes unreachable-in-practice combination of progress values
+ * lines up (the printables step, for one, becomes done at the same instant
+ * checkin does — see `setupChecklist.ts`). What this file is testing is the
+ * *wiring* — which URL a given step's handler navigates to — not whether the
+ * checklist chooses to show it as "next" today.
+ */
+vi.mock('../components/SetupChecklist', () => ({
+    default: ({ onAction }: { onAction: Record<string, (() => void) | undefined> }) => (
+        <div data-testid="setup-checklist-stub">
+            {Object.entries(onAction).map(([key, handler]) => (
+                <button
+                    key={key}
+                    data-testid={`checklist-action-${key}`}
+                    onClick={handler}
+                >
+                    {key}
+                </button>
+            ))}
+        </div>
+    ),
+}));
+
 /** Surfaces the current URL's search string so a test can assert on it. */
 function LocationSearchProbe() {
     const location = useLocation();
@@ -488,5 +514,94 @@ describe('editing a race that is not on the first track', () => {
 
         const trackSelect = await screen.findByLabelText(/track/i);
         expect((trackSelect as HTMLSelectElement).value).toBe('2');
+    });
+
+    describe('printing (#957)', () => {
+        function mockPrintableRaceQuery() {
+            (useQuery as any).mockReturnValue([
+                {
+                    data: {
+                        race: {
+                            id: 1,
+                            name: 'Print Hub Race',
+                            dateTime: '2024-03-15T10:00:00',
+                            location: 'Test Location',
+                            schedulingStrategy: 'LANE_ROTATION',
+                            scoringStrategy: 'TIMED',
+                            carNumberingStrategy: 'PER_GROUP',
+                            trackId: 1,
+                            organizationId: 1,
+                            globalStartNumber: 1,
+                            championshipTrophies: 3,
+                            registeredCount: 0,
+                            checkedInCount: 0,
+                            isLocked: false,
+                            track: { name: 'Main Track' },
+                            racers: [],
+                            racingGroups: [],
+                            rounds: [],
+                            awards: [],
+                            leaderboard: [],
+                        },
+                        tracks: [{ id: 1, name: 'Main Track' }],
+                    },
+                    fetching: false,
+                    error: null,
+                },
+                vi.fn(),
+            ]);
+            mockMutations();
+        }
+
+        it('renames the roster overflow entry to "Print…" (#957)', async () => {
+            const user = userEvent.setup();
+            mockPrintableRaceQuery();
+
+            render(
+                <MemoryRouter initialEntries={['/races/1']}>
+                    <Routes>
+                        <Route path="/races/:raceId" element={<RaceDetails />} />
+                        <Route path="/race/:raceId/print" element={<LocationSearchProbe />} />
+                    </Routes>
+                </MemoryRouter>,
+            );
+
+            await waitFor(() => expect(screen.getByTestId('race-summary-line')).toBeInTheDocument());
+
+            await user.click(screen.getByTestId('roster-more-menu'));
+            const printEntry = screen.getByRole('button', { name: /^Print…/ });
+            expect(printEntry).toBeInTheDocument();
+
+            await user.click(printEntry);
+            expect(await screen.findByTestId('location-search')).toBeInTheDocument();
+        });
+
+        it('sends the setup checklist\'s printables step to the hub with pit passes preselected (#957)', async () => {
+            // `SetupChecklist` is stubbed above so this exercises the
+            // `onAction.printables` wiring directly, independent of
+            // whether `checklistFor` currently offers that step as "next"
+            // (`setupChecklist.ts` — it never does once check-in has
+            // started, and never before, by construction).
+            const user = userEvent.setup();
+            mockPrintableRaceQuery();
+
+            render(
+                <MemoryRouter initialEntries={['/races/1']}>
+                    <Routes>
+                        <Route path="/races/:raceId" element={<RaceDetails />} />
+                        <Route
+                            path="/race/:raceId/print"
+                            element={<LocationSearchProbe />}
+                        />
+                    </Routes>
+                </MemoryRouter>,
+            );
+
+            await waitFor(() => expect(screen.getByTestId('race-summary-line')).toBeInTheDocument());
+
+            await user.click(screen.getByTestId('checklist-action-printables'));
+
+            expect(await screen.findByTestId('location-search')).toHaveTextContent('?kind=pit-pass');
+        });
     });
 });

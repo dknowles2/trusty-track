@@ -99,9 +99,11 @@ describe('printing from the roster', () => {
         await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
 
         // Print moved into the overflow menu: it is something an operator does
-        // once before check-in opens, not repeatedly during the event.
+        // once before check-in opens, not repeatedly during the event. Labelled
+        // "Print…" (#957) since it now opens the print hub rather than a
+        // document of its own.
         fireEvent.click(screen.getByTestId('roster-more-menu'));
-        fireEvent.click(screen.getByRole('button', { name: /^Print$/ }));
+        fireEvent.click(screen.getByRole('button', { name: /^Print…/ }));
 
         // No `racers=` at all, which the print page reads as everyone. A "0
         // selected" parameter would print an empty sheet.
@@ -115,7 +117,7 @@ describe('printing from the roster', () => {
 
         fireEvent.click(screen.getByTestId('racer-select-2'));
         fireEvent.click(screen.getByTestId('roster-more-menu'));
-        fireEvent.click(screen.getByRole('button', { name: /Print \(1\)/ }));
+        fireEvent.click(screen.getByRole('button', { name: /Print… \(1\)/ }));
 
         expect(screen.getByTestId('destination')).toHaveTextContent(
             '/race/1/print?racers=2',
@@ -129,6 +131,6 @@ describe('printing from the roster', () => {
         fireEvent.click(screen.getByTestId('select-all-header'));
 
         fireEvent.click(screen.getByTestId('roster-more-menu'));
-        expect(screen.getByRole('button', { name: /Print \(2\)/ })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Print… \(2\)/ })).toBeInTheDocument();
     });
 });

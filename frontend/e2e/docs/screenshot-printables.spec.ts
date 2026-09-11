@@ -118,9 +118,11 @@ test('screenshot the print sheets', async ({ page }) => {
     // Where the operator starts: the roster's Print and Scan controls. Print
     // moved behind the overflow in #186, so the picture has to show the menu
     // open — otherwise it is a photograph of a button that is not there.
+    // Renamed to "Print…" in #957, when the page it opens became a hub
+    // listing every printable document rather than just these four.
     await page.goto(`/race/${raceId}`);
     await page.getByTestId('roster-more-menu').click();
-    await expect(page.getByRole('button', { name: /^Print$/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Print…/ })).toBeVisible();
     await page.waitForTimeout(300);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'roster-print-button.png') });
 

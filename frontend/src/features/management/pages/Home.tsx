@@ -8,7 +8,7 @@ import { buildCreateRaceInput, type RaceSetupData } from '../raceInput';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { Icon } from '@mdi/react';
-import { mdiPlus, mdiFlagCheckered, mdiVideo, mdiSchool, mdiDotsHorizontal, mdiAccountGroup, mdiPencil, mdiTrophy } from '@mdi/js';
+import { mdiPlus, mdiFlagCheckered, mdiVideo, mdiSchool, mdiDotsHorizontal, mdiAccountGroup, mdiPencil, mdiTrophy, mdiPrinter } from '@mdi/js';
 import logoFullUrl from '../../../assets/logo_full_transparent.png';
 import LockedBadge from '../../core/components/LockedBadge';
 import RaceStatusBadge, { type RaceStatus } from '../components/RaceStatusBadge';
@@ -331,6 +331,19 @@ export default function Home() {
                                                         style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                                                     >
                                                         <Icon path={mdiTrophy} size={0.7} /> Standings
+                                                    </button>
+                                                    {/* The print hub (#957) — everything printable for
+                                                        this race in one place, rather than starting at
+                                                        the roster's own overflow to reach a document
+                                                        that has nothing to do with the roster. Same
+                                                        reasoning as Standings just above: a visitor the
+                                                        next morning wants certificates, not check-in. */}
+                                                    <button
+                                                        onClick={() => { setOpenMenuRaceId(null); navigate(`/race/${race.id}/print`); }}
+                                                        data-testid={`race-menu-print-${race.id}`}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                                    >
+                                                        <Icon path={mdiPrinter} size={0.7} /> Print
                                                     </button>
                                                     {/* Opens the edit form that has always lived on the
                                                         Roster page, rather than a new `/settings` route

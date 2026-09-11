@@ -49,6 +49,32 @@
     border-radius: var(--border-radius);
     background: var(--print-surface-color);
     max-width: 260px;
+    /* Also used on the hub's `Link` cards (#957), which have no button
+     * chrome of their own to reset. */
+    text-decoration: none;
+    color: inherit;
+}
+
+/* The hub's two rows — the four sheet-and-print documents alongside the
+ * three that hand off to their own page (#957). Side by side above the
+ * breakpoint every other control on this page already wraps at. */
+.printables-groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.printables-group {
+    flex: 1 1 280px;
+    min-width: 240px;
+}
+
+.printables-group-title {
+    margin: 0 0 0.5rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--print-text-muted-color);
 }
 
 .printables-kind[aria-pressed='true'] {

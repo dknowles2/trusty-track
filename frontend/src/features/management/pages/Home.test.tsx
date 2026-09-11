@@ -279,7 +279,7 @@ describe('Home Page', () => {
             expect(titleLink).toHaveAttribute('title', expect.stringMatching(/roster/i));
         });
 
-        it('offers Roster, Standings and Edit race behind the row\'s overflow menu', async () => {
+        it('offers Roster, Standings, Print and Edit race behind the row\'s overflow menu', async () => {
             renderHome({
                 races: [{ id: 7, name: 'Annual Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0 }],
             });
@@ -287,13 +287,32 @@ describe('Home Page', () => {
             await screen.findByText('Annual Derby');
             expect(screen.queryByTestId('race-menu-roster-7')).not.toBeInTheDocument();
             expect(screen.queryByTestId('race-menu-standings-7')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('race-menu-print-7')).not.toBeInTheDocument();
             expect(screen.queryByTestId('race-menu-edit-7')).not.toBeInTheDocument();
 
             fireEvent.click(screen.getByTestId('race-more-menu-7'));
 
             expect(screen.getByTestId('race-menu-roster-7')).toBeInTheDocument();
             expect(screen.getByTestId('race-menu-standings-7')).toBeInTheDocument();
+            expect(screen.getByTestId('race-menu-print-7')).toBeInTheDocument();
             expect(screen.getByTestId('race-menu-edit-7')).toBeInTheDocument();
+        });
+
+        // #957: printing had four front doors and nothing on Home reached any
+        // of them — a visitor back the next morning for certificates had to
+        // start at the roster to find the hub at all.
+        it('sends the Print action to that race\'s print hub', async () => {
+            renderHome({
+                races: [{ id: 7, name: 'Annual Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0 }],
+            });
+
+            await screen.findByText('Annual Derby');
+            fireEvent.click(screen.getByTestId('race-more-menu-7'));
+            fireEvent.click(screen.getByTestId('race-menu-print-7'));
+
+            await waitFor(() => {
+                expect(mockNavigate).toHaveBeenCalledWith('/race/7/print');
+            });
         });
 
         // #847: Home used to offer only Control and Live, with no route to a

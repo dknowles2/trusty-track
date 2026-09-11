@@ -55,6 +55,35 @@ function labelFor(option: DocumentSpec, vehicle: string): string {
 }
 
 /**
+ * The hub's second row (#957) — three documents that already have their own
+ * page and reason for being there (the schedule, the standings, the awards
+ * screen), listed here so an operator who only knows "print" as a word does
+ * not have to already know which screen owns the thing they want. Each is a
+ * `Link` to the page that draws it; nothing about that page moves.
+ *
+ * A plain array rather than an addition to `documents.ts`: those are sheet
+ * geometry a card is rendered from on *this* page, and these are routes to
+ * somewhere else entirely — a different shape of fact.
+ */
+const OTHER_DOCUMENTS: readonly { path: string; label: string; blurb: string }[] = [
+    {
+        path: 'heat-sheet',
+        label: 'Heat sheet',
+        blurb: 'The full schedule, lane by lane — for the announcer’s table when a screen is not enough.',
+    },
+    {
+        path: 'results',
+        label: 'Results sheet',
+        blurb: 'Standings and awards, ready to post or hand out.',
+    },
+    {
+        path: 'certificates',
+        label: 'Certificates',
+        blurb: 'One per award, printed with its current recipient.',
+    },
+];
+
+/**
  * The print page: pick a document, look at the sheet, print it.
  *
  * Sheet-first rather than card-first. Nobody prints one pit pass — they print
@@ -157,18 +186,39 @@ export default function Printables() {
                     <h2 style={{ margin: 0 }}>Print</h2>
                 </div>
 
-                <div className="printables-kinds">
-                    {DOCUMENTS.map((option) => (
-                        <button
-                            key={option.kind}
-                            className="printables-kind"
-                            aria-pressed={option.kind === spec.kind}
-                            onClick={() => chooseKind(option.kind)}
-                        >
-                            <span className="printables-kind-label">{labelFor(option, vehicle)}</span>
-                            <span className="printables-kind-blurb">{option.blurb}</span>
-                        </button>
-                    ))}
+                <div className="printables-groups">
+                    <div className="printables-group">
+                        <h3 className="printables-group-title">Before check-in</h3>
+                        <div className="printables-kinds">
+                            {DOCUMENTS.map((option) => (
+                                <button
+                                    key={option.kind}
+                                    className="printables-kind"
+                                    aria-pressed={option.kind === spec.kind}
+                                    onClick={() => chooseKind(option.kind)}
+                                >
+                                    <span className="printables-kind-label">{labelFor(option, vehicle)}</span>
+                                    <span className="printables-kind-blurb">{option.blurb}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="printables-group">
+                        <h3 className="printables-group-title">Race day and after</h3>
+                        <div className="printables-kinds">
+                            {OTHER_DOCUMENTS.map((doc) => (
+                                <Link
+                                    key={doc.path}
+                                    to={`/race/${parsedRaceId}/print/${doc.path}`}
+                                    className="printables-kind"
+                                >
+                                    <span className="printables-kind-label">{doc.label}</span>
+                                    <span className="printables-kind-blurb">{doc.blurb}</span>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
                 {isCarLabel && (
