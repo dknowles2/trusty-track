@@ -7,7 +7,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { AlertProvider } from '../../../context/AlertContext';
 import Leaderboard from './Leaderboard';
 import { useMutation, useQuery, useSubscription } from 'urql';
-import { tiedLeaderboardEntries, twoRacerLeaderboardEntries } from '../testFixtures';
+import {
+  podiumLeaderboardEntries,
+  tiedLeaderboardEntries,
+  twoRacerLeaderboardEntries,
+} from '../testFixtures';
 import { filenameFor } from '../../../utils/csv';
 import { standingsRows, standingsSuffix } from '../standingsExport';
 
@@ -262,6 +266,61 @@ describe('Leaderboard', () => {
     expect(rows[2]).toHaveTextContent('🥇 1');
     expect(rows[2]).toHaveTextContent('Jane Smith');
     expect(screen.getByTestId('start-run-off-btn')).toBeInTheDocument();
+  });
+
+  it('marks the top three rows with a podium accent and leaves the rest plain, at normal text colour throughout (#941)', () => {
+    const podiumData = {
+      race: {
+        id: 1,
+        scoringStrategy: 'TIMED',
+        leaderboard: podiumLeaderboardEntries,
+      },
+    };
+
+    (useQuery as any).mockReturnValue([{
+      data: { race: podiumData.race },
+      fetching: false,
+      error: null,
+    }, vi.fn()]);
+
+    (useSubscription as any).mockReturnValue([{
+      data: { leaderboard: podiumData.race.leaderboard },
+      fetching: false,
+      error: null,
+    }, vi.fn()]);
+
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={1} /></MemoryRouter></AlertProvider>);
+
+    const rankCells = screen.getAllByTestId('leaderboard-rank-cell');
+    expect(rankCells).toHaveLength(4);
+
+    // The old full-row fill (#ffd700/#c0c0c0/#cd7f32) is gone entirely —
+    // rows 1-3 get a 4px accent border on the Rank cell instead, in the
+    // medal colour; row 4 gets the same width, transparent, so nothing
+    // shifts. None of the literal hex values from before this fix should
+    // ever reappear.
+    expect(rankCells[0].getAttribute('style')).toContain('border-left: 4px solid var(--rank-gold-color)');
+    expect(rankCells[1].getAttribute('style')).toContain('border-left: 4px solid var(--rank-silver-icon-color)');
+    expect(rankCells[2].getAttribute('style')).toContain('border-left: 4px solid var(--rank-bronze-icon-color)');
+    expect(rankCells[3].getAttribute('style')).toContain('border-left: 4px solid transparent');
+
+    const rows = screen.getAllByRole('row');
+    // Header row, then the four podium rows.
+    expect(rows).toHaveLength(5);
+    const oldLiterals = /#(ffd700|c0c0c0|cd7f32)/i;
+    for (const row of rows.slice(1)) {
+      // The row itself carries no background any more — the wash is gone,
+      // and nothing (row or cell) still names the old literal hex values.
+      expect(row.getAttribute('style') ?? '').not.toMatch(oldLiterals);
+      expect((row as HTMLElement).style.background).toBe('');
+      for (const cell of Array.from(row.querySelectorAll('td'))) {
+        const style = (cell as HTMLElement).getAttribute('style') ?? '';
+        expect(style).not.toMatch(oldLiterals);
+        // Every cell stays at the table's ordinary text colour — no cell's
+        // `color` is set as a function of rank any more.
+        expect((cell as HTMLElement).style.color).not.toMatch(oldLiterals);
+      }
+    }
   });
 
   // #766: the metadata query now carries the track's laneCount and
