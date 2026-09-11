@@ -107,7 +107,7 @@ test('screenshot elimination racing', async ({ page }) => {
         path: path.join(SCREENSHOT_DIR, '27-elimination-dialog.png'),
     });
 
-    await page.getByRole('button', { name: 'Create Round(s) & Generate Heats' }).click();
+    await page.getByRole('button', { name: 'Add round' }).click();
     await expect(page.getByText('Elimination Round').first()).toBeVisible();
 
     // Play the whole event through the API. Each recorded wave makes the

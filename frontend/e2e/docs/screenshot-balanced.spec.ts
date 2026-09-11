@@ -107,7 +107,7 @@ test('screenshot balanced racing', async ({ page }) => {
         path: path.join(SCREENSHOT_DIR, '29-balanced-dialog.png'),
     });
 
-    await page.getByRole('button', { name: 'Create Round(s) & Generate Heats' }).click();
+    await page.getByRole('button', { name: 'Add round' }).click();
     await expect(page.getByText('Balanced Round').first()).toBeVisible();
 
     // Race the first phase through the API; the second appears on its own,

@@ -163,7 +163,7 @@ one event, not a setting anybody has to think about to get HTTPS.
 
 ## The activity log
 
-**Settings → See what has happened**, or `/activity`. Operator-only.
+**Settings → Activity log**, or `/activity`. Operator-only.
 
 - **Every operation is recorded**: what, when, which role, and — kept out
   of the way until asked for — which device.

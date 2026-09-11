@@ -103,7 +103,7 @@ export default function ActivityLog() {
         // way to land here is a device that holds the check-in PIN or none.
         return (
             <div className="container" style={{ padding: '2rem' }}>
-                <h2>Activity</h2>
+                <h2>Activity log</h2>
                 <p style={{ color: 'var(--text-muted-color)' }}>
                     This page is for the operator's device. Unlock with the operator PIN to
                     see it.
@@ -138,7 +138,7 @@ export default function ActivityLog() {
                     gap: '1rem',
                 }}
             >
-                <h2 style={{ margin: 0 }}>Activity</h2>
+                <h2 style={{ margin: 0 }}>Activity log</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <label
                         style={{

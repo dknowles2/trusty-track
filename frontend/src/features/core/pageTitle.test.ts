@@ -56,7 +56,7 @@ describe('pageTitle', () => {
     it('names the pages that belong to the install rather than a race', () => {
         expect(pageTitle('/system-settings')).toBe('Settings — Trusty Track');
         expect(pageTitle('/timer-check')).toBe('Timer Check — Trusty Track');
-        expect(pageTitle('/activity')).toBe('Activity — Trusty Track');
+        expect(pageTitle('/activity')).toBe('Activity Log — Trusty Track');
     });
 
     it('falls back to the application for anything unrecognised', () => {

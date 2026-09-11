@@ -115,6 +115,15 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   // which the modal offers something impossible.
   const effectiveType = hasGeneralRound ? type : 'GENERAL';
 
+  // The submit button's own count (#947) — "By {group}" is the one format
+  // that creates more than one round, one per racing group, matching the
+  // "Will create N rounds" note shown right above the Format picker.
+  // Everything else, including every championship round, is exactly one.
+  const roundsToCreate =
+    effectiveType === 'GENERAL' && raceStyle === 'PPC' && generalType === 'EACH_GROUP'
+      ? racingGroupCount
+      : 1;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -172,7 +181,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
         {/* Type Tabs */}
         <div style={{ display: 'flex', marginBottom: '20px', borderBottom: '1px solid var(--divider-color)' }}>
           <div style={tabStyle(effectiveType === 'GENERAL')} onClick={() => chooseType('GENERAL')}>
-            General Round
+            Qualifying Round
           </div>
           <div
             style={{
@@ -185,7 +194,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                 chooseType('CHAMPIONSHIP');
               }
             }}
-            title={!hasGeneralRound ? "Schedule at least one general round first" : ""}
+            title={!hasGeneralRound ? "Schedule at least one qualifying round first" : ""}
           >
             Championship Round
           </div>
@@ -199,7 +208,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
         {!hasGeneralRound && type === 'CHAMPIONSHIP' && (
            <div style={{ padding: '10px', background: 'var(--caution-bg-color)', border: '1px solid var(--caution-border-color)', borderRadius: '4px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
              <Icon path={mdiInformation} size={0.7} color="var(--caution-icon-color)" />
-             Championship rounds require an existing general round as a source.
+             Championship rounds require an existing qualifying round as a source.
            </div>
         )}
 
@@ -307,8 +316,8 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                       disabled={loading}
                     />
                     <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)', fontStyle: 'italic' }}>
-                      New heats appear after each round of racing, matching {vehiclesLower}
-                      with the same record. The last {vehicleLower} left wins.
+                      New heats appear after each round of racing, matching{' '}
+                      {vehiclesLower} with the same record. The last {vehicleLower} left wins.
                     </p>
                   </div>
                 )}
@@ -486,7 +495,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
             className="primary-btn"
             disabled={loading || racerCount < 2}
           >
-            {loading ? 'Creating...' : 'Create Round(s) & Generate Heats'}
+            {loading ? 'Creating...' : roundsToCreate > 1 ? 'Add rounds' : 'Add round'}
           </button>
         </div>
       </form>

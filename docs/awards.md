@@ -98,8 +98,10 @@ walking the cars around with a clipboard.
 1. On the award, turn on **Let people vote for this**. It is on by default
    for a new judged award — turn it off for one your pack's leaders would
    rather decide privately.
-2. When you are ready, click **Open voting** (near the top of this page). The
-   button's label flips to **Close voting**, and the text beside it says
+2. When you are ready, click **Open voting** (near the top of this page) —
+   greyed out until at least one award has **Let people vote for this** on,
+   so voting cannot open on an empty ballot. The button's label flips to
+   **Close voting**, and the text beside it says
    "Voting is open." Share the address that appears next to it — a phone on
    the venue wifi that opens it sees every car's number, name and photo, and
    can vote for any award you have left on. Trusty Track works out an address

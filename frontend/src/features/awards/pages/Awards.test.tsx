@@ -367,6 +367,28 @@ describe('the awards page', () => {
       expect(screen.getByText(/\/race\/1\/vote/)).toBeInTheDocument();
     });
 
+    it('refuses to open voting when no award is votable, and says why (#947)', () => {
+      renderPage({
+        ...RACE,
+        awards: RACE.awards.map((award) => ({ ...award, votable: false })),
+      });
+      const openBtn = screen.getByRole('button', { name: 'Open voting' });
+      expect(openBtn).toBeDisabled();
+      expect(openBtn).toHaveAttribute(
+        'title',
+        'No award is open to votes — turn on Let people vote on a judged award first.',
+      );
+    });
+
+    it('still allows closing voting once open, even if nothing is votable any more', () => {
+      renderPage({
+        ...RACE,
+        votingOpen: true,
+        awards: RACE.awards.map((award) => ({ ...award, votable: false })),
+      });
+      expect(screen.getByRole('button', { name: 'Close voting' })).toBeEnabled();
+    });
+
     it('shows the tally for a votable award', () => {
       renderPage();
       const row = screen.getByText('Best Paint').closest('li')!;
