@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '../../setupTests';
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, act } from '@testing-library/react';
 import IdentifyPresence from './IdentifyPresence';
 
 /**
@@ -46,5 +46,40 @@ describe('IdentifyPresence connect badge', () => {
     const badge = screen.getByTestId('identify-connect-badge');
     const top = parseInt(badge.style.top, 10);
     expect(top).toBe(16);
+  });
+
+  // #954 — the standard Live view puts Launch Projector Mode in the exact
+  // corner the fixed badge floats over at phone width. `inline` opts the
+  // caller into an ordinary flex item instead, placed in whatever row the
+  // caller mounts it in, with no `position` for a button to disappear under.
+  it('joins the flow with no fixed position when the caller has a row for it', () => {
+    useChromeMock.mockReturnValue({ hidden: false, setHidden: () => {} });
+    render(<IdentifyPresence assignment={{ name: 'Playful Panther', identifySeq: 1 }} inline />);
+    const badge = screen.getByTestId('identify-connect-badge');
+    expect(badge.style.position).toBe('');
+    expect(badge.style.top).toBe('');
+    expect(badge.style.right).toBe('');
+  });
+});
+
+/**
+ * #954 — the identify-flash treatment (the full-screen name takeover) is
+ * unaffected by `inline`; it stays a fixed overlay regardless, since it is a
+ * deliberate full-attention grab, not chrome competing with a button.
+ */
+describe('IdentifyPresence flash', () => {
+  it('still covers the screen when the caller is inline', () => {
+    useChromeMock.mockReturnValue({ hidden: false, setHidden: () => {} });
+    const { rerender } = render(
+      <IdentifyPresence assignment={{ name: 'Playful Panther', identifySeq: 1 }} inline />,
+    );
+    // The first payload is a connect (`seen === null`), never a flash — the
+    // command has to arrive as a rise over a `seen` this instance already
+    // holds, so rerender with a higher `identifySeq` to raise one.
+    act(() => {
+      rerender(<IdentifyPresence assignment={{ name: 'Playful Panther', identifySeq: 2 }} inline />);
+    });
+    const flash = screen.getByTestId('identify-flash');
+    expect(flash.style.position).toBe('fixed');
   });
 });

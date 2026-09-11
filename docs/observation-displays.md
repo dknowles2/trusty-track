@@ -217,7 +217,8 @@ Two things worth knowing:
 - **Not sure which row is which screen?** Click **Identify** on a row and
   that screen's name flashes across it for a few seconds — look up, and
   whichever screen just lit up is that row. A screen also names itself
-  briefly, in a small corner badge, the moment you first open it.
+  briefly, in a small badge, the moment you first open it — see
+  [Identify](reference/displays.md#identify) for exactly where it appears.
 - **A screen that has gone quiet stays in the list**, marked *Not connected*
   — that is how you find out the projector at the back has dropped off the
   wifi. Clear the row with the ✕.
