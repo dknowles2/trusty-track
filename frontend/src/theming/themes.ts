@@ -209,6 +209,14 @@ export const APP_TOKEN_NAMES: readonly string[] = [
   '--rank-bronze-color',
   '--rank-silver-icon-color',
   '--rank-bronze-icon-color',
+  // Round 7 — the Standings page's own podium accent (#941). A 4px left
+  // border on the Rank cell, not the old full-row fill (#ffd700/#c0c0c0/
+  // #cd7f32 literals, ignoring the theme and putting the muted den/heats
+  // text under WCAG AA's 4.5:1 floor). Silver and bronze reuse the tokens
+  // above; gold needed its own, since --cub-scouting-gold's literal
+  // #FCD116 fails the 3:1 non-text floor against a white --surface-color
+  // (1.47:1) — see themes.test.ts's dedicated check.
+  '--rank-gold-color',
   // Round 4 — the "Round Progress" panel in RaceExecution.tsx.
   '--progress-panel-border-color',
   '--progress-label-color',
@@ -423,6 +431,7 @@ export const THEMES: readonly Theme[] = [
         '--warning-soft-bg-color': '#fff4d6',
         '--warning-soft-border-color': '#e6c66e',
         '--danger-tint-bg-color': '#fff0f0',
+        '--rank-gold-color': '#8a6d00',
         '--rank-bronze-color': '#d7a48d',
         '--rank-silver-icon-color': '#757575',
         '--rank-bronze-icon-color': '#8d6e63',
@@ -635,6 +644,7 @@ export const THEMES: readonly Theme[] = [
         '--warning-soft-bg-color': '#fff4d6',
         '--warning-soft-border-color': '#e6c66e',
         '--danger-tint-bg-color': '#fff0f0',
+        '--rank-gold-color': '#FCD116',
         '--rank-bronze-color': '#d7a48d',
         '--rank-silver-icon-color': '#757575',
         '--rank-bronze-icon-color': '#8d6e63',
@@ -831,6 +841,7 @@ export const THEMES: readonly Theme[] = [
         '--warning-soft-bg-color': '#fff4d6',
         '--warning-soft-border-color': '#e6c66e',
         '--danger-tint-bg-color': '#fff0f0',
+        '--rank-gold-color': '#B31942',
         '--rank-bronze-color': '#d7a48d',
         '--rank-silver-icon-color': '#757575',
         '--rank-bronze-icon-color': '#8d6e63',
@@ -1040,6 +1051,7 @@ export const THEMES: readonly Theme[] = [
         '--warning-soft-bg-color': '#fff4d6',
         '--warning-soft-border-color': '#e6c66e',
         '--danger-tint-bg-color': '#fff0f0',
+        '--rank-gold-color': '#8A5A00',
         '--rank-bronze-color': '#d7a48d',
         '--rank-silver-icon-color': '#757575',
         '--rank-bronze-icon-color': '#8d6e63',
@@ -1235,6 +1247,7 @@ export const THEMES: readonly Theme[] = [
         '--warning-soft-bg-color': '#fff4d6',
         '--warning-soft-border-color': '#e6c66e',
         '--danger-tint-bg-color': '#fff0f0',
+        '--rank-gold-color': '#8a6d00',
         '--rank-bronze-color': '#d7a48d',
         '--rank-silver-icon-color': '#757575',
         '--rank-bronze-icon-color': '#8d6e63',
@@ -1430,6 +1443,7 @@ export const THEMES: readonly Theme[] = [
         '--warning-soft-bg-color': '#fff4d6',
         '--warning-soft-border-color': '#e6c66e',
         '--danger-tint-bg-color': '#fff0f0',
+        '--rank-gold-color': '#8a6d00',
         '--rank-bronze-color': '#d7a48d',
         '--rank-silver-icon-color': '#757575',
         '--rank-bronze-icon-color': '#8d6e63',
@@ -1623,6 +1637,7 @@ export const THEMES: readonly Theme[] = [
         '--warning-soft-bg-color': '#fff4d6',
         '--warning-soft-border-color': '#e6c66e',
         '--danger-tint-bg-color': '#fff0f0',
+        '--rank-gold-color': '#B31B1B',
         '--rank-bronze-color': '#d7a48d',
         '--rank-silver-icon-color': '#757575',
         '--rank-bronze-icon-color': '#8d6e63',

@@ -233,11 +233,21 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
     return '';
   };
 
-  const getRankStyle = (rank: number) => {
-    if (rank === 1) return { background: '#ffd700', fontWeight: 'bold' as const };
-    if (rank === 2) return { background: '#c0c0c0', fontWeight: 'bold' as const };
-    if (rank === 3) return { background: '#cd7f32', fontWeight: 'bold' as const };
-    return {};
+  // A discrete indicator, not a wash (#941) — the same rule `PrintDecor`
+  // and the lane-colour work already follow. The old full-row fill put the
+  // den and heats cells' muted text at ~2.2:1 (bronze) / ~2.5:1 (silver)
+  // against WCAG AA's 4.5:1, and the three literals ignored the App theme
+  // entirely. A 4px left accent on the Rank cell reads the podium at a
+  // glance without touching any cell's text colour, and the three medal
+  // colours are theme tokens (`index.css`, `theming/themes.ts`) rather than
+  // literals, so the accent follows the App theme like everything else on
+  // this screen. Every rank gets the same border width, transparent below
+  // 3rd, so the Rank column's width never shifts between rows.
+  const getRankAccentColor = (rank: number): string => {
+    if (rank === 1) return 'var(--rank-gold-color)';
+    if (rank === 2) return 'var(--rank-silver-icon-color)';
+    if (rank === 3) return 'var(--rank-bronze-icon-color)';
+    return 'transparent';
   };
 
   return (
@@ -428,11 +438,17 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                 <Fragment key={entry.racerId}>
                   <tr
                     style={{
-                      ...getRankStyle(entry.rank),
                       borderBottom: index < leaderboard.length - 1 ? '1px solid var(--divider-color)' : 'none'
                     }}
                   >
-                <td style={{ padding: '12px', fontSize: '1.1rem' }}>
+                <td
+                  data-testid="leaderboard-rank-cell"
+                  style={{
+                    padding: '12px',
+                    fontSize: '1.1rem',
+                    borderLeft: `4px solid ${getRankAccentColor(entry.rank)}`,
+                  }}
+                >
                   {getRankMedal(entry.rank)} {entry.rank}
                   {/* A resolved tie stops sharing a rank and says why —
                       "2nd, on fastest single heat" — rather than silently

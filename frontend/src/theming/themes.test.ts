@@ -222,6 +222,29 @@ describe('contrast — the hard constraints checklist', () => {
     check(theme);
   }
 
+  it('the Standings podium accent (--rank-gold/silver/bronze) clears the 3:1 non-text-UI floor on every theme (#941)', () => {
+    // Leaderboard.tsx paints a 4px left border on the Rank cell in the
+    // medal colour rather than filling the whole row — a discrete
+    // indicator, not a wash — so the bar these three tokens have to clear
+    // is WCAG 1.4.11's non-text-component floor (3:1) against
+    // --surface-color, not the 4.5:1 body-text floor. The old literals
+    // (#ffd700/#c0c0c0/#cd7f32) would have failed this badly:
+    // contrastRatio('#ffd700', '#ffffff') is ~1.5:1.
+    const RANK_ACCENT_TOKENS = [
+      '--rank-gold-color',
+      '--rank-silver-icon-color',
+      '--rank-bronze-icon-color',
+    ];
+    for (const theme of THEMES) {
+      for (const name of RANK_ACCENT_TOKENS) {
+        expect(
+          contrastRatio(theme.app.tokens[name], theme.app.tokens['--surface-color']),
+          `${theme.key}: ${name} on surface-color`,
+        ).toBeGreaterThanOrEqual(LARGE_TEXT_FLOOR);
+      }
+    }
+  });
+
   it('display-bg-color reads as text on the display accent fill (the overlay record banner, #498 stage 2)', () => {
     // There is no "Display text-on-accent" token in the spec's vocabulary,
     // so `.overlay-record-banner` and AwardCeremony's timing-record banner

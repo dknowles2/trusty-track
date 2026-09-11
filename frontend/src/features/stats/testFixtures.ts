@@ -36,6 +36,51 @@ export const twoRacerLeaderboardEntries: LeaderboardEntry[] = [
   },
 ];
 
+/** Four racers, ranks 1 through 4 (#941): the top three get a podium
+ *  accent, the fourth does not. */
+export const podiumLeaderboardEntries: LeaderboardEntry[] = [
+  {
+    racerId: 1,
+    firstName: 'Zack',
+    lastName: 'Zoom',
+    carNumber: 300,
+    racingGroupName: 'Wolves',
+    score: 3.064,
+    heatsCompleted: 3,
+    rank: 1,
+  },
+  {
+    racerId: 2,
+    firstName: 'Coco',
+    lastName: 'Quick',
+    carNumber: 401,
+    racingGroupName: 'Bears',
+    score: 3.115,
+    heatsCompleted: 3,
+    rank: 2,
+  },
+  {
+    racerId: 3,
+    firstName: 'Gus',
+    lastName: 'Shift',
+    carNumber: 403,
+    racingGroupName: 'Bears',
+    score: 3.139,
+    heatsCompleted: 3,
+    rank: 3,
+  },
+  {
+    racerId: 4,
+    firstName: 'Kit',
+    lastName: 'Quick',
+    carNumber: 402,
+    racingGroupName: 'Bears',
+    score: 3.140,
+    heatsCompleted: 3,
+    rank: 4,
+  },
+];
+
 /** Two racers tied for first (#226): same rank, different racers. */
 export const tiedLeaderboardEntries: LeaderboardEntry[] = [
   {
