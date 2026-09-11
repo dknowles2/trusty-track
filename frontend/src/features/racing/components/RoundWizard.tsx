@@ -244,7 +244,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <div style={stepIndicatorStyle(step >= 1)}>
               <span style={stepNumberStyle(step >= 1)}>1</span>
-              General Rounds
+              Qualifying Rounds
             </div>
             <div style={{ width: '2rem', height: '1px', backgroundColor: 'var(--wizard-border-muted-color)', margin: '0 0.5rem' }}></div>
             <div style={stepIndicatorStyle(step >= 2)}>
@@ -290,7 +290,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
               )}
 
               <div>
-                <label style={labelStyle}>Qualifying / General Round Type</label>
+                <label style={labelStyle}>Qualifying Round Type</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div
                     style={configCardStyle(generalConfig.type === 'ALL')}

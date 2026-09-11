@@ -203,7 +203,7 @@ A typical derby is one **qualifying round** (everyone) plus one optional
 
 The **Round Wizard** is the fastest way to set up your complete race schedule, including optional championship rounds. Click **Start Round Creation Wizard** to open it.
 
-#### Step 1: General Rounds
+#### Step 1: Qualifying Rounds
 
 Choose the format for your qualifying round:
 
@@ -253,7 +253,7 @@ _The full schedule after generation. Each round has its own table; a heat's row 
 
 You do not have to decide everything in the wizard. **Add Round**, at the top
 of the Schedule tab, adds one more round at the end of the schedule — a
-general round everyone races, or another championship round.
+qualifying round everyone races, or another championship round.
 
 A championship round added here can draw its racers from the overall standings,
 from each den, or — once another championship round exists — from that round's
@@ -262,7 +262,7 @@ race the final". If the round it draws from has already finished, the new
 round fills in with the qualifiers straight away; otherwise it fills in on its
 own the moment they are decided.
 
-The three ways a general round can be raced — every lane for everyone,
+The three ways a qualifying round can be raced — every lane for everyone,
 balanced, elimination — are compared in
 [Scoring & Championships](scoring-and-championships.md#choosing-how-a-round-is-raced),
 with the full rules in [Round styles](reference/round-styles.md). The

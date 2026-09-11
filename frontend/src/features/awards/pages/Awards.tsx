@@ -131,6 +131,16 @@ export default function Awards() {
   const { isOperator } = useRole();
   const operatorTitle = raceLocked ? lockedTitle : !isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined;
   const operatorDisabled = raceLocked || !isOperator;
+  // Opening voting with nothing votable hands out a ballot with nothing on
+  // it — the operator finds out from an empty screen a parent is looking at,
+  // rather than here (#947). Closing is never gated on this: voting may
+  // already be open from when an award *was* votable, and turning every
+  // award judged-only again must not strand the toggle stuck on.
+  const anyVotable = awards.some((award) => award.votable);
+  const votingBlockedTitle =
+    'No award is open to votes — turn on Let people vote on a judged award first.';
+  const votingDisabled = operatorDisabled || (!votingOpen && !anyVotable);
+  const votingTitle = operatorTitle ?? (!votingOpen && !anyVotable ? votingBlockedTitle : undefined);
   // The ballot shows every car's photo (or a gray placeholder where there is
   // none) beside a name and number — for an award about the car's looks, a
   // room of placeholders is worse than no ballot at all (#419). The operator
@@ -324,8 +334,8 @@ export default function Awards() {
             type="button"
             className={votingOpen ? 'secondary-btn' : 'primary-btn'}
             onClick={toggleVoting}
-            disabled={operatorDisabled}
-            title={operatorTitle}
+            disabled={votingDisabled}
+            title={votingTitle}
           >
             {votingOpen ? 'Close voting' : 'Open voting'}
           </button>

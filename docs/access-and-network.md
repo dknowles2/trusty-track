@@ -221,7 +221,7 @@ Being straight about the limits:
 
 ## The activity log
 
-**Settings → See what has happened**, or `/activity`.
+**Settings → Activity log**, or `/activity`.
 
 Every operation anyone performs is recorded: what it was, when, which role did
 it, and — kept out of the way until you ask for it — which device. It is the

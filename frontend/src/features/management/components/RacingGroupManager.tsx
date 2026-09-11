@@ -10,6 +10,7 @@ import { useMutation, useQuery } from 'urql';
 import { CREATE_RACING_GROUP, UPDATE_RACING_GROUP, DELETE_RACING_GROUP, GET_RACE_DETAILS } from '../graphql/queries';
 import { categoryPresetsFor } from '../../../context/organizationKinds';
 import { suggestedRange } from '../numberRanges';
+import { shouldShowDivision } from '../../stats/racingGroupLabel';
 
 const RACING_GROUP_COLORS = COMMON_COLORS;
 
@@ -379,8 +380,15 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
                                     <b>{racingGroup.name}</b>
                                     {/* The stored value is already the label
                                         an operator typed or picked (#496 stage
-                                        2) — nothing left to translate. */}
-                                    {racingGroup.division && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>({racingGroup.division})</span>}
+                                        2) — nothing left to translate. Suppressed
+                                        when it only repeats the group's own name,
+                                        the same `shouldShowDivision` rule the
+                                        standings already apply (#774) — reused
+                                        rather than copied, so there is one home
+                                        for it. */}
+                                    {shouldShowDivision(racingGroup.name, racingGroup.division) && (
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>({racingGroup.division})</span>
+                                    )}
                                     {(racingGroup.car_number_range_start || racingGroup.car_number_range_end) && (
                                         <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--divider-color)', padding: '2px 6px', borderRadius: '4px' }}>
                                             #{racingGroup.car_number_range_start || '?'}-{racingGroup.car_number_range_end || '?'}

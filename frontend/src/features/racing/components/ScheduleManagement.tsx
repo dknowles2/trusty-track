@@ -1077,7 +1077,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                 : isAnyStarted
                                   ? "Cannot delete round: it has heats with results"
                                   : roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))
-                                    ? "Cannot delete general round: championship rounds are already scheduled"
+                                    ? "Cannot delete qualifying round: championship rounds are already scheduled"
                                     : undefined
                           }
                           style={{

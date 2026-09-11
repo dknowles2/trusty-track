@@ -67,7 +67,7 @@ export function pageTitle(pathname: string, raceName?: string | null): string {
     }
     if (pathname.startsWith('/system-settings')) return `Settings — ${APP_NAME}`;
     if (pathname.startsWith('/timer-check')) return `Timer Check — ${APP_NAME}`;
-    if (pathname.startsWith('/activity')) return `Activity — ${APP_NAME}`;
+    if (pathname.startsWith('/activity')) return `Activity Log — ${APP_NAME}`;
     // The home page, and anything unrecognised. There is nothing to add that
     // the reader cannot see, and a guessed view name would be worse than the
     // application's own.

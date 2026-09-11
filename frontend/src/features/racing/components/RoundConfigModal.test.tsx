@@ -35,7 +35,7 @@ describe('RoundConfigModal', () => {
     render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} />);
     openChampionshipTab();
 
-    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+    fireEvent.click(screen.getByText('Add round'));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
@@ -55,7 +55,7 @@ describe('RoundConfigModal', () => {
     // round is without the operator typing anything.
     expect(screen.getByDisplayValue('Slowest Race')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+    fireEvent.click(screen.getByText('Add round'));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
@@ -87,7 +87,7 @@ describe('RoundConfigModal', () => {
     fireEvent.change(screen.getByLabelText('Losses before a car is out'), {
       target: { value: '2' },
     });
-    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+    fireEvent.click(screen.getByText('Add round'));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
@@ -96,6 +96,19 @@ describe('RoundConfigModal', () => {
       eliminationLosses: 2,
     });
     expect(onSubmit.mock.calls[0][0].generalType).toBeUndefined();
+  });
+
+  it('keeps a space between the word the terminology resolves to and the word after it (#947)', () => {
+    // A JSX line break between {vehiclesLower} and the text that followed
+    // it used to drop the space entirely — "matching carswith the same
+    // record" — because a wrapped-text node's leading whitespace is trimmed
+    // by JSX itself. Regression test for that, not for the words either
+    // side of the space.
+    render(<RoundConfigModal {...defaultProps} />);
+    fireEvent.click(screen.getByLabelText("Elimination — lose too many heats and you're out"));
+    expect(
+      screen.getByText('New heats appear after each round of racing, matching cars with the same record. The last car left wins.')
+    ).toBeInTheDocument();
   });
 
   it('a balanced round submits the strategy and its phase count', async () => {
@@ -114,7 +127,7 @@ describe('RoundConfigModal', () => {
     fireEvent.change(screen.getByLabelText('Times each car races'), {
       target: { value: '5' },
     });
-    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+    fireEvent.click(screen.getByText('Add round'));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
@@ -130,7 +143,7 @@ describe('RoundConfigModal', () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} />);
 
-    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+    fireEvent.click(screen.getByText('Add round'));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
@@ -138,6 +151,25 @@ describe('RoundConfigModal', () => {
       generalType: 'ALL',
     });
     expect(onSubmit.mock.calls[0][0].eliminationLosses).toBeUndefined();
+  });
+
+  it('the submit button counts the rounds "By Den" is about to create (#947)', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} racingGroupCount={3} />);
+
+    expect(screen.getByText('Add round')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/By Den/));
+    expect(screen.getByText('Will create 3 rounds (one per den).')).toBeInTheDocument();
+    expect(screen.queryByText('Add round')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Add rounds'));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      schedulingStrategy: 'PPC',
+      generalType: 'EACH_GROUP',
+    });
   });
 
   it('reopening after the general round is deleted shows the General tab, not stale championship fields', async () => {
@@ -177,7 +209,7 @@ describe('RoundConfigModal', () => {
     ).toBeInTheDocument();
     expect(screen.queryByLabelText('Number to pick')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+    fireEvent.click(screen.getByText('Add round'));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
@@ -193,7 +225,7 @@ describe('RoundConfigModal', () => {
     openChampionshipTab();
 
     fireEvent.click(screen.getByLabelText(/I'll choose who races myself/));
-    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+    fireEvent.click(screen.getByText('Add round'));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
@@ -207,7 +239,7 @@ describe('RoundConfigModal', () => {
     render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} />);
     openChampionshipTab();
 
-    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+    fireEvent.click(screen.getByText('Add round'));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0].pickFieldByHand).toBe(false);
@@ -256,7 +288,7 @@ describe('RoundConfigModal', () => {
   it('displays a notice explaining why round generation is disabled when fewer than 2 racers are checked in (#784)', () => {
     render(<RoundConfigModal {...defaultProps} racerCount={1} totalRacerCount={5} />);
     expect(screen.getByText(/At least 2 checked-in cars are required to generate heats/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create Round(s) & Generate Heats' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add round' })).toBeDisabled();
   });
 
   it('displays notice when some registered racers are not checked in (#784)', () => {

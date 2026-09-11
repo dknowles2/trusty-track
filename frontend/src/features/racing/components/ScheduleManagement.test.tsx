@@ -346,7 +346,7 @@ describe('ScheduleManagement', () => {
         await user.type(nameInput, 'Semi-Finals');
 
         // Submit
-        await user.click(screen.getByRole('button', { name: /Create Round/i }));
+        await user.click(screen.getByRole('button', { name: 'Add round' }));
 
         expect(mockOnAddRound).toHaveBeenCalledWith({
             name: 'Semi-Finals',
@@ -542,7 +542,7 @@ describe('ScheduleManagement', () => {
 
     const deleteBtn = screen.getByLabelText(/delete general/i);
     expect(deleteBtn).toBeDisabled();
-    expect(deleteBtn).toHaveAttribute('title', 'Cannot delete general round: championship rounds are already scheduled');
+    expect(deleteBtn).toHaveAttribute('title', 'Cannot delete qualifying round: championship rounds are already scheduled');
   });
 
   it('disables run button when heat has placeholders', () => {
