@@ -98,6 +98,12 @@ test('screenshot elimination racing', async ({ page }) => {
 
     // The dialog, set to elimination — the control the guide points at.
     await page.goto(`/race/${raceId}/control`);
+    // The readiness strip behind the dialog says "Checking…" on the Timer row
+    // until the first timerStatus payload lands, and its status dot changes
+    // colour when it does — a dot that is in the picture, blurred behind the
+    // modal. Wait for the identified device before opening the dialog, the
+    // same wait race-day.spec.ts makes, so the picture is of the settled page.
+    await expect(page.getByText('Fake Timer')).toBeVisible();
     await page.getByRole('button', { name: 'Add Round' }).click();
     await page.getByLabel("Elimination — lose too many heats and you're out").check();
     await expect(page.getByLabel('Round Name')).toHaveValue('Elimination Round');

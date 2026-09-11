@@ -96,6 +96,12 @@ test('screenshot balanced racing', async ({ page }) => {
 
     // The dialog, set to balanced — the control the guide points at.
     await page.goto(`/race/${raceId}/control`);
+    // The readiness strip behind the dialog says "Checking…" on the Timer row
+    // until the first timerStatus payload lands, and its status dot changes
+    // colour when it does — a dot that is in the picture, blurred behind the
+    // modal. Wait for the identified device before opening the dialog, the
+    // same wait race-day.spec.ts makes, so the picture is of the settled page.
+    await expect(page.getByText('Fake Timer')).toBeVisible();
     await page.getByRole('button', { name: 'Add Round' }).click();
     await page
         .getByLabel('Balanced — each round of heats matches cars doing about as well')
