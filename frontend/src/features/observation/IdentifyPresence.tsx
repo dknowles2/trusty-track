@@ -24,14 +24,27 @@ export interface IdentifyAssignment {
 interface Props {
   /** The same `displayAssignment` payload both pages already subscribe to. */
   assignment: IdentifyAssignment | null;
+  /**
+   * True when the caller has a spot for this badge in its own layout flow
+   * (#954) — the standard, non-projector Live view, which keeps a status row
+   * (the timer pill, then **Launch Projector Mode**) the badge can join on
+   * the left rather than float over. Every other caller — the five
+   * chrome-hidden views this page also renders, and `AwardCeremony`, which
+   * paints itself above the navigation at its own z-index rather than
+   * hiding it via `ChromeContext` — is a genuinely full-screen surface with
+   * no row to join and nothing in that corner to collide with, so those
+   * keep the fixed-corner treatment untouched.
+   */
+  inline?: boolean;
 }
 
 /**
  * Renders nothing until this display has a name to show. Place it once, near
- * the root of whatever full-screen surface the page renders — both existing
- * treatments are `position: fixed`.
+ * the root of whatever full-screen surface the page renders — the flash is
+ * always `position: fixed`, and so is the connect badge unless the caller
+ * passes `inline`.
  */
-export default function IdentifyPresence({ assignment }: Props) {
+export default function IdentifyPresence({ assignment, inline = false }: Props) {
   // Whether the app's own header is on screen (#175). A projector has none —
   // `chromeHidden` is true — so the badge is free to sit at the very corner.
   // Everywhere else `Navigation`'s bar occupies that corner already
@@ -76,7 +89,25 @@ export default function IdentifyPresence({ assignment }: Props) {
 
   return (
     <>
-      {showConnectBadge && (
+      {showConnectBadge && (inline ? (
+        <div
+          className="identify-connect-badge identify-connect-badge--inline"
+          data-testid="identify-connect-badge"
+          style={{
+            // No `position` at all — an ordinary flex item beside the timer
+            // status pill the caller places it next to, so it can never
+            // paint over a button the way the fixed corner did (#954).
+            background: 'var(--display-badge-bg-color)',
+            color: 'var(--display-text-color)',
+            padding: '0.4rem 0.8rem',
+            borderRadius: '12px',
+            fontSize: '0.85rem',
+            fontWeight: 'bold',
+          }}
+        >
+          {name}
+        </div>
+      ) : (
         <div
           className="identify-connect-badge"
           data-testid="identify-connect-badge"
@@ -98,7 +129,7 @@ export default function IdentifyPresence({ assignment }: Props) {
         >
           {name}
         </div>
-      )}
+      ))}
       {showFlash && (
         <div
           className="identify-flash"

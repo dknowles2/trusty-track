@@ -1013,11 +1013,25 @@ export default function Observation() {
         }}
       >
         {renderResultsOverlay()}
-        <IdentifyPresence assignment={assignment} />
-        <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {initialData?.race?.track?.id && (
-            <TimerStatusBadge trackId={initialData.race.track.id} />
-          )}
+        <div
+          style={{
+            marginBottom: '20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            {initialData?.race?.track?.id && (
+              <TimerStatusBadge trackId={initialData.race.track.id} />
+            )}
+            {/* In the flow, beside the timer pill, rather than the fixed
+                corner every other caller uses — that corner is exactly
+                where Launch Projector Mode sits on this view (#954). */}
+            <IdentifyPresence assignment={assignment} inline />
+          </div>
           <button
             onClick={() => window.open(`${window.location.pathname}?projector=true`, '_blank')}
             style={{
