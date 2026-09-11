@@ -14,11 +14,13 @@
  *
  * The data the app invents — the fake timer's lane times and the roster
  * `populateRace` makes up — is dealt with on the backend, by the
- * `TRUSTYTRACK_DEMO_SEED` the config sets. What is left is the version stamp
- * in the navigation bar, which is built from the git hash and so changes on
- * literally every commit, and the audience display's own id, which a fresh
- * Playwright browser profile mints a new UUID for on every run. Both are
- * handled here.
+ * `TRUSTYTRACK_DEMO_SEED` the config sets. What is left is the version
+ * stamp — on the System Settings footer and the mobile drawer's own footer
+ * since #946 moved it out of the navigation bar (the drawer's copy never
+ * renders at these screenshots' desktop viewport) — which is built from the
+ * git hash and so changes on literally every commit, and the audience
+ * display's own id, which a fresh Playwright browser profile mints a new
+ * UUID for on every run. Both are handled here.
  *
  * The display id matters because #495's default name is *derived* from it
  * (`domain/display_names.whimsical_name`) — deterministic given the id, but
@@ -35,17 +37,24 @@ import { test as base, expect, type Locator } from '@playwright/test';
  * `visibility: hidden` alone hides the ink but keeps the box: the element
  * still occupies the rendered width of `v{version}`, in a proportional font,
  * and that width changes on every commit because the version string is built
- * from the git hash. In `Navigation.tsx` this element sits in the nav's
+ * from the git hash.
+ *
+ * Until #946 this element sat in `Navigation.tsx`'s header, in the nav's
  * right-hand `flexShrink: 0` group, with the race-selector pill immediately
  * to its left in a `flex: 1` centred container — so the pill's position
  * moved by half of whatever the hash's width changed by, on every commit,
  * which is why committing a baseline was itself what invalidated it
- * (dknowles2/trusty-track#938). `width: 0` plus `overflow: hidden` removes
- * that horizontal footprint entirely rather than merely hiding what is
- * inside it, while `visibility: hidden` (rather than `display: none`) keeps
- * the element in flow, preserving the vertical space its line takes in the
- * two-line block above the GitHub link so nothing reflows around *that* gap
- * — the concern the original comment named, kept alongside the new one.
+ * (dknowles2/trusty-track#938). `width: 0` plus `overflow: hidden` removed
+ * that horizontal footprint entirely rather than merely hiding what was
+ * inside it. #946 moved the version stamp itself out of the header — the
+ * System Settings footer and the mobile drawer's own footer carry it now,
+ * neither beside a flexible sibling a stray width could displace — so the
+ * width-collapsing half of this rule no longer protects anything, but stays
+ * because it costs nothing on an element with no sibling to shove. The ink
+ * still needs hiding wherever `[data-testid="app-version"]` renders, on the
+ * settings footer as much as it ever did in the header, and `visibility:
+ * hidden` (rather than `display: none`) keeps the element in flow so its own
+ * line's height does not change shape around it.
  */
 const HIDE_UNSTABLE = `[data-testid="app-version"] { visibility: hidden !important; width: 0 !important; overflow: hidden !important; }`;
 

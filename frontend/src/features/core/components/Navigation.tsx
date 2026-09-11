@@ -261,20 +261,15 @@ export default function Navigation() {
             </div>
           )}
 
-          {/* Right: Version and Settings (Hidden on Mobile) */}
+          {/* Right: Settings (Hidden on Mobile). The version stamp and the
+              GitHub link used to live here too, as a stray 0.7rem two-line
+              block with nothing else in the header at that size — "GitHub"
+              read as a label floating below the header's own baseline in
+              every screenshot (#946). Both are still reachable: the System
+              Settings footer carries "Trusty Track v… • GitHub", and the
+              mobile drawer's own footer keeps its version stamp. */}
           {!isMobile && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexShrink: 0 }}>
-              <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', textAlign: 'right', lineHeight: '1.2' }}>
-                <div data-testid="app-version">v{version}</div>
-                <a
-                  href="https://github.com/dknowles2/trusty-track"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: 'rgba(255,255,255,0.9)', textDecoration: 'none' }}
-                >
-                  GitHub
-                </a>
-              </div>
               {pinRequired && <UnlockButton isOperator={isOperator} />}
               <Link
                 to="/system-settings"
