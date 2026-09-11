@@ -57,6 +57,9 @@ describe('creating a race', () => {
         // Both of its controls are update-only, so it is absent rather than
         // an empty heading.
         expect(screen.queryByRole('heading', { name: 'Words and names' })).toBeNull();
+        // The QR code display text is edit-only too (#945) — it used to sit
+        // here, ahead of the scoring decision every race needs.
+        expect(screen.queryByRole('heading', { name: 'Displays' })).toBeNull();
 
         // Every field at once — a first-time operator reads top to bottom.
         expect(screen.getByLabelText('Event Name')).toBeInTheDocument();
@@ -83,6 +86,9 @@ describe('editing a race', () => {
         expect(screen.queryByLabelText(/^Timed \(average\)/)).toBeNull();
         expect(screen.queryByLabelText('Check car weights at inspection')).toBeNull();
         expect(screen.queryByLabelText('Use different words for this race')).toBeNull();
+        // The QR code display text moved out of Event and onto its own
+        // edit-only section (#945).
+        expect(screen.queryByLabelText('QR code headline (optional)')).toBeNull();
 
         await open('scoring');
         expect(screen.getByTestId('race-settings-nav-scoring')).toHaveAttribute('aria-current', 'page');
@@ -101,6 +107,11 @@ describe('editing a race', () => {
         await open('words');
         expect(screen.getByLabelText('Use different words for this race')).toBeInTheDocument();
         expect(screen.getByLabelText('Override names on public screens for this race')).toBeInTheDocument();
+
+        await open('displays');
+        expect(screen.getByTestId('race-settings-nav-displays')).toHaveAttribute('aria-current', 'page');
+        expect(screen.getByLabelText('QR code headline (optional)')).toBeInTheDocument();
+        expect(screen.getByLabelText('Venue Wi-Fi guidance (optional)')).toBeInTheDocument();
     });
 
     it('keeps what was typed in a section that is no longer up', async () => {
@@ -121,7 +132,7 @@ describe('editing a race', () => {
 
     it('keeps the buttons under every section, so Save is always in the same place', async () => {
         renderEditing(async () => {}, { name: 'Pack 42 Derby' });
-        for (const id of ['event', 'scoring', 'checkin', 'words']) {
+        for (const id of ['event', 'scoring', 'checkin', 'words', 'displays']) {
             await open(id);
             expect(screen.getByRole('button', { name: 'Save Changes' })).toBeInTheDocument();
             expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
