@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from 'urql';
 import { Icon } from '@mdi/react';
-import { mdiCoffee, mdiPause, mdiPlay, mdiPlus, mdiStop } from '@mdi/js';
+import { mdiChevronDown, mdiChevronUp, mdiCoffee, mdiPause, mdiPlay, mdiPlus, mdiStop } from '@mdi/js';
 import {
   END_INTERMISSION_MUTATION,
   EXTEND_INTERMISSION_MUTATION,
@@ -29,19 +29,30 @@ import type { GetRaceIntermissionQuery } from '../../../gql/operations';
 
 interface IntermissionControlProps {
   raceId: number;
+  /**
+   * Render as a single toggle button with the presets in a popover, rather
+   * than the always-expanded bar (#940). The bar used to be mounted above
+   * the Race tab and permanently held its first row for an action called a
+   * few times an event; a compact instance is mounted inside
+   * `RaceExecution.tsx`'s own headers instead, one per screen state so the
+   * control is never unreachable. The logic above is unchanged either way —
+   * only this and the JSX below differ.
+   */
+  compact?: boolean;
 }
 
 /**
  * Starting, extending, pausing and ending a race-scoped break (#592).
  *
- * Lives on Race Control's Race tab — that is where the operator is standing
- * when a break is called or ends, the same reasoning that put the displays
- * registry on its own tab rather than in System Settings. The round-summary
- * modal offers the same presets from its own "Take a break" row (see
- * `RaceExecution.tsx`); this is the always-available control for calling one
- * mid-round or from the schedule screen, not only right after a round ends.
+ * Mounted inside `RaceExecution.tsx`'s own card headers (#940) — that is
+ * where the operator is standing when a break is called or ends, the same
+ * reasoning that put the displays registry on its own tab rather than in
+ * System Settings. The round-summary modal offers the same presets from its
+ * own "Take a break" row (see `RaceExecution.tsx`); this is the
+ * always-available control for calling one mid-round or from the schedule
+ * screen, not only right after a round ends.
  */
-export default function IntermissionControl({ raceId }: IntermissionControlProps) {
+export default function IntermissionControl({ raceId, compact = false }: IntermissionControlProps) {
   const { showAlert } = useAlert();
   const [customOpen, setCustomOpen] = useState(false);
   const [customMinutes, setCustomMinutes] = useState('15');
@@ -131,6 +142,164 @@ export default function IntermissionControl({ raceId }: IntermissionControlProps
 
   const now = new Date();
   const active = isLiveActive(intermission, now);
+  const remainingForCompact = active ? liveRemainingSeconds(intermission, now) : 0;
+
+  // The popover closes on an outside click, the same pattern
+  // `RaceDetails.tsx`'s overflow menu uses — only wired up in compact mode,
+  // since the bar has nothing to pop over.
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!compact || !popoverOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setPopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [compact, popoverOpen]);
+
+  if (compact) {
+    return (
+      <div ref={containerRef} data-testid="intermission-control" style={{ position: 'relative', display: 'inline-block' }}>
+        <button
+          type="button"
+          className="secondary-btn"
+          data-testid="intermission-toggle"
+          onClick={() => setPopoverOpen((o) => !o)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            fontSize: '0.85rem',
+            ...(active
+              ? { border: '1px solid var(--cub-scouting-gold)', background: 'var(--warning-bg-color)' }
+              : {}),
+          }}
+        >
+          <Icon path={mdiCoffee} size={0.8} />
+          {active ? (
+            <span
+              data-testid="intermission-countdown"
+              style={{ fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontWeight: 'bold' }}
+            >
+              {intermission.paused ? 'Paused · ' : ''}
+              {formatCountdown(remainingForCompact)}
+            </span>
+          ) : (
+            <span>Take a break</span>
+          )}
+          <Icon path={popoverOpen ? mdiChevronUp : mdiChevronDown} size={0.6} />
+        </button>
+        {popoverOpen && (
+          <div
+            data-testid="intermission-popover"
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 6px)',
+              right: 0,
+              zIndex: 20,
+              background: 'var(--surface-color)',
+              border: '1px solid var(--input-border-color)',
+              borderRadius: '12px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              padding: '12px',
+              minWidth: '260px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}
+          >
+            {active ? (
+              <>
+                <span style={{ fontWeight: 'bold' }}>{intermission.label || 'Intermission'}</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={handleExtend}
+                    style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Icon path={mdiPlus} size={0.7} /> 5 min
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={handlePauseResume}
+                    style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Icon path={intermission.paused ? mdiPlay : mdiPause} size={0.7} />
+                    {intermission.paused ? 'Resume' : 'Pause'}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={handleEnd}
+                    style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Icon path={mdiStop} size={0.7} /> End now
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {INTERMISSION_PRESETS.map((preset) => (
+                    <button
+                      key={preset.seconds}
+                      type="button"
+                      className="secondary-btn"
+                      data-testid={`intermission-preset-${preset.seconds}`}
+                      onClick={() => handleStart(preset.seconds)}
+                      style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+                {customOpen ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="number"
+                      min={1}
+                      max={MAX_DURATION_MINUTES}
+                      step={1}
+                      value={customMinutes}
+                      onChange={(e) => setCustomMinutes(e.target.value)}
+                      style={{ width: '64px' }}
+                      aria-label="Custom break length, in minutes"
+                    />
+                    <span style={{ fontSize: '0.8rem' }}>min</span>
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      onClick={handleCustomStart}
+                      style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                    >
+                      Start
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    data-testid="intermission-custom-btn"
+                    onClick={() => setCustomOpen(true)}
+                    style={{ padding: '6px 12px', fontSize: '0.85rem', alignSelf: 'flex-start' }}
+                  >
+                    Custom
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (!active) {
     return (

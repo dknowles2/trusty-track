@@ -49,6 +49,16 @@ vi.mock('./FakeTimerMole', () => ({
     ) : null,
 }));
 
+// Mock IntermissionControl (#940) — it has its own suite in
+// IntermissionControl.test.tsx, including its `useQuery` call this file's
+// urql mock does not stub. Rendered as a plain marker so tests here can
+// assert it is present without caring about its internals.
+vi.mock('./IntermissionControl', () => ({
+  default: ({ raceId, compact }: any) => (
+    <div data-testid="intermission-control-stub" data-race-id={raceId} data-compact={compact ? 'true' : 'false'} />
+  ),
+}));
+
 describe('RaceExecution', () => {
     // `time` arrives as a string in `laneResults` on purpose — real databases
     // hold both — while `lanes` reports it as the number it always was.
@@ -1555,7 +1565,11 @@ describe('RaceExecution', () => {
         });
     });
 
-    it('docks the fake timer mole into the right column (#783)', () => {
+    it('docks the fake timer mole directly under the lane list (#783, #940)', () => {
+        // It used to sit at the foot of the right-column sidebar, under
+        // Upcoming Rounds — the docs said "below the current heat" while the
+        // screen put it somewhere else entirely (#940). It belongs in the
+        // active heat card now, not the On Deck column.
         const { getByTestId, queryByTestId, rerender } = render(
             <RaceExecution
                 {...defaultProps}
@@ -1564,9 +1578,11 @@ describe('RaceExecution', () => {
             />
         );
 
+        const activeCard = getByTestId('race-execution-active-card');
         const rightCol = getByTestId('race-execution-right-column');
         const mole = getByTestId('fake-timer-mole');
-        expect(rightCol).toContainElement(mole);
+        expect(activeCard).toContainElement(mole);
+        expect(rightCol).not.toContainElement(mole);
         expect(mole).toHaveAttribute('data-docked', 'true');
 
         rerender(
