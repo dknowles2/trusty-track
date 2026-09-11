@@ -82,6 +82,18 @@ export default defineConfig({
     launchOptions: {
       args: FONT_RENDERING_ARGS,
     },
+    // The demo seed and the frozen `Date` pin everything the app *invents*
+    // (#825's rule), but the Round Progress panel's "Est. finish" formats a
+    // real clock time through `Intl`/`toLocaleTimeString`, which reads the
+    // browser's host timezone and locale regardless of what `Date` returns.
+    // A developer outside UTC regenerating `race-day/12`, `14` or `31` got an
+    // internally consistent picture that still failed the drift gate — #973,
+    // the same "the fixture should pin what the environment would otherwise
+    // supply" rule #931 established for fonts. These are Playwright
+    // browser-context options, not something the app or the spec has to ask
+    // for, so a local run and CI agree on every clock string by construction.
+    timezoneId: 'UTC',
+    locale: 'en-US',
   },
   // Two phases. `first-run` is a Playwright *setup project* every other
   // project depends on, so it runs first whatever is being filtered to, and it
