@@ -31,6 +31,12 @@ export type RaceSetupData = RaceFormData & {
  * follow-up round trips. A plain `RaceForm` submission with no groups, no
  * awards and no words sends empty lists and nulls — exactly what the server
  * defaulted to before any of those fields existed.
+ *
+ * `qrHeadline`/`qrWifiNote` are deliberately absent (#945) even though
+ * `createRace` still accepts both — `RaceForm`'s Displays section that sets
+ * them is edit-only, so there is nothing on `data` to send here; leaving
+ * these two out is the same shape as `masterRunningOrder` and the other
+ * update-only fields never appearing in this object at all.
  */
 export function buildCreateRaceInput(data: RaceFormData | RaceSetupData) {
     const racingGroups = 'racing_groups' in data ? data.racing_groups : [];
@@ -47,8 +53,6 @@ export function buildCreateRaceInput(data: RaceFormData | RaceSetupData) {
         globalStartNumber: data.global_start_number,
         championshipTrophies: data.championship_trophies,
         weightLimitOz: data.weight_limit_oz,
-        qrHeadline: data.qr_headline,
-        qrWifiNote: data.qr_wifi_note,
         racingGroups: racingGroups.map(toRacingGroupInput),
         awards: awards.map(toAwardCopyInput),
         racingGroupSingular: data.racing_group_singular ?? null,

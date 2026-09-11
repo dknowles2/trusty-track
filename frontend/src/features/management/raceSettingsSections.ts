@@ -14,7 +14,7 @@
  * doing is in `RaceForm.tsx`. Same split as `raceFlow.ts`.
  */
 
-export type RaceSectionId = 'event' | 'scoring' | 'checkin' | 'words';
+export type RaceSectionId = 'event' | 'scoring' | 'checkin' | 'words' | 'displays';
 
 export interface RaceSection {
     id: RaceSectionId;
@@ -32,9 +32,14 @@ export interface RaceSection {
  * the name and date; "how many go to the final" is about who wins and sits
  * with scoring; the words a race uses and how much of a name a public
  * screen shows are both about what strangers read, and share a section.
+ * What the QR code display screen says is its own section rather than
+ * riding along with Event, for the reason `RaceForm.tsx` explains at that
+ * section's own JSX (#945): it serves one audience-display view most packs
+ * never assign, and it was sitting in front of the scoring decision every
+ * race needs.
  *
  * The blurbs deliberately name no built-in vocabulary — no "den", "pack" or
- * "car" — since the last section exists precisely so a race can replace
+ * "car" — since the words section exists precisely so a race can replace
  * those words, and a blurb that used them would be wrong the moment it did.
  */
 export const RACE_SECTIONS: readonly RaceSection[] = [
@@ -58,6 +63,11 @@ export const RACE_SECTIONS: readonly RaceSection[] = [
         label: 'Words and names',
         blurb: "What this race calls things, and how much of a racer's name a public screen shows.",
     },
+    {
+        id: 'displays',
+        label: 'Displays',
+        blurb: 'What the QR code screen says.',
+    },
 ];
 
 /**
@@ -71,9 +81,13 @@ export const RACE_SECTIONS: readonly RaceSection[] = [
  * vocabulary the edit form is later navigated by. This mirrors
  * `settings/sections.ts`'s `sectionsFor` exactly, and for the same reason.
  *
- * Note that "Words and names" holds nothing at all while creating — both of
- * its controls are update-only, since `updateRace` is the only mutation that
- * accepts them — so a flat create form simply has three headings, not four.
+ * Note that "Words and names" and "Displays" both hold nothing at all while
+ * creating — "Words and names" because both its controls are update-only,
+ * and "Displays" because the QR code headline and Wi-Fi guidance, while
+ * accepted at creation by the mutation, are offered on the edit form only
+ * (#945): they serve one audience-display view most packs never assign, and
+ * the create form is the one screen every organizer sees, so a flat create
+ * form simply has three headings, not five.
  */
 export function sectionsFor(isEditing: boolean): readonly RaceSection[] {
     return isEditing ? RACE_SECTIONS : [];

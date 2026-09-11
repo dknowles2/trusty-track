@@ -9,15 +9,21 @@ afterwards from the Roster page's **Edit Details** button — or, without going
 there first, from **Edit race** in a race row's **⋯** menu on Home, or from
 the **Edit race** button on Race Control. All three open the same form.
 
-**The edit form is in four sections**, listed down its left: **Event**,
-**Scoring**, **Check-in** and **Words and names**. Pick the one holding the
-setting you came for; **Save Changes** saves every section at once, whichever
-is up. If something in a section that is not on screen would stop the save —
-a blank name, say — the form switches to that section and says what is wrong,
-rather than refusing over a field you cannot see. The **+ Create New Race**
-form is the same fields on one page under the same headings, since the first
-time through you are filling everything in anyway — it is the last step of
-the setup wizard, described next.
+**The edit form is in five sections**, listed down its left: **Event**,
+**Scoring**, **Check-in**, **Words and names** and **Displays**. Pick the one
+holding the setting you came for; **Save Changes** saves every section at
+once, whichever is up. If something in a section that is not on screen would
+stop the save — a blank name, say — the form switches to that section and
+says what is wrong, rather than refusing over a field you cannot see. The
+**+ Create New Race** form is the same fields on one page under the same
+headings, since the first time through you are filling everything in
+anyway — it is the last step of the setup wizard, described next. Two of the
+five sections hold nothing on that first page, and are absent from it rather
+than showing as an empty heading: **Words and names**, because both its
+controls override an install-wide default that has nothing to override until
+the race exists; and **Displays**, because the QR code headline and Wi-Fi
+guidance it holds serve one audience-display view most races never assign,
+and the day you create a race is not the day to be asked about it.
 
 ## Creating a race: the setup wizard
 
@@ -92,7 +98,7 @@ _Copying last year's derby: its six dens come across, and the form opens on
 its scoring and numbering. The roster does not — that is this year's._
 
 ![The Edit Race Details dialog, with the section list down the left and the Scoring section up](../assets/screenshots/race-setup/11-edit-race-settings.png)
-_The edit form open on **Scoring**. The other three sections are one click
+_The edit form open on **Scoring**. The other four sections are one click
 away in the list on the left; **Save Changes** saves them all._
 
 ### Event
@@ -145,6 +151,18 @@ exists.
 **Auto-advance**, on the race screen itself, is also remembered per race:
 when on, the screen moves to the next heat ten seconds after results land.
 
+### Displays
+
+What the QR code display screen says. Neither field is offered until the
+race is created — they serve one audience-display view most races never
+assign, and asking for them on the same page as the scoring decision every
+race needs was the wrong place for them.
+
+| Field | What it does |
+| --- | --- |
+| **QR code headline (optional)** | See [QR code display](#qr-code-display) below |
+| **Venue Wi-Fi guidance (optional)** | See [QR code display](#qr-code-display) below |
+
 ### Ties
 
 Set once, when the race is created, and editable afterwards from the
@@ -191,13 +209,14 @@ the limit is typed at check-in, the box turns red and says so.
 
 ### QR code display
 
-Two optional text fields on the race's own edit form — a headline (e.g.
-*"Scan to Vote for Best in Show!"*) and a line of venue Wi-Fi guidance (e.g.
-*"Connect to the guest Wi-Fi first"*) — shown on the full-screen **QR code**
-audience display view. Both are blank by default: the screen falls back to
-a sensible headline of its own and shows no Wi-Fi line at all. See [Audience
-display views](displays.md#qr-code) for what the screen actually shows and
-which page the code opens.
+Two optional text fields in the **Displays** section of the race's edit
+form — a headline (e.g. *"Scan to Vote for Best in Show!"*) and a line of
+venue Wi-Fi guidance (e.g. *"Connect to the guest Wi-Fi first"*) — shown on
+the full-screen **QR code** audience display view. Both are blank by
+default: the screen falls back to a sensible headline of its own and shows
+no Wi-Fi line at all. Not offered on the **+ Create New Race** form — see
+[Audience display views](displays.md#qr-code) for what the screen actually
+shows and which page the code opens.
 
 ### Car numbering
 

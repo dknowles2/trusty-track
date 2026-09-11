@@ -3,7 +3,7 @@ import { firstProblem, RACE_SECTIONS, sectionsFor } from './raceSettingsSections
 
 describe('which sections are offered', () => {
     it('gives the edit form one entry per section, in order', () => {
-        expect(sectionsFor(true).map((s) => s.id)).toEqual(['event', 'scoring', 'checkin', 'words']);
+        expect(sectionsFor(true).map((s) => s.id)).toEqual(['event', 'scoring', 'checkin', 'words', 'displays']);
     });
 
     it('gives the create form none, because a wizard is not sectioned', () => {

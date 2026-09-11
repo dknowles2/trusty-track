@@ -46,10 +46,14 @@ export interface RaceFormData {
     weight_limit_oz?: number | null;
     /** Custom call-to-action text for the full-screen QR code display view
      * (#614). Empty means no override — the screen falls back to a default
-     * derived from what the code points at. */
+     * derived from what the code points at. Offered on the edit form only
+     * (#945) — see the Displays section in `RaceForm` — though `createRace`
+     * accepts it exactly as `updateRace` does; `buildCreateRaceInput` simply
+     * never sends it. */
     qr_headline?: string | null;
     /** Optional venue Wi-Fi guidance for the QR code display view (#614),
-     * shown under the code when set. */
+     * shown under the code when set. Edit-only, the same as `qr_headline`
+     * above and for the same reason. */
     qr_wifi_note?: string | null;
     /**
      * One interleaved running order across racing groups, instead of a
@@ -486,45 +490,6 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                 </div>
                             )}
 
-                            {/* The QR code display view's own text (#614) — both
-                                optional, and available at creation like the rest of
-                                this section rather than gated on `isEditing`:
-                                `createRace` accepts them the same way `updateRace`
-                                does. Left blank, the screen falls back to a headline
-                                derived from what the code points at and shows no
-                                Wi-Fi line at all. Under the venue fields (date, time,
-                                location) rather than under Check-in — this is about
-                                what a screen shows the audience, not the desk. */}
-                            <div>
-                                <label style={labelStyle} htmlFor="race-qr-headline">
-                                    QR code headline (optional)
-                                </label>
-                                <input
-                                    id="race-qr-headline"
-                                    type="text"
-                                    placeholder="e.g. Scan to Vote for Best in Show!"
-                                    value={formData.qr_headline ?? ''}
-                                    onChange={e => handleChange('qr_headline', e.target.value)}
-                                    className="form-control"
-                                    style={inputStyle}
-                                />
-                                <label style={labelStyle} htmlFor="race-qr-wifi-note">
-                                    Venue Wi-Fi guidance (optional)
-                                </label>
-                                <input
-                                    id="race-qr-wifi-note"
-                                    type="text"
-                                    placeholder={`e.g. Connect to ${org} 123 Guest Wi-Fi`}
-                                    value={formData.qr_wifi_note ?? ''}
-                                    onChange={e => handleChange('qr_wifi_note', e.target.value)}
-                                    className="form-control"
-                                    style={inputStyle}
-                                />
-                                <p style={helpStyle}>
-                                    Shown on the full-screen QR code audience display, under the code — see
-                                    the Displays panel on Race Control.
-                                </p>
-                            </div>
                         </section>
                     )}
 
@@ -980,6 +945,55 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                 )}
                                 <p style={{ ...helpStyle, marginTop: 0 }}>
                                     Overrides the install-wide default from System Settings, for this race only.
+                                </p>
+                            </div>
+                        </section>
+                    )}
+
+                    {/* ---- Displays: what the QR code screen says ---- */}
+                    {/* Both fields are accepted by `createRace` exactly as `updateRace`
+                        accepts them — see `raceInput.ts` — but they used to sit in the
+                        Event section of *this form*, ahead of the scoring decision every
+                        race needs, in front of every first-time organizer (#945). They
+                        serve one audience-display view most packs never assign, so this
+                        whole section is edit-only, the same `isEditing &&` gate "Words
+                        and names" uses and for the same reason: there is nothing wrong
+                        with the create form sending them, the create form is simply the
+                        wrong place to ask. Left blank, the QR code screen falls back to a
+                        headline derived from what the code points at and shows no Wi-Fi
+                        line at all. */}
+                    {isEditing && shows('displays') && (
+                        <section aria-labelledby="race-section-displays" data-testid="race-section-displays">
+                            <GroupHeading id="displays" sectioned={sectioned} />
+
+                            <div>
+                                <label style={labelStyle} htmlFor="race-qr-headline">
+                                    QR code headline (optional)
+                                </label>
+                                <input
+                                    id="race-qr-headline"
+                                    type="text"
+                                    placeholder="e.g. Scan to Vote for Best in Show!"
+                                    value={formData.qr_headline ?? ''}
+                                    onChange={e => handleChange('qr_headline', e.target.value)}
+                                    className="form-control"
+                                    style={inputStyle}
+                                />
+                                <label style={labelStyle} htmlFor="race-qr-wifi-note">
+                                    Venue Wi-Fi guidance (optional)
+                                </label>
+                                <input
+                                    id="race-qr-wifi-note"
+                                    type="text"
+                                    placeholder={`e.g. Connect to ${org} 123 Guest Wi-Fi`}
+                                    value={formData.qr_wifi_note ?? ''}
+                                    onChange={e => handleChange('qr_wifi_note', e.target.value)}
+                                    className="form-control"
+                                    style={inputStyle}
+                                />
+                                <p style={helpStyle}>
+                                    Shown on the full-screen QR code audience display, under the code — see
+                                    the Displays panel on Race Control.
                                 </p>
                             </div>
                         </section>

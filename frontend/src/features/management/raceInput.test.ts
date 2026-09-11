@@ -45,15 +45,20 @@ describe('buildCreateRaceInput', () => {
         ).toBe(1);
     });
 
-    it('carries the QR code display view text (#614)', () => {
+    it('never sends the QR code display view text (#945) — it is offered on the edit form only', () => {
+        // `RaceForm`'s Displays section that sets these is edit-only, so
+        // `data` never carries them on a real create submission — but even a
+        // caller that sets them anyway must not see them reach `createRace`,
+        // or the one mutation both forms build through could disagree with
+        // what the screen sends.
         const input = buildCreateRaceInput({
             ...baseFormData,
             qr_headline: 'Scan to Vote for Best in Show!',
             qr_wifi_note: 'Connect to Pack 123 Guest Wi-Fi',
         });
 
-        expect(input.qrHeadline).toBe('Scan to Vote for Best in Show!');
-        expect(input.qrWifiNote).toBe('Connect to Pack 123 Guest Wi-Fi');
+        expect(input).not.toHaveProperty('qrHeadline');
+        expect(input).not.toHaveProperty('qrWifiNote');
     });
 
     it('carries the racing groups the wizard scaffolded or copied (#662)', () => {
@@ -140,8 +145,6 @@ describe('buildCreateRaceInput', () => {
             globalStartNumber: 1,
             championshipTrophies: 3,
             weightLimitOz: 5.0,
-            qrHeadline: undefined,
-            qrWifiNote: undefined,
             // A plain form submission: no groups, no awards, and every word inherited.
             racingGroups: [],
             awards: [],
