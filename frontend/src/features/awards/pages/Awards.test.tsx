@@ -513,8 +513,16 @@ describe('the awards page', () => {
       // as a display view.
       expect(screen.queryByRole('link', { name: 'Present' })).not.toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Print certificates' })).not.toBeInTheDocument();
-      expect(screen.getByText('Present')).toHaveAttribute('aria-disabled', 'true');
-      expect(screen.getByText('Print certificates')).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('button', { name: 'Present' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Print certificates' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Present' })).toHaveAttribute(
+        'title',
+        'Add an award first.',
+      );
+      expect(screen.getByRole('button', { name: 'Print certificates' })).toHaveAttribute(
+        'title',
+        'Add an award first.',
+      );
     });
 
     it('gives the empty state its own way to add an award, not just the corner button', () => {
