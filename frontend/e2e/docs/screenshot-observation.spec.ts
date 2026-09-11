@@ -192,10 +192,10 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     // so the row count would otherwise follow how many this run happened to
     // open.
     //
-    // This tab goes to Race Control *first*: it is a display too while it sits
-    // on the Live page, and clearing one whose socket is still open just brings
-    // it back.
-    await page.goto(`/race/${raceId}/control/displays`);
+    // This tab goes to the Displays page *first*: it is a display too while
+    // it sits on the Live page, and clearing one whose socket is still open
+    // just brings it back.
+    await page.goto(`/race/${raceId}/displays`);
     await page.waitForLoadState('networkidle');
 
     const registered = await gql<{ displays: Array<{ displayId: string }> }>(
@@ -313,26 +313,33 @@ test('screenshot the audience displays', async ({ page, browser }) => {
 
     await displayContext.close();
 
-    await page.goto(`/race/${raceId}/observation`);
-    await expect(page.locator('.heat-card').first()).toBeVisible();
-    await page.waitForLoadState('networkidle');
-
     // 02: the race navigation, which is what the section around it is about —
-    // finding the Live tab. It used to be a second copy of 01, captioned as
-    // showing a URL that a Playwright screenshot cannot contain (#144).
+    // finding the Displays tab, where Live is now opened from (#958). It
+    // used to be a second copy of 01, captioned as showing a URL that a
+    // Playwright screenshot cannot contain (#144).
+    //
+    // Taken here, while `page` is still on the Displays page from the
+    // ceremony work above, rather than after navigating to `/observation` —
+    // the operator chrome hides unconditionally there now (#958), so the
+    // race-nav row this picture is about would not exist on that page any
+    // more.
     //
     // `page.locator('nav').last()` used to be `.first()` too, since the page
     // has exactly one `<nav>` element — the top header bar with the logo and
-    // the race picker. The row holding the Live tab is a `<div
+    // the race picker. The row holding the Displays tab is a `<div
     // data-testid="race-nav">` underneath it (Navigation.tsx), so that lookup
     // always captured the header and never the tabs the caption points at.
     const raceNav = page.getByTestId('race-nav');
-    await expect(raceNav.getByRole('link', { name: /Live/i })).toBeVisible();
+    await expect(raceNav.getByRole('link', { name: /Displays/i })).toBeVisible();
     const navBox = await raceNav.boundingBox();
     await page.screenshot({
         path: path.join(SCREENSHOT_DIR, '02-observation-url.png'),
         ...(navBox ? { clip: { x: 0, y: 0, width: 1200, height: navBox.y + navBox.height + 10 } } : {}),
     });
+
+    await page.goto(`/race/${raceId}/observation`);
+    await expect(page.locator('.heat-card').first()).toBeVisible();
+    await page.waitForLoadState('networkidle');
 
     // 03: the "Now Racing" card area.
     const nowRacingCard = page.locator('.heat-card').first();

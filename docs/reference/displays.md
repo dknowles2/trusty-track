@@ -7,7 +7,7 @@ For the setup walkthrough, see the
 ## The ten views
 
 Every screen with the Live page open can be switched between these, from
-**Race Control → Displays** or by its own URL. The dropdown groups them by
+**Displays** or by its own URL. The dropdown groups them by
 when in the evening each is useful — **During racing** (Standings, Last
 heat's times, Cycle between both, Projector, Broadcast overlay), **Between
 heats** (Racer photos, Standings only, QR code), **Before racing** (Check-in
@@ -152,7 +152,7 @@ can arrive after the first heat and still join the schedule (see
 [Mid-race changes](mid-race-changes.md)), so this screen has no reason to
 disappear the moment racing begins — nothing on it could switch itself away
 even if it should, since a display holds no PIN and can be told what to show
-only from Race Control (see "How assignment works" below). Once the first
+only from the Displays panel (see "How assignment works" below). Once the first
 heat is recorded it shows a small note that racing is underway and cars can
 still check in at the desk, and shrinks its own type a little to say, without
 words, that the room's attention has moved on.
@@ -230,8 +230,8 @@ than sitting empty.
 
 **A compact standings ticker, on by default.** The top five, by rank, along
 the top of the screen — what fills the gap between heats a bar alone would
-leave blank. Turn it off on the display's own row in **Race Control →
-Displays** (**Heat only**) if you would rather the overlay showed nothing
+leave blank. Turn it off on the display's own row in **Displays**
+(**Heat only**) if you would rather the overlay showed nothing
 but the bar.
 
 **A finish banner reveals the result and lingers for ten seconds.** Longer
@@ -363,7 +363,7 @@ on the same computer used to report the identical screen twice, because every
 browser tab on one machine shares that machine's stored identity: assigning a
 view to one moved both windows at once.
 
-- **Race Control → Displays** has an **Open a new display window** button.
+- **The Displays page has an Open a new display window button.**
   It opens a second window that is already its own screen — nothing to type,
   and nothing for it to contend with the tab that opened it.
 - **Reloading a display window keeps its identity.** A genuinely new tab or

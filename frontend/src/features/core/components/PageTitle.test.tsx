@@ -36,7 +36,7 @@ describe('PageTitle', () => {
     });
 
     it('uses the view alone for a race it has no name for yet', () => {
-        renderAt('/race/3/control/displays');
+        renderAt('/race/3/displays');
         expect(document.title).toBe('Displays');
     });
 

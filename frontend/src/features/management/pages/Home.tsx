@@ -8,7 +8,7 @@ import { buildCreateRaceInput, type RaceSetupData } from '../raceInput';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { Icon } from '@mdi/react';
-import { mdiPlus, mdiFlagCheckered, mdiVideo, mdiSchool, mdiDotsHorizontal, mdiAccountGroup, mdiPencil, mdiTrophy, mdiPrinter } from '@mdi/js';
+import { mdiPlus, mdiFlagCheckered, mdiMonitorMultiple, mdiSchool, mdiDotsHorizontal, mdiAccountGroup, mdiPencil, mdiTrophy, mdiPrinter } from '@mdi/js';
 import logoFullUrl from '../../../assets/logo_full_transparent.png';
 import LockedBadge from '../../core/components/LockedBadge';
 import RaceStatusBadge, { type RaceStatus } from '../components/RaceStatusBadge';
@@ -284,14 +284,15 @@ export default function Home() {
                                     <td className="mobile-hide" style={{ padding: '15px', textAlign: 'center' }}>{race.checkedInCount || 0}</td>
                                      <td style={{ padding: '15px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                                         {/* Same words as the race navigation row (Roster, Control,
-                                            Live) rather than a third vocabulary — "View" here and
-                                            "Live" there were the same destination under two names
-                                            (#589). */}
+                                            Displays) rather than a third vocabulary — "View" here
+                                            and "Live" there were the same destination under two
+                                            names (#589); the row's own sixth link is Displays now,
+                                            not Live, so this follows it there too (#958). */}
                                         <Link to={`/race/${race.id}/control`} className="secondary-btn" style={{ textDecoration: 'none', fontSize: '0.9rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <Icon path={mdiFlagCheckered} size={0.7} /> Control
                                         </Link>
-                                        <Link to={`/race/${race.id}/observation`} className="secondary-btn" style={{ textDecoration: 'none', fontSize: '0.9rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <Icon path={mdiVideo} size={0.7} /> Live
+                                        <Link to={`/race/${race.id}/displays`} className="secondary-btn" style={{ textDecoration: 'none', fontSize: '0.9rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Icon path={mdiMonitorMultiple} size={0.7} /> Displays
                                         </Link>
                                         <div className="dropdown" style={{ position: 'relative' }}>
                                             <button

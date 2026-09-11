@@ -7,7 +7,7 @@ const LINKS = [
     { to: '/race/1/standings' },
     { to: '/race/1/awards' },
     { to: '/race/1/stats' },
-    { to: '/race/1/observation' },
+    { to: '/race/1/displays' },
 ];
 
 describe('activeNavLink', () => {

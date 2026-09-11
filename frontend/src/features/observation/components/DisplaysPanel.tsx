@@ -17,7 +17,7 @@
  * shareable address, before the Awards page's ballot share step ever did.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useClient, useMutation, useQuery, useSubscription } from 'urql';
 import { Icon } from '@mdi/react';
 import {
@@ -79,7 +79,7 @@ interface DisplaysPanelProps {
     raceId: number;
     /**
      * Told whenever the answer to "is any display known for this race"
-     * changes (#850) — the Displays tab uses it to decide whether Scenes
+     * changes (#850) — the Displays page uses it to decide whether Scenes
      * has anything to apply to, rather than that panel running a second
      * query answering the same question this one already does.
      */
@@ -110,7 +110,7 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     // (backend/api/auth.py's OPERATOR_ONLY_MUTATIONS) — a display holds no
     // PIN by design and registers by *subscribing*, never by calling one of
     // these itself (see ".claude/rules/displays.md"), so a check-in tablet
-    // opening Race Control's Displays tab used to see every control here
+    // opening the Displays page used to see every control here
     // fully enabled. "Open a new display window" is untouched: it is a
     // plain `window.open`, not a mutation.
     const { isOperator } = useRole();
@@ -177,24 +177,54 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     // contend with the tab that opened it.
     const openNewDisplay = () => window.open(newDisplayWindowUrl(raceId), '_blank', 'noopener');
 
+    // Live itself, and the shortcut straight to Projector Mode (#958) —
+    // both open a new tab, `noopener`, the same as `openNewDisplay` above and
+    // "Launch Projector Mode" on the Live page itself. Neither carries a
+    // fresh `displayId`: unlike a deliberate *second* screen, clicking one of
+    // these from the operator's own machine is meant to put *this* computer's
+    // own display on air, the same identity a `?displayId=` would otherwise
+    // contend with. This is what "Live" used to do by replacing the
+    // operator's own page — the race row now points here instead, and this
+    // is where opening it lives.
+    const openLive = () => window.open(`/race/${raceId}/observation`, '_blank', 'noopener');
+    const launchProjector = () =>
+        window.open(`/race/${raceId}/observation?projector=true`, '_blank', 'noopener');
+
+    const launchButtonStyle: CSSProperties = {
+        padding: '0.4rem 0.8rem',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+    };
+
+    const launchButtons = (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <button type="button" onClick={openLive} className="secondary-btn" style={launchButtonStyle}>
+                <Icon path={mdiOpenInNew} size={0.7} />
+                Open Live on this screen
+            </button>
+            <button type="button" onClick={launchProjector} className="secondary-btn" style={launchButtonStyle}>
+                <Icon path={mdiOpenInNew} size={0.7} />
+                Launch projector
+            </button>
+            <button type="button" onClick={openNewDisplay} className="secondary-btn" style={launchButtonStyle}>
+                <Icon path={mdiOpenInNew} size={0.7} />
+                Open a new display window
+            </button>
+        </div>
+    );
+
     if (displays.length === 0) {
         return (
             <div style={{ display: 'grid', gap: '1rem' }}>
                 <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted-color)' }}>
                     <p style={{ margin: 0 }}>No audience displays are open yet.</p>
-                    <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem' }}>
-                        Open <strong>Live</strong> on a screen anywhere on this network and it
-                        will appear here — there is nothing to set up first.
+                    <p style={{ margin: '0.5rem 0 1rem', fontSize: '0.9rem' }}>
+                        Click <strong>Open Live on this screen</strong>, or open it on another
+                        device using the address below — either way it appears here, with
+                        nothing to set up first.
                     </p>
-                    <button
-                        type="button"
-                        onClick={openNewDisplay}
-                        className="secondary-btn"
-                        style={{ marginTop: '1rem', padding: '0.4rem 0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-                    >
-                        <Icon path={mdiOpenInNew} size={0.7} />
-                        Open a new display window
-                    </button>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>{launchButtons}</div>
                 </div>
                 {/* On a screen this laptop cannot open a browser window on —
                     the wall-mounted display or the check-in tablet a new
@@ -207,15 +237,7 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
 
     return (
         <div style={{ display: 'grid', gap: '0.75rem' }}>
-            <button
-                type="button"
-                onClick={openNewDisplay}
-                className="secondary-btn"
-                style={{ justifySelf: 'start', padding: '0.4rem 0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-            >
-                <Icon path={mdiOpenInNew} size={0.7} />
-                Open a new display window
-            </button>
+            {launchButtons}
             <ConnectDisplayAddress raceId={raceId} />
             {displays.map((display) => {
                 const currentOption = VIEW_OPTIONS.find((option) => option.view === display.view);

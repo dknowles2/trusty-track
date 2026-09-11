@@ -561,6 +561,39 @@ describe('opening a new display window (#590)', () => {
     });
 });
 
+describe('putting this screen on air (#958)', () => {
+    // Live used to be a race-row destination that replaced the operator's
+    // own page; these two buttons are where opening it moved to. Neither
+    // carries a fresh `displayId` the way "Open a new display window" does
+    // — the point is putting *this* computer's own screen on air, not a
+    // deliberate second one.
+    it('opens Live on this screen, new tab, noopener, no displayId', () => {
+        renderPanel('STANDINGS');
+        const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Open Live on this screen' }));
+
+        expect(openSpy).toHaveBeenCalledWith('/race/1/observation', '_blank', 'noopener');
+        openSpy.mockRestore();
+    });
+
+    it('launches projector mode the same way', () => {
+        renderPanel('STANDINGS');
+        const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Launch projector' }));
+
+        expect(openSpy).toHaveBeenCalledWith('/race/1/observation?projector=true', '_blank', 'noopener');
+        openSpy.mockRestore();
+    });
+
+    it('is offered even before any display has opened', () => {
+        renderPanel('STANDINGS', 10, true, 2, false);
+        expect(screen.getByRole('button', { name: 'Open Live on this screen' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Launch projector' })).toBeInTheDocument();
+    });
+});
+
 describe('reporting whether any display is known for this race (#850)', () => {
     // `ScenesPanel` has no query of its own for this — it would be a second
     // subscription answering the same question this one already does. The

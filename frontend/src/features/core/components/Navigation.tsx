@@ -10,7 +10,7 @@ import RaceSetupWizard from '../../management/components/RaceSetupWizard';
 import { buildCreateRaceInput, type RaceSetupData } from '../../management/raceInput';
 import { useAlert } from '../../../context/AlertContext';
 import { Icon } from '@mdi/react';
-import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiAccountGroup, mdiMedal, mdiVideo, mdiMenu, mdiClose, mdiTrophy, mdiChartBar } from '@mdi/js';
+import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiAccountGroup, mdiMedal, mdiMonitorMultiple, mdiMenu, mdiClose, mdiTrophy, mdiChartBar } from '@mdi/js';
 import LockedBadge from './LockedBadge';
 import logoUrl from '../../../assets/logo_transparent.png';
 import { UnlockButton } from './UnlockButton';
@@ -124,7 +124,14 @@ export default function Navigation() {
         { to: `/race/${raceId}/standings`, label: 'Standings', icon: mdiTrophy },
         { to: `/race/${raceId}/awards`, label: 'Awards', icon: mdiMedal },
         { to: `/race/${raceId}/stats`, label: 'Stats', icon: mdiChartBar },
-        { to: `/race/${raceId}/observation`, label: 'Live', icon: mdiVideo }
+        // Live used to sit here — clicking it replaced the operator's own
+        // page with the audience display, still wearing the operator's
+        // chrome, which is a launch point behaving like a destination
+        // (#958). Displays takes its place: the operator's own page for
+        // "which screen shows what", with "Open Live on this screen" as one
+        // of its own buttons, opening in a new tab rather than taking this
+        // one over.
+        { to: `/race/${raceId}/displays`, label: 'Displays', icon: mdiMonitorMultiple }
       );
   }
 

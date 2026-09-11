@@ -1,7 +1,7 @@
 /**
  * Display scenes: configuring every audience screen at once (#613).
  *
- * Sits above `DisplaysPanel` on Race Control's Displays tab. Four built-in
+ * Sits above `DisplaysPanel` on the race navigation row's Displays page (#958). Four built-in
  * presets are always offered — code, applied live against whichever screens
  * this process currently knows for the race (connected or not), nothing
  * stored (see `backend/domain/scenes.py`).

@@ -38,7 +38,7 @@ test('an operator can see a display and change what it shows', async ({ browser,
     await openDisplay(display, raceId, 'spec-display-1');
 
     // The operator's list learns about it without anyone adding anything.
-    await page.goto(`/race/${raceId}/control/displays`);
+    await page.goto(`/race/${raceId}/displays`);
     const row = page.getByTestId('display-spec-display-1');
     await expect(row).toBeVisible();
 
@@ -79,7 +79,7 @@ test('scenes are disabled with a reason until a display connects (#850)', async 
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Scenes Disabled Race');
 
-    await page.goto(`/race/${raceId}/control/displays`);
+    await page.goto(`/race/${raceId}/displays`);
 
     // The connect panel is what is actually there while nothing is
     // connected, and Scenes has nothing yet to apply to.
@@ -108,7 +108,7 @@ test('a display that goes away stays listed, and can be forgotten', async ({ bro
     const display = await displayContext.newPage();
     await openDisplay(display, raceId, 'spec-display-2');
 
-    await page.goto(`/race/${raceId}/control/displays`);
+    await page.goto(`/race/${raceId}/displays`);
     await expect(page.getByTestId('display-spec-display-2')).toBeVisible();
 
     // Closing the tab is the only signal a screen has gone. It must not vanish
@@ -171,7 +171,7 @@ test('two windows on the same computer register as two distinct displays', async
     await second.goto(`/race/${raceId}/observation`);
     await second.waitForLoadState('networkidle');
 
-    await page.goto(`/race/${raceId}/control/displays`);
+    await page.goto(`/race/${raceId}/displays`);
     const rows = page.locator('[data-testid^="display-"]');
     await expect(rows).toHaveCount(2, { timeout: 10000 });
 
@@ -196,7 +196,7 @@ test('two windows on the same computer register as two distinct displays', async
     // display nor swaps places with the other window.
     await second.reload();
     await second.waitForLoadState('networkidle');
-    await page.goto(`/race/${raceId}/control/displays`);
+    await page.goto(`/race/${raceId}/displays`);
     await expect(rows).toHaveCount(2, { timeout: 10000 });
 
     await first.close();
@@ -204,14 +204,14 @@ test('two windows on the same computer register as two distinct displays', async
 });
 
 test('the operator can open a second display window with one click', async ({ page, context }) => {
-    // Race Control's own launcher (#590): a fresh id baked into the URL, so
+    // The Displays panel's own launcher (#590): a fresh id baked into the URL, so
     // the new window is a distinct screen from the moment it opens rather
     // than briefly contending with this tab's own claim on the shared
     // device id.
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Open New Display Race');
 
-    await page.goto(`/race/${raceId}/control/displays`);
+    await page.goto(`/race/${raceId}/displays`);
     const [popup] = await Promise.all([
         context.waitForEvent('page'),
         page.getByRole('button', { name: 'Open a new display window' }).click(),
@@ -254,7 +254,7 @@ test('a screen sent to the awards ceremony can still be called back', async ({ b
     const display = await displayContext.newPage();
     await openDisplay(display, raceId, 'spec-display-3');
 
-    await page.goto(`/race/${raceId}/control/displays`);
+    await page.goto(`/race/${raceId}/displays`);
     const row = page.getByTestId('display-spec-display-3');
     await expect(row).toBeVisible();
 
@@ -298,7 +298,7 @@ test('an operator can drive the ceremony on a screen across the room', async ({ 
     const display = await displayContext.newPage();
     await openDisplay(display, raceId, 'spec-display-4');
 
-    await page.goto(`/race/${raceId}/control/displays`);
+    await page.goto(`/race/${raceId}/displays`);
     const row = page.getByTestId('display-spec-display-4');
     await expect(row).toBeVisible();
 
@@ -340,7 +340,7 @@ test('Identify reaches a screen showing the awards ceremony', async ({ browser, 
     const display = await displayContext.newPage();
     await openDisplay(display, raceId, 'spec-display-6');
 
-    await page.goto(`/race/${raceId}/control/displays`);
+    await page.goto(`/race/${raceId}/displays`);
     const row = page.getByTestId('display-spec-display-6');
     await expect(row).toBeVisible();
 
@@ -368,7 +368,7 @@ test('the ceremony is offered only once the race has awards', async ({ browser, 
     const display = await displayContext.newPage();
     await openDisplay(display, raceId, 'spec-display-5');
 
-    await page.goto(`/race/${raceId}/control/displays`);
+    await page.goto(`/race/${raceId}/displays`);
     const row = page.getByTestId('display-spec-display-5');
     await expect(row).toBeVisible();
     await expect(row.getByRole('combobox')).not.toContainText('Awards ceremony');
@@ -384,7 +384,7 @@ test('the ceremony is offered only once the race has awards', async ({ browser, 
     // Coming back to the tab is what re-reads it, which is the operator's own
     // order: set the awards up, then put the ceremony on a screen.
     await page.goto(`/race/${raceId}/control/schedule`);
-    await page.goto(`/race/${raceId}/control/displays`);
+    await page.goto(`/race/${raceId}/displays`);
     await expect(row.getByRole('combobox')).toContainText('Awards ceremony');
 
     await displayContext.close();

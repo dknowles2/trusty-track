@@ -24,7 +24,17 @@ function KeyedRaceControl() {
     const { raceId } = useParams<{ raceId: string }>();
     return <RaceControl key={raceId} />;
 }
+
+/** `/race/:raceId/control/displays` moved to `/race/:raceId/displays` (#958)
+ * — Displays is a race-row page now, not a Race Control sub-tab, and Control
+ * keeps Schedule / Race / Free Race. This keeps an old bookmark or a stale
+ * link working rather than landing on the schedule with no explanation. */
+function RedirectControlDisplays() {
+    const { raceId } = useParams<{ raceId: string }>();
+    return <Navigate to={`/race/${raceId}/displays`} replace />;
+}
 import Observation from './features/observation/pages/Observation';
+import DisplaysPage from './features/observation/pages/DisplaysPage';
 import Standings from './features/stats/pages/Standings';
 import RaceStats from './features/stats/pages/RaceStats';
 import Awards from './features/awards/pages/Awards';
@@ -190,6 +200,12 @@ function App() {
                 {/* Keyed on the race: switching races is a fresh screen, so no
                     state from the last one can survive into the next. */}
                 <Route path="/race/:raceId/control/:tab?" element={raceRoute(<KeyedRaceControl />)} />
+                {/* Displays lives in the race row now, not under Control
+                    (#958) — a literal path segment outranks the dynamic
+                    `:tab?` above it, so an old `/control/displays` link still
+                    lands somewhere sensible. */}
+                <Route path="/race/:raceId/control/displays" element={raceRoute(<RedirectControlDisplays />)} />
+                <Route path="/race/:raceId/displays" element={raceRoute(<DisplaysPage />)} />
                 <Route path="/race/:raceId/observation" element={raceRoute(<Observation />)} />
 
                 {/* Legacy redirects */}

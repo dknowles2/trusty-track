@@ -122,8 +122,8 @@ the address is whatever this machine's own network settings say:
 > `http://192.168.1.42:8000` if yours shows `http://localhost:8000`.
 
 Two places in the app offer to hand out an address for you, with a **Copy**
-button and a QR code, rather than making you type either form above: **Race
-Control → Displays**, for connecting a wall display or a check-in tablet, and
+button and a QR code, rather than making you type either form above:
+**Displays**, for connecting a wall display or a check-in tablet, and
 the voting page's sharing step (see
 [Letting people vote](awards.md#letting-people-vote)). Both show the `.local`
 name whenever Trusty Track successfully registered one, and fall back to the
@@ -203,7 +203,7 @@ Trusty Track has no idea it is being streamed anywhere at all.
 
 **Turning the standings ticker off, or choosing which page it opens,
 without touching OBS again.** Once the source is added, the overlay shows
-up in **Race Control → Displays** the same as any other screen — find it in
+up in **Displays** the same as any other screen — find it in
 the list (it will have picked its own name, like every display does) and
 use its row to switch the ticker on or off. You never need to re-enter the
 URL in OBS for this; the running Browser Source picks up the change live.
