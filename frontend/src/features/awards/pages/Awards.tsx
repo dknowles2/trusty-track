@@ -12,7 +12,14 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from 'urql';
 import { Icon } from '@mdi/react';
-import { mdiArrowDown, mdiArrowUp, mdiPencil, mdiTrashCan, mdiTrophyOutline } from '@mdi/js';
+import {
+  mdiArrowDown,
+  mdiArrowUp,
+  mdiOpenInNew,
+  mdiPencil,
+  mdiTrashCan,
+  mdiTrophyOutline,
+} from '@mdi/js';
 import Modal from '../../../components/ui/Modal';
 import StatusBanner from '../../../components/ui/StatusBanner';
 import { useAlert } from '../../../context/AlertContext';
@@ -252,8 +259,13 @@ export default function Awards() {
             as an empty bar with a rule under it. */}
         <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Awards</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {/* Opens the ceremony on this screen. It is an ordinary route, so it
-              is also the address to point a projector at. Present opens a
+          {/* Opens the ceremony in a new tab, the same way Launch Projector
+              Mode does — the docs already tell the operator to run the
+              ceremony on the projector machine, and the chrome-hiding route
+              had no way back from an operator's own tab except the browser's
+              Back button, which a kiosk or a full-screen tablet may not have
+              (#955). It is still an ordinary route underneath, so it is also
+              the address to point a projector at directly. Present opens a
               ceremony with nothing in it and the certificates page already
               refuses to print with nothing to print, so both are disabled
               rather than offered on a race with no awards — the same rule
@@ -261,9 +273,17 @@ export default function Awards() {
               a display view: an option that can only disappoint is worse
               than one that is absent (#790). */}
           {awards.length > 0 ? (
-            <Link to={`/race/${id}/awards/present`} className="secondary-btn">
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() =>
+                window.open(`/race/${id}/awards/present`, '_blank', 'noopener')
+              }
+              style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+            >
               Present
-            </Link>
+              <Icon path={mdiOpenInNew} size={0.6} />
+            </button>
           ) : (
             <span className="secondary-btn" aria-disabled="true" title="Add an award first.">
               Present

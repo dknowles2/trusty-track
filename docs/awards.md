@@ -196,15 +196,25 @@ missing. Edit it and choose which standings it reads and which place wins it.
 
 ## Announcing them
 
-**Present** opens the ceremony: one award at a time, filling the screen, with
-the winner's photo and — for a ready-made superlative or a speed award —
-its artwork. Click or press the right arrow for the next one — a presenter
-remote works too, since it sends the same keys.
+**Present** opens the ceremony in a new tab, the same way **Launch Projector
+Mode** does — leaving your own tab on the Awards page. One award fills the
+screen at a time, with the winner's photo and — for a ready-made superlative
+or a speed award — its artwork. Click or press the right arrow for the next
+one — a presenter remote works too, since it sends the same keys.
 
 ![One award filling the screen, with its winner](assets/screenshots/awards/04-ceremony-slide.png)
 
 It is an ordinary address (`/race/1/awards/present`), so you can also open it
 directly on the machine driving the projector.
+
+### Leaving the ceremony
+
+The ceremony fills the whole screen with no navigation bar, which is the
+point — nothing should distract from the trophy on the projector. To leave
+it: press **Escape**, or move the mouse and click **← Back to awards** in the
+top-left corner. The link fades out after a few seconds so it stays out of
+the photograph, and reappears the moment you move the pointer again or tab
+to it with the keyboard.
 
 ### Driving it from where you are
 
