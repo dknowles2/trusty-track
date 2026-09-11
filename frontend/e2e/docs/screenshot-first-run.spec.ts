@@ -30,7 +30,7 @@
  *   specs happened to have got to, which is a different picture every run.
  */
 
-import { test, expect } from './screenshots-setup';
+import { test, expect, screenshotLocator } from './screenshots-setup';
 import type { Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -188,9 +188,9 @@ test('screenshot the first run', async ({ page }) => {
         await page.goto('/system-settings');
         await page.getByTestId('settings-nav-access').click();
         await expect(page.getByTestId('operator_pin-remove')).toBeVisible();
-        await page
-            .getByTestId('access-panel')
-            .screenshot({ path: path.join(SETTINGS_DIR, '03-access-pins.png') });
+        await screenshotLocator(page.getByTestId('access-panel'), {
+            path: path.join(SETTINGS_DIR, '03-access-pins.png'),
+        });
     } finally {
         // Put it back before anything else starts. Everything below, and
         // every spec in the phases after this one, mutates without a PIN

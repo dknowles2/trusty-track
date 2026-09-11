@@ -9,7 +9,7 @@
  * a heat can actually be run start to finish without hardware.
  */
 
-import { test, expect } from './screenshots-setup';
+import { test, expect, screenshotLocator } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -83,7 +83,13 @@ test('screenshot free race', async ({ page }) => {
 
     await page.goto(`/race/${raceId}/control/free-race`);
     await expect(page.getByText('Free Race Setup')).toBeVisible();
-    await page.waitForTimeout(700);
+    // `randomFreeRaceLanes` is its own query, fired after the setup screen
+    // itself has rendered — the page shows "Loading random assignments..."
+    // (`FreeRaceLaneSetup.tsx`) until it answers, so a sleep here is a guess
+    // about how long that round trip takes rather than a wait on it, and
+    // under load the guess sometimes lost: the picture caught the loading
+    // placeholder instead of the drawn lanes (#970).
+    await expect(page.getByText('Loading random assignments...')).toBeHidden();
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '01-lane-setup-random.png') });
 
     // 06: the lane toggle row (#303), for "Turning a lane off for a few
@@ -95,7 +101,7 @@ test('screenshot free race', async ({ page }) => {
     const laneToggleRow = page.getByTestId('lane-toggle-row');
     await laneToggleRow.getByLabel(/Lane 2/).click();
     await expect(laneToggleRow.getByLabel(/Lane 2/)).not.toBeChecked();
-    await laneToggleRow.screenshot({ path: path.join(SCREENSHOT_DIR, '06-lane-toggle.png') });
+    await screenshotLocator(laneToggleRow, { path: path.join(SCREENSHOT_DIR, '06-lane-toggle.png') });
     await laneToggleRow.getByLabel(/Lane 2/).click();
     await expect(laneToggleRow.getByLabel(/Lane 2/)).toBeChecked();
 
