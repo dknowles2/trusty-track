@@ -238,6 +238,7 @@ export type TrackInput = {
 };
 
 export type WizardChampionshipRoundInput = {
+  advancementFromBottom?: boolean;
   name?: string;
   numTopRacers?: number;
   runsPerLane?: number;
@@ -250,6 +251,8 @@ export type WizardConfigurationInput = {
 };
 
 export type WizardGeneralRoundInput = {
+  balancedPhases?: number | null | undefined;
+  eliminationLosses?: number | null | undefined;
   runsPerLane?: number;
   schedulingStrategy?: string | null | undefined;
   type: string;

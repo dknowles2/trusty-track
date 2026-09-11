@@ -766,8 +766,14 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           laneCount={laneCount}
           championshipTrophies={championshipTrophies}
           minutesPerHeat={pace.minutesPerHeat}
-          onCreated={async () => {
+          onCreated={async (handPickRoundId) => {
               await onRefetchHeats();
+              // "I'll choose who races myself" (#711, #943) — the wizard now
+              // offers the same checkbox the Add Round dialog does, and hands
+              // off to the same picker this screen already owns for it.
+              if (handPickRoundId != null) {
+                onOpenHandPickModal?.(handPickRoundId);
+              }
           }}
         />
 

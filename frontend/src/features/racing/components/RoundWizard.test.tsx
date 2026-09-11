@@ -184,7 +184,7 @@ describe('RoundWizard Component', () => {
 
         await user.click(screen.getByText('Next'));
         await user.click(screen.getByText('Next'));
-        await user.click(screen.getByText('Generate Schedule'));
+        await user.click(screen.getByText('Generate schedule'));
 
         expect(mockExecuteMutation).toHaveBeenCalledWith({
             raceId: 1,
@@ -208,7 +208,7 @@ describe('RoundWizard Component', () => {
         await user.click(screen.getByText('Next'));
 
         // Create!
-        await user.click(screen.getByText('Generate Schedule'));
+        await user.click(screen.getByText('Generate schedule'));
 
         expect(mockExecuteMutation).toHaveBeenCalledWith({
             raceId: 1,
@@ -242,7 +242,7 @@ describe('RoundWizard Component', () => {
         await user.click(screen.getByText('Next'));
         await user.click(screen.getByText('Next'));
 
-        await user.click(screen.getByText('Generate Schedule'));
+        await user.click(screen.getByText('Generate schedule'));
 
         // Wait for the custom modal to show error
         await waitFor(() => {
@@ -270,7 +270,7 @@ describe('RoundWizard Component', () => {
         await user.click(screen.getByText('Next'));
 
         // Generate button should be disabled
-        const generateButton = screen.getByRole('button', { name: 'Generate Schedule' });
+        const generateButton = screen.getByRole('button', { name: 'Generate schedule' });
         expect(generateButton).toBeDisabled();
     });
 
@@ -295,6 +295,157 @@ describe('RoundWizard Component', () => {
         expect(
             screen.getByText(/\* Previews are based on 4 checked-in cars \(6 not checked in\)\. Only checked-in cars are put into heats\./i)
         ).toBeInTheDocument();
+    });
+
+    // #943: the wizard offers the same "How it's raced" and "Which cars
+    // race" choices `RoundConfigModal` (Add Round) already did, through the
+    // same shared fieldsets, so a pack no longer has to skip the recommended
+    // path to reach balanced, elimination, the Slowest Race, or a hand pick.
+
+    it('step 1 offers "How it\'s raced", and choosing elimination submits the strategy and its losses', async () => {
+        const user = userEvent.setup();
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+        await user.click(
+            screen.getByLabelText("Elimination — lose too many heats and you're out")
+        );
+        fireEvent.change(screen.getByLabelText('Losses before a car is out'), {
+            target: { value: '2' },
+        });
+
+        // The Format picker ("All Pack" / "By Den") only makes sense
+        // alongside PPC — RoundConfigModal hides it for the other two
+        // styles, and the wizard now matches.
+        expect(screen.queryByText('All Pack')).not.toBeInTheDocument();
+        expect(screen.queryByText('By Den')).not.toBeInTheDocument();
+
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Generate schedule'));
+
+        expect(mockExecuteMutation).toHaveBeenCalledWith({
+            raceId: 1,
+            config: expect.objectContaining({
+                generalRound: expect.objectContaining({
+                    schedulingStrategy: 'ELIMINATION',
+                    eliminationLosses: 2,
+                    type: 'ALL',
+                }),
+            }),
+        });
+    });
+
+    it('a general round chosen "By Den" reverts to "ALL" once elimination is chosen', async () => {
+        // Regression guard for the same rule `RoundConfigModal` already
+        // follows: an elimination or balanced round is always the whole
+        // pack, so a format picked before switching styles must not survive
+        // to the submitted config.
+        const user = userEvent.setup();
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+        await user.click(screen.getByText('By Den'));
+        await user.click(
+            screen.getByLabelText('Balanced — each round of heats matches cars doing about as well')
+        );
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Generate schedule'));
+
+        expect(mockExecuteMutation).toHaveBeenCalledWith({
+            raceId: 1,
+            config: expect.objectContaining({
+                generalRound: expect.objectContaining({
+                    schedulingStrategy: 'BALANCED',
+                    type: 'ALL',
+                }),
+            }),
+        });
+    });
+
+    it('step 2 never offers "How it\'s raced" — a championship round cannot also be elimination or balanced', async () => {
+        const user = userEvent.setup();
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+        // Choosing elimination in step 1 must not leak a style choice into
+        // step 2's championship round cards.
+        await user.click(
+            screen.getByLabelText("Elimination — lose too many heats and you're out")
+        );
+        await user.click(screen.getByText('Next'));
+
+        expect(
+            screen.queryByText("Elimination — lose too many heats and you're out")
+        ).not.toBeInTheDocument();
+        expect(screen.queryByText('Everyone races in every lane')).not.toBeInTheDocument();
+    });
+
+    it('step 2 offers "Which cars race", and choosing the slowest cars submits the direction and renames the round', async () => {
+        const user = userEvent.setup();
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByLabelText('The slowest cars'));
+        expect(screen.getByDisplayValue('Slowest Race')).toBeInTheDocument();
+
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Generate schedule'));
+
+        expect(mockExecuteMutation).toHaveBeenCalledWith({
+            raceId: 1,
+            config: expect.objectContaining({
+                championshipRounds: [
+                    expect.objectContaining({
+                        name: 'Slowest Race',
+                        advancementFromBottom: true,
+                    }),
+                ],
+            }),
+        });
+    });
+
+    it('step 2 offers "I\'ll choose who races myself", and opens the picker for that round once created', async () => {
+        mockExecuteMutation.mockResolvedValue({
+            data: {
+                createRoundWizard: [
+                    { id: 501, roundNumber: 1, name: 'All Pack Round' },
+                    { id: 502, roundNumber: 2, name: 'Grand Finals' },
+                ],
+            },
+        });
+        const user = userEvent.setup();
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByLabelText(/I'll choose who races myself/));
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Generate schedule'));
+
+        // The mutation itself never hears about the checkbox — the same
+        // client-side hand-off `RoundConfigModal`'s "pickFieldByHand" makes,
+        // never sent to `createRound` either.
+        const sentConfig = mockExecuteMutation.mock.calls[0][0].config;
+        expect(sentConfig.championshipRounds[0]).not.toHaveProperty('pickFieldByHand');
+
+        await waitFor(() => expect(mockOnCreated).toHaveBeenCalledWith(502));
+    });
+
+    it('reports no round to hand-pick when nothing asked for it', async () => {
+        mockExecuteMutation.mockResolvedValue({
+            data: {
+                createRoundWizard: [
+                    { id: 601, roundNumber: 1, name: 'All Pack Round' },
+                    { id: 602, roundNumber: 2, name: 'Grand Finals' },
+                ],
+            },
+        });
+        const user = userEvent.setup();
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Generate schedule'));
+
+        await waitFor(() => expect(mockOnCreated).toHaveBeenCalledWith(null));
     });
 });
 

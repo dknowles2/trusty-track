@@ -166,8 +166,8 @@ of what counts and what does not is in
 
 ## Choosing how a round is raced
 
-When you add a round that everyone races, the Add Round dialog asks **How
-it's raced**. Three choices:
+When you add a round that everyone races — in the Round Wizard's step 1, or
+later with **Add Round** — you're asked **How it's raced**. Three choices:
 
 | Choice | How it works | Good for |
 | --- | --- | --- |
