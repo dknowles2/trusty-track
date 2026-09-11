@@ -11,6 +11,8 @@
  * one. See `resolveView`.
  */
 
+import type { TerminologyWords } from '../../context/TerminologyContext';
+
 export type DisplayView =
     | 'STANDINGS'
     | 'TIMING'
@@ -232,6 +234,20 @@ export function resolveView(
 }
 
 /**
+ * When in the evening a view is actually useful — the `<optgroup>` heading
+ * on the Displays panel's select, and the grouping `groupedViewOptions`
+ * folds the flat list into (#948). A closed set rather than a boolean per
+ * moment: a view belongs to exactly one point in the evening, the same
+ * "one option, one bucket" shape `viewOptionsFor`'s AWARDS gating already
+ * assumes.
+ */
+export type ViewGroup = 'During racing' | 'Between heats' | 'Before racing' | 'After';
+
+/** The order groups are offered in — a rough timeline of an event, morning
+ * to evening. */
+const GROUP_ORDER: readonly ViewGroup[] = ['During racing', 'Between heats', 'Before racing', 'After'];
+
+/**
  * The choices the operator is offered, in the order they are offered.
  *
  * `cycles` marks the views that advance on a timer the operator can set —
@@ -239,23 +255,116 @@ export function resolveView(
  * seconds control on the Displays panel reads this rather than naming
  * views, so a future view that cycles gets its control by declaring it
  * here.
+ *
+ * `description` is one sentence naming what the view actually shows — the
+ * line under the select on the Displays panel (#948). It is lifted from
+ * `docs/reference/displays.md`'s own words rather than written fresh, so
+ * the two cannot say different things about the same view; that page stays
+ * the one place the full explanation lives. It takes the resolved
+ * terminology words rather than reading `useTerminology()` itself, the same
+ * split `setupChecklist.ts`'s `checklistFor` uses — a plain function even
+ * for the seven entries that never look at the words it is handed, so every
+ * entry has the same shape and a test can call all ten the same way.
  */
 export const VIEW_OPTIONS: readonly {
     view: DisplayView;
     label: string;
     cycles: boolean;
+    group: ViewGroup;
+    description: (words: TerminologyWords) => string;
 }[] = [
-    { view: 'STANDINGS', label: 'Standings', cycles: false },
-    { view: 'TIMING', label: "Last heat's times", cycles: false },
-    { view: 'CYCLE', label: 'Cycle between both', cycles: true },
-    { view: 'PROJECTOR', label: 'Projector', cycles: false },
-    { view: 'SLIDESHOW', label: 'Racer photos', cycles: true },
-    { view: 'STANDINGS_ONLY', label: 'Standings only', cycles: true },
-    { view: 'CHECKIN', label: 'Check-in progress', cycles: false },
-    { view: 'QRCODE', label: 'QR code', cycles: false },
-    { view: 'OVERLAY', label: 'Broadcast overlay (OBS)', cycles: false },
-    { view: 'AWARDS', label: 'Awards ceremony', cycles: false },
+    {
+        view: 'STANDINGS',
+        label: 'Standings',
+        cycles: false,
+        group: 'During racing',
+        description: () => 'The live leaderboard, plus the Now Racing / On Deck / After That panels.',
+    },
+    {
+        view: 'TIMING',
+        label: "Last heat's times",
+        cycles: false,
+        group: 'During racing',
+        description: (words) =>
+            `The most recently recorded heat: every ${words.vehicleLower} in finishing order, with place and time.`,
+    },
+    {
+        view: 'CYCLE',
+        label: 'Cycle between both',
+        cycles: true,
+        group: 'During racing',
+        description: () => "Standings and Last heat's times, alternating on a timer you set.",
+    },
+    {
+        view: 'PROJECTOR',
+        label: 'Projector',
+        cycles: false,
+        group: 'During racing',
+        description: () =>
+            'The full-screen, high-contrast layout: the live heat large on one side, top-five standings on the other, and a brief results overlay after each heat.',
+    },
+    {
+        view: 'SLIDESHOW',
+        label: 'Racer photos',
+        cycles: true,
+        group: 'Between heats',
+        description: (words) =>
+            `A slideshow of the check-in photos: headshot, ${words.vehicleLower}, name, number, and ${words.groupLower}.`,
+    },
+    {
+        view: 'STANDINGS_ONLY',
+        label: 'Standings only',
+        cycles: true,
+        group: 'Between heats',
+        description: () => 'The leaderboard alone, filling the whole screen — no Now Racing / On Deck panels.',
+    },
+    {
+        view: 'CHECKIN',
+        label: 'Check-in progress',
+        cycles: false,
+        group: 'Before racing',
+        description: (words) => `Who has checked in and who has not, grouped by ${words.groupLower}.`,
+    },
+    {
+        view: 'QRCODE',
+        label: 'QR code',
+        cycles: false,
+        group: 'Between heats',
+        description: () => 'A large, scannable code that opens this race on a phone.',
+    },
+    {
+        view: 'OVERLAY',
+        label: 'Broadcast overlay (OBS)',
+        cycles: false,
+        group: 'During racing',
+        description: () => 'A transparent graphic for streaming this race on OBS Studio.',
+    },
+    {
+        view: 'AWARDS',
+        label: 'Awards ceremony',
+        cycles: false,
+        group: 'After',
+        description: () => 'The ceremony, one award at a time — advanced by a person, not on a timer.',
+    },
 ];
+
+/**
+ * Folds a (possibly already-filtered, e.g. by `viewOptionsFor`) list into
+ * the `<optgroup>` buckets the Displays panel renders, in the fixed
+ * During racing / Between heats / Before racing / After order — a pure data
+ * transform so it is testable with no JSX involved, and so there is exactly
+ * one list describing the groups rather than the grouping being redone in
+ * markup. An empty group (the ceremony filtered out of a race with no
+ * awards) is dropped rather than rendered as an empty `<optgroup>`.
+ */
+export function groupedViewOptions(
+    options: readonly (typeof VIEW_OPTIONS)[number][],
+): readonly { group: ViewGroup; options: readonly (typeof VIEW_OPTIONS)[number][] }[] {
+    return GROUP_ORDER.map((group) => ({
+        group,
+        options: options.filter((option) => option.group === group),
+    })).filter((entry) => entry.options.length > 0);
+}
 
 /** Whether a view advances on a timer whose interval the operator can set. */
 export function viewCycles(view: DisplayView): boolean {

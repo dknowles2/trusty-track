@@ -7,7 +7,12 @@ For the setup walkthrough, see the
 ## The ten views
 
 Every screen with the Live page open can be switched between these, from
-**Race Control → Displays** or by its own URL:
+**Race Control → Displays** or by its own URL. The dropdown groups them by
+when in the evening each is useful — **During racing** (Standings, Last
+heat's times, Cycle between both, Projector, Broadcast overlay), **Between
+heats** (Racer photos, Standings only, QR code), **Before racing** (Check-in
+progress) and **After** (Awards ceremony) — and shows the description below
+as a line under the select, so the choices are not ten bare names:
 
 | View | What it shows |
 | --- | --- |

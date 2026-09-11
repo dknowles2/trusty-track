@@ -198,7 +198,11 @@ told instead.
 **Race Control → Displays.** Every screen showing this race appears in the
 list on its own — the Live page, or the awards ceremony — and there is
 nothing to add, or to set up before an event. Pick what each one shows from the dropdown beside it and the screen
-changes within a second or two.
+changes within a second or two. The dropdown groups the choices by when in
+the evening they're useful — During racing, Between heats, Before racing,
+After — and a line underneath names what the chosen view actually shows, so
+**Standings** and **Standings only** and **Projector** don't have to be told
+apart by walking to the screen.
 
 Above the list is the address to open on a screen that has not found its way
 here yet — see [Finding this machine's

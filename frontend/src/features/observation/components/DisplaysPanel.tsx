@@ -42,6 +42,8 @@ import {
     SUGGEST_DISPLAY_NAME,
 } from '../graphql/queries';
 import {
+    groupedViewOptions,
+    VIEW_OPTIONS,
     viewCycles,
     viewHasCheckedInToggle,
     viewHasQrTargetToggle,
@@ -56,6 +58,7 @@ import { newDisplayWindowUrl } from '../displayIdentity';
 import ConnectDisplayAddress from './ConnectDisplayAddress';
 import { useRole } from '../../core/hooks/useRole';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 interface DisplayRow {
     displayId: string;
@@ -112,6 +115,14 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     // plain `window.open`, not a mutation.
     const { isOperator } = useRole();
     const operatorTitle = !isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined;
+
+    // The one line under the select naming what the chosen view actually
+    // shows (#948) — two of the ten descriptions mention the racing-group
+    // or vehicle word ("Racer photos", "Check-in progress"), so this is
+    // resolved once here rather than in `displayView.ts` itself, the same
+    // split `setupChecklist.ts` draws between the rule and the hook that
+    // supplies it.
+    const words = useTerminology();
 
     const [, assignDisplay] = useMutation(ASSIGN_DISPLAY);
     const [, advanceDisplay] = useMutation(ADVANCE_DISPLAY);
@@ -206,313 +217,339 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                 Open a new display window
             </button>
             <ConnectDisplayAddress raceId={raceId} />
-            {displays.map((display) => (
-                <div
-                    key={display.displayId}
-                    data-testid={`display-${display.displayId}`}
-                    style={{
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '12px',
-                        padding: '0.85rem 1rem',
-                        background: display.connected ? 'var(--surface-color)' : 'var(--surface-faint-color)',
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '0.75rem',
-                        alignItems: 'center',
-                    }}
-                >
-                    <Icon
-                        path={display.connected ? mdiCheckCircle : mdiCircleOutline}
-                        size={0.8}
-                        color={display.connected ? 'var(--success-color)' : 'var(--text-placeholder-color)'}
-                    />
-
-                    <div style={{ flex: 1, minWidth: '180px' }}>
-                        {renaming === display.displayId ? (
-                            <form
-                                onSubmit={(e) => {
-                                    e.preventDefault();
-                                    renameDisplay({ displayId: display.displayId, name: draftName });
-                                    setRenaming(null);
-                                }}
-                                style={{ display: 'flex', gap: '0.4rem' }}
-                            >
-                                <input
-                                    autoFocus
-                                    value={draftName}
-                                    onChange={(e) => setDraftName(e.target.value)}
-                                    placeholder="e.g. Gym north"
-                                    style={{ flex: 1, padding: '0.3rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
-                                />
-                                {/* Asks the server for a name that isn't
-                                    already on another row (#521) — it only
-                                    fills the draft; Save is still what
-                                    commits it. */}
-                                <button
-                                    type="button"
-                                    aria-label="Suggest a new name"
-                                    title={operatorTitle ?? 'Suggest a new name'}
-                                    disabled={!isOperator}
-                                    onClick={() => void rerollName(display.displayId, draftName)}
-                                    className="secondary-btn"
-                                    style={{ padding: '0.3rem 0.5rem' }}
-                                >
-                                    <Icon path={mdiDice5} size={0.7} />
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="secondary-btn"
-                                    disabled={!isOperator}
-                                    title={operatorTitle}
-                                    style={{ padding: '0.3rem 0.7rem' }}
-                                >
-                                    Save
-                                </button>
-                            </form>
-                        ) : (
-                            <>
-                                <strong>{display.name}</strong>{' '}
-                                <button
-                                    type="button"
-                                    aria-label={`Rename ${display.name}`}
-                                    disabled={!isOperator}
-                                    title={operatorTitle}
-                                    onClick={() => {
-                                        setRenaming(display.displayId);
-                                        setDraftName(display.name);
-                                    }}
-                                    style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer' }}
-                                >
-                                    <Icon path={mdiPencil} size={0.6} color="var(--text-subtle-color)" />
-                                </button>
-                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
-                                    {display.connected ? display.description : 'Not connected'}
-                                </div>
-                            </>
-                        )}
-                    </div>
-
-                    <select
-                        aria-label={`What ${display.name} shows`}
-                        value={display.view}
-                        disabled={!isOperator}
-                        title={operatorTitle}
-                        onChange={(e) =>
-                            assignDisplay({
-                                displayId: display.displayId,
-                                view: e.target.value as DisplayView,
-                            })
-                        }
-                        style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+            {displays.map((display) => {
+                const currentOption = VIEW_OPTIONS.find((option) => option.view === display.view);
+                return (
+                    <div
+                        key={display.displayId}
+                        data-testid={`display-${display.displayId}`}
+                        style={{
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '12px',
+                            padding: '0.85rem 1rem',
+                            background: display.connected ? 'var(--surface-color)' : 'var(--surface-faint-color)',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '0.75rem',
+                            alignItems: 'center',
+                        }}
                     >
-                        {/* The ceremony is missing from a race with no awards
-                            — it would send the screen to a page with nothing
-                            on it — but stays for a screen already showing
-                            one, or the row would say nothing about what it is
-                            doing. */}
-                        {viewOptionsFor(hasAwards, display.view).map((option) => (
-                            <option key={option.view} value={option.view}>
-                                {option.label}
-                            </option>
-                        ))}
-                    </select>
+                        <Icon
+                            path={display.connected ? mdiCheckCircle : mdiCircleOutline}
+                            size={0.8}
+                            color={display.connected ? 'var(--success-color)' : 'var(--text-placeholder-color)'}
+                        />
 
-                    {/* Every view that advances on a timer gets the same
-                        seconds control — the tab cycle and the photo
-                        slideshow alike. Naming views here was the bug: the
-                        slideshow cycled at an interval nothing offered to
-                        change. */}
-                    {viewCycles(display.view) && (
-                        <label style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
-                            every{' '}
-                            <input
-                                type="number"
-                                min={1}
-                                aria-label={`Cycle interval for ${display.name}`}
-                                value={display.cycleSeconds}
+                        <div style={{ flex: 1, minWidth: '180px' }}>
+                            {renaming === display.displayId ? (
+                                <form
+                                    onSubmit={(e) => {
+                                        e.preventDefault();
+                                        renameDisplay({ displayId: display.displayId, name: draftName });
+                                        setRenaming(null);
+                                    }}
+                                    style={{ display: 'flex', gap: '0.4rem' }}
+                                >
+                                    <input
+                                        autoFocus
+                                        value={draftName}
+                                        onChange={(e) => setDraftName(e.target.value)}
+                                        placeholder="e.g. Gym north"
+                                        style={{ flex: 1, padding: '0.3rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                                    />
+                                    {/* Asks the server for a name that isn't
+                                        already on another row (#521) — it only
+                                        fills the draft; Save is still what
+                                        commits it. */}
+                                    <button
+                                        type="button"
+                                        aria-label="Suggest a new name"
+                                        title={operatorTitle ?? 'Suggest a new name'}
+                                        disabled={!isOperator}
+                                        onClick={() => void rerollName(display.displayId, draftName)}
+                                        className="secondary-btn"
+                                        style={{ padding: '0.3rem 0.5rem' }}
+                                    >
+                                        <Icon path={mdiDice5} size={0.7} />
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="secondary-btn"
+                                        disabled={!isOperator}
+                                        title={operatorTitle}
+                                        style={{ padding: '0.3rem 0.7rem' }}
+                                    >
+                                        Save
+                                    </button>
+                                </form>
+                            ) : (
+                                <>
+                                    <strong>{display.name}</strong>{' '}
+                                    <button
+                                        type="button"
+                                        aria-label={`Rename ${display.name}`}
+                                        disabled={!isOperator}
+                                        title={operatorTitle}
+                                        onClick={() => {
+                                            setRenaming(display.displayId);
+                                            setDraftName(display.name);
+                                        }}
+                                        style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer' }}
+                                    >
+                                        <Icon path={mdiPencil} size={0.6} color="var(--text-subtle-color)" />
+                                    </button>
+                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
+                                        {display.connected ? display.description : 'Not connected'}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <select
+                            aria-label={`What ${display.name} shows`}
+                            value={display.view}
+                            disabled={!isOperator}
+                            title={operatorTitle}
+                            onChange={(e) =>
+                                assignDisplay({
+                                    displayId: display.displayId,
+                                    view: e.target.value as DisplayView,
+                                })
+                            }
+                            style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+                        >
+                            {/* Grouped by when in the evening a view is useful —
+                                During racing, Between heats, Before racing,
+                                After — so ten bare names are not one undivided
+                                list. The ceremony is missing from a race with no
+                                awards — it would send the screen to a page with
+                                nothing on it — but stays for a screen already
+                                showing one, or the row would say nothing about
+                                what it is doing. */}
+                            {groupedViewOptions(viewOptionsFor(hasAwards, display.view)).map(
+                                ({ group, options }) => (
+                                    <optgroup key={group} label={group}>
+                                        {options.map((option) => (
+                                            <option key={option.view} value={option.view}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                ),
+                            )}
+                        </select>
+
+                        {/* One line naming what the chosen view actually shows
+                            (#948) — "Standings" vs "Standings only" vs
+                            "Projector" could otherwise only be told apart by
+                            walking to the screen, which is the thing this panel
+                            exists to avoid. `width: 100%` forces it onto its own
+                            line under the select within this flex-wrap row,
+                            ahead of the view's own riders (the interval,
+                            pending-only, QR target and ticker controls below). */}
+                        {currentOption && (
+                            <div style={{ width: '100%', fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>
+                                {currentOption.description(words)}
+                            </div>
+                        )}
+
+                        {/* Every view that advances on a timer gets the same
+                            seconds control — the tab cycle and the photo
+                            slideshow alike. Naming views here was the bug: the
+                            slideshow cycled at an interval nothing offered to
+                            change. */}
+                        {viewCycles(display.view) && (
+                            <label style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
+                                every{' '}
+                                <input
+                                    type="number"
+                                    min={1}
+                                    aria-label={`Cycle interval for ${display.name}`}
+                                    value={display.cycleSeconds}
+                                    disabled={!isOperator}
+                                    title={operatorTitle}
+                                    onChange={(e) => {
+                                        const seconds = parseInt(e.target.value);
+                                        // Refused by the server too — a zero
+                                        // interval is a busy loop and a negative
+                                        // one fires continuously.
+                                        if (seconds >= 1) {
+                                            assignDisplay({
+                                                displayId: display.displayId,
+                                                view: display.view,
+                                                cycleSeconds: seconds,
+                                            });
+                                        }
+                                    }}
+                                    style={{ width: '4rem', padding: '0.25rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                                />{' '}
+                                s
+                            </label>
+                        )}
+
+                        {/* Standings only (#663): how it gets through a list too
+                            long for one screen — flip through fixed pages, or
+                            scroll continuously. The seconds control above sets
+                            the page duration or the length of one scroll pass,
+                            whichever this is set to. */}
+                        {viewScrolls(display.view) && (
+                            <select
+                                aria-label={`How ${display.name} moves through the standings`}
+                                value={display.scrollBehavior}
                                 disabled={!isOperator}
                                 title={operatorTitle}
-                                onChange={(e) => {
-                                    const seconds = parseInt(e.target.value);
-                                    // Refused by the server too — a zero
-                                    // interval is a busy loop and a negative
-                                    // one fires continuously.
-                                    if (seconds >= 1) {
-                                        assignDisplay({
-                                            displayId: display.displayId,
-                                            view: display.view,
-                                            cycleSeconds: seconds,
-                                        });
-                                    }
-                                }}
-                                style={{ width: '4rem', padding: '0.25rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
-                            />{' '}
-                            s
-                        </label>
-                    )}
-
-                    {/* Standings only (#663): how it gets through a list too
-                        long for one screen — flip through fixed pages, or
-                        scroll continuously. The seconds control above sets
-                        the page duration or the length of one scroll pass,
-                        whichever this is set to. */}
-                    {viewScrolls(display.view) && (
-                        <select
-                            aria-label={`How ${display.name} moves through the standings`}
-                            value={display.scrollBehavior}
-                            disabled={!isOperator}
-                            title={operatorTitle}
-                            onChange={(e) =>
-                                assignDisplay({
-                                    displayId: display.displayId,
-                                    view: display.view,
-                                    scrollBehavior: e.target.value as ScrollBehavior,
-                                })
-                            }
-                            style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
-                        >
-                            <option value="PAGING">Page cycling</option>
-                            <option value="SMOOTH">Auto-scroll</option>
-                        </select>
-                    )}
-
-                    {/* Check-in progress (#612): whether an already-checked-in
-                        racer's row is still listed, or only the ones still
-                        pending — a large pack's screen can drop the former to
-                        make more room. */}
-                    {viewHasCheckedInToggle(display.view) && (
-                        <select
-                            aria-label={`Who ${display.name} lists`}
-                            value={display.showCheckedIn ? 'ALL' : 'PENDING'}
-                            disabled={!isOperator}
-                            title={operatorTitle}
-                            onChange={(e) =>
-                                assignDisplay({
-                                    displayId: display.displayId,
-                                    view: display.view,
-                                    showCheckedIn: e.target.value === 'ALL',
-                                })
-                            }
-                            style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
-                        >
-                            <option value="ALL">List everybody</option>
-                            <option value="PENDING">Pending only</option>
-                        </select>
-                    )}
-
-                    {/* QR code (#614): which page the code opens — this
-                        race's own audience display, or the voting ballot. */}
-                    {viewHasQrTargetToggle(display.view) && (
-                        <select
-                            aria-label={`What ${display.name}'s QR code opens`}
-                            value={display.qrTarget}
-                            disabled={!isOperator}
-                            title={operatorTitle}
-                            onChange={(e) =>
-                                assignDisplay({
-                                    displayId: display.displayId,
-                                    view: display.view,
-                                    qrTarget: e.target.value as QRTarget,
-                                })
-                            }
-                            style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
-                        >
-                            <option value="STANDINGS">Live standings</option>
-                            <option value="VOTE">Voting ballot</option>
-                        </select>
-                    )}
-
-                    {/* Broadcast overlay (#616): whether the compact top-5
-                        ticker shows alongside the lower-third bar — off for
-                        a streamer who wants the bar alone and nothing else
-                        filling the screen between heats. */}
-                    {viewHasStandingsTickerToggle(display.view) && (
-                        <select
-                            aria-label={`Whether ${display.name} shows the standings ticker`}
-                            value={display.showStandingsTicker ? 'ON' : 'OFF'}
-                            disabled={!isOperator}
-                            title={operatorTitle}
-                            onChange={(e) =>
-                                assignDisplay({
-                                    displayId: display.displayId,
-                                    view: display.view,
-                                    showStandingsTicker: e.target.value === 'ON',
-                                })
-                            }
-                            style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
-                        >
-                            <option value="ON">With standings ticker</option>
-                            <option value="OFF">Heat only</option>
-                        </select>
-                    )}
-
-                    {/* The ceremony waits for a person, and until now that
-                        person had to be standing at the screen — which is the
-                        one place the operator is not, having just assigned it
-                        from across the room. The keys and a presenter remote
-                        at the screen go on working: these send a *step*, so
-                        both drivers move the same ceremony. */}
-                    {display.pacedByAPerson && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <button
-                                type="button"
-                                aria-label={`Previous award on ${display.name}`}
-                                disabled={!display.connected || !isOperator}
-                                title={operatorTitle}
-                                onClick={() => advanceDisplay({ displayId: display.displayId, delta: -1 })}
-                                className="secondary-btn"
-                                style={{ padding: '0.25rem 0.6rem' }}
+                                onChange={(e) =>
+                                    assignDisplay({
+                                        displayId: display.displayId,
+                                        view: display.view,
+                                        scrollBehavior: e.target.value as ScrollBehavior,
+                                    })
+                                }
+                                style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
                             >
-                                ‹
-                            </button>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--warning-strong-color)', background: 'var(--warning-strong-bg-color)', border: '1px solid var(--warning-strong-border-color)', borderRadius: '20px', padding: '2px 8px' }}>
-                                You advance this one
+                                <option value="PAGING">Page cycling</option>
+                                <option value="SMOOTH">Auto-scroll</option>
+                            </select>
+                        )}
+
+                        {/* Check-in progress (#612): whether an already-checked-in
+                            racer's row is still listed, or only the ones still
+                            pending — a large pack's screen can drop the former to
+                            make more room. */}
+                        {viewHasCheckedInToggle(display.view) && (
+                            <select
+                                aria-label={`Who ${display.name} lists`}
+                                value={display.showCheckedIn ? 'ALL' : 'PENDING'}
+                                disabled={!isOperator}
+                                title={operatorTitle}
+                                onChange={(e) =>
+                                    assignDisplay({
+                                        displayId: display.displayId,
+                                        view: display.view,
+                                        showCheckedIn: e.target.value === 'ALL',
+                                    })
+                                }
+                                style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+                            >
+                                <option value="ALL">List everybody</option>
+                                <option value="PENDING">Pending only</option>
+                            </select>
+                        )}
+
+                        {/* QR code (#614): which page the code opens — this
+                            race's own audience display, or the voting ballot. */}
+                        {viewHasQrTargetToggle(display.view) && (
+                            <select
+                                aria-label={`What ${display.name}'s QR code opens`}
+                                value={display.qrTarget}
+                                disabled={!isOperator}
+                                title={operatorTitle}
+                                onChange={(e) =>
+                                    assignDisplay({
+                                        displayId: display.displayId,
+                                        view: display.view,
+                                        qrTarget: e.target.value as QRTarget,
+                                    })
+                                }
+                                style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+                            >
+                                <option value="STANDINGS">Live standings</option>
+                                <option value="VOTE">Voting ballot</option>
+                            </select>
+                        )}
+
+                        {/* Broadcast overlay (#616): whether the compact top-5
+                            ticker shows alongside the lower-third bar — off for
+                            a streamer who wants the bar alone and nothing else
+                            filling the screen between heats. */}
+                        {viewHasStandingsTickerToggle(display.view) && (
+                            <select
+                                aria-label={`Whether ${display.name} shows the standings ticker`}
+                                value={display.showStandingsTicker ? 'ON' : 'OFF'}
+                                disabled={!isOperator}
+                                title={operatorTitle}
+                                onChange={(e) =>
+                                    assignDisplay({
+                                        displayId: display.displayId,
+                                        view: display.view,
+                                        showStandingsTicker: e.target.value === 'ON',
+                                    })
+                                }
+                                style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+                            >
+                                <option value="ON">With standings ticker</option>
+                                <option value="OFF">Heat only</option>
+                            </select>
+                        )}
+
+                        {/* The ceremony waits for a person, and until now that
+                            person had to be standing at the screen — which is the
+                            one place the operator is not, having just assigned it
+                            from across the room. The keys and a presenter remote
+                            at the screen go on working: these send a *step*, so
+                            both drivers move the same ceremony. */}
+                        {display.pacedByAPerson && (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <button
+                                    type="button"
+                                    aria-label={`Previous award on ${display.name}`}
+                                    disabled={!display.connected || !isOperator}
+                                    title={operatorTitle}
+                                    onClick={() => advanceDisplay({ displayId: display.displayId, delta: -1 })}
+                                    className="secondary-btn"
+                                    style={{ padding: '0.25rem 0.6rem' }}
+                                >
+                                    ‹
+                                </button>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--warning-strong-color)', background: 'var(--warning-strong-bg-color)', border: '1px solid var(--warning-strong-border-color)', borderRadius: '20px', padding: '2px 8px' }}>
+                                    You advance this one
+                                </span>
+                                <button
+                                    type="button"
+                                    aria-label={`Next award on ${display.name}`}
+                                    disabled={!display.connected || !isOperator}
+                                    title={operatorTitle}
+                                    onClick={() => advanceDisplay({ displayId: display.displayId, delta: 1 })}
+                                    className="secondary-btn"
+                                    style={{ padding: '0.25rem 0.6rem' }}
+                                >
+                                    ›
+                                </button>
                             </span>
-                            <button
-                                type="button"
-                                aria-label={`Next award on ${display.name}`}
-                                disabled={!display.connected || !isOperator}
-                                title={operatorTitle}
-                                onClick={() => advanceDisplay({ displayId: display.displayId, delta: 1 })}
-                                className="secondary-btn"
-                                style={{ padding: '0.25rem 0.6rem' }}
-                            >
-                                ›
-                            </button>
-                        </span>
-                    )}
+                        )}
 
-                    {/* A memorable name is only half of it — this is how the
-                        operator learns which row is the projector at the
-                        back. Disabled while not connected: there is no
-                        screen to flash it on. */}
-                    <button
-                        type="button"
-                        aria-label={`Identify ${display.name}`}
-                        title={operatorTitle ?? "Flash this screen's name"}
-                        disabled={!display.connected || !isOperator}
-                        onClick={() => identifyDisplay({ displayId: display.displayId })}
-                        className="secondary-btn"
-                        style={{ padding: '0.25rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                    >
-                        <Icon path={mdiFlashOutline} size={0.7} />
-                        Identify
-                    </button>
-
-                    {!display.connected && (
+                        {/* A memorable name is only half of it — this is how the
+                            operator learns which row is the projector at the
+                            back. Disabled while not connected: there is no
+                            screen to flash it on. */}
                         <button
                             type="button"
-                            aria-label={`Forget ${display.name}`}
-                            disabled={!isOperator}
-                            title={operatorTitle}
-                            onClick={() => forgetDisplay({ displayId: display.displayId })}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}
+                            aria-label={`Identify ${display.name}`}
+                            title={operatorTitle ?? "Flash this screen's name"}
+                            disabled={!display.connected || !isOperator}
+                            onClick={() => identifyDisplay({ displayId: display.displayId })}
+                            className="secondary-btn"
+                            style={{ padding: '0.25rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                         >
-                            <Icon path={mdiClose} size={0.7} color="var(--error)" />
+                            <Icon path={mdiFlashOutline} size={0.7} />
+                            Identify
                         </button>
-                    )}
-                </div>
-            ))}
+
+                        {!display.connected && (
+                            <button
+                                type="button"
+                                aria-label={`Forget ${display.name}`}
+                                disabled={!isOperator}
+                                title={operatorTitle}
+                                onClick={() => forgetDisplay({ displayId: display.displayId })}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}
+                            >
+                                <Icon path={mdiClose} size={0.7} color="var(--error)" />
+                            </button>
+                        )}
+                    </div>
+                );
+            })}
         </div>
     );
 }
