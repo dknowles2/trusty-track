@@ -134,7 +134,7 @@ describe('RaceDetails', () => {
             );
 
             await waitFor(() => {
-                expect(screen.getByText('Race Settings')).toBeInTheDocument();
+                expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
             });
             expect(screen.queryByText('Edit Race Details')).not.toBeInTheDocument();
         });
@@ -194,13 +194,14 @@ describe('RaceDetails', () => {
 
         // Wait for race details to load
         await waitFor(() => {
-            expect(screen.getByText('Race Settings')).toBeInTheDocument();
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
         });
 
-        // Verify human-readable settings are displayed
-        expect(screen.getByText('Timed (average)')).toBeInTheDocument();
-        expect(screen.getByText('Per Den')).toBeInTheDocument();
-        expect(screen.getByText('Main Track')).toBeInTheDocument();
+        // Verify the human-readable settings summary line, now one muted
+        // line under the page heading rather than a four-cell grid (#949).
+        expect(screen.getByTestId('race-summary-line')).toHaveTextContent(
+            'Timed (average) · Per Den · 3 trophies · Main Track',
+        );
     });
 
     it('filters racers by search term', async () => {
@@ -313,12 +314,12 @@ describe('RaceDetails', () => {
         );
 
         await waitFor(() => {
-             expect(screen.getByText('Race Settings')).toBeInTheDocument();
-             expect(screen.getByText('Edit Details')).toBeInTheDocument();
+             expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
+             expect(screen.getByText('Edit race')).toBeInTheDocument();
         });
 
         const user = (await import('@testing-library/user-event')).default.setup();
-        await user.click(screen.getByText('Edit Details'));
+        await user.click(screen.getByText('Edit race'));
 
         const deleteBtn = await screen.findByText('Delete Race');
         await user.click(deleteBtn);
@@ -369,7 +370,7 @@ describe('RaceDetails', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText('Race Settings')).toBeInTheDocument();
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
             expect(capturedHandler).toBeDefined();
         });
 
@@ -405,7 +406,7 @@ describe('the fields GetRaceDetails actually asks for', () => {
         // supplied it, and the server never sent it.
         //
         // Two things followed. The settings panel showed "Track: Unknown" for
-        // every race ever created. Worse, opening Edit Details and saving —
+        // every race ever created. Worse, opening Edit race and saving —
         // without touching a field — moved the race to whichever track happened
         // to be first, because `RaceForm` falls back to `tracks[0]` when it has
         // no track. A six-lane race silently became a four-lane one.
@@ -479,11 +480,11 @@ describe('editing a race that is not on the first track', () => {
             </MemoryRouter>,
         );
 
-        await waitFor(() => expect(screen.getByText('Race Settings')).toBeInTheDocument());
-        // The panel names it too, rather than saying "Unknown".
-        expect(screen.getByText('Second Track')).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByTestId('race-summary-line')).toBeInTheDocument());
+        // The summary line names it too, rather than saying "Unknown".
+        expect(screen.getByTestId('race-summary-line')).toHaveTextContent('Second Track');
 
-        await user.click(screen.getByRole('button', { name: /edit details/i }));
+        await user.click(screen.getByRole('button', { name: /edit race/i }));
 
         const trackSelect = await screen.findByLabelText(/track/i);
         expect((trackSelect as HTMLSelectElement).value).toBe('2');

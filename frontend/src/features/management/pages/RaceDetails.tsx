@@ -37,8 +37,7 @@ import CheckInScanner from '../../printables/components/CheckInScanner';
 import * as GQL from '../graphql/queries';
 import { DEFAULT_SORT, nextSortState, sortRacers, type SortKey, type SortState } from '../rosterSort';
 import { groupRacersByRacingGroup } from '../groupRacersByRacingGroup';
-import { strategyLabel } from '../../stats/scoringStrategyText';
-import { numberingStrategyLabel } from '../raceSetup';
+import { raceSummaryLine } from '../raceSummary';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
 /**
@@ -217,12 +216,12 @@ export default function RaceDetails() {
   // it could do nothing only after pressing Save Racer. Everything on this
   // page that mutates is check-in-level or higher (createRacer,
   // checkInRacer, bulkCheckIn, ... — see backend/api/auth.py's
-  // CHECKIN_MUTATIONS) except "Manage {group}" and "Edit Details", which
+  // CHECKIN_MUTATIONS) except "Manage {group}" and "Edit race", which
   // are operator-only.
   //
   // Two pairs each: the *combined* one folds in the existing lock check,
   // for controls that are already disabled while the race is locked; the
-  // *role* one is role alone, for "Edit Details" — the one control that has
+  // *role* one is role alone, for "Edit race" — the one control that has
   // to stay reachable on a locked race, since it is how an operator unlocks
   // one (`RaceForm`'s own isLocked checkbox).
   const { canCheckIn, isOperator } = useRole();
@@ -844,14 +843,66 @@ export default function RaceDetails() {
 
   return (
     <div className="container" style={{ padding: '2rem' }}>
-      {/* What to do next, while anything is still outstanding (#199). It goes
-          first because it is what a first-time operator needs before they need
-          any of the settings below it, and it removes itself once the race is
-          set up.
+      {/* The page header (#949). It replaces the old "Race Settings" card —
+          a heading, an Edit Details button, and a four-cell grid read once
+          while setting the race up and never again — which, together with
+          the checklist below, used to push the roster table about 660px
+          down an 800px screen. The grid becomes one muted line under the
+          race's own name, with the edit button beside it; "Edit race"
+          matches the word Home's row menu and Race Control's own button
+          already use (#589), ahead of #947's rename of this button
+          specifically. */}
+      <div style={{ marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+              <h1 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {race?.name}
+                  {race?.is_locked && <LockedBadge />}
+              </h1>
+              <button
+                  onClick={() => setIsEditingRace(true)}
+                  className="secondary-btn"
+                  disabled={!isOperator}
+                  title={operatorRoleTitle}
+                  data-testid="edit-race-btn"
+                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.85rem' }}
+              >
+                  <Icon path={mdiPencil} size={0.6} /> Edit race
+              </button>
+          </div>
+          <p data-testid="race-summary-line" style={{ margin: '0.35rem 0 0', color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
+              {raceSummaryLine(
+                  {
+                      scoring_strategy: race?.scoring_strategy,
+                      car_numbering_strategy: race?.car_numbering_strategy,
+                      championship_trophies: race?.championship_trophies,
+                      track_name: Array.isArray(tracks) ? tracks.find(t => t.id === race?.track_id)?.name : undefined,
+                  },
+                  group,
+              )}
+          </p>
+          {race?.is_locked && (
+              <p
+                  data-testid="race-locked-notice"
+                  style={{
+                      background: 'var(--warning-bg-color)',
+                      color: 'var(--warning-strong-color)',
+                      border: '1px solid var(--warning-strong-border-color)',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      margin: '0.75rem 0 0',
+                      fontSize: '0.85rem',
+                  }}
+              >
+                  {RACE_LOCKED_MESSAGE}
+              </p>
+          )}
+      </div>
 
-          This replaces a header row that had been left holding two spacer divs
-          and nothing else when the per-page mode toggle was merged into the
-          navigation — an empty bordered strip at the top of the page. */}
+      {/* What to do next, while anything is still outstanding (#199). It
+          removes itself once the race is set up, and collapses to one line
+          once check-in starts (#949) — the two steps most packs never tick
+          off, Set up awards and Print pit passes, would otherwise sit atop
+          the roster for the rest of the day. */}
       <SetupChecklist
           progress={setupProgress}
           onAction={{
@@ -863,47 +914,6 @@ export default function RaceDetails() {
               printables: () => navigate(`/race/${parsedRaceId}/print`),
           }}
       />
-
-      {/* Race Settings Summary (Read-Only for now, can be expanded) */}
-      <div style={{ marginBottom: '2rem', background: 'var(--surface-tint-color)', padding: '1rem', borderRadius: '8px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  Race Settings
-                  {race?.is_locked && <LockedBadge />}
-              </h3>
-              <button
-                  onClick={() => setIsEditingRace(true)}
-                  className="secondary-btn"
-                  disabled={!isOperator}
-                  title={operatorRoleTitle}
-                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.85rem' }}
-              >
-                  <Icon path={mdiPencil} size={0.6} /> Edit Details
-              </button>
-          </div>
-          {race?.is_locked && (
-              <p
-                  data-testid="race-locked-notice"
-                  style={{
-                      background: 'var(--warning-bg-color)',
-                      color: 'var(--warning-strong-color)',
-                      border: '1px solid var(--warning-strong-border-color)',
-                      borderRadius: '8px',
-                      padding: '8px 12px',
-                      margin: '0 0 1rem',
-                      fontSize: '0.85rem',
-                  }}
-              >
-                  {RACE_LOCKED_MESSAGE}
-              </p>
-          )}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-              <div><strong>Scoring:</strong> {strategyLabel(race?.scoring_strategy)}</div>
-              <div><strong>{vehicle} Numbering:</strong> {numberingStrategyLabel(race?.car_numbering_strategy, group)}</div>
-              <div><strong>Championship Trophies:</strong> {race?.championship_trophies || 3}</div>
-              <div><strong>Track:</strong> {Array.isArray(tracks) && tracks.find(t => t.id === race?.track_id)?.name || 'Unknown'}</div>
-          </div>
-      </div>
 
       {/* Edit Race Modal */}
       {/* Wider than the default: the edit form is sectioned (#587), with a
@@ -949,7 +959,29 @@ export default function RaceDetails() {
           of the day disabled, which is space spent saying "not yet". What it
           held is now a selection bar that exists only when something is
           selected. */}
-      <div ref={rosterSectionRef} className="roster-header" style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--divider-color)', paddingBottom: '0.75rem' }}>
+      {/* Sticky under the nav while the table scrolls (#949). The nav itself
+          is `position: relative`, so it scrolls away with the rest of the
+          page and this catches at the top of the viewport in its place —
+          the search box a desk working a long roster from a tablet needs
+          reachable without scrolling back up past every row it has already
+          searched past. An opaque background is load-bearing: without it,
+          rows scrolling underneath would show through the gaps between
+          this row's own controls. The selection bar (#420) lives inside
+          this same element, so it is carried along with it rather than
+          left behind under the fold when a bulk action's controls appear. */}
+      <div
+        ref={rosterSectionRef}
+        className="roster-header"
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          background: 'var(--background-color)',
+          marginBottom: '1rem',
+          borderBottom: '1px solid var(--divider-color)',
+          paddingBottom: '0.75rem',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, fontSize: '1.4rem' }}>
                 Racer Roster <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: 'var(--text-muted-color)', marginLeft: '8px' }}>({filteredRacers.length})</span>

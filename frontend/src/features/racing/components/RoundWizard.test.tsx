@@ -175,7 +175,7 @@ describe('RoundWizard Component', () => {
     it('defaults the finalist count to the trophy setting, not the lane count (#775)', async () => {
         // `Race.championship_trophies` is "how many cars advance to the
         // final" — a setting the operator has already made on the roster's
-        // Race Settings card. `defaultProps` sets it to 3 on a 4-lane track;
+        // page header summary line. `defaultProps` sets it to 3 on a 4-lane track;
         // the wizard used to default "Number of Finalists" to
         // `Math.max(championshipTrophies, laneCount)` (4 here) "to fill a
         // heat", silently disagreeing with the setting shown one screen away.

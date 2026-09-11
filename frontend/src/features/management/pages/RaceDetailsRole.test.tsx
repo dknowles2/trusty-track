@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * #892: a VIEWER or CHECKIN device opening the roster used to see every
- * control fully enabled — Edit Details, Add Racer, Scan, a Check In button
+ * control fully enabled — Edit race, Add Racer, Scan, a Check In button
  * on every row — and find out what it could not do only by pressing a
  * button and reading a refusal written for a developer. This is the
  * screen's own half: which controls are disabled for which role. Backend
@@ -108,12 +108,12 @@ describe('the roster screen reflects the caller role', () => {
         renderRaceDetails();
 
         await waitFor(() => {
-            expect(screen.getByText('Race Settings')).toBeInTheDocument();
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
         });
 
         expect(screen.getByRole('button', { name: /Add Racer/ })).toBeDisabled();
         expect(screen.getByRole('button', { name: 'Scan' })).toBeDisabled();
-        expect(screen.getByRole('button', { name: 'Edit Details' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Edit race' })).toBeDisabled();
     });
 
     it('names the check-in PIN on a check-in-level control', async () => {
@@ -123,7 +123,7 @@ describe('the roster screen reflects the caller role', () => {
         renderRaceDetails();
 
         await waitFor(() => {
-            expect(screen.getByText('Race Settings')).toBeInTheDocument();
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
         });
 
         expect(screen.getByRole('button', { name: 'Scan' })).toHaveAttribute(
@@ -139,10 +139,10 @@ describe('the roster screen reflects the caller role', () => {
         renderRaceDetails();
 
         await waitFor(() => {
-            expect(screen.getByText('Race Settings')).toBeInTheDocument();
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
         });
 
-        expect(screen.getByRole('button', { name: 'Edit Details' })).toHaveAttribute(
+        expect(screen.getByRole('button', { name: 'Edit race' })).toHaveAttribute(
             'title',
             'That needs the operator PIN. Enter it with the lock icon in the top bar.',
         );
@@ -155,12 +155,12 @@ describe('the roster screen reflects the caller role', () => {
         renderRaceDetails();
 
         await waitFor(() => {
-            expect(screen.getByText('Race Settings')).toBeInTheDocument();
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
         });
 
         expect(screen.getByRole('button', { name: /Add Racer/ })).toBeEnabled();
         expect(screen.getByRole('button', { name: 'Scan' })).toBeEnabled();
-        expect(screen.getByRole('button', { name: 'Edit Details' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Edit race' })).toBeDisabled();
     });
 
     it('leaves every control enabled for the operator', async () => {
@@ -170,11 +170,11 @@ describe('the roster screen reflects the caller role', () => {
         renderRaceDetails();
 
         await waitFor(() => {
-            expect(screen.getByText('Race Settings')).toBeInTheDocument();
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
         });
 
         expect(screen.getByRole('button', { name: /Add Racer/ })).toBeEnabled();
         expect(screen.getByRole('button', { name: 'Scan' })).toBeEnabled();
-        expect(screen.getByRole('button', { name: 'Edit Details' })).toBeEnabled();
+        expect(screen.getByRole('button', { name: 'Edit race' })).toBeEnabled();
     });
 });
