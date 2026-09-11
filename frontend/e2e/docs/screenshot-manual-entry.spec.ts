@@ -31,9 +31,11 @@ const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots
 
 test('screenshot the manual result-entry modal on a track with no timer', async ({ page }) => {
     fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    // Tall enough that the Enter Results button — the whole point of picture
-    // 31 — is on screen without scrolling; the four-lane heat card alone runs
-    // past 900px.
+    // Enter Results now sits in the heat card's header rather than below the
+    // lane list (#940), so it no longer needs a tall viewport to stay above
+    // the fold — 1150px is generous headroom, kept rather than shrunk so
+    // this picture still has room for the whole card plus the On Deck
+    // sidebar beside it.
     await page.setViewportSize({ width: 1200, height: 1150 });
     await ensureConfigured(page);
 

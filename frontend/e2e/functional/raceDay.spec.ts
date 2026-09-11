@@ -23,7 +23,9 @@ import {
     BACKEND_URL,
     createSchedule,
     dismissRoundSummary,
+    ensureConfigured,
     gql,
+    RACERS,
     readHeats,
     readRounds,
     recordRound,
@@ -836,6 +838,108 @@ test('a skipped heat is passed over rather than left to run', async ({ page }) =
     const [heat] = (await readHeats(page, raceId)).sort((a, b) => a.heatNumber - b.heatNumber);
     expect(heat.lanes.some((l) => l.skipped)).toBe(true);
     expect(heat.lanes.every((l) => l.time === null)).toBe(true);
+});
+
+test('the result controls fit above the fold at 1366×768 on a 4-lane no-timer track (#940)', async ({
+    page,
+}) => {
+    // #940: the controls the operator needs most — the ones that record a
+    // result — used to sit at the bottom of a card taller than a laptop or an
+    // iPad screen, below a two-line-per-lane list. This is the layout's own
+    // claim — every result control fits without scrolling — checked on the
+    // exact configuration the issue measured (a no-timer track, where
+    // **Enter Results** is the only way a heat is ever recorded), rather than
+    // trusting a screenshot to have been looked at by a person.
+    //
+    // `seedRace`'s worker track is shared and configured `FAKE` (#9) — reusing
+    // it here would leave every later test in this worker armed against a
+    // track with no timer. A dedicated track is created and torn down instead,
+    // the same shape `screenshot-timers.spec.ts` uses for its own pretend
+    // hardware.
+    await ensureConfigured(page);
+    const retry = test.info().retry;
+    const suffix = retry > 0 ? ` (retry ${retry})` : '';
+    const trackName = `E2E No-Timer Track ${test.info().parallelIndex}${suffix}`;
+
+    const trackCreated = await gql<{ createTrack: { id: number } }>(
+        page,
+        `mutation CreateNoTimerTrack($track: TrackInput!) { createTrack(track: $track) { id } }`,
+        { track: { name: trackName, laneCount: 4, timerType: 'NONE' } },
+    );
+    const trackId = trackCreated.createTrack.id;
+    let raceId: number | undefined;
+
+    try {
+        const config = await gql<{ organizations: { id: number }[] }>(
+            page,
+            `query { organizations { id } }`,
+        );
+        const raceCreated = await gql<{ createRace: { id: number } }>(
+            page,
+            `mutation CreateNoTimerRace($race: RaceInput!) { createRace(race: $race) { id } }`,
+            {
+                race: {
+                    name: `Race Day No Timer${suffix}`,
+                    organizationId: config.organizations[0].id,
+                    trackId,
+                    carNumberingStrategy: 'MANUAL',
+                    scoringStrategy: 'TIMED',
+                },
+            },
+        );
+        raceId = raceCreated.createRace.id;
+
+        // Four racers for four lanes — the issue's own configuration.
+        for (const racer of RACERS.slice(0, 4)) {
+            const created = await gql<{ createRacer: { id: number } }>(
+                page,
+                `mutation SeedNoTimerRacer($racer: RacerInput!) { createRacer(racer: $racer) { id } }`,
+                { racer: { raceId, ...racer } },
+            );
+            await gql(
+                page,
+                `mutation SeedNoTimerCheckIn($id: Int!) {
+                    checkInRacer(id: $id, passedInspection: true, weight: null) { id }
+                }`,
+                { id: created.createRacer.id },
+            );
+        }
+
+        await createSchedule(page, raceId);
+
+        await page.setViewportSize({ width: 1366, height: 768 });
+        await page.goto(`/race/${raceId}/control/race`);
+
+        // No timer means no "Waiting for Timer…" message and no arming — the
+        // main control is Enter Results, and Skip Heat sits beside it, both
+        // in the heat card's header now rather than below a full lane list.
+        const actionRow = page.getByTestId('race-execution-action-row');
+        const enterResults = actionRow.getByRole('button', { name: 'Enter Results' });
+        const skipHeat = actionRow.getByRole('button', { name: 'Skip Heat' });
+        await expect(enterResults).toBeVisible({ timeout: 30000 });
+        await expect(skipHeat).toBeVisible();
+
+        const viewport = page.viewportSize();
+        expect(viewport).not.toBeNull();
+
+        for (const control of [enterResults, skipHeat]) {
+            const box = await control.boundingBox();
+            expect(box).not.toBeNull();
+            expect(box!.y).toBeGreaterThanOrEqual(0);
+            expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
+        }
+    } finally {
+        // The race first — a track cannot be deleted while a race still
+        // references it — then the track this test created for itself.
+        if (raceId !== undefined) {
+            await gql(page, `mutation DeleteNoTimerRace($id: Int!) { deleteRace(id: $id) }`, {
+                id: raceId,
+            }).catch(() => undefined);
+        }
+        await gql(page, `mutation DeleteNoTimerTrack($id: Int!) { deleteTrack(id: $id) }`, {
+            id: trackId,
+        }).catch(() => undefined);
+    }
 });
 
 test('reordering a heat renumbers it without moving its field', async ({ page }) => {

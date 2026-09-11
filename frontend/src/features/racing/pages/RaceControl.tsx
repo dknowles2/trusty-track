@@ -13,7 +13,6 @@ import ScenesPanel from '../../observation/components/ScenesPanel';
 import { RaceExecution } from '../components/RaceExecution';
 import LaneBadge from '../../../components/ui/LaneBadge';
 import { colorForLane } from '../../settings/laneColors';
-import IntermissionControl from '../components/IntermissionControl';
 import ReadinessStrip from '../components/ReadinessStrip';
 import { FreeRaceTab } from '../components/FreeRaceTab';
 import {
@@ -1044,8 +1043,12 @@ export default function RaceControl() {
             {/* The Race tab is where the operator is standing when a break
                 is called or ends (#592) — the same reasoning that put the
                 displays registry on its own tab rather than in System
-                Settings. */}
-            <IntermissionControl raceId={id} />
+                Settings. The full-width bar this used to be permanently held
+                the tab's first row for an action called a few times an event
+                (#940); a compact instance is mounted inside
+                `RaceExecution.tsx`'s own card headers now, one per screen
+                state so the control stays reachable whatever the heat is
+                doing. */}
             <RaceExecution
               raceId={id}
               activeExecutionHeat={activeExecutionHeat || null}

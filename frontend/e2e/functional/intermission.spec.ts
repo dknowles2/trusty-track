@@ -35,6 +35,9 @@ test('starting an intermission from Race Control shows the overlay on the wall',
 
     await page.goto(`/race/${raceId}/control/race`);
     await expect(page.getByTestId('intermission-control')).toBeVisible({ timeout: 15000 });
+    // Folded into one button with the presets in a popover (#940) — open it
+    // before reaching for a preset.
+    await page.getByTestId('intermission-toggle').click();
     await page.getByTestId('intermission-preset-300').click();
 
     // No new socket: the same `race_state:{raceId}` subscription the wall
@@ -71,6 +74,7 @@ test('extending adds time, visible on the wall', async ({ browser, page }) => {
     await openDisplay(display, raceId);
 
     await page.goto(`/race/${raceId}/control/race`);
+    await page.getByTestId('intermission-toggle').click();
     await page.getByTestId('intermission-preset-300').click();
     await expect(display.getByTestId('intermission-overlay')).toBeVisible({ timeout: 15000 });
 

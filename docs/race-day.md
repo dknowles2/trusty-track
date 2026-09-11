@@ -413,8 +413,8 @@ Switch to the **Race** tab in Race Control to enter the race execution view. Thi
 
 The view is split into two columns:
 
-- **Left (main area)**: The current heat — racer names, lane assignments, and results.
-- **Right (sidebar)**: **On Deck** — the next heat's lane-up, so those cars can be staged — with the round's progress below it and any later rounds after that. The progress panel shows an estimated finish time and pace for the round, which starts as a rough guess and gets more accurate as heats are actually recorded — it learns this event's own rhythm rather than assuming a fixed time per heat.
+- **Left (main area)**: The current heat. Its header holds the heat's status alongside every control that acts on it — **Edit**/**Override**/**Enter Results**, **Skip Heat**, **Re-Run**, **Next Heat**, the finish sound and **Auto-advance** — so the buttons you need most are at the top of the screen rather than below a tall lane list. Racer names, lane assignments and results follow underneath, one line per lane.
+- **Right (sidebar)**: **On Deck** — the next heat's lane-up, so those cars can be staged — with the round's progress below it and any later rounds after that. The progress panel shows an estimated finish time and pace for the round, which starts as a rough guess and gets more accurate as heats are actually recorded — it learns this event's own rhythm rather than assuming a fixed time per heat. **Take a break** sits in that panel's header — see [Taking a Break](#taking-a-break) below.
 
 ![Race Execution View](assets/screenshots/race-day/12-race-execution-current-heat.png)
 _The Race Execution view showing the active heat with lane assignments. The On Deck panel beside it is the next heat, so those cars can be staged._
@@ -466,7 +466,7 @@ in two lanes of one heat — either is refused when you click **Save Results**.
 After reviewing results, click **Next Heat** to advance to the next heat — or enable **Auto-advance** to move forward automatically after 10 seconds.
 
 > [!TIP]
-> The **Auto-advance** toggle is in the lower section of the active heat card. When on, the display counts down and advances without any button click.
+> The **Auto-advance** toggle is in the active heat card's header, beside the result controls. When on, the display counts down and advances without any button click.
 
 ### Keyboard Shortcuts
 
@@ -552,20 +552,21 @@ _The Stats page part-way through the race, with heats completed and lane fairnes
 ### Taking a Break
 
 Real race nights have real breaks — a snack table, a stuck sprinkler, the gap
-before the championship round starts. **Take a break** on the Race tab starts
-a countdown (5, 10, 15 minutes, or a custom length) that every audience
-display picks up automatically: whatever a screen was showing switches to a
-full-screen countdown with the break's name and a faint preview of who races
-next, until the time runs out or you end it early.
+before the championship round starts. **Take a break**, in the Round Progress
+panel's header on the Race tab's sidebar, opens a popover with the presets (5,
+10, 15 minutes, or a custom length). Starting one kicks off a countdown that
+every audience display picks up automatically: whatever a screen was showing
+switches to a full-screen countdown with the break's name and a faint preview
+of who races next, until the time runs out or you end it early.
 
 The same presets also appear on the **Round Complete!** summary, since a
 round finishing is exactly when a break is most often called.
 
-While a break is running, its bar shows the time remaining and three
-controls: **+5 min** to extend it, **Pause**/**Resume** to freeze and restart
-the countdown, and **End now** to clear it immediately. See
-[Audience display views](reference/displays.md#taking-a-break) for what the
-wall displays show.
+While a break is running, the button itself shows the time remaining; click it
+to reopen the popover for three controls: **+5 min** to extend it,
+**Pause**/**Resume** to freeze and restart the countdown, and **End now** to
+clear it immediately. See [Audience display views](reference/displays.md#taking-a-break)
+for what the wall displays show.
 
 ---
 

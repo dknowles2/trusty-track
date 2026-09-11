@@ -7,6 +7,13 @@ vi.mock('urql', async (importOriginal) => {
     return { ...actual, useMutation: vi.fn(), useSubscription: vi.fn() };
 });
 
+// IntermissionControl now mounts inside RaceExecution (#940) and calls
+// `useQuery`, which this file's urql mock above does not stub — its own
+// suite is IntermissionControl.test.tsx, so it is a plain marker here.
+vi.mock('./IntermissionControl', () => ({
+    default: () => <div data-testid="intermission-control-stub" />,
+}));
+
 import { useMutation, useSubscription } from 'urql';
 import { RaceExecution, type Heat } from './RaceExecution';
 import { AlertProvider } from '../../../context/AlertContext';

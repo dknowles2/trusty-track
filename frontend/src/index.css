@@ -1319,6 +1319,22 @@ input:checked + .slider:before {
   gap: 20px;
 }
 
+/*
+ * Lane rows are one line each — a 48px avatar rather than the 80px two-line
+ * card this used to be (#940) — so four lanes fit in well under 400px. At
+ * five-plus lanes (`--many`, added in RaceExecution.tsx) and 1100px or
+ * wider there is room to go to two columns rather than growing the list
+ * taller still; below that width — a laptop or an iPad in the constraints
+ * this issue measured against — it stays one column so a lane row is never
+ * squeezed to the point a name truncates that did not need to.
+ */
+@media screen and (min-width: 1100px) {
+  .race-execution-lanes--many {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px 16px !important;
+  }
+}
+
 @media screen and (max-width: 900px) {
   .race-execution-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -1341,34 +1357,29 @@ input:checked + .slider:before {
   }
 
   .race-execution-lane-row {
-    padding: 10px !important;
+    padding: 6px 10px !important;
   }
 
   .race-execution-lane-badge {
-    font-size: 1rem !important;
-    width: 65px !important;
-    padding: 4px 6px !important;
-  }
-
-  .race-execution-lane-content {
-    padding: 8px 10px !important;
+    font-size: 0.8rem !important;
+    width: 42px !important;
   }
 
   .race-execution-avatar-wrap {
-    width: 50px !important;
-    height: 50px !important;
-    margin-right: 10px !important;
+    width: 40px !important;
+    height: 40px !important;
   }
 
   .race-execution-racer-name {
-    font-size: 1.1rem !important;
+    font-size: 0.95rem !important;
   }
 
   .race-execution-time-place {
-    gap: 10px !important;
+    gap: 6px !important;
   }
 
   .race-execution-time {
-    font-size: 1.2rem !important;
+    font-size: 1rem !important;
+    min-width: 44px !important;
   }
 }

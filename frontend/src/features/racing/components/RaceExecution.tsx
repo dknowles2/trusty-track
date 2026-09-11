@@ -7,6 +7,7 @@ import { HardwareTimerMole } from './HardwareTimerMole';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import './TimerStatusBadge.css';
 import { SerialProxyConnector } from './SerialProxyConnector';
+import IntermissionControl from './IntermissionControl';
 import { HEAT_SESSION_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS, START_INTERMISSION_MUTATION } from '../graphql/queries';
 import { INTERMISSION_PRESETS } from '../intermission';
 import { heatsEstimate } from '../../../utils/duration';
@@ -408,6 +409,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     if (!activeExecutionHeat) {
         return (
             <div style={{ textAlign: 'center', padding: '50px' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                    <IntermissionControl raceId={raceId} compact />
+                </div>
                 <Icon path={mdiTrophy} size={3} color="var(--cub-scouting-gold)" style={{ marginBottom: '20px' }} />
                 <h2 style={{ fontSize: '2.5rem', marginTop: 0 }}>Race Execution</h2>
                 <p style={{ fontSize: '1.2rem', color: 'var(--text-muted-color)' }}>
@@ -420,6 +424,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     if (hasPlaceholders) {
         return (
             <div style={{ textAlign: 'center', padding: '100px 50px' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                    <IntermissionControl raceId={raceId} compact />
+                </div>
                 <Icon path={mdiCalendarRange} size={4} color="var(--input-border-color)" style={{ marginBottom: '20px' }} />
                 <h2 style={{ fontSize: '2.5rem', marginTop: 0 }}>Round Not Ready</h2>
                 <p style={{ fontSize: '1.2rem', color: 'var(--text-muted-color)', maxWidth: '600px', margin: '0 auto' }}>
@@ -573,7 +580,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                     {/* Active Heat Card */}
-                    <div className="race-execution-active-card" style={{ background: 'var(--surface-color)', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--cub-scouting-gold)' }}>
+                    <div className="race-execution-active-card" data-testid="race-execution-active-card" style={{ background: 'var(--surface-color)', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--cub-scouting-gold)' }}>
                         {showProxyControls && trackId != null && (
                             <SerialProxyConnector trackId={trackId} />
                         )}
@@ -676,88 +683,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gap: '15px' }}>
-                            {liveLanes.map((r) => {
-                                const racer = racers[r.racerId || 0];
-                                return (
-                                    <div key={r.lane} className="race-execution-lane-row" style={{ display: 'flex', alignItems: 'center', padding: '15px', background: 'var(--surface-tint-color)', borderRadius: '8px', borderLeft: '5px solid var(--border-color)' }}>
-                                        <LaneBadge
-                                            color={colorForLane(laneColors, r.lane)}
-                                            className="race-execution-lane-badge"
-                                            style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: 'var(--text-muted-color)' }}
-                                        >
-                                            Lane {r.lane}
-                                        </LaneBadge>
-
-                                        <div className="race-execution-lane-content" style={{
-                                            flex: 1,
-                                            padding: '10px 15px',
-                                            background: r.place === 1 ? 'var(--highlight-gold-tint-color)' : 'transparent',
-                                            border: r.place === 1 ? '1px solid var(--cub-scouting-gold)' : '1px solid transparent',
-                                            borderRadius: '8px',
-                                            display: 'flex',
-                                            alignItems: 'center'
-                                        }}>
-                                            <div className="race-execution-avatar-wrap" style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                                <RacerAvatar
-                                                    racer={{
-                                                        id: racer?.id || r.racerId || 0,
-                                                        first_name: racer?.firstName || '',
-                                                        last_name: racer?.lastName || '',
-                                                        racer_image_url: racer?.racerImageUrl
-                                                    }}
-                                                    size="80px"
-                                                />
-                                            </div>
-
-                                            <div style={{ flex: 1 }}>
-                                                <div className="race-execution-racer-name" style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>
-                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0), slowestRoundIds?.has(activeExecutionHeat.roundId))}
-                                                </div>
-                                                {racer && <div style={{ fontSize: '1rem', color: 'var(--text-muted-color)' }}>{racer.carNumber ? `#${racer.carNumber}` : ''}</div>}
-                                            </div>
-
-                                            <div className="race-execution-time-place" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                                <div className="race-execution-time" style={{ fontSize: '1.5rem', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontWeight: 'bold' }}>
-                                                    {formatLaneTime(r.time) ?? '--'}
-                                                </div>
-                                                {r.place !== null && (
-                                                    <div style={{
-                                                        display: 'flex',
-                                                        flexDirection: 'column',
-                                                        alignItems: 'center',
-                                                        width: '60px',
-                                                        padding: '5px',
-                                                        borderRadius: '8px',
-                                                        background: r.place === 1 ? 'var(--cub-scouting-gold)' :
-                                                            r.place === 2 ? 'var(--surface-strong-color)' :
-                                                                r.place === 3 ? 'var(--rank-bronze-color)' : 'transparent',
-                                                        color: r.place === 1 ? 'var(--scouting-blue)' : 'inherit',
-                                                        boxShadow: r.place <= 3 ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
-                                                    }}>
-                                                        {r.place <= 3 ? (
-                                                            <Icon
-                                                                path={mdiTrophy}
-                                                                size={1}
-                                                                color={r.place === 1 ? 'var(--scouting-blue)' :
-                                                                    r.place === 2 ? 'var(--rank-silver-icon-color)' : 'var(--rank-bronze-icon-color)'}
-                                                            />
-                                                        ) : (
-                                                            <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{r.place}th</span>
-                                                        )}
-                                                        {r.place <= 3 && <span style={{ fontSize: '0.7rem', fontWeight: 'bold', lineHeight: 1 }}>
-                                                            {r.place === 1 ? '1st' : r.place === 2 ? '2nd' : '3rd'}
-                                                        </span>}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        <div className="race-execution-controls-bottom" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '15px', borderTop: '1px solid var(--divider-color)' }}>
+                        <div className="race-execution-controls-bottom" data-testid="race-execution-action-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid var(--divider-color)' }}>
                             {/* BOTTOM LEFT: Controls */}
                             <div className="race-execution-controls-left" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                 {isCompleted ? (
@@ -985,6 +911,110 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             )}
                             </div>
                         </div>
+                        {/* Tightened to one line per lane, a 48px avatar rather
+                            than 80px (#940) — four lanes fit in well under
+                            400px now instead of the ~600px the old two-line
+                            card took, which is most of what put the result
+                            controls below the fold on a 4-lane track. At
+                            five-plus lanes and 1100px or wider,
+                            `race-execution-lanes--many` (see index.css) goes
+                            to two columns rather than growing the list
+                            taller still. */}
+                        <div
+                            className={`race-execution-lanes${liveLanes.length >= 5 ? ' race-execution-lanes--many' : ''}`}
+                            style={{ display: 'grid', gap: '8px' }}
+                        >
+                            {liveLanes.map((r) => {
+                                const racer = racers[r.racerId || 0];
+                                const isFirst = r.place === 1;
+                                return (
+                                    <div
+                                        key={r.lane}
+                                        className="race-execution-lane-row"
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            padding: '8px 12px',
+                                            background: isFirst ? 'var(--highlight-gold-tint-color)' : 'var(--surface-tint-color)',
+                                            borderRadius: '8px',
+                                            borderLeft: isFirst ? '4px solid var(--cub-scouting-gold)' : '4px solid var(--border-color)',
+                                        }}
+                                    >
+                                        <LaneBadge
+                                            color={colorForLane(laneColors, r.lane)}
+                                            className="race-execution-lane-badge"
+                                            style={{ fontSize: '0.9rem', fontWeight: 'bold', width: '54px', flexShrink: 0, color: 'var(--text-muted-color)' }}
+                                        >
+                                            Lane {r.lane}
+                                        </LaneBadge>
+
+                                        <div className="race-execution-avatar-wrap" style={{ width: '48px', height: '48px', flexShrink: 0, borderRadius: '50%', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                            <RacerAvatar
+                                                racer={{
+                                                    id: racer?.id || r.racerId || 0,
+                                                    first_name: racer?.firstName || '',
+                                                    last_name: racer?.lastName || '',
+                                                    racer_image_url: racer?.racerImageUrl
+                                                }}
+                                                size="48px"
+                                            />
+                                        </div>
+
+                                        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: '6px', overflow: 'hidden' }}>
+                                            <span className="race-execution-racer-name" style={{ fontSize: '1.05rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0), slowestRoundIds?.has(activeExecutionHeat.roundId))}
+                                            </span>
+                                            {racer?.carNumber && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)', flexShrink: 0 }}>#{racer.carNumber}</span>}
+                                        </div>
+
+                                        <div className="race-execution-time-place" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                            <div className="race-execution-time" style={{ fontSize: '1.1rem', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontWeight: 'bold', minWidth: '54px', textAlign: 'right' }}>
+                                                {formatLaneTime(r.time) ?? '--'}
+                                            </div>
+                                            {r.place !== null && (
+                                                <span style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '3px',
+                                                    padding: '2px 7px',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.8rem',
+                                                    fontWeight: 'bold',
+                                                    whiteSpace: 'nowrap',
+                                                    background: r.place === 1 ? 'var(--cub-scouting-gold)' :
+                                                        r.place === 2 ? 'var(--surface-strong-color)' :
+                                                            r.place === 3 ? 'var(--rank-bronze-color)' : 'transparent',
+                                                    color: r.place === 1 ? 'var(--scouting-blue)' : 'inherit',
+                                                }}>
+                                                    {r.place <= 3 && (
+                                                        <Icon
+                                                            path={mdiTrophy}
+                                                            size={0.6}
+                                                            color={r.place === 1 ? 'var(--scouting-blue)' :
+                                                                r.place === 2 ? 'var(--rank-silver-icon-color)' : 'var(--rank-bronze-icon-color)'}
+                                                        />
+                                                    )}
+                                                    {r.place === 1 ? '1st' : r.place === 2 ? '2nd' : r.place === 3 ? '3rd' : `${r.place}th`}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* The fake timer's start/finish buttons, directly under
+                            the lane list they act on rather than at the foot of
+                            the sidebar (#940) — the docs already described this
+                            as "below the current heat", and during a rehearsal
+                            it is the only way to run one. */}
+                        <FakeTimerMole
+                            isOpen={showFakeControls}
+                            heatId={activeExecutionHeat.id}
+                            trackId={trackId ?? 0}
+                            docked={true}
+                        />
                     </div>
                 </div>
 
@@ -1054,7 +1084,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     </div>
                     {totalHeatsInRound !== undefined && remainingHeatsInRound !== undefined && (
                         <div style={{ marginTop: '15px', padding: '10px 15px', background: 'var(--surface-alt-color)', borderRadius: '8px', border: '1px solid var(--progress-panel-border-color)', textAlign: 'center' }}>
-                            <div style={{ fontSize: '0.85rem', color: 'var(--progress-label-color)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Round Progress</div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '4px' }}>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--progress-label-color)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Round Progress</div>
+                                {/* Folded into one button with the presets in a
+                                    popover (#940) — this used to be a bar that
+                                    permanently held the Race tab's first row. */}
+                                <IntermissionControl raceId={raceId} compact />
+                            </div>
                             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--progress-value-color)' }}>
                                 {totalHeatsInRound - remainingHeatsInRound} of {totalHeatsInRound} Heats Completed
                             </div>
@@ -1091,13 +1127,6 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             </div>
                         </div>
                     )}
-                    <FakeTimerMole
-                        isOpen={showFakeControls}
-                        heatId={activeExecutionHeat.id}
-                        trackId={trackId ?? 0}
-                        docked={true}
-                    />
-
                     {showHardwareMole && trackId != null && (
                         <HardwareTimerMole trackId={trackId} timerType={timerType} docked={true} />
                     )}
