@@ -369,6 +369,53 @@ export async function settleTransitions(locator: Locator): Promise<void> {
 }
 
 /**
+ * Screenshots a `Locator` with the same pre-capture treatment `page.screenshot`
+ * gets from the patch above — a font/image wait, the pointer parked off-viewport,
+ * and every in-flight transition allowed to settle — because `Locator.screenshot`
+ * is a different method that patch never touches.
+ *
+ * That gap is what made `race-setup/11-edit-race-settings.png` nondeterministic
+ * again under load (#970), after `settleTransitions(dialog)`'s own fix (see that
+ * function's doc comment above) had already closed the *first* source of drift
+ * on this same picture. The second: the spec clicks the nav's "Scoring" button
+ * while the dialog is still scrolled from opening, so Playwright's click lands
+ * correctly, but on a button whose *screen* position depends on that transient
+ * scroll offset — and the pointer stays there, unmoved, once the spec resets
+ * `scrollTop` back to 0 for the shot. Whatever nav item ends up under those
+ * now-stale screen coordinates picks up a `:hover` background the operator's own
+ * mouse was never near — `Check-in` or `Displays` in the reported flake,
+ * depending on how much the dialog had scrolled at click time, which is why the
+ * two are what moved and `Words and names` between them never did.
+ * `page.mouse.move(-1, -1)` already fixed page-level captures for the same
+ * reason (see that call's own comment); this is the identical fix, reachable
+ * from a locator capture.
+ *
+ * A locator screenshot is also exempt from `page.screenshot`'s image and font
+ * waits, for the same reason — different method, same page underneath — so both
+ * are repeated here rather than assuming whatever ran before this call already
+ * satisfied them.
+ */
+export async function screenshotLocator(
+    locator: Locator,
+    options?: Parameters<Locator['screenshot']>[0],
+): Promise<Buffer> {
+    const page = locator.page();
+    await page
+        .waitForFunction(
+            () => Array.from(document.images).every((image) => image.complete),
+            undefined,
+            { timeout: 5000 },
+        )
+        .catch(() => {});
+    await page
+        .evaluate(() => document.fonts.ready)
+        .catch(() => {});
+    await page.mouse.move(-1, -1).catch(() => {});
+    await settleTransitions(locator).catch(() => {});
+    return locator.screenshot({ animations: 'disabled', ...options });
+}
+
+/**
  * A small, repeatable number in `[0, span)` for `key`.
  *
  * For a spec that needs its fake data to look unpatterned in a picture and to

@@ -20,7 +20,7 @@
  * `screenshot-observation.spec.ts` leave theirs standing for the same reason.
  */
 
-import { test, expect } from './screenshots-setup';
+import { test, expect, screenshotLocator } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -93,5 +93,5 @@ test('screenshot the manual result-entry modal on a track with no timer', async 
     }
 
     // 32: the modal itself, places entered and ready to save.
-    await modal.screenshot({ path: path.join(SCREENSHOT_DIR, '32-manual-place-entry-modal.png') });
+    await screenshotLocator(modal, { path: path.join(SCREENSHOT_DIR, '32-manual-place-entry-modal.png') });
 });

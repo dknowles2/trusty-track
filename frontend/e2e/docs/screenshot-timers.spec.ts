@@ -27,7 +27,7 @@
  * because nothing here depends on it.
  */
 
-import { test, expect, settleTransitions } from './screenshots-setup';
+import { test, expect, screenshotLocator, settleTransitions } from './screenshots-setup';
 import type { Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -189,7 +189,7 @@ async function screenshotTimerPages(
     // own sub-pixel position, so this still has to wait for the nav to settle
     // even though the nav itself is never in frame.
     await settleTransitions(page.locator('body'));
-    await demoCard.screenshot({
+    await screenshotLocator(demoCard, {
         path: path.join(SCREENSHOT_DIR, '01-timer-settings.png'),
     });
 
@@ -212,7 +212,7 @@ async function screenshotTimerPages(
 
     // 02: the whole card as an operator with a healthy timer sees it —
     // Ready, the identified device, its provenance note, the serial traffic.
-    await timerCard.screenshot({
+    await screenshotLocator(timerCard, {
         path: path.join(SCREENSHOT_DIR, '02-timer-check-ready.png'),
     });
 
@@ -222,7 +222,7 @@ async function screenshotTimerPages(
         timerCard.getByTestId(`timer-test-instruction-${trackId}`),
     ).toBeVisible({ timeout: 10000 });
     await page.waitForTimeout(300);
-    await timerCard.getByTestId(`timer-test-panel-${trackId}`).screenshot({
+    await screenshotLocator(timerCard.getByTestId(`timer-test-panel-${trackId}`), {
         path: path.join(SCREENSHOT_DIR, '03-test-run-armed.png'),
     });
 
@@ -237,7 +237,7 @@ async function screenshotTimerPages(
     // 04: the finished test — times per lane, the download, and the road to
     // an issue. This is the picture the "Testing your timer" section makes
     // its promise with.
-    await timerCard.getByTestId(`timer-test-panel-${trackId}`).screenshot({
+    await screenshotLocator(timerCard.getByTestId(`timer-test-panel-${trackId}`), {
         path: path.join(SCREENSHOT_DIR, '04-test-run-results.png'),
     });
 

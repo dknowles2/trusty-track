@@ -10,7 +10,7 @@
  * regenerated screenshot is a real diff rather than reshuffled names.
  */
 
-import { test, expect } from './screenshots-setup';
+import { test, expect, screenshotLocator } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -109,10 +109,10 @@ test('screenshot the print sheets', async ({ page }) => {
         await page.screenshot({ path: path.join(SCREENSHOT_DIR, `${kind}-sheet.png`) });
 
         // One card on its own, at a size the detail is readable at.
-        await page
-            .locator('.print-card')
-            .first()
-            .screenshot({ path: path.join(SCREENSHOT_DIR, `${kind}-card.png`), scale: 'css' });
+        await screenshotLocator(page.locator('.print-card').first(), {
+            path: path.join(SCREENSHOT_DIR, `${kind}-card.png`),
+            scale: 'css',
+        });
     }
 
     // Where the operator starts: the roster's Print and Scan controls. Print

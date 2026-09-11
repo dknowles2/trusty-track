@@ -16,7 +16,7 @@
  * nothing the other specs read.
  */
 
-import { test, expect, settleTransitions } from './screenshots-setup';
+import { test, expect, screenshotLocator, settleTransitions } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -67,5 +67,8 @@ test('screenshot the race settings form', async ({ page }) => {
         el.scrollTop = 0;
     });
 
-    await dialog.screenshot({ path: path.join(SCREENSHOT_DIR, '11-edit-race-settings.png') });
+    // `screenshotLocator`, not `dialog.screenshot()` — this dialog capture
+    // needs the same pointer-park `page.screenshot()` gets, and gets it from
+    // nowhere else (#970: see that helper's own doc comment).
+    await screenshotLocator(dialog, { path: path.join(SCREENSHOT_DIR, '11-edit-race-settings.png') });
 });

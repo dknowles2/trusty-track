@@ -22,7 +22,7 @@
  * the one spec that runs on its own.
  */
 
-import { test, expect, settleTransitions } from './screenshots-setup';
+import { test, expect, screenshotLocator, settleTransitions } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -76,7 +76,7 @@ test('screenshot the settings panels', async ({ page }) => {
     await terminologyFields.getByLabel('More than one (was “Cars”)').fill('Rockets');
     await terminologyFields.getByLabel('Vehicle picture').selectOption('rocket');
     await expect(terminologyFields.getByLabel('One racing group (was “Den”)')).toHaveValue('Class');
-    await terminologyFields.screenshot({ path: path.join(SCREENSHOT_DIR, '09-terminology.png') });
+    await screenshotLocator(terminologyFields, { path: path.join(SCREENSHOT_DIR, '09-terminology.png') });
 
     await page.getByTestId('settings-nav-tracks').click();
 
@@ -127,7 +127,7 @@ test('screenshot the settings panels', async ({ page }) => {
     // the track's name or lane count.
     const timerSection = trackCard.getByTestId('track-timer');
     await expect(timerSection.getByLabel('Timer Type')).toHaveValue('FAKE');
-    await timerSection.screenshot({ path: path.join(SCREENSHOT_DIR, '06-fake-timer-selected.png') });
+    await screenshotLocator(timerSection, { path: path.join(SCREENSHOT_DIR, '06-fake-timer-selected.png') });
 
     // No timer at all (#490), for docs/reference/race-settings.md#no-timer.
     // Neither screenshot is followed by Save Settings — the dropdown's value
@@ -136,7 +136,7 @@ test('screenshot the settings panels', async ({ page }) => {
     // back.
     await timerSection.getByLabel('Timer Type').selectOption('NONE');
     await expect(timerSection.getByLabel('Timer Model')).toBeHidden();
-    await timerSection.screenshot({ path: path.join(SCREENSHOT_DIR, '07-no-timer-selected.png') });
+    await screenshotLocator(timerSection, { path: path.join(SCREENSHOT_DIR, '07-no-timer-selected.png') });
     await timerSection.getByLabel('Timer Type').selectOption('FAKE');
 
     // Lane 3 out of service. It saves on click rather than on Save Settings,
@@ -149,7 +149,7 @@ test('screenshot the settings panels', async ({ page }) => {
     await expect(trackCard.getByText(/Lane 3 out of service/i)).toBeVisible();
     await page.waitForTimeout(300);
 
-    await trackCard.screenshot({ path: path.join(SCREENSHOT_DIR, '01-lanes-in-service.png') });
+    await screenshotLocator(trackCard, { path: path.join(SCREENSHOT_DIR, '01-lanes-in-service.png') });
 
     // Put it back, so a spec running after this one against the same backend
     // does not schedule a round two lanes wide for reasons it cannot see.
@@ -168,7 +168,7 @@ test('screenshot the settings panels', async ({ page }) => {
     await expect(recordsSection.getByText(/Jimmy Alvarez/)).toBeVisible();
     await page.waitForTimeout(300);
 
-    await recordsSection.screenshot({ path: path.join(SCREENSHOT_DIR, '05-track-records.png') });
+    await screenshotLocator(recordsSection, { path: path.join(SCREENSHOT_DIR, '05-track-records.png') });
 
     // Removed again. Nothing races on this track, so the record could stay —
     // but the picture is of *adding* one, and a spec that tidies up after
@@ -197,7 +197,7 @@ test('screenshot the settings panels', async ({ page }) => {
     await expect(page.getByTestId('appearance-preview')).toBeVisible();
     await page.waitForTimeout(200);
 
-    await appearancePanel.screenshot({ path: path.join(SCREENSHOT_DIR, '08-appearance-old-glory.png') });
+    await screenshotLocator(appearancePanel, { path: path.join(SCREENSHOT_DIR, '08-appearance-old-glory.png') });
 
     // The backup panel, which is a section of its own now — it used to be at
     // the foot of the page, below every track.
@@ -206,5 +206,5 @@ test('screenshot the settings panels', async ({ page }) => {
     await backup.scrollIntoViewIfNeeded();
     await expect(backup).toBeVisible();
     await page.waitForTimeout(300);
-    await backup.screenshot({ path: path.join(SCREENSHOT_DIR, '02-backup-panel.png') });
+    await screenshotLocator(backup, { path: path.join(SCREENSHOT_DIR, '02-backup-panel.png') });
 });
