@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
@@ -126,16 +126,73 @@ describe('Navigation Component', () => {
             fireEvent.click(screen.getByLabelText('Open Menu'));
         });
 
+        // Scoped to the drawer: the same six links are also on the bottom
+        // tab bar (#952) once a race is active, so an unscoped query matches
+        // twice.
+        const drawer = within(screen.getByTestId('mobile-drawer'));
         await waitFor(() => {
             // One row of race navigation, so every race view is here — the
             // per-page Roster/Standings/Awards/Stats toggle is gone.
-            expect(screen.getByText('Roster')).toBeInTheDocument();
-            expect(screen.getByText('Control')).toBeInTheDocument();
-            expect(screen.getByText('Standings')).toBeInTheDocument();
-            expect(screen.getByText('Awards')).toBeInTheDocument();
-            expect(screen.getByText('Stats')).toBeInTheDocument();
-            expect(screen.getByText('Live')).toBeInTheDocument();
+            expect(drawer.getByText('Roster')).toBeInTheDocument();
+            expect(drawer.getByText('Control')).toBeInTheDocument();
+            expect(drawer.getByText('Standings')).toBeInTheDocument();
+            expect(drawer.getByText('Awards')).toBeInTheDocument();
+            expect(drawer.getByText('Stats')).toBeInTheDocument();
+            expect(drawer.getByText('Live')).toBeInTheDocument();
         });
+    });
+
+    it('shows the race name in the mobile header and a bottom tab bar sharing the same links (#952)', async () => {
+        Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 500 });
+        window.dispatchEvent(new Event('resize'));
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={['/race/1']}>
+                    <Navigation />
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        // The mobile pill names the race, standing in for the hidden desktop
+        // pill and the hidden race-nav row.
+        const pill = await screen.findByTestId('race-selector-pill-mobile');
+        expect(within(pill).getByText('Race 1')).toBeInTheDocument();
+
+        // The tab bar carries the same six links as the desktop row, and
+        // does not need the drawer open.
+        const tabBar = within(screen.getByTestId('mobile-tab-bar'));
+        expect(tabBar.getByText('Roster')).toBeInTheDocument();
+        expect(tabBar.getByText('Control')).toBeInTheDocument();
+        expect(tabBar.getByText('Standings')).toBeInTheDocument();
+        expect(tabBar.getByText('Awards')).toBeInTheDocument();
+        expect(tabBar.getByText('Stats')).toBeInTheDocument();
+        expect(tabBar.getByText('Live')).toBeInTheDocument();
+
+        // Opening the pill opens the same drawer the hamburger does.
+        fireEvent.click(pill);
+        await waitFor(() => {
+            expect(screen.getByTestId('mobile-drawer')).toHaveStyle({ visibility: 'visible' });
+        });
+    });
+
+    it('shows no mobile tab bar or race pill off a race page', async () => {
+        Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 500 });
+        window.dispatchEvent(new Event('resize'));
+
+        render(
+            <AlertProvider>
+                <MemoryRouter>
+                    <Navigation />
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByLabelText('Open Menu')).toBeInTheDocument();
+        });
+        expect(screen.queryByTestId('mobile-tab-bar')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('race-selector-pill-mobile')).not.toBeInTheDocument();
     });
 
     it('maps RaceFormData snake_case to camelCase when creating a race', async () => {

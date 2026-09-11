@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useSubscription } from 'urql';
 import { GET_RACES_NAV, INITIAL_CONFIG_QUERY, RACES_CHANGED } from '../graphql/queries';
@@ -15,6 +15,13 @@ import LockedBadge from './LockedBadge';
 import logoUrl from '../../../assets/logo_transparent.png';
 import { UnlockButton } from './UnlockButton';
 import { useChrome } from '../../../context/ChromeContext';
+
+// The JS breakpoint used to be a strict `< 768`, one pixel narrower than the
+// CSS `@media (max-width: 768px)` rules (`.mobile-hide`, the settings nav's
+// own column-to-row collapse) it is meant to track — invisible while the two
+// never had to agree about the same pixel, and #952's own 768px verification
+// width is exactly the pixel that exposed it. Inclusive, to match the CSS.
+const MOBILE_BREAKPOINT = 768;
 
 // The race-selector pill sits directly on the nav's own `--scouting-blue`
 // background with nothing else behind it, so an opaque `color-mix` against
@@ -69,17 +76,25 @@ export default function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= MOBILE_BREAKPOINT);
 
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 768;
+      const mobile = window.innerWidth <= MOBILE_BREAKPOINT;
       setIsMobile(mobile);
       if (!mobile) setIsMobileMenuOpen(false);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // The drawer's own entry for the race already on screen — scrolled into
+  // view whenever the drawer opens, so a phone with several races does not
+  // leave the operator hunting for the one they are already in (#952).
+  const activeRaceRowRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (isMobileMenuOpen) activeRaceRowRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [isMobileMenuOpen]);
 
   const match = location.pathname.match(/\/race\/(\d+)/);
   const raceId = match ? match[1] : null;
@@ -113,6 +128,29 @@ export default function Navigation() {
       );
   }
 
+  // The URL still counts, because a display nobody has assigned anything
+  // reaches projector mode that way — but an *assigned* full-screen view
+  // changes no URL at all, so the view itself has to say so (#175).
+  const isProjectorMode = new URLSearchParams(location.search).get('projector') === 'true';
+
+  // The bottom tab bar (#952): one row of race navigation, reused rather than
+  // a second hand-written list of the six views — "One row of race
+  // navigation" above is what that rule is for. It shares the whole-nav
+  // hide with the header, through the same `isProjectorMode`/`chromeHidden`
+  // check the `return null` below makes, so an assigned full-screen display
+  // on a phone gets no tab bar either.
+  const showTabBar = isMobile && !!raceId && !isProjectorMode && !chromeHidden;
+
+  // `position: fixed` does not reserve space in the document's own flow, so
+  // without this the tab bar sits on top of whatever the page's last ~60px
+  // of content is — a fixed footer needs the page to leave room for it, the
+  // same `document.body.style` pattern `Modal.tsx` already uses for its own
+  // scroll lock.
+  useEffect(() => {
+    document.body.style.paddingBottom = showTabBar ? '60px' : '';
+    return () => { document.body.style.paddingBottom = ''; };
+  }, [showTabBar]);
+
   const handleCreateRace = async (data: RaceSetupData) => {
     try {
       const raceInput = buildCreateRaceInput(data);
@@ -128,11 +166,6 @@ export default function Navigation() {
     }
   };
 
-  // The URL still counts, because a display nobody has assigned anything
-  // reaches projector mode that way — but an *assigned* full-screen view
-  // changes no URL at all, so the view itself has to say so (#175).
-  const isProjectorMode = new URLSearchParams(location.search).get('projector') === 'true';
-
   if (isProjectorMode || chromeHidden) return null;
 
   return (
@@ -140,11 +173,49 @@ export default function Navigation() {
       <nav style={{ backgroundColor: 'var(--scouting-blue)', color: 'var(--on-primary-color)', position: 'relative', zIndex: 1000, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 1rem' }}>
 
-          {/* Left: Logo & Home */}
+          {/* Left: Logo & Home. The wordmark drops out once the mobile race
+              pill needs the room — a phone under a race would otherwise show
+              nothing that says which race it is in (#952). */}
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', textDecoration: 'none', color: 'inherit', flexShrink: 0 }}>
             <img src={logoUrl} alt="Trusty Track Logo" style={{ height: '32px', width: 'auto' }} />
-            <span style={{ fontSize: '1.2rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>Trusty Track</span>
+            {!(isMobile && raceId) && (
+              <span style={{ fontSize: '1.2rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>Trusty Track</span>
+            )}
           </Link>
+
+          {/* Center, mobile: the race's own name, standing in for the row and
+              the pill that are both hidden below 768px (#952). Opens the same
+              drawer the hamburger does, scrolled to this race's own entry —
+              there is no second "which race" surface to keep in step with
+              this one. */}
+          {isMobile && raceId && (
+            <button
+              data-testid="race-selector-pill-mobile"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Open race menu"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                background: 'none',
+                border: 'none',
+                color: 'var(--on-primary-color)',
+                fontWeight: 'bold',
+                fontSize: '0.95rem',
+                cursor: 'pointer',
+                padding: '4px 8px',
+              }}
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {activeRace ? activeRace.name : raceContextUnresolved ? '' : 'Select a Race'}
+              </span>
+              {activeRace?.isLocked && <LockedBadge size="small" />}
+              <Icon path={mdiChevronDown} size={0.6} color="var(--on-primary-color)" style={{ opacity: 0.8, flexShrink: 0 }} />
+            </button>
+          )}
 
           {/* Center: Race Switcher (Hidden on Mobile) */}
           {!isMobile && (
@@ -337,7 +408,9 @@ export default function Navigation() {
               }}
             />
             {/* Drawer */}
-            <div style={{
+            <div
+              data-testid="mobile-drawer"
+              style={{
               position: 'fixed',
               top: 0,
               right: 0,
@@ -379,7 +452,7 @@ export default function Navigation() {
               <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
                 <h3 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-faint-color)', margin: '1rem 0 0.5rem 0.5rem', letterSpacing: '1px' }}>Races</h3>
                 {races.map((r: { id: number; name: string; isLocked: boolean }) => (
-                  <div key={r.id}>
+                  <div key={r.id} ref={raceId === r.id.toString() ? activeRaceRowRef : undefined}>
                     <Link
                       to={`/race/${r.id}`}
                       onClick={() => setIsMobileMenuOpen(false)}
@@ -536,6 +609,56 @@ export default function Navigation() {
             );
           })}
         </div>
+      )}
+
+      {/* Bottom tab bar: the same one row of race navigation as the desktop
+          secondary header above, `links` and all, just laid out for a thumb
+          rather than a pointer (#952). Sharing `showTabBar` with the
+          body-padding effect is what keeps the two in step — there is no
+          second flag saying whether the bar is on screen. */}
+      {showTabBar && (
+        <nav
+          data-testid="mobile-tab-bar"
+          aria-label="Race navigation"
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            display: 'flex',
+            backgroundColor: 'var(--surface-color)',
+            borderTop: '1px solid var(--border-color)',
+            boxShadow: '0 -1px 4px rgba(0,0,0,0.08)',
+          }}
+        >
+          {links.map(link => {
+            const isActive = link.to === activeNavLink(location.pathname, links);
+            return (
+              <Link
+                key={link.to}
+                to={link.to}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '2px',
+                  padding: '6px 2px 8px',
+                  textDecoration: 'none',
+                  color: isActive ? 'var(--scouting-blue)' : 'var(--text-muted-color)',
+                  fontWeight: isActive ? 'bold' : '500',
+                  fontSize: '0.65rem',
+                }}
+              >
+                <Icon path={link.icon} size={0.75} />
+                {link.label}
+              </Link>
+            );
+          })}
+        </nav>
       )}
 
       {/* Create Race Modal */}
