@@ -499,6 +499,20 @@ input:checked + .slider:before {
     opacity: 1 !important;
 }
 
+/* Schedule tab: a heat row's Delete control only shows on hover or focus
+   (#939) — Run is the only action a heat row shows at all times. The
+   button stays in the tab order (only its opacity changes), so tabbing to
+   it also reveals it via :focus-within. */
+.schedule-heat-row .heat-row-delete-btn {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.schedule-heat-row:hover .heat-row-delete-btn,
+.schedule-heat-row:focus-within .heat-row-delete-btn {
+    opacity: 0.7;
+}
+
 .secondary-btn:disabled,
 /* A `<Link>` styled as one of these has no `disabled` attribute to match —
    `aria-disabled` is its non-interactive twin (#790, Awards' Present and

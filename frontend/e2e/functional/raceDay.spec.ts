@@ -1096,3 +1096,28 @@ test("Home badges a race's schedule status as heats are generated and run (#847)
     await page.goto('/');
     await expect(row.getByText('Finished')).toBeVisible();
 });
+
+test('confirming Delete round actually removes it (#939)', async ({ page }) => {
+    // `handleDeleteHeat` already went through `showConfirm`; `handleDeleteRound`
+    // did not, and used to call the mutation the moment the button was
+    // clicked. Cancelling-does-not-mutate is covered by
+    // `RaceControlScheduleConfirm.test.tsx` with a mocked mutation — what
+    // that test can't prove is that confirming actually reaches the
+    // GraphQL round trip and the round is genuinely gone afterwards.
+    const { raceId } = await seedRace(page, 'Race Day Delete Round Confirm');
+    await createSchedule(page, raceId);
+
+    await page.goto(`/race/${raceId}/control`);
+    await expect(page.getByText('Heat 1', { exact: true }).first()).toBeVisible();
+
+    await page.getByRole('button', { name: 'Delete All Pack' }).click();
+
+    const confirmDialog = page.getByRole('dialog', { name: 'Delete Round' });
+    await expect(confirmDialog).toBeVisible();
+    await expect(confirmDialog.getByText(/heats have not been run\. This cannot be undone\./)).toBeVisible();
+    await confirmDialog.getByRole('button', { name: 'Delete' }).click();
+
+    await expect(confirmDialog).toBeHidden();
+    await expect(page.getByText('Heat 1', { exact: true })).toHaveCount(0);
+    expect(await readRounds(page, raceId)).toHaveLength(0);
+});
