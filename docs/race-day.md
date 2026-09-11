@@ -121,7 +121,7 @@ If a photographer takes portraits or car photos before the race, you can upload 
 **When to use this:** After a pre-race photo session where you have a folder of racer or car images to associate with the correct racers.
 
 ![Upload Photos in the roster's overflow menu](assets/screenshots/race-day/19-upload-photos-button.png)
-_**Upload Photos** is in the **⋯** menu at the top right of the roster, between **Manage Dens** and **Print**._
+_**Upload Photos** is in the **⋯** menu at the top right of the roster, between **Manage Dens** and **Print…**._
 
 1. Click **⋯** at the top right of the roster and choose **Upload Photos**.
 2. The **Upload & Assign Photos** modal opens. Click **Choose Photos** and select one or more image files from your device.
@@ -610,13 +610,13 @@ later — a race that finished before you opened the page does not throw this
 summary up on you again.
 
 Coming back later — a phone at the track, or the next morning to print
-certificates — rather than to this same tab? The Home page's race list has a
-**Standings** action in each row's **⋯** menu, right beside **Roster** and
-**Edit race**, so you do not need to open the roster first just to reach the
-results. Each row also carries a small badge beside the race name — **Not
-started**, **In progress** or **Finished** — so you can tell at a glance
-which of last season's races still has heats to run without opening any of
-them.
+certificates — rather than to this same tab? The Home page's race list has
+**Standings** and **Print** actions in each row's **⋯** menu, right beside
+**Roster** and **Edit race**, so you do not need to open the roster first
+just to reach the results or the [print hub](printables.md). Each row also
+carries a small badge beside the race name — **Not started**, **In
+progress** or **Finished** — so you can tell at a glance which of last
+season's races still has heats to run without opening any of them.
 
 After all heats are complete, the **Standings** page shows the final ranked results. Navigate there from the top nav bar.
 

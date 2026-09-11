@@ -8,13 +8,20 @@ Everything Trusty Track puts on paper. All of it comes off a normal printer
 
 | Document | Where | What it is |
 | --- | --- | --- |
-| **Pit passes** | Roster → ⋯ → Print | Lanyard-sized, six per sheet: photo, name, den, car, event details |
-| **Driver's licences** | Roster → ⋯ → Print | Business-card sized, ten per sheet — the same size as stationery-shop card stock. The car number is the biggest thing on it, and there is a line for the scout to sign |
-| **Check-in codes** | Roster → ⋯ → Print | A QR code per racer, twelve per sheet, name and car number underneath |
-| **Car labels** | Roster → ⋯ → Print | Avery 5163 shipping-label sized, ten per sheet: car number, name, racing group, inspected weight, and a scan code — for the underside of the car or the impound box |
-| **Heat sheet** | Race Control → Schedule | The running order: a table per round, a row per heat, a column per lane, and an empty **Result** column to write into |
+| **Pit passes** | Roster → ⋯ → Print… | Lanyard-sized, six per sheet: photo, name, den, car, event details |
+| **Driver's licences** | Roster → ⋯ → Print… | Business-card sized, ten per sheet — the same size as stationery-shop card stock. The car number is the biggest thing on it, and there is a line for the scout to sign |
+| **Check-in codes** | Roster → ⋯ → Print… | A QR code per racer, twelve per sheet, name and car number underneath |
+| **Car labels** | Roster → ⋯ → Print… | Avery 5163 shipping-label sized, ten per sheet: car number, name, racing group, inspected weight, and a scan code — for the underside of the car or the impound box |
+| **Heat sheet** | Race Control → Schedule → Heat sheet | The running order: a table per round, a row per heat, a column per lane, and an empty **Result** column to write into |
 | **Results sheet** | Standings → Print results | Awards and winners at the top, then the standings — overall, and a table per den |
 | **Certificates** | Race → Awards → Print certificates | One certificate per award, one per sheet, in the ceremony's running order — with artwork for a ready-made superlative or a speed award |
+
+Each of those buttons is a shortcut — the reasoning for every one of them still
+holds, and none of them moved. **The print hub** — Roster → ⋯ → Print…, or
+Home → ⋯ → Print — lists all seven in one place instead, for whenever you do
+not already know which page owns the document you want: the four above print
+straight from cards on the hub itself, and the heat sheet, results sheet and
+certificates are cards that link to the pages above.
 
 ## Rules the card documents follow
 

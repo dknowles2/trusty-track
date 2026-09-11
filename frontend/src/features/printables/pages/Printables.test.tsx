@@ -263,4 +263,29 @@ describe('Printables', () => {
 
         expect(screen.getByText(/2 cards · 1 sheet of Letter · 10 per sheet/)).toBeInTheDocument();
     });
+
+    it('is the hub: every printable document, including the three that live on their own page (#957)', () => {
+        mockRace();
+        open();
+
+        // The four sheet-and-print documents, still picked from right here.
+        expect(document.querySelectorAll('.printables-kinds button.printables-kind')).toHaveLength(4);
+
+        // The three that hand off to their own page.
+        expect(screen.getByRole('link', { name: /Heat sheet/ })).toHaveAttribute(
+            'href',
+            '/race/1/print/heat-sheet',
+        );
+        expect(screen.getByRole('link', { name: /Results sheet/ })).toHaveAttribute(
+            'href',
+            '/race/1/print/results',
+        );
+        expect(screen.getByRole('link', { name: /Certificates/ })).toHaveAttribute(
+            'href',
+            '/race/1/print/certificates',
+        );
+
+        // Seven cards in total — the mockup's own count.
+        expect(document.querySelectorAll('.printables-kind')).toHaveLength(7);
+    });
 });

@@ -911,7 +911,10 @@ export default function RaceDetails() {
               checkin: handleChecklistCheckIn,
               schedule: () => navigate(`/race/${parsedRaceId}/control`),
               awards: () => navigate(`/race/${parsedRaceId}/awards`),
-              printables: () => navigate(`/race/${parsedRaceId}/print`),
+              // The hub (#957) rather than the roster's own picker, with pit
+              // passes preselected — this step exists for check-in, and
+              // pit passes are the document that step is about.
+              printables: () => navigate(`/race/${parsedRaceId}/print?kind=pit-pass`),
           }}
       />
 
@@ -1143,7 +1146,7 @@ export default function RaceDetails() {
                                 }}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
-                                <Icon path={mdiPrinter} size={0.7} /> Print
+                                <Icon path={mdiPrinter} size={0.7} /> Print…
                                 {visibleSelectedRacerIds.length > 0 && ` (${visibleSelectedRacerIds.length})`}
                             </button>
                         </div>
