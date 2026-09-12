@@ -170,6 +170,31 @@ describe.each(Object.keys(SOURCES) as RosterImportSource[])('RosterImportModal (
         expect(screen.getByRole('button', { name: /Import 1 Racer/ })).toBeEnabled();
     });
 
+    it('blocks import and reddens the banner when a racer already on the roster is named (#1021)', async () => {
+        mockMutations(source, {
+            preview: vi.fn().mockResolvedValue({
+                data: {
+                    [SOURCES[source].previewField]: {
+                        ...PREVIEW_RESULT,
+                        canImport: false,
+                        problems: [
+                            { message: 'Alex Rivera is already on the roster.', blocking: true, sourceId: '1' },
+                        ],
+                    },
+                },
+            }),
+        });
+        open(source);
+
+        await selectFile(source, 'roster.sqlite');
+
+        await waitFor(() =>
+            expect(screen.getByText('Alex Rivera is already on the roster.')).toBeInTheDocument(),
+        );
+        expect(screen.getByText('This file cannot be imported yet')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Import 1 Racer/ })).toBeDisabled();
+    });
+
     it('reports a file the parser refuses, using its own sentence', async () => {
         mockMutations(source, {
             preview: vi.fn().mockResolvedValue({

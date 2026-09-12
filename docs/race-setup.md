@@ -80,7 +80,7 @@ Your file does not have to be in any particular format — you match its columns
     First Name and Last Name are required; Car Number, Car Name, Den and Passed Inspection are optional.
 
 3. Look over the **Preview**, which shows the first few rows exactly as they will be imported.
-4. Read any warnings. Trusty Track points out rows missing a name, car numbers that are not numbers, and car numbers used twice, before anything is saved.
+4. Read any warnings. Trusty Track points out rows missing a name, car numbers that are not numbers, and car numbers used twice, before anything is saved. A row naming a racer already on your roster — by first and last name — stops the whole import rather than warning: that is what catches a file being imported a second time.
 5. Click **Import Racers**.
 
 ![CSV Import Dialog](assets/screenshots/race-setup/06-csv-import-dialog.png)
@@ -102,7 +102,7 @@ If your pack has run past events in GrandPrix Race Manager (GPRM), you do not ha
 
 1. From the arrow beside **Add Racer**, choose **Import from GrandPrix Race Manager**.
 2. Click **Select GPRM Database** and choose the file. GPRM (version 18, from 2018, or later) keeps its roster as a single SQLite file, usually under **Documents > Lisano Enterprises > GrandPrix Race Manager > Data**. An older GPRM saves an Access database instead (`.mdb`) — Trusty Track cannot read that format directly, and will tell you to open it in a current version of GPRM, which re-saves it as SQLite.
-3. Trusty Track reads the file and shows you a preview — every den and racer it found, and any car numbers already used twice, either within the file or by someone already on your roster — before anything is saved.
+3. Trusty Track reads the file and shows you a preview — every den and racer it found, and any car numbers already used twice, either within the file or by someone already on your roster — before anything is saved. A racer already on your roster, matched by first and last name, blocks the import outright rather than just being flagged — importing the same file a second time must not double every racer on it.
 4. Click **Import _N_ Racers**.
 
 The mapping from GPRM's own tables to a Trusty Track roster is worked out from GPRM's database structure, not confirmed against every version of GPRM in the field — so it is worth checking the preview against what you expect before importing, the same as you would with a CSV. Dens named in the file are created automatically, matched to an existing den of the same name where one already exists.
@@ -117,7 +117,7 @@ If your pack has run past events in DerbyNet, its database can be read the same 
 
 1. From the arrow beside **Add Racer**, choose **Import from DerbyNet**.
 2. Click **Select DerbyNet Database** and choose the file — a single SQLite file, from DerbyNet's Administer Race page's Backup Database link, or the file in its own data directory.
-3. Trusty Track reads the file and shows you a preview — every den and racer it found, and any car numbers already used twice, either within the file or by someone already on your roster — before anything is saved.
+3. Trusty Track reads the file and shows you a preview — every den and racer it found, and any car numbers already used twice, either within the file or by someone already on your roster — before anything is saved. A racer already on your roster, matched by first and last name, blocks the import outright rather than just being flagged — importing the same file a second time must not double every racer on it.
 4. Click **Import _N_ Racers**.
 
 The mapping from DerbyNet's own tables to a Trusty Track roster is worked out from DerbyNet's database structure, not confirmed against a real DerbyNet installation — so it is worth checking the preview against what you expect before importing, the same as you would with a CSV or a GPRM database. Dens named in the file are created automatically, matched to an existing den of the same name where one already exists.

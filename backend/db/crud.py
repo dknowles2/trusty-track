@@ -864,17 +864,55 @@ def existing_car_number_holders(db: Session, race_id: int) -> dict[int, str]:
     """`{car_number: "First Last"}` for every racer already in this race who
     has one. The I/O half of `domain.roster_import.existing_number_problems`
     (#618) — that rule needs no database, and this is the query that feeds it.
+
+    Ordered by `Racer.id` and kept on first sight (#1021) — `MANUAL`
+    numbering allows two racers to share a number, and a plain dict
+    comprehension over an unordered query named whichever holder happened
+    to be inserted *last*, which could disagree with the in-file rule's own
+    "first holder" convention about the very same number and name two
+    different racers for one collision. Keeping the first (lowest id) makes
+    the two rules agree.
     """
     holders = (
         db.query(models.Racer)
         .filter(models.Racer.race_id == race_id, models.Racer.car_number.isnot(None))
+        .order_by(models.Racer.id)
         .all()
     )
-    return {
-        holder.car_number: f"{holder.first_name} {holder.last_name}".strip()
-        for holder in holders
-        if holder.car_number is not None
-    }
+    result: dict[int, str] = {}
+    for holder in holders:
+        if holder.car_number is None:
+            continue
+        result.setdefault(
+            holder.car_number, f"{holder.first_name} {holder.last_name}".strip()
+        )
+    return result
+
+
+def existing_racer_names(db: Session, race_id: int) -> dict[str, str]:
+    """`{normalized_name: "First Last"}` for every racer already in this
+    race (#1021). The I/O half of
+    `domain.roster_import.existing_racer_problems` — the name-based sibling
+    of `existing_car_number_holders` above, needed because an *unnumbered*
+    racer has nothing for that function's own rule to ever compare.
+
+    Ordered by `Racer.id` and kept on first sight, the same reason
+    `existing_car_number_holders` is — two racers who happen to share a
+    name should still resolve to one, deterministic display name.
+    """
+    existing = (
+        db.query(models.Racer)
+        .filter(models.Racer.race_id == race_id)
+        .order_by(models.Racer.id)
+        .all()
+    )
+    result: dict[str, str] = {}
+    for holder in existing:
+        key = roster_import.normalized_name(holder.first_name, holder.last_name)
+        if not key:
+            continue
+        result.setdefault(key, f"{holder.first_name} {holder.last_name}".strip())
+    return result
 
 
 def write_imported_roster(
