@@ -204,6 +204,61 @@ describe('HeatSheet', () => {
         expect(screen.queryByText('not on this track')).not.toBeInTheDocument();
     });
 
+    // #1052 — `printedSummary` is unit-tested in isolation, but nothing
+    // checked that HeatSheet.tsx actually calls it: a revert to the old
+    // `totalHeats(sections)`/`sections.length` (each summing every section,
+    // including the master-order flat section that duplicates every
+    // non-championship heat) would pass every other test here while
+    // double-counting both figures.
+    it('counts each heat and round once under a master running order, not once per section (#1024)', () => {
+        const heats: RaceFixtureHeat[] = [];
+        for (let n = 1; n <= 6; n++) {
+            heats.push({
+                id: 200 + n,
+                heatNumber: n,
+                roundId: 1,
+                lanes: [
+                    { lane: 1, racerId: 1, placeholderSlot: null },
+                    { lane: 2, racerId: 2, placeholderSlot: null },
+                ],
+            });
+        }
+        for (let n = 1; n <= 6; n++) {
+            heats.push({
+                id: 300 + n,
+                heatNumber: 6 + n,
+                roundId: 2,
+                lanes: [
+                    { lane: 1, racerId: 1, placeholderSlot: null },
+                    { lane: 2, racerId: 2, placeholderSlot: null },
+                ],
+            });
+        }
+        mockData(
+            { id: 5, laneCount: 2, laneColors: [] },
+            {
+                masterRunningOrder: true,
+                rounds: [
+                    { id: 1, name: null, roundNumber: 1, advancementSource: null },
+                    { id: 2, name: null, roundNumber: 2, advancementSource: null },
+                ],
+                heats,
+            },
+        );
+        const { container } = open();
+
+        // Sanity: the flat master-order section really is there, ahead of
+        // the two round tables — otherwise this test would pass for a
+        // reason unrelated to the bug it guards.
+        const sectionHeadings = screen
+            .getAllByRole('heading', { level: 2 })
+            .map((h) => h.textContent);
+        expect(sectionHeadings.slice(1)).toEqual(['Master running order', 'Round 1', 'Round 2']);
+
+        const summary = container.querySelector('.printables-summary');
+        expect(summary?.textContent?.replace(/\s+/g, ' ').trim()).toBe('12 heats · 2 rounds');
+    });
+
     it('prints a run-off heat after the round it settles, titled with the place it decides', () => {
         mockData(
             { id: 5, laneCount: 2, laneColors: [] },
