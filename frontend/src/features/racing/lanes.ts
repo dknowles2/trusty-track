@@ -66,6 +66,27 @@ export const byPlace = (lanes: readonly Lane[]): Lane[] =>
 export const racerIdIn = (lane: Lane): number | null => lane.racerId;
 
 /**
+ * A lane with nobody in it and nobody coming — not a racer, and not an
+ * undecided championship slot either. Mirrors `Lane.is_empty` in
+ * `backend/domain/lanes.py`, which asks about *both* fields for exactly this
+ * reason: a placeholder also has `racerId === null`, so a check on `racerId`
+ * alone reads it as empty too. That was issue #1014 — `RaceExecution.tsx`'s
+ * current-heat card and On Deck panel tested `racerId` alone (by way of a
+ * `racers[r.racerId || 0]` lookup), so a lane an advancement rule left short
+ * — a 3-car Final on a 4-lane track, a lane vacated by a withdrawn racer, one
+ * taken out of service mid-round — rendered as a child named "Racer #0"
+ * rather than as the empty lane it is.
+ *
+ * Takes a structural type rather than {@link Lane} itself so it also covers
+ * {@link LiveLane} and a plain `HeatLaneInput`, none of which add or remove
+ * either field.
+ */
+export const isLaneEmpty = (lane: {
+  racerId?: number | null;
+  placeholderSlot?: number | null;
+}): boolean => lane.racerId == null && lane.placeholderSlot == null;
+
+/**
  * A lane as the mutation takes it.
  *
  * Field-for-field the same as {@link Lane}, but spelt out rather than spread:

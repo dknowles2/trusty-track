@@ -1659,5 +1659,100 @@ describe('RaceExecution', () => {
             expect(checkbox.checked).toBe(true);
         });
     });
+
+    // Issue #1014, and the reproduction seam #1025 asked for: a 3-car Final
+    // on a 4-lane track has one lane with no racer and no placeholder, and
+    // both loops used to fall back to `racers[r.racerId || 0]` for it — a
+    // lookup on racer id 0, which does not exist, so the name rendered as
+    // "Racer 0" (the mock's own version of the real screen's "Racer #<id>")
+    // with a purple initials avatar, as though a child by that name were
+    // racing. A placeholder slot (an undecided championship pick) is not
+    // this — it still reads "Top N"/"Slowest N" through `getRacerName`,
+    // covered separately above.
+    describe('an empty lane is Empty, never "Racer #0" (#1014)', () => {
+        const thirdRacer = {
+            id: 103,
+            firstName: 'Alex',
+            lastName: 'Lee',
+            carNumber: 3,
+            racerImageUrl: null,
+            carImageUrl: null,
+            carPassedInspection: true,
+        };
+        const racersWithThird = { ...mockRacers, 103: thirdRacer };
+        const threeCarFinalLanes = [
+            lane({ lane: 1, racerId: 101 }),
+            lane({ lane: 2, racerId: 102 }),
+            lane({ lane: 3, racerId: 103 }),
+            lane({ lane: 4, racerId: null, placeholderSlot: null }),
+        ];
+
+        it('renders the current heat card\'s empty lane as Empty, with no avatar', () => {
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    racers={racersWithThird}
+                    activeExecutionHeat={{ ...mockHeat, lanes: threeCarFinalLanes }}
+                />
+            );
+
+            const activeCard = screen.getByTestId('race-execution-active-card');
+            expect(within(activeCard).getByText('John Doe')).toBeInTheDocument();
+            expect(within(activeCard).getByText('Jane Smith')).toBeInTheDocument();
+            expect(within(activeCard).getByText('Alex Lee')).toBeInTheDocument();
+            expect(within(activeCard).getByText('Empty')).toBeInTheDocument();
+            expect(within(activeCard).queryByText(/Racer 0/)).not.toBeInTheDocument();
+
+            const emptyRow = within(activeCard).getByText('Empty').closest('.race-execution-lane-row');
+            expect(emptyRow).not.toBeNull();
+            expect(emptyRow!.querySelector('.race-execution-avatar-wrap')?.children.length).toBe(0);
+        });
+
+        it('renders the On Deck panel\'s empty lane as Empty, with no avatar', () => {
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    racers={racersWithThird}
+                    nextExecutionHeat={{ ...mockHeat, id: 2, heatNumber: 2, lanes: threeCarFinalLanes }}
+                />
+            );
+
+            const rightCol = screen.getByTestId('race-execution-right-column');
+            expect(within(rightCol).getByText('John Doe')).toBeInTheDocument();
+            expect(within(rightCol).getByText('Jane Smith')).toBeInTheDocument();
+            expect(within(rightCol).getByText('Alex Lee')).toBeInTheDocument();
+            expect(within(rightCol).getByText('Empty')).toBeInTheDocument();
+            expect(within(rightCol).queryByText(/Racer 0/)).not.toBeInTheDocument();
+
+            const emptyRow = within(rightCol).getByText('Empty').closest('.race-execution-ondeck-lane-row');
+            expect(emptyRow).not.toBeNull();
+            expect(emptyRow!.querySelector('.race-execution-ondeck-avatar-wrap')?.children.length).toBe(0);
+        });
+
+        it('still labels an undecided placeholder slot rather than treating it as empty', () => {
+            // On Deck rather than the current-heat card: a placeholder in
+            // `activeExecutionHeat.lanes` flips the whole card to the "Round
+            // Not Ready" screen (phase NOT_READY), which is a different
+            // question from what one lane's own text says.
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    nextExecutionHeat={{
+                        ...mockHeat,
+                        id: 2,
+                        heatNumber: 2,
+                        lanes: [
+                            lane({ lane: 1, racerId: 101 }),
+                            lane({ lane: 2, racerId: null, placeholderSlot: 2 }),
+                        ],
+                    }}
+                />
+            );
+
+            const rightCol = screen.getByTestId('race-execution-right-column');
+            expect(within(rightCol).queryByText('Empty')).not.toBeInTheDocument();
+            expect(mockGetRacerName).toHaveBeenCalledWith(-2, undefined);
+        });
+    });
 });
 
