@@ -446,21 +446,36 @@ jobs:
           # asynchronously after the PR, hence the poll; a run that never
           # appears, or an approval this token is not allowed to give, fails
           # the step loudly with what to do by hand.
+          #
+          # A held run is `status: completed`, `conclusion: action_required`
+          # — not `status: action_required`, which is what the first cut of
+          # this poll looked for and never found (#1041 was left open with no
+          # approval and no auto-merge, and the step's own two-minute timeout
+          # is what failed). So the poll matches the run by head SHA alone,
+          # and *then* asks what state it is in: held, approve it; already
+          # running or finished (GitHub not holding it is the future this
+          # should survive, not fail on), nothing to approve.
           head=$(git rev-parse HEAD)
-          run_id=""
+          run=""
           for attempt in $(seq 1 24); do
-            run_id=$(gh run list --workflow ci.yml --event pull_request --branch "$BRANCH" \
-              --json databaseId,headSha,status \
-              --jq ".[] | select(.headSha == \"$head\" and .status == \"action_required\") | .databaseId" | head -1)
-            [ -n "$run_id" ] && break
+            run=$(gh run list --workflow ci.yml --event pull_request --branch "$BRANCH" \
+              --json databaseId,headSha,status,conclusion \
+              --jq ".[] | select(.headSha == \"$head\") | \"\(.databaseId) \(.status) \(.conclusion)\"" | head -1)
+            [ -n "$run" ] && break
             sleep 5
           done
-          if [ -z "$run_id" ]; then
-            echo "No pull_request run awaiting approval appeared for $BRANCH within two minutes." >&2
-            echo "Approve it by hand: Actions → CI → the run for $BRANCH → Approve and run." >&2
+          if [ -z "$run" ]; then
+            echo "No pull_request run appeared for $BRANCH within two minutes." >&2
+            echo "If one is waiting: Actions → CI → the run for $BRANCH → Approve and run; then enable auto-merge on the PR." >&2
             exit 1
           fi
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/approve" > /dev/null
+          read -r run_id run_status run_conclusion <<< "$run"
+          if [ "$run_status" = "completed" ] && [ "$run_conclusion" = "action_required" ]; then
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/approve" > /dev/null
+            echo "Approved the held CI run ${run_id} on ${BRANCH}."
+          else
+            echo "CI run ${run_id} on ${BRANCH} is ${run_status}/${run_conclusion}; nothing to approve."
+          fi
 
           # And let it land on its own once those checks pass. After the
           # approval, not before: auto-merge on a PR with no checks yet simply
