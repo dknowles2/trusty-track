@@ -113,7 +113,7 @@ export default function Certificate() {
                             <div className="certificate-main">
                                 <header className="certificate-header-bar">
                                     <div className="certificate-official-tag">OFFICIAL</div>
-                                    <div className="certificate-champion-title">CHAMPION</div>
+                                    <div className="certificate-champion-title">{certificate.heading}</div>
                                 </header>
 
                                 <div className="certificate-body">

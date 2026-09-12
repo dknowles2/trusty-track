@@ -247,6 +247,12 @@ describe('SystemSettings', () => {
         const { config } = mockCreateMutation.mock.calls[0][0];
         expect(config.tracks[0].timerType).toBe('AUTO_DETECT_BACKEND');
         expect(config.tracks[0].serialPort).toBeFalsy();
+
+        // First run finishes by landing on Home. Waiting for it here (rather
+        // than leaving the submit's own 100ms settle-then-navigate as a
+        // floating promise) is what keeps that later `navigate('/')` call
+        // from firing during whichever test happens to run next.
+        await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
     });
 });
 
@@ -296,6 +302,49 @@ describe('the mutation matcher beside a gql-tagged mutation', () => {
         await user.click(screen.getByText('Save Settings'));
 
         await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+    });
+});
+
+describe('Save Settings stays on the page once the install is already configured (#1003)', () => {
+    it('shows the saved toast and does not navigate to Home', async () => {
+        const mockUpdate = vi.fn().mockResolvedValue({ data: { updateInitialConfig: { initialized: true } } });
+        (useQuery as any).mockReturnValue([{
+            data: {
+                initialConfig: {
+                    initialized: true,
+                    organizationName: 'Pack 42',
+                    debugMode: false,
+                    tracks: [
+                        { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, historicalRecords: [] },
+                    ],
+                },
+            },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('tracks');
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+        await waitFor(() => expect(screen.getByText('Settings saved')).toBeInTheDocument());
+
+        expect(mockNavigate).not.toHaveBeenCalled();
     });
 });
 

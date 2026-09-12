@@ -19,6 +19,7 @@
  */
 
 import { formatDisplayName, type NameDisplay } from '../core/displayName';
+import { certificateHeading } from '../awards/awardText';
 
 /**
  * The signature title for an award certificate, derived from the organization type.
@@ -80,6 +81,10 @@ export interface CertificateAward {
   name: string;
   kind: string;
   sortOrder?: number | null;
+  /** `SPEED` only — which finishing position wins it, and from which end
+   * (#1004's `certificateHeading` reads both). */
+  place?: number | null;
+  fromBottom?: boolean | null;
   /** Which clipart to draw, or null for a plain certificate. */
   artworkKey?: string | null;
   recipient?: {
@@ -102,6 +107,8 @@ export interface Certificate {
   recipientName: string | null;
   artworkKey: string | null;
   raceName: string;
+  /** "CHAMPION", "RUNNER-UP" or "AWARD" — see `certificateHeading` (#1004). */
+  heading: string;
 }
 
 function recipientName(
@@ -137,5 +144,6 @@ export function certificatesFor(
       recipientName: recipientName(award, nameDisplay),
       artworkKey: award.artworkKey ?? null,
       raceName: race.name,
+      heading: certificateHeading(award),
     }));
 }

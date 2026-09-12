@@ -7,11 +7,21 @@ describe('certificatesFor', () => {
   it('builds one certificate per award', () => {
     const certificates = certificatesFor(RACE, [
       { id: 1, name: 'Best Paint', kind: 'SPECIAL', sortOrder: 0, artworkKey: 'paintbrush' },
-      { id: 2, name: 'Fastest Car', kind: 'SPEED', sortOrder: 1, artworkKey: 'trophy' },
+      { id: 2, name: 'Fastest Car', kind: 'SPEED', sortOrder: 1, place: 1, fromBottom: false, artworkKey: 'trophy' },
     ]);
     expect(certificates).toHaveLength(2);
     expect(certificates[0].awardName).toBe('Best Paint');
     expect(certificates[1].awardName).toBe('Fastest Car');
+  });
+
+  it('carries each award\'s own heading, not a blanket CHAMPION (#1004)', () => {
+    const certificates = certificatesFor(RACE, [
+      { id: 1, name: 'Best Paint', kind: 'SPECIAL', sortOrder: 0 },
+      { id: 2, name: 'Fastest Car', kind: 'SPEED', sortOrder: 1, place: 1, fromBottom: false },
+      { id: 3, name: 'Second Fastest', kind: 'SPEED', sortOrder: 2, place: 2, fromBottom: false },
+      { id: 4, name: 'Slowest Car', kind: 'SPEED', sortOrder: 3, place: 1, fromBottom: true },
+    ]);
+    expect(certificates.map((c) => c.heading)).toEqual(['AWARD', 'CHAMPION', 'RUNNER-UP', 'AWARD']);
   });
 
   it('fills in the recipient when there is one', () => {

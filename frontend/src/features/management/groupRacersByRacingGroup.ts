@@ -42,11 +42,16 @@ export interface RosterBucket<T> {
  * The roster split into one bucket per racing group, unassigned racers in a
  * bucket of their own.
  *
- * Buckets are ordered by racing group name, unassigned last — that bucket is
- * the one still needing a decision, which is easier to spot at the end of a
- * list than in the middle of one, the same reasoning `sortRacers` gives car
- * number. Within a bucket, racers keep the order they arrived in; sort them
- * first if an order is wanted.
+ * Buckets are ordered by racing group id — creation order, the same order
+ * `get_racing_groups` already returns server-side, which is what Manage
+ * Dens, the round wizard, the standings' den filter and the results sheet
+ * all use — with unassigned last, since that bucket is the one still
+ * needing a decision and is easier to spot at the end of a list than in the
+ * middle of one (the same reasoning `sortRacers` gives car number). Sorting
+ * by name instead read alphabetically (Bear, Lion, Tiger, Wolf) rather than
+ * the rank order a pack actually created its dens in (Lion, Tiger, Wolf,
+ * Bear, Webelos, Arrow of Light) — #1007. Within a bucket, racers keep the
+ * order they arrived in; sort them first if an order is wanted.
  */
 export function groupRacersByRacingGroup<T extends GroupableRacer>(
     racers: readonly T[],
@@ -87,12 +92,8 @@ export function groupRacersByRacingGroup<T extends GroupableRacer>(
         .sort((a, b) => {
             if (a.racingGroupId === UNASSIGNED_RACING_GROUP_ID) return 1;
             if (b.racingGroupId === UNASSIGNED_RACING_GROUP_ID) return -1;
-            // Compared on the raw name, not `racingGroupName` above: an id
-            // nothing resolves sorts as the empty string here (first), where
-            // its *display* name reads "Unknown Racing Group" — the same
-            // split the original two copies both made.
-            const nameA = racingGroupMap.get(a.racingGroupId)?.name || '';
-            const nameB = racingGroupMap.get(b.racingGroupId)?.name || '';
-            return nameA.localeCompare(nameB);
+            // Racing group id, not name: id is creation order, which is the
+            // order every other screen already uses (#1007).
+            return a.racingGroupId - b.racingGroupId;
         });
 }

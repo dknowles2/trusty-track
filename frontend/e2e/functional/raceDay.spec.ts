@@ -159,9 +159,11 @@ test('finishing the prelims fills the championship round with the top finishers'
     const prelim = rounds.find((r) => r.advancementSource === null)!;
     const final = rounds.find((r) => r.advancementSource !== null)!;
 
-    // Before any result, the final's lanes are undecided slots.
+    // Before any result, the final's lanes are undecided slots — labelled by
+    // the finishing position that will fill them (#1002), not the column
+    // name "Placeholder".
     await page.goto(`/race/${raceId}/control`);
-    await expect(page.getByText('Placeholder 1', { exact: true }).first()).toBeVisible({
+    await expect(page.getByText('1st qualifier', { exact: true }).first()).toBeVisible({
         timeout: 30000,
     });
 
@@ -180,7 +182,7 @@ test('finishing the prelims fills the championship round with the top finishers'
             timeout: 30000,
         });
     }
-    await expect(page.getByText('Placeholder 1', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('1st qualifier', { exact: true })).toHaveCount(0);
 
     const finalHeats = (await readHeats(page, raceId)).filter((h) => h.roundId === final.id);
     const fielded = new Set(
@@ -281,7 +283,7 @@ test('the last heat of the race raises a summary pointing at standings, awards a
     await dismissRoundSummary(page);
 
     // The championship field fills in live.
-    await expect(page.getByText('Placeholder 1', { exact: true })).toHaveCount(0, {
+    await expect(page.getByText('1st qualifier', { exact: true })).toHaveCount(0, {
         timeout: 30000,
     });
 

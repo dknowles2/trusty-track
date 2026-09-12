@@ -845,7 +845,7 @@ export type GetCertificatesQueryVariables = Exact<{
 }>;
 
 
-export type GetCertificatesQuery = { initialConfig: { printablesTheme: string }, race: { id: number, name: string, dateTime: string | null, location: string | null, resolvedNameDisplay: string, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, artworkKey: string | null, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null } | null }> } | null };
+export type GetCertificatesQuery = { initialConfig: { printablesTheme: string }, race: { id: number, name: string, dateTime: string | null, location: string | null, resolvedNameDisplay: string, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, place: number | null, fromBottom: boolean, artworkKey: string | null, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null } | null }> } | null };
 
 export type CreateRoundWizardMutationVariables = Exact<{
   raceId: number;

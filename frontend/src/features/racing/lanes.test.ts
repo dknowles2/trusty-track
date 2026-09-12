@@ -19,6 +19,7 @@ import {
   parseTimeText,
   tiedTimeGroups,
   laneColumnCount,
+  undecidedLaneLabel,
 } from './lanes';
 import { lane, heat } from './testFixtures';
 import type { LaneInput } from './types';
@@ -722,5 +723,20 @@ describe('skippedHeats', () => {
       lanes: [lane({ lane: 1, racerId: 2, skipped: true })],
     });
     expect(skippedHeats([later, earlier])).toEqual([earlier, later]);
+  });
+});
+
+describe('undecidedLaneLabel (#1002)', () => {
+  it('names the finishing position rather than the column name', () => {
+    expect(undecidedLaneLabel(1)).toBe('1st qualifier');
+    expect(undecidedLaneLabel(2)).toBe('2nd qualifier');
+    expect(undecidedLaneLabel(3)).toBe('3rd qualifier');
+    expect(undecidedLaneLabel(4)).toBe('4th qualifier');
+  });
+
+  it('gets the 11th-13th exception right, same as awardText.ordinal', () => {
+    expect(undecidedLaneLabel(11)).toBe('11th qualifier');
+    expect(undecidedLaneLabel(12)).toBe('12th qualifier');
+    expect(undecidedLaneLabel(13)).toBe('13th qualifier');
   });
 });

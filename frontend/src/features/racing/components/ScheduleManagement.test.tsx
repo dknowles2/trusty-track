@@ -580,6 +580,49 @@ describe('ScheduleManagement', () => {
     expect(runButton).toHaveAttribute('title', 'Racers not yet determined for this round');
   });
 
+  it('labels an undecided championship lane by the finishing position it will be filled from, not the column name (#1002)', () => {
+    const heatsWithPlaceholders: Heat[] = [
+      {
+        id: 1,
+        roundNumber: 1,
+        roundId: 1,
+        heatNumber: 1,
+        recordedAt: null,
+        lanes: [lane({ lane: 1, placeholderSlot: 1 }), lane({ lane: 2, placeholderSlot: 2 })],
+        roundName: 'Round 1',
+      },
+    ];
+
+    render(
+      <MemoryRouter>
+      <AlertProvider>
+        <ScheduleManagement
+          raceId={1}
+          heats={heatsWithPlaceholders}
+          generating={false}
+          activeHeatId={null}
+          onAddRound={mockOnAddRound}
+          onRegenerateRound={mockOnRegenerateRound}
+          onDeleteRound={mockOnDeleteRound}
+          onDeleteHeat={mockOnDeleteHeat}
+          onRunHeat={mockOnRunHeat}
+          onReorderHeats={mockOnReorderHeats}
+          getRacerName={mockGetRacerName}
+          onRefetchHeats={vi.fn()}
+          laneCount={4}
+          racerCount={10}
+          racingGroupCount={3}
+          championshipTrophies={3}
+        />
+      </AlertProvider>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('1st qualifier')).toBeInTheDocument();
+    expect(screen.getByText('2nd qualifier')).toBeInTheDocument();
+    expect(screen.queryByText(/^Placeholder /)).not.toBeInTheDocument();
+  });
+
   it('disables run button for upcoming rounds', () => {
     const multiRoundHeats: Heat[] = [
       { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' },

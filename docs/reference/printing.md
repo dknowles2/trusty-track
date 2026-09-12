@@ -167,6 +167,10 @@ stack matches the order they get handed out in.
   line where the name goes, rather than being skipped — the same choice the
   results sheet's award lines make, and for the same reason: skipping it
   would mean reprinting the whole run the moment judging finishes.
+- **The heading says what the award actually is.** The pack champion's own
+  certificate reads CHAMPION; 2nd and 3rd fastest read RUNNER-UP; a Slowest
+  Race survivor, a Best Paint, and every other judged award read the plain
+  AWARD — never a blanket CHAMPION on every certificate in the stack.
 - **Its artwork comes from the award, not a separate choice on this page.**
   A ready-made superlative carries the artwork chosen for it on the Awards
   screen; a speed award (Fastest Car, Fastest Wolf, and so on) gets its

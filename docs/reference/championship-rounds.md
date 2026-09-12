@@ -48,8 +48,9 @@ The same as the fastest overall, from the other end — the Slowest Race.
 
 - Until it fills in, an undecided lane reads differently depending on where
   you're looking: the schedule (Race Control → Schedule) shows
-  **Placeholder 1**, **Placeholder 2** and so on; Race Control's heat view
-  shows **Top 1**, **Top 2** (**Slowest 1**, **Slowest 2**… for
+  **1st qualifier**, **2nd qualifier** and so on — the finishing position of
+  the round that will fill it, not a raw slot number; Race Control's heat
+  view shows **Top 1**, **Top 2** (**Slowest 1**, **Slowest 2**… for
   [the Slowest Race](#the-slowest-cars)); and the printed
   [heat sheet](printing.md#the-heat-sheet) reads **To be decided** — it's the
   only one of the three meant to be written on.

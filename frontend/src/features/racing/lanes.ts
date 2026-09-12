@@ -10,6 +10,28 @@
  * near-identity — the read and write shapes match on purpose.
  */
 import type { Heat, Lane, LaneInput } from './types';
+import { ordinal } from '../awards/awardText';
+
+/**
+ * The Schedule tab's label for a championship lane still waiting on the
+ * round that decides it (#1002). `slot` (`Lane.placeholderSlot`) is the
+ * finishing position of that round it will be filled from — 1st, 2nd… —
+ * and "Placeholder 1" was the column name leaking onto the screen instead
+ * of saying that. An ordinal reads as informative rather than as jargon,
+ * and it is the only wording of the three that tells two open lanes in the
+ * same heat apart, which a flat label could not.
+ *
+ * The printed heat sheet keeps its own separate "To be decided"
+ * (`features/printables/heatSheet.ts`'s `TO_BE_DECIDED`) rather than this —
+ * that slot is meant to be handwritten over once the round is decided, and
+ * the ordinal adds nothing a name about to replace it needs. Race Control's
+ * own heat view keeps "Top N"/"Slowest N" for the same lane too
+ * (`RaceControl.tsx`'s `getRacerName`/`laneRacerName`) — a third, equally
+ * deliberate wording documented in `docs/reference/championship-rounds.md`,
+ * naming the *rule* ("top N advance") rather than the *lane* this helper
+ * describes.
+ */
+export const undecidedLaneLabel = (slot: number): string => `${ordinal(slot)} qualifier`;
 
 /**
  * A lane with a recorded result — a time, or a hand-entered place.
