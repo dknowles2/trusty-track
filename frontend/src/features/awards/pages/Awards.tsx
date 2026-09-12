@@ -295,9 +295,9 @@ export default function Awards() {
               <Icon path={mdiOpenInNew} size={0.6} />
             </button>
           ) : (
-            <span className="secondary-btn" aria-disabled="true" title="Add an award first.">
+            <button type="button" className="secondary-btn" disabled title="Add an award first.">
               Present
-            </span>
+            </button>
           )}
           {/* The certificate print page, next to the ceremony route it pairs
               with — one is for the room, the other for the wall afterward. */}
@@ -306,9 +306,9 @@ export default function Awards() {
               Print certificates
             </Link>
           ) : (
-            <span className="secondary-btn" aria-disabled="true" title="Add an award first.">
+            <button type="button" className="secondary-btn" disabled title="Add an award first.">
               Print certificates
-            </span>
+            </button>
           )}
           <button
             type="button"
