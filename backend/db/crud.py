@@ -2575,7 +2575,22 @@ def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
                 if all(lane.lane in usable for lane in current):
                     continue
                 remaining = [lane for lane in current if lane.lane in usable]
-                if not any(lane.racer_id is not None for lane in remaining):
+                remaining_racers = lanes.real_racer_ids(remaining)
+                # Same "nobody races alone" rule as `withdraw_absent_racers`
+                # (#1022) — a lane going out of service can leave an
+                # ELIMINATION/BALANCED heat with exactly one real racer just
+                # as easily as a withdrawal can, and a solo heat is exactly
+                # as unrunnable either way. PPC is left alone: a one-car
+                # heat there is still an ordinary timed run.
+                too_few_to_race = (
+                    round_obj.scheduling_strategy
+                    in (
+                        models.SchedulingStrategy.ELIMINATION,
+                        models.SchedulingStrategy.BALANCED,
+                    )
+                    and len(remaining_racers) < 2
+                )
+                if not remaining_racers or too_few_to_race:
                     if not remaining:
                         fallback_lane = min(usable) if usable else 1
                         remaining = [lanes.Lane(lane=fallback_lane, skipped=True)]
@@ -2840,7 +2855,26 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
                     lane.place = None
                     modified = True
             if modified:
-                if not any(lane.racer_id is not None for lane in lanes_):
+                remaining_racers = lanes.real_racer_ids(lanes_)
+                # Nobody races alone (#1022): an ELIMINATION/BALANCED heat
+                # left with exactly one real racer is as unrunnable as one
+                # left with none — `chunk_heats` already refuses to build a
+                # solo heat in the first place, and a withdrawal must not
+                # produce one either. Skipping records neither a win nor a
+                # loss (`elimination.losses_by_racer` needs two finished
+                # lanes to count one), so the extenders below re-field the
+                # survivor in the next wave/phase with a clean slate. A PPC
+                # heat with one car left is still an ordinary timed run and
+                # is deliberately left alone.
+                too_few_to_race = (
+                    round_obj.scheduling_strategy
+                    in (
+                        models.SchedulingStrategy.ELIMINATION,
+                        models.SchedulingStrategy.BALANCED,
+                    )
+                    and len(remaining_racers) < 2
+                )
+                if not remaining_racers or too_few_to_race:
                     for lane in lanes_:
                         lane.skipped = True
                 set_heat_lanes(heat, lanes_)

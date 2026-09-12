@@ -5,6 +5,7 @@ import {
     TO_BE_DECIDED,
     buildHeatSheet,
     cellFor,
+    printedSummary,
     roundTitle,
     runOffTitle,
     totalHeats,
@@ -257,6 +258,59 @@ describe('buildHeatSheet', () => {
         it('produces no flat section when nothing general is scheduled yet', () => {
             const sections = buildHeatSheet([], [], RACERS, [1, 2], 'FULL', true);
             expect(sections).toEqual([]);
+        });
+    });
+
+    // #1024 — `printedSummary` is the fix for `totalHeats`/`sections.length`
+    // double-counting under a master running order, and for a run-off's own
+    // one-row section being counted as a "round". Each seam gets its own
+    // test: the bug is specifically the *combination* of the master running
+    // order flag (or a run-off heat) with the summary line, not either
+    // feature alone.
+    describe('printedSummary (#1024)', () => {
+        const rounds = [
+            { id: 10, roundNumber: 1 },
+            { id: 20, roundNumber: 2 },
+        ];
+        const heats = [
+            heat({ id: 1, heatNumber: 1, roundId: 10 }),
+            heat({ id: 2, heatNumber: 2, roundId: 20 }),
+            heat({ id: 3, heatNumber: 3, roundId: 10 }),
+            heat({ id: 4, heatNumber: 4, roundId: 20 }),
+        ];
+
+        it('counts each real heat and round once with the flag off', () => {
+            const sections = buildHeatSheet(rounds, heats, RACERS, [1, 2]);
+            expect(printedSummary(sections)).toEqual({ heats: 4, rounds: 2 });
+        });
+
+        it('does not double-count under a master running order — the flat section is a duplicate, not new heats or rounds', () => {
+            const sections = buildHeatSheet(rounds, heats, RACERS, [1, 2], 'FULL', true);
+            // Sanity check this is actually exercising the flat section, or
+            // the assertion below would pass for the wrong reason.
+            expect(sections[0].title).toBe(MASTER_RUNNING_ORDER_TITLE);
+            expect(sections).toHaveLength(3); // flat section + 2 round tables
+            expect(printedSummary(sections)).toEqual({ heats: 4, rounds: 2 });
+            // `totalHeats`/`sections.length` is the bug this replaces —
+            // pinned here so a future revert of the fix fails loudly rather
+            // than only in the rendered page.
+            expect(totalHeats(sections)).toBe(8);
+            expect(sections.length).toBe(3);
+        });
+
+        it('counts a run-off heat as a heat but not as a round, flag off or on', () => {
+            const runOff: SheetRunOffHeat = {
+                id: 900,
+                settlesRoundId: 10,
+                placement: 3,
+                lanes: [{ lane: 1, racerId: 1 }, { lane: 2, racerId: 2 }],
+            };
+
+            const withoutMasterOrder = buildHeatSheet(rounds, heats, RACERS, [1, 2], 'FULL', false, [runOff]);
+            expect(printedSummary(withoutMasterOrder)).toEqual({ heats: 5, rounds: 2 });
+
+            const withMasterOrder = buildHeatSheet(rounds, heats, RACERS, [1, 2], 'FULL', true, [runOff]);
+            expect(printedSummary(withMasterOrder)).toEqual({ heats: 5, rounds: 2 });
         });
     });
 

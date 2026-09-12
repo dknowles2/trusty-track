@@ -48,6 +48,11 @@ off.
 - A round part-way through keeps every recorded heat; their lanes in the
   remaining heats are emptied. Nobody else's schedule changes, and nothing
   is set aside — an empty lane gives nobody extra heats.
+- In [Elimination or Balanced](round-styles.md), a withdrawal that would
+  leave a still-pending heat with only one car left in it skips that heat
+  instead of running it solo — the same "nobody races alone" rule the
+  format already follows when it draws a fresh set. The survivor is
+  re-fielded in the next set with nothing recorded against them.
 - A finished round keeps their results.
 - A championship spot they held in an unraced round goes to the
   [next qualifier](championship-rounds.md#when-a-qualifier-leaves).

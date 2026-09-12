@@ -59,6 +59,42 @@ describe('RoundWizard Component', () => {
         expect(screen.getByText('Total Heats: 16')).toBeInTheDocument();
     });
 
+    it('words an Elimination general round "at least" — its own count is a floor, not exact', async () => {
+        const user = userEvent.setup();
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+        await user.click(screen.getByText(/Elimination — lose too many heats/));
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Next'));
+
+        // 10 racers, 4 lanes, the default 3-loss threshold:
+        // ceil((10 - 1) * 3 / 3) = 9. Plus the Grand Finals default (3
+        // trophies, PPC, exact) = 3. Total 12, worded "at least" throughout
+        // because the general round's own number is a floor.
+        expect(screen.getByText('Total Heats: at least 12')).toBeInTheDocument();
+        expect(screen.getByText(/at least 9 heats/)).toBeInTheDocument();
+        expect(
+            screen.getByText(/An elimination round grows as results come in/)
+        ).toBeInTheDocument();
+    });
+
+    it('words a Balanced general round exactly — its own count is not an estimate', async () => {
+        const user = userEvent.setup();
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+        await user.click(screen.getByText(/Balanced — each round of heats/));
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Next'));
+
+        // 10 racers, 4 lanes, the default of one phase per lane (4 phases):
+        // 4 * ceil(10 / 4) = 12, exact. Plus the Grand Finals default (3) =
+        // 15 — plainly worded, with no "at least" anywhere on the page,
+        // because nothing here is an estimate.
+        expect(screen.getByText('Total Heats: 15')).toBeInTheDocument();
+        expect(screen.getByText(/^12 heats$/)).toBeInTheDocument();
+        expect(screen.queryByText(/at least/)).not.toBeInTheDocument();
+    });
+
     it('estimates the heat count the scheduler will actually produce', async () => {
         // The number an operator sizes their evening by. It was out by a factor
         // of the lane count, and the shipped documentation screenshots caught

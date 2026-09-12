@@ -125,6 +125,16 @@ export function sectionsFor(isEditing: boolean): readonly Section[] {
   return isEditing ? SECTIONS : [];
 }
 
+/**
+ * Whether a value names a real section — the same "ignore a stale or
+ * misspelled `?section=`" guard `RaceForm`'s own `isRaceSectionId` uses
+ * (#970), so a link built against an older build, or a typo, falls back to
+ * the page's own default rather than opening on nothing.
+ */
+export function isSectionId(value: string | null): value is SectionId {
+  return SECTIONS.some((section) => section.id === value);
+}
+
 /** A track, as far as validation cares. */
 export interface TrackForValidation {
   name: string;

@@ -207,6 +207,12 @@ export const GET_RACE_CONTROL_DATA = gql`
         # standings"/"Edit picks" controls key off this.
         fieldPinned
         schedulingStrategy
+        # Balanced/Elimination only (#1022) — what growingRounds.ts's
+        # expectedHeatCount needs to estimate a growing round's eventual
+        # heat count, since the round's own rows are only what has been
+        # generated so far and not the full schedule the way PPC's are.
+        eliminationLosses
+        balancedPhases
         # Which racing group this round belongs to, if any (#549 stage 4) —
         # what labels a heat in the master running order view. Resolved to a
         # name client-side against race.racingGroups, which the query

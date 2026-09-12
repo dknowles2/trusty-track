@@ -632,6 +632,42 @@ describe('the Backup panel', () => {
         ).toBeInTheDocument();
     });
 
+    it('opens straight onto Backup when the URL names it (#1024)', async () => {
+        // `BackupPanel.tsx` sets `?section=backup` on the URL right before a
+        // restore's own reload, since a plain reload has nothing else to
+        // remember which section the operator was on — landing back on
+        // General otherwise, with nothing on screen saying the restore
+        // happened.
+        (useQuery as any).mockReturnValue([{
+            data: {
+                initialConfig: {
+                    initialized: true,
+                    organizationName: 'Pack 42',
+                    debugMode: false,
+                    tracks: [
+                        { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+                    ],
+                },
+            },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+
+        render(
+            <MemoryRouter initialEntries={['/system-settings?section=backup']}>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        // No `openSection('backup')` click — the URL alone should land here.
+        expect(
+            await screen.findByRole('button', { name: /download a backup/i }),
+        ).toBeInTheDocument();
+    });
+
     it('is absent on the first run, when there is nothing to replace', async () => {
         (useQuery as any).mockReturnValue([{
             data: { initialConfig: { initialized: false, tracks: [] } },

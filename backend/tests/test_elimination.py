@@ -699,18 +699,20 @@ class TestAWithdrawnCarThatNeverRaced:
         assert not crud.is_round_complete(db, round_obj.id)
 
         # The operator's escape: un-check the broken car. Its lane in the
-        # still-pending wave-two heat is vacated; the finished wave-one heat
-        # is left as history, skipped lane and all.
+        # still-pending wave-two heat is vacated, and — since nobody races
+        # alone (#1022) — that leaves the winner as the heat's only real
+        # racer, so the whole heat is skipped rather than left pending for a
+        # solo run; the finished wave-one heat is left as history, skipped
+        # lane and all.
         crud.update_racer(db, broken, schemas.RacerUpdate(car_passed_inspection=False))
         crud.withdraw_absent_racers(db, race.id)
 
-        # The winner races the now-solo wave-two heat to close it out.
-        (heat,) = _pending_heats(db, round_obj.id)
-        run(heat)
-
-        # Every heat is finished, and the withdrawn car must not keep the
-        # round "not decided" on the strength of a skipped lane it can never
-        # be checked back into.
+        # There is no heat left to run: with the broken car no longer
+        # eligible, the winner is the only car still in the running, and the
+        # round is decided the moment the skip finishes the last heat off —
+        # the withdrawn car must not keep it "not decided" on the strength
+        # of a skipped lane it can never be checked back into.
+        assert not _pending_heats(db, round_obj.id)
         assert crud.is_round_complete(db, round_obj.id)
 
     def test_the_leaderboard_does_not_tie_it_with_the_winner(self, db):
@@ -1102,6 +1104,135 @@ class TestEliminationUsableLanesAndVacating:
         assert len(all_heats) > 2 or len(new_heats) > 0, (
             "Round stalled: extend_elimination_round failed to grow next wave"
         )
+
+    def test_withdrawal_leaving_one_racer_alone_skips_rather_than_races_solo(self, db):
+        """Nobody races alone (#1022) — a withdrawal leaving one real racer in a
+        pending elimination heat must skip it, the same as leaving zero, so the
+        survivor is re-fielded in the next wave with nothing recorded against
+        them rather than an unrunnable solo heat sitting pending forever.
+
+        3 racers, 2 lanes, threshold 2: wave 1 is one heat of 2 (the third
+        byes), and wave 2 pairs the two survivors of wave 1 regardless of the
+        shuffle. Withdrawing one of that pair leaves exactly one real racer.
+        """
+        race = _race(db, "Solo Withdraw Elim", lane_count=2)
+        ids = _racers(db, race.id, 3)
+        round_obj = crud.create_round(
+            db,
+            race_id=race.id,
+            round_number=1,
+            scheduling_strategy=models.SchedulingStrategy.ELIMINATION,
+            name="Elimination Round",
+            elimination_losses=2,
+        )
+        crud.generate_heats_for_round(db, round_obj.id)
+
+        wave1 = _pending_heats(db, round_obj.id)
+        assert len(wave1) == 1
+        _run_heat(db, wave1[0], ids)
+
+        wave2 = _pending_heats(db, round_obj.id)
+        assert len(wave2) == 1
+        stored = crud.heat_lanes_of(db, wave2[0])
+        racing = [lane.racer_id for lane in stored if lane.racer_id]
+        assert len(racing) == 2
+        departing, survivor = racing
+
+        crud.update_racer(
+            db, departing, schemas.RacerUpdate(car_passed_inspection=False)
+        )
+        crud.withdraw_absent_racers(db, race.id)
+
+        updated = crud.heat_lanes_of(db, wave2[0])
+        assert lanes_module.is_finished(updated)
+        assert not lanes_module.has_results(updated)
+
+        all_heats = (
+            db.query(models.Heat)
+            .filter(models.Heat.round_id == round_obj.id)
+            .order_by(models.Heat.heat_number)
+            .all()
+        )
+        losses = elimination.losses_by_racer(crud.lanes_for_heats(db, all_heats))
+        assert losses.get(survivor, 0) == 0
+
+        pending3 = _pending_heats(db, round_obj.id)
+        scheduled3 = {
+            lane.racer_id
+            for h in pending3
+            for lane in crud.heat_lanes_of(db, h)
+            if lane.racer_id
+        }
+        assert survivor in scheduled3
+        assert departing not in scheduled3
+
+    def test_lane_outage_leaving_one_racer_alone_skips_rather_than_races_solo(self, db):
+        """Same rule, the other vacate loop (#1022): a lane outage can leave
+        a pending elimination heat with exactly one real racer just as easily
+        as a withdrawal can, and `apply_outages_to_scheduled_heats` must skip
+        it rather than leave a solo heat pending.
+
+        Unlike a withdrawal, neither racer leaves the race here — only the
+        lane fails — so both stay eligible and both are re-fielded in the
+        next wave with nothing recorded against either.
+
+        4 racers, 3 usable lanes (so disabling one still leaves 2, clear of
+        the "fewer than two usable lanes" refusal): wave 1 is two heats of 2,
+        each using only 2 of the 3 lanes. Running one wave-2 heat and
+        disabling a lane the other one actually uses leaves one real racer
+        in it.
+        """
+        race = _race(db, "Solo Outage Elim", lane_count=3)
+        ids = _racers(db, race.id, 4)
+        round_obj = crud.create_round(
+            db,
+            race_id=race.id,
+            round_number=1,
+            scheduling_strategy=models.SchedulingStrategy.ELIMINATION,
+            name="Elimination Round",
+            elimination_losses=2,
+        )
+        crud.generate_heats_for_round(db, round_obj.id)
+
+        wave1 = _pending_heats(db, round_obj.id)
+        assert len(wave1) == 2
+        for heat in wave1:
+            _run_heat(db, heat, ids)
+
+        wave2 = _pending_heats(db, round_obj.id)
+        assert len(wave2) == 2
+        _run_heat(db, wave2[0], ids)
+        heat_b = wave2[1]
+
+        stored = crud.heat_lanes_of(db, heat_b)
+        used_lanes = [lane.lane for lane in stored if lane.racer_id]
+        assert len(used_lanes) == 2
+        remaining_lane, outaged_lane = used_lanes
+        racer_ids_in_heat_b = {lane.racer_id for lane in stored if lane.racer_id}
+
+        crud.set_lane_outages(db, race.track_id, [outaged_lane])
+        crud.apply_outages_to_scheduled_heats(db, race.track_id)
+
+        updated = crud.heat_lanes_of(db, heat_b)
+        assert lanes_module.is_finished(updated)
+        assert not lanes_module.has_results(updated)
+
+        # This heat's own two racers already carried a loss apiece from wave
+        # 1 (wave 2's other heat paired the wave-1 winners; this one paired
+        # the wave-1 losers) — the skip must add nothing on top of that.
+        pre_skip_losses = elimination.losses_by_racer([updated])
+        assert all(count == 0 for count in pre_skip_losses.values())
+
+        pending3 = _pending_heats(db, round_obj.id)
+        scheduled3 = {
+            lane.racer_id
+            for h in pending3
+            for lane in crud.heat_lanes_of(db, h)
+            if lane.racer_id
+        }
+        # Neither racer left the race — only the lane failed — so both are
+        # still checked in, still not eliminated, and both are re-fielded.
+        assert racer_ids_in_heat_b <= scheduled3
 
     def test_withdrawal_emptying_pending_heat_does_not_stall_round(self, db):
         # 4 racers on a 3-lane track.

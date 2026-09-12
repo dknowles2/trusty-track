@@ -1,5 +1,5 @@
-import { Fragment, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import BackupPanel from '../components/BackupPanel';
 import PinFieldRow from '../components/PinFieldRow';
@@ -12,6 +12,7 @@ import { blankPin, pinInput, pinToSend, type PinField } from '../pinFields';
 import {
   firstProblem,
   isFormSection,
+  isSectionId,
   sectionsFor,
   SECTIONS,
   FORM_SECTIONS,
@@ -273,6 +274,34 @@ export default function SystemConfig() {
   // configured — the first run is a wizard and shows the lot. See
   // `sections.ts`.
   const [section, setSection] = useState<SectionId>('general');
+
+  // `?section=backup` is how a restore's own reload lands back on the
+  // Backup card instead of General (#1024) — `BackupPanel.tsx` sets it on
+  // the URL right before reloading, since a plain reload has nothing else
+  // to remember which section the operator was on. The same "adjust state
+  // during render, compare against the previous render's own value of the
+  // param" shape `RaceDetails.tsx` uses for its own `?section=` (#970):
+  // an effect calling `setSection` unconditionally would fire on every
+  // render the param is still present, including the one right after the
+  // param-stripping effect below has not yet run.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sectionParam = searchParams.get('section');
+  const [prevSectionParam, setPrevSectionParam] = useState<string | null>(null);
+  if (sectionParam !== prevSectionParam) {
+    setPrevSectionParam(sectionParam);
+    if (isSectionId(sectionParam)) setSection(sectionParam);
+  }
+  // Stripping the param is a genuine effect — synchronizing the browser's
+  // own address bar, not this component's state — so a reload of this tab,
+  // or the Back button, does not land on Backup a second time uninvited.
+  useEffect(() => {
+    if (searchParams.get('section') === null) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('section');
+      return next;
+    }, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const [configResult] = useQuery({ query: GET_INITIAL_CONFIG, requestPolicy: 'network-only' });
   const [modelsResult] = useQuery({ query: GET_TIMER_MODELS });

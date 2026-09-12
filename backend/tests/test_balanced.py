@@ -563,3 +563,72 @@ class TestBalancedUsableLanesAndVacating:
         assert len(all_heats) > 2 or len(new_heats) > 0, (
             "Round stalled: extend_balanced_round failed to grow next phase"
         )
+
+    def test_withdrawal_leaving_one_racer_alone_skips_rather_than_races_solo(self, db):
+        """Nobody races alone (#1022) — a withdrawal leaving one real racer in a
+        pending balanced heat must skip it, the same as leaving zero, so the
+        survivor is re-fielded in the next phase with nothing recorded against
+        them rather than an unrunnable solo heat sitting pending forever.
+
+        5 racers, 4 lanes: phase 1 is a 3-heat and a 2-heat. Running the
+        3-racer heat and withdrawing one of the pending 2-racer heat's two
+        racers leaves exactly one real racer in it.
+        """
+        race = _race(db, "Solo Withdraw Balanced")
+        ids = _racers(db, race.id, 5)
+        round_obj = crud.create_round(
+            db,
+            race_id=race.id,
+            round_number=1,
+            scheduling_strategy=models.SchedulingStrategy.BALANCED,
+            name="Balanced Round",
+            balanced_phases=2,
+        )
+        crud.generate_heats_for_round(db, round_obj.id)
+
+        phase1 = _pending_heats(db, round_obj.id)
+        assert len(phase1) == 2
+        sizes = sorted(
+            len([lane for lane in crud.heat_lanes_of(db, h) if lane.racer_id])
+            for h in phase1
+        )
+        assert sizes == [2, 3]
+        heat_a = next(
+            h
+            for h in phase1
+            if len([lane for lane in crud.heat_lanes_of(db, h) if lane.racer_id]) == 3
+        )
+        heat_b = next(
+            h
+            for h in phase1
+            if len([lane for lane in crud.heat_lanes_of(db, h) if lane.racer_id]) == 2
+        )
+
+        _run_heat(db, heat_a, ids)
+
+        stored = crud.heat_lanes_of(db, heat_b)
+        racing = [lane.racer_id for lane in stored if lane.racer_id]
+        assert len(racing) == 2
+        departing, survivor = racing
+
+        crud.update_racer(
+            db, departing, schemas.RacerUpdate(car_passed_inspection=False)
+        )
+        crud.withdraw_absent_racers(db, race.id)
+
+        updated = crud.heat_lanes_of(db, heat_b)
+        assert lanes_module.is_finished(updated)
+        assert not lanes_module.has_results(updated)
+
+        recs = balanced.records(crud.lanes_for_heats(db, [heat_b]))
+        assert recs.get(survivor, balanced.Record(racer_id=survivor)).heats == 0
+
+        pending2 = _pending_heats(db, round_obj.id)
+        scheduled2 = {
+            lane.racer_id
+            for h in pending2
+            for lane in crud.heat_lanes_of(db, h)
+            if lane.racer_id
+        }
+        assert survivor in scheduled2
+        assert departing not in scheduled2

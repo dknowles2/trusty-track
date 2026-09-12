@@ -41,10 +41,18 @@ children win a heat.
 - Everyone races the same number of times, so times and points **count
   toward the overall standings** as usual.
 - New heats appear on their own once the current set has all been run. There
-  is nothing to press.
+  is nothing to press. A [withdrawal](mid-race-changes.md#a-withdrawal) that
+  would leave a heat still to be run with only one car in it skips that
+  heat instead — nobody races alone here either — and the car joins the
+  next set.
 - A racer who checks in late joins the next set. They will have raced fewer
   heats than everyone else, so in a points race the round is
   [set aside](scoring.md#rounds-that-are-set-aside).
+- The Schedule tab and the Race tab both estimate how many heats a Balanced
+  round will run in total, before the last one has been drawn: the number
+  of times you asked each car to race, times how many sets that takes at
+  this track's own lane count — exact, since nobody is added or removed
+  mid-round the way an eliminated car is.
 
 ## Elimination
 
@@ -57,7 +65,10 @@ nothing to reprint when somebody does not show up.
 - You choose how many losses a car is allowed. Three is a good default.
 - New heats appear on their own once the current set has all been run. Cars
   are grouped by record — the undefeated race the undefeated — and **nobody
-  races alone**: a leftover single car joins the nearest group's heat.
+  races alone**: a leftover single car joins the nearest group's heat. The
+  same promise holds if a [withdrawal](mid-race-changes.md#a-withdrawal)
+  leaves one car alone in a heat still to be run — that heat is skipped
+  rather than raced solo, and the car joins the next set instead.
 - A car at the loss limit is out. The **last car left wins.**
 - Elimination heats **stay out of the overall standings** — an eliminated
   car races fewer heats, so no average or total over them is fair. The
@@ -81,3 +92,11 @@ nothing to reprint when somebody does not show up.
   *can* feed one: point a championship round at the elimination round and
   the last cars standing race a timed final. See
   [Championship rounds](championship-rounds.md#the-top-finishers-of-another-round).
+- The Schedule tab and the Race tab both estimate how many heats an
+  Elimination round will run, worded **"at least"**: the number of losses
+  it takes to be out and the number of cars racing bound how many losses
+  the whole round will ever hand out, and dividing that by how many losers
+  a full heat produces gives a number that usually undercounts a little
+  rather than overcounting — the real schedule can and does run one or two
+  heats past it, especially in the final few heats on a track with more
+  than two lanes.
