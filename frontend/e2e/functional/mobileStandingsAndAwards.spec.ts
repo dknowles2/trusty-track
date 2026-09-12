@@ -269,3 +269,62 @@ test('an Awards row stacks its name, description, recipient and controls onto se
         }
     }
 });
+
+/**
+ * #953: on a race with no awards, Present and Print certificates used to be
+ * `<span aria-disabled="true">`, and `.secondary-btn` is written for a real
+ * `<button>` — a `<span>` gets none of that class's layout rules (they are
+ * scoped to `button`/`a.secondary-btn`), so the label painted as plain text
+ * floating above a small grey highlight rather than inside a button-shaped
+ * box, at every width. Fixed by rendering real `<button disabled>` elements.
+ * This is the phone-width case; 1280px and 820px were checked by hand
+ * against the same markup and are not run here (nothing in this file's
+ * existing tests exercises a non-phone width either).
+ */
+test('the disabled Present and Print certificates buttons render as real buttons, not a label floating over a box, on a 390px phone (#953)', async ({
+    page,
+}) => {
+    const { raceId } = await seedRace(page, 'Mobile No Awards ' + Date.now());
+    await ensureConfigured(page);
+
+    await page.setViewportSize(PHONE_VIEWPORT);
+    await page.goto(`/race/${raceId}/awards`);
+    await page.waitForLoadState('networkidle');
+
+    for (const name of ['Present', 'Print certificates']) {
+        const button = page.getByRole('button', { name });
+        await expect(button).toBeVisible();
+        await expect(button).toBeDisabled();
+        await expect(button).toHaveAttribute('title', 'Add an award first.');
+
+        // The bug's exact symptom: the text painted *above* the box rather
+        // than inside it. A `<span>` has none of `.secondary-btn`'s layout
+        // rules (they are scoped to `button`/`a.secondary-btn`), so the
+        // label rendered as plain inline text with a small background
+        // highlight behind only the glyphs — not a button-sized box. A
+        // real `<button>` lays its own text out inside its padded box, so
+        // the text node's rect must sit fully inside the button's own.
+        const rects = await button.evaluate((el) => {
+            const buttonRect = el.getBoundingClientRect();
+            const textNode = Array.from(el.childNodes).find(
+                (n) => n.nodeType === Node.TEXT_NODE,
+            )!;
+            const range = document.createRange();
+            range.selectNodeContents(textNode);
+            const textRect = range.getBoundingClientRect();
+            return {
+                button: { x: buttonRect.x, y: buttonRect.y, width: buttonRect.width, height: buttonRect.height },
+                text: { x: textRect.x, y: textRect.y, width: textRect.width, height: textRect.height },
+            };
+        });
+
+        expect(rects.text.y).toBeGreaterThanOrEqual(rects.button.y);
+        expect(rects.text.y + rects.text.height).toBeLessThanOrEqual(
+            rects.button.y + rects.button.height + 1,
+        );
+        expect(rects.text.x).toBeGreaterThanOrEqual(rects.button.x);
+        expect(rects.text.x + rects.text.width).toBeLessThanOrEqual(
+            rects.button.x + rects.button.width + 1,
+        );
+    }
+});

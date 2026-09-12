@@ -555,10 +555,17 @@ describe('the awards page', () => {
       // that can only disappoint is worse than one that is absent, the same
       // rule `displayView.viewOptionsFor` already applies to the ceremony
       // as a display view.
-      expect(screen.queryByRole('button', { name: /^Present/ })).not.toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Print certificates' })).not.toBeInTheDocument();
-      expect(screen.getByText('Present')).toHaveAttribute('aria-disabled', 'true');
-      expect(screen.getByText('Print certificates')).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('button', { name: 'Present' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Present' })).toHaveAttribute(
+        'title',
+        'Add an award first.',
+      );
+      expect(screen.getByRole('button', { name: 'Print certificates' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Print certificates' })).toHaveAttribute(
+        'title',
+        'Add an award first.',
+      );
     });
 
     it('opens the ceremony in a new tab, the same noopener behaviour Launch Projector Mode uses (#955)', async () => {
