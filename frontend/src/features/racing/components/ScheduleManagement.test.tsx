@@ -983,6 +983,61 @@ describe('ScheduleManagement', () => {
     expect(screen.getByText(/~6 mins duration/)).toBeInTheDocument();
   });
 
+  it('words a Balanced round\'s duration plainly — its own count is exact, not a floor (#1051)', () => {
+    // 8 racers, 4 lanes, 2 phases: ceil(8/4)=2 heats/phase * 2 phases = 4,
+    // an exact total rather than an "at least" estimate.
+    const balancedRound = {
+      id: 1,
+      roundNumber: 1,
+      name: 'Balanced Round',
+      advancementSource: null,
+      advancementFromBottom: false,
+      fieldPinned: false,
+      schedulingStrategy: 'BALANCED',
+      eliminationLosses: null,
+      balancedPhases: 2,
+      racingGroupId: null,
+      eliminationChart: undefined,
+      advancementStatus: undefined,
+    };
+    render(
+      <MemoryRouter>
+        <AlertProvider>
+          <ScheduleManagement
+            raceId={1}
+            heats={[
+              heat({
+                id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, roundName: 'Balanced Round',
+                lanes: [lane({ lane: 1, racerId: 1 }), lane({ lane: 2, racerId: 2 }), lane({ lane: 3, racerId: 3 }), lane({ lane: 4, racerId: 4 })],
+              }),
+              heat({
+                id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, roundName: 'Balanced Round',
+                lanes: [lane({ lane: 1, racerId: 5 }), lane({ lane: 2, racerId: 6 }), lane({ lane: 3, racerId: 7 }), lane({ lane: 4, racerId: 8 })],
+              }),
+            ]}
+            generating={false}
+            activeHeatId={null}
+            onAddRound={vi.fn()}
+            onRegenerateRound={vi.fn()}
+            onDeleteRound={vi.fn()}
+            onDeleteHeat={vi.fn()}
+            onRunHeat={vi.fn()}
+            onReorderHeats={vi.fn()}
+            getRacerName={(id) => `Racer ${id}`}
+            onRefetchHeats={vi.fn()}
+            laneCount={4}
+            racerCount={8}
+            racingGroupCount={1}
+            championshipTrophies={3}
+            rounds={[balancedRound as any]}
+          />
+        </AlertProvider>
+      </MemoryRouter>
+    );
+    expect(screen.queryByText(/at least/)).not.toBeInTheDocument();
+    expect(screen.getByText(/~7 mins duration/)).toBeInTheDocument();
+  });
+
   describe('reordering (drag end)', () => {
     const threeHeats: Heat[] = [
       { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' },

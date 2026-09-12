@@ -41,9 +41,10 @@ export interface GrowingRoundShape {
  * round's first wave or phase), not a fresh count of the whole roster,
  * since a general round can be scoped to one racing group.
  *
- * `BALANCED`'s answer is exact; `ELIMINATION`'s is an estimate that can
- * fall short once heats stop running full — see `eliminationHeatCountEstimate`
- * for why, and word it "at least" rather than "up to" for that reason.
+ * `BALANCED`'s answer is exact — word it plainly ("N heats"/"~X mins"),
+ * never "at least". `ELIMINATION`'s is a genuine floor that can still run
+ * long — see `eliminationHeatCountEstimate` for why, and word *that one*
+ * "at least" rather than "up to".
  */
 export function expectedHeatCount(
     round: GrowingRoundShape,
@@ -84,36 +85,52 @@ function balancedHeatCount(
 }
 
 /**
- * An *estimate* of how many heats an elimination round will run — there is
- * no exact answer before the racing happens, since a wave's shape depends
- * on how many cars are still alive when it is drawn.
+ * A genuine *floor* on how many heats an elimination round will run — there
+ * is no exact answer before the racing happens, since a wave's shape
+ * depends on how many cars are still alive when it is drawn, but this
+ * number is never exceeded by the real schedule, on either side of a call.
  *
- * Reasoned from the total number of losses the round will eventually hand
- * out, which *is* bounded exactly: every eliminated car is retired at
- * `losses`, never more, and there are `racerCount - 1` of them, so the
- * round hands out at most `racerCount * losses` losses in total (the
- * eventual winner's own tally only adds to that bound, never exceeds it).
+ * Reasoned from the *least* total losses the round could possibly hand out
+ * before deciding, which is a real lower bound rather than a guess:
+ * exactly `racerCount - 1` cars must be eliminated (everyone but the
+ * champion), each retired at precisely `losses` — never more, since a
+ * car leaves the instant it reaches the threshold — and the champion's own
+ * tally can be as low as zero (a car that never loses a single heat is a
+ * legitimate outcome). So the round hands out **at least**
+ * `(racerCount - 1) * losses` losses no matter how it actually plays out.
+ * Using `racerCount * losses` here — the champion's own count *included*
+ * — was the earlier, wrong version of this reasoning: it bounds the total
+ * from *above*, not below, and a bound on the wrong side of the total can
+ * round a whole extra heat past what the real minimum could ever need,
+ * which is exactly how it stopped being a floor (`4` racers, `4` lanes,
+ * `1` loss gave an estimate of `2` when the real minimum is `1` — a single
+ * four-way heat retires all three non-champions in one heat and decides
+ * the round on the spot).
+ *
  * Every *full* heat retires up to `laneCount - 1` losers at once — every
  * lane but the winner's (`domain/elimination.losses_by_racer`) — so
- * dividing the total by that count is the fewest heats a fully-laned field
- * could possibly need to hand out that many losses, which is what this
- * function returns.
+ * dividing the minimum total by that count is the fewest heats a
+ * fully-laned field could possibly need to reach it, which is what this
+ * function returns. Because the numerator is now the least the round
+ * could ever hand out rather than an upper estimate of it, and the
+ * denominator is the most any single heat could ever retire, no
+ * combination of real outcomes can need fewer heats than this — confirmed
+ * by simulating the real `domain/elimination` wave logic against the
+ * adversarial case that minimises the heat count (the eventual champion
+ * winning every heat it is ever in, so it never contributes a loss) across
+ * a wide sweep of racer counts, lane counts and loss thresholds
+ * (`growingRounds.test.ts`), with zero counter-examples.
  *
- * It only matches the real total when every heat happens to run full,
- * which `chunk_heats` cannot promise once the field has thinned to fewer
- * than `laneCount` cars still alive — a wave that size runs smaller heats,
- * each retiring fewer losers, so the round can need more of them than this
- * predicts. Simulating the real `domain/elimination` wave logic across a
- * wide spread of racer counts, lane counts and loss thresholds
- * (`growingRounds.test.ts`) shows the gap is real but modest — typically
- * within 10-20% once `laneCount > 2` — and it disappears entirely at
- * `laneCount == 2`, where every heat is a pair by construction and this
- * value is a genuine ceiling that is never exceeded. Callers word this
- * "at least ~N heats" rather than "up to": undercounting a schedule that
- * is about to grow again is worse than a number that occasionally reads a
- * little conservative, and single-loss formats on a wide track can in
- * fact finish a little under this estimate, which "at least" still covers
- * honestly (the round is done when it is done, whatever this said).
+ * The real round usually still runs a few heats *past* this floor, for a
+ * different reason than the one the floor itself protects against: once
+ * the field has thinned to fewer than `laneCount` cars still alive,
+ * `chunk_heats` cannot fill every heat, so a late heat retires fewer than
+ * `laneCount - 1` losers and the round needs more of them to reach the
+ * same total — and in practice the actual champion usually does take a
+ * loss or two along the way, which raises the real total above this
+ * floor's own minimum. Both are genuine reasons the schedule commonly
+ * needs more heats than this predicts, never fewer — which is why callers
+ * word this "at least ~N heats" rather than "up to" or a bare figure.
  */
 function eliminationHeatCountEstimate(
     racerCount: number,
@@ -122,5 +139,5 @@ function eliminationHeatCountEstimate(
 ): number {
     const losses = eliminationLosses ?? 1;
     const lossesPerFullHeat = Math.max(laneCount - 1, 1);
-    return Math.ceil((racerCount * losses) / lossesPerFullHeat);
+    return Math.ceil(((racerCount - 1) * losses) / lossesPerFullHeat);
 }

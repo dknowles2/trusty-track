@@ -43,31 +43,62 @@ describe('expectedHeatCount', () => {
     });
 
     describe('ELIMINATION', () => {
-        it('matches the issue"s own worked example (~5 for 7 cars, 2 losses, 4 lanes)', () => {
-            // The issue reports this race actually took 6 heats — the estimate
-            // is "at least" this, not "up to", precisely because it can and
-            // did run one heat longer than a fully-laned worst case predicts.
+        it('is a floor for the issue"s own worked example (7 cars, 2 losses, 4 lanes)', () => {
+            // Exactly `racerCount - 1` = 6 cars are eliminated, each at
+            // `losses` = 2, so the round hands out *at least* 12 losses —
+            // the champion's own tally (0 in the best case) never adds to
+            // that minimum. ceil(12 / 3) = 4. The issue reports this race
+            // actually took 6 heats, which the floor correctly sits below.
             expect(
                 expectedHeatCount(round('ELIMINATION', { eliminationLosses: 2 }), 7, 4)
-            ).toBe(5);
+            ).toBe(4);
         });
 
         it('defaults losses to 1 when unset', () => {
+            // (8 - 1) * 1 = 7 losses at minimum, ceil(7 / 3) = 3.
             expect(expectedHeatCount(round('ELIMINATION'), 8, 4)).toBe(3);
         });
 
-        it('is a genuine ceiling on a two-lane track, never exceeded', () => {
-            // laneCount - 1 == 1, so every heat is a pair retiring exactly one
-            // loser — the estimate then equals the true maximum total losses.
+        it('is exact on a two-lane track — every heat is a pair retiring exactly one loser, so the minimum total is the only total', () => {
             for (const [n, losses] of [
                 [4, 1],
                 [6, 2],
                 [9, 3],
             ] as const) {
                 const heatCount = simulateElimination(n, 2, losses);
-                expect(heatCount).toBeLessThanOrEqual(
-                    expectedHeatCount(round('ELIMINATION', { eliminationLosses: losses }), n, 2)!
-                );
+                expect(
+                    expectedHeatCount(round('ELIMINATION', { eliminationLosses: losses }), n, 2)
+                ).toBe(heatCount);
+            }
+        });
+
+        // A previous version of this formula used `racerCount * losses` as
+        // the numerator — bounding the total losses handed out from
+        // *above* rather than below, since it counted the eventual
+        // champion's own tally as if it always reached the threshold too.
+        // That is not a floor: these five cases (found by re-simulating the
+        // real `domain.elimination.next_wave`/`chunk_heats` against the
+        // adversarial case that minimises heat count — the champion
+        // winning every heat it is ever in) all produced a real heat count
+        // *below* that formula's estimate, some by a whole heat. The fix
+        // is `(racerCount - 1) * losses`: exactly the non-champions'
+        // combined minimum, which nothing can ever finish in fewer heats.
+        it('is a true floor on the cases that broke the old (racerCount * losses) formula', () => {
+            const cases: readonly [racers: number, laneCount: number, losses: number, floor: number][] = [
+                [4, 4, 1, 1],
+                [16, 4, 1, 5],
+                [6, 4, 2, 4],
+                [4, 4, 2, 2],
+                [4, 4, 3, 3],
+            ];
+            for (const [racers, laneCount, losses, floor] of cases) {
+                const estimate = expectedHeatCount(
+                    round('ELIMINATION', { eliminationLosses: losses }),
+                    racers,
+                    laneCount
+                )!;
+                expect(estimate).toBe(floor);
+                expect(estimate).toBeLessThanOrEqual(simulateElimination(racers, laneCount, losses));
             }
         });
 

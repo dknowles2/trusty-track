@@ -921,6 +921,10 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                 (advancementInfo?.schedulingStrategy === 'ELIMINATION'
                   ? !(chart?.decided ?? false)
                   : estimatedTotalHeats != null && totalHeats < estimatedTotalHeats);
+              // Balanced's own `expectedHeatCount` is exact — phases times
+              // cars-per-lane, nobody added or removed mid-round — so only
+              // Elimination's floor gets the "at least" hedge.
+              const isUncertainEstimate = advancementInfo?.schedulingStrategy === 'ELIMINATION';
 
               return (
                 <div key={roundId} style={{
@@ -957,7 +961,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           <span style={{ color: 'var(--success-color)' }}>Completed</span>
                         ) : (
                           <>
-                            {isGrowingRound ? 'at least ' : ''}
+                            {isUncertainEstimate ? 'at least ' : ''}
                             {totalHeats - uncompletedHeats > 0
                               // A growing round's "remaining" figure counts
                               // against the estimated eventual total, not

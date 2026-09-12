@@ -834,6 +834,15 @@ export default function RaceControl() {
   const isGrowingRound =
     activeRound?.schedulingStrategy === 'BALANCED' ||
     activeRound?.schedulingStrategy === 'ELIMINATION';
+  /**
+   * Balanced's own `expectedHeatCount` is exact — phases times cars-per-lane,
+   * nobody added or removed mid-round — so only Elimination's floor gets the
+   * "at least" hedge passed down to `RaceExecution`. `isGrowingRound` above
+   * stays broader: both formats still need the estimate to size a pending
+   * round with no heats yet, only Elimination needs the wording that says
+   * the estimate is a floor rather than a plain figure.
+   */
+  const isUncertainEstimate = activeRound?.schedulingStrategy === 'ELIMINATION';
 
   const recordedHeatsInRound = useMemo(
     () => currentRoundHeats.filter((h: Heat) => hasRun(h.lanes)).length,
@@ -1114,7 +1123,7 @@ export default function RaceControl() {
               masterRunningOrder={masterRunningOrder}
               remainingHeatsInRound={remainingHeatsInRound}
               totalHeatsInRound={totalHeatsInRound}
-              isGrowingRound={isGrowingRound}
+              isUncertainEstimate={isUncertainEstimate}
               nextWaveExpected={nextWaveExpected}
               pace={pace}
               upcomingRounds={upcomingRounds}

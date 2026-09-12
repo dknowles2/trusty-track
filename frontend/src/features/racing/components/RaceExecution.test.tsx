@@ -1019,20 +1019,36 @@ describe('RaceExecution', () => {
         expect(screen.getByText('4 Heats Remaining')).toBeInTheDocument();
     });
 
-    it('words a growing round\'s progress "at least" (#1022)', () => {
+    it('words an Elimination round\'s progress "at least", since its own floor can still run long (#1022, #1051)', () => {
         render(
             <RaceExecution
                 {...defaultProps}
                 nextExecutionHeat={{ ...mockHeat, id: 2, heatNumber: 2 }}
                 totalHeatsInRound={5}
                 remainingHeatsInRound={3}
-                isGrowingRound={true}
+                isUncertainEstimate={true}
             />
         );
 
         expect(screen.getByText(/2 of at least 5 Heats Completed/)).toBeInTheDocument();
         expect(screen.getByText(/at least 3 Heats Remaining/)).toBeInTheDocument();
         expect(screen.getByText(/Estimated time remaining: at least/)).toBeInTheDocument();
+    });
+
+    it('words a Balanced round\'s progress plainly — its own count is exact, not a floor (#1051)', () => {
+        render(
+            <RaceExecution
+                {...defaultProps}
+                nextExecutionHeat={{ ...mockHeat, id: 2, heatNumber: 2 }}
+                totalHeatsInRound={5}
+                remainingHeatsInRound={3}
+                isUncertainEstimate={false}
+            />
+        );
+
+        expect(screen.getByText(/2 of 5 Heats Completed/)).toBeInTheDocument();
+        expect(screen.getByText(/^3 Heats Remaining$/)).toBeInTheDocument();
+        expect(screen.queryByText(/at least/)).not.toBeInTheDocument();
     });
 
     it('says the next set is coming rather than "0 Heats Remaining" or "Race Complete!" between waves (#1022)', () => {
@@ -1042,7 +1058,7 @@ describe('RaceExecution', () => {
                 nextExecutionHeat={null}
                 totalHeatsInRound={5}
                 remainingHeatsInRound={0}
-                isGrowingRound={true}
+                isUncertainEstimate={true}
                 nextWaveExpected={true}
             />
         );

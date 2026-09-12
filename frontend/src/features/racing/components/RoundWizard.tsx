@@ -185,7 +185,11 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       name: generalRoundName(generalConfig.raceStyle, generalConfig.type, org, group),
       heats: generalHeats,
       duration: generalHeats == null ? 0 : Math.ceil(generalHeats * minutesPerHeat),
-      isEstimate: generalConfig.raceStyle !== 'PPC',
+      // Balanced's own count from `expectedHeatCount` is exact (phases
+      // times cars-per-lane, nobody added or removed mid-round) — only
+      // Elimination's is a floor that the real schedule can run past.
+      // "at least" belongs on the second, never the first.
+      isEstimate: generalConfig.raceStyle === 'ELIMINATION',
     });
 
     // Championship Rounds — always PPC, so their heat count is always known.
@@ -208,10 +212,11 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     const totalHeats = rounds.reduce((sum, r) => sum + (r.heats ?? 0), 0);
     const totalDuration = rounds.reduce((sum, r) => sum + r.duration, 0);
     const hasUnknownHeats = rounds.some((r) => r.heats == null);
-    // Whether *any* number above is `growingRounds.ts`'s estimate rather
-    // than an exact count — an elimination or balanced general round can
-    // in fact run longer than this predicts (see that module's own
-    // docstring for why), so the grand total is worded "at least" too.
+    // Whether the general round is Elimination, whose `expectedHeatCount`
+    // is a floor rather than an exact count (see that module's own
+    // docstring) — the real schedule can run past it, so the grand total
+    // is worded "at least" too. Balanced's own count is exact and never
+    // sets this, however many phases or cars it covers.
     const hasEstimatedHeats = rounds.some((r) => r.isEstimate);
 
     return { rounds, totalHeats, totalDuration, hasUnknownHeats, hasEstimatedHeats };
@@ -620,7 +625,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                   </div>
                   {hasEstimatedHeats && (
                     <div style={{ color: 'var(--accent-blue-strong-color)', fontSize: '0.75rem', marginTop: '0.25rem', fontStyle: 'italic' }}>
-                      Elimination and balanced rounds grow as results come in — the numbers above are an estimate, not the final schedule.
+                      An elimination round grows as results come in — the numbers above are a floor, not the final schedule.
                     </div>
                   )}
                 </div>

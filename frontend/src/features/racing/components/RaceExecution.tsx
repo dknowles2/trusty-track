@@ -201,14 +201,18 @@ interface RaceExecutionProps {
     remainingHeatsInRound?: number;
     totalHeatsInRound?: number;
     /**
-     * The active round is Balanced or Elimination, so `totalHeatsInRound`/
-     * `remainingHeatsInRound` are `growingRounds.ts`'s own estimate of the
-     * round's eventual size rather than a plain row count (#1022) — a
-     * growing round has no pending heats at all until the recorded-result
-     * cascade appends the next wave or phase. Words the duration as "at
-     * least" rather than a bare figure, since the estimate can fall short.
+     * The active round is Elimination, so `totalHeatsInRound`/
+     * `remainingHeatsInRound` are `growingRounds.ts`'s own *floor* on the
+     * round's eventual size, not a plain row count (#1022) — a growing
+     * round has no pending heats at all until the recorded-result cascade
+     * appends the next wave, and Elimination's own floor can still run
+     * long (see that module's docstring for why). Words the duration "at
+     * least" rather than a bare figure for that reason. Deliberately not
+     * set for Balanced: its own count from the same function is exact —
+     * phases times cars-per-lane, nobody added or removed mid-round — so
+     * a Balanced round's total is worded plainly, the same as PPC's.
      */
-    isGrowingRound?: boolean;
+    isUncertainEstimate?: boolean;
     /**
      * Every heat generated for the active round so far has been run, and —
      * going by the estimate above, or the elimination chart's own
@@ -261,7 +265,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     onToggleAutoAdvance,
     remainingHeatsInRound,
     totalHeatsInRound,
-    isGrowingRound = false,
+    isUncertainEstimate = false,
     nextWaveExpected = false,
     pace = BASELINE_PACE,
     upcomingRounds,
@@ -1184,7 +1188,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 <IntermissionControl raceId={raceId} compact />
                             </div>
                             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--progress-value-color)' }}>
-                                {totalHeatsInRound - remainingHeatsInRound} of {isGrowingRound ? 'at least ' : ''}{totalHeatsInRound} Heats Completed
+                                {totalHeatsInRound - remainingHeatsInRound} of {isUncertainEstimate ? 'at least ' : ''}{totalHeatsInRound} Heats Completed
                             </div>
                             {nextWaveExpected ? (
                                 <div style={{ fontSize: '0.9rem', color: 'var(--text-subtle-color)', fontWeight: 600 }}>
@@ -1192,17 +1196,17 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 </div>
                             ) : (
                                 <div style={{ fontSize: '0.9rem', color: 'var(--success-color)', fontWeight: 600 }}>
-                                    {isGrowingRound ? 'at least ' : ''}{remainingHeatsInRound} {remainingHeatsInRound === 1 ? 'Heat' : 'Heats'} Remaining
+                                    {isUncertainEstimate ? 'at least ' : ''}{remainingHeatsInRound} {remainingHeatsInRound === 1 ? 'Heat' : 'Heats'} Remaining
                                 </div>
                             )}
                             {!nextWaveExpected && (
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '4px' }}>
-                                    Estimated time remaining: {isGrowingRound ? 'at least ' : ''}{heatsEstimate(remainingHeatsInRound, pace.minutesPerHeat)}
+                                    Estimated time remaining: {isUncertainEstimate ? 'at least ' : ''}{heatsEstimate(remainingHeatsInRound, pace.minutesPerHeat)}
                                 </div>
                             )}
                             {!nextWaveExpected && remainingHeatsInRound > 0 && (
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '2px' }}>
-                                    Est. finish: {isGrowingRound ? 'at least ' : ''}{formatClockTime(estimatedFinishTime(remainingHeatsInRound, pace, new Date()))}{' '}
+                                    Est. finish: {isUncertainEstimate ? 'at least ' : ''}{formatClockTime(estimatedFinishTime(remainingHeatsInRound, pace, new Date()))}{' '}
                                     ({paceLabel(pace)})
                                 </div>
                             )}
