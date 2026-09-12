@@ -392,7 +392,7 @@ export const THEMES: readonly Theme[] = [
         '--hardware-connect-hover-color': '#6a1b9a',
         '--danger-accent-bg-color': '#ffeeee',
         '--caution-bg-color': '#fff3e0',
-        '--caution-text-color': '#e65100',
+        '--caution-text-color': '#b3450a',
         '--caution-border-color': '#ffe0b2',
         '--caution-icon-color': '#f57c00',
         '--warning-alt-border-color': '#ffe082',
@@ -604,31 +604,58 @@ export const THEMES: readonly Theme[] = [
         '--hardware-connect-color': '#4a148c',
         '--hardware-connect-hover-color': '#6a1b9a',
         '--danger-accent-bg-color': '#ffeeee',
-        '--caution-bg-color': '#fff3e0',
-        '--caution-text-color': '#e65100',
-        '--caution-border-color': '#ffe0b2',
-        '--caution-icon-color': '#f57c00',
+        // #1060: the caution family carried Field Uniform's cream-on-white
+        // literals unchanged, which reads as a bright island against this
+        // theme's dark surfaces. Given its own dark, warm-orange pairing
+        // instead — a distinct hue from --warning-*'s olive/yellow family,
+        // so the two are still visually distinguishable, the same relation
+        // Field Uniform's own caution (orange) and warning (yellow) tokens
+        // have to each other. Text on bg: #ffb74d on #3a2410 is ~8.43:1.
+        '--caution-bg-color': '#3a2410',
+        '--caution-text-color': '#ffb74d',
+        '--caution-border-color': '#7a4d26',
+        '--caution-icon-color': '#ffa726',
         '--warning-alt-border-color': '#ffe082',
         '--info-panel-bg-color': '#e3f2fd',
         '--info-panel-border-color': '#90caf9',
         '--info-notice-bg-color': '#f3f6fb',
-        '--warning-notice-border-color': '#f0d98c',
-        '--warning-notice-text-color': '#5b4a00',
+        // #1060: reuse this theme's own --warning-strong-border-color/
+        // --warning-color values rather than inventing a fourth shade of
+        // olive — the notice sits on this theme's own --warning-bg-color
+        // (#3a3018), and the old literals (#f0d98c/#5b4a00) were Field
+        // Uniform's light-surface pairing, measuring 1.50:1 here. Text on
+        // bg: #e0c060 on #3a3018 is ~7.35:1.
+        '--warning-notice-border-color': '#6b5723',
+        '--warning-notice-text-color': '#e0c060',
         '--highlight-gold-tint-color': 'rgba(252, 209, 22, 0.1)',
         '--selection-accent-color': '#3b82f6',
         '--accent-blue-color': '#2563eb',
         '--accent-blue-bg-color': '#eff6ff',
         '--accent-blue-strong-color': '#1d4ed8',
         '--accent-blue-emphasis-color': '#1e3a8a',
-        '--wizard-heading-color': '#111827',
-        '--wizard-text-color': '#374151',
-        '--wizard-text-muted-color': '#6b7280',
-        '--wizard-text-subtle-color': '#4b5563',
-        '--wizard-border-color': '#e5e7eb',
-        '--wizard-border-muted-color': '#d1d5db',
-        '--wizard-icon-muted-color': '#9ca3af',
-        '--wizard-surface-alt-color': '#f9fafb',
-        '--wizard-chip-bg-color': '#f3f4f6',
+        // #1060: the wizard family carried Field Uniform's light-mode greys
+        // unchanged (dark text on a near-white "surface-alt"), unreadable
+        // on this theme's dark --surface-color (#1c222c) — the Round
+        // Wizard is hosted in a Modal, whose panel paints --surface-color.
+        // Inverted the same way --text-*/--text-muted-color already are:
+        // each tier reuses one of this theme's own text-tier values, so the
+        // ordering (heading brightest, then text, subtle, muted) matches
+        // Field Uniform's own darkest-to-lightest tiering exactly, just
+        // read from the other end of the scale. On surface-color: heading
+        // #eef1f6 ~14.1:1, text #cfd6e0 ~10.9:1, subtle #a3adbd ~7.05:1,
+        // muted #9aa7b8 ~6.54:1 — all clear the 4.5:1 floor. Borders and
+        // the two surface tints reuse this theme's own border/surface
+        // tiers so a lighter dark (not near-white) zebra-stripes the
+        // summary table.
+        '--wizard-heading-color': '#eef1f6',
+        '--wizard-text-color': '#cfd6e0',
+        '--wizard-text-muted-color': '#9aa7b8',
+        '--wizard-text-subtle-color': '#a3adbd',
+        '--wizard-border-color': '#313b4a',
+        '--wizard-border-muted-color': '#3a4557',
+        '--wizard-icon-muted-color': '#7c8a9f',
+        '--wizard-surface-alt-color': '#242b37',
+        '--wizard-chip-bg-color': '#2c3444',
         '--surface-removed-color': '#f2f2f2',
         '--danger-soft-bg-color': '#ffe6e6',
         '--preview-border-color': '#dfe3e8',
@@ -802,7 +829,7 @@ export const THEMES: readonly Theme[] = [
         '--hardware-connect-hover-color': '#6a1b9a',
         '--danger-accent-bg-color': '#ffeeee',
         '--caution-bg-color': '#fff3e0',
-        '--caution-text-color': '#e65100',
+        '--caution-text-color': '#b3450a',
         '--caution-border-color': '#ffe0b2',
         '--caution-icon-color': '#f57c00',
         '--warning-alt-border-color': '#ffe082',
@@ -1012,7 +1039,7 @@ export const THEMES: readonly Theme[] = [
         '--hardware-connect-hover-color': '#6a1b9a',
         '--danger-accent-bg-color': '#ffeeee',
         '--caution-bg-color': '#fff3e0',
-        '--caution-text-color': '#e65100',
+        '--caution-text-color': '#b3450a',
         '--caution-border-color': '#ffe0b2',
         '--caution-icon-color': '#f57c00',
         '--warning-alt-border-color': '#ffe082',
@@ -1208,7 +1235,7 @@ export const THEMES: readonly Theme[] = [
         '--hardware-connect-hover-color': '#6a1b9a',
         '--danger-accent-bg-color': '#ffeeee',
         '--caution-bg-color': '#fff3e0',
-        '--caution-text-color': '#e65100',
+        '--caution-text-color': '#b3450a',
         '--caution-border-color': '#ffe0b2',
         '--caution-icon-color': '#f57c00',
         '--warning-alt-border-color': '#ffe082',
@@ -1404,7 +1431,7 @@ export const THEMES: readonly Theme[] = [
         '--hardware-connect-hover-color': '#6a1b9a',
         '--danger-accent-bg-color': '#ffeeee',
         '--caution-bg-color': '#fff3e0',
-        '--caution-text-color': '#e65100',
+        '--caution-text-color': '#b3450a',
         '--caution-border-color': '#ffe0b2',
         '--caution-icon-color': '#f57c00',
         '--warning-alt-border-color': '#ffe082',
@@ -1598,7 +1625,7 @@ export const THEMES: readonly Theme[] = [
         '--hardware-connect-hover-color': '#6a1b9a',
         '--danger-accent-bg-color': '#ffeeee',
         '--caution-bg-color': '#fff3e0',
-        '--caution-text-color': '#e65100',
+        '--caution-text-color': '#b3450a',
         '--caution-border-color': '#ffe0b2',
         '--caution-icon-color': '#f57c00',
         '--warning-alt-border-color': '#ffe082',

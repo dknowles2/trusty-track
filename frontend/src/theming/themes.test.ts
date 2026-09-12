@@ -289,7 +289,28 @@ describe('contrast — the hard constraints checklist', () => {
   // `--on-accent-color` against `--cub-scouting-gold`, which #529's own
   // audit found already clears the floor everywhere (5.93:1 at the
   // tightest) and was simply never checked.
-  describe('every --text-* and --display-text-* token, plus on-accent (#529)', () => {
+  //
+  // #1060: the App half of that filter was `startsWith('--text-')`, which
+  // is a naming convention, not a role — `--wizard-text-color`,
+  // `--wizard-text-muted-color`, `--wizard-text-subtle-color`,
+  // `--caution-text-color` and `--warning-notice-text-color` are all text
+  // colors that happen to carry a different prefix, and every one of them
+  // was invisible to this suite. It is why the wizard and warning-notice
+  // families could carry Field Uniform's light-mode literals unchanged
+  // into Under the Lights (1.11:1–1.55:1 against that theme's dark
+  // surface) with a fully green test run, and why `--caution-text-color`
+  // could fail the floor on *every* theme (3.46:1) with nobody noticing.
+  // `name.includes('text')` catches all of them; `TEXT_ON` is the escape
+  // hatch for the two that pair with a background other than
+  // `--surface-color` — a token's own themed background, not the page
+  // behind it, since `--caution-*`/`--warning-notice-*` render inside a
+  // colored box, not directly on the surface.
+  const TEXT_ON: Readonly<Record<string, string>> = {
+    '--caution-text-color': '--caution-bg-color',
+    '--warning-notice-text-color': '--warning-bg-color',
+  };
+
+  describe('every App/Display text-role token, plus on-accent (#498, #529, #1060)', () => {
     // --text-placeholder-color is the one deliberate exception, in six of
     // the seven themes: darkened to clear the floor it would stop reading
     // as an empty field and start reading as typed text (placeholder text
@@ -306,8 +327,14 @@ describe('contrast — the hard constraints checklist', () => {
       'newsprint',
     ]);
 
+    // Role, not prefix: any App token whose name contains "text" is a text
+    // colour and gets checked, whatever family it belongs to.
+    // `--text-color` itself keeps its own dedicated test above (against
+    // `--background-color`, not `--surface-color` — a different pairing),
+    // so it is excluded here rather than checked twice against two
+    // different backgrounds under one name.
     const APP_TEXT_TOKEN_NAMES = APP_TOKEN_NAMES.filter(
-      (name) => name.startsWith('--text-') && name !== '--text-color',
+      (name) => name.includes('text') && name !== '--text-color',
     );
     const DISPLAY_TEXT_TOKEN_NAMES = DISPLAY_TOKEN_NAMES.filter(
       (name) => name.startsWith('--display-text-') && name !== '--display-text-color',
@@ -315,7 +342,8 @@ describe('contrast — the hard constraints checklist', () => {
 
     for (const theme of THEMES) {
       for (const name of APP_TEXT_TOKEN_NAMES) {
-        const ratio = contrastRatio(theme.app.tokens[name], theme.app.tokens['--surface-color']);
+        const backgroundToken = TEXT_ON[name] ?? '--surface-color';
+        const ratio = contrastRatio(theme.app.tokens[name], theme.app.tokens[backgroundToken]);
         const isDocumentedException =
           name === '--text-placeholder-color' && PLACEHOLDER_EXCEPTION_THEMES.has(theme.key);
 
@@ -329,7 +357,7 @@ describe('contrast — the hard constraints checklist', () => {
             expect(ratio).toBeLessThan(BODY_TEXT_FLOOR);
           });
         } else {
-          it(`${theme.key}: ${name} on surface clears ${BODY_TEXT_FLOOR}:1`, () => {
+          it(`${theme.key}: ${name} on ${backgroundToken.slice(2)} clears ${BODY_TEXT_FLOOR}:1`, () => {
             expect(ratio).toBeGreaterThanOrEqual(BODY_TEXT_FLOOR);
           });
         }
@@ -352,6 +380,41 @@ describe('contrast — the hard constraints checklist', () => {
         ).toBeGreaterThanOrEqual(BODY_TEXT_FLOOR);
       });
     }
+
+    // #1060: a theme-invariant token is never a text colour, unless it is
+    // named here with a reason a human decided on. A light-mode value
+    // copied into all seven theme records verbatim — exactly what #504's
+    // mechanical migration did to `--wizard-*`, `--warning-notice-*` and
+    // `--caution-*` — is indistinguishable from a deliberate decision until
+    // somebody switches on the one dark App theme; this is the check that
+    // would have caught it the day it landed; a text token added later that
+    // happens to want the identical value on every theme is rare enough
+    // that naming it here, with why, costs nothing.
+    const DELIBERATELY_INVARIANT_TEXT_TOKENS: Readonly<Record<string, string>> = {
+      // No entries yet — every text-role App token differs on at least one
+      // theme. Add one here, with a one-line reason, if a future token
+      // genuinely wants the same text colour on every theme (the medal
+      // colours are the closest existing example, and none of them has
+      // "text" in its name).
+    };
+
+    it('no text-role App token holds the identical value on all seven themes, unless named as deliberate', () => {
+      const invariantTextTokenNames = APP_TOKEN_NAMES.filter((name) => name.includes('text')).filter(
+        (name) => {
+          const values = THEMES.map((theme) => theme.app.tokens[name]);
+          return new Set(values).size === 1;
+        },
+      );
+      const unexplained = invariantTextTokenNames.filter(
+        (name) => !(name in DELIBERATELY_INVARIANT_TEXT_TOKENS),
+      );
+      expect(
+        unexplained,
+        `these text-role tokens hold the same value on every theme, which is either a ` +
+          `deliberate choice (add it to DELIBERATELY_INVARIANT_TEXT_TOKENS with a reason) or ` +
+          `a light-mode default nobody gave Under the Lights its own value for yet`,
+      ).toEqual([]);
+    });
   });
 
   // The three pairings the spec's design work explicitly considered and
