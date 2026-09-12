@@ -17,16 +17,17 @@ describe('pageTitle', () => {
         expect(pageTitle('/race/1/awards/present', DERBY)).toBe(`Awards Ceremony — ${DERBY}`);
         expect(pageTitle('/race/1/vote', DERBY)).toBe(`Vote — ${DERBY}`);
         expect(pageTitle('/race/1/stats', DERBY)).toBe(`Stats — ${DERBY}`);
+        expect(pageTitle('/race/1/displays', DERBY)).toBe(`Displays — ${DERBY}`);
         expect(pageTitle('/race/1/observation', DERBY)).toBe(`Live — ${DERBY}`);
     });
 
     it('follows Race Control between its own tabs — the reported bug', () => {
-        // Four sub-sections behind one nav entry, and switching them is a
-        // navigation the tab strip never noticed.
+        // Three sub-sections behind one nav entry, and switching them is a
+        // navigation the tab strip never noticed. Displays left this list
+        // for its own race-row page (#958).
         expect(pageTitle('/race/1/control/schedule', DERBY)).toBe(`Schedule — ${DERBY}`);
         expect(pageTitle('/race/1/control/race', DERBY)).toBe(`Race — ${DERBY}`);
         expect(pageTitle('/race/1/control/free-race', DERBY)).toBe(`Free Race — ${DERBY}`);
-        expect(pageTitle('/race/1/control/displays', DERBY)).toBe(`Displays — ${DERBY}`);
     });
 
     it('treats bare Race Control as the schedule, as the page itself does', () => {
@@ -66,7 +67,7 @@ describe('pageTitle', () => {
 
 describe('raceIdIn', () => {
     it('reads the race a path belongs to', () => {
-        expect(raceIdIn('/race/12/control/displays')).toBe(12);
+        expect(raceIdIn('/race/12/displays')).toBe(12);
     });
 
     it('is null off a race page', () => {

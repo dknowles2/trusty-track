@@ -90,7 +90,7 @@ test('the operator can put a screen on the slideshow without walking to it', asy
     await display.goto(`/race/${raceId}/observation`);
     await display.waitForLoadState('networkidle');
 
-    await page.goto(`/race/${raceId}/control/displays`);
+    await page.goto(`/race/${raceId}/displays`);
     const row = page.getByTestId('display-spec-slideshow-1');
     await expect(row).toBeVisible();
     await row.getByRole('combobox').selectOption('SLIDESHOW');

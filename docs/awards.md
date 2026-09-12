@@ -221,7 +221,7 @@ to it with the keyboard.
 ### Driving it from where you are
 
 If the ceremony is on a screen across the room, you do not have to walk to
-it. Put it there from **Race Control → Displays** — choose **Awards
+it. Put it there from **Displays** — choose **Awards
 ceremony** for that screen — and the row grows **‹** and **›** buttons that
 move it on.
 

@@ -269,11 +269,13 @@ test('the browser tab is named after the page and the race', async ({ page }) =>
     await page.goto(`/race/${raceId}`);
     await expect(page).toHaveTitle('Roster — Page Title Race');
 
-    // Race Control's sub-sections are the case that motivated it: four views
+    // Race Control's sub-sections are the case that motivated it: three views
     // behind one navigation entry.
     await page.goto(`/race/${raceId}/control/schedule`);
     await expect(page).toHaveTitle('Schedule — Page Title Race');
-    await page.getByTestId('displays-tab').click();
+
+    // Displays is its own race-row page now, not a Control sub-tab (#958).
+    await page.getByTestId('race-nav').getByRole('link', { name: 'Displays' }).click();
     await expect(page).toHaveTitle('Displays — Page Title Race');
 
     await page.goto('/system-settings');

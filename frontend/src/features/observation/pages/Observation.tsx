@@ -278,11 +278,23 @@ export default function Observation() {
   // this out for itself any more: an assigned view changes no URL, so before
   // this an operator switching a screen to Projector from across the room got
   // the navigation bar painted across the top of it (#175).
+  //
+  // Unconditional now, not only for the full-screen views above (#958). Every
+  // path onto this page is a display: the operator's own list registers it
+  // the moment the `displayAssignment` subscription below connects, the
+  // shareable "type this address into a screen" address a wall display is
+  // handed carries no query string at all (`ConnectDisplayAddress`), and even
+  // a screen mid-ceremony round-trips back here with a bare in-app `navigate`
+  // (`AwardCeremony.tsx`). There is no remaining path onto `/observation`
+  // that is the operator's own operating page, so there is nothing left for
+  // the ordinary Standings/Timing/Cycle views to keep the chrome for — the
+  // "Live" link that used to reach this page still wearing it is gone from
+  // the race row for the same reason (see `Navigation.tsx`'s `links`).
   const { setHidden: setChromeHidden } = useChrome();
   useEffect(() => {
-    setChromeHidden(isFullScreenView);
+    setChromeHidden(true);
     return () => setChromeHidden(false);
-  }, [isFullScreenView, setChromeHidden]);
+  }, [setChromeHidden]);
 
   useEffect(() => {
     if (isFullScreenView) {
@@ -1033,7 +1045,7 @@ export default function Observation() {
             <IdentifyPresence assignment={assignment} inline />
           </div>
           <button
-            onClick={() => window.open(`${window.location.pathname}?projector=true`, '_blank')}
+            onClick={() => window.open(`${window.location.pathname}?projector=true`, '_blank', 'noopener')}
             style={{
               padding: '10px 20px',
               borderRadius: '20px',

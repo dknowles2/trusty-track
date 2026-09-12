@@ -32,10 +32,11 @@ function raceView(rest: string): string {
     if (rest.startsWith('/control')) {
         // Race Control's own tabs, matching the buttons that switch them —
         // the sub-section is what the operator changed, so it is what the
-        // tab should say.
+        // tab should say. Displays moved out to its own race-row page
+        // (#958) — `/control/displays` redirects there, so this file no
+        // longer names a page Control cannot actually show.
         if (rest.startsWith('/control/free-race')) return 'Free Race';
         if (rest.startsWith('/control/race')) return 'Race';
-        if (rest.startsWith('/control/displays')) return 'Displays';
         return 'Schedule';
     }
     if (rest.startsWith('/standings')) return 'Standings';
@@ -43,6 +44,7 @@ function raceView(rest: string): string {
     if (rest.startsWith('/awards')) return 'Awards';
     if (rest.startsWith('/vote')) return 'Vote';
     if (rest.startsWith('/stats')) return 'Stats';
+    if (rest.startsWith('/displays')) return 'Displays';
     if (rest.startsWith('/print/heat-sheet')) return 'Heat Sheet';
     if (rest.startsWith('/print/results')) return 'Results Sheet';
     if (rest.startsWith('/print/certificates')) return 'Certificates';

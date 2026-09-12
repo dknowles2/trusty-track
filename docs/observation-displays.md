@@ -26,12 +26,12 @@ _The Observation page in standard view, showing the "Now Racing", "On Deck" and 
 
 Any device on the same network as the machine running Trusty Track can open the Observation page. You do not need to use the same device running race control.
 
-1. Open a browser on the display device (laptop, tablet, TV with a browser, etc.).
-2. Navigate to the race's Observation page. You can find the link in the top navigation bar when viewing any race page — look for the **Live** tab.
-3. The page connects automatically and begins showing live data.
+1. On your own machine, open a race and click **Displays** in the top navigation bar.
+2. Click **Open Live on this screen** — it opens in a new tab, so your own screen stays where it is.
+3. On another device, open the same **Displays** panel and share the address shown there (type it in, scan the QR code, or copy it) — it connects the same way, and the page begins showing live data automatically.
 
 ![Observation URL in Browser](assets/screenshots/observation/02-observation-url.png)
-_Open the Observation page from any device on your network using the link in the race navigation bar._
+_The **Displays** tab in the race navigation row — open it to reach Live and every other screen-related control._
 
 ---
 
@@ -116,7 +116,7 @@ blank. More in
 
 > [!TIP]
 > This is the view to leave up during check-in and between rounds. Set the
-> interval on the same row in **Race Control → Displays** — about five seconds
+> interval on the same row in **Displays** — about five seconds
 > per racer suits a small pack, longer for a big one.
 
 ---
@@ -132,7 +132,7 @@ racer's status, on every screen assigned to it.
 ![Check-in progress](assets/screenshots/observation/12-checkin-progress.png)
 _The Bears are all through; the Wolves still have two cars to come, listed by number and name._
 
-A large pack can switch a screen's row in **Race Control → Displays** to
+A large pack can switch a screen's row in **Displays** to
 **Pending only**, which drops the already-checked-in rows and keeps a den's
 card down to just the cars still needed at the scale. More in
 [Check-in progress](reference/displays.md#check-in-progress).
@@ -149,8 +149,8 @@ card down to just the cars still needed at the scale. More in
 
 Instead of shouting an IP address across the gym or walking a laptop around,
 put up a screen with a large, scannable code on it. By default it opens this
-race's own Live page on whichever phone scans it; switch its row in **Race
-Control → Displays** to **Voting ballot** and it opens the
+race's own Live page on whichever phone scans it; switch its row in
+**Displays** to **Voting ballot** and it opens the
 [voting page](awards.md#letting-people-vote) instead.
 
 ![The QR code display view](assets/screenshots/observation/13-qrcode.png)
@@ -195,7 +195,7 @@ told instead.
 
 ![The operator's list of audience displays: one screen renamed "Gym north", the other still showing the default name it gave itself](assets/screenshots/observation/08-displays-panel.png)
 
-**Race Control → Displays.** Every screen showing this race appears in the
+**Displays.** Every screen showing this race appears in the
 list on its own — the Live page, or the awards ceremony — and there is
 nothing to add, or to set up before an event. Pick what each one shows from the dropdown beside it and the screen
 changes within a second or two. The dropdown groups the choices by when in
@@ -204,7 +204,15 @@ After — and a line underneath names what the chosen view actually shows, so
 **Standings** and **Standings only** and **Projector** don't have to be told
 apart by walking to the screen.
 
-Above the list is the address to open on a screen that has not found its way
+At the top of the page, **Open Live on this screen** and **Launch
+projector** put the Live page (or straight into Projector Mode) on *your own*
+screen, each in a new tab — this laptop stays on the Displays page, and the
+new tab is the one that joins the list below. **Open a new display window**
+sits beside them for a genuinely second screen on this computer — two
+monitors, or a projector next to your own — so assigning one never moves the
+other by mistake.
+
+Below them is the address to open on a screen that has not found its way
 here yet — see [Finding this machine's
 address](access-and-network.md#finding-this-machines-address) — with a
 **Copy** button and a QR code a tablet can scan directly.
@@ -314,7 +322,7 @@ banner tops the overlay with the new time and the record it beat.
 
 ### Tablet at the Track
 
-The standard Observation page (not Projector Mode) works well on a tablet placed near the starting gate. The race operator can glance at "On Deck" and "After That" to confirm who needs to stage their cars next.
+The standard Observation page (not Projector Mode) works well on a tablet placed near the starting gate. The race operator can glance at "On Deck" and "After That" to confirm who needs to stage their cars next. It shows with none of the operator's own navigation around it — a stray tap cannot bump it off to another page, and there is nothing to walk it back from but reopening it from **Displays**.
 
 ### Multiple Displays
 

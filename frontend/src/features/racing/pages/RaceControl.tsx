@@ -8,8 +8,6 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { ScheduleManagement } from '../components/ScheduleManagement';
-import DisplaysPanel from '../../observation/components/DisplaysPanel';
-import ScenesPanel from '../../observation/components/ScenesPanel';
 import { RaceExecution } from '../components/RaceExecution';
 import LaneBadge from '../../../components/ui/LaneBadge';
 import { colorForLane } from '../../settings/laneColors';
@@ -30,7 +28,7 @@ import {
   UNPIN_ROUND_FIELD_MUTATION,
 } from '../graphql/queries';
 import { Icon } from '@mdi/react';
-import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple, mdiPencil } from '@mdi/js';
+import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiPencil } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane, EliminationChart } from '../types';
 import { hasRun, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shouldDerivePlaces } from '../lanes';
 import { executionComparator } from '../runningOrder';
@@ -73,12 +71,6 @@ export default function RaceControl() {
   // the one already celebrated, even with no observed dip in between. See
   // `raceCompletion.ts`'s `heatSetKey` and `raceFlow.ts`'s own docstring.
   const [raceSummaryKey, setRaceSummaryKey] = useState<string | null>(null);
-
-  // Whether any audience display is known for this race (#850) — read off
-  // `DisplaysPanel`, which already asks the question for its own list,
-  // rather than a second query here answering the same thing. Drives the
-  // Displays tab's ordering and whether Scenes is offered as live.
-  const [hasDisplays, setHasDisplays] = useState(false);
 
   // A championship round's line-up chosen by hand (#711). `handPickRoundId`
   // is the modal's own open/closed state, controlled here rather than in
@@ -713,8 +705,6 @@ export default function RaceControl() {
     ? 'EXECUTION'
     : location.pathname.includes('/control/free-race')
     ? 'FREE_RACE'
-    : location.pathname.includes('/control/displays')
-    ? 'DISPLAYS'
     : 'SCHEDULE';
 
   // Re-fetch on view change to ensure fresh data (e.g., after reordering in Schedule)
@@ -930,29 +920,6 @@ export default function RaceControl() {
                 >
                     <Icon path={mdiRacingHelmet} size={0.8} /> Free Race
                 </button>
-                {/* Assigning what each audience screen shows, without walking
-                    to it (#174). On Race Control because that is where the
-                    operator is standing when a screen needs changing. */}
-                <button
-                    onClick={() => navigate(`/race/${id}/control/displays`)}
-                    data-testid="displays-tab"
-                    style={{
-                        padding: '6px 16px',
-                        fontSize: '0.95rem',
-                        whiteSpace: 'nowrap',
-                        borderRadius: '20px',
-                        border: 'none',
-                        background: viewMode === 'DISPLAYS' ? 'var(--surface-color)' : 'transparent',
-                        boxShadow: viewMode === 'DISPLAYS' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-                        fontWeight: viewMode === 'DISPLAYS' ? 'bold' : 'normal',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}
-                >
-                    <Icon path={mdiMonitorMultiple} size={0.8} /> Displays
-                </button>
             </div>
         </div>
 
@@ -996,8 +963,9 @@ export default function RaceControl() {
       )}
 
       {/* Pre-flight (#200). Not on the Free Race tab, where an exhibition run
-          does not care whether the championship schedule exists, and not on
-          Displays, which is itself one of the four answers. */}
+          does not care whether the championship schedule exists. Displays
+          moved to its own race-row page (#958), so it no longer needs a
+          carve-out here either. */}
       {shouldShowReadiness(anyHeatRecorded) && (viewMode === 'SCHEDULE' || viewMode === 'EXECUTION') && (
         <ReadinessStrip
           raceId={id}
@@ -1009,21 +977,7 @@ export default function RaceControl() {
         />
       )}
 
-      {viewMode === 'DISPLAYS' ? (
-        // Displays leads (#850): it is the thing that is actually there —
-        // the operator's live list of screens, and the address to give a
-        // screen that has not connected yet — where Scenes is a power tool
-        // for reconfiguring several of them at once and has nothing to do
-        // until at least one exists. The order is deliberately stable
-        // rather than swapping as screens connect and disconnect through
-        // the event, which would move the panel out from under the
-        // operator's cursor; what changes with `hasDisplays` is only
-        // whether Scenes' own controls are live.
-        <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
-          <DisplaysPanel raceId={id} onDisplaysChange={setHasDisplays} />
-          <ScenesPanel raceId={id} disabled={!hasDisplays} />
-        </div>
-      ) : viewMode === 'FREE_RACE' ? (
+      {viewMode === 'FREE_RACE' ? (
         <FreeRaceTab
           raceId={id}
           laneCount={race?.track?.laneCount ?? 4}

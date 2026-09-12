@@ -498,7 +498,7 @@ export const END_INTERMISSION_MUTATION = gql`
   }
 `;
 
-// The control on Race Control's Displays tab reads the race's current
+// The control on Race Control's Race tab reads the race's current
 // intermission this way rather than waiting on a `raceStateChanged` event —
 // it needs to render correctly on first load too (an operator who reloads
 // mid-break).

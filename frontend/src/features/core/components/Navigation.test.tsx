@@ -138,7 +138,7 @@ describe('Navigation Component', () => {
             expect(drawer.getByText('Standings')).toBeInTheDocument();
             expect(drawer.getByText('Awards')).toBeInTheDocument();
             expect(drawer.getByText('Stats')).toBeInTheDocument();
-            expect(drawer.getByText('Live')).toBeInTheDocument();
+            expect(drawer.getByText('Displays')).toBeInTheDocument();
         });
     });
 
@@ -167,7 +167,7 @@ describe('Navigation Component', () => {
         expect(tabBar.getByText('Standings')).toBeInTheDocument();
         expect(tabBar.getByText('Awards')).toBeInTheDocument();
         expect(tabBar.getByText('Stats')).toBeInTheDocument();
-        expect(tabBar.getByText('Live')).toBeInTheDocument();
+        expect(tabBar.getByText('Displays')).toBeInTheDocument();
 
         // Opening the pill opens the same drawer the hamburger does.
         fireEvent.click(pill);

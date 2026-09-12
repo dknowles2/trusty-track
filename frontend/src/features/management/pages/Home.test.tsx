@@ -257,7 +257,8 @@ describe('Home Page', () => {
     describe('race row navigation (#589)', () => {
         // Home used to say "Control" and "View" for the same two
         // destinations the race navigation row calls "Control" and "Live" —
-        // one vocabulary, not two.
+        // one vocabulary, not two. The row's own sixth link is Displays now,
+        // not Live (#958), so this follows it there too.
         it('labels the two everyday actions the same as the race navigation row', async () => {
             renderHome({
                 races: [{ id: 7, name: 'Annual Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0 }],
@@ -265,7 +266,7 @@ describe('Home Page', () => {
 
             await screen.findByText('Annual Derby');
             expect(screen.getByRole('link', { name: /Control/ })).toHaveAttribute('href', '/race/7/control');
-            expect(screen.getByRole('link', { name: /Live/ })).toHaveAttribute('href', '/race/7/observation');
+            expect(screen.getByRole('link', { name: /Displays/ })).toHaveAttribute('href', '/race/7/displays');
             expect(screen.queryByText('View')).not.toBeInTheDocument();
         });
 

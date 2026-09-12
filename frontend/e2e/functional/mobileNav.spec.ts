@@ -47,7 +47,7 @@ for (const viewport of [PHONE_VIEWPORT, BOUNDARY_VIEWPORT]) {
         // reachable with no drawer in between.
         const tabBar = page.getByTestId('mobile-tab-bar');
         await expect(tabBar).toBeVisible();
-        for (const label of ['Roster', 'Control', 'Standings', 'Awards', 'Stats', 'Live']) {
+        for (const label of ['Roster', 'Control', 'Standings', 'Awards', 'Stats', 'Displays']) {
             await expect(tabBar.getByText(label, { exact: true })).toBeVisible();
         }
 
@@ -67,6 +67,42 @@ for (const viewport of [PHONE_VIEWPORT, BOUNDARY_VIEWPORT]) {
         await expect(drawer.getByText(raceName)).toBeInViewport();
     });
 }
+
+test('the document does not overflow its own viewport at exactly 768px (#958)', async ({ page }) => {
+    // #980's own verification of a *different* issue noted, in passing, "a
+    // fixed ~12px horizontal page overflow at exactly 768px on every page,
+    // coming from the navigation bar" — filed as out of scope for that PR and
+    // attributed to whoever was touching the boundary #979 moved here today.
+    // Checked by hand before writing this: Home, a race's Roster, Race
+    // Control, Standings, the new Displays page and System Settings all lay
+    // out to exactly 768px in this suite's headless Chromium, with the mobile
+    // header (logo, race pill, hamburger) and the drawer's own off-screen
+    // position (`position: fixed`, so it never contributes to the document's
+    // own scrollable width) both accounted for. This pins that finding as a
+    // regression guard rather than leaving it unverified — if a future change
+    // reintroduces an over-wide element in the header at this exact width,
+    // this is what catches it.
+    await page.setViewportSize(BOUNDARY_VIEWPORT);
+    const { raceId } = await seedRace(page, `Overflow Check ${Date.now()}`);
+    await ensureConfigured(page);
+
+    const assertNoOverflow = async (url: string) => {
+        await page.goto(url);
+        await page.waitForLoadState('networkidle');
+        const { scrollWidth, innerWidth } = await page.evaluate(() => ({
+            scrollWidth: document.documentElement.scrollWidth,
+            innerWidth: window.innerWidth,
+        }));
+        expect(scrollWidth, `${url} overflowed its own ${innerWidth}px viewport`).toBeLessThanOrEqual(innerWidth);
+    };
+
+    await assertNoOverflow('/');
+    await assertNoOverflow(`/race/${raceId}`);
+    await assertNoOverflow(`/race/${raceId}/control`);
+    await assertNoOverflow(`/race/${raceId}/standings`);
+    await assertNoOverflow(`/race/${raceId}/displays`);
+    await assertNoOverflow('/system-settings');
+});
 
 test('the tab bar is absent in projector mode, exactly as the header is (#952)', async ({ page }) => {
     await page.setViewportSize(PHONE_VIEWPORT);
