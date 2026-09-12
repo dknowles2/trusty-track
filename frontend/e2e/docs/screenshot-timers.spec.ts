@@ -69,6 +69,24 @@ class FakeMicroWizard {
                         'Copyright (c) Micro Wizard 2002-2009\r' +
                             'K2 Version 2.3A  Serial Number29284\r',
                     );
+                } else if (/^(N1|N2|LR|M[A-P])$/i.test(command)) {
+                    // The acknowledgement a real K2 gives these — the same
+                    // table the profile declares in `microwizard.py`'s `acks`.
+                    // Not decoration: since #780 the manager *watches* for
+                    // the arm command's own ack (`LR` → `*`) and faults the
+                    // timer after `ARM_ACK_WAIT_SECONDS` (one second) without
+                    // it, dropping every result that arrives afterwards. This
+                    // spec fires its results after a screenshot — a font
+                    // wait, a pointer park, a transition settle and a 300 ms
+                    // sleep — which is under a second on a quiet machine and
+                    // over it on a loaded runner, and that margin was the
+                    // whole of the difference between the run that failed
+                    // waiting for `3.101s` (18 s) and its retry that passed
+                    // (4.9 s). A device that never acks is not the device the
+                    // profile describes; this one acks.
+                    this.reply('*\r');
+                } else if (/^MG$/i.test(command)) {
+                    this.reply('AC\r');
                 }
             }
         });
