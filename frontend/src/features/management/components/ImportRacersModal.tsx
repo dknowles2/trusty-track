@@ -9,6 +9,7 @@ import {
     fieldLabels,
     FIELDS,
     guessMapping,
+    importableRowCount,
     parseCsv,
     templateCsv,
     toCanonicalCsv,
@@ -98,6 +99,11 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
     const problems = parsed && mapping ? validate(rows, mapping) : [];
     const ready = parsed !== null && mapping !== null && canImport(problems);
     const mappedFields = mapping ? FIELDS.filter((f) => mapping[f] !== null) : [];
+    // #1008: the preview already knows which rows will be skipped (a
+    // missing name); the button used to count every row in the file
+    // instead, so "Import 11 Racers" was followed by a result banner
+    // reading "Imported 10 of 11" with nothing before Save explaining why.
+    const importableCount = importableRowCount(rows);
 
     const handleImport = async () => {
         if (!parsed || !mapping || importingRef.current) return;
@@ -331,7 +337,11 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
                         </button>
                     ) : (
                         <button onClick={handleImport} className="primary-btn" disabled={!ready || uploading}>
-                            {uploading ? 'Importing...' : rows.length ? `Import ${rows.length} Racers` : 'Import Racers'}
+                            {uploading
+                                ? 'Importing...'
+                                : importableCount
+                                    ? `Import ${importableCount} Racers`
+                                    : 'Import Racers'}
                         </button>
                     )}
                 </div>

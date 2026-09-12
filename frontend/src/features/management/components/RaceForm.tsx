@@ -507,6 +507,44 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                 </div>
                             )}
 
+                            {/* #1008: Delete Race used to sit in the form's own footer,
+                                beside Save Changes and Cancel — a destructive action next
+                                to the primary one, on every section rather than the one
+                                an operator opens to make an event-level decision like this.
+                                It stays reachable only while editing (a race being created
+                                has nothing yet to delete), behind a "Danger" divider at the
+                                foot of the *Event* section — the same place the lock lives,
+                                since both are about the record as a whole rather than
+                                scoring or check-in. The name-typed confirmation
+                                (`deleteConfirmation.ts`) is unchanged; this only moves
+                                where the button that opens it lives. */}
+                            {isEditing && onDelete && (
+                                <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--danger-border-color)' }}>
+                                    <p style={{
+                                        margin: '0 0 0.6rem',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 'bold',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em',
+                                        color: 'var(--danger-strong-color)',
+                                    }}>
+                                        Danger
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={onDelete}
+                                        className="secondary-btn"
+                                        style={{
+                                            backgroundColor: 'var(--danger-bg-color)',
+                                            color: 'var(--danger-strong-color)',
+                                            border: '1px solid var(--danger-border-color)',
+                                        }}
+                                    >
+                                        Delete Race
+                                    </button>
+                                </div>
+                            )}
+
                         </section>
                     )}
 
@@ -1019,37 +1057,21 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
             </div>
 
             {/* The buttons sit under the whole layout, nav and all, so Save is
-                in the same place whichever section is up. */}
-            <div style={{ display: 'flex', gap: '10px', marginTop: '1rem', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', gap: '10px', flex: 1 }}>
-                     <button type="submit" disabled={loading || !hasTrack} className="primary-btn" style={{ flex: 1, padding: '12px' }}>
-                        {loading ? 'Saving...' : submitLabel}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        className="secondary-btn"
-                        style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted-color)' }}
-                    >
-                        {cancelLabel}
-                    </button>
-                </div>
-
-                {onDelete && (
-                     <button
-                        type="button"
-                        onClick={onDelete}
-                        className="secondary-btn"
-                        style={{
-                            backgroundColor: 'var(--danger-bg-color)',
-                            color: 'var(--danger-strong-color)',
-                            border: '1px solid var(--danger-border-color)',
-                            marginLeft: 'auto'
-                        }}
-                    >
-                        Delete Race
-                    </button>
-                )}
+                in the same place whichever section is up. Delete Race lives
+                in the Event section now (#1008), not here beside Save/Cancel —
+                see the comment there for why. */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
+                 <button type="submit" disabled={loading || !hasTrack} className="primary-btn" style={{ flex: 1, padding: '12px' }}>
+                    {loading ? 'Saving...' : submitLabel}
+                </button>
+                <button
+                    type="button"
+                    onClick={onCancel}
+                    className="secondary-btn"
+                    style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted-color)' }}
+                >
+                    {cancelLabel}
+                </button>
             </div>
         </form>
     );

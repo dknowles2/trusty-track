@@ -1111,9 +1111,28 @@ export default function RaceControl() {
                             </button>
                           </div>
                         </div>
+                        {/* #1008: reported as a racer's name running
+                            straight into the time with no visible gap on a
+                            phone. This list is a CSS Grid (`display: grid`)
+                            and each row below is a flex row nested inside
+                            one grid item — and *both* the grid item and (see
+                            the name span further down) the flex item default
+                            their automatic minimum size to their own
+                            content's width unless told `minWidth: 0`. With
+                            no `minWidth: 0` on the row itself, a long enough
+                            name grew the grid item's own track past the
+                            phone's width rather than being confined to it —
+                            `minWidth: 0` on the flex item further down only
+                            has anything to shrink *into* once the row
+                            containing it stops growing to fit that
+                            unwrapped content. */}
                         <div style={{ display: 'grid', gap: '2px' }}>
                           {sorted.map((r) => (
-                            <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', padding: '5px 0', borderBottom: '1px solid var(--background-color)' }}>
+                            <div
+                              key={r.lane}
+                              className="previous-heat-lane-row"
+                              style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', padding: '5px 0', borderBottom: '1px solid var(--background-color)', minWidth: 0 }}
+                            >
                               <span style={{
                                 minWidth: '26px',
                                 height: '26px',
@@ -1132,8 +1151,19 @@ export default function RaceControl() {
                               >
                                   Lane {r.lane}
                               </LaneBadge>
-                              <span style={{ flex: 1, fontWeight: r.place === 1 ? 600 : 'normal' }}>{laneRacerName(r, slowestRoundIds.has(heat.roundId))}</span>
-                              <span style={{ fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', color: 'var(--text-heading-alt-color)', flexShrink: 0 }}>{formatLaneTime(r.time) ?? '–'}</span>
+                              {/* #1008: this span had no `minWidth: 0` or
+                                  `overflow: hidden`, so at phone width — a
+                                  lane badge, a place circle and the time all
+                                  fixed-width, this the only flexible column
+                                  — its automatic min size stayed the full
+                                  name's content width rather than shrinking,
+                                  and the overflowing text (default
+                                  `overflow: visible`) painted straight over
+                                  the time next to it rather than being
+                                  clipped or wrapped. Same fix `RaceExecution.tsx`'s
+                                  own lane rows already use. */}
+                              <span className="previous-heat-racer-name" style={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontWeight: r.place === 1 ? 600 : 'normal' }}>{laneRacerName(r, slowestRoundIds.has(heat.roundId))}</span>
+                              <span className="previous-heat-time" style={{ fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', color: 'var(--text-heading-alt-color)', flexShrink: 0 }}>{formatLaneTime(r.time) ?? '–'}</span>
                             </div>
                           ))}
                         </div>

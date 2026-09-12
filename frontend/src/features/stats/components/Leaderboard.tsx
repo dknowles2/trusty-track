@@ -11,7 +11,7 @@ import { shouldShowDivision } from '../racingGroupLabel';
 import { resolutionNote } from '../tiebreakText';
 import { defaultEliminationRound, isEliminationOnlyRace } from '../eliminationScope';
 import { dnfAnnotation, formatScore, scoreLabel } from '../scoringStrategyText';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { downloadCsv, filenameFor } from '../../../utils/csv';
 import { useTerminology } from '../../../context/TerminologyContext';
 import RunOffControl from '../../racing/components/RunOffControl';
@@ -113,12 +113,46 @@ interface LeaderboardProps {
 
 export default function Leaderboard({ raceId }: LeaderboardProps) {
   const { group, vehicle, vehicles, vehicleLower, vehiclesLower } = useTerminology();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // #1008: a reload or a shared link used to drop back to "Overall" no
+  // matter which round was on screen. `?round=<id>` is the one source of
+  // truth for the *initial* value — read once, here, rather than synced
+  // back in an effect — and it beats every other default: the elimination
+  // one just below only ever gets to run when the URL said nothing at all.
+  const initialRoundParam = (() => {
+    const raw = searchParams.get('round');
+    if (raw === null) return undefined;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  })();
   // null means the overall standings, which cover preliminary rounds only.
-  const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
+  const [selectedRoundId, setSelectedRoundId] = useState<number | null>(initialRoundParam ?? null);
   // Whether the elimination-only default (below) has already had its one
   // chance to fire — set once rounds first arrive, so a later, deliberate
-  // "Overall" pick by the operator is never overridden a second time.
-  const [hasAppliedEliminationDefault, setHasAppliedEliminationDefault] = useState(false);
+  // "Overall" pick by the operator is never overridden a second time. A
+  // URL param already answered the same question, so it starts "already
+  // applied" too — the URL wins over the default, and the default wins
+  // over nothing.
+  const [hasAppliedEliminationDefault, setHasAppliedEliminationDefault] = useState(
+    initialRoundParam !== undefined,
+  );
+
+  // The one place a pick is made, on the select and (soon) the elimination
+  // default alike — `replace: true` so choosing a round from the picker
+  // does not leave a Back-button trail of every scope the operator glanced
+  // at, only the page they arrived from and the one they are looking at now.
+  const selectRound = (id: number | null) => {
+    setSelectedRoundId(id);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id === null) next.delete('round');
+        else next.set('round', String(id));
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   const [queryResult] = useQuery({
     query: GET_LEADERBOARD_METADATA,
@@ -168,7 +202,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
     setHasAppliedEliminationDefault(true);
     if (eliminationOnlyRace && selectedRoundId === null) {
       const target = defaultEliminationRound(rounds);
-      if (target) setSelectedRoundId(target.id);
+      if (target) selectRound(target.id);
     }
   }
   // Null when the race has no track — matches `RunOffControl`'s own
@@ -369,7 +403,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
           <select
             aria-label="Standings scope"
             value={selectedRoundId ?? ''}
-            onChange={(e) => setSelectedRoundId(e.target.value === '' ? null : parseInt(e.target.value))}
+            onChange={(e) => selectRound(e.target.value === '' ? null : parseInt(e.target.value))}
             style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--input-border-color)' }}
           >
             <option value="">Overall (qualifying rounds)</option>

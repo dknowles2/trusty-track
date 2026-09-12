@@ -65,8 +65,8 @@ interface Racer extends RacerData {
 export default function RaceDetails() {
   const { raceId } = useParams<{ raceId: string }>();
   const parsedRaceId = useMemo(() => raceId ? parseInt(raceId) : 0, [raceId]);
-  const { showAlert, showConfirm } = useAlert();
-  const { group, groups, groupLower, groupsLower, vehicle } = useTerminology();
+  const { showAlert, showConfirm, showToast } = useAlert();
+  const { group, groups, groupLower, groupsLower, vehicle, vehiclesLower } = useTerminology();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -622,15 +622,77 @@ export default function RaceDetails() {
   // there is a chance to repeat a destructive action by mistake rather than
   // a convenience. They only clear the *visible* ids they just acted on,
   // though — a hidden selection they never touched must survive them.
-  const handleBulkAutoNumber = async () => {
+  // #1005: running the mutation is a shared last step; what differs is which
+  // ids get sent, decided by the confirm dialogs above it.
+  const runAutoNumber = async (ids: number[]) => {
+    if (ids.length === 0) return;
     try {
-      const result = await bulkAutoNumberMutation({ racerIds: visibleSelectedRacerIds });
+      const result = await bulkAutoNumberMutation({ racerIds: ids });
       if (result.error) throw result.error;
       refreshData();
-      showAlert(`Successfully auto-numbered ${result.data.bulkAutoNumber} racers`, "Bulk Auto-Number Result");
+      // A toast, not the blocking "Bulk Auto-Number Result" modal every
+      // other bulk action already avoids (#420's own reasoning) — Auto
+      // number is additive and the operator's next click should not have
+      // to dismiss anything first.
+      showToast(`Auto-numbered ${result.data.bulkAutoNumber} ${vehiclesLower}`, 'success');
     } catch {
-      showAlert("Failed to bulk auto-number racers", "Error");
+      showToast(`Failed to auto-number ${vehiclesLower}`, 'error');
     }
+  };
+
+  const handleBulkAutoNumber = async () => {
+    // Renumbering inside the selection frees every number already held by a
+    // racer in it (.claude/rules/roster.md's #739 rule) — including a
+    // checked-in racer's own, whose printed pit pass names the number about
+    // to change. Nothing on screen said so before #1005; a checked-in racer
+    // in the selection now gets a choice rather than a silent renumber.
+    const checkedInSelected = racers.filter(
+      (r) => visibleSelectedRacerIds.includes(r.id) && r.car_passed_inspection,
+    );
+
+    if (checkedInSelected.length === 0) {
+      await runAutoNumber(visibleSelectedRacerIds);
+      return;
+    }
+
+    const total = visibleSelectedRacerIds.length;
+    const othersCount = total - checkedInSelected.length;
+
+    if (othersCount === 0) {
+      // Every selected racer is already checked in — there is no "others"
+      // option to offer, only whether to proceed at all.
+      const confirmed = await showConfirm(
+        `All ${total} selected ${total === 1 ? vehicle.toLowerCase() : vehiclesLower} ${total === 1 ? 'is' : 'are'} already checked in. Renumbering ${total === 1 ? 'it' : 'them'} means reprinting ${total === 1 ? 'its' : 'their'} pit pass${total === 1 ? '' : 'es'}.`,
+        'Renumber Checked-In Racers?',
+        `Renumber all ${total}`,
+        'danger',
+      );
+      if (!confirmed) return;
+      await runAutoNumber(visibleSelectedRacerIds);
+      return;
+    }
+
+    const numberOnlyOthers = await showConfirm(
+      `${checkedInSelected.length} of the ${total} selected racers are already checked in. Renumbering them means reprinting their pit passes.\n\nNumber only the ${othersCount} others?`,
+      'Auto-Number Racers',
+      `Number only the ${othersCount} others`,
+      'primary',
+    );
+
+    if (numberOnlyOthers) {
+      const checkedInIds = new Set(checkedInSelected.map((r) => r.id));
+      await runAutoNumber(visibleSelectedRacerIds.filter((id) => !checkedInIds.has(id)));
+      return;
+    }
+
+    const renumberAll = await showConfirm(
+      `Renumber all ${total} racers, including the ${checkedInSelected.length} already checked in?`,
+      'Renumber Checked-In Racers?',
+      `Renumber all ${total}`,
+      'danger',
+    );
+    if (!renumberAll) return;
+    await runAutoNumber(visibleSelectedRacerIds);
   };
 
   const handleBulkClearNumbers = async () => {
@@ -1005,7 +1067,19 @@ export default function RaceDetails() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, fontSize: '1.4rem' }}>
-                Racer Roster <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: 'var(--text-muted-color)', marginLeft: '8px' }}>({filteredRacers.length})</span>
+                Racer Roster{' '}
+                <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: 'var(--text-muted-color)', marginLeft: '8px' }}>
+                    {/* #1008: a search filter used to shrink this count with
+                        no explanation, while the checked-in progress beside
+                        it (from the *unfiltered* roster) kept its own total —
+                        two numbers that looked like they disagreed about how
+                        many racers there are. Naming both when filtered says
+                        what changed; the plain total returns once the search
+                        clears. */}
+                    ({racers.length === filteredRacers.length
+                        ? racers.length
+                        : `${filteredRacers.length} of ${racers.length} shown`})
+                </span>
             </h2>
 
             {/* How far check-in has got (#204). It lives here rather than only
