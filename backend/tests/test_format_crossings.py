@@ -367,35 +367,15 @@ CELLS = [
     ("PPC", "ROUND", "on"),
     ("ELIMINATION", "none", "off"),
     ("ELIMINATION", "none", "on"),
-    pytest.param(
-        "ELIMINATION",
-        "ALL",
-        "off",
-        marks=pytest.mark.xfail(reason="#1054", strict=True),
-    ),
-    pytest.param(
-        "ELIMINATION",
-        "ALL",
-        "on",
-        marks=pytest.mark.xfail(reason="#1054", strict=True),
-    ),
-    # createRound's championship branch treats "ALL" and "EACH_GROUP" the
-    # same way — neither gets the wizard's ROUND:<elimination> chaining, and
-    # #1054's own issue text names both — so the same never-fills failure
-    # reproduces here, on the identical `_assert_championship_filled`
-    # unresolved-placeholder assertion #1054's ALL cell fails on.
-    pytest.param(
-        "ELIMINATION",
-        "EACH_GROUP",
-        "off",
-        marks=pytest.mark.xfail(reason="#1054", strict=True),
-    ),
-    pytest.param(
-        "ELIMINATION",
-        "EACH_GROUP",
-        "on",
-        marks=pytest.mark.xfail(reason="#1054", strict=True),
-    ),
+    # createRound's championship branch used to treat "ALL"/"EACH_GROUP" the
+    # same as any other race — neither got the wizard's ROUND:<elimination>
+    # chaining, so a championship round added this way (rather than in the
+    # wizard's own call) could never fill (#1054). Fixed by sharing the
+    # chaining rule through `crud.resolve_championship_source_for_race`.
+    ("ELIMINATION", "ALL", "off"),
+    ("ELIMINATION", "ALL", "on"),
+    ("ELIMINATION", "EACH_GROUP", "off"),
+    ("ELIMINATION", "EACH_GROUP", "on"),
     ("ELIMINATION", "ROUND", "off"),
     ("ELIMINATION", "ROUND", "on"),
     ("BALANCED", "none", "off"),

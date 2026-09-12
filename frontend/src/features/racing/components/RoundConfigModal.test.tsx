@@ -44,6 +44,51 @@ describe('RoundConfigModal', () => {
     });
   });
 
+  it('offers the elimination round explicitly, and not Overall/Each group, when the race has one (#1054)', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} eliminationRoundId={42} />);
+    openChampionshipTab();
+
+    // Elimination heats never feed the aggregate standings, so a race whose
+    // only qualifying round is Elimination has no candidates for these.
+    expect(screen.queryByText('Overall')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Each /)).not.toBeInTheDocument();
+    expect(screen.getByText('Elimination Round (survivors)')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Add round'));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    // Sent explicitly as ROUND:<id>, belt and braces alongside the
+    // backend's own rewrite (`crud.resolve_championship_source_for_race`)
+    // — a stale client still lands on the right round.
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      advancementSource: 'ROUND:42',
+    });
+  });
+
+  it('offers Overall/Each group as usual when the race has no elimination round', () => {
+    render(<RoundConfigModal {...defaultProps} eliminationRoundId={null} />);
+    openChampionshipTab();
+
+    expect(screen.getByText('Overall')).toBeInTheDocument();
+    expect(screen.queryByText('Elimination Round (survivors)')).not.toBeInTheDocument();
+  });
+
+  it('still offers the previous championship round alongside the elimination option', () => {
+    render(
+      <RoundConfigModal
+        {...defaultProps}
+        eliminationRoundId={42}
+        lastChampionshipRound={{ id: 7, name: 'Semifinal' }}
+      />
+    );
+    openChampionshipTab();
+
+    expect(screen.getByText('Elimination Round (survivors)')).toBeInTheDocument();
+    expect(screen.getByText('Semifinal')).toBeInTheDocument();
+    expect(screen.queryByText('Overall')).not.toBeInTheDocument();
+  });
+
   it('choosing the slowest cars submits the direction and renames the round', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} />);

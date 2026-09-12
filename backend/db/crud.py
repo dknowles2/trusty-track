@@ -1337,6 +1337,52 @@ def validate_advancement_source(
     )
 
 
+def resolve_championship_source_for_race(
+    db: Session,
+    race_id: int,
+    requested_source: str,
+) -> str:
+    """`createRound`'s own door onto
+    :func:`backend.domain.advancement.resolve_championship_source`
+    (#1054) — the other one is `createRoundWizard`'s per-round loop in
+    `api/schema.py`, which already has `elimination_round_id` and
+    `previous_champ_round_id` sitting in local variables from the rounds it
+    just created in this same call, and so calls the domain function
+    directly rather than through this wrapper.
+
+    `createRound` creates one round at a time, potentially long after the
+    race's general round (or an earlier championship round) was created in
+    a call of its own, so this is the I/O half: read the race's *existing*
+    rounds and work out the same two ids the wizard already has to hand.
+
+    "The" elimination round is only named when it is the race's *only*
+    general round — a second, non-elimination general round (a PPC round
+    added alongside one built for an elimination format, say) already feeds
+    the aggregate standings, so `"ALL"`/`"EACH_GROUP"` has real candidates
+    and nothing here should rewrite it.
+    """
+    rounds = get_rounds(db, race_id)
+    general_rounds = [r for r in rounds if r.advancement_source is None]
+    elimination_round_id = (
+        general_rounds[0].id
+        if len(general_rounds) == 1
+        and general_rounds[0].scheduling_strategy
+        == models.SchedulingStrategy.ELIMINATION
+        else None
+    )
+    championship_rounds = [r for r in rounds if r.advancement_source is not None]
+    previous_championship_round_id = (
+        max(championship_rounds, key=lambda r: r.round_number).id
+        if championship_rounds
+        else None
+    )
+    return advancement.resolve_championship_source(
+        requested_source,
+        elimination_round_id=elimination_round_id,
+        previous_championship_round_id=previous_championship_round_id,
+    )
+
+
 def create_round(
     db: Session,
     race_id: int,
