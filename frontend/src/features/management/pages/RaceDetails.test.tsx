@@ -148,6 +148,46 @@ describe('RaceDetails', () => {
             });
         });
 
+        it('opens the edit modal on the named section (#970)', async () => {
+            mockRaceQuery();
+
+            render(
+                <MemoryRouter initialEntries={['/races/1?edit=true&section=scoring']}>
+                    <Routes>
+                        <Route path="/races/:raceId" element={<><RaceDetails /><LocationSearchProbe /></>} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('race-settings-nav-scoring')).toHaveAttribute('aria-current', 'page');
+            });
+
+            // Both params are stripped together, the same as `edit` alone —
+            // a stale `section` left in the URL after the modal closes would
+            // mean nothing today, but leaving half a pair behind is how a
+            // future reader assumes the other half is still doing something.
+            await waitFor(() => {
+                expect(screen.getByTestId('location-search')).toHaveTextContent('');
+            });
+        });
+
+        it('falls back to Event for an unrecognised section', async () => {
+            mockRaceQuery();
+
+            render(
+                <MemoryRouter initialEntries={['/races/1?edit=true&section=nonsense']}>
+                    <Routes>
+                        <Route path="/races/:raceId" element={<RaceDetails />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('race-settings-nav-event')).toHaveAttribute('aria-current', 'page');
+            });
+        });
+
         it('does not open the edit modal on an ordinary visit', async () => {
             mockRaceQuery();
 
