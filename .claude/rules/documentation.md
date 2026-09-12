@@ -6,7 +6,7 @@ Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE
 
 ## Documentation
 
-**`docs/` is part of the change, not a follow-up.** The docs are published from `main` on every merge, so a stale page ships the moment the code does. Everything below has already gone wrong at least once.
+**`docs/` is part of the change, not a follow-up.** The docs are published with every stable release, from the same tag the installers and the demo come from, so a stale page ships the moment the code does — the release is the unit, and there is no later step at which the docs get caught up. Everything below has already gone wrong at least once.
 
 **The reader is a parent volunteer, not an engineer.** Every user-facing page leads with what a non-technical person does; technical detail is worth keeping but goes last — in a troubleshooting section, a parenthetical, or a callout that says when it can be ignored — never front-and-center. Baud rates, port framing and device paths are things a reader should only meet when something is broken. When a detail matters mostly to developers, it belongs in `design.md`, `spec.md` or `development.md`, linked rather than inlined. The site's own promise is "you don't need to be a software developer", and a page that opens with jargon breaks it in the first paragraph.
 
@@ -18,9 +18,20 @@ Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE
 the root, built from `www/` (one HTML file, one stylesheet, no framework and no
 build step of its own), and the mkdocs site under `/docs/`.
 `scripts/build_site.sh` assembles them into `dist/`, Cloudflare Pages runs that
-script on every push to `main`, and CI's **Docs Build** job runs the same script
-rather than a bare `mkdocs build` — so a failure that only appears once the two
-are put together appears on the pull request.
+script, and CI's **Docs Build** job runs the same script rather than a bare
+`mkdocs build` — so a failure that only appears once the two are put together
+appears on the pull request.
+
+**The site follows releases; `main` is a preview.** Cloudflare's production
+branch is `release`, which `release.yml`'s `publish-site` job force-pushes to
+every stable tag beside the job that pushes the same version to the demo — so
+the guides describe what a reader can download today, and the demo the front
+page sends them to runs the build the front page describes. It used to build
+from `main`, which at one point had the site documenting 95 commits nobody
+could install and the demo did not have. `main` still builds on every merge,
+as a preview at `main.<project>.pages.dev`; that is where to read a docs
+change before it ships. The cost is that a docs-only fix waits for the next
+release — `deploy/cloudflare/README.md` has the by-hand escape hatch.
 
 Two things follow from sharing an origin, and both are the point of it:
 

@@ -318,6 +318,37 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/trusty-track:${{ needs.docker.outputs.version }}
 
   # -------------------------------------------------------------------
+  # Public site — move the `release` branch to this tag.
+  #
+  # trusty-track.com (the landing page and /docs/) is built by Cloudflare
+  # Pages from the `release` branch, not from `main`; `main` builds as a
+  # preview at its own pages.dev address instead (deploy/cloudflare/README.md).
+  # So the guides describe what a reader can actually install rather than
+  # whatever has merged since the last tag — and the same version the demo
+  # above is serving, since both follow stable releases.
+  #
+  # The branch is machine-owned and only ever means "the latest stable
+  # release", so it is force-pushed rather than fast-forwarded: a hotfix tag
+  # cut off a side branch must be able to take it over without a merge.
+  #
+  # Same shape as `deploy-demo`: not a dependency of `create-release` (a
+  # site build must not hold up the installers or the release page), stable
+  # versions only, and re-run by hand from the Actions tab if it fails.
+  # -------------------------------------------------------------------
+  publish-site:
+    name: Public Site
+    needs: docker
+    if: needs.docker.outputs.stable == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Point the release branch at this tag
+        run: git push --force origin "HEAD:refs/heads/release"
+
+  # -------------------------------------------------------------------
   # Create GitHub Release
   # -------------------------------------------------------------------
   create-release:
