@@ -38,7 +38,7 @@ Pick this repository, and set:
 
 | Setting | Value |
 | --- | --- |
-| Production branch | `main` |
+| Production branch | `release` |
 | Build command | `pip install -r docs/requirements.txt && bash scripts/build_site.sh` |
 | Build output directory | `dist` |
 | Root directory | *(leave blank — the repository root)* |
@@ -46,6 +46,38 @@ Pick this repository, and set:
 Add one environment variable, **`PYTHON_VERSION` = `3.12`**. Without it the
 build image picks its own, and mkdocs-material's floor moves faster than the
 image does.
+
+Then under **Builds & deployments → Preview deployments**, choose **Custom
+branches** and list `main` alone.
+
+## Which branch is the site
+
+The site follows **releases, not merges**. `release` is a branch nobody
+commits to: `release.yml`'s `publish-site` job force-pushes it to the tag of
+every stable release, alongside the job that pushes the same version to the
+demo. So the guides describe what a reader can actually download from the
+release page, and the front page's demo runs the build the front page is
+describing — where building from `main` had the site documenting features
+that were weeks from any installer, and that the demo did not have.
+
+`main` is still built on every merge, as a **preview** at
+`main.<project>.pages.dev` — the same build, the same `_headers`, only the
+address differs. That is where to read a docs change before it is released.
+Listing `main` alone rather than every non-production branch is what keeps
+feature branches from spending the plan's build quota on previews nobody
+opens.
+
+Two consequences worth knowing:
+
+- **A docs fix waits for the next release.** If one cannot wait — a wrong
+  download link, say — `git push --force origin v1.2.3:release` from any
+  checkout moves the site to that tag by hand; the next release's own push
+  supersedes it. Do not push `main` there: that is the state this exists to
+  keep off the site.
+- **Pre-releases never move it**, for the same reason they never claim
+  `latest` or the demo: `releases/latest/download/<asset>` is what the
+  install guides link to, and a site describing a release candidate would
+  send readers to an installer that is not the one at that address.
 
 Then **Custom domains → Set up a custom domain** for `trusty-track.com` and
 again for `www.trusty-track.com`. DNS is already on Cloudflare, so both are
