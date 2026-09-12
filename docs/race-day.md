@@ -201,13 +201,13 @@ A typical derby is one **qualifying round** (everyone) plus one optional
 
 ### Creating a Round with the Round Wizard
 
-The **Round Wizard** is the fastest way to set up your complete race schedule, including optional championship rounds. Click **Start Round Creation Wizard** to open it. It offers the same choices as **Add Round**, in the same words — see [Round styles](reference/round-styles.md) and [Championship rounds](reference/championship-rounds.md) for the full rules behind each one.
+The **Round Wizard** is the fastest way to set up your complete race schedule, including optional championship rounds. Click **Start Round Creation Wizard** to open it. It offers the same choices as **Add Round** — see [Round styles](reference/round-styles.md) and [Championship rounds](reference/championship-rounds.md) for the full rules behind each one.
 
 #### Step 1: Qualifying Rounds
 
 Choose **How it's raced**:
 
-- **Everyone races in every lane** — the default, and the fairest comparison. Choosing this also offers the **Format**:
+- **Everyone races in every lane** — the default, and the fairest comparison. Choosing this also offers the **Qualifying Round Type**:
   - **All Pack** — Every racer races against everyone else. Best for events where den membership isn't important for heat grouping.
   - **By Den** — Racers race only against others in their own den during the qualifying round.
 - **Elimination** — lose too many heats and you're out. See [Elimination Racing](#elimination-racing) below.

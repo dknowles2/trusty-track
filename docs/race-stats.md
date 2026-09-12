@@ -115,15 +115,15 @@ Exactly what counts toward a record is in
 
 ---
 
-## Den Comparison
+## Dens Comparison
 
-The Den Comparison section shows how each den performed as a group — useful for pack leadership who want to recognize standout dens at the awards ceremony.
+The Dens Comparison section shows how each den performed as a group — useful for pack leadership who want to recognize standout dens at the awards ceremony.
 
 - The **bar chart** plots each den's average score, with bars colored in the den's assigned color. The scale zooms in tightly around the dens' actual scores rather than starting at zero, so a real but small gap between two dens is still visible as a real difference in bar length.
 - The **table** shows each den's racer count, group average score, and the name of that den's best-performing racer.
 
-![Den Comparison Section](assets/screenshots/race-stats/06-racing-group-comparison.png)
-_The Den Comparison section. Each bar is colored in the den's assigned color, making it easy to match the chart to the table below._
+![Dens Comparison Section](assets/screenshots/race-stats/06-racing-group-comparison.png)
+_The Dens Comparison section. Each bar is colored in the den's assigned color, making it easy to match the chart to the table below._
 
 ---
 

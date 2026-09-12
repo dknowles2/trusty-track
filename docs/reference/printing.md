@@ -8,12 +8,12 @@ Everything Trusty Track puts on paper. All of it comes off a normal printer
 
 | Document | Where | What it is |
 | --- | --- | --- |
-| **Pit passes** | Roster → ⋯ → Print… | Lanyard-sized, six per sheet: photo, name, den, car, event details |
+| **Pit passes** | Roster → ⋯ → Print… | Lanyard-sized, six per sheet: photo, name, den, car, a small vehicle picture, event details |
 | **Driver's licences** | Roster → ⋯ → Print… | Business-card sized, ten per sheet — the same size as stationery-shop card stock. The car number is the biggest thing on it, and there is a line for the scout to sign |
 | **Check-in codes** | Roster → ⋯ → Print… | A QR code per racer, twelve per sheet, name and car number underneath |
 | **Car labels** | Roster → ⋯ → Print… | Avery 5163 shipping-label sized, ten per sheet: car number, name, racing group, inspected weight, and a scan code — for the underside of the car or the impound box |
-| **Heat sheet** | Race Control → Schedule → Heat sheet | The running order: a table per round, a row per heat, a column per lane, and an empty **Result** column to write into |
-| **Results sheet** | Standings → Print results | Awards and winners at the top, then the standings — overall, and a table per den |
+| **Heat sheet** | Race Control → Schedule → Heat sheet | The running order: a table per round, a row per heat, a column per lane, and an empty **Result** column to write into. Its masthead carries the same small vehicle picture as the pit pass |
+| **Results sheet** | Standings → Print results | Awards and winners at the top, then the standings — overall, and a table per den. Its masthead carries the vehicle picture too |
 | **Certificates** | Race → Awards → Print certificates | One certificate per award, one per sheet, in the ceremony's running order — with artwork for a ready-made superlative or a speed award |
 
 Each of those buttons is a shortcut — the reasoning for every one of them still
@@ -48,6 +48,16 @@ three choices. Check-in codes are the one document on this page left at full
 names regardless: they are scanned at the check-in desk to find the right
 child, not carried around the venue the way a pit pass is. Photos are
 unaffected everywhere on this page.
+
+## The vehicle picture
+
+The pit pass, the heat sheet and the results sheet each carry a small
+line-art picture of a car, a rocket, or a boat — whichever the **Vehicle
+picture** setting in System Settings has chosen. It follows the vehicle word
+but is set independently of it, so renaming "Car" does not change the
+picture on its own. The certificate does not carry it. See
+[Race and track settings](race-settings.md#the-words-on-screen) for how the
+setting works.
 
 ## Check-in codes
 

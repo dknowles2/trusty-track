@@ -48,7 +48,7 @@ count once everyone has run at least one heat.
   rough real-world MPH.
 - **Closest Race** — the heat with the smallest gap between first and last.
 
-### Den comparison
+### Dens comparison
 
 Each den's average score as a bar in the den's colour, with racer count and
 the den's best performer in the table. The chart's scale is padded tightly
@@ -111,6 +111,9 @@ One row per racer, with the same numbers as the per-racer table.
 is showing: exporting a championship round gives that round's results, not
 the overall ones.
 
-`Rank, Car #, First Name, Last Name, Den, Average Time (s) or Points, Heats`
+`Rank, Car #, First Name, Last Name, Den, Average Time (s) or Points, Heats, Tie Broken By`
 
-The score column is named for the race's scoring method.
+The score column is named for the race's scoring method. **Tie Broken By**
+names the method that settled a shared rank — see
+[When two cars tie](scoring.md#when-two-cars-tie) — and is blank for a row
+that was never tied, or was tied and left that way.
