@@ -70,18 +70,28 @@ export const TIEBREAKER_OPTIONS: readonly TiebreakerOption[] = [
   },
 ] as const;
 
+/** `RUN_OFF` on its own, outside `TIEBREAKER_OPTIONS` — it is not a policy
+ * an operator picks in Race Settings (`.claude/rules/scoring.md`: "deliberately
+ * absent from `ALL_METHODS`"), it is what happened when they held one. Kept
+ * out of the picker's own list so `RaceForm`'s five choices are untouched;
+ * `methodPhrase` still needs to say something about it, since a row's
+ * `resolvedBy` can hold it. */
+export const RUN_OFF = 'RUN_OFF';
+
 /** A short phrase for how a row was resolved — `null` for a method this
  * module has never heard of, which is what a `resolvedBy` off a stale build
  * would be. */
 export function methodPhrase(method: string): string | null {
+  if (method === RUN_OFF) return 'a run-off';
   const option = TIEBREAKER_OPTIONS.find((o) => o.value === method);
   return option && option.value !== SHARED ? option.label.toLowerCase() : null;
 }
 
-/** "2nd, on fastest single heat" — the standings note for a resolved row
- * (#540 part a). `null` when the row was never tied, or was tied and the
- * chain left it that way; an unresolved tie keeps the shared rank exactly as
- * it read before this feature existed, so there is nothing to say. */
+/** "2nd, on fastest single heat" / "1st, on a run-off" — the standings note
+ * for a resolved row (#540 part a, #550's `RUN_OFF` folded in by #1017).
+ * `null` when the row was never tied, or the tie is still shared — an
+ * unresolved tie keeps the shared rank exactly as it read before this
+ * feature existed, so there is nothing to say. */
 export function resolutionNote(
   rank: number,
   resolvedBy: string | null | undefined,

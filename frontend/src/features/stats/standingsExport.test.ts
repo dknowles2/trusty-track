@@ -149,6 +149,10 @@ describe('tieBrokenByValue', () => {
         expect(tieBrokenByValue(null)).toBe('');
         expect(tieBrokenByValue(undefined)).toBe('');
     });
+
+    it('names a settled run-off, which is never a Race Settings policy (#1017)', () => {
+        expect(tieBrokenByValue('RUN_OFF')).toBe('A run-off');
+    });
 });
 
 describe('standingsSuffix', () => {

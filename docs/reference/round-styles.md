@@ -62,7 +62,13 @@ nothing to reprint when somebody does not show up.
 - Elimination heats **stay out of the overall standings** — an eliminated
   car races fewer heats, so no average or total over them is fair. The
   round's own page on Standings shows the result in losses: cars still
-  racing first, then the eliminated in order of how long they lasted.
+  racing first, then the eliminated in order of how long they lasted. A
+  race with no other round opens Standings on that page directly, rather
+  than on an "Overall" view that can never hold anything for it — switching
+  back to Overall on purpose says so, instead of asking you to complete
+  heats you already have. The audience display's own "Race complete!"
+  screen and its running standings show the same round for the same
+  reason, labelled in losses rather than a time.
 - A racer who checks in late joins the next set on a clean record — but
   never a race that is already decided. Checking in after the final heat
   does not restart it.

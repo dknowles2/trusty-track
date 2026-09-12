@@ -9,12 +9,13 @@ import { standingsRows, standingsSuffix } from '../standingsExport';
 import { slowestFirst } from '../slowestFirst';
 import { shouldShowDivision } from '../racingGroupLabel';
 import { resolutionNote } from '../tiebreakText';
+import { defaultEliminationRound, isEliminationOnlyRace } from '../eliminationScope';
 import { dnfAnnotation, formatScore, scoreLabel } from '../scoringStrategyText';
 import { Link } from 'react-router-dom';
 import { downloadCsv, filenameFor } from '../../../utils/csv';
 import { useTerminology } from '../../../context/TerminologyContext';
 import RunOffControl from '../../racing/components/RunOffControl';
-import { usableLaneCount } from '../../racing/runOff';
+import { runOffCluster, usableLaneCount } from '../../racing/runOff';
 
 export interface LeaderboardEntry {
   racerId: number;
@@ -114,6 +115,10 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
   const { group, vehicle, vehicles, vehicleLower, vehiclesLower } = useTerminology();
   // null means the overall standings, which cover preliminary rounds only.
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
+  // Whether the elimination-only default (below) has already had its one
+  // chance to fire — set once rounds first arrive, so a later, deliberate
+  // "Overall" pick by the operator is never overridden a second time.
+  const [hasAppliedEliminationDefault, setHasAppliedEliminationDefault] = useState(false);
 
   const [queryResult] = useQuery({
     query: GET_LEADERBOARD_METADATA,
@@ -147,6 +152,25 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
 
   const race = queryData?.race;
   const rounds = (race?.rounds || []) as RoundSummary[];
+
+  // A race whose only round is elimination can never populate "Overall"
+  // (#1020) — `services/scoring._scoring_heats` excludes elimination heats
+  // from that aggregate by design, so it stays empty however completely the
+  // race has been raced. Land the selector on the round that actually holds
+  // the result instead, the one time rounds first arrive. This is an
+  // "adjust state while rendering" comparison (see `RaceDetails.tsx`'s
+  // `editParam` handling), not an effect: a `useEffect` calling `setState`
+  // unconditionally on every render where the condition still holds would
+  // fight an operator who deliberately switches back to "Overall" to
+  // confirm it really is empty.
+  const eliminationOnlyRace = isEliminationOnlyRace(rounds);
+  if (!hasAppliedEliminationDefault && rounds.length > 0) {
+    setHasAppliedEliminationDefault(true);
+    if (eliminationOnlyRace && selectedRoundId === null) {
+      const target = defaultEliminationRound(rounds);
+      if (target) setSelectedRoundId(target.id);
+    }
+  }
   // Null when the race has no track — matches `RunOffControl`'s own
   // `trackId` null convention, and its `tooManyForRunOff` treats an unknown
   // count as "don't disable" the same way (#766).
@@ -183,6 +207,22 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
   // prelim round was disrupted has completed every heat, so being told to
   // complete some would be a lie.
   const notice = exclusionNotice(rounds, scoringStrategy);
+
+  // Said only while "Overall" is the view an elimination-only race is
+  // showing — reachable once the default above has already put the
+  // operator on the elimination round and they have switched back anyway.
+  // "Complete some heats" would be false the moment the race has one, since
+  // Overall stays empty for this race shape by design, not for lack of
+  // racing.
+  const eliminationOnlyOverallMessage =
+    eliminationOnlyRace && selectedRoundId === null
+      ? (() => {
+          const target = defaultEliminationRound(rounds);
+          return target
+            ? `This race is scored by elimination — pick ${roundLabel(target)} above.`
+            : null;
+        })()
+      : null;
 
   // "Racing, not ranked" (#548) — said out loud rather than shown as a
   // shorter list with no explanation, the same rule `notice` above follows
@@ -385,7 +425,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         </div>
       </div>
 
-      {selectedRoundId === null && selectableRounds.length > 0 && (
+      {selectedRoundId === null && selectableRounds.length > 0 && !eliminationOnlyRace && (
         <div style={{
           marginBottom: '12px',
           padding: '10px 14px',
@@ -402,7 +442,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
 
       {nothingHere && !stillLoading ? (
         <div style={{ textAlign: 'center', padding: '40px', background: 'var(--surface-tint-color)', borderRadius: '8px' }}>
-          <p>{notice ?? 'No results yet for this view. Pick a round above, or complete some heats.'}</p>
+          <p>{notice ?? eliminationOnlyOverallMessage ?? 'No results yet for this view. Pick a round above, or complete some heats.'}</p>
         </div>
       ) : (
       <div style={{
@@ -438,9 +478,17 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
               // screen" shape `resolutionNote` already uses (#550). Not
               // offered for an elimination round: its survival ranks never
               // go through the tiebreak chain a run-off resolves through.
-              const cluster = leaderboard.filter((e) => e.rank === entry.rank);
+              //
+              // `runOffCluster` (#1017) is what keeps the control — and the
+              // only record of a run-off's own times — on the row once it
+              // has settled the tie: a resolved pair no longer shares a
+              // rank, so the plain rank-based grouping alone would drop
+              // them the moment the run-off did its job.
+              const cluster = runOffCluster(leaderboard, index);
+              const nextInCluster = leaderboard[index + 1];
               const isEndOfTiedCluster =
-                cluster.length > 1 && leaderboard[index + 1]?.rank !== entry.rank;
+                cluster.length > 1 &&
+                (!nextInCluster || !cluster.includes(nextInCluster));
               return (
                 <Fragment key={entry.racerId}>
                   <tr

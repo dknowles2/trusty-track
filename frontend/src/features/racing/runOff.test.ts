@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runOffAnnouncement, tooManyForRunOff, usableLaneCount } from './runOff';
+import { runOffAnnouncement, runOffCluster, tooManyForRunOff, usableLaneCount } from './runOff';
 
 describe('runOffAnnouncement', () => {
   it('names the ordinal place being decided', () => {
@@ -63,5 +63,50 @@ describe('tooManyForRunOff', () => {
     expect(tooManyForRunOff(2, 1)).toBe(
       'Not enough usable lanes for all 2 tied racers (only 1 available).',
     );
+  });
+});
+
+
+/**
+ * Issue #1017. Before a tie is settled, `Leaderboard.tsx` groups a run-off
+ * cluster by `rank`; once a run-off resolves it, the rows keep an identical
+ * `score` but split ranks, and the control (with the only record of the
+ * run-off's own times) has to keep finding them by that instead.
+ */
+describe('runOffCluster', () => {
+  it('groups an unresolved tie by rank', () => {
+    const entries = [
+      { rank: 1, score: 3.1, resolvedBy: null },
+      { rank: 1, score: 3.1, resolvedBy: null },
+      { rank: 3, score: 3.4, resolvedBy: null },
+    ];
+    expect(runOffCluster(entries, 0)).toEqual([entries[0], entries[1]]);
+    expect(runOffCluster(entries, 1)).toEqual([entries[0], entries[1]]);
+    expect(runOffCluster(entries, 2)).toEqual([entries[2]]);
+  });
+
+  it('keeps finding a settled run-off cluster by its shared score', () => {
+    const entries = [
+      { rank: 1, score: 3.1, resolvedBy: 'RUN_OFF' },
+      { rank: 2, score: 3.1, resolvedBy: 'RUN_OFF' },
+      { rank: 3, score: 3.4, resolvedBy: null },
+    ];
+    expect(runOffCluster(entries, 0)).toEqual([entries[0], entries[1]]);
+    expect(runOffCluster(entries, 1)).toEqual([entries[0], entries[1]]);
+  });
+
+  it('does not widen the grouping for an ordinary tiebreak policy', () => {
+    // BEST_TIME never had a run-off heat to show — once it resolves the
+    // tie, there is nothing here to keep finding.
+    const entries = [
+      { rank: 1, score: 3.1, resolvedBy: 'BEST_TIME' },
+      { rank: 2, score: 3.1, resolvedBy: 'BEST_TIME' },
+    ];
+    expect(runOffCluster(entries, 0)).toEqual([entries[0]]);
+    expect(runOffCluster(entries, 1)).toEqual([entries[1]]);
+  });
+
+  it('is empty past the end of the list', () => {
+    expect(runOffCluster([{ rank: 1, score: 1, resolvedBy: null }], 5)).toEqual([]);
   });
 });

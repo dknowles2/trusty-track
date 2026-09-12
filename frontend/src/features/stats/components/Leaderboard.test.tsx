@@ -688,3 +688,78 @@ describe('the drop-worst-runs indicator (#547 stage 3)', () => {
     expect(screen.queryByText(/Drop the worst/)).toBeNull();
   });
 });
+
+describe('an elimination-only race defaults away from the empty Overall view (#1020)', () => {
+  const eliminationOnlyRace = {
+    id: 11,
+    name: 'Elimination Derby',
+    scoringStrategy: 'TIMED',
+    rounds: [
+      {
+        id: 5,
+        name: 'Elimination Round',
+        roundNumber: 1,
+        advancementSource: null,
+        schedulingStrategy: 'ELIMINATION',
+        eliminationLosses: 3,
+      },
+    ],
+  };
+  const winner = [
+    {
+      racerId: 3,
+      firstName: 'Sam',
+      lastName: 'Survivor',
+      carNumber: 9,
+      racingGroupName: 'Wolves',
+      score: 0,
+      heatsCompleted: 4,
+      rank: 1,
+    },
+  ];
+
+  function mockEliminationOnlyQuery() {
+    (useQuery as any).mockImplementation(({ pause }: { pause?: boolean }) =>
+      pause === true || pause === undefined
+        ? [{ data: { race: eliminationOnlyRace }, fetching: false, error: null }, vi.fn()]
+        : [
+            { data: { race: { id: eliminationOnlyRace.id, leaderboard: winner } }, fetching: false, error: null },
+            vi.fn(),
+          ],
+    );
+    // The prelim-scoped subscription never carries anything for an
+    // elimination-only race — that is the whole bug.
+    (useSubscription as any).mockReturnValue([{ data: { leaderboard: [] }, error: null }, vi.fn()]);
+  }
+
+  it('lands the selector on the elimination round with no click, and shows its winner', () => {
+    mockEliminationOnlyQuery();
+    const { container } = render(
+      <AlertProvider><MemoryRouter><Leaderboard raceId={11} /></MemoryRouter></AlertProvider>,
+    );
+
+    expect(screen.getByLabelText('Standings scope')).toHaveValue('5');
+    expect(container.querySelector('h2')?.textContent).toContain('Elimination Round');
+    expect(screen.getByText('Sam Survivor')).toBeInTheDocument();
+    // The championship banner never applies to this race shape.
+    expect(screen.queryByText(/cover the qualifying rounds/i)).toBeNull();
+  });
+
+  it('does not fight an operator who deliberately switches back to Overall', async () => {
+    const user = userEvent.setup();
+    mockEliminationOnlyQuery();
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={11} /></MemoryRouter></AlertProvider>);
+
+    expect(screen.getByLabelText('Standings scope')).toHaveValue('5');
+
+    await user.selectOptions(screen.getByLabelText('Standings scope'), '');
+
+    expect(screen.getByLabelText('Standings scope')).toHaveValue('');
+    // Overall really is empty for this race shape, and says why rather than
+    // suggesting more heats would fix it.
+    expect(
+      screen.getByText('This race is scored by elimination — pick Elimination Round above.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/cover the qualifying rounds/i)).toBeNull();
+  });
+});

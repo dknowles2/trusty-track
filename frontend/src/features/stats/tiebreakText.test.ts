@@ -3,6 +3,7 @@ import {
   BEST_TIME,
   COUNTBACK,
   HEAD_TO_HEAD,
+  RUN_OFF,
   SHARED,
   TIEBREAKER_OPTIONS,
   TOTAL_TIME,
@@ -48,6 +49,15 @@ describe('methodPhrase', () => {
   it('has no phrase for a method it does not recognise', () => {
     expect(methodPhrase('COIN_FLIP')).toBeNull();
   });
+
+  it('names a run-off, deliberately outside TIEBREAKER_OPTIONS (#1017)', () => {
+    // RUN_OFF is never a Race Settings policy (`.claude/rules/scoring.md`),
+    // so it must not show up in the picker's own list...
+    expect(TIEBREAKER_OPTIONS.map((o) => o.value)).not.toContain(RUN_OFF);
+    // ...while still resolving to a phrase when a row was actually settled
+    // by one.
+    expect(methodPhrase(RUN_OFF)).toBe('a run-off');
+  });
 });
 
 describe('resolutionNote', () => {
@@ -58,6 +68,11 @@ describe('resolutionNote', () => {
   it('is null for a row the chain never touched', () => {
     expect(resolutionNote(1, null)).toBeNull();
     expect(resolutionNote(1, undefined)).toBeNull();
+  });
+
+  it('names a run-off for a row it settled (#1017)', () => {
+    expect(resolutionNote(1, RUN_OFF)).toBe('1st, on a run-off');
+    expect(resolutionNote(2, RUN_OFF)).toBe('2nd, on a run-off');
   });
 });
 

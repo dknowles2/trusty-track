@@ -55,6 +55,15 @@ the den's best performer in the table. The chart's scale is padded tightly
 around the dens' actual scores rather than starting at zero, so a small real
 difference between two dens still shows as a visible gap in bar length.
 
+An [elimination round's](round-styles.md#elimination) own heats never feed
+this average — an eliminated car races fewer heats than a survivor, so
+mixing the two in would rank dens by how long their cars lasted rather than
+how fast they were. A race whose only round is elimination shows no bars
+here at all, rather than one built on heats that were never a fair
+comparison to begin with; the racer-level stats table above it is
+unaffected, since a car's own average across whatever it raced is an honest
+number regardless of format.
+
 ### The track record
 
 The fastest cars a track has ever seen — across **every race run on it**,

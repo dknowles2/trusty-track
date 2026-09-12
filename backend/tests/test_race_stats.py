@@ -375,3 +375,149 @@ def test_the_closest_race_is_first_against_second_not_first_against_last():
 
     assert closest["heat_number"] == 1
     assert closest["margin"] == pytest.approx(0.001)
+
+
+def test_racing_group_stats_excludes_elimination_heats(client, db):
+    """Dens Comparison must not average an elimination round's own heats
+    (#1020). `services.scoring._scoring_heats` already excludes elimination
+    heats from the ordinary standings because heat counts are uneven by
+    design — a car eliminated in the first wave contributes one heat, the
+    eventual champion contributes many — and averaging the two together
+    ranks dens by survival rather than speed (`.claude/rules/scheduling.md`).
+    The per-racer table is a different question (a car's own honest average
+    across whatever it raced) and keeps every heat, elimination included.
+    """
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Elim Stats Organization")
+    )
+    track = crud.create_track(
+        db, schemas.TrackCreate(name="Elim Stats Track", lane_count=2)
+    )
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            organization_id=group.id,
+            name="Elim Stats Race",
+            track_id=track.id,
+            scoring_strategy=models.ScoringStrategy.TIMED,
+        ),
+    )
+    racing_group = crud.create_racing_group(
+        db, schemas.RacingGroupCreate(name="Wolves", color="#123456"), race.id
+    )
+    racer_ids = [
+        crud.create_racer(
+            db,
+            schemas.RacerCreate(
+                race_id=race.id,
+                racing_group_id=racing_group.id,
+                first_name=f"Racer{n}",
+                last_name="Elim",
+                car_number=n + 1,
+                car_passed_inspection=True,
+            ),
+        ).id
+        for n in range(2)
+    ]
+
+    round_obj = crud.create_round(
+        db,
+        race_id=race.id,
+        round_number=1,
+        scheduling_strategy=models.SchedulingStrategy.ELIMINATION,
+        name="Elimination Round",
+        elimination_losses=1,
+    )
+    crud.generate_heats_for_round(db, round_obj.id)
+
+    heat = (
+        db.query(models.Heat)
+        .filter(models.Heat.round_id == round_obj.id)
+        .order_by(models.Heat.heat_number)
+        .first()
+    )
+    results = _full_results(
+        db,
+        heat.id,
+        {
+            racer_ids[0]: {"time": 3.000, "place": 1},
+            racer_ids[1]: {"time": 3.500, "place": 2},
+        },
+    )
+    _record_heat_result(client, heat.id, results)
+
+    resp = client.post(
+        "/graphql", json={"query": RACE_STATS_QUERY, "variables": {"raceId": race.id}}
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]["raceStats"]
+
+    # The per-racer table still shows an honest average across the one heat
+    # each car actually raced.
+    assert len(data["racerStats"]) == 2
+    fastest = next(rs for rs in data["racerStats"] if rs["racerId"] == racer_ids[0])
+    assert fastest["meanTime"] == pytest.approx(3.000, abs=0.001)
+
+    # The den comparison has nothing fair to compare when every heat is an
+    # elimination one, so it says nothing rather than ranking dens by
+    # survival.
+    assert data["racingGroupStats"] == []
+
+
+def test_racing_group_stats_still_uses_ordinary_heats_alongside_elimination(client, db):
+    """A race with a preliminary round *and* an elimination round should
+    still compare dens on the preliminary heats — the exclusion is scoped to
+    elimination heats, not to a race that happens to have one."""
+    race_id, racer_ids, racing_group_ids = _setup_race(client, db)
+    heats = _create_round_and_get_heats(client, race_id)
+    assert len(heats) > 0
+
+    _record_heat_result(
+        client,
+        heats[0]["id"],
+        [
+            {"lane": 1, "racer_id": racer_ids[0], "time": 3.100, "place": 1},
+            {"lane": 2, "racer_id": racer_ids[1], "time": 3.500, "place": 2},
+            {"lane": 3, "racer_id": racer_ids[2], "time": 3.800, "place": 3},
+            {"lane": 4, "racer_id": racer_ids[3], "time": 4.100, "place": 4},
+        ],
+    )
+
+    # An elimination round layered on top, with a wildly different (and
+    # unfair-to-average) time — this must not leak into the den comparison.
+    elim_round = crud.create_round(
+        db,
+        race_id=race_id,
+        round_number=2,
+        scheduling_strategy=models.SchedulingStrategy.ELIMINATION,
+        name="Elimination Round",
+        elimination_losses=1,
+    )
+    crud.generate_heats_for_round(db, elim_round.id)
+    elim_heat = (
+        db.query(models.Heat)
+        .filter(models.Heat.round_id == elim_round.id)
+        .order_by(models.Heat.heat_number)
+        .first()
+    )
+    elim_results = _full_results(
+        db,
+        elim_heat.id,
+        {
+            racer_ids[0]: {"time": 9.999, "place": 1},
+            racer_ids[1]: {"time": 9.999, "place": 2},
+        },
+    )
+    _record_heat_result(client, elim_heat.id, elim_results)
+
+    resp = client.post(
+        "/graphql", json={"query": RACE_STATS_QUERY, "variables": {"raceId": race_id}}
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]["raceStats"]
+
+    assert len(data["racingGroupStats"]) == 2
+    for group_stats in data["racingGroupStats"]:
+        # Had the elimination heat's 9.999s times leaked in, every den's
+        # average would be dragged well above 4.1s.
+        assert group_stats["avgScore"] < 5.0

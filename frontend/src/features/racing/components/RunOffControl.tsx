@@ -11,6 +11,7 @@ import {
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { runOffAnnouncement, tooManyForRunOff } from '../runOff';
+import { formatLaneTime } from '../lanes';
 import type { GetRunOffHeatsQuery } from '../../../gql/operations';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
@@ -61,6 +62,14 @@ export default function RunOffControl({
 }: RunOffControlProps) {
   const { showAlert } = useAlert();
   const [manualTimes, setManualTimes] = useState<Record<number, string>>({});
+  // Correcting a mistyped run-off time (#1017). Neither `deleteRunOffHeat`
+  // nor the generic `deleteHeat` will remove a heat that already has
+  // results (`crud.delete_run_off_heat`/`delete_heat`, both "this module's
+  // write path is one door" — the same refusal an ordinary heat's result
+  // gets), so a correction is a *re-record*, not a delete-and-recreate:
+  // `updateHeatResult` has no such restriction and simply overwrites the
+  // lanes, the same door the first recording went through.
+  const [isReRunning, setIsReRunning] = useState(false);
 
   const [existingResult, refetchExisting] = useQuery<GetRunOffHeatsQuery>({
     query: GET_RUN_OFF_HEATS,
@@ -110,7 +119,9 @@ export default function RunOffControl({
   const [sessionResult] = useSubscription({
     query: HEAT_SESSION_SUBSCRIPTION,
     variables: { trackId: trackId ?? 0, heatId: existing?.id ?? null },
-    pause: !trackId || !existing || existing.recorded,
+    // Un-paused during a re-run (#1017) too — arming the timer for a
+    // correction is exactly as live as arming it the first time.
+    pause: !trackId || !existing || (existing.recorded && !isReRunning),
   });
   const phase: string | undefined = sessionResult.data?.heatSession?.phase;
 
@@ -172,7 +183,21 @@ export default function RunOffControl({
       showAlert(errorText(result.error, 'The result could not be recorded.'), 'Error');
       return;
     }
+    setIsReRunning(false);
     refetchExisting({ requestPolicy: 'network-only' });
+  };
+
+  // Prefill with what is already recorded, so correcting one mistyped
+  // number does not mean retyping everyone else's too.
+  const handleStartReRun = () => {
+    const prefill: Record<number, string> = {};
+    for (const lane of existing?.lanes ?? []) {
+      if (lane.racerId != null && lane.time != null) {
+        prefill[lane.racerId] = String(lane.time);
+      }
+    }
+    setManualTimes(prefill);
+    setIsReRunning(true);
   };
 
   const names = racers.map((r) => r.name).join(' vs. ');
@@ -228,10 +253,52 @@ export default function RunOffControl({
       </div>
       {announcement && <div style={{ marginBottom: '6px' }}>{announcement}</div>}
 
-      {existing.recorded ? (
-        <div>Run-off decided.</div>
+      {existing.recorded && !isReRunning ? (
+        <div>
+          {/* The only record of what the run-off actually decided (#1017) —
+              gone from the standings' own note the moment the tie splits
+              apart, so it has to live here instead. Ordered by place, the
+              same "winner first" order the standings themselves use. */}
+          <div data-testid="run-off-recorded-times">
+            Run-off decided:{' '}
+            {existing.lanes
+              .filter((lane: RunOffHeatRow['lanes'][number]) => lane.racerId != null)
+              .slice()
+              .sort(
+                (a: RunOffHeatRow['lanes'][number], b: RunOffHeatRow['lanes'][number]) =>
+                  (a.place ?? Infinity) - (b.place ?? Infinity),
+              )
+              .map((lane: RunOffHeatRow['lanes'][number], i: number) => {
+                const racer = racers.find((r) => r.racerId === lane.racerId);
+                const label = racer?.name ?? `Lane ${lane.lane}`;
+                return (
+                  <span key={lane.lane}>
+                    {i > 0 && ' · '}
+                    {label} {formatLaneTime(lane.time) ?? '—'}
+                  </span>
+                );
+              })}
+          </div>
+          <button
+            type="button"
+            className="secondary-btn"
+            data-testid="rerun-run-off-btn"
+            onClick={handleStartReRun}
+            disabled={raceLocked}
+            title={raceLocked ? lockedTitle : undefined}
+            style={{ padding: '4px 10px', fontSize: '0.8rem', marginTop: '6px' }}
+          >
+            Re-run
+          </button>
+        </div>
       ) : (
         <>
+          {isReRunning && (
+            <p style={{ margin: '0 0 6px', color: 'var(--warning-strong-color)' }}>
+              Correcting the recorded run-off — recording a new result
+              replaces it.
+            </p>
+          )}
           {trackId && (
             <button
               type="button"
@@ -278,16 +345,33 @@ export default function RunOffControl({
               Record result
             </button>
           </div>
-          <button
-            type="button"
-            className="secondary-btn"
-            onClick={handleDelete}
-            disabled={raceLocked}
-            title={raceLocked ? lockedTitle : undefined}
-            style={{ padding: '4px 10px', fontSize: '0.8rem', marginTop: '8px' }}
-          >
-            Cancel run-off
-          </button>
+          {/* Deleting a heat with results is refused by both
+              `deleteRunOffHeat` and the generic `deleteHeat` (this module's
+              write path is one door, same as an ordinary heat's result) —
+              so cancelling only ever applies before the first recording,
+              never while correcting one. */}
+          {!existing.recorded && (
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={handleDelete}
+              disabled={raceLocked}
+              title={raceLocked ? lockedTitle : undefined}
+              style={{ padding: '4px 10px', fontSize: '0.8rem', marginTop: '8px' }}
+            >
+              Cancel run-off
+            </button>
+          )}
+          {isReRunning && (
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => setIsReRunning(false)}
+              style={{ padding: '4px 10px', fontSize: '0.8rem', marginTop: '8px', marginLeft: '8px' }}
+            >
+              Cancel correction
+            </button>
+          )}
         </>
       )}
     </div>

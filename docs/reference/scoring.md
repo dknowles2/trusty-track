@@ -197,6 +197,13 @@ through the ordinary race-day screen, same as any other heat. Whoever wins
 the run-off takes the tie — no need to change the Tiebreaker setting, and
 no need to hand-edit anyone's time.
 
+Once it is recorded, the standings row says so — "1st, on a run-off" — the
+same note a resolved Tiebreaker method leaves, and the row it is attached to
+now shows each racer's own run-off time rather than disappearing the moment
+the tie splits apart. A **Re-run** button is there too, for a mistyped time:
+it re-opens the same entry boxes, prefilled with what is already recorded,
+and saving replaces the result rather than starting over.
+
 If more cars are tied than the track has usable lanes for — a five-way tie
 on a four-lane track, say, or one lane out of service leaving even fewer —
 **Start run-off** is disabled and says why, naming both counts. There's
