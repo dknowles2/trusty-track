@@ -3855,7 +3855,12 @@ def _gprm_import_preview(
     extra_problems = roster_import.existing_number_problems(
         roster.racers, existing_holders, vehicle_word
     )
-    problems = list(roster.problems) + extra_problems
+    # A name match against the roster already in this race (#1021) — the
+    # rule an unnumbered racer still has to answer to, since the number
+    # rule above never sees one.
+    existing_names = crud.existing_racer_names(db, race_id)
+    name_problems = roster_import.existing_racer_problems(roster.racers, existing_names)
+    problems = list(roster.problems) + extra_problems + name_problems
     return GprmImportPreview(
         groups=[
             GprmImportGroup(name=group.name, division=group.division)
@@ -3980,7 +3985,12 @@ def _derbynet_import_preview(
     extra_problems = roster_import.existing_number_problems(
         roster.racers, existing_holders, vehicle_word
     )
-    problems = list(roster.problems) + extra_problems
+    # A name match against the roster already in this race (#1021) — the
+    # rule an unnumbered racer still has to answer to, since the number
+    # rule above never sees one.
+    existing_names = crud.existing_racer_names(db, race_id)
+    name_problems = roster_import.existing_racer_problems(roster.racers, existing_names)
+    problems = list(roster.problems) + extra_problems + name_problems
     return DerbynetImportPreview(
         groups=[
             DerbynetImportGroup(name=group.name, division=group.division)
@@ -4022,6 +4032,23 @@ class _StagedCsvRacer:
     car_name: str | None
     car_passed_inspection: bool
     racing_group_name: str | None
+
+
+def _format_blocking_import_problems(
+    problems: list[roster_import.ImportProblem],
+) -> str:
+    """One sentence for `importRacers`' own single-string refusal (#1021),
+    built from the same per-racer `ImportProblem`s the GPRM/DerbyNet preview
+    shows on a whole screen — the CSV importer has no such screen, so this
+    is the only place the refusal reaches the operator. Named up to three;
+    a longer list is summarised rather than printed in full, the same
+    "say what to do, not everything that is wrong" shape a validation error
+    elsewhere in this codebase already follows.
+    """
+    messages = [problem.message for problem in problems]
+    if len(messages) > 3:
+        messages = messages[:3] + [f"...and {len(messages) - 3} more."]
+    return " ".join(messages)
 
 
 @strawberry.type
@@ -6111,6 +6138,15 @@ class Mutation:
         Parses and stages rows first, then writes them in an atomic
         transaction (#864). If an error occurs, rolls back so no partial
         roster remains.
+
+        Before anything is written, every staged row is checked by name
+        against the roster already in this race and against every other
+        staged row (#1021) — the same rule the GPRM/DerbyNet preview
+        applies, since this importer has no preview screen of its own to
+        show it on. A match refuses the whole import; nothing here offers
+        the GPRM/DerbyNet importers' "Import N new, skip M" alternative —
+        see `domain.roster_import.existing_racer_problems`'s docstring for
+        why blocking was chosen instead.
         """
         max_mb = MAX_UPLOAD_BYTES // (1024 * 1024)
         limit_desc = f"{max_mb} MB" if max_mb > 0 else f"{MAX_UPLOAD_BYTES} bytes"
@@ -6182,6 +6218,24 @@ class Mutation:
                 )
             )
 
+        # A name match, in the file or against the roster already here
+        # (#1021), refuses the whole import before anything is written —
+        # the same atomic-refusal shape as every other check on this path.
+        staged_as_imported = [
+            roster_import.ImportedRacer(
+                first_name=staged.first_name, last_name=staged.last_name
+            )
+            for staged in staged_racers
+        ]
+        blocking_problems = roster_import.duplicate_name_problems(staged_as_imported)
+        if not blocking_problems:
+            existing_names = crud.existing_racer_names(db, race_id)
+            blocking_problems = roster_import.existing_racer_problems(
+                staged_as_imported, existing_names
+            )
+        if blocking_problems:
+            raise ValueError(_format_blocking_import_problems(blocking_problems))
+
         count = 0
         try:
             with db.begin_nested():
@@ -6246,10 +6300,12 @@ class Mutation:
         The upload-preview-confirm shape the issue asked for: this call
         writes nothing, and `confirmGprmImport` is the only door that does.
         `GprmImportPreview.canImport` mirrors `ParsedRoster.can_import` —
-        false only were a *blocking* problem to appear, which nothing this
-        parser produces today does (a row problem here is always a warning,
-        the racer is simply skipped or a field left blank) — kept anyway so
-        a future blocking rule needs no frontend change to be honoured.
+        false when a *blocking* problem appears, which every row problem
+        this parser itself produces never is (a row problem here is always
+        a warning, the racer is simply skipped or a field left blank) — but
+        `existing_racer_problems` (#1021) is blocking, so a file naming a
+        racer already on this race's roster now flips this to false and
+        `confirmGprmImport` refuses it too.
         """
         db = info.context["db"]
         race = db.query(models.Race).filter(models.Race.id == race_id).first()
@@ -6270,12 +6326,21 @@ class Mutation:
         upload, so what gets written can never drift from what the preview
         showed. Returns the number of racers created, the same contract
         `importRacers` (CSV) already has.
+
+        Recomputes the preview's own problems too (#1021), and refuses if
+        any is blocking — a second click on Import after a slow first one,
+        or a bare GraphQL call skipping the preview screen entirely, must
+        not duplicate a roster the preview would have refused.
         """
         db = info.context["db"]
         race = db.query(models.Race).filter(models.Race.id == race_id).first()
         if not race:
             raise ValueError("Race not found")
-        roster, _ = _parse_gprm_upload(db, race, file_data)
+        roster, vehicle_word = _parse_gprm_upload(db, race, file_data)
+        preview = _gprm_import_preview(db, race_id, roster, vehicle_word)
+        if not preview.can_import:
+            blocking = next(p.message for p in preview.problems if p.blocking)
+            raise ValueError(blocking)
         count = crud.write_imported_roster(db, race_id, roster)
 
         # Same arrival #343 fixed for the CSV path: a GPRM roster can carry
@@ -6314,12 +6379,19 @@ class Mutation:
         Re-parses `fileData` rather than trusting a preview handed back from
         the client, the same reason `confirmGprmImport` does. Returns the
         number of racers created, the same contract every importer here has.
+
+        Recomputes the preview's own problems too (#1021), and refuses if
+        any is blocking — see `confirmGprmImport`'s own docstring for why.
         """
         db = info.context["db"]
         race = db.query(models.Race).filter(models.Race.id == race_id).first()
         if not race:
             raise ValueError("Race not found")
-        roster, _ = _parse_derbynet_upload(db, race, file_data)
+        roster, vehicle_word = _parse_derbynet_upload(db, race, file_data)
+        preview = _derbynet_import_preview(db, race_id, roster, vehicle_word)
+        if not preview.can_import:
+            blocking = next(p.message for p in preview.problems if p.blocking)
+            raise ValueError(blocking)
         count = crud.write_imported_roster(db, race_id, roster)
 
         # Same arrival #343 fixed for the CSV and GPRM paths: a DerbyNet

@@ -362,3 +362,61 @@ test('the roster table is above the fold at tablet width once check-in has start
     await page.getByText('Extra24', { exact: true }).scrollIntoViewIfNeeded();
     await expect(search).toBeInViewport();
 });
+
+test('importing the same CSV twice is refused, not duplicated (#1021)', async ({ page }) => {
+    // The seam the bug lived in: the CSV importer's own client-side checks
+    // (csvMapping.ts) know nothing about the roster already in the race, so
+    // this has to actually reach the server twice, through the real modal,
+    // against a race that already holds the first import's racer -- a unit
+    // test on either side of the wire cannot see this.
+    await ensureConfigured(page);
+
+    const config = await gql<{ organizations: { id: number }[]; tracks: { id: number }[] }>(
+        page,
+        `query { organizations { id } tracks { id } }`,
+    );
+    const race = await gql<{ createRace: { id: number } }>(
+        page,
+        `mutation Create($race: RaceInput!) { createRace(race: $race) { id } }`,
+        {
+            race: {
+                name: 'Roster Import Twice',
+                organizationId: config.organizations[0].id,
+                trackId: config.tracks[0].id,
+                carNumberingStrategy: 'MANUAL',
+            },
+        },
+    );
+    const raceId = race.createRace.id;
+
+    await page.goto(`/race/${raceId}`);
+
+    const csv = 'first_name,last_name,car_number\nGamma,Rivera,30\n';
+    const csvFile = { name: 'roster.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) };
+
+    async function openCsvImportModal() {
+        await page.getByRole('button', { name: 'More ways to add racers' }).click();
+        await page.getByRole('button', { name: 'Import from CSV' }).click();
+        await expect(page.getByRole('dialog', { name: 'Import Racers from CSV' })).toBeVisible();
+    }
+
+    // First import: an ordinary success.
+    await openCsvImportModal();
+    await page.locator('#csv-upload-input').setInputFiles(csvFile);
+    await expect(page.getByText('Match your columns')).toBeVisible();
+    await page.getByRole('button', { name: /Import 1 Racers/ }).click();
+    await expect(page.getByText('Imported 1 racers.')).toBeVisible();
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByText('Gamma', { exact: true })).toBeVisible();
+
+    // Second import of the byte-identical file: refused with the server's
+    // own sentence, and the roster is left holding exactly the one racer.
+    await openCsvImportModal();
+    await page.locator('#csv-upload-input').setInputFiles(csvFile);
+    await expect(page.getByText('Match your columns')).toBeVisible();
+    await page.getByRole('button', { name: /Import 1 Racers/ }).click();
+    await expect(page.getByText('Gamma Rivera is already on the roster.')).toBeVisible();
+    await page.getByRole('button', { name: 'Close' }).click();
+
+    await expect(page.getByRole('row').filter({ hasText: 'Gamma' })).toHaveCount(1);
+});

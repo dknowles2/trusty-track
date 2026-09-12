@@ -149,6 +149,91 @@ def duplicate_number_problems(
     return problems
 
 
+def normalized_name(first_name: str, last_name: str) -> str:
+    """A name folded for comparison: case-insensitive, outer whitespace
+    stripped, and internal runs of whitespace collapsed to one space (#1021).
+
+    The one function both `duplicate_name_problems`/`existing_racer_problems`
+    below and `crud.existing_racer_names` call, so the rule and the query
+    that feeds it cannot disagree about what counts as the same name.
+    """
+    return " ".join(f"{first_name} {last_name}".split()).casefold()
+
+
+def duplicate_name_problems(racers: Iterable[ImportedRacer]) -> list[ImportProblem]:
+    """Two racers in the same file sharing a name (#1021) — the name-based
+    sibling of `duplicate_number_problems` above, checked the same way:
+    reported against the *second* holder, naming the first. Unlike a car
+    number, an unnumbered racer still has a name, so this catches a file
+    naming the same child twice even when neither row has a car number.
+
+    Blocking, not a warning — see `existing_racer_problems`'s docstring for
+    why a name match is treated that way here, unlike a number collision.
+    """
+    problems: list[ImportProblem] = []
+    first_holder: dict[str, ImportedRacer] = {}
+    for racer in racers:
+        key = normalized_name(racer.first_name, racer.last_name)
+        if not key:
+            continue
+        holder = first_holder.get(key)
+        if holder is None:
+            first_holder[key] = racer
+            continue
+        problems.append(
+            ImportProblem(
+                message=f"{_racer_label(holder)} is listed twice in this file.",
+                blocking=True,
+                source_id=racer.source_id,
+            )
+        )
+    return problems
+
+
+def existing_racer_problems(
+    racers: Iterable[ImportedRacer], existing_names: Mapping[str, str]
+) -> list[ImportProblem]:
+    """A racer whose name matches a racer already on *this race's* roster
+    (#1021) — the name-based sibling of `existing_number_problems` below,
+    and the only one of the two rules that catches an *unnumbered* racer:
+    GPRM's own "Pat Rivera, Siblings" fixture racer has no car number for
+    that rule to ever compare, and importing the same file twice duplicated
+    exactly that racer with no warning at all.
+
+    `existing_names` maps `normalized_name(...)` to the display name already
+    on the roster — the query half is `crud.existing_racer_names`, the same
+    rule/I-O split `existing_number_problems` draws with
+    `existing_car_number_holders`.
+
+    Blocking, unlike a number collision. A shared car number is ordinary —
+    `MANUAL` numbering allows it, and two file racers can legitimately want
+    the same number sorted out by hand — but a *name* match at import time
+    is essentially always the same child, re-imported: the two bulk
+    importers here are the only doors that can create dozens of racers in
+    one call, and letting that succeed silently is how 9 racers become 18.
+    Two different real children sharing a name is possible but rare next to
+    that cost, and the operator can still work around a false positive by
+    renaming one of them on either side before re-importing — the same
+    trade the issue itself proposes as the safer default over an
+    "import N new, skip M" choice.
+    """
+    problems: list[ImportProblem] = []
+    for racer in racers:
+        key = normalized_name(racer.first_name, racer.last_name)
+        if not key:
+            continue
+        holder = existing_names.get(key)
+        if holder is not None:
+            problems.append(
+                ImportProblem(
+                    message=f"{holder} is already on the roster.",
+                    blocking=True,
+                    source_id=racer.source_id,
+                )
+            )
+    return problems
+
+
 def existing_number_problems(
     racers: Iterable[ImportedRacer],
     existing_holders: Mapping[int, str],

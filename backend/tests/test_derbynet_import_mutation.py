@@ -186,6 +186,56 @@ def test_a_duplicate_against_the_existing_roster_is_a_preview_warning(
 
 
 # --------------------------------------------------------------------------- #
+# #1021: a racer already on the roster blocks the import, by name             #
+# --------------------------------------------------------------------------- #
+
+
+def test_a_name_match_against_the_existing_roster_blocks_the_import(
+    client, db, race, tmp_path
+):
+    """The DerbyNet twin of the GPRM mutation test of the same name -- the
+    rule itself is shared (`domain.roster_import.existing_racer_problems`),
+    so this only pins that the wiring reaches DerbyNet's own mutation too."""
+    crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Alex", last_name="Rivera", car_number=999, race_id=race.id
+        ),
+    )
+    raw = _sqlite_bytes(tmp_path, ONE_RACER_SCRIPT)
+    response = _post(client, PREVIEW, {"raceId": race.id, "fileData": _data_url(raw)})
+    preview = response.json()["data"]["previewDerbynetImport"]
+
+    assert preview["canImport"] is False
+    assert any(
+        p["blocking"] and p["message"] == "Alex Rivera is already on the roster."
+        for p in preview["problems"]
+    )
+
+
+def test_confirm_refuses_and_writes_nothing_when_the_roster_already_has_the_racer(
+    client, db, race, tmp_path
+):
+    crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Alex", last_name="Rivera", car_number=999, race_id=race.id
+        ),
+    )
+    before = db.query(models.Racer).filter(models.Racer.race_id == race.id).count()
+
+    raw = _sqlite_bytes(tmp_path, ONE_RACER_SCRIPT)
+    response = _post(client, CONFIRM, {"raceId": race.id, "fileData": _data_url(raw)})
+    payload = response.json()
+    assert payload.get("errors")
+    assert "Alex Rivera is already on the roster." in payload["errors"][0]["message"]
+
+    db.expire_all()
+    after = db.query(models.Racer).filter(models.Racer.race_id == race.id).count()
+    assert after == before  # nothing was written
+
+
+# --------------------------------------------------------------------------- #
 # Late-racer admission, once for the batch (#343's fix, applied here too)      #
 # --------------------------------------------------------------------------- #
 
