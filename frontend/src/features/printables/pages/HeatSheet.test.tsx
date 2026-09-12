@@ -163,6 +163,47 @@ describe('HeatSheet', () => {
         expect(screen.getByText('Round')).toBeInTheDocument();
     });
 
+    // #994 — a track is shared across seasons, and #325 only rewrites a
+    // round's *pending* heats to a smaller lane count, deliberately leaving
+    // a recorded heat's lanes alone. A heat sheet printed after the track
+    // was reconfigured down must still show the lane that race actually
+    // held, rather than clipping it to the track's current count.
+    it("still prints a finished heat's lane past a since-shrunk track's lane count", () => {
+        mockData(
+            { id: 5, laneCount: 2, laneColors: [] },
+            {
+                heats: [
+                    {
+                        id: 100,
+                        heatNumber: 1,
+                        roundId: 1,
+                        lanes: [
+                            { lane: 1, racerId: 1, placeholderSlot: null },
+                            { lane: 2, racerId: 2, placeholderSlot: null },
+                            { lane: 3, racerId: null, placeholderSlot: null },
+                        ],
+                    },
+                ],
+            },
+        );
+        open();
+
+        expect(screen.getByText(/Lane 1/)).toBeInTheDocument();
+        expect(screen.getByText(/Lane 2/)).toBeInTheDocument();
+        expect(screen.getByText(/Lane 3/)).toBeInTheDocument();
+        expect(screen.getByText('not on this track')).toBeInTheDocument();
+    });
+
+    it('adds no extra column or hint when every heat fits the track as it is', () => {
+        mockData({ id: 5, laneCount: 2, laneColors: [] });
+        open();
+
+        expect(screen.getByText(/Lane 1/)).toBeInTheDocument();
+        expect(screen.getByText(/Lane 2/)).toBeInTheDocument();
+        expect(screen.queryByText(/Lane 3/)).not.toBeInTheDocument();
+        expect(screen.queryByText('not on this track')).not.toBeInTheDocument();
+    });
+
     it('prints a run-off heat after the round it settles, titled with the place it decides', () => {
         mockData(
             { id: 5, laneCount: 2, laneColors: [] },

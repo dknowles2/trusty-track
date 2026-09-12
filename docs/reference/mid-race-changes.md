@@ -82,6 +82,12 @@ recorded heats and has the lane it no longer has dropped from what is still
 to come (set aside in a points race, same as above), and a finished round is
 untouched.
 
+Untouched means untouched: a finished round's own results still hold every
+lane it actually raced. Opening that race's Schedule tab or printing its
+heat sheet later still shows the lane the track no longer has — labelled
+**not on this track** — rather than dropping that lane's result from the
+page.
+
 ## Skipping a heat
 
 **Skip Heat** passes over the current heat without racing it — for when

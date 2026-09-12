@@ -31,6 +31,7 @@ import { printablesThemeRootProps } from '../printablesTheme';
 import { useTerminology } from '../../../context/TerminologyContext';
 import LaneBadge from '../../../components/ui/LaneBadge';
 import { colorForLane } from '../../settings/laneColors';
+import { laneColumnCount } from '../../racing/lanes';
 import '../PrintSheet.css';
 
 export default function HeatSheet() {
@@ -54,14 +55,24 @@ export default function HeatSheet() {
     // mono printer renders every hue as a similar grey, and the number is
     // what still says which physical lane this column is on paper.
     const laneColors: readonly string[] = track?.laneColors ?? [];
+    const laneCount: number = track?.laneCount ?? 4;
 
     const sections = useMemo(() => {
         if (!race) return [];
-        // Every lane the track has. A lane out of service has no column, and
-        // that comes from the schedule rather than from here — a heat simply
-        // has no lane there, and `buildHeatSheet` fills the gap.
-        const laneCount: number = track?.laneCount ?? 4;
-        const lanes = Array.from({ length: laneCount }, (_, i) => i + 1);
+        // Every lane the track has, at minimum. A lane out of service still
+        // gets a column — that comes from the schedule rather than from
+        // here, a heat simply has no lane there, and `buildHeatSheet` fills
+        // the gap — and a track shrunk after a race finished (#994) still
+        // needs one for whatever lane that race's own heats hold: #325
+        // rewrites *pending* heats to the smaller count, deliberately
+        // leaving a recorded heat's lanes alone, and this sheet must not
+        // silently drop the last one printed.
+        const allLanes: { lanes: readonly { lane: number }[] }[] = [
+            ...(race.heats ?? []),
+            ...(race.runOffHeats ?? []),
+        ];
+        const columnCount = laneColumnCount(laneCount, allLanes);
+        const lanes = Array.from({ length: columnCount }, (_, i) => i + 1);
         return buildHeatSheet(
             race.rounds ?? [],
             (race.heats ?? []) as SheetHeat[],
@@ -75,7 +86,7 @@ export default function HeatSheet() {
             !!race.masterRunningOrder,
             (race.runOffHeats ?? []) as SheetRunOffHeat[],
         );
-    }, [race, track]);
+    }, [race, laneCount]);
 
     if (fetching && !data) return <p style={{ padding: '2rem' }}>Loading…</p>;
     if (error) return <p style={{ padding: '2rem' }}>Could not load this race.</p>;
@@ -156,13 +167,28 @@ export default function HeatSheet() {
                                     <tr>
                                         <th className="heat-sheet-num">Heat</th>
                                         {isMasterOrder && <th>Round</th>}
-                                        {laneColumns.map((cell) => (
-                                            <th key={cell.lane}>
-                                                <LaneBadge color={colorForLane(laneColors, cell.lane)} style={{ justifyContent: 'center' }}>
-                                                    Lane {cell.lane}
-                                                </LaneBadge>
-                                            </th>
-                                        ))}
+                                        {laneColumns.map((cell) => {
+                                            // A column past the track's own
+                                            // lane count is a finished
+                                            // race's lane left over from
+                                            // before the track was shrunk
+                                            // (#994) — visible text, not a
+                                            // hover title, since this page
+                                            // is meant to be printed.
+                                            const offTrack = cell.lane > laneCount;
+                                            return (
+                                                <th key={cell.lane}>
+                                                    <LaneBadge color={colorForLane(laneColors, cell.lane)} style={{ justifyContent: 'center' }}>
+                                                        Lane {cell.lane}
+                                                    </LaneBadge>
+                                                    {offTrack && (
+                                                        <div style={{ fontWeight: 'normal', fontSize: '0.65em' }}>
+                                                            not on this track
+                                                        </div>
+                                                    )}
+                                                </th>
+                                            );
+                                        })}
                                         <th className="heat-sheet-result">Result</th>
                                     </tr>
                                 </thead>

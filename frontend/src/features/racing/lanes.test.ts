@@ -16,8 +16,9 @@ import {
   placesBelowOne,
   parseTimeText,
   tiedTimeGroups,
+  laneColumnCount,
 } from './lanes';
-import { lane } from './testFixtures';
+import { lane, heat } from './testFixtures';
 import type { LaneInput } from './types';
 
 const input = (over: Parameters<typeof lane>[0]): LaneInput => toInput(lane(over));
@@ -603,5 +604,48 @@ describe('formatLaneTime', () => {
     // concern. `scoringStrategyText.formatScore`'s own test pins the
     // aggregate-score half of this label.
     expect(formatLaneTime(9.999)).toBe('9.999s');
+  });
+});
+
+/**
+ * Issue #994. A track is shared across seasons, and shrinking it after a
+ * race finished must not clip that race's own results off the Schedule tab
+ * or the printed heat sheet — the fix both screens share.
+ */
+describe('laneColumnCount', () => {
+  it('is just the track lane count when no heat holds a higher lane', () => {
+    const heats = [
+      heat({ lanes: [lane({ lane: 1 }), lane({ lane: 2 })] }),
+      heat({ lanes: [lane({ lane: 1 }), lane({ lane: 2 })] }),
+    ];
+    expect(laneColumnCount(3, heats)).toBe(3);
+  });
+
+  it('widens to a heat holding a lane past a since-shrunk track', () => {
+    // A race finished on a 3-lane track, every heat recorded in lane 3, and
+    // the track was later reconfigured down to 2. The stored heat still
+    // names lane 3 (#325 only rewrites *pending* heats), so the column
+    // count has to follow the data rather than the track's current value.
+    const heats = [heat({ lanes: [lane({ lane: 1 }), lane({ lane: 2 }), lane({ lane: 3, time: 3.5 })] })];
+    expect(laneColumnCount(2, heats)).toBe(3);
+  });
+
+  it('is unaffected by a heat short a lane — the outage case this extends', () => {
+    // A lane out of service leaves a heat with fewer lane rows than the
+    // track has, and the existing rule (a column for every lane the track
+    // has) must still hold: nothing here should shrink the count below
+    // `laneCount`.
+    const heats = [heat({ lanes: [lane({ lane: 1 }), lane({ lane: 3 })] })];
+    expect(laneColumnCount(4, heats)).toBe(4);
+  });
+
+  it('takes the larger of the two, not just one or the other', () => {
+    const heats = [heat({ lanes: [lane({ lane: 5 })] })];
+    expect(laneColumnCount(2, heats)).toBe(5);
+    expect(laneColumnCount(8, heats)).toBe(8);
+  });
+
+  it('is the bare track lane count with no heats at all', () => {
+    expect(laneColumnCount(4, [])).toBe(4);
   });
 });
