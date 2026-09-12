@@ -352,13 +352,8 @@ a.secondary-btn {
    exactly like an enabled button while `disabled` was true (#997). `opacity`
    is the one property none of the app's inline-styled buttons ever sets, so
    a rule keyed on it reaches every variant — including a future one written
-   with no class at all — regardless of how its own colours are set.
-   `[aria-disabled='true']` is the non-interactive twin for a `<Link>` styled
-   as a button, which has no `disabled` attribute to match (#790). */
-button:disabled,
-button[aria-disabled='true'],
-a.primary-btn[aria-disabled='true'],
-a.secondary-btn[aria-disabled='true'] {
+   with no class at all — regardless of how its own colours are set. */
+button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -539,11 +534,7 @@ input:checked + .slider:before {
     opacity: 0.7;
 }
 
-.secondary-btn:disabled,
-/* A `<Link>` styled as one of these has no `disabled` attribute to match —
-   `aria-disabled` is its non-interactive twin (#790, Awards' Present and
-   Print certificates buttons on a race with no awards yet). */
-.secondary-btn[aria-disabled='true'] {
+.secondary-btn:disabled {
     cursor: not-allowed;
     background-color: #eee;
     color: #999;
