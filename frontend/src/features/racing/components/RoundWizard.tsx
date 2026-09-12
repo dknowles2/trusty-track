@@ -10,6 +10,7 @@ import { useTerminology } from '../../../context/TerminologyContext';
 import { HowItsRacedFields, type RaceStyle } from './HowItsRacedFields';
 import { WhichCarsRaceFields } from './WhichCarsRaceFields';
 import { PickFieldByHandCheckbox } from './PickFieldByHandCheckbox';
+import { FormatFields } from './FormatFields';
 
 interface RoundWizardProps {
   isOpen: boolean;
@@ -101,7 +102,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   minutesPerHeat = ESTIMATED_HEAT_DURATION_MIN,
   onCreated,
 }) => {
-  const { group, groupLower, groupsLower, org, orgLower, vehicleLower, vehiclesLower } = useTerminology();
+  const { group, groupLower, groupsLower, org, vehicleLower, vehiclesLower } = useTerminology();
   const [step, setStep] = useState(1);
   const [generalConfig, setGeneralConfig] = useState<GeneralConfig>({
     type: 'ALL',
@@ -332,17 +333,6 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     boxSizing: 'border-box'
   });
 
-  const configCardStyle = (active: boolean): React.CSSProperties => ({
-    border: '1px solid',
-    borderRadius: '0.5rem',
-    padding: '1rem',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s, border-color 0.2s',
-    borderColor: active ? 'var(--selection-accent-color)' : 'var(--wizard-border-color)',
-    backgroundColor: active ? 'var(--accent-blue-bg-color)' : 'transparent',
-    boxSizing: 'border-box'
-  });
-
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Race Schedule Wizard" maxWidth="650px">
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -420,25 +410,13 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                   by hiding its own Format picker for the other two styles. */}
               {generalConfig.raceStyle === 'PPC' && (
                 <>
-                  <div>
-                    <label style={labelStyle}>Qualifying Round Type</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div
-                        style={configCardStyle(generalConfig.type === 'ALL')}
-                        onClick={() => setGeneralConfig({ ...generalConfig, type: 'ALL' })}
-                      >
-                        <div style={{ fontWeight: 500 }}>All {org}</div>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Every racer races against everyone else in the {orgLower}.</div>
-                      </div>
-                      <div
-                        style={configCardStyle(generalConfig.type === 'EACH_GROUP')}
-                        onClick={() => setGeneralConfig({ ...generalConfig, type: 'EACH_GROUP' })}
-                      >
-                        <div style={{ fontWeight: 500 }}>By {group}</div>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Racers only race against others in their own {groupLower} initially.</div>
-                      </div>
-                    </div>
-                  </div>
+                  <FormatFields
+                    type={generalConfig.type}
+                    onChooseType={(type) => setGeneralConfig({ ...generalConfig, type })}
+                    racingGroupCount={racingGroupCount}
+                    labelStyle={labelStyle}
+                    mutedColor="var(--wizard-text-muted-color)"
+                  />
 
                   <div>
                     <label style={labelStyle}>Runs per lane</label>
