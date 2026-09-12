@@ -1,0 +1,15 @@
+{
+  "_comment": "What counts as screenshot drift, in one place: read by CI's Doc Screenshots job (the advisory check on a PR) and by regenerate-doc-screenshots.yml (which stages only the images this policy flags), through compare-screenshots.ts --policy. The thresholds and every exclusion are explained in .claude/rules/documentation.md's screenshot section; an image is excluded here only when it differs between two runs of an unchanged tree for a reason no regeneration can settle.",
+  "maxDiffPixels": 50,
+  "maxDiffRatio": 0.0005,
+  "exclude": [
+    "settings/04-activity-log.png",
+    "printables/check-in-scanner.png",
+    "observation/08-displays-panel.png",
+    "observation/13-qrcode.png",
+    "printables/car-sticker-card.png",
+    "printables/car-sticker-sheet.png",
+    "printables/check-in-code-card.png",
+    "printables/check-in-code-sheet.png"
+  ]
+}

@@ -5,13 +5,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  # `regenerate-doc-screenshots.yml` dispatches this onto the branch of the
-  # pull request it opens: a PR opened with the default `GITHUB_TOKEN`
-  # triggers no `pull_request` run, and `main`'s ruleset requires every
-  # check below by name, so without a run that PR could never merge.
-  # `workflow_dispatch` is the one event a `GITHUB_TOKEN` *can* raise. The
-  # check runs land on the branch's head commit, which is what the ruleset
-  # reads, whatever event created them.
+  # Added so `regenerate-doc-screenshots.yml` could dispatch this onto the
+  # branch of the pull request it opens, on the belief that a bot-opened PR
+  # raises no `pull_request` run. It does (since June 2026) — the run is
+  # merely held awaiting approval, and the ruleset counts that held run's
+  # checks as owed whatever a dispatched run delivers, so the regeneration
+  # now approves its own run instead. Kept: a by-hand run of the whole suite
+  # on any branch, from the Actions tab, is worth having on its own.
   workflow_dispatch: {}
 
 # Nothing here writes to the repository. The default token is broader than
@@ -462,6 +462,13 @@ jobs:
       # UI change measured while building this gate (a focus ring, ~1,700 px /
       # 0.17%) and far above that zero residual.
       #
+      # The threshold and the exclusions live in `e2e/docs/drift-policy.json`,
+      # not here: `regenerate-doc-screenshots.yml` reads the same file to
+      # decide which images it stages after a merge, and the two must agree
+      # on what drift *is* or a regeneration would commit exactly the noise
+      # this check is told to ignore. The history of each exclusion is kept
+      # below all the same, since the file cannot hold a paragraph.
+      #
       # The excluded paths are every image measured, while building this gate,
       # to differ between two runs on a genuinely unchanged tree for a reason
       # that has nothing to do with rendering: `settings/04-activity-log.png`
@@ -504,9 +511,7 @@ jobs:
           node e2e/docs/compare-screenshots.ts \
             /tmp/screenshot-baseline \
             "$GITHUB_WORKSPACE/docs/assets/screenshots" \
-            --max-diff-pixels 50 \
-            --max-diff-ratio 0.0005 \
-            --exclude "settings/04-activity-log.png,printables/check-in-scanner.png,observation/08-displays-panel.png,observation/13-qrcode.png,printables/car-sticker-card.png,printables/car-sticker-sheet.png,printables/check-in-code-card.png,printables/check-in-code-sheet.png" \
+            --policy e2e/docs/drift-policy.json \
             --diff-dir /tmp/screenshot-diffs \
             --json /tmp/screenshot-drift.json | tee /tmp/screenshot-drift.txt
           status=$?
