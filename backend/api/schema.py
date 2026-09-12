@@ -5015,58 +5015,37 @@ class Mutation:
             # sent.
             is_ppc = gen_strat == models.SchedulingStrategy.PPC
             general_round_type = config.general_round.type if is_ppc else "ALL"
-            # General Round
-            if general_round_type == "ALL":
-                round_obj = crud.create_round(
-                    db,
-                    race_id,
-                    current_round_number,
-                    gen_strat,
-                    general_round_name,
-                    elimination_losses=gen_losses,
-                    balanced_phases=gen_phases,
-                )
-                # On the rollback list from the moment the row exists —
-                # `create_round` commits, so a failure in heat generation
-                # leaves a round the rollback must know about (#249).
-                created_rounds.append(round_obj)
-                crud.generate_heats_for_round(
-                    db,
-                    round_obj.id,
-                    clear_existing=True,
-                    runs=config.general_round.runs_per_lane,
-                )
-                current_round_number += 1
-            elif general_round_type == "EACH_GROUP":
-                racing_groups = crud.get_racing_groups(db, race_id)
-                for racing_group in racing_groups:
-                    racers = (
-                        db.query(models.Racer)
-                        .filter(models.Racer.racing_group_id == racing_group.id)
-                        .all()
-                    )
-                    if not racers:
-                        continue
-                    round_obj = crud.create_round(
-                        db,
-                        race_id,
-                        current_round_number,
-                        gen_strat,
-                        racing_group.name,
-                        racing_group_id=racing_group.id,
-                        elimination_losses=gen_losses,
-                        balanced_phases=gen_phases,
-                    )
-                    created_rounds.append(round_obj)
-                    p_ids = [r.id for r in racers]
-                    crud.generate_heats_for_round(
-                        db,
-                        round_obj.id,
-                        racer_ids=p_ids,
-                        clear_existing=True,
-                        runs=config.general_round.runs_per_lane,
-                    )
-                    current_round_number += 1
+            # General Round(s) — one call, whichever format was asked for
+            # (#1013, #1025): `crud.create_general_round` is the one copy of
+            # "one round per group" this used to duplicate against
+            # `createRound`'s own, unwired copy of the same choice.
+            general_rounds = crud.create_general_round(
+                db,
+                race,
+                current_round_number,
+                gen_strat,
+                general_round_type,
+                name=general_round_name,
+                runs_per_lane=config.general_round.runs_per_lane,
+                elimination_losses=gen_losses,
+                balanced_phases=gen_phases,
+            )
+            # On the rollback list from the moment the rows exist —
+            # `create_round` commits, so a failure in heat generation leaves
+            # rounds the rollback must know about (#249).
+            created_rounds.extend(general_rounds)
+            current_round_number += len(general_rounds)
+
+            # Elimination heats never feed the aggregate standings
+            # (CLAUDE.md's "Ladderless elimination"), so a championship round
+            # whose source is "ALL" or "EACH_GROUP" would draw from an empty
+            # field forever when the qualifier was elimination — the round
+            # can never fill (#1012). `general_round_type` is forced to
+            # "ALL" for any non-PPC style above, so this is exactly one
+            # round when it applies.
+            elimination_round_id = (
+                general_rounds[0].id if is_gen_elimination and general_rounds else None
+            )
 
             # Championship Rounds — always PPC. A championship round can
             # never itself be elimination or balanced (CLAUDE.md's
@@ -5080,9 +5059,22 @@ class Mutation:
                 if adv_source == "PREVIOUS":
                     if previous_champ_round_id:
                         adv_source = f"ROUND:{previous_champ_round_id}"
+                    elif elimination_round_id is not None:
+                        adv_source = f"ROUND:{elimination_round_id}"
                     else:
                         # Fallback to ALL if no previous championship round exists
                         adv_source = "ALL"
+                elif (
+                    adv_source in (advancement.ALL, advancement.EACH_GROUP)
+                    and previous_champ_round_id is None
+                    and elimination_round_id is not None
+                ):
+                    # The first championship round chains to the elimination
+                    # round's own survival ranking (#1012) — done here,
+                    # after validation, rather than trusting the wizard's own
+                    # frontend to always ask for it: an API caller can send
+                    # "ALL" just as easily as the UI's old default did.
+                    adv_source = f"ROUND:{elimination_round_id}"
 
                 round_obj = crud.create_round(
                     db,
@@ -6347,7 +6339,12 @@ class Mutation:
         if not race:
             raise ValueError("Race not found")
 
-        round_obj: models.Round | None = None
+        # Every round created below is committed the moment `create_round`
+        # makes it, so a failure partway through — heat generation on a
+        # second den's round, say — must roll every round made so far back,
+        # not just the last one (#249, #1013/#1025): "By {group}" can now
+        # hand this single mutation back more than one round in one call.
+        created_rounds: list[models.Round] = []
         try:
             # `runs_per_lane` becomes `HeatPlan` heats: zero or negative
             # schedules nothing and a championship round with no heats is
@@ -6364,7 +6361,12 @@ class Mutation:
             )
 
             if round_data.advancement_source is None:
-                # General Round
+                # General Round(s) — one call, whichever format was asked
+                # for. Before #1013 this branch never read `general_type` at
+                # all, so choosing "By {group}" from the Add Round dialog
+                # silently built one mixed round instead of one per group;
+                # `crud.create_general_round` is now the one copy of that
+                # loop, shared with `createRoundWizard`.
                 strategy = models.SchedulingStrategy(round_data.scheduling_strategy)
                 is_elimination = strategy == models.SchedulingStrategy.ELIMINATION
                 is_balanced = strategy == models.SchedulingStrategy.BALANCED
@@ -6388,33 +6390,42 @@ class Mutation:
                     )
                     if phases < 1:
                         raise ValueError("A round needs at least one phase.")
+                # "By {group}" is offered only alongside "Everyone races in
+                # every lane" (`RoundConfigModal` hides the Format picker for
+                # the other two styles) — so a non-PPC general round is
+                # always "ALL", whatever the caller sent, matching the
+                # wizard's own belt-and-braces rule.
+                general_type = (
+                    round_data.general_type
+                    if strategy == models.SchedulingStrategy.PPC
+                    else "ALL"
+                )
                 # Only reached for a general round with no name typed —
                 # otherwise this would be a query the operator's own choice
-                # makes unnecessary on every round they name themselves.
+                # makes unnecessary on every round they name themselves. Not
+                # read at all for "EACH_GROUP": each round there is named
+                # after its own racing group (`create_general_round`).
                 round_name = round_data.name or (
                     "Elimination Round"
                     if is_elimination
                     else "Balanced Round"
                     if is_balanced
-                    else crud.default_general_round_name(db, race)
+                    else None
                 )
-                round_obj = crud.create_round(
+                general_rounds = crud.create_general_round(
                     db,
-                    race_id,
+                    race,
                     next_round_number,
                     strategy,
-                    round_name,
+                    general_type,
+                    name=round_name,
+                    runs_per_lane=round_data.runs_per_lane,
                     elimination_losses=losses,
                     balanced_phases=phases,
                 )
-                crud.generate_heats_for_round(
-                    db,
-                    round_obj.id,
-                    clear_existing=True,
-                    runs=round_data.runs_per_lane,
-                )
+                created_rounds.extend(general_rounds)
                 await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
-                return [typing.cast(Any, round_obj)]
+                return typing.cast(Any, general_rounds)
             else:
                 # Championship Round (Placeholder)
                 crud.validate_advancement_source(
@@ -6456,6 +6467,7 @@ class Mutation:
                     advancement_num_racers=round_data.advancement_num_racers,
                     advancement_from_bottom=round_data.advancement_from_bottom,
                 )
+                created_rounds.append(round_obj)
 
                 # Placeholder heats, one set per run — same as above (#143).
                 crud.generate_heats_for_round(
@@ -6474,10 +6486,10 @@ class Mutation:
             # `create_round` commits immediately (backend/db/crud.py), so a
             # round joins the rollback the moment its row exists — the
             # wizard's rule (#249), applied to its single-round sibling
-            # (#415): a failure in heat generation must not leave a
-            # committed, heat-less round behind.
-            if round_obj is not None:
-                crud.delete_round(db, round_obj.id)
+            # (#415) and now, since "By {group}" can create several rounds
+            # in one call, in the same reverse order the wizard itself uses.
+            for r in reversed(created_rounds):
+                crud.delete_round(db, r.id)
             raise
 
     @strawberry.mutation

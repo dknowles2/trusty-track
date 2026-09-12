@@ -203,9 +203,23 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
    * the round for its new kind, but only while the name is still one the
    * wizard itself put there. Step 1 has no Name field of its own (the
    * general round is always named on the server), so this only decides what
-   * the step 3 preview calls it. */
+   * the step 3 preview calls it.
+   *
+   * Also resets the first championship round off "Each {group}" when
+   * leaving PPC: that option is hidden the moment the qualifier is not PPC
+   * (#1012), and a round left holding it from an earlier PPC choice would
+   * make the step 3 preview multiply by the racing group count for a field
+   * the server is about to chain to the elimination round's own survival
+   * ranking instead. The server already forces this the same way
+   * (`create_round_wizard`'s own belt-and-braces rule) — this only keeps
+   * the *preview* honest before that request is ever sent. */
   const chooseGeneralStyle = (style: RaceStyle) => {
     setGeneralConfig((prev) => ({ ...prev, raceStyle: style }));
+    if (style !== 'PPC') {
+      setChampionshipRounds((prev) =>
+        prev.map((r, idx) => (idx === 0 && r.source === 'EACH_GROUP' ? { ...r, source: 'ALL' } : r))
+      );
+    }
   };
 
   const handleAddChampionshipRound = () => {
@@ -495,7 +509,19 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                           onChange={(e) => updateChampionshipRound(round.id, { source: e.target.value as 'ALL' | 'EACH_GROUP' })}
                         >
                           <option value="ALL">Overall</option>
-                          <option value="EACH_GROUP">Each {group}</option>
+                          {/* "Each {group}" splits the standings a qualifying
+                              round drew from by racing group — meaningless
+                              once that round is Elimination or Balanced,
+                              since a non-PPC general round is always one
+                              round for the whole {org} rather than one per
+                              group (#943, #1012). The server chains an
+                              elimination qualifier's final to that round's
+                              own survival ranking regardless of what this
+                              select sends, so "Overall" alone is offered
+                              here. */}
+                          {generalConfig.raceStyle === 'PPC' && (
+                            <option value="EACH_GROUP">Each {group}</option>
+                          )}
                         </select>
                       ) : (
                         <div

@@ -1288,6 +1288,122 @@ def create_round(
     return round_obj
 
 
+def create_general_round(
+    db: Session,
+    race: models.Race,
+    round_number: int,
+    scheduling_strategy: models.SchedulingStrategy,
+    general_type: str,
+    name: str | None = None,
+    runs_per_lane: int = 1,
+    elimination_losses: int | None = None,
+    balanced_phases: int | None = None,
+) -> list[models.Round]:
+    """Create a race's qualifying (general) round(s) and generate their heats.
+
+    ``general_type`` is ``"ALL"`` (one round, the whole field) or
+    ``"EACH_GROUP"`` (one round per racing group that has a checked-in racer
+    in it — the empty ones are skipped so the numbering stays gapless) — the
+    same "By {group}" **Format** `RoundConfigModal` and the Round Wizard's
+    step 1 both offer (#943, #947).
+
+    This is the one copy of "one round per group" ([#1013](https://github.com/dknowles2/trusty-track/issues/1013),
+    [#1025](https://github.com/dknowles2/trusty-track/issues/1025)):
+    `create_round_wizard` had this loop from the start and `createRound` (the
+    Add Round dialog's mutation) never did, so choosing "By {group}" from
+    that dialog silently built one mixed "All {org}" round instead of one per
+    group — the #48 shape, a rule reaching only one of its two call sites.
+    Both now call this rather than each keeping its own copy free to
+    disagree.
+
+    Every round created here is committed the moment `create_round` makes
+    it, before its heats exist — so a failure generating heats for the
+    *second* den's round, say, would otherwise leave the first den's round
+    (heats and all) orphaned with nothing above this function ever seeing
+    its id to roll back. Rather than lean on every caller to unwind that —
+    the #48 shape again — **this function rolls itself back**: on any
+    failure it deletes every round it created in this call, in reverse
+    order (#249), and re-raises, so a caller either gets the whole batch or
+    none of it. A caller folding this into a *larger* batch of its own (the
+    wizard's general round plus championship rounds, say) still needs to
+    roll the rest of that batch back on a failure elsewhere, but never has
+    to clean up after this function specifically.
+
+    ``name`` only applies to the ``"ALL"`` case (falling back to
+    `default_general_round_name` when absent, exactly as before this was
+    extracted); an ``"EACH_GROUP"`` round is always named after its own
+    racing group, matching the wizard, which has never offered a name field
+    for the general round in step 1.
+    """
+    rounds: list[models.Round] = []
+    try:
+        if general_type == "EACH_GROUP":
+            next_round_number = round_number
+            for racing_group in get_racing_groups(db, race.id):
+                # Checked-in only, matching `_participant_ids_for_round`'s
+                # own filter for an "ALL" round (`Racer.car_passed_inspection`)
+                # — check-in is the eligibility gate everywhere else a
+                # schedule is built (CLAUDE.md's "A racer who arrives after
+                # the racing has started"), and a den with racers on the
+                # roster but none yet inspected is exactly the "empty" case
+                # this skips, not a den ready to race. Ordered because the
+                # PPC shuffle downstream may be seeded (`demo_seed`), the
+                # same reason `_participant_ids_for_round`'s own query is.
+                racers = (
+                    db.query(models.Racer)
+                    .filter(
+                        models.Racer.racing_group_id == racing_group.id,
+                        models.Racer.car_passed_inspection,
+                    )
+                    .order_by(models.Racer.id)
+                    .all()
+                )
+                if not racers:
+                    continue
+                round_obj = create_round(
+                    db,
+                    race.id,
+                    next_round_number,
+                    scheduling_strategy,
+                    racing_group.name,
+                    racing_group_id=racing_group.id,
+                    elimination_losses=elimination_losses,
+                    balanced_phases=balanced_phases,
+                )
+                rounds.append(round_obj)
+                generate_heats_for_round(
+                    db,
+                    round_obj.id,
+                    racer_ids=[r.id for r in racers],
+                    clear_existing=True,
+                    runs=runs_per_lane,
+                )
+                next_round_number += 1
+            return rounds
+
+        round_obj = create_round(
+            db,
+            race.id,
+            round_number,
+            scheduling_strategy,
+            name or default_general_round_name(db, race),
+            elimination_losses=elimination_losses,
+            balanced_phases=balanced_phases,
+        )
+        rounds.append(round_obj)
+        generate_heats_for_round(
+            db,
+            round_obj.id,
+            clear_existing=True,
+            runs=runs_per_lane,
+        )
+        return rounds
+    except ValueError:
+        for r in reversed(rounds):
+            delete_round(db, r.id)
+        raise
+
+
 def delete_round(db: Session, round_id: int) -> bool:
     """Delete a round and all its heats. Only if no heats have results."""
     round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()

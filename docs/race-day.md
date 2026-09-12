@@ -233,6 +233,14 @@ Click **+ Add Round** to add more championship rounds if needed. Only the first
 championship round chooses a source; any round after it always draws from the
 championship round before it, and says so instead of offering a choice.
 
+If step 1's qualifying round is **Elimination**, **Each Den** is not offered
+for the first championship round — an elimination round is never split by
+den, so there is nothing to draw a per-den field from. The final draws from
+the elimination round's own survivors instead, automatically: the [top
+finishers of another
+round](reference/championship-rounds.md#the-top-finishers-of-another-round)
+source the **Add Round** dialog offers by hand.
+
 ![Round Wizard — Step 2](assets/screenshots/race-day/08-round-wizard-step2.png)
 _Step 2: configure optional championship rounds. Each round can advance a different number of racers, from either end of the standings._
 

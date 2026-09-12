@@ -26,7 +26,11 @@ rounds chain: top ten race a semifinal, the best three of *them* race the
 final. In the Round Wizard, every championship round after the first draws
 from the round before it automatically. The last cars standing from an
 [elimination round](round-styles.md#elimination) can feed a final the same
-way.
+way — including the wizard's *first* championship round, when step 1's own
+qualifying round was Elimination: an elimination round has no "overall" or
+"each den" standings of its own to draw a final from (elimination heats
+never count toward those), so the wizard chains to it automatically rather
+than offering a choice that could never fill.
 
 ### The slowest cars
 
