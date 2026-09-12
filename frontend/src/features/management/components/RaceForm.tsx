@@ -136,6 +136,23 @@ interface RaceFormProps {
      * the wizard case and gets every field on one page.
      */
     isEditing?: boolean;
+    /**
+     * Which section the sectioned edit form opens on — `'event'` (the
+     * default) unless a caller has a reason to open somewhere else. Read
+     * once, as the initial value of the section state below; it does not
+     * force the section back if the operator has since navigated the nav
+     * themselves, the same "seeds the initial value, does not pin it"
+     * relationship `initialData` has to the rest of the form's state.
+     *
+     * `RaceDetails.tsx`'s `?edit=true&section=...` link is the one caller
+     * today (#970) — opening the dialog straight onto a section removes an
+     * entire class of screenshot flake a click-after-open produced: nothing
+     * to click means the dialog never grows, `Modal.tsx`'s centring never
+     * re-runs, and the pointer is never left resting over a nav item it
+     * never approached. Has no effect while creating — `sectionsFor(false)`
+     * returns no sections at all, so there is nothing to open onto.
+     */
+    initialSection?: RaceSectionId;
 }
 
 /**
@@ -176,7 +193,7 @@ function GroupHeading({ id, sectioned }: { id: RaceSectionId; sectioned: boolean
     );
 }
 
-export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, submitLabel = 'Save', cancelLabel = 'Cancel', isEditing = false }: RaceFormProps) {
+export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, submitLabel = 'Save', cancelLabel = 'Cancel', isEditing = false, initialSection }: RaceFormProps) {
     const { group, groupLower, groupsLower, org, vehicle, vehicleLower, vehiclesLower } = useTerminology();
     const [formData, setFormData] = useState<RaceFormData>({
         name: '',
@@ -223,7 +240,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
     // the reason an operator opens this form again.
     const navSections = sectionsFor(isEditing);
     const sectioned = navSections.length > 0;
-    const [section, setSection] = useState<RaceSectionId>('event');
+    const [section, setSection] = useState<RaceSectionId>(initialSection ?? 'event');
     /** On the create form every section is on screen; otherwise only the chosen one. */
     const shows = (id: RaceSectionId) => !sectioned || section === id;
     // The first thing wrong with the whole form, wherever it is — see

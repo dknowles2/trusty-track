@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { firstProblem, RACE_SECTIONS, sectionsFor } from './raceSettingsSections';
+import { firstProblem, isRaceSectionId, RACE_SECTIONS, sectionsFor } from './raceSettingsSections';
 
 describe('which sections are offered', () => {
     it('gives the edit form one entry per section, in order', () => {
@@ -22,6 +22,22 @@ describe('which sections are offered', () => {
             expect(section.blurb).not.toBe('');
             expect(section.blurb).not.toMatch(/\b(den|pack|car)s?\b/i);
         }
+    });
+});
+
+describe('isRaceSectionId', () => {
+    it('accepts every real section id', () => {
+        for (const section of RACE_SECTIONS) {
+            expect(isRaceSectionId(section.id)).toBe(true);
+        }
+    });
+
+    it('rejects anything else, including null, undefined and a near-miss', () => {
+        expect(isRaceSectionId('scoring ')).toBe(false);
+        expect(isRaceSectionId('Scoring')).toBe(false);
+        expect(isRaceSectionId('nonsense')).toBe(false);
+        expect(isRaceSectionId(null)).toBe(false);
+        expect(isRaceSectionId(undefined)).toBe(false);
     });
 });
 

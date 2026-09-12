@@ -17,6 +17,7 @@ import ExcludedFromStandingsBadge from '../components/ExcludedFromStandingsBadge
 import RacingGroupManager from '../components/RacingGroupManager';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
+import { isRaceSectionId, type RaceSectionId } from '../raceSettingsSections';
 import DeleteLockedRaceModal from '../components/DeleteLockedRaceModal';
 import LockedBadge from '../../core/components/LockedBadge';
 import ImportRacersModal from '../components/ImportRacersModal';
@@ -280,6 +281,18 @@ export default function RaceDetails() {
   // after the operator has closed the modal by hand but before the param
   // below has finished being stripped.
   const editParam = searchParams.get('edit');
+  // `?section=` names which of the sectioned edit form's sections it should
+  // open on, read at the same render-time comparison as `edit` since the
+  // two params only ever mean something together (#970). Opening straight
+  // onto a section — rather than opening on Event and then clicking there,
+  // as the doc screenshot of the Scoring section used to — is what removes
+  // a whole class of flake described on `RaceForm`'s own `initialSection`
+  // prop: nothing to click means nothing to grow the dialog, nothing to
+  // re-centre it, and no stray pointer left resting over the nav. Ignored
+  // unless it names a real section, so a stale or misspelled value falls
+  // back to the form's own default rather than landing on no section at all.
+  const sectionParam = searchParams.get('section');
+  const [editSection, setEditSection] = useState<RaceSectionId | undefined>(undefined);
   const [prevEditParam, setPrevEditParam] = useState<string | null>(null);
   if (editParam !== prevEditParam) {
     setPrevEditParam(editParam);
@@ -290,7 +303,10 @@ export default function RaceDetails() {
     // below is read from `useRole()`, declared further down; this branch
     // still runs after it because the whole component body runs top to
     // bottom on every render before anything is returned.
-    if (editParam === 'true' && isOperator) setIsEditingRace(true);
+    if (editParam === 'true' && isOperator) {
+      setIsEditingRace(true);
+      setEditSection(isRaceSectionId(sectionParam) ? sectionParam : undefined);
+    }
   }
 
   // Stripping the param is a genuine effect — synchronizing the browser's
@@ -302,6 +318,7 @@ export default function RaceDetails() {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       next.delete('edit');
+      next.delete('section');
       return next;
     }, { replace: true });
   }, [searchParams, setSearchParams]);
@@ -932,6 +949,7 @@ export default function RaceDetails() {
           {race && (
             <RaceForm
                 initialData={race}
+                initialSection={editSection}
                 onSubmit={handleUpdateRace}
                 onCancel={() => setIsEditingRace(false)}
                 onDelete={handleDeleteRace}
