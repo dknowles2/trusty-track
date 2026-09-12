@@ -42,8 +42,10 @@ middle of it.
 
 ### Pit passes
 
-Lanyard sized, six to a sheet. The photo, the name, the den, the car, and the
-event details — what a scout needs to know where to be.
+Lanyard sized, six to a sheet. The photo, the name, the den, the car, a small
+vehicle picture, and the event details — what a scout needs to know where to
+be. The picture (car, rocket, or boat) follows a System Settings choice; see
+[Printed documents](reference/printing.md#the-vehicle-picture).
 
 ![A sheet of pit passes](assets/screenshots/printables/pit-pass-sheet.png)
 
