@@ -194,6 +194,58 @@ test('finishing the prelims fills the championship round with the top finishers'
     );
 });
 
+test('a Final short of the lane count shows Empty, never Racer #0, on the Race tab (#1014, #1025)', async ({
+    page,
+}) => {
+    // #1025 named this exact seam as untested: a championship field short of
+    // the lane count (`numTopRacers: 3` on this suite's 4-lane pool track —
+    // the Round Wizard's own default, "Grand Finals, 3 to pick") crossed with
+    // the Race tab's lane rendering. `RaceExecution.test.tsx`'s fixtures
+    // always filled every lane, so nothing exercised a lane with neither a
+    // racer nor a placeholder — and both the current-heat card and the On
+    // Deck panel read that lane as `racers[r.racerId || 0]`, rendering it as
+    // a child named "Racer #0" (#1014).
+    //
+    // Field size 3 on 4 lanes means every heat of the Final holds all three
+    // qualifiers and leaves one lane empty — lane 1 is seeded with the whole
+    // field (fixing the heat count at 3), and there are no other racers left
+    // to fill the fourth lane of any of them.
+    const { raceId, racers } = await seedRace(page, 'Race Day Short Final');
+    await createSchedule(page, raceId, { name: 'Pack Final', numTopRacers: 3 });
+
+    const rounds = await readRounds(page, raceId);
+    const prelim = rounds.find((r) => r.advancementSource === null)!;
+
+    const heats = await readHeats(page, raceId);
+    await recordRound(
+        page,
+        heats.filter((h) => h.roundId === prelim.id),
+        racers,
+    );
+
+    // The Race tab pins whatever heat it is showing rather than sliding
+    // forward under a result it did not see recorded through its own
+    // buttons ("The screen stays on the heat it is showing" — every prelim
+    // heat here was recorded through a raw mutation, not a click). A reload
+    // re-derives the active heat from scratch, which lands on the first one
+    // still to run: the Final's own first heat, now that every prelim heat
+    // is done.
+    await page.goto(`/race/${raceId}/control/race`);
+    await dismissRoundSummary(page);
+
+    // The Final's first heat is now the active one, and it holds all three
+    // qualifiers plus the empty fourth lane.
+    for (const name of ['Ada Ant', 'Ben Bear', 'Cy Cat']) {
+        await expect(page.getByText(name, { exact: true }).first()).toBeVisible({
+            timeout: 30000,
+        });
+    }
+    await expect(page.getByText('Empty', { exact: true }).first()).toBeVisible({
+        timeout: 30000,
+    });
+    await expect(page.getByText(/Racer #\d/)).toHaveCount(0);
+});
+
 test('the last heat of the race raises a summary pointing at standings, awards and printing (#847)', async ({
     page,
 }) => {

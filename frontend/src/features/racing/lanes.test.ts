@@ -7,6 +7,7 @@ import {
   byPlace,
   assignPlaces,
   formatLaneTime,
+  isLaneEmpty,
   isTimeBasedStrategy,
   shouldDerivePlaces,
   shouldDerivePlacesForFreeRace,
@@ -93,6 +94,26 @@ describe('lane predicates', () => {
     const lanes = [lane({ lane: 1, place: 2 }), lane({ lane: 2, place: 1 })];
     byPlace(lanes);
     expect(lanes.map((l) => l.lane)).toEqual([1, 2]);
+  });
+});
+
+/**
+ * Issue #1014. `racerId === null` covers two different lanes — an undecided
+ * championship slot and one nobody is coming to fill — and only the second
+ * is empty. Mirrors `Lane.is_empty` in `backend/domain/lanes.py`, which asks
+ * about both fields for the same reason.
+ */
+describe('isLaneEmpty', () => {
+  it('a racer is not empty', () => {
+    expect(isLaneEmpty(lane({ lane: 1, racerId: 7 }))).toBe(false);
+  });
+
+  it('an undecided placeholder slot is not empty', () => {
+    expect(isLaneEmpty(lane({ lane: 1, racerId: null, placeholderSlot: 2 }))).toBe(false);
+  });
+
+  it('a lane with neither a racer nor a placeholder is empty', () => {
+    expect(isLaneEmpty(lane({ lane: 1, racerId: null, placeholderSlot: null }))).toBe(true);
   });
 });
 

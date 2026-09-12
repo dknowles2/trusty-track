@@ -31,7 +31,7 @@ export type {
 } from '../types';
 import type { Heat, Racer, AdvancementStatus, LaneInput, Lane, LiveLane } from '../types';
 import type { HeatPhase } from '../../../gql/operations';
-import { formatLaneTime, hasRun, hasTimes, isTimeBasedStrategy, toInput, placeIssue, parseTimeText, tiedTimeGroups } from '../lanes';
+import { formatLaneTime, hasRun, hasTimes, isLaneEmpty, isTimeBasedStrategy, toInput, placeIssue, parseTimeText, tiedTimeGroups } from '../lanes';
 import { chimeEnabled, setChimeEnabled, shouldChime } from '../chime';
 import {
     playFinishSound,
@@ -59,6 +59,36 @@ import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
  * for the cursor. It becomes a number on save.
  */
 type EditableLane = LaneInput & { timeText: string };
+
+/**
+ * The name to show for one lane of the current-heat card or the On Deck
+ * panel, both of which already look a resolved `racer` up separately for the
+ * avatar and the car-number badge. They used to fall back to their own
+ * inline `racers[r.racerId || 0]` lookup for the *text* too (issue #1014):
+ * `racerId` is `null` for two different lanes — an undecided championship
+ * slot and one with nobody coming — and `|| 0` folded both into the same
+ * wrong answer, a lookup on racer id 0, which does not exist, so the
+ * fallback built a name out of the id itself ("Racer #0").
+ *
+ * `isLaneEmpty` is the one door for telling those two apart; a placeholder
+ * still reads through `getRacerName`'s negative-id convention (`Slowest`/`Top`
+ * N), same as the Schedule tab's own `laneRacerName`, and an empty lane reads
+ * "Empty" — the word `ScheduleManagement.tsx`'s `getDisplayName` already uses
+ * for the same case. The Override/Edit modal's table asks the identical
+ * question but wants `getRacerName`'s car-number suffix in the cell text (it
+ * renders no separate badge), so it applies `isLaneEmpty` inline instead of
+ * going through this helper.
+ */
+const laneDisplayName = (
+    lane: { racerId: number | null; placeholderSlot: number | null },
+    racer: Racer | undefined,
+    getRacerName: (id: number, fromBottom?: boolean) => string,
+    fromBottom?: boolean,
+): string => {
+    if (racer) return `${racer.firstName} ${racer.lastName}`;
+    if (isLaneEmpty(lane)) return 'Empty';
+    return getRacerName(lane.racerId ?? -(lane.placeholderSlot ?? 0), fromBottom);
+};
 
 /**
  * The pace to show before the parent has learned one (#591) — a caller with
@@ -952,7 +982,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             style={{ display: 'grid', gap: '8px' }}
                         >
                             {liveLanes.map((r) => {
-                                const racer = racers[r.racerId || 0];
+                                const racer = r.racerId != null ? racers[r.racerId] : undefined;
+                                const empty = isLaneEmpty(r);
                                 const isFirst = r.place === 1;
                                 return (
                                     <div
@@ -977,20 +1008,22 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         </LaneBadge>
 
                                         <div className="race-execution-avatar-wrap" style={{ width: '48px', height: '48px', flexShrink: 0, borderRadius: '50%', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                            <RacerAvatar
-                                                racer={{
-                                                    id: racer?.id || r.racerId || 0,
-                                                    first_name: racer?.firstName || '',
-                                                    last_name: racer?.lastName || '',
-                                                    racer_image_url: racer?.racerImageUrl
-                                                }}
-                                                size="48px"
-                                            />
+                                            {!empty && (
+                                                <RacerAvatar
+                                                    racer={{
+                                                        id: racer?.id || r.racerId || 0,
+                                                        first_name: racer?.firstName || '',
+                                                        last_name: racer?.lastName || '',
+                                                        racer_image_url: racer?.racerImageUrl
+                                                    }}
+                                                    size="48px"
+                                                />
+                                            )}
                                         </div>
 
                                         <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: '6px', overflow: 'hidden' }}>
                                             <span className="race-execution-racer-name" style={{ fontSize: '1.05rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0), slowestRoundIds?.has(activeExecutionHeat.roundId))}
+                                                {laneDisplayName(r, racer, getRacerName, slowestRoundIds?.has(activeExecutionHeat.roundId))}
                                             </span>
                                             {racer?.carNumber && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)', flexShrink: 0 }}>#{racer.carNumber}</span>}
                                         </div>
@@ -1071,9 +1104,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 </div>
                                 <div style={{ display: 'grid', gap: '12px' }}>
                                     {nextExecutionHeat.lanes.map((r: Lane) => {
-                                        const racer = racers[r.racerId || 0];
+                                        const racer = r.racerId != null ? racers[r.racerId] : undefined;
+                                        const empty = isLaneEmpty(r);
                                         return (
-                                                                                        <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingBottom: '12px', borderBottom: '1px solid var(--background-color)' }}>
+                                                                                        <div key={r.lane} className="race-execution-ondeck-lane-row" style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingBottom: '12px', borderBottom: '1px solid var(--background-color)' }}>
                                                                                             <LaneBadge
                                                                                                 color={colorForLane(laneColors, r.lane)}
                                                                                                 style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-faint-color)', width: '30px' }}
@@ -1081,21 +1115,23 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                                                                 L{r.lane}
                                                                                             </LaneBadge>
 
-                                                                                            <div style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                                                <RacerAvatar
-                                                                                                    racer={{
-                                                                                                        id: racer?.id || r.racerId || 0,
-                                                                                                        first_name: racer?.firstName || '',
-                                                                                                        last_name: racer?.lastName || '',
-                                                                                                        racer_image_url: racer?.racerImageUrl
-                                                                                                    }}
-                                                                                                    size="60px"
-                                                                                                />
+                                                                                            <div className="race-execution-ondeck-avatar-wrap" style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                                {!empty && (
+                                                                                                    <RacerAvatar
+                                                                                                        racer={{
+                                                                                                            id: racer?.id || r.racerId || 0,
+                                                                                                            first_name: racer?.firstName || '',
+                                                                                                            last_name: racer?.lastName || '',
+                                                                                                            racer_image_url: racer?.racerImageUrl
+                                                                                                        }}
+                                                                                                        size="60px"
+                                                                                                    />
+                                                                                                )}
                                                                                             </div>
 
                                                                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                                                                 <div style={{ fontWeight: '600', fontSize: '1.05rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0), slowestRoundIds?.has(nextExecutionHeat?.roundId ?? -1))}
+                                                                                                    {laneDisplayName(r, racer, getRacerName, slowestRoundIds?.has(nextExecutionHeat?.roundId ?? -1))}
                                                                                                 </div>
                                                                                                 {racer?.carNumber && (
                                                                                                     <div style={{ fontSize: '0.85rem', color: 'var(--text-subtle-color)' }}>{vehicle} #{racer.carNumber}</div>
@@ -1485,7 +1521,11 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             {editingResults.map((r, idx) => (
                                 <tr key={r.lane} style={{ borderBottom: '1px solid var(--divider-color)' }}>
                                     <td style={{ padding: '8px' }}>{r.lane}</td>
-                                    <td style={{ padding: '8px' }}>{getRacerName(r.racerId ?? (r.placeholderSlot ? -r.placeholderSlot : 0), slowestRoundIds?.has(activeExecutionHeat.roundId))}</td>
+                                    <td style={{ padding: '8px' }}>
+                                        {isLaneEmpty(r)
+                                            ? 'Empty'
+                                            : getRacerName(r.racerId ?? (r.placeholderSlot ? -r.placeholderSlot : 0), slowestRoundIds?.has(activeExecutionHeat.roundId))}
+                                    </td>
                                     {showsPlaceColumn && (
                                         <td style={{ padding: '8px' }}>
                                             <input
