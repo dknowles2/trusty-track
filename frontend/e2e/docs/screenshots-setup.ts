@@ -380,24 +380,38 @@ export async function settleTransitions(locator: Locator): Promise<void> {
 /**
  * Screenshots a `Locator` with the same pre-capture treatment `page.screenshot`
  * gets from the patch above — a font/image wait, the pointer parked off-viewport,
- * and every in-flight transition allowed to settle — because `Locator.screenshot`
- * is a different method that patch never touches.
+ * every in-flight transition allowed to settle, and (below) an assertion that the
+ * park actually took — because `Locator.screenshot` is a different method that
+ * patch never touches.
  *
  * That gap is what made `race-setup/11-edit-race-settings.png` nondeterministic
- * again under load (#970), after `settleTransitions(dialog)`'s own fix (see that
- * function's doc comment above) had already closed the *first* source of drift
- * on this same picture. The second: the spec clicks the nav's "Scoring" button
- * while the dialog is still scrolled from opening, so Playwright's click lands
- * correctly, but on a button whose *screen* position depends on that transient
- * scroll offset — and the pointer stays there, unmoved, once the spec resets
- * `scrollTop` back to 0 for the shot. Whatever nav item ends up under those
- * now-stale screen coordinates picks up a `:hover` background the operator's own
- * mouse was never near — `Check-in` or `Displays` in the reported flake,
- * depending on how much the dialog had scrolled at click time, which is why the
- * two are what moved and `Words and names` between them never did.
- * `page.mouse.move(-1, -1)` already fixed page-level captures for the same
- * reason (see that call's own comment); this is the identical fix, reachable
- * from a locator capture.
+ * under load (#970), and it took two rounds to actually pin down. `#972`'s own
+ * diagnosis — a stale click position surviving the spec's `scrollTop` reset —
+ * does not hold up: `SettingsNav`'s active item is plain React state set
+ * synchronously by the click handler (there is no scroll-spy anywhere in this
+ * form), and instrumenting a real run shows the dialog's own `scrollTop` sits at
+ * `0` before, during and after the click that reproduces this every time — the
+ * reset changes nothing here. The actual mechanism, confirmed by logging every
+ * nav button's bounding box across the click: `Modal.tsx`'s backdrop centres the
+ * dialog with `alignItems: 'center'`, and "Scoring" is a much taller section than
+ * "Event" — so clicking it grows the dialog and the whole thing re-centres,
+ * carrying the nav *upward* by roughly half that growth, with **no scroll
+ * involved at all**. Playwright's virtual pointer, left exactly where the click
+ * landed, ends up resting over whichever nav item the shift left under it —
+ * `Check-in` in the reproduction, matching the reported flake — genuinely
+ * `:hover`-ed, not a paint artefact.
+ *
+ * `page.mouse.move(-1, -1)` (below) does clear that hover, reliably, in every
+ * quiet local run. What #972 got right, and what remained the gap: moving the
+ * pointer is a real hit-test recompute Chromium schedules, not a microtask, so
+ * asking `settleTransitions` to find and await the resulting fade *immediately*
+ * after can lose the race under real contention — with nothing yet invalidated,
+ * there is nothing running to await, and the screenshot catches whatever `:hover`
+ * tint was still applied. The wait below closes that gap the way this project
+ * closes it everywhere else: assert the named state and poll for it, rather than
+ * assume a fixed number of frames was enough. It fails the spec outright if the
+ * pointer park never takes, rather than silently photographing a nav item
+ * nobody's mouse is near.
  *
  * A locator screenshot is also exempt from `page.screenshot`'s image and font
  * waits, for the same reason — different method, same page underneath — so both
@@ -420,6 +434,19 @@ export async function screenshotLocator(
         .evaluate(() => document.fonts.ready)
         .catch(() => {});
     await page.mouse.move(-1, -1).catch(() => {});
+    // Asserted, not assumed: wait for the browser to have actually recomputed
+    // `:hover` after the pointer left, rather than trusting that it already
+    // has by the time `settleTransitions` looks for an animation to await.
+    // See this function's own doc comment for why that recompute is genuinely
+    // asynchronous and can still be pending here under load.
+    const root = await locator.elementHandle();
+    if (root) {
+        await page.waitForFunction(
+            (el) => !el.matches(':hover') && !el.querySelector(':hover'),
+            root,
+            { timeout: 5000 },
+        );
+    }
     await settleTransitions(locator).catch(() => {});
     return locator.screenshot({ animations: 'disabled', ...options });
 }
