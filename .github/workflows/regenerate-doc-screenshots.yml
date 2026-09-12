@@ -182,6 +182,15 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: frontend
 
+      # What is committed, kept aside before the specs overwrite it in place —
+      # the same snapshot CI's own job takes, and for the same reason: once
+      # the first run has written into the directory there is no other copy
+      # of the baseline to compare the result against.
+      - name: Snapshot the committed screenshots
+        run: |
+          rm -rf /tmp/screenshots-baseline
+          cp -r docs/assets/screenshots /tmp/screenshots-baseline
+
       # First run. Unsharded: every spec runs on this one machine, against
       # this one backend, so the resulting docs/assets/screenshots is a
       # complete, coherent set rather than a shard's slice of one.
@@ -253,9 +262,43 @@ jobs:
       - name: Validate the docs are still self-consistent
         run: uv run pytest backend/tests/test_docs_stay_current.py
 
-      - name: Check what changed
+      # "Changed" means what CI's drift check would have flagged — the same
+      # `drift-policy.json`, so the two cannot disagree — and nothing else.
+      # The first automatic run of this job (#1037) staged 19 images by
+      # `git diff`, a byte comparison: eight were the policy's own excluded
+      # set (QR codes carrying a database id, a real clock, a camera
+      # viewfinder — different on every run by nature), and most of the rest
+      # were byte-different PNGs pixelmatch calls identical, the ordinary
+      # antialiasing residual. Staged by bytes, every merge to `main` would
+      # produce a fifteen-image PR of exactly the noise the check is told to
+      # ignore. So the working tree is put back to what is committed and only
+      # the images the policy names are copied over it from the second run's
+      # output: a new image is added, a removed one is deleted, a changed one
+      # replaced. The second run's full output still goes up as the artifact.
+      - name: Keep only the images the drift policy flags
         id: changes
         run: |
+          set +e
+          (
+            cd frontend && node e2e/docs/compare-screenshots.ts \
+              /tmp/screenshots-baseline \
+              "$GITHUB_WORKSPACE/docs/assets/screenshots" \
+              --policy e2e/docs/drift-policy.json \
+              --json /tmp/regen-drift.json
+          ) | tee /tmp/regen-drift.txt
+          set -e
+          rm -rf /tmp/screenshots-run2
+          cp -r docs/assets/screenshots /tmp/screenshots-run2
+          git checkout -- docs/assets/screenshots
+          git clean -fdq -- docs/assets/screenshots
+          awk '$1 == "FAIL" { print $3 }' /tmp/regen-drift.txt | while read -r rel; do
+            if [ -f "/tmp/screenshots-run2/$rel" ]; then
+              mkdir -p "$(dirname "docs/assets/screenshots/$rel")"
+              cp "/tmp/screenshots-run2/$rel" "docs/assets/screenshots/$rel"
+            else
+              git rm -q -- "docs/assets/screenshots/$rel"
+            fi
+          done
           git add -A -- docs/assets/screenshots
           if git diff --cached --quiet -- docs/assets/screenshots; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -264,12 +307,19 @@ jobs:
           fi
           git diff --cached --name-status -- docs/assets/screenshots > /tmp/changed-files.txt || true
           git reset -- docs/assets/screenshots > /dev/null
+          {
+            echo "### Drift against \`${{ github.ref_name }}\`"
+            echo
+            echo '```'
+            cat /tmp/regen-drift.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload regenerated screenshots as an artifact
         uses: actions/upload-artifact@v7
         with:
           name: doc-screenshots
-          path: docs/assets/screenshots/
+          path: /tmp/screenshots-run2/
           retention-days: 14
 
       # Nothing changed: say so where a person dispatching this by hand will
@@ -359,13 +409,15 @@ jobs:
             echo
             echo "### Changed files"
             echo
+            echo "Only images \`frontend/e2e/docs/drift-policy.json\` flags against \`${{ github.ref_name }}\` — the same threshold and exclusions CI's advisory check reads. Anything pixelmatch calls identical, and every excluded image, was left as committed."
+            echo
             echo '```'
             cat /tmp/changed-files.txt
             echo '```'
             echo
             echo "---"
             echo
-            echo "Part of dknowles2/trusty-track#735. If \`docs/assets/screenshots/observation/08-displays-panel.png\` appears above, this run has also picked up the stale image #735 named directly (#723 stage 3's \"connect a display\" address block); if it does not appear, that image is still stale and needs a look."
+            echo "Opened automatically after a merge to \`main\`. CI is dispatched onto this branch and auto-merge is on; if a picture here is wrong, close this PR and fix the spec — the next merge regenerates again."
             echo
             echo "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
           } > /tmp/pr-body.md

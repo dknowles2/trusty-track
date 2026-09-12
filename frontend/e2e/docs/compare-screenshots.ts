@@ -21,6 +21,7 @@
  *
  * Usage:
  *   node compare-screenshots.ts <baselineDir> <candidateDir> \
+ *     [--policy drift-policy.json] \
  *     [--json out.json] \
  *     [--exclude path,path] \
  *     [--max-diff-pixels N] [--max-diff-ratio R] \
@@ -32,6 +33,12 @@
  * if any image (missing, added, resized, or over the threshold) differs.
  * `--diff-dir` writes a visual diff PNG (pixelmatch's own highlighted output)
  * for every image that fails, for the CI job to upload as an artifact.
+ *
+ * `--policy` reads `maxDiffPixels`, `maxDiffRatio` and `exclude` from a JSON
+ * file (`drift-policy.json` beside this script is the one CI uses), so that
+ * the PR-time check and the post-merge regeneration cannot disagree about
+ * what counts as drift — the regeneration stages exactly the images this
+ * policy flags and nothing else. An explicit flag still overrides the file.
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, dirname, sep } from 'node:path';
@@ -153,13 +160,20 @@ function isViolation(r: ImageDiff, maxDiffPixels?: number, maxDiffRatio?: number
     return !(pixelsOk && ratioOk);
 }
 
+interface DriftPolicy {
+    maxDiffPixels?: number;
+    maxDiffRatio?: number;
+    exclude?: string[];
+}
+
 function parseArgs(argv: string[]) {
     const positional: string[] = [];
     let jsonOut: string | undefined;
-    let exclude: string[] = [];
+    let exclude: string[] | undefined;
     let maxDiffPixels: number | undefined;
     let maxDiffRatio: number | undefined;
     let diffDir: string | undefined;
+    let policy: DriftPolicy = {};
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         if (arg === '--json') {
@@ -172,11 +186,21 @@ function parseArgs(argv: string[]) {
             maxDiffRatio = Number(argv[++i]);
         } else if (arg === '--diff-dir') {
             diffDir = argv[++i];
+        } else if (arg === '--policy') {
+            policy = JSON.parse(readFileSync(argv[++i], 'utf8')) as DriftPolicy;
         } else {
             positional.push(arg);
         }
     }
-    return { positional, jsonOut, exclude, maxDiffPixels, maxDiffRatio, diffDir };
+    // An explicit flag wins over the policy file; the file fills in the rest.
+    return {
+        positional,
+        jsonOut,
+        exclude: exclude ?? policy.exclude ?? [],
+        maxDiffPixels: maxDiffPixels ?? policy.maxDiffPixels,
+        maxDiffRatio: maxDiffRatio ?? policy.maxDiffRatio,
+        diffDir,
+    };
 }
 
 function main() {
@@ -187,7 +211,7 @@ function main() {
     if (!baselineDir || !candidateDir) {
         console.error(
             'Usage: node compare-screenshots.ts <baselineDir> <candidateDir> ' +
-                '[--json out.json] [--exclude a.png,b.png] ' +
+                '[--policy drift-policy.json] [--json out.json] [--exclude a.png,b.png] ' +
                 '[--max-diff-pixels N] [--max-diff-ratio R] [--diff-dir dir]',
         );
         process.exit(2);

@@ -462,6 +462,13 @@ jobs:
       # UI change measured while building this gate (a focus ring, ~1,700 px /
       # 0.17%) and far above that zero residual.
       #
+      # The threshold and the exclusions live in `e2e/docs/drift-policy.json`,
+      # not here: `regenerate-doc-screenshots.yml` reads the same file to
+      # decide which images it stages after a merge, and the two must agree
+      # on what drift *is* or a regeneration would commit exactly the noise
+      # this check is told to ignore. The history of each exclusion is kept
+      # below all the same, since the file cannot hold a paragraph.
+      #
       # The excluded paths are every image measured, while building this gate,
       # to differ between two runs on a genuinely unchanged tree for a reason
       # that has nothing to do with rendering: `settings/04-activity-log.png`
@@ -504,9 +511,7 @@ jobs:
           node e2e/docs/compare-screenshots.ts \
             /tmp/screenshot-baseline \
             "$GITHUB_WORKSPACE/docs/assets/screenshots" \
-            --max-diff-pixels 50 \
-            --max-diff-ratio 0.0005 \
-            --exclude "settings/04-activity-log.png,printables/check-in-scanner.png,observation/08-displays-panel.png,observation/13-qrcode.png,printables/car-sticker-card.png,printables/car-sticker-sheet.png,printables/check-in-code-card.png,printables/check-in-code-sheet.png" \
+            --policy e2e/docs/drift-policy.json \
             --diff-dir /tmp/screenshot-diffs \
             --json /tmp/screenshot-drift.json | tee /tmp/screenshot-drift.txt
           status=$?
