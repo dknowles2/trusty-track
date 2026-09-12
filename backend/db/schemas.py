@@ -259,12 +259,24 @@ def _reject_url_uploadimage_did_not_produce(
     *and* not `uploadImage`'s own shape is refused there — which still closes
     #746's hole (a client cannot introduce a URL this app did not produce),
     it just no longer punishes an old row for existing.
+
+    Worded as "the racer's photo"/"the car's photo" rather than the raw
+    `racer_image_url`/`car_image_url` field name ([#1023](https://github.com/dknowles2/trusty-track/issues/1023))
+    — `api.schema._validation_sentence` capitalises only the first character
+    of this message now, so `uploadImage`/`URL` survive, but a snake_case
+    field name leading the sentence ("Racer_image_url must be…") would still
+    read as API vocabulary rather than a sentence a volunteer should see,
+    the same reasoning `lane_count` and `reject_blank_word` were rewritten
+    for.
     """
     if value is not None and not is_valid_photo_url(value):
         assert info.field_name is not None
+        if info.field_name == "racer_image_url":
+            subject = "the racer's photo"
+        else:
+            subject = "the car's photo"
         raise ValueError(
-            f"{info.field_name} must be a path returned by uploadImage, "
-            "not an external URL"
+            f"{subject} must be a path returned by uploadImage, not an external URL"
         )
     return value
 

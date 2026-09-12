@@ -1426,12 +1426,33 @@ def _validation_sentence(exc: ValidationError) -> str:
     strip-and-capitalise dance `_historical_record_input` (below) originally
     grew it for.
 
-    Only the first error is used: Pydantic stops collecting once a field's
-    own validator raises, so "first" here means "the one that actually
-    failed," not an arbitrary pick among several.
+    Only the first error is used, deliberately — not because Pydantic ever
+    stops at one: two independently bad fields on the same model (say,
+    ``TrackBase(lane_count=0, scale_ratio=-1.0)``) produce two entries in
+    ``exc.errors()``, and this reports only the first. A single sentence is
+    enough for the operator to fix and resubmit, and the field the schema
+    happens to declare first is as good a pick as any other — the point is
+    never to print more than one problem at a time, not that there could
+    only ever be one.
+
+    Capitalises only the first character (``msg[0].upper() + msg[1:]``)
+    rather than calling ``str.capitalize()``, which lower-cases every other
+    character too — wrong the moment a message carries something that is
+    not plain lowercase prose. `RacerBase`'s photo-URL validator and
+    `TrackBase`'s lane-colour one both learned this the hard way
+    ([#1023](https://github.com/dknowles2/trusty-track/issues/1023)):
+    `str.capitalize()` turned "uploadImage"/"URL" into "uploadimage"/"url"
+    in the first, and a hex example like ``#E53935`` into ``#e53935`` in
+    the second — both shipped, and the first was even pinned as correct by
+    this issue's own first-draft test. Every *other* message here is plain
+    lowercase prose with no embedded proper nouns, so only-first-character
+    capitalisation changes nothing for those and fixes the two that were
+    already wrong.
     """
     first = exc.errors()[0]["msg"].removeprefix("Value error, ")
-    return first.capitalize().rstrip(".") + "."
+    if not first:
+        return "Invalid value."
+    return first[0].upper() + first[1:].rstrip(".") + "."
 
 
 def _historical_record_input(
@@ -5828,7 +5849,10 @@ class Mutation:
             raise ValueError("System already initialized")
 
         config_dict = strawberry.asdict(config)
-        config_in = schemas.InitialConfigCreate(**config_dict)
+        try:
+            config_in = schemas.InitialConfigCreate(**config_dict)
+        except ValidationError as exc:
+            raise ValueError(_validation_sentence(exc)) from exc
         organization, tracks = crud.create_initial_config(db, config_in)
         _apply_pins(organization, config)
         _apply_terminology(organization, config)

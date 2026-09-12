@@ -441,7 +441,14 @@ class TestLaneColors:
             },
         ).json()
         assert "errors" in resp
-        assert "hex value" in str(resp["errors"])
+        message = resp["errors"][0]["message"]
+        assert (
+            message
+            == "Lane 1's colour must be a hex value like #E53935, got 'not-a-color'."
+        )
+        # #1023: `str.capitalize()` used to lower-case the hex example
+        # ("#e53935") along with the rest of the message.
+        assert "#E53935" in message
         assert crud.get_tracks(db) == []
 
     def test_create_track_refuses_a_named_css_color(self, client, db):
