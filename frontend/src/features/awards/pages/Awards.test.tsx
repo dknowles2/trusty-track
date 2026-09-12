@@ -287,11 +287,34 @@ describe('the awards page', () => {
     expect(await screen.findByLabelText('Winner')).toHaveValue('101');
   });
 
+  it('editing a judged award to Speed-based sends a real source and place, not null (#992)', async () => {
+    // The exact repro: "Judges’ Choice" is a SPECIAL award (null source and
+    // place, since a judged award never had either). Switching it to
+    // Speed-based and saving used to send those same nulls straight
+    // through — the selects displayed a default the draft never held.
+    renderPage();
+    await userEvent.click(screen.getByLabelText('Edit Judges’ Choice'));
+    await userEvent.click(await screen.findByLabelText(/speed-based/i));
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() =>
+      expect(mutations.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 12,
+          award: expect.objectContaining({ kind: 'SPEED', source: 'ALL', place: 1 }),
+        }),
+      ),
+    );
+  });
+
   it('sends a new award through the create mutation', async () => {
     renderPage();
     await userEvent.click(screen.getByRole('button', { name: /add an award/i }));
 
-    await userEvent.type(await screen.findByLabelText('Award name'), 'Most Original');
+    // Add an award now opens on Speed-based (#999); this test is about a
+    // judged award specifically.
+    await userEvent.click(await screen.findByLabelText(/somebody we choose/i));
+    await userEvent.type(screen.getByLabelText('Award name'), 'Most Original');
     await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
 
     await waitFor(() =>
@@ -309,7 +332,8 @@ describe('the awards page', () => {
     // would mean the two halves of the row disagree in transit.
     renderPage();
     await userEvent.click(screen.getByRole('button', { name: /add an award/i }));
-    await userEvent.type(await screen.findByLabelText('Award name'), 'Most Original');
+    await userEvent.click(await screen.findByLabelText(/somebody we choose/i));
+    await userEvent.type(screen.getByLabelText('Award name'), 'Most Original');
     await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
 
     await waitFor(() => expect(mutations.create).toHaveBeenCalled());
@@ -477,6 +501,7 @@ describe('the awards page', () => {
     it('passes the race’s awards to the picker so it can warn about a collision', async () => {
       renderPage();
       await userEvent.click(screen.getByRole('button', { name: /add an award/i }));
+      await userEvent.click(await screen.findByLabelText(/somebody we choose/i));
 
       await userEvent.selectOptions(
         await screen.findByLabelText('Winner'),

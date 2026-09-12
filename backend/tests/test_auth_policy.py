@@ -192,6 +192,54 @@ def _post(client, query, variables=None, pin=None):
     )
 
 
+# --------------------------------------------------------------------------- #
+# Verifying a candidate PIN before it is ever stored (#993)                    #
+# --------------------------------------------------------------------------- #
+
+ROLE_QUERY = "query { initialConfig { role } }"
+
+
+def test_the_role_query_resolves_a_candidate_pin_with_no_side_effects(
+    client, db, secured
+):
+    """`initialConfig { role }` is what `UnlockButton.tsx` asks *before* it
+    ever writes a guessed PIN to `localStorage` — a plain query, so
+    `RolePolicyExtension` never enters into it and a caller holding no PIN
+    (a `VIEWER`, which is exactly what an unverified guess is) may ask it
+    freely. It has to answer honestly for all three roles and leave nothing
+    behind either way, on a hit or a miss.
+    """
+    races_before = db.query(models.Race).count()
+    racers_before = db.query(models.Racer).count()
+    organization = (
+        db.query(models.Organization)
+        .filter(models.Organization.id == secured.organization_id)
+        .one()
+    )
+    operator_hash_before = organization.operator_pin_hash
+    checkin_hash_before = organization.checkin_pin_hash
+
+    right_operator = _post(client, ROLE_QUERY, pin="1111").json()
+    assert right_operator["data"]["initialConfig"]["role"] == "OPERATOR"
+
+    right_checkin = _post(client, ROLE_QUERY, pin="2222").json()
+    assert right_checkin["data"]["initialConfig"]["role"] == "CHECKIN"
+
+    wrong = _post(client, ROLE_QUERY, pin="0000").json()
+    assert wrong["data"]["initialConfig"]["role"] == "VIEWER"
+
+    no_pin_at_all = _post(client, ROLE_QUERY).json()
+    assert no_pin_at_all["data"]["initialConfig"]["role"] == "VIEWER"
+
+    # The assertion that matters: asking, including with a wrong guess,
+    # wrote nothing — no row created, no PIN changed underneath the install.
+    assert db.query(models.Race).count() == races_before
+    assert db.query(models.Racer).count() == racers_before
+    db.refresh(organization)
+    assert organization.operator_pin_hash == operator_hash_before
+    assert organization.checkin_pin_hash == checkin_hash_before
+
+
 CREATE_RACER = """
 mutation Make($racer: RacerInput!) { createRacer(racer: $racer) { id } }
 """

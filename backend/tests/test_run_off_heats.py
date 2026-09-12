@@ -262,6 +262,80 @@ class TestComputedNotStored:
         assert scoring.run_off_contested_rank(db, race.id, run_off) is None
 
 
+class TestAdvancementCascade:
+    """A recorded run-off moves the standings a championship round was drawn
+    from, and until #1015 nothing re-fielded that round — see #1025: the
+    bug sits at the seam between run-offs (#550) and advancement's
+    invalidate/populate cascade (#248), and each is individually tested
+    with no test exercising both together."""
+
+    def test_a_run_off_that_flips_a_contested_cut_refields_the_final(self, db):
+        race, _track = _seed(db)
+        prelim = _round(db, race)
+        a = _racer(db, race, "Alfa")
+        b = _racer(db, race, "Bravo")
+        c = _racer(db, race, "Charlie")
+        d = _racer(db, race, "Delta")
+        # Bravo was created first, so the naive tie-break (lower racer id
+        # wins the order) seats Bravo in the Final ahead of Charlie, even
+        # though the two are tied on score.
+        assert b.id < c.id
+
+        _heat(
+            db,
+            race,
+            prelim,
+            [
+                _lane(1, a.id, 2.0),
+                _lane(2, b.id, 3.0),
+                _lane(3, c.id, 3.0),
+                _lane(4, d.id, 4.0),
+            ],
+            1,
+        )
+
+        board = scoring.get_leaderboard(db, race.id)
+        by_id = {row["racer_id"]: row for row in board}
+        assert by_id[b.id]["rank"] == by_id[c.id]["rank"] == 2  # tied for the cut
+
+        final = crud.create_round(
+            db,
+            race.id,
+            2,
+            models.SchedulingStrategy.PPC,
+            "Final",
+            advancement_source="ALL",
+            advancement_num_racers=2,
+        )
+        crud.generate_heats_for_round(db, final.id, num_placeholders=2)
+        naive_winners = scoring.get_advancing_racers(db, race.id, "ALL", 2)
+        assert naive_winners == [a.id, b.id]  # the contested pick, pre-run-off
+        crud.populate_round_field(db, final.id, naive_winners)
+
+        # Charlie beats Bravo in the run-off, which should flip who holds
+        # the Final's second slot. `settles_round_id=None`: the Final's
+        # source is "ALL", which `_standings_for` reads against the overall
+        # (prelim-scoped, `round_id=None`) standings — the same scope the
+        # run-off has to be created against for `_run_off_lookup` to find it.
+        run_off = crud.create_run_off_heat(db, race.id, None, [b.id, c.id])
+        _record(db, run_off.id, [_lane(1, b.id, 2.5), _lane(2, c.id, 2.0)])
+
+        board = scoring.get_leaderboard(db, race.id)
+        by_id = {row["racer_id"]: row for row in board}
+        assert by_id[c.id]["rank"] == 2
+        assert by_id[b.id]["rank"] == 3
+        assert by_id[c.id]["resolved_by"] == "RUN_OFF"
+
+        final_heats = crud.get_heats(db, race.id, round_id=final.id)
+        final_racer_ids = {
+            lane.racer_id
+            for heat_lanes in crud.lanes_for_heats(db, final_heats)
+            for lane in heat_lanes
+            if lane.racer_id is not None
+        }
+        assert final_racer_ids == {a.id, c.id}
+
+
 class TestCreateValidation:
     def test_fewer_than_two_racers_is_refused(self, db):
         race, round_obj, a, _b = _tied_pair(db)
@@ -348,6 +422,31 @@ class TestCreateValidation:
         run_off = crud.create_run_off_heat(db, race.id, None, [a.id, b.id])
         assert run_off.settles_round_id is None
         assert scoring.run_off_contested_rank(db, race.id, run_off) == 1
+
+    def test_a_settles_round_id_from_another_race_is_refused(self, db: Session) -> None:
+        """#1023 item 1: `run_off_heats_settling` is scoped to one race
+        (see its own docstring), so a run-off whose `settlesRoundId` names a
+        round belonging to a *different* race would never be found by
+        anything that resolves it — it would sit as a permanent orphan,
+        showing "Racing off" with a `placement` that can never come back
+        from `None`. See #1025: the seam is between #901's "which race a
+        racer belongs to" validation on this same function and the
+        cross-race id checks #743/#746/#759/#804/#819 already established
+        for every other id this app accepts from a client."""
+        race, round_obj, a, b = _tied_pair(db)
+        other_race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Another Race Entirely",
+                organization_id=race.organization_id,
+                track_id=race.track_id,
+            ),
+        )
+        other_round = crud.create_round(
+            db, other_race.id, 1, models.SchedulingStrategy.PPC, "Prelim"
+        )
+        with pytest.raises(ValueError, match="does not belong to this race"):
+            crud.create_run_off_heat(db, race.id, other_round.id, [a.id, b.id])
 
 
 class TestDeletion:

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advancingFromLabel } from './roundSummaryText';
+import { advancingFromLabel, skippedHeatWarning } from './roundSummaryText';
 
 const DEFAULT_WORDS = { orgLower: 'pack', groupLower: 'den' };
 
@@ -29,6 +29,26 @@ describe('advancingFromLabel', () => {
         );
         expect(advancingFromLabel('EACH_GROUP', { orgLower: 'troop', groupLower: 'patrol' })).toBe(
             'each patrol',
+        );
+    });
+});
+
+describe('skippedHeatWarning', () => {
+    it('names the heat and offers to run it, with a re-pick clause for the round summary', () => {
+        expect(skippedHeatWarning(6, 'cars', true)).toBe(
+            'Heat 6 was skipped. Run it first if the cars have turned up — the next round will re-pick.',
+        );
+    });
+
+    it('drops the re-pick clause for the race summary, which has no next round to name', () => {
+        expect(skippedHeatWarning(6, 'cars', false)).toBe(
+            'Heat 6 was skipped. Run it first if the cars have turned up.',
+        );
+    });
+
+    it('uses the resolved vehicle word for an install that renamed it', () => {
+        expect(skippedHeatWarning(3, 'rockets', true)).toBe(
+            'Heat 3 was skipped. Run it first if the rockets have turned up — the next round will re-pick.',
         );
     });
 });

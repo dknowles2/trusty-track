@@ -1142,14 +1142,22 @@ input:checked + .slider:before {
   font-weight: bold;
 }
 
-.settings-nav-links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid #eee;
-  font-size: 0.85rem;
+/* The two links out (Timer check, Activity log) — ordinary entries in the
+   same list as the section buttons above (#959), not a separately boxed
+   footnote the way they used to read. Same padding, size and colour as
+   `.settings-nav button`, since a link styled differently from its
+   neighbours reads as "not really part of this list" when it is. */
+.settings-nav-link {
+  display: block;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.95rem;
+  color: var(--scouting-blue);
+  text-decoration: none;
+}
+
+.settings-nav-link:hover {
+  background: rgba(0, 63, 135, 0.07);
 }
 
 .settings-section {
@@ -1183,13 +1191,6 @@ input:checked + .slider:before {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 0.35rem;
-  }
-
-  /* The links are a column of their own even here: side by side they are two
-     long sentences, and they wrap into the section buttons above them. */
-  .settings-nav-links {
-    flex-basis: 100%;
-    margin-top: 0.5rem;
   }
 }
 

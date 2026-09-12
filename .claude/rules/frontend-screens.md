@@ -177,6 +177,42 @@ near the foot of a long page rather than as a change in behavior — the
 control itself has not moved relative to the fields around it, only relative
 to General.
 
+**The two links out are section-nav entries now, not a separately boxed
+footnote** ([#959](https://github.com/dknowles2/trusty-track/issues/959)),
+and each is labelled after the page it goes to — **Timer check →**,
+**Activity log →** — rather than a sentence describing it. `SettingsNav`'s
+`children` render straight into the same list as the section buttons
+(`.settings-nav-link` matches `.settings-nav button`'s own padding, size and
+colour) instead of behind a `border-top` divider in a smaller font: the phone
+layout already wraps every entry here into one row, and a link styled
+differently from its neighbours read as "not really part of this list" when
+it was. The wizard, which has no nav, keeps them as the plain strip under the
+form — there is nothing to be an entry *of* yet.
+
+**Leaving a race for Settings, Timer check or Activity used to drop the race
+entirely** ([#959](https://github.com/dknowles2/trusty-track/issues/959)) —
+the pill read "Select a Race" same as Home, and each of the three pages found
+its own way back differently, or (Settings) not at all. `features/core/
+lastRace.ts` remembers the race an operator was last on, per device
+(`localStorage`, the same shape as the PIN, the App theme and the finish
+chime) — `Navigation.tsx` writes it on every race-scoped route it renders,
+and forgets it once `racesChanged` reveals the race is gone (a remembered id
+absent from the freshly re-fetched list). The pill on every page with no
+race in the URL reads that name instead of "Select a Race" now; **only Home
+is exempt**, since "Select a Race" is the true description of what somebody
+on Home is meant to do next, remembered race or not.
+
+`features/core/components/BackLink.tsx` is the other half, top-left on all
+three pages, replacing three ad-hoc links (Activity's own "← Back to
+settings", Timer check's unstyled one at the foot, and Settings' — which had
+none). Three states, in order: a race is remembered → "← Back to *{name}*",
+linking straight to it; none is remembered but the caller passed a
+`fallback` → the two sub-pages' "← Back to settings"; neither → nothing,
+which is what Settings itself renders when an operator arrived with no race
+in view. Read once at mount (`useState(() => readLastRace())`), not
+subscribed to storage — each of the three is a fresh page on every
+navigation, so a value read as the page loads is already the right one.
+
 ### Themes
 
 Three independently configurable colour surfaces (#498) — **App** (the
@@ -332,6 +368,8 @@ A scan has **four** outcomes, not racer-or-nothing (`scanning.resolveScan`): the
 **The heat sheet is a table, not a card** ([#173](https://github.com/dknowles2/trusty-track/issues/173)). `/race/:raceId/print/heat-sheet`, linked from the schedule rather than the roster's print menu, because it prints the *schedule*. `heatSheet.ts` holds the rules and shares only the stylesheet with the cards above — `DocumentSpec` and `perSheet` are card geometry and do not apply.
 
 Two rules there, both about what paper needs that a screen does not: a lane's three states are **distinct** — an unadvanced championship slot reads "To be decided" because somebody will write a name in, an empty lane reads "—" because nobody is coming, and rendering both as blank loses that. And every row gets a column for every lane the **track** has rather than every lane the heat holds, so a heat short a lane still lines up with the rows above it. The blank **Result** column is deliberate: this sheet is what the announcer's table has when a screen is not there — the laptop runs flat, the timer stops talking, an auxiliary display drops off the wifi. Naming only the last of those is how the landing page ended up promising paper for a wifi failure two sections after boasting that nothing needs wifi.
+
+**"The track's lanes" is a floor, not the count, and getting that backwards lost a finished race's own results** ([#994](https://github.com/dknowles2/trusty-track/issues/994)). A track is shared across seasons (see "Turning a track's `lane_count` down" above), so a race can finish on three lanes and then have its track reconfigured down to two before anybody opens that race's schedule or heat sheet again. Rendering exactly `laneCount` columns — right for the outage case above, where the heats were rewritten to match — silently clipped lane 3's result off both screens, even though `heats { lanes { lane time } }` still held it: #325 only rewrites a round's *pending* heats when a track shrinks, deliberately leaving a recorded heat's lanes alone. The fix is `features/racing/lanes.ts`'s `laneColumnCount(laneCount, heats)` — one function both `ScheduleManagement.tsx` and `HeatSheet.tsx` call, taking the *larger* of the track's own lane count and the highest lane number the given heats actually hold, so the outage property (every row gets at least `laneCount` columns) still holds and a shrunk track additionally never hides a real result. A column past the track's current lane count is marked **not on this track**, visibly on the printed sheet (there is no hover on paper) and as a `title` on the schedule screen.
 
 **CSV lives in `utils/csv.ts`**, not in whichever page needed it. `RaceStats` had the only copy and it quoted every field without escaping an embedded quote, so a car named `The "Beast"` produced a malformed row and silently shifted every later column. Use `downloadCsv` / `filenameFor`; don't inline a third.
 

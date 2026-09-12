@@ -28,21 +28,26 @@ function renderForm(props: Partial<React.ComponentProps<typeof AwardForm>> = {})
 }
 
 describe('AwardForm', () => {
-  it('starts on a judged award, which is the one the app had no answer for', () => {
+  it('defaults to a speed award, which needs no further input to be right (#999)', () => {
+    // A speed award already defaults to the last championship round (or the
+    // qualifying standings) below, so it is correct the moment a name is
+    // typed; a judged award is never right until somebody is chosen — the
+    // shape #999's "Pack Champion silently becomes judged" bug had backwards.
     renderForm();
-    expect(screen.getByLabelText('Winner')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Standings to use')).toBeNull();
+    expect(screen.getByLabelText('Standings to use')).toBeInTheDocument();
+    expect(screen.getByLabelText('Position')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Winner')).toBeNull();
   });
 
   it('swaps the whole second half when the kind changes', async () => {
     // The two kinds share nothing but a name, so showing both sets of controls
     // would put four dead inputs in front of the operator.
     renderForm();
-    await userEvent.click(screen.getByLabelText(/speed-based/i));
+    await userEvent.click(screen.getByLabelText(/somebody we choose/i));
 
-    expect(screen.getByLabelText('Standings to use')).toBeInTheDocument();
-    expect(screen.getByLabelText('Position')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Winner')).toBeNull();
+    expect(screen.getByLabelText('Winner')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Standings to use')).toBeNull();
+    expect(screen.queryByLabelText('Position')).toBeNull();
   });
 
   it('shows both "Who wins it" descriptions at once, whichever is checked', async () => {
@@ -66,8 +71,7 @@ describe('AwardForm', () => {
   });
 
   it('offers the overall standings and every round as a source', async () => {
-    renderForm();
-    await userEvent.click(screen.getByLabelText(/speed-based/i));
+    renderForm(); // Speed-based is the default (#999) — nothing to click.
 
     const options = screen
       .getAllByRole('option')
@@ -84,8 +88,7 @@ describe('AwardForm', () => {
     // The Standings page has always carried this warning next to its own
     // "Overall" option; the award form is the one place a mix-up actually
     // hands out the wrong trophy (#862).
-    renderForm();
-    await userEvent.click(screen.getByLabelText(/speed-based/i));
+    renderForm(); // Speed-based is the default (#999) — nothing to click.
 
     expect(screen.getByText(/cover the qualifying rounds/i)).toBeInTheDocument();
 
@@ -111,8 +114,7 @@ describe('AwardForm', () => {
         onSubmit={onSubmit}
         onCancel={vi.fn()}
       />,
-    );
-    await userEvent.click(screen.getByLabelText(/speed-based/i));
+    ); // Speed-based is the default (#999) — nothing to click.
 
     expect(screen.getByLabelText('Standings to use')).toHaveValue('ROUND:4');
 
@@ -126,7 +128,6 @@ describe('AwardForm', () => {
 
   it('still defaults to the qualifying standings when the race has no championship round', async () => {
     renderForm(); // ROUNDS has no advancementSource — a general round only.
-    await userEvent.click(screen.getByLabelText(/speed-based/i));
 
     expect(screen.getByLabelText('Standings to use')).toHaveValue('ALL');
   });
@@ -134,6 +135,7 @@ describe('AwardForm', () => {
   it('submits a judged award with its chosen racer', async () => {
     const onSubmit = renderForm();
 
+    await userEvent.click(screen.getByLabelText(/somebody we choose/i));
     await userEvent.type(screen.getByLabelText('Award name'), 'Best Paint');
     await userEvent.selectOptions(screen.getByLabelText('Winner'), '2');
     await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
@@ -146,6 +148,7 @@ describe('AwardForm', () => {
   it('defaults a new judged award to votable (#305)', async () => {
     // Most judged awards a pack adds are exactly the ones people vote for.
     const onSubmit = renderForm();
+    await userEvent.click(screen.getByLabelText(/somebody we choose/i));
     await userEvent.type(screen.getByLabelText('Award name'), 'Best Paint');
     await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
 
@@ -154,6 +157,7 @@ describe('AwardForm', () => {
 
   it('lets voting be turned off for a judged award', async () => {
     const onSubmit = renderForm();
+    await userEvent.click(screen.getByLabelText(/somebody we choose/i));
     await userEvent.type(screen.getByLabelText('Award name'), 'Judges’ Pick');
     await userEvent.click(screen.getByLabelText(/let people vote for this/i));
     await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
@@ -162,8 +166,7 @@ describe('AwardForm', () => {
   });
 
   it('has no vote control on a speed award — one cannot be voted on', async () => {
-    renderForm();
-    await userEvent.click(screen.getByLabelText(/speed-based/i));
+    renderForm(); // Speed-based is the default (#999) — nothing to click.
 
     expect(screen.queryByLabelText(/let people vote for this/i)).toBeNull();
   });
@@ -172,7 +175,6 @@ describe('AwardForm', () => {
     const onSubmit = renderForm();
 
     await userEvent.type(screen.getByLabelText('Award name'), 'Fastest Wolf');
-    await userEvent.click(screen.getByLabelText(/speed-based/i));
     await userEvent.selectOptions(screen.getByLabelText('Limited to a den'), '10');
     await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
 
@@ -194,7 +196,6 @@ describe('AwardForm', () => {
     const onSubmit = renderForm();
 
     await userEvent.type(screen.getByLabelText('Award name'), 'Slowest Car');
-    await userEvent.click(screen.getByLabelText(/speed-based/i));
     await userEvent.selectOptions(screen.getByLabelText('Counting from'), 'BOTTOM');
     await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
 
@@ -204,8 +205,7 @@ describe('AwardForm', () => {
   });
 
   it('names the positions from whichever end is chosen', async () => {
-    renderForm();
-    await userEvent.click(screen.getByLabelText(/speed-based/i));
+    renderForm(); // Speed-based is the default (#999) — nothing to click.
 
     expect(screen.getByRole('option', { name: 'Fastest' })).toBeInTheDocument();
 
@@ -218,6 +218,7 @@ describe('AwardForm', () => {
   it('lets a judged award be left undecided', async () => {
     // Most of them are, right up until the end of the event.
     const onSubmit = renderForm();
+    await userEvent.click(screen.getByLabelText(/somebody we choose/i));
     await userEvent.type(screen.getByLabelText('Award name'), 'Judges’ Choice');
     await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
 
@@ -239,10 +240,11 @@ describe('AwardForm', () => {
     );
   });
 
-  it('shows the generic hint before any template is chosen', () => {
+  it('shows the generic hint before any template is chosen', async () => {
     // #440: AwardTemplate.blurb was written by every template and read by
     // nothing until this. Before a choice is made there is no blurb to show.
     renderForm();
+    await userEvent.click(screen.getByLabelText(/somebody we choose/i));
     expect(
       screen.getByText('Fills in the name and its artwork — both stay editable afterward.'),
     ).toBeInTheDocument();
@@ -250,6 +252,7 @@ describe('AwardForm', () => {
 
   it("shows the chosen template's blurb as help text (#440)", async () => {
     renderForm();
+    await userEvent.click(screen.getByLabelText(/somebody we choose/i));
     const bestPaint = templateById('best-paint');
     if (!bestPaint) throw new Error('missing fixture template');
 
@@ -269,6 +272,7 @@ describe('AwardForm', () => {
     // longer matches it, showing it as a caption for the new name would be
     // wrong rather than merely stale.
     renderForm();
+    await userEvent.click(screen.getByLabelText(/somebody we choose/i));
     await userEvent.selectOptions(
       screen.getByLabelText('Start from a ready-made award'),
       'Best Paint',
@@ -308,6 +312,7 @@ describe('AwardForm', () => {
 
     it('warns when the picked racer already holds another award', async () => {
       renderForm({ awards: AWARDS });
+      await userEvent.click(screen.getByLabelText(/somebody we choose/i));
       await userEvent.selectOptions(screen.getByLabelText('Winner'), 'Ada Lovelace (#42)');
 
       expect(
@@ -317,6 +322,7 @@ describe('AwardForm', () => {
 
     it('says nothing when nobody has won anything yet, or nothing is picked', async () => {
       renderForm({ awards: AWARDS });
+      await userEvent.click(screen.getByLabelText(/somebody we choose/i));
       expect(screen.queryByText(/Already won/)).toBeNull();
 
       await userEvent.selectOptions(screen.getByLabelText('Winner'), 'Grace Hopper (#7)');
@@ -335,11 +341,141 @@ describe('AwardForm', () => {
 
     it('never blocks the pick — a computed rule does not override a judge', async () => {
       const onSubmit = renderForm({ awards: AWARDS });
+      await userEvent.click(screen.getByLabelText(/somebody we choose/i));
       await userEvent.type(screen.getByLabelText('Award name'), 'Most Aerodynamic');
       await userEvent.selectOptions(screen.getByLabelText('Winner'), 'Ada Lovelace (#42)');
       await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
 
       expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ racerId: 1 }));
+    });
+  });
+
+  describe('editing a judged award into a speed award (#992)', () => {
+    // The exact repro: a judged award (null source/place, since a SPECIAL
+    // award never had either) switched to Speed-based on the edit form. The
+    // selects displayed a default the draft did not hold, and Save sent the
+    // nulls straight through — "Not set up — this award cannot be won".
+    const CHAMPIONSHIP_ROUNDS = [
+      { id: 1, name: 'All Pack', roundNumber: 1 },
+      { id: 4, name: 'Grand Finals', roundNumber: 2, advancementSource: 'ALL' },
+    ];
+
+    it('fills in a real source and place, not null, once switched to Speed-based', async () => {
+      const onSubmit = vi.fn();
+      render(
+        <AwardForm
+          rounds={CHAMPIONSHIP_ROUNDS}
+          racingGroups={RACING_GROUPS}
+          racers={RACERS}
+          initial={{
+            name: 'Fastest Wolf',
+            kind: 'SPECIAL',
+            source: null,
+            place: null,
+            racerId: null,
+          }}
+          submitLabel="Save changes"
+          onSubmit={onSubmit}
+          onCancel={vi.fn()}
+        />,
+      );
+
+      await userEvent.click(screen.getByLabelText(/speed-based/i));
+      // What the select displays is what will be sent — the whole bug was a
+      // gap between the two.
+      expect(screen.getByLabelText('Standings to use')).toHaveValue('ROUND:4');
+      expect(screen.getByLabelText('Position')).toHaveValue('1');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ source: 'ROUND:4', place: 1 }),
+      );
+    });
+
+    it('also fixes an award already saved broken by the bug, on open', () => {
+      // An award saved by the pre-fix code has kind SPEED with a genuinely
+      // null source/place — the state #992's own repro leaves behind.
+      // Re-opening it for editing must not perpetuate the bug.
+      render(
+        <AwardForm
+          rounds={CHAMPIONSHIP_ROUNDS}
+          racingGroups={RACING_GROUPS}
+          racers={RACERS}
+          initial={{ name: 'Fastest Wolf', kind: 'SPEED', source: null, place: null }}
+          submitLabel="Save changes"
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByLabelText('Standings to use')).toHaveValue('ROUND:4');
+      expect(screen.getByLabelText('Position')).toHaveValue('1');
+    });
+
+    it('clears the speed fields back out when switched to Somebody we choose', async () => {
+      const onSubmit = vi.fn();
+      render(
+        <AwardForm
+          rounds={CHAMPIONSHIP_ROUNDS}
+          racingGroups={RACING_GROUPS}
+          racers={RACERS}
+          initial={{
+            name: 'Fastest Wolf',
+            kind: 'SPEED',
+            source: 'ROUND:4',
+            place: 2,
+            fromBottom: true,
+            racingGroupId: 10,
+          }}
+          submitLabel="Save changes"
+          onSubmit={onSubmit}
+          onCancel={vi.fn()}
+        />,
+      );
+
+      await userEvent.click(screen.getByLabelText(/somebody we choose/i));
+      await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: null,
+          place: null,
+          racingGroupId: null,
+          fromBottom: false,
+        }),
+      );
+    });
+  });
+
+  describe('the speed-sounding-name hint on a judged award (#999)', () => {
+    it('offers a one-click switch when the name sounds like a speed award', async () => {
+      renderForm();
+      await userEvent.click(screen.getByLabelText(/somebody we choose/i));
+      await userEvent.type(screen.getByLabelText('Award name'), 'Fastest Wolf');
+
+      expect(screen.getByText(/sounds like a speed award/i)).toBeInTheDocument();
+
+      await userEvent.click(
+        screen.getByRole('button', { name: /switch who wins it to speed-based/i }),
+      );
+
+      expect(screen.getByLabelText('Standings to use')).toBeInTheDocument();
+    });
+
+    it('says nothing for an ordinary judged award name', async () => {
+      renderForm();
+      await userEvent.click(screen.getByLabelText(/somebody we choose/i));
+      await userEvent.type(screen.getByLabelText('Award name'), 'Best Paint');
+
+      expect(screen.queryByText(/sounds like a speed award/i)).toBeNull();
+    });
+
+    it('never fires while the kind is already Speed-based', async () => {
+      renderForm();
+      await userEvent.type(screen.getByLabelText('Award name'), 'Fastest Car');
+
+      expect(screen.queryByText(/sounds like a speed award/i)).toBeNull();
     });
   });
 });

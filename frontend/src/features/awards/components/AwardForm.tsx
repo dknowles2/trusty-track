@@ -26,6 +26,7 @@ import {
   positionLabel,
   racerLabel,
   roundLabel,
+  soundsLikeSpeedAward,
 } from '../awardText';
 
 export interface AwardDraft {
@@ -79,7 +80,13 @@ interface Props {
 
 const EMPTY: AwardDraft = {
   name: '',
-  kind: 'SPECIAL',
+  // Speed-based (#999): a speed award is right with no further input — it
+  // already defaults to the last championship round below, or the
+  // qualifying standings when the race has none — whereas a judged award is
+  // never right until somebody has been chosen. "Pack Champion" left on the
+  // old default silently became a judged, votable award that never
+  // resolved.
+  kind: 'SPEED',
   source: ALL_SOURCE,
   place: 1,
   fromBottom: false,
@@ -87,7 +94,9 @@ const EMPTY: AwardDraft = {
   racerId: null,
   artworkKey: null,
   // On by default for a new judged award — most of the ones a pack adds are
-  // exactly the ones people vote for (#305).
+  // exactly the ones people vote for (#305). Irrelevant until the operator
+  // switches to Somebody we choose, since `votable` is forced false for
+  // SPEED regardless of what is sent (see `asInput` in `Awards.tsx`).
   votable: true,
 };
 
@@ -112,11 +121,34 @@ export default function AwardForm({
   // qualifying leader rather than the actual champion. Editing an existing
   // award is unaffected: `initial` always wins, spread after this default.
   const defaultSource = lastChampionshipRound(rounds);
-  const [draft, setDraft] = useState<AwardDraft>({
-    ...EMPTY,
-    source: defaultSource ? `ROUND:${defaultSource.id}` : ALL_SOURCE,
-    ...initial,
-  });
+  const defaultSpeedSource = defaultSource ? `ROUND:${defaultSource.id}` : ALL_SOURCE;
+
+  // The one place `source`/`place`/`racingGroupId`/`fromBottom` are made to
+  // agree with `kind` (#992). Switching *to* SPEED fills a null source/place
+  // with the same defaults a fresh award gets — never overwriting a value
+  // already there, so toggling kind back and forth does not throw away a
+  // choice the operator already made. Switching *to* SPECIAL clears all
+  // four: the backend clears them too (`crud._clear_fields_of_other_kind`),
+  // but a draft that still holds them is a draft that could send them if a
+  // future change to `asInput` ever forgot to ask `draft.kind` first — the
+  // very shape #992 was. Called on the initial merge too, which is what
+  // fixes an award saved by the bug this closes: opening it for editing
+  // used to show a SPEED award with `null` source/place forever, since
+  // `initial` was spread *after* the computed default.
+  const withKindDefaults = (next: AwardDraft): AwardDraft => {
+    if (next.kind === 'SPEED') {
+      return {
+        ...next,
+        source: next.source ?? defaultSpeedSource,
+        place: next.place ?? 1,
+      };
+    }
+    return { ...next, source: null, place: null, racingGroupId: null, fromBottom: false };
+  };
+
+  const [draft, setDraft] = useState<AwardDraft>(() =>
+    withKindDefaults({ ...EMPTY, source: defaultSpeedSource, ...initial }),
+  );
   // Which template the picker last applied, purely to show its blurb as help
   // text (#440) — the name and artwork fields it wrote are the only lasting
   // effect, and stay free text from the moment `applyTemplate` runs. Cleared
@@ -126,6 +158,9 @@ export default function AwardForm({
 
   const set = <K extends keyof AwardDraft>(key: K, value: AwardDraft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
+
+  const setKind = (kind: AwardDraft['kind']) =>
+    setDraft((current) => withKindDefaults({ ...current, kind }));
 
   // Writes an ordinary name and artwork key into the draft. Nothing tracks
   // "which template is currently applied" for the *draft* — both fields stay
@@ -173,6 +208,30 @@ export default function AwardForm({
           className="form-control"
           required
         />
+        {/* Non-blocking: a pack can name a judged award anything it likes
+            (#999). This only fires while the kind is still Somebody we
+            choose — a speed award naming itself "Fastest" is not a mistake
+            to flag. */}
+        {draft.kind === 'SPECIAL' && soundsLikeSpeedAward(draft.name) && (
+          <small style={{ color: 'var(--warning-soft-color)', display: 'block', marginTop: '0.3rem' }}>
+            This sounds like a speed award.{' '}
+            <button
+              type="button"
+              onClick={() => setKind('SPEED')}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                font: 'inherit',
+                color: 'inherit',
+                textDecoration: 'underline',
+                cursor: 'pointer',
+              }}
+            >
+              Switch Who wins it to Speed-based?
+            </button>
+          </small>
+        )}
       </div>
 
       <fieldset style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem' }}>
@@ -182,7 +241,7 @@ export default function AwardForm({
             type="radio"
             name="award-kind"
             checked={draft.kind === 'SPECIAL'}
-            onChange={() => set('kind', 'SPECIAL')}
+            onChange={() => setKind('SPECIAL')}
           />{' '}
           Somebody we choose
           <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem' }}>
@@ -195,7 +254,7 @@ export default function AwardForm({
             type="radio"
             name="award-kind"
             checked={draft.kind === 'SPEED'}
-            onChange={() => set('kind', 'SPEED')}
+            onChange={() => setKind('SPEED')}
           />{' '}
           Speed-based
           <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem' }}>
@@ -213,7 +272,12 @@ export default function AwardForm({
             </label>
             <select
               id="award-source"
-              value={draft.source ?? ALL_SOURCE}
+              // `withKindDefaults` guarantees a non-null `source` whenever
+              // `kind === 'SPEED'` — this block only renders in that case
+              // (#992). A render-side `?? ALL_SOURCE` fallback here was the
+              // bug: it let the select *display* a default the draft never
+              // held, so Save sent `null`.
+              value={draft.source as string}
               onChange={(e) => set('source', e.target.value)}
               className="form-control"
             >
@@ -232,7 +296,7 @@ export default function AwardForm({
                 page's own conditional note (#862) — the one place a speed
                 award decides who wins deserves the same warning that page
                 already gives about what "Overall" leaves out. */}
-            {(draft.source ?? ALL_SOURCE) === ALL_SOURCE && (
+            {draft.source === ALL_SOURCE && (
               <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.3rem' }}>
                 Overall standings cover the qualifying rounds. Championship results are
                 listed separately — pick a round above.
@@ -264,7 +328,9 @@ export default function AwardForm({
               </label>
               <select
                 id="award-place"
-                value={draft.place ?? 1}
+                // Same invariant as `award-source` above: non-null whenever
+                // `kind === 'SPEED'`, maintained by `withKindDefaults`.
+                value={draft.place as number}
                 onChange={(e) => set('place', Number(e.target.value))}
                 className="form-control"
               >

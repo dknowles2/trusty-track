@@ -9,7 +9,7 @@
  * Also the conversion to `HeatLaneInput` for the write path, which is a
  * near-identity — the read and write shapes match on purpose.
  */
-import type { Lane, LaneInput } from './types';
+import type { Heat, Lane, LaneInput } from './types';
 
 /**
  * A lane with a recorded result — a time, or a hand-entered place.
@@ -41,6 +41,17 @@ export const hasRun = (lanes: readonly Lane[]): boolean =>
 /** Passed over rather than raced — skipped, and nothing was timed. */
 export const wasSkipped = (lanes: readonly Lane[]): boolean =>
   lanes.some((lane) => lane.skipped) && !hasTimes(lanes);
+
+/**
+ * Heats that were skipped and never re-run, in heat-number order (issue
+ * #1001) — the earliest is the one an operator would want to run first.
+ * `wasSkipped` already asks the per-heat question ("skipped, and nothing has
+ * been timed since"); this lifts it to a list of heats for the Round
+ * Complete!/Race Complete! summaries, both of which need to name *which*
+ * heat rather than just whether one exists.
+ */
+export const skippedHeats = (heats: readonly Heat[]): Heat[] =>
+  heats.filter((h) => wasSkipped(h.lanes)).sort((a, b) => a.heatNumber - b.heatNumber);
 
 /** Lanes in finishing order, unplaced last. */
 export const byPlace = (lanes: readonly Lane[]): Lane[] =>
@@ -316,6 +327,37 @@ export const parseTimeText = (timeText: string): number | null => {
   const time = Number(timeText);
   return timeText.trim() === '' || isNaN(time) ? null : time;
 };
+
+/**
+ * How many lane columns a schedule table or heat sheet needs (issue #994).
+ *
+ * `track.laneCount` is usually enough, but a track is shared across seasons
+ * (`.claude/rules/scheduling.md`): shrinking it after a race leaves that
+ * race's finished heats naming a lane the track no longer has. #325 rewrites
+ * *pending* heats to match a new lane count, deliberately not recorded
+ * ones — the data is real and must not be discarded — so a screen that
+ * renders exactly `laneCount` columns silently clips that lane's results off
+ * the page, even though `heats { lanes { lane time } }` still holds them.
+ *
+ * The fix is not "read the heats instead of the track" — that would break
+ * the rule this one extends: a heat short a lane (an outage, say) must still
+ * line up with its neighbours, showing an empty column rather than shifting
+ * left, which only works if every row has at least `laneCount` columns. So
+ * this is a `max`: at least the track's own lanes, and at least whatever
+ * lane number the given heats actually hold.
+ *
+ * One function for both callers (`ScheduleManagement.tsx`,
+ * `HeatSheet.tsx`) so they cannot independently derive the column count and
+ * disagree about it the way they did before this existed.
+ */
+export const laneColumnCount = (
+  laneCount: number,
+  heats: readonly { lanes: readonly { lane: number }[] }[],
+): number =>
+  heats.reduce(
+    (max, heat) => heat.lanes.reduce((laneMax, l) => Math.max(laneMax, l.lane), max),
+    laneCount,
+  );
 
 /**
  * Lanes that recorded the identical time, grouped by that time (issue

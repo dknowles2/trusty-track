@@ -30,7 +30,7 @@ import {
 import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiPencil } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane, EliminationChart } from '../types';
-import { hasRun, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shouldDerivePlaces } from '../lanes';
+import { hasRun, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shouldDerivePlaces, skippedHeats } from '../lanes';
 import { executionComparator } from '../runningOrder';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
 import { hasTerminalRound, heatSetKey, observeRaceComplete, type SeenComplete } from '../raceCompletion';
@@ -158,6 +158,10 @@ export default function RaceControl() {
   // tell those two completions apart; see its own docstring.
   const heatIds = useMemo(() => heats.map((h: Heat) => h.id), [heats]);
 
+  // The earliest skipped-and-never-rerun heat anywhere in the race (#1001),
+  // for the Race Complete! modal, which has no single round in view.
+  const raceSkippedHeat = useMemo(() => skippedHeats(heats)[0] ?? null, [heats]);
+
   // Whether the schedule already holds a round that could only be a genuine
   // ending — a round drawing its field from another round's standings
   // (#874). Passed to the summary modal so it can tell "every heat that
@@ -213,6 +217,22 @@ export default function RaceControl() {
     () => executionComparator(masterRunningOrder, championshipRoundIds),
     [masterRunningOrder, championshipRoundIds],
   );
+
+  // The earliest skipped-and-never-rerun heat among the *general* rounds,
+  // for the Round Complete! modal's "run it first" line (#1001). The round
+  // this modal is about is the newly-decided championship round itself
+  // (`decidedRoundIds` in `roundCompletion.ts`, filtered to a round holding
+  // an `advancementSource`) — its own heats are freshly populated from the
+  // standings and were never skippable — so the skip worth surfacing here
+  // is in whichever general round(s) just finished and fed that decision.
+  // Skipping a heat is a legitimate way for a round to finish, but it means
+  // the advancement cascade already ran without that heat's real result;
+  // this is what lets the operator get back to it before trusting the
+  // line-up on screen.
+  const roundSkippedHeat = useMemo(() => {
+    if (!roundSummary) return null;
+    return skippedHeats(heats.filter((h: Heat) => !championshipRoundIds.has(h.roundId)))[0] ?? null;
+  }, [heats, roundSummary, championshipRoundIds]);
 
   /**
    * The heat armed or running on this track right now, or null (#345).
@@ -712,10 +732,19 @@ export default function RaceControl() {
     reExecute({ requestPolicy: 'network-only' });
   }, [viewMode, reExecute]);
 
+  // The running order for navigation only — `orderHeats` decides which heat
+  // is "next", not what to call it. A championship round is renumbered 1..N
+  // by every advancement rebuild (`.claude/rules/race-day-ui.md`'s
+  // `execution_sort_key`), so a position counted across the whole array here
+  // used to disagree with that round's own `heatNumber` the moment it
+  // followed a raced general round — the final's heats read "12, 13, 14" on
+  // this screen while the Schedule tab, heat sheet and Live display, which
+  // read `heatNumber` straight off the heat, called them "Heat 1, 2, 3"
+  // (#995). Fixed by not inventing a second number at all: every display
+  // below reads `heat.heatNumber`, the same one every other screen already
+  // shows, with the round's own name beside it.
   const sortedHeatsEx = useMemo(() => {
-    return [...heats]
-      .sort(orderHeats)
-      .map((h: Heat, idx) => ({ ...h, globalHeatNumber: idx + 1 }));
+    return [...heats].sort(orderHeats);
   }, [heats, orderHeats]);
 
   /** The heat on screen: what the operator picked, else where the race is up to.
@@ -1019,6 +1048,8 @@ export default function RaceControl() {
               laneColors={race?.track?.laneColors ?? []}
               racers={racers}
               roundSummary={roundSummary}
+              roundSkippedHeat={roundSkippedHeat}
+              raceSkippedHeat={raceSkippedHeat}
               raceJustCompleted={raceJustCompleted}
               raceSummaryKey={raceSummaryKey}
               hasChampionshipRound={hasChampionshipRound}
@@ -1053,7 +1084,7 @@ export default function RaceControl() {
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Heat {heat.globalHeatNumber ?? heat.heatNumber}</span>
+                            <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Heat {heat.heatNumber}</span>
                             {isSkipped && !timed && (
                                 <span style={{ background: 'var(--danger-bg-color)', color: 'var(--danger-strong-color)', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>Skipped</span>
                             )}

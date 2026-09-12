@@ -33,6 +33,7 @@ import {
   type SetupAnswers,
 } from '../../../context/organizationKinds';
 import { NAME_DISPLAY_OPTIONS } from '../../core/displayName';
+import BackLink from '../../core/components/BackLink';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
 const GET_INITIAL_CONFIG = `
@@ -985,6 +986,9 @@ export default function SystemConfig() {
 
   return (
     <div className="container">
+      {/* #959: nothing when no race is remembered — Settings has no natural
+          "back" target of its own, the same as before this existed. */}
+      <BackLink />
       <h1>{isEditing ? 'System Settings' : 'Initial Setup'}</h1>
       <p>{isEditing ? 'Update your racing environment settings.' : "Welcome to Trusty Track! Let's set up your racing environment."}</p>
 
@@ -993,16 +997,17 @@ export default function SystemConfig() {
       <div className={sectioned ? 'settings-layout' : undefined}>
         {sectioned && (
           <SettingsNav sections={navSections} current={section} onSelect={setSection}>
-            {/* Two links out, at the foot of the nav rather than buried at
-                the bottom of a section, because the documentation sends
-                people to them by this route — "Settings → Check the timer
-                connection", "Settings → Activity log". */}
-            <Link to="/timer-check">Check the timer connection &rarr;</Link>
+            {/* Two links out, as ordinary entries after the sections (#959)
+                rather than a separately boxed footnote — the documentation
+                sends people to them by this route — "Settings → Timer
+                check", "Settings → Activity log" — and each is labelled
+                after the page it goes to. */}
+            <Link className="settings-nav-link" to="/timer-check">Timer check &rarr;</Link>
             {/* The activity log (#219) spans every race and answers a
                 question nobody asks until something has already gone wrong,
                 which is why it sits with the diagnostics rather than in the
                 race navigation. */}
-            <Link to="/activity">Activity log &rarr;</Link>
+            <Link className="settings-nav-link" to="/activity">Activity log &rarr;</Link>
           </SettingsNav>
         )}
 
@@ -1053,7 +1058,7 @@ export default function SystemConfig() {
           */}
           {!sectioned && (
             <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.9rem' }}>
-              <Link to="/timer-check">Check the timer connection &rarr;</Link>
+              <Link to="/timer-check">Timer check &rarr;</Link>
               {' · '}
               <Link to="/activity">Activity log &rarr;</Link>
             </p>

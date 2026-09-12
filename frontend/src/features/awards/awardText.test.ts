@@ -10,6 +10,7 @@ import {
   racerLabel,
   rollDownNote,
   roundLabel,
+  soundsLikeSpeedAward,
   sourceLabel,
 } from './awardText';
 
@@ -331,5 +332,35 @@ describe('awardHolderWarning (#615)', () => {
 
   it('excludes the award being edited, so it does not warn about itself', () => {
     expect(awardHolderWarning(10, awards, 1)).toBeNull();
+  });
+});
+
+describe('soundsLikeSpeedAward (#999)', () => {
+  it.each(['Fastest Car', 'Slowest Car', 'Pack Champion', 'Champion of the Pack', '2nd Fastest'])(
+    'flags %s',
+    (name) => {
+      expect(soundsLikeSpeedAward(name)).toBe(true);
+    },
+  );
+
+  it.each(['Best Paint', 'Most Original', "Judges' Choice", 'Most Aerodynamic'])(
+    'does not flag %s',
+    (name) => {
+      expect(soundsLikeSpeedAward(name)).toBe(false);
+    },
+  );
+
+  it('matches a keyword only as a whole word', () => {
+    // "Championship Sponsor" names a sponsor, not a race result — matching
+    // "Champion" mid-word would flag names that have nothing to do with it.
+    expect(soundsLikeSpeedAward('Championship Sponsor Award')).toBe(false);
+  });
+
+  it('matches an ordinal on its own, with no keyword nearby', () => {
+    expect(soundsLikeSpeedAward('3rd Place')).toBe(true);
+  });
+
+  it('is case-insensitive', () => {
+    expect(soundsLikeSpeedAward('FASTEST WOLF')).toBe(true);
   });
 });

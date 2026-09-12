@@ -115,7 +115,11 @@ laptop runs flat, and the announcer still has to know which cars are next.
 - A lane nobody is in reads **—**: nobody is coming. The difference from
   the line above matters.
 - Every row has a column for every lane the track has, so a heat short a
-  lane still lines up with the rows around it.
+  lane still lines up with the rows around it — and if a track was later
+  reconfigured with fewer lanes than a finished race actually used, the
+  sheet still prints a column for the highest lane that race's own heats
+  hold, marked **not on this track**, rather than clipping that lane's
+  result off the page.
 - A lane header prints its [colour](race-settings.md#lane-colours) as a
   small dot beside the number, when one is configured — the lane number
   itself is always there too, since a dot alone means nothing on a

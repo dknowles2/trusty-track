@@ -42,7 +42,7 @@ import { heatsEstimate } from '../../../utils/duration';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { estimatePace } from '../pace';
 import type { EliminationChart, Heat, Lane, Round } from '../types';
-import { formatLaneTime, hasRun, hasTimes } from '../lanes';
+import { formatLaneTime, hasRun, hasTimes, laneColumnCount } from '../lanes';
 import { executionComparator } from '../runningOrder';
 import { advancingFromLabel } from '../roundSummaryText';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
@@ -212,6 +212,9 @@ interface SortableHeatRowProps {
   getRacerName: (id: number) => string;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
   onDeleteHeat: (heatId: number) => Promise<void>;
+  /** How many lane columns this row renders — `laneColumnCount(track.laneCount,
+   * roundHeats)`, not the bare track value, so a finished heat's lane past a
+   * since-shrunk track (#994) still gets a column. */
   laneCount: number;
 }
 
@@ -306,7 +309,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
         <Icon path={mdiDragVertical} size={0.8} color="var(--text-faint-color)" />
       </td>
       <td style={{ padding: '12px', fontWeight: 'bold', width: '80px' }}>
-        Heat {heat.globalHeatNumber ?? heat.heatNumber}
+        Heat {heat.heatNumber}
         {isSkipped && !hasRecordedTimes && (
           <div style={{ color: 'var(--danger-strong-color)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold' }}>Skipped</div>
         )}
@@ -598,6 +601,12 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
         heatNumber: index + 1,
     }));
 
+    // Sorted for the master-running-order panel's own re-render, which reads
+    // `localHeats` straight off this state — the per-round tables key off
+    // `roundId`/`heatNumber` regardless of array order. No `globalHeatNumber`
+    // here (#995): a continuing index across rounds is exactly the number
+    // that disagreed with a championship round's own `heatNumber` on the
+    // Race tab, and nothing in this component reads it any more.
     const optimisticHeats = localHeats.map(h => {
         if (h.roundId === roundId) {
             return updatedRoundHeats.find(u => u.id === h.id) || h;
@@ -606,7 +615,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     }).sort((a, b) => {
         if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
         return a.heatNumber - b.heatNumber;
-    }).map((h, idx) => ({ ...h, globalHeatNumber: idx + 1 }));
+    });
 
     setLocalHeats(optimisticHeats);
 
@@ -850,6 +859,13 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
               const roundHeats = [...(rounds[roundId] || [])].sort((a, b) => a.heatNumber - b.heatNumber);
               const roundNum = roundHeats[0]?.roundNumber || 0;
               const isAnyStarted = roundHeats.some(h => hasTimes(h.lanes));
+              // A track shared across seasons can shrink after this round
+              // raced (#994): #325 rewrites *pending* heats to the new lane
+              // count, deliberately leaving a recorded heat's lanes alone, so
+              // this round's own heats may still hold a lane past `laneCount`.
+              // Rendering exactly `laneCount` columns would clip that lane's
+              // result off the page even though the data is still there.
+              const displayLaneCount = laneColumnCount(laneCount, roundHeats);
               const uncompletedHeats = roundHeats.filter(h => !hasRun(h.lanes)).length;
               const totalHeats = roundHeats.length;
               // Present only for an elimination round (#710) — every other
@@ -1117,11 +1133,28 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           <tr style={{ background: 'var(--surface-alt-color)' }}>
                             <th style={{ padding: '12px 8px', width: '40px' }}></th>
                             <th style={{ padding: '12px', width: '100px', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Heat</th>
-                            {Array.from({ length: laneCount }).map((_, i) => (
-                              <th key={i} style={{ padding: '12px', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-                                <LaneBadge color={colorForLane(laneColors, i + 1)}>Lane {i + 1}</LaneBadge>
-                              </th>
-                            ))}
+                            {Array.from({ length: displayLaneCount }).map((_, i) => {
+                              const laneNum = i + 1;
+                              // A column past the track's own lane count is a
+                              // finished race's lane 3 on a track since
+                              // shrunk to two (#994) — the data is real, but
+                              // nothing on this track produces it any more.
+                              const offTrack = laneNum > laneCount;
+                              return (
+                                <th
+                                  key={i}
+                                  style={{ padding: '12px', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}
+                                  title={offTrack ? `Lane ${laneNum} is no longer on this track` : undefined}
+                                >
+                                  <LaneBadge color={colorForLane(laneColors, laneNum)}>Lane {laneNum}</LaneBadge>
+                                  {offTrack && (
+                                    <div style={{ fontWeight: 'normal', textTransform: 'none', fontSize: '0.65rem', color: 'var(--text-faint-color)' }}>
+                                      not on this track
+                                    </div>
+                                  )}
+                                </th>
+                              );
+                            })}
                             <th style={{ padding: '12px', width: '120px', textAlign: 'right', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Actions</th>
                           </tr>
                         </thead>
@@ -1147,7 +1180,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                 getRacerName={getRacerName}
                                 onRunHeat={onRunHeat}
                                 onDeleteHeat={onDeleteHeat}
-                                laneCount={laneCount}
+                                laneCount={displayLaneCount}
                               />
                             ))}
                           </tbody>
