@@ -14,6 +14,16 @@ property sweep: build every cell through the doors the app itself offers,
 race it to the end, and assert the same handful of invariants on all of
 them.
 
+Championship shape is `none` / `ALL` / `EACH_GROUP` / `ROUND:<general>` — four
+values, not the three #1025 first suggested. `EACH_GROUP` joined after review
+found it shares #1054's bug (below) and was simply missing from the original
+sweep, the same gap #1025 itself had. The fixture's two racing groups (4 and
+3 checked-in racers) are both large enough to fill `EACH_GROUP`'s own request
+— `TOP_N` per group, not `TOP_N` total (`domain.advancement.field_size`) — so
+`_assert_championship_filled`'s exact-size check (below) is a real assertion
+for those cells rather than one that would pass on a short field just as
+easily.
+
 Two doors, matching how an operator actually reaches each shape:
 
 - The **general round** is always built through `createRoundWizard` — the
@@ -31,7 +41,7 @@ Two doors, matching how an operator actually reaches each shape:
   never a general round directly — so an operator who runs the wizard for
   just a general round and later adds a championship round through "Add
   Round" reaches exactly the two-call sequence this sweep drives. That
-  sequence is what surfaced #1054 below.
+  sequence is what surfaced #1054 below, for both `ALL` and `EACH_GROUP`.
 
 Master running order, when a cell wants it on, is switched on and applied
 *after* both rounds already exist — `updateRace(masterRunningOrder: true)`
@@ -318,14 +328,32 @@ def _assert_heat_numbers_unique(db, race_id: int) -> None:
 
 
 def _assert_championship_filled(db, round_id: int) -> None:
+    """No unresolved placeholder remains, *and* the field that filled it is
+    exactly what `crud.round_field_size` says it should be — not merely
+    non-empty. Checking size as well as "no placeholders left" is what makes
+    the `EACH_GROUP` cells genuinely test something: `EACH_GROUP`'s request
+    is per racing group (`TOP_N * racing_group_count`, `domain.advancement.
+    field_size`), and a fixture with too few checked-in racers in one group
+    would let the round quietly shrink to a *short* field (`field_is_short`'s
+    own rebuild) and still pass a bare "nothing is a placeholder" check —
+    exactly the false confidence the brief asked this sweep to rule out.
+    """
     round_obj = db.get(models.Round, round_id)
     assert round_obj is not None
     heats = db.query(models.Heat).filter(models.Heat.round_id == round_obj.id).all()
+    real_racer_ids: set[int] = set()
     for lanes in crud.lanes_for_heats(db, heats):
         for lane in lanes:
             assert not (lane.placeholder_slot is not None and lane.racer_id is None), (
                 f"round {round_id} still holds an unresolved placeholder"
             )
+            if lane.racer_id is not None:
+                real_racer_ids.add(lane.racer_id)
+    expected = crud.round_field_size(db, round_obj)
+    assert len(real_racer_ids) == expected, (
+        f"round {round_id} filled with {len(real_racer_ids)} racers "
+        f"({sorted(real_racer_ids)}), but round_field_size says {expected}"
+    )
 
 
 CELLS = [
@@ -333,6 +361,8 @@ CELLS = [
     ("PPC", "none", "on"),
     ("PPC", "ALL", "off"),
     ("PPC", "ALL", "on"),
+    ("PPC", "EACH_GROUP", "off"),
+    ("PPC", "EACH_GROUP", "on"),
     ("PPC", "ROUND", "off"),
     ("PPC", "ROUND", "on"),
     ("ELIMINATION", "none", "off"),
@@ -349,12 +379,31 @@ CELLS = [
         "on",
         marks=pytest.mark.xfail(reason="#1054", strict=True),
     ),
+    # createRound's championship branch treats "ALL" and "EACH_GROUP" the
+    # same way — neither gets the wizard's ROUND:<elimination> chaining, and
+    # #1054's own issue text names both — so the same never-fills failure
+    # reproduces here, on the identical `_assert_championship_filled`
+    # unresolved-placeholder assertion #1054's ALL cell fails on.
+    pytest.param(
+        "ELIMINATION",
+        "EACH_GROUP",
+        "off",
+        marks=pytest.mark.xfail(reason="#1054", strict=True),
+    ),
+    pytest.param(
+        "ELIMINATION",
+        "EACH_GROUP",
+        "on",
+        marks=pytest.mark.xfail(reason="#1054", strict=True),
+    ),
     ("ELIMINATION", "ROUND", "off"),
     ("ELIMINATION", "ROUND", "on"),
     ("BALANCED", "none", "off"),
     ("BALANCED", "none", "on"),
     ("BALANCED", "ALL", "off"),
     ("BALANCED", "ALL", "on"),
+    ("BALANCED", "EACH_GROUP", "off"),
+    ("BALANCED", "EACH_GROUP", "on"),
     ("BALANCED", "ROUND", "off"),
     ("BALANCED", "ROUND", "on"),
 ]
@@ -368,10 +417,13 @@ def test_format_crossing(db, client, general_style, championship_shape, master_o
     general_round_id = _create_general_round(client, race.id, general_style)
 
     champ_round_id = None
-    if championship_shape == "ALL":
-        champ_round_id, errors = _create_championship_round(client, race.id, "ALL")
+    if championship_shape in ("ALL", "EACH_GROUP"):
+        champ_round_id, errors = _create_championship_round(
+            client, race.id, championship_shape
+        )
         assert not errors, (
-            f"createRound refused ALL for a {general_style} general round: {errors}"
+            f"createRound refused {championship_shape} for a {general_style} "
+            f"general round: {errors}"
         )
     elif championship_shape == "ROUND":
         champ_round_id, errors = _create_championship_round(
