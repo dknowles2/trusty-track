@@ -982,7 +982,47 @@ class TestOverGraphQL:
             },
         ).json()
         assert "errors" in body
+        # #1023: the sentence the validator wrote, not Pydantic's wrapper.
+        message = body["errors"][0]["message"]
+        assert message == "Place is 1-based; the winner is 1."
+        assert "validation error for" not in message
         assert crud.get_awards(db, race_id) == []
+
+    def test_update_award_refuses_a_place_below_one_too(self, client, db):
+        race_id, _dens, _racers = build_race(db)
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Fastest Overall",
+                kind=models.AwardKind.SPEED,
+                source="ALL",
+                place=1,
+            ),
+        )
+        body = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation Update($id: Int!, $award: AwardInput!) {
+                  updateAward(id: $id, award: $award) { id }
+                }
+                """,
+                "variables": {
+                    "id": award.id,
+                    "award": {
+                        "name": "Fastest Overall",
+                        "kind": "SPEED",
+                        "source": "ALL",
+                        "place": -1,
+                    },
+                },
+            },
+        ).json()
+        assert "errors" in body
+        message = body["errors"][0]["message"]
+        assert message == "Place is 1-based; the winner is 1."
+        assert "validation error for" not in message
 
     def test_voting_open_is_an_ordinary_field_on_update_race(self, client, db):
         # Not a separate mutation — `updateRace` already drops absent fields

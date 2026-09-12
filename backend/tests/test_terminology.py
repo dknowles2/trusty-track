@@ -355,7 +355,7 @@ class TestBlankWordIsRefused:
 
         res = response.json()
         assert "errors" in res
-        assert "racing_group_singular cannot be blank" in str(res["errors"])
+        assert "Racing group singular cannot be blank." in str(res["errors"])
         db.refresh(race)
         assert race.racing_group_singular is None
 
@@ -391,7 +391,7 @@ class TestBlankWordIsRefused:
 
         res = response.json()
         assert "errors" in res
-        assert "racing_group_singular cannot be blank" in str(res["errors"])
+        assert "Racing group singular cannot be blank." in str(res["errors"])
         # Refused whole: no race was written, not a race with a blank word.
         assert (
             db.query(models.Race)
@@ -527,7 +527,7 @@ class TestBlankWordIsRefused:
 
         res = response.json()
         assert "errors" in res
-        assert "racing_group_plural cannot be blank" in str(res["errors"])
+        assert "racing group plural cannot be blank" in str(res["errors"])
         db.refresh(organization)
         assert organization.racing_group_plural is None
 

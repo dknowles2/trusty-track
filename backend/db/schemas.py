@@ -61,9 +61,15 @@ class TrackBase(BaseModel):
         shift count raises rather than returning a heat sheet — an
         unhandled 500 far from the mistake that caused it. The upper bound
         matches the settings form's own `max="8"`.
+
+        Worded "lane count" rather than "lane_count" ([#1023](https://github.com/dknowles2/trusty-track/issues/1023))
+        — `api.schema._validation_sentence` capitalises this message for the
+        operator, and a leading underscore survives that unchanged
+        ("Lane_count…"), where a snake_case identifier is API vocabulary,
+        not a sentence a volunteer should ever read.
         """
         if not 1 <= value <= 8:
-            raise ValueError("lane_count must be between 1 and 8")
+            raise ValueError("lane count must be between 1 and 8")
         return value
 
     @field_validator("scale_ratio")
@@ -380,7 +386,7 @@ class RaceBase(BaseModel):
     @classmethod
     def drop_worst_runs_is_not_negative(cls, value: int) -> int:
         if value < 0:
-            raise ValueError("drop_worst_runs cannot be negative")
+            raise ValueError("the number of runs to drop cannot be negative")
         return value
 
 
@@ -513,7 +519,7 @@ class RaceUpdate(BaseModel):
     @classmethod
     def drop_worst_runs_is_not_negative(cls, value: int | None) -> int | None:
         if value is not None and value < 0:
-            raise ValueError("drop_worst_runs cannot be negative")
+            raise ValueError("the number of runs to drop cannot be negative")
         return value
 
     @field_validator(*TERMINOLOGY_WORD_FIELDS)

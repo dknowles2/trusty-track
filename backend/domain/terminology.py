@@ -95,9 +95,18 @@ def reject_blank_word(field: str, value: str) -> None:
     the weight limit (#205) is — it renders as nothing everywhere it
     reaches: labels, headings, printed documents, the audience displays —
     so there is no legitimate reason to store one (#704).
+
+    Worded with a space rather than the field's own `snake_case` name
+    ([#1023](https://github.com/dknowles2/trusty-track/issues/1023)) — this
+    message reaches an operator two ways: verbatim, when
+    `updateInitialConfig`/`createInitialConfig` call this directly, and
+    through `api.schema._validation_sentence`'s capitalisation when a
+    `field_validator` on `RaceCreate`/`RaceUpdate` raises it instead, and a
+    snake_case identifier reads as API vocabulary in either case, not a
+    sentence a volunteer should see.
     """
     if not value.strip():
-        raise ValueError(f"{field} cannot be blank")
+        raise ValueError(f"{field.replace('_', ' ')} cannot be blank")
 
 
 @dataclass(frozen=True)

@@ -10,6 +10,8 @@ Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE
 
 `race_id` must now name a race that exists, or `create_racer` raises `ValueError` — no fallback, no invented race. Every internal caller already supplies its own explicit, just-created `race_id` (`populate.generate_fake_racers`, `write_imported_roster`, the CSV importer), so nothing depended on the fallback; only the `createRacer` mutation's own client-supplied id could ever have been stale, and that is exactly the path this closes.
 
+**`crud.create_race`/`update_race` follow the identical rule one field over, for `track_id`** ([#1023](https://github.com/dknowles2/trusty-track/issues/1023)) — a stale or hand-built `trackId` used to reach the `INSERT`/`UPDATE`'s own foreign key constraint and surface as a raw `sqlite3.IntegrityError`, SQL text and bound parameters included, rather than a sentence. Both now check the track exists first and raise `ValueError` naming it, the same shape as `create_racer`'s own refusal above.
+
 ### Car numbering
 
 `PER_GROUP` fills within each racing group's range; `GLOBAL` numbers sequentially from `global_start_number`; `MANUAL` disables auto-numbering.

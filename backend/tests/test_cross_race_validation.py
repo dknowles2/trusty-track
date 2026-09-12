@@ -270,6 +270,12 @@ def test_create_racer_refuses_an_external_image_url(client, db):
     ).json()
 
     assert body.get("errors")
+    # #1023: the sentence the validator wrote, not Pydantic's own wrapper.
+    message = body["errors"][0]["message"]
+    assert message == (
+        "Racer_image_url must be a path returned by uploadimage, not an external url."
+    )
+    assert "validation error for" not in message
     assert (
         db.query(models.Racer)
         .filter(models.Racer.race_id == race.id, models.Racer.last_name == "Comer")

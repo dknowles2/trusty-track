@@ -1411,6 +1411,29 @@ class HistoricalTrackRecordInput:
     race_date: str | None = None
 
 
+def _validation_sentence(exc: ValidationError) -> str:
+    """Turn Pydantic's own wall of text into the sentence a validator wrote.
+
+    Every ``field_validator`` in ``schemas.py`` raises a plain ``ValueError``
+    with a sentence a volunteer can read (see, e.g., ``TrackBase``'s
+    ``lane_count`` and ``scale_ratio`` checks); Pydantic wraps that in
+    ``"1 validation error for <Model>\\n<field>\\n  Value error, <msg>
+    [type=value_error, input_value=..., ...]"``, which is what the operator
+    saw before ([#1023](https://github.com/dknowles2/trusty-track/issues/1023)).
+    This is the one place that unwrapping happens — every resolver that
+    builds a schema from operator-typed input and can raise
+    ``ValidationError`` routes through it, rather than repeating the
+    strip-and-capitalise dance `_historical_record_input` (below) originally
+    grew it for.
+
+    Only the first error is used: Pydantic stops collecting once a field's
+    own validator raises, so "first" here means "the one that actually
+    failed," not an arbitrary pick among several.
+    """
+    first = exc.errors()[0]["msg"].removeprefix("Value error, ")
+    return first.capitalize().rstrip(".") + "."
+
+
 def _historical_record_input(
     record: HistoricalTrackRecordInput,
 ) -> schemas.HistoricalTrackRecordCreate:
@@ -1429,8 +1452,7 @@ def _historical_record_input(
             race_date=record.race_date,
         )
     except ValidationError as exc:
-        first = exc.errors()[0]["msg"].removeprefix("Value error, ")
-        raise ValueError(first.capitalize().rstrip(".") + ".") from exc
+        raise ValueError(_validation_sentence(exc)) from exc
 
 
 def _historical_record(row: models.HistoricalTrackRecord) -> HistoricalTrackRecord:
@@ -4060,7 +4082,10 @@ class Mutation:
     @strawberry.mutation
     async def create_race(self, info: Info, race: RaceInput) -> Race:
         """Create a new race."""
-        race_in = schemas.RaceCreate(**typing.cast(Any, strawberry.asdict(race)))
+        try:
+            race_in = schemas.RaceCreate(**typing.cast(Any, strawberry.asdict(race)))
+        except ValidationError as exc:
+            raise ValueError(_validation_sentence(exc)) from exc
         new_race = typing.cast(Any, crud.create_race(info.context["db"], race_in))
         await _publish_race_state(new_race.id, kind=RaceChangeKind.RACE_SETTINGS)
         await _publish_races_list()
@@ -4092,7 +4117,10 @@ class Mutation:
         # back to null needs its own explicit flag too.
         if clear_name_display:
             filtered_data["name_display"] = None
-        race_update = schemas.RaceUpdate(**typing.cast(Any, filtered_data))
+        try:
+            race_update = schemas.RaceUpdate(**typing.cast(Any, filtered_data))
+        except ValidationError as exc:
+            raise ValueError(_validation_sentence(exc)) from exc
         updated = typing.cast(
             Any, crud.update_race(db, race_id=id, race_update=race_update)
         )
@@ -4501,7 +4529,10 @@ class Mutation:
         # to Pydantic's default "ignore extra kwargs" behaviour.
         for flag in _RACER_CLEAR_FLAGS:
             data.pop(flag, None)
-        racer_in = schemas.RacerCreate(**typing.cast(Any, data))
+        try:
+            racer_in = schemas.RacerCreate(**typing.cast(Any, data))
+        except ValidationError as exc:
+            raise ValueError(_validation_sentence(exc)) from exc
         # `crud.create_racer` refuses a `race_id` that names no race (#819)
         # rather than guessing one, so there is nothing to check for `None`
         # here any more — a bad id surfaces as a `ValueError` the same way
@@ -4759,7 +4790,10 @@ class Mutation:
     async def create_award(self, info: Info, race_id: int, award: AwardInput) -> Award:
         """Add an award to a race, at the end of the running order."""
         db = info.context["db"]
-        award_in = schemas.AwardCreate(**typing.cast(Any, strawberry.asdict(award)))
+        try:
+            award_in = schemas.AwardCreate(**typing.cast(Any, strawberry.asdict(award)))
+        except ValidationError as exc:
+            raise ValueError(_validation_sentence(exc)) from exc
         created = typing.cast(Any, crud.create_award(db, race_id, award_in))
         await _publish_race_state(race_id)
         return created
@@ -4770,7 +4804,12 @@ class Mutation:
     ) -> Award | None:
         """Edit an award, including reassigning a special award's recipient."""
         db = info.context["db"]
-        award_update = schemas.AwardUpdate(**typing.cast(Any, strawberry.asdict(award)))
+        try:
+            award_update = schemas.AwardUpdate(
+                **typing.cast(Any, strawberry.asdict(award))
+            )
+        except ValidationError as exc:
+            raise ValueError(_validation_sentence(exc)) from exc
         updated = typing.cast(
             Any, crud.update_award(db, award_id=id, award_update=award_update)
         )
@@ -4827,7 +4866,10 @@ class Mutation:
     async def create_track(self, info: Info, track: TrackInput) -> Track:
         """Create a new track and its associated TimerManager."""
         db = info.context["db"]
-        track_in = schemas.TrackCreate(**typing.cast(Any, strawberry.asdict(track)))
+        try:
+            track_in = schemas.TrackCreate(**typing.cast(Any, strawberry.asdict(track)))
+        except ValidationError as exc:
+            raise ValueError(_validation_sentence(exc)) from exc
         new_track = typing.cast(Any, crud.create_track(db, track_in))
 
         # Handle TimerManager initialization
@@ -4878,7 +4920,12 @@ class Mutation:
                 out_of_service=crud.lane_outages_for_track(db, id),
             )
 
-        track_update = schemas.TrackBase(**typing.cast(Any, strawberry.asdict(track)))
+        try:
+            track_update = schemas.TrackBase(
+                **typing.cast(Any, strawberry.asdict(track))
+            )
+        except ValidationError as exc:
+            raise ValueError(_validation_sentence(exc)) from exc
         updated_track = typing.cast(Any, crud.update_track(db, db_track, track_update))
 
         if track.lane_count < old_lane_count:
@@ -5873,6 +5920,15 @@ class Mutation:
         `<input type="color">`); the terminology words are the one
         exception, since HTML's `required` accepts a single space and
         `firstProblem` never looks at them.
+
+        A track's own Pydantic validators (`lane_count`, `scale_ratio`, a
+        lane colour) get the same ahead-of-write treatment, for the
+        identical reason and by the identical mechanism (#1023): every
+        track's `TrackCreate`/`TrackBase` is built in one pass before the
+        organization or any track is written, so a bad value on the third
+        track cannot leave the first two, or the organization rename,
+        already committed. The built objects are reused in the write loop
+        below rather than parsed a second time.
         """
         db = info.context["db"]
 
@@ -5890,6 +5946,23 @@ class Mutation:
                 value = getattr(config, field, None)
                 if value is not None:
                     domain_terminology.reject_blank_word(field, value)
+
+        # #1023: every track's schema object is built — and so validated —
+        # before anything is written, the same "refuse first, write once"
+        # shape as the terminology check above and the stranding guard
+        # below. Without this, a `ValidationError` on (say) the third
+        # track's lane count used to surface only after the first two
+        # tracks, and the organization rename, had already committed.
+        track_schemas: list[schemas.TrackCreate | schemas.TrackBase] = []
+        for input_track in config.tracks:
+            payload = typing.cast(Any, strawberry.asdict(input_track))
+            try:
+                if input_track.id is None:
+                    track_schemas.append(schemas.TrackCreate(**payload))
+                else:
+                    track_schemas.append(schemas.TrackBase(**payload))
+            except ValidationError as exc:
+                raise ValueError(_validation_sentence(exc)) from exc
 
         db_tracks_by_id = {t.id: t for t in crud.get_tracks(db)}
         for input_track in config.tracks:
@@ -5951,12 +6024,13 @@ class Mutation:
         # in the submission has been written (#903).
         shrunk_track_ids: set[int] = set()
 
-        for input_track in input_tracks:
+        for index, input_track in enumerate(input_tracks):
+            # Already built and validated above, before anything was
+            # written — reused here rather than parsed a second time.
+            track_schema = track_schemas[index]
             if input_track.id is None:
                 # Add new track
-                track_in = schemas.TrackCreate(
-                    **typing.cast(Any, strawberry.asdict(input_track))
-                )
+                track_in = typing.cast(schemas.TrackCreate, track_schema)
                 new_track = crud.create_track(db, track_in)
 
                 # Register TimerManager
@@ -5979,9 +6053,7 @@ class Mutation:
             old_serial_port = db_track.serial_port
             old_profile = db_track.timer_profile
             old_lane_count = db_track.lane_count
-            track_update = schemas.TrackBase(
-                **typing.cast(Any, strawberry.asdict(input_track))
-            )
+            track_update = typing.cast(schemas.TrackBase, track_schema)
             crud.update_track(db, db_track, track_update)
 
             if input_track.lane_count < old_lane_count:

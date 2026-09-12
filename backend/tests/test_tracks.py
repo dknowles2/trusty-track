@@ -576,6 +576,55 @@ class TestLaneCountBounds:
         db.refresh(track)
         assert track.lane_count == 4
 
+    def test_create_track_error_is_the_validator_sentence_not_pydantics_wrapper(
+        self, client, db
+    ):
+        """#1023: the operator sees "Lane count must be between 1 and 8.",
+        not Pydantic's "1 validation error for TrackBase\\nlane_count\\n
+        Value error, ... [type=value_error, input_value=0, ...]".
+        """
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    createTrack(track: {name: "Bad Track", laneCount: 0}) {
+                        id
+                    }
+                }
+                """
+            },
+        ).json()
+        assert "errors" in resp
+        message = resp["errors"][0]["message"]
+        assert message == "Lane count must be between 1 and 8."
+        assert "validation error for" not in message
+        assert "type=value_error" not in message
+        assert crud.get_tracks(db) == []
+
+    def test_update_track_error_is_the_validator_sentence_not_pydantics_wrapper(
+        self, client, db
+    ):
+        track = crud.create_track(db, schemas.TrackCreate(name="Good Track"))
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateTrack(id: {track.id}, track: {{laneCount: 0}}) {{
+                        id
+                    }}
+                }}
+                """
+            },
+        ).json()
+        assert "errors" in resp
+        message = resp["errors"][0]["message"]
+        assert message == "Lane count must be between 1 and 8."
+        assert "validation error for" not in message
+        assert "type=value_error" not in message
+
 
 def test_delete_track_stops_and_removes_timer_manager(
     client: "TestClient", monkeypatch: pytest.MonkeyPatch
