@@ -220,6 +220,25 @@ export function awardHolderWarning(
   return held ? `Already won “${held.name}.” Award this one too?` : null;
 }
 
+/** Words and shapes a speed award's name usually has, matched as whole words
+ * so "Championship Sponsor" does not fire on "Champion" mid-word. An ordinal
+ * ("2nd", "1st") matches on its own, since a pack naming a place award rarely
+ * writes out "Second". */
+const SPEED_AWARD_WORDS = /\b(fastest|champion|slowest)\b/i;
+const ORDINAL_PLACE = /\b\d+(st|nd|rd|th)\b/i;
+
+/**
+ * A non-blocking hint, never a rule (#999's "also consider"): a pack can name
+ * a judged award anything it likes, so this only ever prompts a one-click
+ * switch in `AwardForm` — it never refuses a save. "Champion", "Fastest",
+ * "Slowest" and an ordinal ("2nd") are the shapes an operator who picked the
+ * wrong "Who wins it" option is most likely to have typed, since those are
+ * exactly the words a speed award's own `describeSpeedAward` produces.
+ */
+export function soundsLikeSpeedAward(name: string): boolean {
+  return SPEED_AWARD_WORDS.test(name) || ORDINAL_PLACE.test(name);
+}
+
 export interface TalliedCar {
   carNumber?: number | null;
   carName?: string | null;

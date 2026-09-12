@@ -234,6 +234,9 @@ test('screenshot the awards screens', async ({ page }) => {
     await expect(page.getByText('Fastest Car')).toBeVisible();
     await page.getByRole('button', { name: 'Add an award' }).click();
     await expect(page.getByLabel('Award name')).toBeVisible();
+    // Add an award now opens on Speed-based by default (#999); the template
+    // picker is the judged half.
+    await page.getByText('Somebody we choose').click();
     await page
         .getByLabel('Start from a ready-made award')
         .selectOption({ label: 'Most Aerodynamic' });

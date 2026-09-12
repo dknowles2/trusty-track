@@ -19,6 +19,13 @@ from.
 | **Speed-based** | worked out from the standings | Fastest Car, Fastest Wolf, Slowest Car, second and third place |
 | **Somebody we choose** | you pick a racer | Best Paint, Most Original, Judges' Choice |
 
+**Add an award** opens on **Speed-based**, since it is already correct with no
+further input — it defaults to the last championship round, or the qualifying
+standings if the race has none yet. If you type a name that sounds like a
+speed award ("Fastest", "Champion", "Slowest", "2nd") while **Somebody we
+choose** is picked, the form offers a one-click switch to Speed-based rather
+than letting it save as a judged award that can never resolve.
+
 ### Speed-based
 
 You describe the award rather than naming a winner: *which standings*, *which
