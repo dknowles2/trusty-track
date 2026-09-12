@@ -25,6 +25,7 @@ import { fetchTimerReport, issueUrl, testInstruction } from '../timerTest';
 import { claimedCapabilities } from '../timerCapabilities';
 import { useRole } from '../../core/hooks/useRole';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
+import BackLink from '../../core/components/BackLink';
 
 const DIAGNOSTIC_TRACKS = gql`
   query DiagnosticTracks {
@@ -689,6 +690,7 @@ const TimerDiagnostics: React.FC = () => {
 
     return (
         <div style={{ padding: '1.5rem', maxWidth: '820px', margin: '0 auto' }}>
+            <BackLink fallback={{ to: '/system-settings', label: 'Back to settings' }} />
             <h1 style={{ marginTop: 0 }}>Timer check</h1>
             <p style={{ color: 'var(--text-strong-muted-color)' }}>
                 Live view of every track's timer. Use this before the event to confirm the timer is
@@ -724,10 +726,6 @@ const TimerDiagnostics: React.FC = () => {
                     isOperator={isOperator}
                 />
             ))}
-
-            <p style={{ fontSize: '0.9rem' }}>
-                <Link to="/system-settings">Back to System Settings</Link>
-            </p>
         </div>
     );
 };

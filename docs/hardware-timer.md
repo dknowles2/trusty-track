@@ -20,7 +20,7 @@ For most people, connecting a timer is four steps:
 1. Plug the timer's USB cable into the machine running Trusty Track.
 2. In **Settings → Tracks**, set the track's **Timer Type** to
    **Plugged into this machine**. Leave **Serial Port** blank.
-3. Open **System Settings → Check the timer connection**.
+3. Open **System Settings → Timer check**.
 4. When it says **Ready**, you are done.
 
 Everything else on this page is for when that did not work, or your setup is
@@ -88,7 +88,7 @@ falling back to assuming a Micro Wizard.
 
 ## Checking it works
 
-**System Settings → Check the timer connection**, or go to `/timer-check`.
+**System Settings → Timer check**, or go to `/timer-check`.
 
 This page shows every track's timer live: what state it is in, which device
 answered, and where it was found. You do not need a race set up to use it.
@@ -96,6 +96,11 @@ answered, and where it was found. You do not need a race set up to use it.
 If you have more than one track, **Settings → Tracks** has a **Check this
 timer** link at the foot of each track's card, which takes you straight to that
 track's panel.
+
+A **← Back to _your race_** link sits top-left if you came here from one —
+one click returns you to it rather than the pill's dropdown or the browser's
+Back button. Arrive with no race in view (from Home, or Settings itself) and
+it reads **← Back to settings** instead.
 
 ![The timer check page with a healthy timer: Ready in green, the identified device, its provenance note, the test panel, and the serial traffic beneath](assets/screenshots/timers/02-timer-check-ready.png)
 _A healthy timer: **Ready**, the device it identified itself as, and — in the yellow note — how well that device's support has actually been tested._

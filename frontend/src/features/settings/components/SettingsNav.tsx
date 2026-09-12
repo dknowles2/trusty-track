@@ -11,8 +11,11 @@
  * when the race form was sectioned the same way: one nav component, one
  * stylesheet, so the two forms cannot drift apart in how a section is
  * chosen. Anything that goes *somewhere else* — the settings page's two
- * links out — is passed as children and rendered at the foot, separated
- * from the sections, so a link cannot be mistaken for one.
+ * links out, to Timer check and Activity log — is passed as `children` and
+ * rendered as ordinary entries in the same list (#959), not boxed off as a
+ * footnote the way they used to be: the phone layout already wraps every
+ * entry here into one row, and a link styled differently from a section
+ * button read as "not really part of this list" when it is.
  */
 
 import type { ReactNode } from 'react';
@@ -30,7 +33,7 @@ interface Props<Id extends string> {
   label?: string;
   /** Prefix for the nav's and each button's test id: `<prefix>` and `<prefix>-<id>`. */
   testIdPrefix?: string;
-  /** Links out, at the foot. */
+  /** Links out, rendered as ordinary entries after the sections. */
   children?: ReactNode;
 }
 
@@ -55,7 +58,7 @@ export default function SettingsNav<Id extends string>({
           {section.label}
         </button>
       ))}
-      {children && <div className="settings-nav-links">{children}</div>}
+      {children}
     </nav>
   );
 }
