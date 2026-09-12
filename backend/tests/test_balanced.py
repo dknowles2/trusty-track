@@ -146,13 +146,15 @@ class TestThePhase:
 # --------------------------------------------------------------------------- #
 
 
-def _race(db, name) -> models.Race:
+def _race(db, name, lane_count: int = 4) -> models.Race:
     group = crud.create_organization(
         db, schemas.OrganizationCreate(name=f"Pack for {name}")
     )
     track = crud.create_track(
         db,
-        schemas.TrackCreate(name=f"Track for {name}", lane_count=4, timer_type="FAKE"),
+        schemas.TrackCreate(
+            name=f"Track for {name}", lane_count=lane_count, timer_type="FAKE"
+        ),
     )
     return crud.create_race(
         db,
@@ -632,3 +634,68 @@ class TestBalancedUsableLanesAndVacating:
         }
         assert survivor in scheduled2
         assert departing not in scheduled2
+
+    def test_lane_outage_leaving_one_racer_alone_skips_rather_than_races_solo(self, db):
+        """Same rule, the other vacate loop (#1022): a lane outage can leave
+        a pending balanced heat with exactly one real racer just as easily
+        as a withdrawal can, and `apply_outages_to_scheduled_heats` must
+        skip it rather than leave a solo heat pending.
+
+        Unlike a withdrawal, neither racer leaves the race here — only the
+        lane fails — so both stay eligible and both are re-fielded in the
+        next phase with nothing recorded against either.
+
+        4 racers, 3 usable lanes (so disabling one still leaves 2, clear of
+        the "fewer than two usable lanes" refusal): phase 1 is two heats of
+        2, each using only 2 of the 3 lanes (`chunk_heats` splits 4 racers
+        over a heat size of 3 into [2, 2]). Running one heat and disabling a
+        lane the other one actually uses leaves one real racer in it.
+        """
+        race = _race(db, "Solo Outage Balanced", lane_count=3)
+        ids = _racers(db, race.id, 4)
+        round_obj = crud.create_round(
+            db,
+            race_id=race.id,
+            round_number=1,
+            scheduling_strategy=models.SchedulingStrategy.BALANCED,
+            name="Balanced Round",
+            balanced_phases=2,
+        )
+        crud.generate_heats_for_round(db, round_obj.id)
+
+        phase1 = _pending_heats(db, round_obj.id)
+        assert len(phase1) == 2
+        heat_a, heat_b = phase1
+
+        _run_heat(db, heat_a, ids)
+
+        stored = crud.heat_lanes_of(db, heat_b)
+        used_lanes = [lane.lane for lane in stored if lane.racer_id]
+        assert len(used_lanes) == 2
+        racer_ids_in_heat_b = {lane.racer_id for lane in stored if lane.racer_id}
+        remaining_lane, outaged_lane = used_lanes
+        assert remaining_lane is not None  # both are used lanes; only one is outaged
+
+        crud.set_lane_outages(db, race.track_id, [outaged_lane])
+        crud.apply_outages_to_scheduled_heats(db, race.track_id)
+
+        updated = crud.heat_lanes_of(db, heat_b)
+        assert lanes_module.is_finished(updated)
+        assert not lanes_module.has_results(updated)
+
+        # Nothing is recorded against either racer — the heat was skipped,
+        # not raced, so neither's record picks up a heat from it.
+        recs = balanced.records(crud.lanes_for_heats(db, [heat_b]))
+        for racer_id in racer_ids_in_heat_b:
+            assert recs.get(racer_id, balanced.Record(racer_id=racer_id)).heats == 0
+
+        pending2 = _pending_heats(db, round_obj.id)
+        scheduled2 = {
+            lane.racer_id
+            for h in pending2
+            for lane in crud.heat_lanes_of(db, h)
+            if lane.racer_id
+        }
+        # Neither racer left the race — only the lane failed — so both are
+        # still checked in, still not eliminated, and both are re-fielded.
+        assert racer_ids_in_heat_b <= scheduled2
