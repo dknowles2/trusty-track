@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Modal from '../../../components/ui/Modal';
 import { Icon } from '@mdi/react';
-import { mdiFlagCheckered, mdiAccountGroup, mdiInformation } from '@mdi/js';
+import { mdiInformation } from '@mdi/js';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { HowItsRacedFields, type RaceStyle } from './HowItsRacedFields';
 import { WhichCarsRaceFields } from './WhichCarsRaceFields';
 import { PickFieldByHandCheckbox } from './PickFieldByHandCheckbox';
+import { FormatFields } from './FormatFields';
 
 interface RoundConfigModalProps {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   hasGeneralRound,
   lastChampionshipRound
 }) => {
-  const { group, groupLower, org, vehiclesLower } = useTerminology();
+  const { group, vehiclesLower } = useTerminology();
   const [type, setType] = useState<'GENERAL' | 'CHAMPIONSHIP'>('GENERAL');
   const [generalType, setGeneralType] = useState<'ALL' | 'EACH_GROUP'>('ALL');
   const [raceStyle, setRaceStyle] = useState<RaceStyle>('PPC');
@@ -261,40 +262,14 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
               />
 
               {raceStyle !== 'PPC' ? null : (
-              <div>
-                <label style={labelStyle}>Format</label>
-                <div style={{ display: 'flex', gap: '20px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      checked={generalType === 'ALL'}
-                      onChange={() => setGeneralType('ALL')}
-                      disabled={loading}
-                    />
-                    <span>
-                      <Icon path={mdiFlagCheckered} size={0.7} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                      All {org}
-                    </span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      checked={generalType === 'EACH_GROUP'}
-                      onChange={() => setGeneralType('EACH_GROUP')}
-                      disabled={loading}
-                    />
-                    <span>
-                      <Icon path={mdiAccountGroup} size={0.7} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                      By {group}
-                    </span>
-                  </label>
-                </div>
-                {generalType === 'EACH_GROUP' && (
-                  <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)', fontStyle: 'italic' }}>
-                    Will create {racingGroupCount} rounds (one per {groupLower}).
-                  </p>
-                )}
-              </div>
+                <FormatFields
+                  type={generalType}
+                  onChooseType={setGeneralType}
+                  racingGroupCount={racingGroupCount}
+                  loading={loading}
+                  labelStyle={labelStyle}
+                  mutedColor="var(--text-muted-color)"
+                />
               )}
             </>
           ) : (
