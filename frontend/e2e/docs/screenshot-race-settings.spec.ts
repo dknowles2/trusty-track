@@ -47,22 +47,30 @@ test('screenshot the race settings form', async ({ page }) => {
     await dialog.getByTestId('race-settings-nav-scoring').click();
     await expect(dialog.getByRole('heading', { name: 'Scoring' })).toBeVisible();
     await expect(dialog.getByLabel('Championship Trophies')).toBeVisible();
+    // Asserted, not assumed: the picture's caption says the nav shows Scoring
+    // active, so check that it actually does before spending any more time
+    // settling paint. `section` is plain React state set synchronously by the
+    // click handler — there is no scroll-spy in this form, whatever an
+    // earlier read of this flake believed — so this never legitimately fails;
+    // it exists to fail loudly rather than let a real regression here read as
+    // a screenshot problem.
+    await expect(dialog.getByTestId('race-settings-nav-scoring')).toHaveAttribute('aria-current', 'page');
     // The nav's own background-color transition (see `settleTransitions`'s
     // doc comment) — without this, the picture sometimes shows "Event" and
     // "Scoring" mid-fade between the two states rather than settled.
     await settleTransitions(dialog);
     // `Modal.tsx`'s dialog element is itself the scrollable container
-    // (`overflowY: 'auto'`), and nothing resets its `scrollTop` when the
-    // section changes — so whatever the "Event" section's height happened to
-    // leave it at carries over verbatim into "Scoring"'s taller layout. That
-    // is a genuine scroll-position race, not a paint one: `dialog.click()`
-    // on the nav button scrolls just enough of the *old* layout into view to
-    // reach it, and Playwright does not know the content is about to grow.
-    // Under load this sometimes left the picture scrolled a few dozen pixels
-    // past the "Edit Race Details" heading — a materially different, and
-    // materially wrong, picture, not a rendering nuance. Forced to a known
-    // position rather than merely waited for, because there is no event to
-    // wait *on*: nothing was ever going to scroll it back on its own.
+    // (`overflowY: 'auto'`). Nothing resets its `scrollTop` when the section
+    // changes, so this is cheap insurance against the same class of drift
+    // `race-day/02-check-in-modal-inspected.png` hit — but it is not what
+    // caused this picture's own flake: instrumenting a real run shows
+    // `scrollTop` sits at `0` throughout, here, every time. What actually
+    // moves under this click is `Modal.tsx`'s own centring — the backdrop's
+    // `alignItems: 'center'` re-centres the dialog when "Scoring" (much
+    // taller than "Event") changes its height, carrying the nav upward under
+    // Playwright's still pointer with no scroll involved at all, and leaving
+    // whichever item ends up under it genuinely `:hover`-ed. `screenshotLocator`
+    // below is where that is actually closed (#970: see its own doc comment).
     await dialog.evaluate((el) => {
         el.scrollTop = 0;
     });
