@@ -59,24 +59,32 @@ test('screenshot the settings panels', async ({ page }) => {
 
     // Terminology (#496 stage 5), for docs/reference/race-settings.md#the-words-on-screen.
     // Lives in General, first in the section order, so this is the picture
-    // taken before anything else — before the checkbox is switched on, the
-    // section holds only the organization name and debug toggle. Local,
-    // unsaved form state, the same reasoning as the Appearance preview below:
-    // this spec runs beside others that assume the install's own terminology
-    // is still the built-in default, so Save Settings is never clicked here.
+    // taken before anything else — before an answer is chosen, the section
+    // holds only the organization name and debug toggle. Local, unsaved
+    // form state, the same reasoning as the Appearance preview below: this
+    // spec runs beside others that assume the install's own terminology is
+    // still the built-in default, so Save Settings is never clicked here.
     await page.getByTestId('settings-nav-general').click();
-    const terminologyFields = page.getByTestId('terminology-fields');
+    const terminologyPickerAndFields = page.getByTestId('terminology-picker-and-fields');
+    await expect(terminologyPickerAndFields).toBeVisible();
+
+    // Drive the picker rather than filling the six boxes by hand (#989) —
+    // the reference page now leads with it, so the picture should show
+    // what an operator actually does: answer the two questions and watch
+    // the boxes below fill in, rather than a screen nobody reaches this
+    // way. "A school" running a "Space Derby" is the same worked example
+    // race-settings.md already gives a few paragraphs down ("a Space Derby
+    // held by a school says 'Rocket', 'Grade' and 'School'"), so the
+    // picture and the prose describe the same event rather than two.
+    await terminologyPickerAndFields.getByRole('radio', { name: 'Space Derby' }).check();
+    await terminologyPickerAndFields.getByRole('radio', { name: 'A school' }).check();
+
+    const terminologyFields = terminologyPickerAndFields.getByTestId('terminology-fields');
     await expect(terminologyFields).toBeVisible();
-    await terminologyFields.getByLabel('Use different words for “Den”, “Pack” and “Car”').click();
-    await terminologyFields.getByLabel('One racing group (was “Den”)').fill('Class');
-    await terminologyFields.getByLabel('More than one (was “Dens”)').fill('Classes');
-    await terminologyFields.getByLabel('The organization itself (was “Pack”)').fill('School');
-    await terminologyFields.getByLabel('More than one (was “Packs”)').fill('Schools');
-    await terminologyFields.getByLabel('One vehicle (was “Car”)').fill('Rocket');
-    await terminologyFields.getByLabel('More than one (was “Cars”)').fill('Rockets');
-    await terminologyFields.getByLabel('Vehicle picture').selectOption('rocket');
-    await expect(terminologyFields.getByLabel('One racing group (was “Den”)')).toHaveValue('Class');
-    await screenshotLocator(terminologyFields, { path: path.join(SCREENSHOT_DIR, '09-terminology.png') });
+    await expect(terminologyFields.getByLabel('One racing group (was “Den”)')).toHaveValue('Grade');
+    await expect(terminologyFields.getByLabel('The organization itself (was “Pack”)')).toHaveValue('School');
+    await expect(terminologyFields.getByLabel('One vehicle (was “Car”)')).toHaveValue('Rocket');
+    await screenshotLocator(terminologyPickerAndFields, { path: path.join(SCREENSHOT_DIR, '09-terminology.png') });
 
     await page.getByTestId('settings-nav-tracks').click();
 

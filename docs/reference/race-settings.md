@@ -455,23 +455,28 @@ rule a computer should be guessing at:
 | Organization | Pack / Packs | "Pack", the qualifying round's **All Pack** format |
 | Vehicle | Car / Cars | "Car", car numbers on the roster and check-in, "Fastest Car" on the awards screen, and the vehicle word on printouts |
 
-**Set install-wide** in **System Settings → General**, under **Use different
-words for "Den", "Pack" and "Car"** — turning it on offers all six boxes,
-already filled in with the built-in words so none of them starts out blank.
+**Set install-wide** in **System Settings → General**. A picker there asks
+the same two questions the setup wizard's **Kind of event** step asks a
+single race — what is being raced, and who is holding it — so the
+install-wide default gets the same help choosing its words that a race
+already does. Choosing an answer fills in the six boxes below it and turns
+on **Use different words for "Den", "Pack" and "Car"** for you.
 
-![The terminology fields in System Settings, switched on and filled in with "Class"/"Classes", "School"/"Schools" and "Rocket"/"Rockets", with the vehicle picture set to Rocket](../assets/screenshots/settings/09-terminology.png)
-_Turning on custom terminology offers all six boxes at once — a singular
-and a plural for each word — plus the vehicle picture below them._
+![The terminology picker in System Settings with "Space Derby" and "A school" chosen, and the six boxes below it filled in with "Grade"/"Grades", "School"/"Schools" and "Rocket"/"Rockets", with the vehicle picture set to Rocket](../assets/screenshots/settings/09-terminology.png)
+_Answering the picker's two questions — here, a Space Derby run by a
+school — fills in the six boxes below it: a singular and a plural for each
+word, plus the vehicle picture underneath them._
 
-**A picker sits above those six boxes**, asking the same two questions the
-setup wizard's **Kind of event** step asks a single race — what is being
-raced, and who is holding it — so the install-wide default gets the same
-help choosing its words that a race already does. Choosing an answer fills
-in the six boxes below and turns the checkbox on for you; nothing about the
-picker itself is saved, and nothing remembers which answer was chosen, so
-editing a box afterward is ordinary text editing and does not undo your
-choice. Answer nothing and the install stays Den/Pack/Car, exactly as it
-always has.
+**The six boxes are the advanced option, for whatever the picker's own
+presets don't cover** — a word the picker has no preset for, or one word
+changed without disturbing the rest. Turning the checkbox on by hand, with
+no picker answer chosen, offers all six boxes already filled in with the
+built-in words so none of them starts out blank. Editing a box, whether the
+picker filled it in or you typed it yourself, is ordinary text editing;
+nothing about the picker itself is saved, and nothing remembers which
+answer was chosen, so answering it again later simply overwrites the boxes
+a second time. Answer nothing at all and the install stays Den/Pack/Car,
+exactly as it always has.
 
 **A race can override that default of its own** — one venue running a pack
 derby in March and a school's own derby in May, on the same install, without

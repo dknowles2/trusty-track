@@ -644,6 +644,15 @@ export default function SystemConfig() {
           />
         </div>
 
+        {/* Picker plus the six boxes it fills, wrapped together
+            (`terminology-picker-and-fields`) so a single screenshot can
+            show cause and effect — an answer chosen above landing in the
+            fields below — rather than needing two pictures or a crop that
+            only shows one half (#989). The testid names the pair, not
+            either piece alone; `terminology-fields` below still names the
+            six boxes on their own for anything that only cares about
+            them. */}
+        <div data-testid="terminology-picker-and-fields">
         {/* What is being raced, and who is holding it (#928, part 2) — the
             same two questions `RaceSetupWizard` asks a race, offered here
             in front of the six word fields so the install-wide default gets
@@ -825,6 +834,7 @@ export default function SystemConfig() {
               </div>
             </div>
           )}
+        </div>
         </div>
 
         {/* How much of a racer's name a public screen may show
