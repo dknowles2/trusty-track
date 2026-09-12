@@ -58,8 +58,12 @@ naming the role or the underlying operation.
 - A PIN is remembered **per device**: the laptop holds the operator PIN,
   the desk's tablet the check-in one, a wall display nothing. Click the
   open padlock to make a device forget its PIN.
-- Entering a PIN reloads the page. Expected: the live connection has to be
-  re-established with the new credential.
+- **A wrong PIN is checked before it is remembered.** The unlock dialog
+  asks the server what the PIN typed would resolve to; a wrong guess keeps
+  the dialog open with *"That PIN is not right"* and is never written to the
+  device, so a mistyped PIN cannot linger there as a stale credential.
+- Entering a PIN the server accepts reloads the page. Expected: the live
+  connection has to be re-established with the new credential.
 - Changing a PIN does not need the old one — type over it in **Settings →
   Access**. Leaving the box **blank keeps what is set** rather than
   clearing it; to turn a PIN off, use **Remove** beside it, then Save.

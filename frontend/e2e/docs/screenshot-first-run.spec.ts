@@ -191,6 +191,37 @@ test('screenshot the first run', async ({ page }) => {
         await screenshotLocator(page.getByTestId('access-panel'), {
             path: path.join(SETTINGS_DIR, '03-access-pins.png'),
         });
+
+        // A wrong PIN, end to end (#993). This is the one place in the suite
+        // an operator PIN is ever genuinely set, which is what makes it the
+        // one place this can be tested against a real backend rather than as
+        // a unit test alone — everywhere else, setting one would refuse every
+        // mutation a spec running beside it makes.
+        //
+        // Dropping this page's own stored PIN and reloading turns it into
+        // exactly the device the issue describes: one that has never held the
+        // PIN, resolving to VIEWER, padlock closed.
+        await page.evaluate(() => window.localStorage.removeItem('trustytrack.pin'));
+        await page.goto('/');
+        await page.getByLabel('Enter the PIN to make changes').click();
+        await page.getByLabel('PIN', { exact: true }).fill('0000');
+        await page.getByRole('button', { name: 'Unlock' }).click();
+        await expect(page.getByText('That PIN is not right.')).toBeVisible();
+        // The claim the issue exists for: a wrong guess never reaches storage.
+        expect(
+            await page.evaluate(() => window.localStorage.getItem('trustytrack.pin')),
+        ).toBeNull();
+        // The dialog stays open rather than being dismissed on a miss.
+        await expect(page.getByLabel('Enter PIN')).toBeVisible();
+
+        // The right PIN, entered the same way, is stored and reloads.
+        await page.getByLabel('PIN', { exact: true }).fill('1234');
+        await page.getByRole('button', { name: 'Unlock' }).click();
+        await page.waitForEvent('load');
+        await expect(page.getByLabel('Forget the PIN on this device')).toBeVisible();
+        expect(
+            await page.evaluate(() => window.localStorage.getItem('trustytrack.pin')),
+        ).toBe('1234');
     } finally {
         // Put it back before anything else starts. Everything below, and
         // every spec in the phases after this one, mutates without a PIN
