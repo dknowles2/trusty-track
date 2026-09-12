@@ -192,3 +192,55 @@ def test_a_single_run_round_stays_single(db, race):
     regenerated = crud.generate_heats_for_round(db, round_obj.id, clear_existing=True)
 
     assert len(regenerated) == 4
+
+
+def test_regenerating_a_filled_final_keeps_its_racers_and_run_count(db, race, client):
+    """#1016: `regenerateRound`'s own `generate_heats_for_round` call clears
+    a championship round's heats and lets `_participant_ids_for_round` fall
+    back to placeholders — it looks for "already advanced" racers by
+    reading the very heats regeneration just deleted, and finds none. This
+    is a seam test, not a unit test for either half (#1025): #230's
+    run-count preservation and #248's `populate_round_if_decided` as "the
+    one asker" are each covered on their own elsewhere, and neither test
+    drove the actual GraphQL mutation an operator clicks.
+    """
+    prelim, final = _two_run_final(db, race)
+    # Race every prelim heat, which fills the final through the ordinary
+    # cascade (`trigger_auto_advancements`) rather than by hand — the same
+    # path an operator's own event takes.
+    for heat in _heats_of(db, prelim.id):
+        _race_heat(db, heat)
+
+    final_heats_before = _heats_of(db, final.id)
+    racer_ids_before = {
+        lane.racer_id
+        for heat_lanes in crud.lanes_for_heats(db, final_heats_before)
+        for lane in heat_lanes
+        if lane.racer_id is not None
+    }
+    assert len(racer_ids_before) == 2  # real qualifiers, not placeholders
+    assert len(final_heats_before) == 4  # 2 slots x 2 runs
+
+    response = client.post(
+        "/graphql",
+        json={
+            "query": """
+            mutation Regen($roundId: Int!) { regenerateRound(roundId: $roundId) { id } }
+            """,
+            "variables": {"roundId": final.id},
+        },
+    )
+    assert "errors" not in response.json(), response.json()
+
+    final_heats_after = _heats_of(db, final.id)
+    racer_ids_after = {
+        lane.racer_id
+        for heat_lanes in crud.lanes_for_heats(db, final_heats_after)
+        for lane in heat_lanes
+        if lane.racer_id is not None
+    }
+    # The same qualifiers, refilled from the standings — not placeholders,
+    # and not empty.
+    assert racer_ids_after == racer_ids_before
+    # The run count survives the round trip through placeholders too (#230).
+    assert len(final_heats_after) == 4
