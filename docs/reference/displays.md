@@ -104,7 +104,10 @@ Notes on six of them:
   pausing briefly at each end, over that many seconds per pass. Both keep
   going for as long as the screen is left open — walking away for an hour
   and coming back does not leave the list stuck partway through or drifted
-  off schedule.
+  off schedule. A race whose only round is
+  [elimination](round-styles.md#elimination) shows that round's own result
+  here too, in losses, rather than an overall leaderboard that has nothing
+  to show.
 - **Check-in progress** groups the roster by den, each with a progress bar
   and the count of cars still to come — see the next section.
 - **QR code** points a phone at this race's own Live page by default, or at
@@ -119,11 +122,13 @@ Notes on six of them:
 Once every scheduled heat has a recorded result and nothing is next, the
 **Standings** and **Projector** views stop showing empty Now Racing / On Deck
 panels and switch to a full-screen "Race complete!" panel instead — a
-championship round's own placings, if the race ran one, otherwise the
-overall standings. This is the same kind of takeover a break is: it replaces
-whichever of the two views a screen was on, and clears itself the moment a
-new heat is scheduled (a latecomer admitted, another round added). The other
-views — Racer photos, Standings only, Check-in progress, QR code, Broadcast
+championship round's own placings, if the race ran one; failing that, an
+[elimination round's](round-styles.md#elimination) own result, in losses,
+if the race's only round was one of those; otherwise the overall standings.
+This is the same kind of takeover a break is: it replaces whichever of the
+two views a screen was on, and clears itself the moment a new heat is
+scheduled (a latecomer admitted, another round added). The other views —
+Racer photos, Standings only, Check-in progress, QR code, Broadcast
 overlay, the ceremony — keep doing their own job and are unaffected.
 
 ## Check-in progress

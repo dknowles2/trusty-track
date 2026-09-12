@@ -40,6 +40,7 @@ import IntermissionOverlay from '../components/IntermissionOverlay';
 import RaceFinishedOverlay from '../components/RaceFinishedOverlay';
 import { finalChampionshipRound, raceIsFinished } from '../raceFinished';
 import { roundLabel as championshipRoundLabel } from '../../stats/disruptedRounds';
+import { defaultEliminationRound, isEliminationOnlyRace } from '../../stats/eliminationScope';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { isLiveActive, NONE as NO_INTERMISSION, type IntermissionData } from '../../racing/intermission';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
@@ -92,6 +93,11 @@ const GET_INITIAL_DATA = `
         name
         roundNumber
         advancementSource
+        # Whether a round is scored by survival rather than a share of the
+        # aggregate — an elimination-only race's "Overall" is empty by
+        # design, so this is what eliminationScope.ts reads to decide
+        # whether this race's own standings live somewhere else.
+        schedulingStrategy
       }
       racers {
         id
@@ -314,11 +320,41 @@ export default function Observation() {
 
   const { data: initialData } = initialResult;
 
+  // A race whose only round is elimination (#1020) can never populate the
+  // ordinary "Overall" aggregate — `services/scoring._scoring_heats`
+  // excludes elimination heats from that scope by design
+  // (`.claude/rules/scheduling.md`) — so the live standings views below and
+  // the "Race complete!" screen both need this round's own standings
+  // instead of a subscription that stays empty however completely the race
+  // is raced. Computed here, off nothing but the race's own rounds, so it
+  // is ready whether or not the race has finished.
+  const eliminationOnlyRace = isEliminationOnlyRace(initialData?.race?.rounds ?? []);
+  const fallbackEliminationRound = eliminationOnlyRace
+    ? defaultEliminationRound(initialData?.race?.rounds ?? [])
+    : null;
+  // A one-shot query, the same shape the championship round's own result
+  // uses below — there is no `roundId`-scoped subscription channel to ride
+  // on (see `Subscription.leaderboard`), so a new heat's result reaches
+  // this only through the explicit re-fetch in `useRaceStateChanged` below.
+  const eliminationFallbackQuery = fallbackEliminationRound
+    ? championshipResultQuery(fallbackEliminationRound.id)
+    : NOOP_CHAMPIONSHIP_QUERY;
+  const [{ data: eliminationFallbackData }, reExecuteEliminationFallback] = useQuery({
+    query: eliminationFallbackQuery,
+    variables: { id },
+    pause: !fallbackEliminationRound,
+  });
+
   // Intermissions (#592) ride the same `race_state:{raceId}` channel every
   // other race-level change already publishes on — no new subscription
   // socket for this screen, just this page's usual "something changed,
   // re-read" hook pointed at the query that already carries `intermission`.
-  useRaceStateChanged(id, () => reExecuteInitial({ requestPolicy: 'network-only' }));
+  useRaceStateChanged(id, () => {
+    reExecuteInitial({ requestPolicy: 'network-only' });
+    if (fallbackEliminationRound) {
+      reExecuteEliminationFallback({ requestPolicy: 'network-only' });
+    }
+  });
 
   const intermission: IntermissionData = initialData?.race?.intermission ?? NO_INTERMISSION;
 
@@ -545,7 +581,19 @@ export default function Observation() {
   // sheet's `championshipSections` follows (#869), so a championship round
   // that exists but is still all placeholders never headlines this panel.
   const hasFinalRoundResult = finalRoundEntries.some((s) => s.heatsCompleted > 0);
-  const finishedStandingsSource = hasFinalRoundResult ? finalRoundEntries : standings;
+  // The elimination round's own standings (#1020) — the fallback for a race
+  // with no championship round at all, where `standings` (the ordinary
+  // prelim aggregate) is empty by design rather than for lack of racing.
+  const eliminationFallbackEntries = (eliminationFallbackData?.race?.leaderboard ?? []) as Standing[];
+  const hasEliminationFallbackResult = eliminationFallbackEntries.some((s) => s.heatsCompleted > 0);
+  const usingChampionshipResult = hasFinalRoundResult && !!finalRound;
+  const usingEliminationResult =
+    !usingChampionshipResult && eliminationOnlyRace && hasEliminationFallbackResult;
+  const finishedStandingsSource = usingChampionshipResult
+    ? finalRoundEntries
+    : usingEliminationResult
+      ? eliminationFallbackEntries
+      : standings;
   const finishedStandings = finishedStandingsSource.map((s) => {
     const racer = racersMap[s.racerId];
     return {
@@ -558,7 +606,38 @@ export default function Observation() {
       score: s.score,
     };
   });
-  const finishedRoundLabel = hasFinalRoundResult && finalRound ? championshipRoundLabel(finalRound) : null;
+  const finishedRoundLabel = usingChampionshipResult && finalRound
+    ? championshipRoundLabel(finalRound)
+    : usingEliminationResult && fallbackEliminationRound
+      ? championshipRoundLabel(fallbackEliminationRound)
+      : null;
+  // A loss count, never a time — the same "Losses" column/formatting
+  // `Leaderboard.tsx`'s own `isEliminationRound` branch uses, applied
+  // wherever this page is showing an elimination round's own standings
+  // rather than the race's ordinary scoring strategy.
+  const finishedScoreLabel = usingEliminationResult ? 'Losses' : scoreLabel;
+  const finishedFormatScore = usingEliminationResult
+    ? (score: number) => `${Math.round(score)}`
+    : formatScore;
+
+  // What the live (not-yet-finished) standings views show — the Standings
+  // tab in standard mode and the STANDINGS_ONLY view. `standings` (the
+  // prelim aggregate subscription) stays empty for the whole of an
+  // elimination-only race, so those two read the same fallback the
+  // finished screen above uses, rather than a permanently blank table.
+  const effectiveStandings = eliminationOnlyRace ? eliminationFallbackEntries : standings;
+  const effectiveScoreLabel = eliminationOnlyRace ? 'Losses' : scoreLabel;
+  const effectiveFormatScore = eliminationOnlyRace
+    ? (score: number) => `${Math.round(score)}`
+    : formatScore;
+  // The projector layout's own "Current Standings" panel (below) prints the
+  // bare number with no unit, same reasoning as `formatProjectorScore`
+  // above — an elimination round's own loss count needs the identical
+  // no-unit rounding, not a second copy of `formatScoreShared`'s time
+  // formatting.
+  const effectiveFormatProjectorScore = eliminationOnlyRace
+    ? (score: number) => `${Math.round(score)}`
+    : formatProjectorScore;
 
   /** Is the thing on the track an exhibition run? (#142)
    *
@@ -837,11 +916,11 @@ export default function Observation() {
       >
         <IdentifyPresence assignment={assignment} />
         <StandingsOnlyView
-          standings={standings}
+          standings={effectiveStandings}
           racersMap={racersMap}
           nameDisplay={nameDisplay}
-          scoreLabel={scoreLabel}
-          formatScore={formatScore}
+          scoreLabel={effectiveScoreLabel}
+          formatScore={effectiveFormatScore}
           dnfAnnotation={dnfAnnotation}
           vehicle={vehicle}
           scrollBehavior={behaviour.scrollBehavior}
@@ -992,8 +1071,8 @@ export default function Observation() {
         <RaceFinishedOverlay
           roundLabel={finishedRoundLabel}
           standings={finishedStandings}
-          formatScore={formatScore}
-          scoreLabel={scoreLabel}
+          formatScore={finishedFormatScore}
+          scoreLabel={finishedScoreLabel}
           nameDisplay={nameDisplay}
           vehicle={vehicle}
         />
@@ -1152,12 +1231,12 @@ export default function Observation() {
                 <tr>
                   <th style={{ padding: '15px' }}>Rank</th>
                   <th style={{ padding: '15px' }}>Racer</th>
-                  <th style={{ padding: '15px', textAlign: 'right' }}>{scoreLabel}</th>
+                  <th style={{ padding: '15px', textAlign: 'right' }}>{effectiveScoreLabel}</th>
                   <th style={{ padding: '15px', textAlign: 'right' }}>Runs</th>
                 </tr>
               </thead>
               <tbody>
-                {standings.map((s: Standing) => {
+                {effectiveStandings.map((s: Standing) => {
                   const racer = racersMap[s.racerId];
                   return (
                     <tr key={s.racerId} className="standing-row" style={{ borderBottom: '1px solid var(--display-border-subtle-color)' }}>
@@ -1190,7 +1269,7 @@ export default function Observation() {
                         </div>
                       </td>
                       <td className="standing-time" style={{ padding: '15px', textAlign: 'right', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontSize: '1.4rem', fontWeight: 'bold' }}>
-                        {formatScore(s.score)}
+                        {effectiveFormatScore(s.score)}
                         {dnfAnnotation(s.dnfCount ?? 0) && (
                           <div className="standing-dnf-note" style={{ fontSize: '0.7rem', fontWeight: 'normal', fontFamily: 'var(--font-body)', color: 'var(--display-text-muted-color)' }}>
                             {dnfAnnotation(s.dnfCount ?? 0)}
@@ -1201,7 +1280,7 @@ export default function Observation() {
                     </tr>
                   );
                 })}
-                {standings.length === 0 && (
+                {effectiveStandings.length === 0 && (
                   <tr><td colSpan={4} style={{ padding: '30px', textAlign: 'center' }}>No results yet.</td></tr>
                 )}
               </tbody>
@@ -1351,7 +1430,7 @@ export default function Observation() {
     );
   };
 
-  const top5Standings = standings.slice(0, 5);
+  const top5Standings = effectiveStandings.slice(0, 5);
   const nowRacingHeatInfo = officialCurrentHeat
     ? (runOffAnnouncement(officialCurrentHeat.runOffPlacement) ??
       `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}`)
@@ -1453,10 +1532,10 @@ export default function Observation() {
                         <td className="projector-standings-time-col" style={{ padding: '1.5vmin 0', width: '30%', textAlign: 'right' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
                             <span style={{ fontSize: '3.5vmin', fontWeight: 'bold', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', color: 'var(--display-accent-color)', lineHeight: '1' }}>
-                              {formatProjectorScore(s.score)}
+                              {effectiveFormatProjectorScore(s.score)}
                             </span>
                             <span style={{ fontSize: '1.5vmin', color: 'var(--display-text-faintest-color)', textTransform: 'uppercase', letterSpacing: '0.1vmin', marginTop: '0.5vmin' }}>
-                              {scoreLabel}
+                              {effectiveScoreLabel}
                             </span>
                             {dnfAnnotation(s.dnfCount ?? 0) && (
                               <span style={{ fontSize: '1.5vmin', color: 'var(--display-text-faintest-color)', marginTop: '0.3vmin' }}>

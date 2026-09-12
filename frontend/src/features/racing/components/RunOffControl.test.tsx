@@ -401,9 +401,112 @@ describe('an existing run-off for this cluster', () => {
     mockRunOffHeats([{ ...existingHeat, recorded: true }]);
     render(<RunOffControl raceId={1} trackId={5} settlesRoundId={3} racers={racers} />);
 
-    expect(screen.getByText('Run-off decided.')).toBeInTheDocument();
+    expect(screen.getByText(/Run-off decided:/)).toBeInTheDocument();
     expect(screen.queryByText('Record result')).toBeNull();
     expect(screen.queryByText('Cancel run-off')).toBeNull();
     expect(screen.queryByText('Arm timer')).toBeNull();
+  });
+});
+
+// #1017: a settled run-off used to leave nothing behind but the words
+// "Run-off decided." — no times, no way to see (or undo) what actually
+// happened, and the control unmounted from the standings row entirely once
+// the tie it was attached to stopped sharing a rank. These exercise the
+// part that lives in this component once `Leaderboard.tsx` keeps mounting
+// it under a settled cluster (`runOffCluster`, tested separately in
+// `runOff.test.ts`).
+describe('a decided run-off keeps its own record on screen (#1017)', () => {
+  const recordedHeat = {
+    id: 55,
+    settlesRoundId: 3,
+    recorded: true,
+    placement: null,
+    lanes: [
+      { lane: 1, racerId: 101, time: 3.212, place: 1 },
+      { lane: 2, racerId: 102, time: 3.401, place: 2 },
+    ],
+  };
+
+  it("shows each racer's own recorded time, winner first", () => {
+    mockRunOffHeats([recordedHeat]);
+    render(<RunOffControl raceId={1} trackId={5} settlesRoundId={3} racers={racers} />);
+
+    const times = screen.getByTestId('run-off-recorded-times');
+    expect(times).toHaveTextContent('Jordan Mitchell 3.212s');
+    expect(times).toHaveTextContent('Riley Chen 3.401s');
+    // Winner first, not lane order — lane 1 already is Jordan here, so
+    // reverse the fixture's placement to prove the sort rather than the
+    // input order.
+    expect(times.textContent!.indexOf('Jordan')).toBeLessThan(
+      times.textContent!.indexOf('Riley'),
+    );
+  });
+
+  it('offers a way to correct a mistyped time, not a delete', () => {
+    mockRunOffHeats([recordedHeat]);
+    render(<RunOffControl raceId={1} trackId={5} settlesRoundId={3} racers={racers} />);
+
+    // Neither deletion route works on a heat with results — this is a
+    // re-record, not a delete-and-recreate.
+    expect(screen.queryByText('Cancel run-off')).toBeNull();
+    expect(screen.getByTestId('rerun-run-off-btn')).toBeInTheDocument();
+  });
+
+  it('prefills the manual entry with what is already recorded, then re-records through the ordinary door', async () => {
+    mockRunOffHeats([recordedHeat]);
+    render(<RunOffControl raceId={1} trackId={5} settlesRoundId={3} racers={racers} />);
+
+    fireEvent.click(screen.getByTestId('rerun-run-off-btn'));
+
+    expect(screen.getByLabelText('Jordan Mitchell')).toHaveValue(3.212);
+    expect(screen.getByLabelText('Riley Chen')).toHaveValue(3.401);
+
+    // The mistyped one gets corrected; the other is left as prefilled.
+    fireEvent.change(screen.getByLabelText('Jordan Mitchell'), {
+      target: { value: '3.099' },
+    });
+    fireEvent.click(screen.getByText('Record result'));
+
+    await waitFor(() => {
+      expect(updateHeatResult).toHaveBeenCalledWith({
+        heatId: 55,
+        lanes: [
+          { lane: 1, racerId: 101, time: 3.099, place: null, skipped: false },
+          { lane: 2, racerId: 102, time: 3.401, place: null, skipped: false },
+        ],
+      });
+      expect(refetchExisting).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
+    });
+
+    // Back to the decided view — not left sitting in edit mode.
+    expect(screen.queryByText('Record result')).toBeNull();
+    expect(screen.getByTestId('rerun-run-off-btn')).toBeInTheDocument();
+  });
+
+  it('a cancelled correction leaves the previous result alone', () => {
+    mockRunOffHeats([recordedHeat]);
+    render(<RunOffControl raceId={1} trackId={5} settlesRoundId={3} racers={racers} />);
+
+    fireEvent.click(screen.getByTestId('rerun-run-off-btn'));
+    expect(screen.getByText('Record result')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Cancel correction'));
+
+    expect(screen.queryByText('Record result')).toBeNull();
+    expect(screen.getByTestId('run-off-recorded-times')).toHaveTextContent(
+      'Jordan Mitchell 3.212s',
+    );
+    expect(updateHeatResult).not.toHaveBeenCalled();
+  });
+
+  it('arming the timer is reachable again while correcting', () => {
+    mockRunOffHeats([recordedHeat]);
+    render(<RunOffControl raceId={1} trackId={5} settlesRoundId={3} racers={racers} />);
+
+    expect(screen.queryByText('Arm timer')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('rerun-run-off-btn'));
+
+    expect(screen.getByText('Arm timer')).toBeInTheDocument();
   });
 });

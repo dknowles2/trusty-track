@@ -99,6 +99,20 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
     racer_heat_counts: dict[int, int] = {}
     # Enriched results from completed heats only (has at least one time)
     all_results: list[ResultRow] = []
+    # The same rows, minus any heat scheduled under `ELIMINATION` — feeds
+    # only the per-den average below (#1020). Elimination heats never feed
+    # the *scoring* aggregate (`services.scoring._scoring_heats`,
+    # `.claude/rules/scheduling.md`: "Heat counts are uneven by design ...
+    # which ... skews a TIMED average toward early knockouts") for the same
+    # reason a den comparison built from them would be unfair: a car
+    # eliminated in the first wave contributes one heat, the eventual
+    # champion contributes many, and averaging the two together ranks dens
+    # by survival luck rather than speed. `total_heats_*`, the lane-fairness
+    # table and the highlights below stay over every heat, elimination
+    # included — "fastest heat of the night" and "is one lane biased" are
+    # honest questions about heats that were actually raced, not about a
+    # fair comparison between racers.
+    scoreable_results: list[ResultRow] = []
     # Completed heats with round context, for highlights and heat_results
     heats_with_rounds: list[dict[str, Any]] = []
 
@@ -141,10 +155,17 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
 
         total_heats_completed += 1
 
+        is_elimination_round = (
+            round_obj is not None
+            and round_obj.scheduling_strategy == models.SchedulingStrategy.ELIMINATION
+        )
         for r in results:
             if not r["racer_id"]:
                 continue
-            all_results.append(ResultRow(**r, round_name=round_name))
+            row = ResultRow(**r, round_name=round_name)
+            all_results.append(row)
+            if not is_elimination_round:
+                scoreable_results.append(row)
 
         heats_with_rounds.append(
             {
@@ -166,6 +187,13 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
     # `_compute_racing_group_stats` still needs it.
     racer_stats = _compute_racer_stats(
         all_results, racer_heat_counts, racer_map, racing_group_map
+    )
+    # A separate pass over the elimination-excluded rows, used only for the
+    # den comparison below — the per-racer table above still shows a car's
+    # own average across every heat it ran, which is an honest question
+    # about that one car regardless of format.
+    racer_stats_for_groups = _compute_racer_stats(
+        scoreable_results, racer_heat_counts, racer_map, racing_group_map
     )
     highlights = _compute_highlights(heats_with_rounds, racer_map)
 
@@ -194,7 +222,9 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
             for rs in racer_stats
         ],
         "highlights": highlights,
-        "racing_group_stats": _compute_racing_group_stats(racer_stats, racing_groups),
+        "racing_group_stats": _compute_racing_group_stats(
+            racer_stats_for_groups, racing_groups
+        ),
         "heat_results": _compute_heat_results(heats_with_rounds, racer_map),
         "top_scale_mph": top_scale_mph,
         # The record belongs to the track, not the race: every race ever run

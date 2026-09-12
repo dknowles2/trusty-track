@@ -61,3 +61,45 @@ export function tooManyForRunOff(racerCount: number, usableLanes: number | null)
   if (usableLanes == null || racerCount <= usableLanes) return null;
   return `Not enough usable lanes for all ${racerCount} tied racers (only ${usableLanes} available).`;
 }
+
+/** The fields `runOffCluster` needs off a standings row — a subset of
+ * `LeaderboardEntry` (`features/stats/components/Leaderboard.tsx`), kept
+ * narrow so this module does not import from `features/stats/`. */
+export interface RunOffClusterEntry {
+  rank: number;
+  score: number;
+  resolvedBy?: string | null;
+}
+
+/**
+ * The standings rows an operator would recognise as belonging together for
+ * a run-off control, given the row at `index` (#1017).
+ *
+ * Before a tie is settled, that is every row sharing `entry`'s `rank` —
+ * the ordinary case `Leaderboard.tsx` has always grouped on. Once a
+ * *run-off* settles one, the rows no longer share a rank (that is the whole
+ * point of racing it off), so the plain rank-based grouping stops finding
+ * them and the control — along with the only record of what the run-off's
+ * own times were — disappeared from the page the moment it did its job.
+ * Racing itself does not change `score` (a `TIMED`/`POINTS` tie is defined
+ * by an identical score to begin with, and settling it moves `rank`, never
+ * `score`), so a settled run-off's own rows are still findable by the
+ * `score` they tied on, gated on `resolvedBy === 'RUN_OFF'` so an ordinary
+ * tiebreak policy (`BEST_TIME`, `COUNTBACK`, ...) — which never had a
+ * run-off heat to show in the first place — is left exactly as it was.
+ *
+ * Returns every row belonging to the same cluster as `entries[index]`, in
+ * `entries`' own order — a single-element result (or an empty one, for an
+ * out-of-range index) means "no cluster here".
+ */
+export function runOffCluster<T extends RunOffClusterEntry>(
+  entries: readonly T[],
+  index: number,
+): T[] {
+  const entry = entries[index];
+  if (!entry) return [];
+  if (entry.resolvedBy === 'RUN_OFF') {
+    return entries.filter((e) => e.resolvedBy === 'RUN_OFF' && e.score === entry.score);
+  }
+  return entries.filter((e) => e.rank === entry.rank);
+}

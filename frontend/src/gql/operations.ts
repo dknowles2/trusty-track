@@ -1033,7 +1033,7 @@ export type GetRunOffHeatsQueryVariables = Exact<{
 }>;
 
 
-export type GetRunOffHeatsQuery = { race: { id: number, isLocked: boolean, runOffHeats: Array<{ id: number, settlesRoundId: number | null, recorded: boolean, placement: number | null, lanes: Array<{ lane: number, racerId: number | null }> }> } | null };
+export type GetRunOffHeatsQuery = { race: { id: number, isLocked: boolean, runOffHeats: Array<{ id: number, settlesRoundId: number | null, recorded: boolean, placement: number | null, lanes: Array<{ lane: number, racerId: number | null, time: number | null, place: number | null }> }> } | null };
 
 export type StartIntermissionMutationVariables = Exact<{
   raceId: number;

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '../../../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, act, within } from '@testing-library/react';
 import Observation from './Observation';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useQuery, useSubscription } from 'urql';
@@ -1679,6 +1679,57 @@ describe('Observation Page', () => {
 
             expect(screen.queryByTestId('race-finished-overlay')).not.toBeInTheDocument();
             expect(screen.getByText('Now Racing')).toBeInTheDocument();
+        });
+
+        // #1020: a race whose only round is an elimination round has no
+        // championship round at all, and the prelim-scoped `leaderboard`
+        // subscription never carries anything for one by design
+        // (`services/scoring._scoring_heats` excludes elimination heats) —
+        // so the room used to see "Race complete!" over a blank screen, the
+        // one thing an elimination race exists to produce. This mirrors the
+        // "shows the championship round's own placings" test above, reusing
+        // the same `useQuery` mock quirk (every call returns the identical
+        // mocked `race`, so `race.leaderboard` backs whichever round-scoped
+        // query is actually in play).
+        it("falls back to the elimination round's own standings when the race has no championship round", () => {
+            const eliminationOnlyFinished = {
+                race: {
+                    ...finishedRacersData.race,
+                    rounds: [
+                        {
+                            id: 30,
+                            name: 'Elimination Round',
+                            roundNumber: 1,
+                            advancementSource: null,
+                            schedulingStrategy: 'ELIMINATION',
+                        },
+                    ],
+                    // Losses, not a time — Uma (2) survives longer than Dot (4).
+                    leaderboard: [
+                        { racerId: 2, rank: 1, score: 2, heatsCompleted: 5 },
+                        { racerId: 1, rank: 2, score: 4, heatsCompleted: 6 },
+                    ],
+                },
+            };
+            setupMocks({}, eliminationOnlyFinished);
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            expect(screen.getByTestId('race-finished-overlay')).toBeInTheDocument();
+            expect(screen.getByText('Elimination Round results')).toBeInTheDocument();
+            const winnerRow = screen.getByText('Uma Spark').closest('div[style*="align-items: center"]');
+            expect(winnerRow).not.toBeNull();
+            // The score column reads losses, not a time — "2", not "2.000s".
+            expect(within(winnerRow as HTMLElement).getByText('2')).toBeInTheDocument();
+            expect(within(winnerRow as HTMLElement).getByText('Losses')).toBeInTheDocument();
+            expect(screen.getAllByText('Losses')).toHaveLength(2);
+            expect(screen.queryByText(/\d\.\d{3}s/)).toBeNull();
         });
     });
 });

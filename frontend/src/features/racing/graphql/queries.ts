@@ -409,6 +409,12 @@ export const GET_RUN_OFF_HEATS = gql`
         lanes {
           lane
           racerId
+          # A settled run-off's own times (#1017) — carried here so the
+          # control can keep showing what decided the tie after it
+          # disappears from the standings' own note, rather than leaving no
+          # record of it anywhere on the page.
+          time
+          place
         }
       }
     }
