@@ -86,9 +86,43 @@ name: Regenerate Doc Screenshots
 # environment. It says nothing about whether a given diff is the *right*
 # change — that reading is still a maintainer's job, which is exactly why the
 # output is a PR and not a direct push to main.
+#
+# It now also runs on every push to `main`, and merges its own PR. CI's drift
+# check on a pull request is advisory (see `ci.yml`'s `doc-screenshots` job
+# for why it stopped being a gate): what keeps the committed baselines
+# matching what the app renders is *this* job, run after every merge, from
+# the one environment a baseline is allowed to come from. Three things about
+# that, each a way of getting it wrong:
+#
+#   - `paths-ignore: docs/assets/screenshots/**` is what stops the loop. The
+#     PR this job opens touches only those files, so its own merge to `main`
+#     does not run this again; a merge that touches a screenshot *and*
+#     anything else still does, since `paths-ignore` skips a push only when
+#     every changed file matches.
+#   - `concurrency` with `cancel-in-progress` collapses a burst of merges into
+#     one run against the newest `main`. A cancelled run has opened nothing
+#     yet, or has opened a PR the next run supersedes (it closes any open
+#     `docs-screenshots/regen-*` PR before opening its own).
+#   - The PR is opened with `GITHUB_TOKEN`, which raises no `pull_request`
+#     event, so `main`'s ruleset — nine required checks by name — would leave
+#     it unmergeable forever. `ci.yml` carries a `workflow_dispatch` trigger
+#     for exactly this: this job dispatches CI onto its own branch, whose
+#     check runs land on the head commit the ruleset reads, and enables
+#     auto-merge so the PR lands the moment they pass. CI's own drift check
+#     cannot fail that run (it is advisory, and the branch *is* the baseline);
+#     only a genuine spec or build break can, which is what should hold a
+#     regeneration back.
 
 on:
   workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/assets/screenshots/**"
+
+concurrency:
+  group: regenerate-doc-screenshots
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -101,6 +135,8 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      # `gh workflow run` — dispatching CI onto the branch this job opens.
+      actions: write
     steps:
       - uses: actions/checkout@v7
 
@@ -254,6 +290,23 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # A regeneration still open from an earlier run is stale the moment this
+      # one has a newer `main`'s images in hand: its baseline would land on
+      # top of these, or race them. Close it and drop its branch first — the
+      # newest run always wins. Only branches this workflow itself names, so a
+      # person's own `docs-screenshots/...` branch is never touched.
+      - name: Close any regeneration this one supersedes
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr list --state open --json number,headRefName \
+            --jq '.[] | select(.headRefName | startswith("docs-screenshots/regen-")) | .number' \
+          | while read -r number; do
+              gh pr close "$number" --delete-branch \
+                --comment "Superseded by a newer regeneration (run ${{ github.run_id }})."
+            done
+
       - name: Open a pull request
         if: steps.changes.outputs.changed == 'true'
         env:
@@ -323,8 +376,21 @@ jobs:
             --base "${{ github.ref_name }}" \
             --head "$BRANCH"
 
+          # The PR above raised no `pull_request` event (see the header), so
+          # give it the checks the ruleset requires by dispatching CI onto its
+          # branch ourselves.
+          gh workflow run ci.yml --ref "$BRANCH"
+
+          # And let it land on its own once those checks pass. After the
+          # dispatch, not before: auto-merge on a PR with no checks yet simply
+          # waits, but a dispatch that failed to enqueue would leave it armed
+          # with nothing ever coming to satisfy it — the step fails first.
+          gh pr merge "$BRANCH" --auto --squash
+
           {
             echo "## $COUNT screenshot(s) changed — PR opened"
+            echo
+            echo "CI has been dispatched onto \`$BRANCH\` and auto-merge is enabled; the PR lands on its own once the required checks pass."
             echo
             cat /tmp/pr-body.md
           } >> "$GITHUB_STEP_SUMMARY"
