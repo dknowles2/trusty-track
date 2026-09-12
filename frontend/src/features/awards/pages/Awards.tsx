@@ -87,7 +87,7 @@ export default function Awards() {
   const id = parseInt(raceId || '0');
   const { showConfirm } = useAlert();
   const runMutation = useRunMutation();
-  const { groupLower, orgLower, vehiclesLower } = useTerminology();
+  const { groupLower, orgLower, vehicleLower, vehiclesLower } = useTerminology();
 
   // The App surface's own theme (#498), read once per render — this device's
   // `localStorage`, never the server. Under the Lights is the only one of
@@ -344,7 +344,7 @@ export default function Awards() {
           {missingPhotoCount > 0 && (
             <span style={{ flexBasis: '100%', color: 'var(--warning-alt-color)' }}>
               {missingPhotoCount} of {racers.length} {vehiclesLower} have no photo — voters
-              will see the car's number instead. <Link to={`/race/${id}`}>Upload photos</Link> from
+              will see the {vehicleLower}'s number instead. <Link to={`/race/${id}`}>Upload photos</Link> from
               the roster.
             </span>
           )}
