@@ -360,7 +360,7 @@ export type VotingBallotQueryVariables = Exact<{
 }>;
 
 
-export type VotingBallotQuery = { race: { id: number, name: string, votingOpen: boolean, awards: Array<{ id: number, name: string, kind: string, votable: boolean }>, racers: Array<{ id: number, carNumber: number | null, carName: string | null, carImageUrl: string | null }> } | null };
+export type VotingBallotQuery = { race: { id: number, name: string, votingOpen: boolean, awards: Array<{ id: number, name: string, kind: string, votable: boolean }>, racers: Array<{ id: number, carNumber: number | null, carName: string | null, carImageUrl: string | null, racingGroup: { color: string } | null }> } | null };
 
 export type CastVoteMutationVariables = Exact<{
   awardId: number;

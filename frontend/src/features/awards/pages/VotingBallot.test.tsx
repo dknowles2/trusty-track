@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { print } from 'graphql';
@@ -23,9 +23,27 @@ const RACE = {
     { id: 13, name: "Judges' Choice", kind: 'SPECIAL', votable: false },
   ],
   racers: [
-    { id: 100, carNumber: 42, carName: 'Blue Streak', carImageUrl: null },
-    { id: 101, carNumber: 7, carName: null, carImageUrl: null },
-    { id: 102, carNumber: null, carName: null, carImageUrl: null },
+    {
+      id: 100,
+      carNumber: 42,
+      carName: 'Blue Streak',
+      carImageUrl: null,
+      racingGroup: null as { color: string } | null,
+    },
+    {
+      id: 101,
+      carNumber: 7,
+      carName: null,
+      carImageUrl: null,
+      racingGroup: null as { color: string } | null,
+    },
+    {
+      id: 102,
+      carNumber: null,
+      carName: null,
+      carImageUrl: null,
+      racingGroup: null as { color: string } | null,
+    },
   ],
 };
 
@@ -62,9 +80,19 @@ describe('the voting ballot page (#305)', () => {
 
   it('asks for cars and nothing about who built them', () => {
     // The anonymity this page promises is enforced by what it asks for —
-    // there is no server-side check on a query.
+    // there is no server-side check on a query. `racingGroup { color }`
+    // is a den's colour, not a child's name (#1006) — it fills a
+    // photo-less tile, not an identity.
     const document = print(VOTING_BALLOT_QUERY);
-    for (const field of ['carNumber', 'carName', 'carImageUrl', 'votingOpen', 'votable']) {
+    for (const field of [
+      'carNumber',
+      'carName',
+      'carImageUrl',
+      'votingOpen',
+      'votable',
+      'racingGroup',
+      'color',
+    ]) {
       expect(document).toContain(field);
     }
     for (const field of ['firstName', 'lastName', 'racerImageUrl']) {
@@ -186,5 +214,84 @@ describe('the voting ballot page (#305)', () => {
     await userEvent.click(screen.getByText('#42'));
 
     expect(await screen.findByText('Voting is closed.')).toBeInTheDocument();
+  });
+
+  it('fills a photo-less tile with the car number rather than an empty square (#1006)', () => {
+    renderPage();
+
+    // Every racer in the fixture has `carImageUrl: null` — nothing here
+    // should ever fall back to an <img>.
+    expect(screen.queryByRole('img')).toBeNull();
+    // The number appears twice per car (once bare in the tile, once as
+    // "#42" in the label below it) — the bare form is unique per car, so
+    // finding it confirms the tile itself carries the number rather than
+    // being an empty square.
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
+  });
+
+  it("uses the racing group's own colour to fill a photo-less tile when the car has one", () => {
+    renderPage({
+      ...RACE,
+      racers: [
+        {
+          id: 100,
+          carNumber: 42,
+          carName: 'Blue Streak',
+          carImageUrl: null,
+          racingGroup: { color: '#ff0000' },
+        },
+      ],
+    });
+
+    expect(screen.getByText('42')).toHaveStyle({ background: '#ff0000' });
+  });
+
+  it('collapses every award past the first, and expands one on click (#1006)', async () => {
+    renderPage({
+      ...RACE,
+      awards: [
+        { id: 11, name: 'Best Paint', kind: 'SPECIAL', votable: true },
+        { id: 14, name: 'Most Original', kind: 'SPECIAL', votable: true },
+      ],
+    });
+
+    const sections = document.querySelectorAll('details');
+    expect(sections).toHaveLength(2);
+    expect(sections[0]).toHaveAttribute('open');
+    expect(sections[1]).not.toHaveAttribute('open');
+
+    await userEvent.click(screen.getByText('Most Original'));
+
+    expect(sections[1]).toHaveAttribute('open');
+  });
+
+  it("keeps a collapsed award's own summary informative once voted on (#1006)", async () => {
+    renderPage({
+      ...RACE,
+      awards: [
+        { id: 11, name: 'Best Paint', kind: 'SPECIAL', votable: true },
+        { id: 14, name: 'Most Original', kind: 'SPECIAL', votable: true },
+      ],
+    });
+
+    const sections = document.querySelectorAll('details');
+    // Every award shares the same roster, so a car's own label ("#7") is
+    // not unique across sections — scope with `within` to avoid the
+    // second award's copy matching too.
+    await userEvent.click(screen.getByText('Most Original'));
+    expect(sections[1]).toHaveAttribute('open');
+
+    await userEvent.click(within(sections[1] as HTMLElement).getByText('#7'));
+    await within(sections[1] as HTMLElement).findByText(/thanks for voting/i);
+
+    // Collapse it again — the vote should still be readable from the
+    // summary line without reopening the section.
+    await userEvent.click(screen.getByText('Most Original'));
+    expect(sections[1]).not.toHaveAttribute('open');
+
+    expect(
+      within(sections[1] as HTMLElement).getByText('You voted for #7', { exact: false }),
+    ).toBeInTheDocument();
   });
 });
