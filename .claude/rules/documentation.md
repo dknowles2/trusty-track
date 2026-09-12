@@ -29,9 +29,11 @@ the guides describe what a reader can download today, and the demo the front
 page sends them to runs the build the front page describes. It used to build
 from `main`, which at one point had the site documenting 95 commits nobody
 could install and the demo did not have. `main` still builds on every merge,
-as a preview at `main.<project>.pages.dev`; that is where to read a docs
-change before it ships. The cost is that a docs-only fix waits for the next
-release — `deploy/cloudflare/README.md` has the by-hand escape hatch.
+as a preview at **`main.trusty-track.com`** (a Cloudflare custom branch alias —
+a proxied CNAME onto `main.trusty-track.pages.dev`, and it serves *production*
+if anyone un-proxies it); that is where to read a docs change before it
+ships. The cost is that a docs-only fix waits for the next release —
+`deploy/cloudflare/README.md` has the by-hand escape hatch.
 
 Two things follow from sharing an origin, and both are the point of it:
 
