@@ -4,12 +4,16 @@
  * (Add Racer's split button, a racer row's Checked In / Edit) painted
  * exactly like an enabled one, because an inline style always wins over a
  * class selector, `.primary-btn:disabled`/`.secondary-btn:disabled`
- * included. The actual visual fix is the generic `button:disabled` rule in
- * `index.css`, which is not something jsdom can assert on directly — what
- * this file pins is the contract that rule depends on: every affected
- * button renders with the native `disabled` attribute (what the CSS keys
- * off) and, for consistency with every other secondary-style control, the
- * `secondary-btn` class.
+ * included. The fix is a generic `button:disabled` rule in `index.css` keyed
+ * on `opacity` — a plain element/pseudo-class selector, not a class, since
+ * two of the three Checked In / Edit table renderings carry no button class
+ * at all (and giving them one turned out to be its own bug: `.secondary-btn`
+ * sets `font-weight: bold`, which these buttons' own inline styles never
+ * disabled, and bold text reflowed the table's auto-sized columns — a
+ * pixel-diffing screenshot check on `race-day/04` and `race-setup/08` in
+ * CI is what caught it). This file is not able to assert the CSS rule
+ * itself; it pins the contract the rule depends on — every affected button
+ * renders with the native `disabled` attribute.
  */
 import '../../../setupTests';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
@@ -111,7 +115,11 @@ describe('disabled buttons carry the disabled contract the CSS rule depends on (
         expect(addRacer).toHaveClass('secondary-btn');
     });
 
-    it('disables every Checked In / Edit rendering of a checked-in racer, each carrying the same class', async () => {
+    it('disables every Checked In / Edit rendering of a checked-in racer', async () => {
+        // Deliberately not asserting a shared class here: two of the three
+        // renderings of this button (the desktop table's two variants) carry
+        // no button class, by design (see the file header) — the disabled
+        // rule reaches them through the native `disabled` attribute alone.
         mockLockedRaceWithCheckedInRacer();
         mockMutations();
 
@@ -124,7 +132,6 @@ describe('disabled buttons carry the disabled contract the CSS rule depends on (
         const buttons = screen.getAllByRole('button', { name: /Checked In \/ Edit/ });
         for (const button of buttons) {
             expect(button).toBeDisabled();
-            expect(button).toHaveClass('secondary-btn');
         }
     });
 });

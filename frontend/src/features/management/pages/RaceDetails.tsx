@@ -1420,7 +1420,6 @@ export default function RaceDetails() {
                                             <td data-label="Status/Edit" style={{ padding: '12px', textAlign: 'center' }}>
                                                 <button
                                                     onClick={() => handleCheckInClick(racer)}
-                                                    className="secondary-btn"
                                                     disabled={checkinDisabled}
                                                     title={checkinTitle}
                                                     style={{
@@ -1516,7 +1515,6 @@ export default function RaceDetails() {
                                     <span className="cell-value" style={{ display: 'flex', justifyContent: 'center' }}>
                                         <button
                                             onClick={() => handleCheckInClick(racer)}
-                                            className="secondary-btn"
                                             disabled={checkinDisabled}
                                             title={checkinTitle}
                                             style={{
