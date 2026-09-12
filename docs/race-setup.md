@@ -140,7 +140,7 @@ them.
   an outlaw-class entry. They still get heats, still show on the audience
   displays, and their times are still recorded; they are only left out of
   the standings. See [Racing without being ranked](reference/scoring.md#racing-without-being-ranked).
-- **Auto number**: Assign car numbers to the selected racers, following the race's **Car Numbering** setting — sequentially from the global start number, or from each den's own range. A race set to Manual numbering is left alone.
+- **Auto number**: Assign car numbers to the selected racers, following the race's **Car Numbering** setting — sequentially from the global start number, or from each den's own range. A race set to Manual numbering is left alone. If any of the selected racers are already checked in, you're asked first — renumbering one means its printed pit pass no longer matches, so the default is to number only the others, with "Renumber all" as an explicit second choice if you really do want to change a checked-in racer's number too.
 - **Clear numbers**: Remove car numbers from selected racers.
 - **Move to den**: Batch change the den assignment for selected racers, or move them to Unassigned.
 - **Delete**: Remove selected racers from the race.

@@ -22,11 +22,20 @@
  * query param, rather than a `useEffect`. Once collapsed automatically, an
  * operator who reopens it to check a step is not fought back shut on the
  * next keystroke.
+ *
+ * **A step is `done`, `skipped`, or plain outstanding, and each gets its own
+ * look (#1000).** `done` is a tick, a strikethrough, and the success colour;
+ * `skipped` is a muted "no longer needed" note beside the label and a
+ * distinct hollow-minus icon, with no tick and no strikethrough — a step
+ * that was never actually carried out (check-in still under way, no awards
+ * ever set up) must not read as one that was. `data-done` still means
+ * "genuinely finished" for `race-day.spec.ts`'s own wait on it; `data-skipped`
+ * is the new attribute for the other settled state.
  */
 
 import { useState } from 'react';
 import { Icon } from '@mdi/react';
-import { mdiCheckCircle, mdiCircleOutline } from '@mdi/js';
+import { mdiCheckCircle, mdiCircleOutline, mdiMinusCircleOutline } from '@mdi/js';
 
 import {
     checklistFor,
@@ -127,11 +136,20 @@ export default function SetupChecklist({ progress, onAction }: Props) {
                     // to get somebody moving.
                     const isNext = next?.key === step.key;
                     const handler = onAction[step.key];
+                    // #1000: a step that was never done must not look like one
+                    // that was. `skipped` gets its own icon and its own muted
+                    // note rather than the tick + strikethrough `done` uses —
+                    // that pairing used to be shown for "check-in has started"
+                    // and "the race is locked" alike, which read as "Print pit
+                    // passes" being finished when nothing had been printed.
+                    const icon = step.done ? mdiCheckCircle : step.skipped ? mdiMinusCircleOutline : mdiCircleOutline;
+                    const iconColor = step.done ? 'var(--success-color)' : 'var(--text-placeholder-color)';
                     return (
                         <li
                             key={step.key}
                             data-testid={`setup-step-${step.key}`}
                             data-done={step.done ? 'true' : 'false'}
+                            data-skipped={step.skipped ? 'true' : 'false'}
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -139,20 +157,21 @@ export default function SetupChecklist({ progress, onAction }: Props) {
                                 flexWrap: 'wrap',
                             }}
                         >
-                            <Icon
-                                path={step.done ? mdiCheckCircle : mdiCircleOutline}
-                                size={0.8}
-                                color={step.done ? 'var(--success-color)' : 'var(--text-placeholder-color)'}
-                            />
+                            <Icon path={icon} size={0.8} color={iconColor} />
                             <span
                                 style={{
                                     fontWeight: isNext ? 600 : 400,
-                                    color: step.done ? 'var(--text-muted-color)' : 'var(--text-strong-color)',
+                                    color: step.done || step.skipped ? 'var(--text-muted-color)' : 'var(--text-strong-color)',
                                     textDecoration: step.done ? 'line-through' : undefined,
                                 }}
                             >
                                 {step.label}
                             </span>
+                            {step.skipped && (
+                                <span style={{ fontSize: '0.8rem', fontStyle: 'italic', color: 'var(--text-placeholder-color)' }}>
+                                    no longer needed
+                                </span>
+                            )}
                             {isNext && (
                                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>{step.hint}</span>
                             )}

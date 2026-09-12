@@ -29,10 +29,11 @@ beforeEach(() => {
     (useSubscription as any).mockReturnValue([{ data: undefined }, vi.fn()]);
 });
 
-const { mockShowAlert, mockShowConfirm } = vi.hoisted(() => {
+const { mockShowAlert, mockShowConfirm, mockShowToast } = vi.hoisted(() => {
     return {
         mockShowAlert: vi.fn(),
         mockShowConfirm: vi.fn(),
+        mockShowToast: vi.fn(),
     }
 })
 
@@ -40,6 +41,7 @@ vi.mock('../../../context/AlertContext', () => ({
     useAlert: () => ({
         showAlert: mockShowAlert,
         showConfirm: mockShowConfirm,
+        showToast: mockShowToast,
     }),
 }))
 
@@ -61,7 +63,10 @@ describe('RaceDetails Bulk Actions', () => {
     const mockBulkSetExcludedFromStandings = vi.fn().mockResolvedValue({ data: { bulkSetExcludedFromStandings: true } });
     const mockBulkClearNumbers = vi.fn().mockResolvedValue({ data: { bulkClearNumbers: true } });
 
-    const setupMocks = () => {
+    // #1005: a caller can mark specific racer ids as already checked in, to
+    // drive the auto-number confirm dialogs — every other test leaves this
+    // empty, which is the pre-#1005 fixture shape unchanged.
+    const setupMocks = (checkedInIds: number[] = []) => {
         (useQuery as any).mockReturnValue([{
             data: {
                 race: {
@@ -76,7 +81,7 @@ describe('RaceDetails Bulk Actions', () => {
                         lastName: r.last_name,
                         carNumber: r.car_number,
                         racingGroupId: r.racing_group_id,
-                        carPassedInspection: false,
+                        carPassedInspection: checkedInIds.includes(r.id),
                     })),
                     racingGroups: mockRacingGroups.map(d => ({ ...d, racerCount: 0 })),
                     leaderboard: []
@@ -162,13 +167,96 @@ describe('RaceDetails Bulk Actions', () => {
         expect(mockBulkAutoNumber).toHaveBeenCalledWith({
             racerIds: [1, 2]
         });
-        await waitFor(() => expect(mockShowAlert).toHaveBeenCalledWith('Successfully auto-numbered 2 racers', 'Bulk Auto-Number Result'));
+        // #1005: a toast, not the blocking "Bulk Auto-Number Result" modal
+        // every other bulk action already avoids — no confirm was needed
+        // either, since neither selected racer is checked in.
+        expect(mockShowConfirm).not.toHaveBeenCalled();
+        await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('Auto-numbered 2 cars', 'success'));
 
         // #420: auto-number is additive, so the desk can follow it straight
         // into another bulk action on the same racers rather than re-ticking
         // select-all.
         expect(screen.getByTestId('roster-selection-bar')).toBeInTheDocument();
         expect(screen.getByText('2 selected')).toBeInTheDocument();
+    });
+
+    it('confirms before renumbering a checked-in racer, and numbers only the others by default (#1005)', async () => {
+        // Alpha (id 1) is already checked in — renumbering it would mean
+        // reprinting a pit pass that may already be in someone's pocket.
+        setupMocks([1]);
+        mockShowConfirm.mockResolvedValue(true);
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+
+        const selectAllCheckbox = screen.getByTestId('select-all-header');
+        await user.click(selectAllCheckbox);
+
+        const autoNumBtn = await screen.findByTestId('bulk-auto-number-btn');
+        await user.click(autoNumBtn);
+
+        expect(mockShowConfirm).toHaveBeenCalledWith(
+            expect.stringContaining('1 of the 2 selected racers are already checked in'),
+            'Auto-Number Racers',
+            'Number only the 1 others',
+            'primary',
+        );
+        // Confirming numbers only the racer who is not checked in.
+        await waitFor(() => expect(mockBulkAutoNumber).toHaveBeenCalledWith({ racerIds: [2] }));
+    });
+
+    it('offers to renumber everyone anyway if the operator declines "others only" (#1005)', async () => {
+        setupMocks([1]);
+        mockShowConfirm.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+        await user.click(screen.getByTestId('select-all-header'));
+        await user.click(await screen.findByTestId('bulk-auto-number-btn'));
+
+        expect(mockShowConfirm).toHaveBeenCalledTimes(2);
+        expect(mockShowConfirm).toHaveBeenNthCalledWith(
+            2,
+            expect.stringContaining('Renumber all 2 racers, including the 1 already checked in?'),
+            'Renumber Checked-In Racers?',
+            'Renumber all 2',
+            'danger',
+        );
+        await waitFor(() => expect(mockBulkAutoNumber).toHaveBeenCalledWith({ racerIds: [1, 2] }));
+    });
+
+    it('does nothing if the operator declines both auto-number prompts (#1005)', async () => {
+        setupMocks([1]);
+        mockShowConfirm.mockResolvedValue(false);
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+        await user.click(screen.getByTestId('select-all-header'));
+        await user.click(await screen.findByTestId('bulk-auto-number-btn'));
+
+        expect(mockShowConfirm).toHaveBeenCalledTimes(2);
+        expect(mockBulkAutoNumber).not.toHaveBeenCalled();
     });
 
     it('triggers bulk delete action after confirmation', async () => {

@@ -147,6 +147,19 @@ describe('RaceExecution', () => {
             />
         );
         expect(screen.getByText('Race Execution')).toBeInTheDocument();
+        expect(screen.getByTestId('intermission-control-stub')).toBeInTheDocument();
+    });
+
+    it('hides "Take a break" once the race is locked and finished (#1008)', () => {
+        render(
+            <RaceExecution
+                {...defaultProps}
+                activeExecutionHeat={null}
+                raceLocked
+            />
+        );
+        expect(screen.getByText('Race Execution')).toBeInTheDocument();
+        expect(screen.queryByTestId('intermission-control-stub')).not.toBeInTheDocument();
     });
 
     it('renders current heat details and racer image', () => {
@@ -510,6 +523,60 @@ describe('RaceExecution', () => {
             fireEvent.click(screen.getByText('Save Results'));
 
             expect(mockOnUpdateResult).not.toHaveBeenCalled();
+        });
+    });
+
+    // #1008: the same shape as the place checks above, for the Time column —
+    // `min="0"` on that `<input>` is decorative for the identical reason,
+    // and the only prior backstop was the server's own refusal, reached
+    // only after Save.
+    describe('a hand-entered negative time is checked before Save (#1008)', () => {
+        it('disables Save and reports the server\'s own wording when a time goes negative', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="TIMED" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            const inputs = screen.getAllByRole('spinbutton');
+            fireEvent.change(inputs[0], { target: { value: '-1' } });
+
+            expect(screen.getByText('A recorded time cannot be negative.')).toBeInTheDocument();
+            expect(screen.getByText('Save Results')).toBeDisabled();
+        });
+
+        it('re-enables Save once the operator corrects the negative time', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="TIMED" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            const inputs = screen.getAllByRole('spinbutton');
+            fireEvent.change(inputs[0], { target: { value: '-1' } });
+            expect(screen.getByText('Save Results')).toBeDisabled();
+
+            fireEvent.change(inputs[0], { target: { value: '3.2' } });
+            expect(screen.queryByText('A recorded time cannot be negative.')).not.toBeInTheDocument();
+            expect(screen.getByText('Save Results')).not.toBeDisabled();
+        });
+
+        it('clicking a disabled Save never reaches onUpdateResult', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="TIMED" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            const inputs = screen.getAllByRole('spinbutton');
+            fireEvent.change(inputs[0], { target: { value: '-1' } });
+            fireEvent.click(screen.getByText('Save Results'));
+
+            expect(mockOnUpdateResult).not.toHaveBeenCalled();
+        });
+
+        it('checks the Time column under POINTS too, where the Place column has its own separate check', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="POINTS" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            // Under POINTS the row order is place, time, place, time — lane
+            // 1's time input is the second spinbutton.
+            const inputs = screen.getAllByRole('spinbutton');
+            fireEvent.change(inputs[1], { target: { value: '-1' } });
+
+            expect(screen.getByText('A recorded time cannot be negative.')).toBeInTheDocument();
+            expect(screen.getByText('Save Results')).toBeDisabled();
         });
     });
 

@@ -360,6 +360,42 @@ export const placeIssue = (results: readonly LaneInput[]): string | null => {
 };
 
 /**
+ * Lane numbers whose recorded time is negative (issue #1008, extending
+ * #863's server-side rule to the client the way #766 already did for
+ * places). Mirrors `backend/domain/lanes.py`'s `negative_times` — scoring
+ * treats any `time <= 0` as a DNF, so a negative number would read as the
+ * fastest lane in the heat and *subtract* from a car's standings rather
+ * than simply being wrong. `0` is unaffected and stays the valid DNF
+ * marker.
+ */
+export const negativeTimes = (results: readonly LaneInput[]): number[] =>
+  results.filter((r) => typeof r.time === 'number' && r.time < 0).map((r) => r.lane);
+
+/**
+ * The first problem with a hand-entered set of times, or `null` if there
+ * isn't one (issue #1008).
+ *
+ * Mirrors `crud.validate_lane_replacement`'s own negative-time check —
+ * same wording — the same "first check, not a replacement one" shape
+ * {@link placeIssue} follows for places: `RaceExecution.tsx`'s time
+ * `<input>` already carries `min="0"`, so this mostly documents that the
+ * invariant holds rather than catching anything a browser's own number
+ * input did not already refuse — but it is what closes the one check
+ * `.claude/rules/timers.md` names as having no client-side mirror yet.
+ * Unlike {@link placeIssue}, {@link duplicatePlaces}'s duplicate-racer
+ * sibling (`crud.validate_lane_replacement`'s `duplicate_racer_ids` check)
+ * still has none — the lanes a hand edit touches are drawn from the heat's
+ * own stored schedule, not retyped by the operator, so there is nothing
+ * here for a client-side racer-duplicate check to catch that the places
+ * check above does not already cover by construction.
+ */
+export const timeIssue = (results: readonly LaneInput[]): string | null => {
+  const negatives = negativeTimes(results);
+  if (negatives.length) return 'A recorded time cannot be negative.';
+  return null;
+};
+
+/**
  * A typed time field as the number it will be saved as, or `null` for
  * blank or unparsable text — factored out of `RaceExecution.tsx`'s
  * `handleSaveResults` (issue #766) so the equal-time tie detector below

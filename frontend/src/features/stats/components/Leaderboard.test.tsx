@@ -3,7 +3,7 @@ import '../../../setupTests';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { AlertProvider } from '../../../context/AlertContext';
 import Leaderboard from './Leaderboard';
 import { useMutation, useQuery, useSubscription } from 'urql';
@@ -556,6 +556,73 @@ describe('Leaderboard round scope (issue #17)', () => {
     expect(screen.queryByText('Pre Lim')).toBeNull();
     // The explanatory note belongs to the overall view only.
     expect(screen.queryByText(/cover the qualifying rounds/i)).toBeNull();
+  });
+
+  // #1008: a reload or a shared link used to drop back to "Overall" no
+  // matter which round was on screen.
+  it('opens on the round named in the URL, not Overall', () => {
+    (useQuery as any).mockImplementation(({ pause }: { pause?: boolean }) =>
+      pause === true || pause === undefined
+        ? [{
+            data: { race: withRounds([
+              { id: 1, name: 'Prelim', roundNumber: 1, advancementSource: null },
+              { id: 2, name: 'Finals', roundNumber: 2, advancementSource: 'ALL' },
+            ]) },
+            fetching: false, error: null,
+          }, vi.fn()]
+        : [{ data: { race: { id: 1, leaderboard: champEntries } }, fetching: false, error: null }, vi.fn()]
+    );
+    (useSubscription as any).mockReturnValue([{ data: { leaderboard: entries }, error: null }, vi.fn()]);
+
+    render(
+      <AlertProvider>
+        <MemoryRouter initialEntries={['/race/1/stats?round=2']}>
+          <Leaderboard raceId={1} />
+        </MemoryRouter>
+      </AlertProvider>,
+    );
+
+    expect(screen.getByLabelText('Standings scope')).toHaveValue('2');
+    expect(screen.getByText('Champ Winner')).toBeTruthy();
+    expect(screen.queryByText('Pre Lim')).toBeNull();
+  });
+
+  it('writes the picked round into the URL, with replace rather than push', async () => {
+    const user = userEvent.setup();
+    (useQuery as any).mockImplementation(({ pause }: { pause?: boolean }) =>
+      pause === true || pause === undefined
+        ? [{
+            data: { race: withRounds([
+              { id: 1, name: 'Prelim', roundNumber: 1, advancementSource: null },
+              { id: 2, name: 'Finals', roundNumber: 2, advancementSource: 'ALL' },
+            ]) },
+            fetching: false, error: null,
+          }, vi.fn()]
+        : [{ data: { race: { id: 1, leaderboard: champEntries } }, fetching: false, error: null }, vi.fn()]
+    );
+    (useSubscription as any).mockReturnValue([{ data: { leaderboard: entries }, error: null }, vi.fn()]);
+
+    function LocationSearchProbe() {
+      const location = useLocation();
+      return <div data-testid="location-search">{location.search}</div>;
+    }
+
+    render(
+      <AlertProvider>
+        <MemoryRouter initialEntries={['/race/1/stats']}>
+          <Leaderboard raceId={1} />
+          <LocationSearchProbe />
+        </MemoryRouter>
+      </AlertProvider>,
+    );
+
+    expect(screen.getByTestId('location-search')).toHaveTextContent('');
+
+    await user.selectOptions(screen.getByLabelText('Standings scope'), '2');
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?round=2');
+
+    await user.selectOptions(screen.getByLabelText('Standings scope'), '');
+    expect(screen.getByTestId('location-search')).toHaveTextContent('');
   });
 });
 

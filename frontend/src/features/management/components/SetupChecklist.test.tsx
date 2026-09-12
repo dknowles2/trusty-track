@@ -62,6 +62,37 @@ describe('SetupChecklist', () => {
         expect(screen.queryByTestId('setup-checklist')).not.toBeInTheDocument();
     });
 
+    it('renders a skipped step muted, with no tick and a "no longer needed" note, never done (#1000)', () => {
+        // Printables can never be genuinely `done` (nothing tracks a sheet
+        // actually coming out of a printer), and it must not read as though
+        // it were: no tick, no strikethrough, distinct from `done`.
+        render(
+            <SetupChecklist
+                progress={progress({ racingGroupCount: 1, racerCount: 5, checkedInCount: 1 })}
+                onAction={{}}
+            />,
+        );
+
+        const printables = screen.getByTestId('setup-step-printables');
+        expect(printables).toHaveAttribute('data-done', 'false');
+        expect(printables).toHaveAttribute('data-skipped', 'true');
+        expect(printables).toHaveTextContent('no longer needed');
+    });
+
+    it('does not tick "Check in cars" at the first of several racers (#1000)', () => {
+        render(
+            <SetupChecklist
+                progress={progress({ racingGroupCount: 1, racerCount: 11, checkedInCount: 1 })}
+                onAction={{}}
+            />,
+        );
+
+        const checkin = screen.getByTestId('setup-step-checkin');
+        expect(checkin).toHaveAttribute('data-done', 'false');
+        expect(checkin).toHaveAttribute('data-skipped', 'false');
+        expect(screen.getByText(/1 of 11 checked in/)).toBeInTheDocument();
+    });
+
     it('offers a button only for the step you are actually on', () => {
         // All four at once is a wall of buttons on a page whose job is to get
         // somebody moving.

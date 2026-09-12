@@ -65,6 +65,8 @@ describe('creating a race', () => {
         expect(screen.getByLabelText('Event Name')).toBeInTheDocument();
         expect(screen.getByLabelText(/^Timed \(average\)/)).toBeInTheDocument();
         expect(screen.getByLabelText('Check car weights at inspection')).toBeInTheDocument();
+        // A race being created has nothing yet to delete (#1008).
+        expect(screen.queryByRole('button', { name: 'Delete Race' })).toBeNull();
     });
 });
 
@@ -112,6 +114,50 @@ describe('editing a race', () => {
         expect(screen.getByTestId('race-settings-nav-displays')).toHaveAttribute('aria-current', 'page');
         expect(screen.getByLabelText('QR code headline (optional)')).toBeInTheDocument();
         expect(screen.getByLabelText('Venue Wi-Fi guidance (optional)')).toBeInTheDocument();
+    });
+
+    // #1008: Delete Race used to sit in the form's own footer beside Save
+    // Changes and Cancel, on every section — a destructive action next to
+    // the primary one, reachable from screens that have nothing to do with
+    // deleting the race. It moved to the foot of Event, behind a "Danger"
+    // divider, alongside the lock — the other control that treats the race
+    // as a whole rather than one of its settings.
+    it('shows Delete Race on the Event section, behind a "Danger" divider, and nowhere else', async () => {
+        const onDelete = vi.fn();
+        render(
+            <RaceForm
+                onSubmit={vi.fn()}
+                onCancel={vi.fn()}
+                submitLabel="Save Changes"
+                isEditing
+                initialData={{ name: 'Pack 42 Derby' }}
+                onDelete={onDelete}
+            />,
+        );
+
+        // Event is up by default, and the divider precedes the button.
+        expect(screen.getByText('Danger')).toBeInTheDocument();
+        const deleteBtn = screen.getByRole('button', { name: 'Delete Race' });
+        expect(deleteBtn).toBeInTheDocument();
+        await userEvent.click(deleteBtn);
+        expect(onDelete).toHaveBeenCalled();
+
+        // Not beside Save/Cancel any more.
+        const footer = screen.getByRole('button', { name: 'Save Changes' }).parentElement!;
+        expect(footer).not.toContainElement(deleteBtn);
+
+        // Not repeated on any other section.
+        for (const id of ['scoring', 'checkin', 'words', 'displays']) {
+            await open(id);
+            expect(screen.queryByRole('button', { name: 'Delete Race' })).toBeNull();
+            expect(screen.queryByText('Danger')).toBeNull();
+        }
+    });
+
+    it('offers no Delete Race at all without an onDelete handler', () => {
+        renderEditing();
+        expect(screen.queryByRole('button', { name: 'Delete Race' })).toBeNull();
+        expect(screen.queryByText('Danger')).toBeNull();
     });
 
     it('opens on the section named by initialSection, not Event (#970)', () => {

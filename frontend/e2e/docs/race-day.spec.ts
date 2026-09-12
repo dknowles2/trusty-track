@@ -237,7 +237,7 @@ test('take screenshots', async ({ page }) => {
     // reloading rather than by clicking the same checkboxes again: both are
     // local component state, and grouping *moves* the checkboxes, so undoing
     // by position unticked the wrong ones and left the check-in screenshots
-    // showing a roster with 19 racers selected and a bulk-actions bar up.
+    // showing a roster with 20 racers selected and a bulk-actions bar up.
     await page.reload();
     await page.waitForLoadState('networkidle');
     await expect(page.locator('.racer-row').first()).toBeVisible();
@@ -292,15 +292,17 @@ test('take screenshots', async ({ page }) => {
 
     // The setup checklist reads the race's checked-in count, which arrives by
     // its own refetch a beat after the roster row updates — a screenshot taken
-    // between the two shows "Check in cars" still undone above a row that says
-    // Checked In, and whether it does depends on the machine's load that run.
-    // Asserted on the checkin step's own `data-done` rather than the "X of Y
-    // done" counter text: the counter's total grew from four to six when
-    // #847 added the awards/printables steps, which made a literal count
-    // here a second place that number had to be kept in step with
-    // `setupChecklist.ts` for no benefit — the row itself is the exact
-    // condition this wait exists to settle.
-    await expect(page.getByTestId('setup-step-checkin')).toHaveAttribute('data-done', 'true');
+    // between the two shows "Check in cars" still reading "0 of 20" above a
+    // row that says Checked In, and whether it does depends on the machine's
+    // load that run. Asserted on the checkin step's own live count rather
+    // than `data-done` — #1000 made that step `done` only once *every*
+    // racer is checked in, which one of twenty never is here, so waiting
+    // on `data-done` would hang. The count is the exact condition this wait
+    // exists to settle, and reads correctly either way. (Twenty, not the
+    // nineteen an earlier comment in this file claimed — Populate Test
+    // Data's own default count is `useState(20)` in `RaceDetails.tsx`; that
+    // comment predates this wait and was never checked against reality
+    // because the old `data-done` assertion never needed the actual count.)
 
     // 04: the roster with one racer checked in.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/04-racer-list-after-check-in.png') });

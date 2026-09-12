@@ -296,6 +296,22 @@ export function applyMapping(parsed: ParsedCsv, mapping: Mapping): RacerRow[] {
   }));
 }
 
+/**
+ * How many of these rows will actually become a racer (issue #1008).
+ *
+ * `validate` above already knows a row missing a first or last name "will
+ * be skipped" — the identical rule, restated here rather than derived from
+ * `validate`'s own `Problem[]` output, since a `Problem` is a *sentence*
+ * meant for the preview list and this only wants the count. Kept as its own
+ * function, not inlined at the one call site, so the button that reads
+ * "Import N Racers" and the result banner it produces after Save
+ * ("Imported N of M rows...") can never quietly disagree about what N was
+ * supposed to mean.
+ */
+export function importableRowCount(rows: readonly RacerRow[]): number {
+  return rows.filter((row) => row.firstName && row.lastName).length;
+}
+
 export interface Problem {
   /** 1-based row number as the operator sees it in a spreadsheet, header included. */
   line: number;

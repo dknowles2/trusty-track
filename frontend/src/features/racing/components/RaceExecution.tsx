@@ -31,7 +31,7 @@ export type {
 } from '../types';
 import type { Heat, Racer, AdvancementStatus, LaneInput, Lane, LiveLane } from '../types';
 import type { HeatPhase } from '../../../gql/operations';
-import { formatLaneTime, hasRun, hasTimes, isLaneEmpty, isTimeBasedStrategy, toInput, placeIssue, parseTimeText, tiedTimeGroups } from '../lanes';
+import { formatLaneTime, hasRun, hasTimes, isLaneEmpty, isTimeBasedStrategy, toInput, placeIssue, timeIssue, parseTimeText, tiedTimeGroups } from '../lanes';
 import { chimeEnabled, setChimeEnabled, shouldChime } from '../chime';
 import {
     playFinishSound,
@@ -455,9 +455,15 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     if (!activeExecutionHeat) {
         return (
             <div style={{ textAlign: 'center', padding: '50px' }}>
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-                    <IntermissionControl raceId={raceId} compact />
-                </div>
+                {/* #1008: a locked race is done, and "Take a break" invites
+                    an action there is nothing left to take a break from —
+                    the same `raceLocked` source that already disables every
+                    result control on this tab. */}
+                {!raceLocked && (
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                        <IntermissionControl raceId={raceId} compact />
+                    </div>
+                )}
                 <Icon path={mdiTrophy} size={3} color="var(--cub-scouting-gold)" style={{ marginBottom: '20px' }} />
                 <h2 style={{ fontSize: '2.5rem', marginTop: 0 }}>Race Execution</h2>
                 <p style={{ fontSize: '1.2rem', color: 'var(--text-muted-color)' }}>
@@ -518,6 +524,14 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     // heat was last recorded with, and `RaceControl.tsx`'s `assignPlaces`
     // recomputes every one of them from the times on save regardless).
     const placeError = showsPlaceColumn ? placeIssue(editingResults) : null;
+
+    // #1008: the same shape as `placeError` above, for the Time column —
+    // `min="0"` on the input below is decorative for the identical reason
+    // `min="1"`'s comment gives for Place: this field lives outside a
+    // <form> and Save is a plain button, so the browser's own constraint
+    // validation never runs against it. Checked whether or not the Place
+    // column is showing, since every heat has a Time column.
+    const timeError = timeIssue(editingResults);
 
     // The equal-time-tie note (#766's other half): informational, not a
     // block on Save. Only meaningful where a time actually decides the
@@ -997,6 +1011,20 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             background: isFirst ? 'var(--highlight-gold-tint-color)' : 'var(--surface-tint-color)',
                                             borderRadius: '8px',
                                             borderLeft: isFirst ? '4px solid var(--cub-scouting-gold)' : '4px solid var(--border-color)',
+                                            // #1008: this row is a `display:
+                                            // grid` item (the list above it)
+                                            // holding its own `display: flex`
+                                            // children — a grid item's
+                                            // automatic minimum size defaults
+                                            // to its content's own width, so
+                                            // without this a long enough name
+                                            // grew this row's own track past
+                                            // the phone's width instead of
+                                            // being confined to it. Same fix
+                                            // `RaceControl.tsx`'s Previous
+                                            // Heats rows need for the
+                                            // identical reason.
+                                            minWidth: 0,
                                         }}
                                     >
                                         <LaneBadge
@@ -1107,7 +1135,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         const racer = r.racerId != null ? racers[r.racerId] : undefined;
                                         const empty = isLaneEmpty(r);
                                         return (
-                                                                                        <div key={r.lane} className="race-execution-ondeck-lane-row" style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingBottom: '12px', borderBottom: '1px solid var(--background-color)' }}>
+                                                                                        <div key={r.lane} className="race-execution-ondeck-lane-row" style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingBottom: '12px', borderBottom: '1px solid var(--background-color)', minWidth: 0 }}>
                                                                                             <LaneBadge
                                                                                                 color={colorForLane(laneColors, r.lane)}
                                                                                                 style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-faint-color)', width: '30px' }}
@@ -1568,9 +1596,22 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             {placeError}
                         </p>
                     )}
+                    {/* #1008: the same "catch it before Save round-trips to
+                        the server" shape as `placeError`, mirroring
+                        `crud.validate_lane_replacement`'s negative-time
+                        refusal. */}
+                    {timeError && (
+                        <p
+                            data-testid="time-validation-error"
+                            className="form-help"
+                            style={{ color: 'var(--danger-strong-color)' }}
+                        >
+                            {timeError}
+                        </p>
+                    )}
                     <div className="form-actions" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                         <button className="secondary-btn" onClick={() => setIsEditModalOpen(false)}>Cancel</button>
-                        <button className="primary-btn" onClick={handleSaveResults} disabled={!!placeError}>Save Results</button>
+                        <button className="primary-btn" onClick={handleSaveResults} disabled={!!placeError || !!timeError}>Save Results</button>
                     </div>
                 </div>
             </Modal>

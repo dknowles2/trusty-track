@@ -111,8 +111,12 @@ describe('ImportRacersModal', () => {
         await selectFile('first,last\nAlex,Rivera\nSam,');
 
         expect(screen.getByText(/Line 3:/)).toBeInTheDocument();
-        // A warning, not a blocker — the rest of the file is fine.
-        expect(screen.getByRole('button', { name: /Import 2 Racers/ })).toBeEnabled();
+        // A warning, not a blocker — the rest of the file is fine. #1008:
+        // the button counts only the row that will actually import (Sam's
+        // has no last name), not every row in the file — it used to say
+        // "Import 2 Racers" here, which the result banner then contradicted
+        // with "Imported 1 of 2".
+        expect(screen.getByRole('button', { name: /Import 1 Racer/ })).toBeEnabled();
     });
 
     it('says so when fewer racers arrived than rows were sent', async () => {
@@ -121,12 +125,28 @@ describe('ImportRacersModal', () => {
         open(onSuccess);
 
         await selectFile('first,last\nAlex,Rivera\nSam,');
-        await userEvent.click(screen.getByRole('button', { name: /Import 2 Racers/ }));
+        // #1008: the button already named the one row that will import;
+        // the banner after Save is what explains the file held a second
+        // row that could not be.
+        await userEvent.click(screen.getByRole('button', { name: /Import 1 Racer/ }));
 
         await waitFor(() =>
             expect(screen.getByText(/Imported 1 of 2 rows/)).toBeInTheDocument(),
         );
         expect(onSuccess).toHaveBeenCalled();
+    });
+
+    // #1008: the count in the button label is the rows that will actually
+    // become a racer, not the row count in the file — the bug the issue
+    // named directly ("Import 11 Racers" over a file where one row would
+    // be skipped).
+    it('counts only the importable rows in the button, even with several skipped', async () => {
+        mockImport(2);
+        open();
+
+        await selectFile('first,last\nAlex,Rivera\nSam,\n,Okafor\nJordan,Lee');
+
+        expect(screen.getByRole('button', { name: /Import 2 Racers/ })).toBeEnabled();
     });
 
     it('reports a file it cannot read', async () => {

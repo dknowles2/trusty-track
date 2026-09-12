@@ -13,6 +13,8 @@ import {
   shouldDerivePlacesForFreeRace,
   toInput,
   placeIssue,
+  timeIssue,
+  negativeTimes,
   duplicatePlaces,
   placesAboveField,
   placesBelowOne,
@@ -533,6 +535,52 @@ describe('placeIssue', () => {
       input({ lane: 2, racerId: 2, place: 0 }),
     ];
     expect(placeIssue(results)).toBe("Lane 1's place must be 1 or higher.");
+  });
+});
+
+/**
+ * Issue #1008 — the client-side mirror of `crud.validate_lane_replacement`'s
+ * negative-time refusal that #863 gave only the server. `min="0"` on the
+ * time `<input>` in `RaceExecution.tsx` is decorative on its own: the field
+ * lives outside a `<form>` and Save is a plain button, so the browser's own
+ * constraint validation never runs against it, exactly as the `min="1"`
+ * comment beside the Place input already says.
+ */
+describe('negativeTimes', () => {
+  it('names the lane holding a negative time', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: -0.5 }),
+      input({ lane: 2, racerId: 2, time: 3.5 }),
+    ];
+    expect(negativeTimes(results)).toEqual([1]);
+  });
+
+  it('leaves zero alone — it is the valid DNF marker, not a negative time', () => {
+    const results = [input({ lane: 1, racerId: 1, time: 0 })];
+    expect(negativeTimes(results)).toEqual([]);
+  });
+
+  it('is silent when every time is non-negative or absent', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: 3.5 }),
+      input({ lane: 2, racerId: 2, time: null }),
+    ];
+    expect(negativeTimes(results)).toEqual([]);
+  });
+});
+
+describe('timeIssue', () => {
+  it('is silent when every recorded time is non-negative', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: 3.5 }),
+      input({ lane: 2, racerId: 2, time: 0 }),
+    ];
+    expect(timeIssue(results)).toBeNull();
+  });
+
+  it('reports the same sentence the server refuses a negative time with', () => {
+    const results = [input({ lane: 1, racerId: 1, time: -1 })];
+    expect(timeIssue(results)).toBe('A recorded time cannot be negative.');
   });
 });
 
