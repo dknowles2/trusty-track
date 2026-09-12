@@ -179,8 +179,10 @@ const MASTER_RUNNING_ORDER_ROUND_ID = -1;
  *
  * A run-off heat (#550) has no round of its own, so it cannot join one of
  * these tables; it gets a one-row section immediately after the round it
- * settles, or after every round when it settles the race's overall
- * standings — titled with what it is racing off to decide (#890).
+ * settles, or — when it settles the race's overall standings — right after
+ * the last general round and before the first championship one, since it
+ * decides who is in a championship field before that field can run (#1018).
+ * Titled with what it is racing off to decide (#890).
  *
  * With the master running order on (#549), a block per round stops being a
  * running order the moment heats interleave across rounds — the same reason
@@ -237,19 +239,28 @@ export function buildHeatSheet(
         rows: [{ heatId: runOff.id, heatNumber: 0, cells: cellsFor(runOff.lanes) }],
     });
 
+    // Settles the race's overall standings, not one round — sorted right
+    // after the last general round and before the first championship one,
+    // never after every round (#1018): it decides who is *in* a
+    // championship field drawn from those standings, so it has to run
+    // before that field does. The same rule `crud.heats_in_running_order`
+    // states on the backend.
+    const overallRunOffs = runOffHeats.filter((runOff) => runOff.settlesRoundId == null);
+    let overallRunOffsPlaced = overallRunOffs.length === 0;
+
     const sections: RoundSection[] = [];
     for (const section of roundSections) {
+        const round = roundsById.get(section.roundId);
+        if (!overallRunOffsPlaced && round?.advancementSource != null) {
+            sections.push(...overallRunOffs.map(runOffSection));
+            overallRunOffsPlaced = true;
+        }
         sections.push(section);
         for (const runOff of runOffHeats) {
             if (runOff.settlesRoundId === section.roundId) sections.push(runOffSection(runOff));
         }
     }
-    // Settles the race's overall standings, not one round — sorts after
-    // every round, the same sentinel position `crud.heats_in_running_order`
-    // gives it.
-    for (const runOff of runOffHeats) {
-        if (runOff.settlesRoundId == null) sections.push(runOffSection(runOff));
-    }
+    if (!overallRunOffsPlaced) sections.push(...overallRunOffs.map(runOffSection));
 
     if (!masterRunningOrder) return sections;
 

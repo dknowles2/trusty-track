@@ -464,6 +464,22 @@ class TestDeletion:
             crud.delete_run_off_heat(db, run_off.id)
 
 
+def _final_round(db: Session, race: "models.Race", *, num_placeholders: int = 2):
+    """An unraced championship round drawing from the overall standings —
+    the kind of round an overall run-off (#1018) has to run *before*."""
+    round_obj = crud.create_round(
+        db,
+        race.id,
+        2,
+        models.SchedulingStrategy.PPC,
+        "Final",
+        advancement_source="ALL",
+        advancement_num_racers=num_placeholders,
+    )
+    crud.generate_heats_for_round(db, round_obj.id, num_placeholders=num_placeholders)
+    return round_obj
+
+
 class TestRunningOrder:
     """`onDeck`/`currentlyRacing` are the deliberate exception to
     `official_heats` that includes a run-off (#550)."""
@@ -475,6 +491,26 @@ class TestRunningOrder:
         ordered = crud.heats_in_running_order(db, race.id)
         assert ordered[-1].id == run_off.id
         assert ordered[-1].kind == models.HeatKind.RUN_OFF
+
+    def test_a_round_scoped_run_off_still_sorts_right_after_its_round_beside_a_final(
+        self, db
+    ):
+        # #1018 only moves the `settles_round_id is None` case; a run-off
+        # naming its round explicitly is unchanged, even once a championship
+        # round exists to potentially confuse the two.
+        race, round_obj, a, b = _tied_pair(db)
+        _final_round(db, race)
+        run_off = crud.create_run_off_heat(db, race.id, round_obj.id, [a.id, b.id])
+
+        ordered = crud.heats_in_running_order(db, race.id)
+        ids_in_order = [h.id for h in ordered]
+        prelim_heat_ids = {
+            h.id for h in crud.get_heats(db, race.id, round_id=round_obj.id)
+        }
+        run_off_index = ids_in_order.index(run_off.id)
+        assert (
+            run_off_index == max(ids_in_order.index(hid) for hid in prelim_heat_ids) + 1
+        )
 
     def test_a_recorded_run_off_drops_out_once_finished(self, db):
         """`_unfinished` filters on `lanes.is_finished`, which a run-off
@@ -488,6 +524,45 @@ class TestRunningOrder:
         ordered = crud.heats_in_running_order(db, race.id)
         run_off_row = next(h for h in ordered if h.id == run_off.id)
         assert domain_lanes.is_finished(crud.heat_lanes_of(db, run_off_row))
+
+    def test_an_overall_run_off_sorts_before_the_final_it_will_decide(self, db):
+        # (#1018) An overall run-off used to sort after *every* round,
+        # including a championship one it has not been raced for yet — so
+        # the Final's own placeholder heats showed as "Now Racing" while the
+        # run-off that decides who is even in the Final sat unreachable
+        # behind them.
+        race, round_obj, a, b = _tied_pair(db)
+        final_round = _final_round(db, race)
+        run_off = crud.create_run_off_heat(db, race.id, None, [a.id, b.id])
+
+        ordered = crud.heats_in_running_order(db, race.id)
+        ids_in_order = [h.id for h in ordered]
+        prelim_heat_ids = {
+            h.id for h in crud.get_heats(db, race.id, round_id=round_obj.id)
+        }
+        final_heat_ids = {
+            h.id for h in crud.get_heats(db, race.id, round_id=final_round.id)
+        }
+        run_off_index = ids_in_order.index(run_off.id)
+        assert run_off_index > max(ids_in_order.index(hid) for hid in prelim_heat_ids)
+        assert run_off_index < min(ids_in_order.index(hid) for hid in final_heat_ids)
+
+    def test_an_overall_run_off_still_sorts_before_the_final_under_the_master_order(
+        self, db
+    ):
+        race, round_obj, a, b = _tied_pair(db)
+        final_round = _final_round(db, race)
+        run_off = crud.create_run_off_heat(db, race.id, None, [a.id, b.id])
+        race.master_running_order = True
+        db.commit()
+
+        ordered = crud.heats_in_running_order(db, race.id)
+        ids_in_order = [h.id for h in ordered]
+        final_heat_ids = {
+            h.id for h in crud.get_heats(db, race.id, round_id=final_round.id)
+        }
+        run_off_index = ids_in_order.index(run_off.id)
+        assert run_off_index < min(ids_in_order.index(hid) for hid in final_heat_ids)
 
 
 def _create_track_via_graphql(client, name: str = "GraphQL Run-off Track") -> int:

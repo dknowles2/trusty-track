@@ -296,7 +296,7 @@ describe('buildHeatSheet', () => {
             expect(sections[1].rows[0].cells.map((c) => c.name)).toEqual(['Ada Lovelace', 'Alan Turing']);
         });
 
-        it('sorts a run-off for the overall standings after every round', () => {
+        it('sorts a run-off for the overall standings before the championship round it feeds, not after it (#1018)', () => {
             const sections = buildHeatSheet(
                 rounds,
                 [heat({ roundId: 10 }), heat({ id: 2, roundId: 20 })],
@@ -307,11 +307,28 @@ describe('buildHeatSheet', () => {
                 [runOff({ settlesRoundId: null, placement: 3 })],
             );
 
+            // It decides who is *in* the championship round, so it has to
+            // print — and be run — before that round's own table, right
+            // after the last general round instead of after every round.
             expect(sections.map((s) => s.title)).toEqual([
                 'Round 1',
-                'Championship round 2',
                 runOffTitle(3),
+                'Championship round 2',
             ]);
+        });
+
+        it('sorts after every general round when there is no championship round yet', () => {
+            const sections = buildHeatSheet(
+                rounds.filter((r) => r.advancementSource == null),
+                [heat({ roundId: 10 })],
+                RACERS,
+                [1, 2],
+                'FULL',
+                false,
+                [runOff({ settlesRoundId: null, placement: 3 })],
+            );
+
+            expect(sections.map((s) => s.title)).toEqual(['Round 1', runOffTitle(3)]);
         });
 
         it('names the placement it is racing off to decide', () => {
