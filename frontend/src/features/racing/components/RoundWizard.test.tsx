@@ -379,6 +379,50 @@ describe('RoundWizard Component', () => {
         expect(screen.queryByText('Everyone races in every lane')).not.toBeInTheDocument();
     });
 
+    it('step 2 hides "Each Den" for the first championship round once the qualifier is elimination (#1012)', async () => {
+        // "Each {group}" splits standings a qualifying round drew from by
+        // racing group — meaningless once that round is Elimination, since
+        // elimination heats never feed the aggregate standings at all
+        // (CLAUDE.md's "Ladderless elimination"). The server chains the
+        // final to the elimination round's own survival ranking regardless
+        // of what gets submitted; this pins that the option disappears from
+        // the picker too, rather than offering a choice the server is going
+        // to override anyway.
+        const user = userEvent.setup();
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+        await user.click(
+            screen.getByLabelText("Elimination — lose too many heats and you're out")
+        );
+        await user.click(screen.getByText('Next'));
+
+        expect(screen.getByText('Overall')).toBeInTheDocument();
+        expect(screen.queryByText('Each Den')).not.toBeInTheDocument();
+    });
+
+    it('a first championship round left on "Each Den" reverts to "Overall" once elimination is chosen', async () => {
+        // The mirror of the general round's own "By Den reverts to ALL"
+        // guard above (#1012): switching general styles after picking
+        // "Each Den" for the final must not leave the step 3 preview
+        // multiplying by the racing group count for a field the server is
+        // about to chain to the elimination round instead.
+        const user = userEvent.setup();
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+        await user.click(screen.getByText('Next'));
+        await user.selectOptions(screen.getByDisplayValue('Overall'), 'EACH_GROUP');
+        expect(screen.getByDisplayValue('Each Den')).toBeInTheDocument();
+
+        await user.click(screen.getByText('Back'));
+        await user.click(
+            screen.getByLabelText("Elimination — lose too many heats and you're out")
+        );
+        await user.click(screen.getByText('Next'));
+
+        expect(screen.getByDisplayValue('Overall')).toBeInTheDocument();
+        expect(screen.queryByText('Each Den')).not.toBeInTheDocument();
+    });
+
     it('step 2 offers "Which cars race", and choosing the slowest cars submits the direction and renames the round', async () => {
         const user = userEvent.setup();
         render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);

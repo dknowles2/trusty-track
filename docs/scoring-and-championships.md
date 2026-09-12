@@ -202,7 +202,10 @@ way, you choose where its racers come from and how many:
   final". In the wizard, every championship round after the first does this
   automatically; with Add Round, pick the earlier round from the list. The
   last cars standing from an elimination round can feed a final the same
-  way.
+  way — and if the wizard's own qualifying round in step 1 was Elimination,
+  its *first* championship round chains to it automatically too, since an
+  elimination round has no "each den" or "overall" standings to draw a
+  final from otherwise.
 
 You do not have to decide any of this before racing starts. A championship
 round added part-way through the day works exactly the same — and if the
