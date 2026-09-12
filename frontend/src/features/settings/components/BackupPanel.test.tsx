@@ -79,7 +79,14 @@ describe('BackupPanel', () => {
     );
 
     await waitFor(() => expect(restore).toHaveBeenCalled());
-    expect(await screen.findByText(/restored the backup taken/i)).toBeInTheDocument();
+    const toast = await screen.findByText(/restored the backup taken/i);
+    // The raw ISO string the server sends ("2026-08-08T09:15:00+00:00")
+    // read fine as API data and badly as something a volunteer has to
+    // parse — this checks the toast actually reformatted it rather than
+    // printing it verbatim (#1024), the same plain `toLocaleString()` Home
+    // formats a race date with.
+    expect(toast.textContent).not.toMatch(/2026-08-08T09:15:00/);
+    expect(toast.textContent).toContain(new Date('2026-08-08T09:15:00+00:00').toLocaleString());
   });
 
   it('reports a refusal in the server’s own words', async () => {

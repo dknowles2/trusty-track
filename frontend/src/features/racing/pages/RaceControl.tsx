@@ -41,6 +41,7 @@ import {
 } from '../scheduleConfirm';
 import { shouldShowReadiness } from '../readiness';
 import { estimatePace } from '../pace';
+import { expectedHeatCount } from '../growingRounds';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import LockedBadge from '../../core/components/LockedBadge';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
@@ -826,10 +827,66 @@ export default function RaceControl() {
     return heats.filter((h: Heat) => h.roundId === activeExecutionHeat.roundId);
   }, [heats, activeExecutionHeat]);
 
-  const totalHeatsInRound = currentRoundHeats.length;
-  const remainingHeatsInRound = useMemo(() => {
-    return currentRoundHeats.filter((h: Heat) => !hasRun(h.lanes)).length;
-  }, [currentRoundHeats]);
+  const activeRound = useMemo(
+    () => race?.rounds?.find((r: Round) => r.id === activeExecutionHeat?.roundId),
+    [race?.rounds, activeExecutionHeat]
+  );
+  const isGrowingRound =
+    activeRound?.schedulingStrategy === 'BALANCED' ||
+    activeRound?.schedulingStrategy === 'ELIMINATION';
+
+  const recordedHeatsInRound = useMemo(
+    () => currentRoundHeats.filter((h: Heat) => hasRun(h.lanes)).length,
+    [currentRoundHeats]
+  );
+
+  /**
+   * A growing round has no pending heats at all until the recorded-result
+   * cascade appends the next wave or phase (#1022) — `currentRoundHeats`
+   * only ever holds what has been generated *so far*, not the schedule's
+   * eventual size the way a PPC round's rows already are. `expectedHeatCount`
+   * estimates that eventual size from the round's own format and the field
+   * it has already fielded (the distinct real racer ids across its own
+   * heats — every eligible racer appears from the first wave/phase on, so
+   * this needs no separate roster count and stays correct for a round
+   * scoped to one racing group too).
+   */
+  const estimatedTotalHeatsInRound = useMemo(() => {
+    if (!isGrowingRound || !activeRound) return undefined;
+    const racerIds = new Set<number>();
+    for (const heat of currentRoundHeats) {
+      for (const lane of heat.lanes) {
+        if (lane.racerId != null) racerIds.add(lane.racerId);
+      }
+    }
+    return expectedHeatCount(activeRound, racerIds.size, race?.track?.laneCount ?? 4);
+  }, [isGrowingRound, activeRound, currentRoundHeats, race?.track?.laneCount]);
+
+  const totalHeatsInRound =
+    estimatedTotalHeatsInRound != null
+      ? Math.max(estimatedTotalHeatsInRound, currentRoundHeats.length)
+      : currentRoundHeats.length;
+  const remainingHeatsInRound =
+    estimatedTotalHeatsInRound != null
+      ? Math.max(totalHeatsInRound - recordedHeatsInRound, 0)
+      : totalHeatsInRound - recordedHeatsInRound;
+
+  /**
+   * Between waves: every heat this round has generated so far is finished,
+   * but the round is not actually decided, so the cascade is about to
+   * field another one. Elimination has an exact signal for "actually
+   * decided" (the chart's own `decided` flag); balanced has none, but its
+   * own heat count is *exact* rather than estimated (`growingRounds.ts`),
+   * so "fewer heats exist than the round will need" is itself the signal.
+   */
+  const nextWaveExpected =
+    isGrowingRound &&
+    currentRoundHeats.length > 0 &&
+    currentRoundHeats.length === recordedHeatsInRound &&
+    (activeRound?.schedulingStrategy === 'ELIMINATION'
+      ? !(activeRound?.eliminationChart?.decided ?? false)
+      : estimatedTotalHeatsInRound != null &&
+        currentRoundHeats.length < estimatedTotalHeatsInRound);
 
   const upcomingRounds = useMemo(() => {
     if (!activeExecutionHeat) return [];
@@ -1057,6 +1114,8 @@ export default function RaceControl() {
               masterRunningOrder={masterRunningOrder}
               remainingHeatsInRound={remainingHeatsInRound}
               totalHeatsInRound={totalHeatsInRound}
+              isGrowingRound={isGrowingRound}
+              nextWaveExpected={nextWaveExpected}
               pace={pace}
               upcomingRounds={upcomingRounds}
               debugMode={data?.initialConfig?.debugMode ?? false}

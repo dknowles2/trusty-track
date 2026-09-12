@@ -63,8 +63,12 @@ export default function BackupPanel({ isOperator = true }: Props) {
     setBusy('restore');
     try {
       const result = await restoreBackup(file);
+      // The same plain `toLocaleString()` Home's own race list formats a
+      // date with (#1024) — a raw ISO string ("2026-09-12T02:36:42+00:00")
+      // read fine as API data and badly as something a volunteer has to
+      // parse in a toast.
       showToast(
-        `Restored the backup taken ${result.createdAt}. Reloading…`,
+        `Restored the backup taken ${new Date(result.createdAt).toLocaleString()}. Reloading…`,
         'success',
       );
       // The whole dataset has been replaced, so every id the normalized cache
@@ -72,7 +76,17 @@ export default function BackupPanel({ isOperator = true }: Props) {
       // heavy-handed-but-correct answer entering a PIN takes, for the same
       // reason: rebuilding the client and its cache in place is a great deal
       // more machinery for something that happens once.
-      window.setTimeout(() => window.location.reload(), 1200);
+      //
+      // `?section=backup` on the way there is what lands the reload back on
+      // this card rather than System Settings' own default, General
+      // (#1024) — `SystemSettings.tsx` reads and strips it on mount. A
+      // plain reload has nothing else to remember which section the
+      // operator was looking at.
+      window.setTimeout(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('section', 'backup');
+        window.location.href = url.toString();
+      }, 1200);
     } catch (error) {
       showToast(errorText(error, 'The restore failed.'), 'error');
       setBusy(null);

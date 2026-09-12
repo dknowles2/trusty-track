@@ -1019,6 +1019,42 @@ describe('RaceExecution', () => {
         expect(screen.getByText('4 Heats Remaining')).toBeInTheDocument();
     });
 
+    it('words a growing round\'s progress "at least" (#1022)', () => {
+        render(
+            <RaceExecution
+                {...defaultProps}
+                nextExecutionHeat={{ ...mockHeat, id: 2, heatNumber: 2 }}
+                totalHeatsInRound={5}
+                remainingHeatsInRound={3}
+                isGrowingRound={true}
+            />
+        );
+
+        expect(screen.getByText(/2 of at least 5 Heats Completed/)).toBeInTheDocument();
+        expect(screen.getByText(/at least 3 Heats Remaining/)).toBeInTheDocument();
+        expect(screen.getByText(/Estimated time remaining: at least/)).toBeInTheDocument();
+    });
+
+    it('says the next set is coming rather than "0 Heats Remaining" or "Race Complete!" between waves (#1022)', () => {
+        render(
+            <RaceExecution
+                {...defaultProps}
+                nextExecutionHeat={null}
+                totalHeatsInRound={5}
+                remainingHeatsInRound={0}
+                isGrowingRound={true}
+                nextWaveExpected={true}
+            />
+        );
+
+        expect(screen.getByText('Next set appears when this one is run')).toBeInTheDocument();
+        expect(screen.queryByText(/Heats Remaining/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Estimated time remaining/)).not.toBeInTheDocument();
+        expect(screen.getByText('Next Set Coming')).toBeInTheDocument();
+        expect(screen.queryByText('Race Complete!')).not.toBeInTheDocument();
+        expect(screen.queryByText('End of Round')).not.toBeInTheDocument();
+    });
+
     it('renders upcoming rounds when provided', () => {
         const mockUpcomingRounds = [
             { roundNumber: 2, roundName: "Finals", totalHeats: 1 }

@@ -300,3 +300,38 @@ export function buildHeatSheet(
 export function totalHeats(sections: readonly RoundSection[]): number {
     return sections.reduce((sum, section) => sum + section.rows.length, 0);
 }
+
+/**
+ * "12 heats · 2 rounds" — the summary line on the printed sheet, counting
+ * each real heat and each real round exactly once (#1024).
+ *
+ * `totalHeats` sums every section's rows, which is right for a sheet with
+ * no master running order and wrong the moment one is on: the flat
+ * `MASTER_RUNNING_ORDER_TITLE` section is *prepended* to the per-round
+ * sections, not a replacement for them (see `buildHeatSheet`'s own
+ * docstring), so every non-championship heat is counted twice — once in
+ * the flat section, once in its own round's table. `sections.length` has
+ * the matching bug one level up: the flat section (and each run-off
+ * heat's own one-row section) is not a round, so counting sections as
+ * rounds overstates that figure too, master running order or not.
+ *
+ * The fix is to know what each section actually *is*, not just sum
+ * whatever `buildHeatSheet` handed back: `roundId` is a real round's own
+ * id for a round section, the fixed `MASTER_RUNNING_ORDER_ROUND_ID` (`-1`)
+ * for the flat section, and a distinct negative id for a run-off's own
+ * one-row section (`-runOff.id - 1`, never `-1`) — see `buildHeatSheet`'s
+ * `runOffSection`. Heats count every section but the flat one (so a real
+ * heat and a run-off heat both count, and a heat printed twice under
+ * master running order counts once); rounds count only sections whose id
+ * is a real round's.
+ */
+export function printedSummary(sections: readonly RoundSection[]): { heats: number; rounds: number } {
+    let heats = 0;
+    let rounds = 0;
+    for (const section of sections) {
+        if (section.roundId === MASTER_RUNNING_ORDER_ROUND_ID) continue;
+        heats += section.rows.length;
+        if (section.roundId >= 0) rounds += 1;
+    }
+    return { heats, rounds };
+}

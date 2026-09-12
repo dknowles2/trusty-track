@@ -924,6 +924,65 @@ describe('ScheduleManagement', () => {
     expect(screen.queryByTestId('contested-cut-badge-7')).not.toBeInTheDocument();
   });
 
+  it('words a growing round\'s duration "at least", estimated from the format rather than the current wave alone (#1022)', () => {
+    // 8 racers, 4 lanes, an elimination round with the default 1-loss
+    // threshold: the round's own current wave is 2 heats, but the format
+    // will need at least 3 (`expectedHeatCount`'s ceil(8*1/3)) before a
+    // winner is decided — the estimate this test exists to check for.
+    const eliminationRound = {
+      id: 1,
+      roundNumber: 1,
+      name: 'Elimination Round',
+      advancementSource: null,
+      advancementFromBottom: false,
+      fieldPinned: false,
+      schedulingStrategy: 'ELIMINATION',
+      eliminationLosses: null,
+      balancedPhases: null,
+      racingGroupId: null,
+      eliminationChart: { maxLosses: 1, decided: false, waves: [], standings: [] },
+      advancementStatus: undefined,
+    };
+    render(
+      <MemoryRouter>
+        <AlertProvider>
+          <ScheduleManagement
+            raceId={1}
+            heats={[
+              heat({
+                id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, roundName: 'Elimination Round',
+                lanes: [lane({ lane: 1, racerId: 1 }), lane({ lane: 2, racerId: 2 }), lane({ lane: 3, racerId: 3 }), lane({ lane: 4, racerId: 4 })],
+              }),
+              heat({
+                id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, roundName: 'Elimination Round',
+                lanes: [lane({ lane: 1, racerId: 5 }), lane({ lane: 2, racerId: 6 }), lane({ lane: 3, racerId: 7 }), lane({ lane: 4, racerId: 8 })],
+              }),
+            ]}
+            generating={false}
+            activeHeatId={null}
+            onAddRound={vi.fn()}
+            onRegenerateRound={vi.fn()}
+            onDeleteRound={vi.fn()}
+            onDeleteHeat={vi.fn()}
+            onRunHeat={vi.fn()}
+            onReorderHeats={vi.fn()}
+            getRacerName={(id) => `Racer ${id}`}
+            onRefetchHeats={vi.fn()}
+            laneCount={4}
+            racerCount={8}
+            racingGroupCount={1}
+            championshipTrophies={3}
+            rounds={[eliminationRound as any]}
+          />
+        </AlertProvider>
+      </MemoryRouter>
+    );
+    // The static baseline is 1.75 min/heat, so 3 heats is "~6 mins" — not
+    // the 2 heats (~4 mins) a plain row count would have shown.
+    expect(screen.getByText(/at least/)).toBeInTheDocument();
+    expect(screen.getByText(/~6 mins duration/)).toBeInTheDocument();
+  });
+
   describe('reordering (drag end)', () => {
     const threeHeats: Heat[] = [
       { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' },
@@ -1311,6 +1370,8 @@ describe('ScheduleManagement', () => {
       advancementFromBottom: false,
       fieldPinned: false,
       schedulingStrategy: 'PPC',
+      eliminationLosses: null,
+      balancedPhases: null,
       racingGroupId: null,
       eliminationChart: null,
       advancementStatus: advancementStatusFixture(),
@@ -1325,6 +1386,8 @@ describe('ScheduleManagement', () => {
       advancementFromBottom: false,
       fieldPinned: false,
       schedulingStrategy: 'PPC',
+      eliminationLosses: null,
+      balancedPhases: null,
       racingGroupId: null,
       eliminationChart: null,
       advancementStatus: advancementStatusFixture({ source: null, numRacers: null }),

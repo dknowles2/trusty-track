@@ -19,7 +19,7 @@ import { mdiArrowLeft, mdiPrinter } from '@mdi/js';
 import {
     MASTER_RUNNING_ORDER_TITLE,
     buildHeatSheet,
-    totalHeats,
+    printedSummary,
     type SheetHeat,
     type SheetRacer,
     type SheetRunOffHeat,
@@ -92,7 +92,12 @@ export default function HeatSheet() {
     if (error) return <p style={{ padding: '2rem' }}>Could not load this race.</p>;
     if (!race) return <p style={{ padding: '2rem' }}>Race not found.</p>;
 
-    const heats = totalHeats(sections);
+    // A section is not a heat and not a round in one-to-one lockstep with
+    // `sections` itself once the master running order's own flat section
+    // (a duplicate of every non-championship heat, prepended ahead of the
+    // per-round tables) or a run-off's one-row section is in the mix
+    // (#1024) — `printedSummary` knows which of the three each section is.
+    const { heats, rounds } = printedSummary(sections);
     const laneColumns = sections[0]?.rows[0]?.cells ?? [];
 
     return (
@@ -118,7 +123,7 @@ export default function HeatSheet() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <span className="printables-summary">
                         {heats} {heats === 1 ? 'heat' : 'heats'} ·{' '}
-                        {sections.length} {sections.length === 1 ? 'round' : 'rounds'}
+                        {rounds} {rounds === 1 ? 'round' : 'rounds'}
                     </span>
                     <button
                         className="primary-btn"

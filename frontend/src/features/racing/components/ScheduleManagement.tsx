@@ -41,6 +41,7 @@ import { errorText } from '../../../utils/errors';
 import { heatsEstimate } from '../../../utils/duration';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { estimatePace } from '../pace';
+import { expectedHeatCount } from '../growingRounds';
 import type { EliminationChart, Heat, Lane, Round } from '../types';
 import { formatLaneTime, hasRun, hasTimes, laneColumnCount, undecidedLaneLabel } from '../lanes';
 import { executionComparator } from '../runningOrder';
@@ -880,6 +881,47 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
               // offers it).
               const advancementInfo = roundsById.get(Number(roundId));
 
+              // A growing round (Balanced/Elimination) has no pending heats
+              // at all until the recorded-result cascade appends the next
+              // wave or phase (#1022) — `totalHeats` above is only what has
+              // been generated so far, not the schedule's eventual size the
+              // way a PPC round's rows already are. `expectedHeatCount`
+              // estimates that eventual size from the round's own format
+              // and the racers it has already fielded (every eligible
+              // racer appears from the first wave/phase on, so the distinct
+              // real racer ids across the round's own heats need no
+              // separate roster count and stay correct for a round scoped
+              // to one racing group too).
+              const isGrowingRound =
+                advancementInfo?.schedulingStrategy === 'BALANCED' ||
+                advancementInfo?.schedulingStrategy === 'ELIMINATION';
+              const estimatedTotalHeats = (() => {
+                if (!isGrowingRound || !advancementInfo) return null;
+                const racerIds = new Set<number>();
+                for (const heat of roundHeats) {
+                  for (const lane of heat.lanes) {
+                    if (lane.racerId != null) racerIds.add(lane.racerId);
+                  }
+                }
+                return expectedHeatCount(advancementInfo, racerIds.size, laneCount);
+              })();
+              const displayTotalHeats =
+                estimatedTotalHeats != null ? Math.max(estimatedTotalHeats, totalHeats) : totalHeats;
+              // Between waves: every heat generated so far is finished, but
+              // the round is not actually decided, so the cascade is about
+              // to field another one. Elimination has an exact signal for
+              // "actually decided" (the chart's own `decided` flag);
+              // balanced has none, but its own heat count is *exact* rather
+              // than estimated (`growingRounds.ts`), so "fewer heats exist
+              // than the round will need" is itself the signal.
+              const nextWaveExpected =
+                isGrowingRound &&
+                totalHeats > 0 &&
+                uncompletedHeats === 0 &&
+                (advancementInfo?.schedulingStrategy === 'ELIMINATION'
+                  ? !(chart?.decided ?? false)
+                  : estimatedTotalHeats != null && totalHeats < estimatedTotalHeats);
+
               return (
                 <div key={roundId} style={{
                   background: 'var(--surface-color)',
@@ -909,13 +951,23 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                         {roundHeats[0]?.roundName || `Round ${roundNum}`}
                       </h2>
                       <span style={{ fontSize: '0.9rem', color: 'var(--text-muted-color)', fontWeight: 500 }}>
-                        {uncompletedHeats === 0 ? (
+                        {nextWaveExpected ? (
+                          <span>Next set appears when this one is run</span>
+                        ) : uncompletedHeats === 0 ? (
                           <span style={{ color: 'var(--success-color)' }}>Completed</span>
                         ) : (
                           <>
-                            {uncompletedHeats < totalHeats
-                              ? `${heatsEstimate(uncompletedHeats, pace.minutesPerHeat)} remaining`
-                              : `${heatsEstimate(totalHeats, pace.minutesPerHeat)} duration`}
+                            {isGrowingRound ? 'at least ' : ''}
+                            {totalHeats - uncompletedHeats > 0
+                              // A growing round's "remaining" figure counts
+                              // against the estimated eventual total, not
+                              // just the current wave's own pending heats
+                              // (#1022) — otherwise a round mid-way through
+                              // its second of several waves reported only
+                              // that wave's own remainder and undercounted
+                              // every wave still to come.
+                              ? `${heatsEstimate(displayTotalHeats - (totalHeats - uncompletedHeats), pace.minutesPerHeat)} remaining`
+                              : `${heatsEstimate(displayTotalHeats, pace.minutesPerHeat)} duration`}
                           </>
                         )}
                       </span>

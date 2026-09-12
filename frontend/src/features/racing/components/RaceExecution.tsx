@@ -200,6 +200,25 @@ interface RaceExecutionProps {
     onToggleAutoAdvance?: (value: boolean) => void;
     remainingHeatsInRound?: number;
     totalHeatsInRound?: number;
+    /**
+     * The active round is Balanced or Elimination, so `totalHeatsInRound`/
+     * `remainingHeatsInRound` are `growingRounds.ts`'s own estimate of the
+     * round's eventual size rather than a plain row count (#1022) — a
+     * growing round has no pending heats at all until the recorded-result
+     * cascade appends the next wave or phase. Words the duration as "at
+     * least" rather than a bare figure, since the estimate can fall short.
+     */
+    isGrowingRound?: boolean;
+    /**
+     * Every heat generated for the active round so far has been run, and —
+     * going by the estimate above, or the elimination chart's own
+     * `decided` flag when there is one — the cascade is about to append
+     * another wave or phase. This window used to read as "0 Heats
+     * Remaining" in the Round Progress panel and "Race Complete!" on the
+     * On Deck panel — both wrong, since more heats are coming the moment
+     * this click lands.
+     */
+    nextWaveExpected?: boolean;
     /** This race's learned turnaround pace (#591), used for both the
      * remaining-time estimate and the estimated finish clock time below it.
      * Falls back to the static baseline when the caller has none to give. */
@@ -242,6 +261,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     onToggleAutoAdvance,
     remainingHeatsInRound,
     totalHeatsInRound,
+    isGrowingRound = false,
+    nextWaveExpected = false,
     pace = BASELINE_PACE,
     upcomingRounds,
     masterRunningOrder,
@@ -1089,11 +1110,19 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         {!nextExecutionHeat || (!masterRunningOrder && nextExecutionHeat.roundId !== activeExecutionHeat.roundId) ? (
                             <div style={{ padding: '30px 20px', textAlign: 'center', color: 'var(--text-strong-muted-color)' }}>
                                 <Icon path={mdiTrophy} size={2} color="var(--cub-scouting-gold)" style={{ marginBottom: '10px' }} />
-                                <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>End of Round</div>
+                                <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                    {!nextExecutionHeat && nextWaveExpected ? 'Next Set Coming' : 'End of Round'}
+                                </div>
                                 <div style={{ fontSize: '0.9rem', color: 'var(--text-subtle-color)', marginTop: '5px' }}>
                                     {nextExecutionHeat
                                         ? `Next: ${nextExecutionHeat.roundName || `Round ${nextExecutionHeat.roundNumber}`}`
-                                        : "Race Complete!"}
+                                        // A growing round (#1022) has no next heat at all until the
+                                        // recorded-result cascade appends one — "Race Complete!" here
+                                        // would announce the whole race over on the strength of a wave
+                                        // that has simply not been drawn yet.
+                                        : nextWaveExpected
+                                            ? 'Next set appears when this one is run.'
+                                            : "Race Complete!"}
                                 </div>
                             </div>
                         ) : (
@@ -1155,17 +1184,25 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 <IntermissionControl raceId={raceId} compact />
                             </div>
                             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--progress-value-color)' }}>
-                                {totalHeatsInRound - remainingHeatsInRound} of {totalHeatsInRound} Heats Completed
+                                {totalHeatsInRound - remainingHeatsInRound} of {isGrowingRound ? 'at least ' : ''}{totalHeatsInRound} Heats Completed
                             </div>
-                            <div style={{ fontSize: '0.9rem', color: 'var(--success-color)', fontWeight: 600 }}>
-                                {remainingHeatsInRound} {remainingHeatsInRound === 1 ? 'Heat' : 'Heats'} Remaining
-                            </div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '4px' }}>
-                                Estimated time remaining: {heatsEstimate(remainingHeatsInRound, pace.minutesPerHeat)}
-                            </div>
-                            {remainingHeatsInRound > 0 && (
+                            {nextWaveExpected ? (
+                                <div style={{ fontSize: '0.9rem', color: 'var(--text-subtle-color)', fontWeight: 600 }}>
+                                    Next set appears when this one is run
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: '0.9rem', color: 'var(--success-color)', fontWeight: 600 }}>
+                                    {isGrowingRound ? 'at least ' : ''}{remainingHeatsInRound} {remainingHeatsInRound === 1 ? 'Heat' : 'Heats'} Remaining
+                                </div>
+                            )}
+                            {!nextWaveExpected && (
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '4px' }}>
+                                    Estimated time remaining: {isGrowingRound ? 'at least ' : ''}{heatsEstimate(remainingHeatsInRound, pace.minutesPerHeat)}
+                                </div>
+                            )}
+                            {!nextWaveExpected && remainingHeatsInRound > 0 && (
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '2px' }}>
-                                    Est. finish: {formatClockTime(estimatedFinishTime(remainingHeatsInRound, pace, new Date()))}{' '}
+                                    Est. finish: {isGrowingRound ? 'at least ' : ''}{formatClockTime(estimatedFinishTime(remainingHeatsInRound, pace, new Date()))}{' '}
                                     ({paceLabel(pace)})
                                 </div>
                             )}

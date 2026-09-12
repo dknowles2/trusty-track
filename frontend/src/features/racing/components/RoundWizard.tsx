@@ -5,6 +5,7 @@ import { useMutation } from 'urql';
 import { CREATE_ROUND_WIZARD } from '../graphql/queries';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { minutesEstimate } from '../../../utils/duration';
+import { expectedHeatCount } from '../growingRounds';
 import Modal from '../../../components/ui/Modal';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { HowItsRacedFields, type RaceStyle } from './HowItsRacedFields';
@@ -151,24 +152,40 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
    * it feeds the run-time estimate too, so being out by a factor of the lane
    * count is out by a factor of the lane count on both numbers.
    *
-   * Only PPC's heat count can be known up front. Balanced and elimination
-   * heats grow from results as the round is raced (`reference/round-styles.
-   * md`'s "Schedule: Grows as results come in") — a championship round is
-   * always PPC (see `ChampionshipConfig`'s own comment), so this only ever
-   * applies to the general round when it is not `PPC`.
+   * Only PPC's heat count is exact. Balanced and elimination heats grow
+   * from results as the round is raced (`reference/round-styles.md`'s
+   * "Schedule: Grows as results come in") — a championship round is always
+   * PPC (see `ChampionshipConfig`'s own comment), so this only ever applies
+   * to the general round when it is not `PPC`. `growingRounds.ts`'s
+   * `expectedHeatCount` estimates that round's own eventual size instead
+   * (#1022): before this, the general round's heats were left out of the
+   * total and its duration shown as "Varies", which undersold the evening
+   * by however many heats an elimination or balanced round would actually
+   * run — the failure this preview exists to prevent.
    */
   const heatsFor = (racers: number, runs: number) => racers * runs;
 
   const getRaceBreakdown = () => {
-    const rounds: { name: string; heats: number | null; duration: number }[] = [];
+    const rounds: { name: string; heats: number | null; duration: number; isEstimate: boolean }[] = [];
 
     // General Round
     const generalHeats =
-      generalConfig.raceStyle === 'PPC' ? heatsFor(racerCount, generalConfig.runsPerLane) : null;
+      generalConfig.raceStyle === 'PPC'
+        ? heatsFor(racerCount, generalConfig.runsPerLane)
+        : expectedHeatCount(
+            {
+              schedulingStrategy: generalConfig.raceStyle,
+              eliminationLosses: generalConfig.eliminationLosses,
+              balancedPhases: generalConfig.balancedPhases,
+            },
+            racerCount,
+            laneCount
+          );
     rounds.push({
       name: generalRoundName(generalConfig.raceStyle, generalConfig.type, org, group),
       heats: generalHeats,
-      duration: generalHeats == null ? 0 : Math.ceil(generalHeats * minutesPerHeat)
+      duration: generalHeats == null ? 0 : Math.ceil(generalHeats * minutesPerHeat),
+      isEstimate: generalConfig.raceStyle !== 'PPC',
     });
 
     // Championship Rounds — always PPC, so their heat count is always known.
@@ -183,18 +200,24 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       rounds.push({
         name: round.name,
         heats: roundHeats,
-        duration: Math.ceil(roundHeats * minutesPerHeat)
+        duration: Math.ceil(roundHeats * minutesPerHeat),
+        isEstimate: false,
       });
     }
 
     const totalHeats = rounds.reduce((sum, r) => sum + (r.heats ?? 0), 0);
     const totalDuration = rounds.reduce((sum, r) => sum + r.duration, 0);
     const hasUnknownHeats = rounds.some((r) => r.heats == null);
+    // Whether *any* number above is `growingRounds.ts`'s estimate rather
+    // than an exact count — an elimination or balanced general round can
+    // in fact run longer than this predicts (see that module's own
+    // docstring for why), so the grand total is worded "at least" too.
+    const hasEstimatedHeats = rounds.some((r) => r.isEstimate);
 
-    return { rounds, totalHeats, totalDuration, hasUnknownHeats };
+    return { rounds, totalHeats, totalDuration, hasUnknownHeats, hasEstimatedHeats };
   };
 
-  const { rounds: breakdown, totalHeats, totalDuration, hasUnknownHeats } = getRaceBreakdown();
+  const { rounds: breakdown, totalHeats, totalDuration, hasEstimatedHeats } = getRaceBreakdown();
 
   const handleNext = () => setStep(s => s + 1);
   const handleBack = () => setStep(s => s - 1);
@@ -589,11 +612,15 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
               <div style={{ backgroundColor: 'var(--accent-blue-bg-color)', padding: '1rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '1.5rem', marginRight: '0.75rem' }}>⏱️</span>
                 <div>
-                  <div style={{ fontWeight: 'bold', color: 'var(--accent-blue-emphasis-color)' }}>Estimated Grand Total: {minutesEstimate(totalDuration)}</div>
-                  <div style={{ color: 'var(--accent-blue-strong-color)', fontSize: '0.875rem' }}>Total Heats: {totalHeats}</div>
-                  {hasUnknownHeats && (
+                  <div style={{ fontWeight: 'bold', color: 'var(--accent-blue-emphasis-color)' }}>
+                    Estimated Grand Total: {hasEstimatedHeats ? 'at least ' : ''}{minutesEstimate(totalDuration)}
+                  </div>
+                  <div style={{ color: 'var(--accent-blue-strong-color)', fontSize: '0.875rem' }}>
+                    Total Heats: {hasEstimatedHeats ? 'at least ' : ''}{totalHeats}
+                  </div>
+                  {hasEstimatedHeats && (
                     <div style={{ color: 'var(--accent-blue-strong-color)', fontSize: '0.75rem', marginTop: '0.25rem', fontStyle: 'italic' }}>
-                      Elimination and balanced rounds grow as results come in, so their heats aren&apos;t counted above.
+                      Elimination and balanced rounds grow as results come in — the numbers above are an estimate, not the final schedule.
                     </div>
                   )}
                 </div>
@@ -610,10 +637,12 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                       <h4 style={{ fontWeight: 'bold', color: 'var(--wizard-heading-color)', margin: 0 }}>{idx + 1}. {roundInfo.name}</h4>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontWeight: 600, color: 'var(--wizard-heading-color)', fontSize: '0.875rem' }}>
-                          {roundInfo.heats == null ? 'Varies' : minutesEstimate(roundInfo.duration)}
+                          {roundInfo.heats == null ? 'Varies' : `${roundInfo.isEstimate ? 'at least ' : ''}${minutesEstimate(roundInfo.duration)}`}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--wizard-text-muted-color)' }}>
-                          {roundInfo.heats == null ? 'grows as results come in' : `${roundInfo.heats} ${roundInfo.heats === 1 ? 'heat' : 'heats'}`}
+                          {roundInfo.heats == null
+                            ? 'grows as results come in'
+                            : `${roundInfo.isEstimate ? 'at least ' : ''}${roundInfo.heats} ${roundInfo.heats === 1 ? 'heat' : 'heats'}`}
                         </div>
                       </div>
                     </div>

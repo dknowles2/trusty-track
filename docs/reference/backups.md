@@ -20,7 +20,8 @@ The file is named for the moment it was taken.
 ## What a restore does
 
 Restoring replaces **everything** currently in the app with the backup's
-contents, then reloads the page. Every other screen — displays, the
+contents, then reloads the page back onto **Settings → Backup**, with a
+message naming when the restored backup was taken. Every other screen — displays, the
 check-in tablet, a second operator tab — learns the race list itself
 changed and refreshes it on its own, so a race picker or a browser tab
 title never goes stale. A screen that was showing one specific race,
