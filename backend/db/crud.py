@@ -3091,10 +3091,48 @@ def record_heat_result(
             extend_elimination_round(db, heat.round.id)
             extend_balanced_round(db, heat.round.id)
             trigger_auto_advancements(db, heat.race_id, heat.round.id)
+        elif heat.kind is models.HeatKind.RUN_OFF:
+            # (#1015) A run-off has no `round_id` (#550), so the branch above
+            # never runs for one — and its result moves the standings exactly
+            # as an official one does: it resolves a tie `tiebreak()` (#540)
+            # could not settle on its own, and any championship round drawn
+            # from those standings may now need a different field. Reuse the
+            # same door rather than opening a second one.
+            _cascade_after_run_off_result(db, heat.race_id)
 
         _record_result_audit(db, heat, heat_lanes, source)
 
     return heat
+
+
+def _cascade_after_run_off_result(db: Session, race_id: int) -> None:
+    """Re-settle championship fields after a run-off changes the standings.
+
+    A run-off is not scheduled *inside* a round (`round_id` is null, #550),
+    so there is no "downstream of round N" the way an official result has —
+    the standings a run-off might move are not scoped to a position in the
+    schedule. This invalidates every championship round in the race rather
+    than a suffix of them (round numbers start at 1 — #250 — so 0 is every
+    round), then asks :func:`populate_round_if_decided` about each in turn,
+    in round order so a chain of championship rounds fills the same way
+    :func:`trigger_auto_advancements` already does.
+
+    Safe without knowing which round the run-off's cluster actually came
+    from, because of the same rule #248 states for the ordinary cascade:
+    population asks about the state of the race *now*, not about which round
+    just changed. A round whose own field the run-off never touched simply
+    answers "already filled" or "not decided yet" and nothing about it
+    changes.
+    """
+    invalidate_future_rounds(db, race_id, 0)
+    all_rounds = (
+        db.query(models.Round)
+        .filter(models.Round.race_id == race_id)
+        .order_by(models.Round.round_number)
+        .all()
+    )
+    for r in all_rounds:
+        populate_round_if_decided(db, r)
 
 
 def _record_result_audit(
@@ -3802,6 +3840,13 @@ def create_run_off_heat(
     silently dropping the racer from the heat — the operator asked to settle
     a *specific* tie, and quietly racing a smaller one would settle a
     different question than the one they clicked.
+
+    A ``settles_round_id`` naming a round from a *different* race is refused
+    too (#1023): ``run_off_heats_settling`` is scoped to one race, so a
+    cross-race value would never be found again — the heat would sit forever
+    as an orphan, showing "Racing off" on the audience displays with no
+    placement it could ever resolve to, since nothing would ever ask
+    ``run_off_contested_rank`` about a round in another race.
     """
     if len(racer_ids) != len(set(racer_ids)):
         raise ValueError("Duplicate racers are not allowed in a run-off.")
@@ -3810,6 +3855,15 @@ def create_run_off_heat(
     usable = sorted(usable_lanes_for_race(db, race_id))
     if len(racer_ids) > len(usable):
         raise ValueError("More tied racers than usable lanes.")
+
+    if settles_round_id is not None:
+        settles_round = (
+            db.query(models.Round).filter(models.Round.id == settles_round_id).first()
+        )
+        if settles_round is None or settles_round.race_id != race_id:
+            raise ValueError(
+                "The round this run-off settles does not belong to this race."
+            )
 
     racers_by_id = {
         racer.id: racer

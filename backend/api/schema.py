@@ -5135,6 +5135,23 @@ class Mutation:
         # from #143 until #230 found the other rebuild paths never had it.
         heats = crud.generate_heats_for_round(db, round_id, clear_existing=True)
 
+        # (#1016) With its own heats gone, a championship round falls back
+        # to placeholders — `_participant_ids_for_round` only finds "already
+        # advanced" racers by reading the heats that regeneration just
+        # deleted. Nothing then refills it until some *other* round's result
+        # happens to trigger the cascade. `populate_round_if_decided` is the
+        # one asker (#248): it asks about the state of the race *now*, the
+        # same question `createRound` already asks right after generating a
+        # championship round's placeholder heats, above.
+        if round_obj.advancement_source and crud.populate_round_if_decided(
+            db, round_obj
+        ):
+            # A short field (#48) rebuilds the round's heats rather than
+            # filling placeholders in place — re-read them so the mutation's
+            # own return value is not the deleted, placeholder-holding rows
+            # `generate_heats_for_round` returned above.
+            heats = crud.get_heats(db, round_obj.race_id, round_id)
+
         await _revalidate_timers(info)
         await _publish_race_state(
             round_obj.race_id, kind=RaceChangeKind.SCHEDULE, round_id=round_obj.id

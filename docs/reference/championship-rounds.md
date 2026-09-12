@@ -58,6 +58,10 @@ The same as the fastest overall, from the other end — the Slowest Race.
   empty places forever.
 - A round set up for more than one run per lane keeps that when its line-up
   refills: a two-run final stays a two-run final.
+- **Regenerate** rebuilds a championship round's heats the same as any
+  other round's, and its line-up fills back in immediately afterward — the
+  round does not sit at placeholders waiting for some other result to
+  trigger it.
 
 ## Picking a line-up by hand
 
@@ -112,7 +116,11 @@ first if you really do want to change who's in it.
 
 ## When a time is corrected
 
-Correcting (or clearing) any earlier result re-decides who advances.
+Correcting (or clearing) any earlier result re-decides who advances. So does
+recording a [run-off](scoring.md#settling-a-tie-with-a-race-off): settling a
+tie for the cut is exactly as much a change to the standings as a corrected
+time, and a championship round drawn from them re-decides its line-up the
+same way.
 
 - A championship round that has **not been raced** re-picks its cars
   automatically — unless it's [been picked by hand](#picking-a-line-up-by-hand),

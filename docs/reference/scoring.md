@@ -216,6 +216,13 @@ instead — the run-off simply stops applying. Nothing is deleted; it just
 has nothing left to decide, the same as if it had never been run. A fresh
 one covers whatever the standings show now.
 
+Recording a run-off updates any [championship round](championship-rounds.md)
+whose line-up was drawn from the standings it just settled, the same as a
+corrected time does — a final that had not filled in yet fills in with the
+run-off's winner, and one that had already filled in with the wrong car of
+the tied pair refills with the right one. See
+[When a time is corrected](championship-rounds.md#when-a-time-is-corrected).
+
 ## What the overall standings cover
 
 The overall standings — "Overall (qualifying rounds)" in the selector — are
