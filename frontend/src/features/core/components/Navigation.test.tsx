@@ -5,6 +5,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { AlertProvider } from '../../../context/AlertContext';
 import Navigation from './Navigation';
 import * as Urql from 'urql';
+import { readLastRace, writeLastRace } from '../lastRace';
+import { GET_RACES_NAV } from '../graphql/queries';
 
 vi.mock('urql', async () => {
     const actual = await vi.importActual('urql');
@@ -23,6 +25,7 @@ describe('Navigation Component', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        window.localStorage.clear();
         mockUseQuery.mockReturnValue([{
             data: {
                 races: [
@@ -267,12 +270,24 @@ describe('Navigation Component', () => {
     // nothing here ever asked again.
     it('re-fetches the race list when racesChanged signals a change elsewhere', async () => {
         const reexecuteRacesNav = vi.fn();
-        mockUseQuery
-            .mockReturnValueOnce([
-                { data: { races: [{ id: 1, name: 'Race 1' }] }, fetching: false, error: undefined },
-                reexecuteRacesNav,
-            ])
-            .mockReturnValue([{ data: undefined, fetching: false, error: undefined }]);
+        // Keyed on which query is being asked for, not on call order: #959's
+        // own "adjust state during render" comparisons can retry a render
+        // (and so call `useQuery` again) within the same commit whenever
+        // `navData` first arrives, and a plain `mockReturnValueOnce` sequence
+        // hands the *next* caller — whichever query that happens to be — the
+        // wrong tuple. The two results are built once and reused rather than
+        // built fresh per call — a fresh object every call is what real urql
+        // does not do (its own state is stable across a render retried
+        // within the same commit), and returning one here made the
+        // render-time comparison see "new" data forever.
+        const racesNavResult = [
+            { data: { races: [{ id: 1, name: 'Race 1' }] }, fetching: false, error: undefined },
+            reexecuteRacesNav,
+        ];
+        const otherResult = [{ data: undefined, fetching: false, error: undefined }, vi.fn()];
+        mockUseQuery.mockImplementation((args: { query: unknown }) =>
+            args.query === GET_RACES_NAV ? racesNavResult : otherResult,
+        );
         mockUseSubscription.mockReturnValue([{ data: { racesChanged: true }, error: undefined }]);
 
         render(
@@ -307,5 +322,70 @@ describe('Navigation Component', () => {
         );
 
         expect(reexecuteRacesNav).not.toHaveBeenCalled();
+    });
+
+    // #959: leaving a race for an install page used to drop it entirely — the
+    // pill fell back to "Select a Race" the same as Home.
+    describe('remembering the last race', () => {
+        it('remembers the active race, for reading back on an install page', () => {
+            render(
+                <AlertProvider>
+                    <MemoryRouter initialEntries={['/race/1']}>
+                        <Navigation />
+                    </MemoryRouter>
+                </AlertProvider>
+            );
+
+            expect(readLastRace()).toEqual({ id: 1, name: 'Race 1' });
+        });
+
+        it('shows the remembered race on an install page instead of "Select a Race"', () => {
+            writeLastRace({ id: 1, name: 'Race 1' });
+
+            render(
+                <AlertProvider>
+                    <MemoryRouter initialEntries={['/system-settings']}>
+                        <Navigation />
+                    </MemoryRouter>
+                </AlertProvider>
+            );
+
+            expect(screen.getByTestId('race-selector-pill')).toHaveTextContent('Race 1');
+            expect(screen.queryByText('Select a Race')).not.toBeInTheDocument();
+        });
+
+        it('still shows "Select a Race" on Home even with a race remembered', () => {
+            writeLastRace({ id: 1, name: 'Race 1' });
+
+            render(
+                <AlertProvider>
+                    <MemoryRouter initialEntries={['/']}>
+                        <Navigation />
+                    </MemoryRouter>
+                </AlertProvider>
+            );
+
+            expect(screen.getByText('Select a Race')).toBeInTheDocument();
+        });
+
+        it('forgets a remembered race once racesChanged reveals it no longer exists', () => {
+            writeLastRace({ id: 9, name: 'Deleted Race' });
+            mockUseQuery.mockReturnValue([{
+                data: { races: [{ id: 1, name: 'Race 1' }] },
+                fetching: false,
+                error: undefined,
+            }]);
+
+            render(
+                <AlertProvider>
+                    <MemoryRouter initialEntries={['/system-settings']}>
+                        <Navigation />
+                    </MemoryRouter>
+                </AlertProvider>
+            );
+
+            expect(readLastRace()).toBeNull();
+            expect(screen.getByText('Select a Race')).toBeInTheDocument();
+        });
     });
 });

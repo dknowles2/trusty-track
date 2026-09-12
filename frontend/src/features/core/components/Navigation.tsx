@@ -15,6 +15,7 @@ import LockedBadge from './LockedBadge';
 import logoUrl from '../../../assets/logo_transparent.png';
 import { UnlockButton } from './UnlockButton';
 import { useChrome } from '../../../context/ChromeContext';
+import { clearLastRace, readLastRace, writeLastRace, type RememberedRace } from '../lastRace';
 
 // The JS breakpoint used to be a strict `< 768`, one pixel narrower than the
 // CSS `@media (max-width: 768px)` rules (`.mobile-hide`, the settings nav's
@@ -110,6 +111,59 @@ export default function Navigation() {
   // actually rule the race out, i.e. once a request has *answered* and it is
   // still missing — not while one is still in flight.
   const raceContextUnresolved = !!raceId && !activeRace && (navData === undefined || racesFetching);
+
+  // #959: the race an operator was last looking at, so the pill on an
+  // install page (Settings, Timer check, Activity) can keep naming it
+  // instead of falling back to "Select a Race" the moment there is no race
+  // in the URL. Read once at mount — `BackLink` reads the same storage the
+  // same way — and kept current below as the operator moves around.
+  const [lastRace, setLastRace] = useState<RememberedRace | null>(() => readLastRace());
+
+  // Every race-scoped page resolves `activeRace` with its name, so this is
+  // the one place that needs to remember it — #48's lesson, a rule reaching
+  // only the obvious call site reaches only that one. Adjusted during render
+  // rather than in an effect (`react-hooks/set-state-in-effect`) — the same
+  // "sync newly arrived data into state" shape `ActivityLog.tsx`'s own
+  // `processedData` comparison uses, and for the same reason: an effect
+  // would show the previous race's name for one extra frame after switching
+  // races, and this is "write it down", not "subscribe to something".
+  const [rememberedKey, setRememberedKey] = useState<string | null>(null);
+  const activeRaceKey = activeRace ? `${activeRace.id}:${activeRace.name}` : null;
+  if (activeRace && activeRaceKey !== rememberedKey) {
+    setRememberedKey(activeRaceKey);
+    const remembered = { id: activeRace.id, name: activeRace.name };
+    writeLastRace(remembered);
+    setLastRace(remembered);
+  }
+
+  // A remembered race that `racesChanged` reveals is no longer in the list
+  // is a race that was deleted while the operator was elsewhere — forgetting
+  // it is what sends the pill back to "Select a Race" rather than a dead
+  // link to a race that no longer exists. `seenNavData` guards against
+  // re-checking the same answer twice, the same shape as above; it starts
+  // `undefined` rather than `navData` itself so a `navData` already resolved
+  // by the very first render (Settings opened directly, with a stale value
+  // left over from before) still gets checked once.
+  const [seenNavData, setSeenNavData] = useState<typeof navData>(undefined);
+  if (navData !== undefined && navData !== seenNavData) {
+    setSeenNavData(navData);
+    if (lastRace && !races.some((r) => r.id === lastRace.id)) {
+      clearLastRace();
+      setLastRace(null);
+    }
+  }
+
+  // Only Home shows "Select a Race" — every other page with no race in the
+  // URL (Settings, Timer check, Activity, an unmatched route) keeps naming
+  // whichever race the operator came from, if one is remembered.
+  const isHome = location.pathname === '/';
+  const pillRaceName = activeRace
+    ? activeRace.name
+    : raceContextUnresolved
+    ? ''
+    : !isHome && lastRace
+    ? lastRace.name
+    : 'Select a Race';
 
   const links: { to: string; label: string; icon: string }[] = [];
   if (raceId) {
@@ -217,7 +271,7 @@ export default function Navigation() {
               }}
             >
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {activeRace ? activeRace.name : raceContextUnresolved ? '' : 'Select a Race'}
+                {pillRaceName}
               </span>
               {activeRace?.isLocked && <LockedBadge size="small" />}
               <Icon path={mdiChevronDown} size={0.6} color="var(--on-primary-color)" style={{ opacity: 0.8, flexShrink: 0 }} />
@@ -248,7 +302,7 @@ export default function Navigation() {
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = PILL_BACKGROUND}
             >
               <Icon path={mdiFlagCheckered} size={0.8} color="var(--on-primary-color)" />
-              {activeRace ? activeRace.name : raceContextUnresolved ? '' : 'Select a Race'}
+              {pillRaceName}
               {activeRace?.isLocked && <LockedBadge size="small" />}
               <Icon path={isRaceDropdownOpen ? mdiChevronUp : mdiChevronDown} size={0.6} color="var(--on-primary-color)" style={{ opacity: 0.8 }} />
             </button>

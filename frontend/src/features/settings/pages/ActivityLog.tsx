@@ -11,11 +11,12 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from 'urql';
 import { Icon } from '@mdi/react';
-import { mdiAlertCircleOutline, mdiArrowLeft, mdiRefresh } from '@mdi/js';
+import { mdiAlertCircleOutline, mdiRefresh } from '@mdi/js';
 
+import BackLink from '../../core/components/BackLink';
 import { ACTIVITY_LOG_QUERY } from '../graphql/queries';
 import {
     appendPage,
@@ -108,26 +109,14 @@ export default function ActivityLog() {
                     This page is for the operator's device. Unlock with the operator PIN to
                     see it.
                 </p>
-                <Link to="/system-settings">&larr; Back to settings</Link>
+                <BackLink fallback={{ to: '/system-settings', label: 'Back to settings' }} />
             </div>
         );
     }
 
     return (
         <div className="container" style={{ padding: '2rem', maxWidth: '900px' }}>
-            <Link
-                to="/system-settings"
-                style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    color: 'var(--scouting-blue)',
-                    fontSize: '0.85rem',
-                    marginBottom: '0.5rem',
-                }}
-            >
-                <Icon path={mdiArrowLeft} size={0.7} /> Back to settings
-            </Link>
+            <BackLink fallback={{ to: '/system-settings', label: 'Back to settings' }} />
 
             <div
                 style={{

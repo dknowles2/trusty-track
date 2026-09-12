@@ -177,6 +177,42 @@ near the foot of a long page rather than as a change in behavior — the
 control itself has not moved relative to the fields around it, only relative
 to General.
 
+**The two links out are section-nav entries now, not a separately boxed
+footnote** ([#959](https://github.com/dknowles2/trusty-track/issues/959)),
+and each is labelled after the page it goes to — **Timer check →**,
+**Activity log →** — rather than a sentence describing it. `SettingsNav`'s
+`children` render straight into the same list as the section buttons
+(`.settings-nav-link` matches `.settings-nav button`'s own padding, size and
+colour) instead of behind a `border-top` divider in a smaller font: the phone
+layout already wraps every entry here into one row, and a link styled
+differently from its neighbours read as "not really part of this list" when
+it was. The wizard, which has no nav, keeps them as the plain strip under the
+form — there is nothing to be an entry *of* yet.
+
+**Leaving a race for Settings, Timer check or Activity used to drop the race
+entirely** ([#959](https://github.com/dknowles2/trusty-track/issues/959)) —
+the pill read "Select a Race" same as Home, and each of the three pages found
+its own way back differently, or (Settings) not at all. `features/core/
+lastRace.ts` remembers the race an operator was last on, per device
+(`localStorage`, the same shape as the PIN, the App theme and the finish
+chime) — `Navigation.tsx` writes it on every race-scoped route it renders,
+and forgets it once `racesChanged` reveals the race is gone (a remembered id
+absent from the freshly re-fetched list). The pill on every page with no
+race in the URL reads that name instead of "Select a Race" now; **only Home
+is exempt**, since "Select a Race" is the true description of what somebody
+on Home is meant to do next, remembered race or not.
+
+`features/core/components/BackLink.tsx` is the other half, top-left on all
+three pages, replacing three ad-hoc links (Activity's own "← Back to
+settings", Timer check's unstyled one at the foot, and Settings' — which had
+none). Three states, in order: a race is remembered → "← Back to *{name}*",
+linking straight to it; none is remembered but the caller passed a
+`fallback` → the two sub-pages' "← Back to settings"; neither → nothing,
+which is what Settings itself renders when an operator arrived with no race
+in view. Read once at mount (`useState(() => readLastRace())`), not
+subscribed to storage — each of the three is a fresh page on every
+navigation, so a value read as the page loads is already the right one.
+
 ### Themes
 
 Three independently configurable colour surfaces (#498) — **App** (the
