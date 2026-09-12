@@ -1424,3 +1424,86 @@ describe('ScheduleManagement', () => {
     });
   });
 });
+
+/**
+ * Issue #994. A track is shared across seasons: a race can finish on three
+ * lanes and have its track reconfigured down to two before anybody opens
+ * this screen again. #325 only rewrites a round's *pending* heats to match
+ * a smaller lane count, deliberately leaving a recorded heat's lanes alone
+ * — so a finished heat's lane 3 result must still render even though the
+ * track prop this screen is handed now says 2.
+ */
+describe('lane columns follow a since-shrunk track (#994)', () => {
+  const renderWithHeats = (heats: Heat[], laneCount: number) =>
+    render(
+      <MemoryRouter>
+      <AlertProvider>
+        <ScheduleManagement
+          raceId={1}
+          heats={heats}
+          generating={false}
+          activeHeatId={null}
+          onAddRound={vi.fn()}
+          onRegenerateRound={vi.fn()}
+          onDeleteRound={vi.fn()}
+          onDeleteHeat={vi.fn()}
+          onRunHeat={vi.fn()}
+          onReorderHeats={vi.fn()}
+          getRacerName={(id) => `Racer ${id}`}
+          onRefetchHeats={vi.fn()}
+          laneCount={laneCount}
+          racerCount={10}
+          racingGroupCount={3}
+          championshipTrophies={3}
+        />
+      </AlertProvider>
+      </MemoryRouter>
+    );
+
+  it("still shows a finished heat's lane 3 result on a track since shrunk to 2 lanes", () => {
+    const heats: Heat[] = [
+      heat({
+        id: 1,
+        roundNumber: 1,
+        roundId: 1,
+        heatNumber: 1,
+        roundName: 'Round 1',
+        lanes: [
+          lane({ lane: 1, racerId: 1, time: 3.1, place: 1 }),
+          lane({ lane: 2, racerId: 2, time: 3.4, place: 2 }),
+          lane({ lane: 3, racerId: 3, time: 3.8, place: 3 }),
+        ],
+      }),
+    ];
+
+    renderWithHeats(heats, 2);
+
+    expect(screen.getByText('Lane 1')).toBeInTheDocument();
+    expect(screen.getByText('Lane 2')).toBeInTheDocument();
+    expect(screen.getByText('Lane 3')).toBeInTheDocument();
+    // The result itself — the exact thing #994 reported as gone.
+    expect(screen.getByText('3.800s')).toBeInTheDocument();
+    expect(screen.getByText('Racer 3')).toBeInTheDocument();
+    // Only the column the track no longer has carries the hint.
+    expect(screen.getByText('not on this track')).toBeInTheDocument();
+  });
+
+  it('adds no hint and no extra column when every heat fits the track as it is', () => {
+    const heats: Heat[] = [
+      heat({
+        id: 1,
+        roundNumber: 1,
+        roundId: 1,
+        heatNumber: 1,
+        roundName: 'Round 1',
+        lanes: [lane({ lane: 1, racerId: 1, time: 3.1 }), lane({ lane: 2, racerId: 2, time: 3.4 })],
+      }),
+    ];
+
+    renderWithHeats(heats, 4);
+
+    expect(screen.getByText('Lane 1')).toBeInTheDocument();
+    expect(screen.getByText('Lane 4')).toBeInTheDocument();
+    expect(screen.queryByText('not on this track')).not.toBeInTheDocument();
+  });
+});
