@@ -9,14 +9,45 @@
  * nav down the left — and the reference page describes it section by
  * section, so the picture shows the dialog with a section other than the
  * first one up: Scoring, the one that grew most, so a reader sees both the
- * nav and what choosing a section does. Reached by the same `?edit=true`
- * link Home's row menu and Race Control's "Edit race" button use (#589).
+ * nav and what choosing a section does.
  *
  * Race-scoped: it seeds its own race on the shared docs track and touches
  * nothing the other specs read.
+ *
+ * --- The history of this one image (#970) ---
+ *
+ * This capture used to reach Scoring by opening the dialog on its default
+ * section and then clicking the nav — and that click was the entire
+ * problem, diagnosed and re-diagnosed three times across #972 and #986
+ * before the fix was to stop doing it rather than to chase the click's
+ * consequences further. Clicking into "Scoring" (much taller than "Event")
+ * grows the dialog, `Modal.tsx`'s `alignItems: 'center'` backdrop re-centres
+ * it in response, and that carries the nav *upward* under Playwright's still
+ * pointer — landing whichever item ends up there in a genuine, un-asked-for
+ * `:hover`. #972 parked the pointer off-viewport after the click; #986 found
+ * that the parking itself raced a real, asynchronous Chromium hit-test
+ * recompute and added a poll (`screenshotLocator`'s own `:hover` wait,
+ * below) to wait for it rather than assume two frames was enough. Both
+ * fixes were real and each lowered the failure rate — roughly 1 in 3, then
+ * roughly 1 in 25 — without reaching zero, because neither touched the
+ * cause: a screenshot spec that grows a dialog and moves a pointer over it
+ * has an unbounded number of ways to be caught mid-consequence.
+ *
+ * The fix here removes the growth instead of chasing its effects: `?section=
+ * scoring` on the same `?edit=true` link (`RaceForm`'s own `initialSection`
+ * prop) opens the dialog straight onto Scoring, so there is no click on this
+ * page at all, and so nothing for the class of flake above to happen to —
+ * the dialog never grows after it is first painted, `Modal.tsx` never
+ * re-centres it, and the pointer (parked off-viewport by every earlier step
+ * in this spec, and never brought back on screen) never approaches the nav
+ * in the first place. `screenshotLocator` is kept for the capture itself
+ * (#972) — it still does the image/font wait a locator screenshot needs and
+ * still parks the pointer and waits out any `:hover` before capturing — but
+ * none of that is now covering for anything this spec's own click used to
+ * cause, since this spec no longer clicks anything.
  */
 
-import { test, expect, screenshotLocator, settleTransitions } from './screenshots-setup';
+import { test, expect, screenshotLocator } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -37,46 +68,21 @@ test('screenshot the race settings form', async ({ page }) => {
         location: 'School Gym',
     });
 
-    await page.goto(`/race/${raceId}?edit=true`);
+    // Straight onto Scoring — no click on this page at all. See this file's
+    // own header comment for why that is the fix, not merely a shortcut.
+    await page.goto(`/race/${raceId}?edit=true&section=scoring`);
     const dialog = page.getByRole('dialog', { name: 'Edit Race Details' });
     await expect(dialog).toBeVisible();
     // The Track / Timer field says "Loading tracks..." until the tracks query
     // answers, and whether the picture catches that depends on the run.
     await expect(dialog.getByText('Loading tracks...')).toBeHidden();
-
-    await dialog.getByTestId('race-settings-nav-scoring').click();
     await expect(dialog.getByRole('heading', { name: 'Scoring' })).toBeVisible();
     await expect(dialog.getByLabel('Championship Trophies')).toBeVisible();
     // Asserted, not assumed: the picture's caption says the nav shows Scoring
-    // active, so check that it actually does before spending any more time
-    // settling paint. `section` is plain React state set synchronously by the
-    // click handler — there is no scroll-spy in this form, whatever an
-    // earlier read of this flake believed — so this never legitimately fails;
-    // it exists to fail loudly rather than let a real regression here read as
-    // a screenshot problem.
+    // active, so check that it actually does before capturing. This can only
+    // fail if `initialSection` itself stops working — there is no click here
+    // for a stale state to survive, and no scroll-spy in this form.
     await expect(dialog.getByTestId('race-settings-nav-scoring')).toHaveAttribute('aria-current', 'page');
-    // The nav's own background-color transition (see `settleTransitions`'s
-    // doc comment) — without this, the picture sometimes shows "Event" and
-    // "Scoring" mid-fade between the two states rather than settled.
-    await settleTransitions(dialog);
-    // `Modal.tsx`'s dialog element is itself the scrollable container
-    // (`overflowY: 'auto'`). Nothing resets its `scrollTop` when the section
-    // changes, so this is cheap insurance against the same class of drift
-    // `race-day/02-check-in-modal-inspected.png` hit — but it is not what
-    // caused this picture's own flake: instrumenting a real run shows
-    // `scrollTop` sits at `0` throughout, here, every time. What actually
-    // moves under this click is `Modal.tsx`'s own centring — the backdrop's
-    // `alignItems: 'center'` re-centres the dialog when "Scoring" (much
-    // taller than "Event") changes its height, carrying the nav upward under
-    // Playwright's still pointer with no scroll involved at all, and leaving
-    // whichever item ends up under it genuinely `:hover`-ed. `screenshotLocator`
-    // below is where that is actually closed (#970: see its own doc comment).
-    await dialog.evaluate((el) => {
-        el.scrollTop = 0;
-    });
 
-    // `screenshotLocator`, not `dialog.screenshot()` — this dialog capture
-    // needs the same pointer-park `page.screenshot()` gets, and gets it from
-    // nowhere else (#970: see that helper's own doc comment).
     await screenshotLocator(dialog, { path: path.join(SCREENSHOT_DIR, '11-edit-race-settings.png') });
 });

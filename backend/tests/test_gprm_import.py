@@ -521,6 +521,69 @@ def test_existing_number_problems_takes_the_vehicle_word() -> None:
     assert problems[0].message.startswith("Rocket number 5")
 
 
+def test_normalized_name_folds_case_and_whitespace() -> None:
+    assert roster_import.normalized_name("Alex", "Rivera") == "alex rivera"
+    assert roster_import.normalized_name(" Alex ", "  Rivera") == "alex rivera"
+    assert roster_import.normalized_name("ALEX", "RIVERA") == "alex rivera"
+    assert roster_import.normalized_name("Alex   Jay", "Rivera") == "alex jay rivera"
+
+
+def test_existing_racer_problems_blocks_a_case_and_whitespace_variant_match() -> None:
+    """#1021: a racer already on the roster, matched on name rather than a
+    car number -- the rule that catches a re-import even when neither side
+    has a number at all (GPRM's own unnumbered "Pat Rivera, Siblings")."""
+    racers = [ImportedRacer(" alex ", "RIVERA", car_number=None, source_id="1")]
+    problems = roster_import.existing_racer_problems(
+        racers, existing_names={"alex rivera": "Alex Rivera"}
+    )
+    assert problems == [
+        ImportProblem(
+            "Alex Rivera is already on the roster.", blocking=True, source_id="1"
+        )
+    ]
+
+
+def test_existing_racer_problems_ignores_a_name_not_on_the_roster() -> None:
+    racers = [ImportedRacer("Sam", "Okafor", source_id="1")]
+    assert (
+        roster_import.existing_racer_problems(
+            racers, existing_names={"alex rivera": "Alex Rivera"}
+        )
+        == []
+    )
+
+
+def test_existing_racer_problems_covers_a_racer_with_no_car_number() -> None:
+    racers = [ImportedRacer("Pat", "Rivera", car_number=None, source_id="9")]
+    problems = roster_import.existing_racer_problems(
+        racers, existing_names={"pat rivera": "Pat Rivera"}
+    )
+    assert len(problems) == 1
+    assert problems[0].blocking
+
+
+def test_duplicate_name_problems_reports_the_second_holder() -> None:
+    racers = [
+        ImportedRacer("Alex", "Rivera", source_id="1"),
+        ImportedRacer(" alex ", " RIVERA ", source_id="2"),
+        ImportedRacer("Sam", "Okafor", source_id="3"),
+    ]
+    problems = roster_import.duplicate_name_problems(racers)
+    assert problems == [
+        ImportProblem(
+            "Alex Rivera is listed twice in this file.", blocking=True, source_id="2"
+        )
+    ]
+
+
+def test_duplicate_name_problems_ignores_distinct_names() -> None:
+    racers = [
+        ImportedRacer("Alex", "Rivera", source_id="1"),
+        ImportedRacer("Sam", "Okafor", source_id="2"),
+    ]
+    assert roster_import.duplicate_name_problems(racers) == []
+
+
 def test_only_a_blocking_problem_stops_the_import() -> None:
     warned = ParsedRoster(problems=(ImportProblem("skipped one"),))
     assert warned.can_import

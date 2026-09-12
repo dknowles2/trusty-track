@@ -247,6 +247,118 @@ def test_a_number_only_used_once_is_no_problem(client, race, tmp_path):
 
 
 # --------------------------------------------------------------------------- #
+# #1021: a racer already on the roster blocks the import, by name             #
+# --------------------------------------------------------------------------- #
+
+
+def test_a_name_match_against_the_existing_roster_blocks_the_import(
+    client, db, race, tmp_path
+):
+    """The seam #1021 is about: import the fixture racer once by hand, then
+    preview the file that would import them again. Unlike the number-only
+    collision above, this one names the same *racer* and must refuse
+    outright rather than merely warn."""
+    crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Alex", last_name="Rivera", car_number=999, race_id=race.id
+        ),
+    )
+    raw = _sqlite_bytes(tmp_path, ONE_RACER_SCRIPT)
+    response = _post(client, PREVIEW, {"raceId": race.id, "fileData": _data_url(raw)})
+    preview = response.json()["data"]["previewGprmImport"]
+
+    assert preview["canImport"] is False
+    assert any(
+        p["blocking"] and p["message"] == "Alex Rivera is already on the roster."
+        for p in preview["problems"]
+    )
+
+
+def test_confirm_refuses_and_writes_nothing_when_the_roster_already_has_the_racer(
+    client, db, race, tmp_path
+):
+    crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Alex", last_name="Rivera", car_number=999, race_id=race.id
+        ),
+    )
+    before = db.query(models.Racer).filter(models.Racer.race_id == race.id).count()
+
+    raw = _sqlite_bytes(tmp_path, ONE_RACER_SCRIPT)
+    response = _post(client, CONFIRM, {"raceId": race.id, "fileData": _data_url(raw)})
+    payload = response.json()
+    assert payload.get("errors")
+    assert "Alex Rivera is already on the roster." in payload["errors"][0]["message"]
+
+    db.expire_all()
+    after = db.query(models.Racer).filter(models.Racer.race_id == race.id).count()
+    assert after == before  # nothing was written
+
+
+def test_an_unnumbered_racer_is_still_caught_by_name(client, db, race, tmp_path):
+    """The number-based rule never sees GPRM's own "Pat Rivera, Siblings",
+    who has no car number at all -- this is the rule that actually catches
+    a second import of exactly that racer."""
+    crud.create_racer(
+        db,
+        schemas.RacerCreate(first_name="Pat", last_name="Rivera", race_id=race.id),
+    )
+    script = """
+    CREATE TABLE RegistrationInfo (
+        RacerID INTEGER, CarNumber INTEGER, LastName TEXT, FirstName TEXT
+    );
+    INSERT INTO RegistrationInfo VALUES (1, NULL, 'Rivera', 'Pat');
+    """
+    raw = _sqlite_bytes(tmp_path, script)
+    response = _post(client, PREVIEW, {"raceId": race.id, "fileData": _data_url(raw)})
+    preview = response.json()["data"]["previewGprmImport"]
+
+    assert preview["canImport"] is False
+    assert any(
+        p["message"] == "Pat Rivera is already on the roster."
+        for p in preview["problems"]
+    )
+
+
+def test_existing_car_number_holders_names_the_first_racer_when_two_share_a_number(
+    db, race
+):
+    """#1021's second finding: `MANUAL` numbering lets two racers on the
+    roster share a number, and the dict this builds used to key on the
+    number and keep whichever happened to be inserted last -- disagreeing
+    with `duplicate_number_problems`' own "name the first holder"
+    convention for the identical collision. Ordering by id and keeping the
+    first sighted makes the two agree."""
+    first = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Alex", last_name="Rivera", car_number=5, race_id=race.id
+        ),
+    )
+    crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Sam", last_name="Okafor", car_number=5, race_id=race.id
+        ),
+    )
+    assert first.id is not None
+
+    holders = crud.existing_car_number_holders(db, race.id)
+    assert holders[5] == "Alex Rivera"
+
+
+def test_existing_racer_names_is_keyed_on_the_normalized_name(db, race):
+    crud.create_racer(
+        db,
+        schemas.RacerCreate(first_name="Alex", last_name="Rivera", race_id=race.id),
+    )
+    names = crud.existing_racer_names(db, race.id)
+    assert names == {"alex rivera": "Alex Rivera"}
+
+
+# --------------------------------------------------------------------------- #
 # Late-racer admission, once for the batch (#343's fix, applied here too)      #
 # --------------------------------------------------------------------------- #
 

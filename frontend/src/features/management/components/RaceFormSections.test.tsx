@@ -114,6 +114,26 @@ describe('editing a race', () => {
         expect(screen.getByLabelText('Venue Wi-Fi guidance (optional)')).toBeInTheDocument();
     });
 
+    it('opens on the section named by initialSection, not Event (#970)', () => {
+        render(
+            <RaceForm
+                onSubmit={vi.fn()}
+                onCancel={vi.fn()}
+                submitLabel="Save Changes"
+                isEditing
+                initialData={{ name: 'Pack 42 Derby' }}
+                initialSection="scoring"
+            />,
+        );
+
+        // Straight onto Scoring, with no click involved — the whole point
+        // being that the doc screenshot spec no longer has to click into it
+        // (#970: see that spec's own header comment).
+        expect(screen.getByTestId('race-settings-nav-scoring')).toHaveAttribute('aria-current', 'page');
+        expect(screen.getByLabelText('Championship Trophies')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Event Name')).toBeNull();
+    });
+
     it('keeps what was typed in a section that is no longer up', async () => {
         const onSubmit = vi.fn<(data: RaceFormData) => Promise<void>>(async () => {});
         renderEditing(onSubmit);

@@ -93,6 +93,20 @@ export function sectionsFor(isEditing: boolean): readonly RaceSection[] {
     return isEditing ? RACE_SECTIONS : [];
 }
 
+/**
+ * Whether a value names one of the form's sections.
+ *
+ * The one caller today is `RaceDetails.tsx`'s `?section=` query parameter,
+ * which opens the edit form straight onto a chosen section rather than the
+ * default (`RaceForm`'s own `initialSection` prop, #970) — a stray or
+ * misspelled value in a hand-typed or bookmarked URL should fall back to
+ * the form's default section, not land on no section at all, which is what
+ * `RaceForm`'s `shows()` would do for an id none of `RACE_SECTIONS` holds.
+ */
+export function isRaceSectionId(value: string | null | undefined): value is RaceSectionId {
+    return RACE_SECTIONS.some((section) => section.id === value);
+}
+
 /** The `min` and `max` the Championship Trophies input carries. */
 export const MIN_CHAMPIONSHIP_TROPHIES = 1;
 export const MAX_CHAMPIONSHIP_TROPHIES = 10;

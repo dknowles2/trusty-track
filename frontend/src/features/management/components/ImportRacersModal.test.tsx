@@ -155,6 +155,25 @@ describe('ImportRacersModal', () => {
         await waitFor(() => expect(screen.getByText('Race not found')).toBeInTheDocument());
     });
 
+    // #1021: importing the same CSV a second time must refuse with the
+    // server's own sentence, not a generic "could not be imported" — this
+    // pins that `errorText` already surfaces `import_racers`'s ValueError
+    // unwrapped, the same as every other GraphQL error this modal shows.
+    it('surfaces the server refusal when a racer is already on the roster', async () => {
+        const execute = vi.fn().mockResolvedValue({
+            error: { graphQLErrors: [{ message: 'Alex Rivera is already on the roster.' }] },
+        });
+        (useMutation as unknown as ReturnType<typeof vi.fn>).mockReturnValue([{}, execute]);
+        open();
+
+        await selectFile('first,last\nAlex,Rivera');
+        await userEvent.click(screen.getByRole('button', { name: /Import 1 Racer/ }));
+
+        await waitFor(() =>
+            expect(screen.getByText('Alex Rivera is already on the roster.')).toBeInTheDocument(),
+        );
+    });
+
     // #768: nothing recorded that an import just succeeded, so the button
     // stayed enabled with the same rows behind it and a second click
     // resent the identical payload.

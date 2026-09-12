@@ -242,3 +242,67 @@ def test_failed_import_leaves_no_racers_behind(
         db.query(models.RacingGroup).filter(models.RacingGroup.race_id == race.id).all()
     )
     assert racing_groups == []
+
+
+# --------------------------------------------------------------------------- #
+# #1021: importing the same roster a second time must refuse, not duplicate    #
+# --------------------------------------------------------------------------- #
+
+
+def test_importing_the_same_csv_twice_refuses_the_second_call(
+    client: TestClient, db: Session, race: models.Race
+) -> None:
+    """9 racers becoming 18 was the symptom -- two rows, imported twice,
+    must leave the roster holding exactly the first two."""
+    csv_data = "first_name,last_name,car_number\nAlex,Rivera,101\nSam,Okafor,102\n"
+    count = _import(client, race.id, csv_data)
+    assert count == 2
+
+    response = client.post(
+        "/graphql",
+        json={"query": IMPORT, "variables": {"raceId": race.id, "csvData": csv_data}},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert "errors" in payload
+    message = payload["errors"][0]["message"]
+    assert "Alex Rivera" in message
+    assert "already on the roster" in message
+
+    db.expire_all()
+    racers = _racers(db, race.id)
+    assert len(racers) == 2
+    assert {r.first_name for r in racers} == {"Alex", "Sam"}
+
+
+def test_a_csv_naming_the_same_child_twice_is_refused(
+    client: TestClient, db: Session, race: models.Race
+) -> None:
+    """A within-file duplicate, caught before anything is written -- the
+    same rule as the roster check above, applied to two rows in one file."""
+    csv_data = "first_name,last_name,car_number\nAlex,Rivera,101\nalex,  rivera ,102\n"
+    response = client.post(
+        "/graphql",
+        json={"query": IMPORT, "variables": {"raceId": race.id, "csvData": csv_data}},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert "errors" in payload
+    assert "Alex Rivera" in payload["errors"][0]["message"]
+
+    assert _racers(db, race.id) == []
+
+
+def test_a_partial_name_match_does_not_block_an_unrelated_racer(
+    client: TestClient, db: Session, race: models.Race
+) -> None:
+    """The refusal is name-scoped, not roster-wide -- importing a new,
+    distinctly-named racer must succeed even though somebody else is
+    already on the roster."""
+    crud.create_racer(
+        db,
+        schemas.RacerCreate(first_name="Alex", last_name="Rivera", race_id=race.id),
+    )
+    count = _import(client, race.id, "first_name,last_name\nSam,Okafor\n")
+    assert count == 1
+    assert {r.first_name for r in _racers(db, race.id)} == {"Alex", "Sam"}
