@@ -36,10 +36,13 @@ describe('groupRacersByRacingGroup', () => {
         expect(groups[0].racingGroupName).toBe('Unassigned');
     });
 
-    it('orders groups by racing group name, unassigned last', () => {
-        // Alphabetically Bears comes before Wolves, and the unassigned group
-        // would sort first as an empty name if it were not special-cased —
-        // it belongs last instead, as the one still needing a decision.
+    it('orders groups by racing group id (creation order), unassigned last (#1007)', () => {
+        // Wolves (id 1) was created before Bears (id 2), so it sorts first —
+        // alphabetically Bears would come first instead, which is not the
+        // order Manage Dens, the wizard or the results sheet use. The
+        // unassigned group would sort first too under a naive id comparison
+        // (its sentinel id is negative) if it were not special-cased — it
+        // belongs last, as the one still needing a decision.
         const groups = groupRacersByRacingGroup(
             [
                 racer({ id: 1, racing_group_id: 1 }),
@@ -49,7 +52,7 @@ describe('groupRacersByRacingGroup', () => {
             RACING_GROUPS,
         );
 
-        expect(groups.map((g) => g.racingGroupId)).toEqual([2, 1, UNASSIGNED_RACING_GROUP_ID]);
+        expect(groups.map((g) => g.racingGroupId)).toEqual([1, 2, UNASSIGNED_RACING_GROUP_ID]);
     });
 
     it('falls back to "Unknown Racing Group" for a racing group id nothing resolves', () => {

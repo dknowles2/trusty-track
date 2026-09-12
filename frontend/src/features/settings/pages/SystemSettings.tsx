@@ -35,6 +35,7 @@ import {
 import { NAME_DISPLAY_OPTIONS } from '../../core/displayName';
 import BackLink from '../../core/components/BackLink';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
+import { useAlert } from '../../../context/AlertContext';
 
 const GET_INITIAL_CONFIG = `
   query GetInitialConfig {
@@ -191,6 +192,7 @@ function SectionHeading({ id, sectioned }: { id: SectionId; sectioned: boolean }
 
 export default function SystemConfig() {
   const navigate = useNavigate();
+  const { showToast } = useAlert();
   const [organizationName, setOrganizationName] = useState('');
   const [debugMode, setDebugMode] = useState(false);
   // Left empty on load and never seeded from the server — a PIN is stored
@@ -529,6 +531,17 @@ export default function SystemConfig() {
         // socket carries the PIN in its URL, so a changed PIN needs a new
         // socket. Same reasoning as entering one through the padlock.
         window.location.href = '/';
+        return;
+      }
+
+      // The first-run wizard has nowhere else to go — Home is the point of
+      // finishing it. Once the install is already configured this is an
+      // ordinary settings page, and navigating away lost both the section
+      // an operator was on and any confirmation the save actually took
+      // (#1003) — changing a lane count under Tracks mid-event landed back
+      // on the race list with nothing saying whether it stuck.
+      if (isEditing) {
+        showToast('Settings saved', 'success');
         return;
       }
 

@@ -61,13 +61,28 @@ const mockHeats: Heat[] = [
     },
 ];
 
-function renderSchedule(isOperator: boolean | undefined) {
+// A round with no recorded times, so `isAnyStarted` is false and Delete's
+// own disabled state reflects only `operatorDisabled` (#997) rather than
+// also being disabled by "has heats with results".
+const unracedHeats: Heat[] = [
+    {
+        id: 1,
+        roundNumber: 1,
+        roundId: 1,
+        heatNumber: 1,
+        recordedAt: null,
+        lanes: [{ lane: 1, racerId: 1, placeholderSlot: null, time: null, place: null, skipped: false }],
+        roundName: 'Round 1',
+    },
+];
+
+function renderSchedule(isOperator: boolean | undefined, heats: Heat[] = mockHeats) {
     return render(
         <MemoryRouter>
             <AlertProvider>
                 <ScheduleManagement
                     raceId={1}
-                    heats={mockHeats}
+                    heats={heats}
                     generating={false}
                     activeHeatId={null}
                     onAddRound={vi.fn()}
@@ -117,6 +132,14 @@ describe('ScheduleManagement reflects the caller role (#892)', () => {
 
         expect(screen.getByRole('button', { name: /Add Round/ })).toBeEnabled();
         expect(screen.getByRole('button', { name: 'Re-Run' })).toBeEnabled();
+    });
+
+    it('disables a round\'s Delete for a non-operator, marked with the class the disabled rule reaches (#997)', () => {
+        renderSchedule(false, unracedHeats);
+
+        const deleteBtn = screen.getByRole('button', { name: /Delete Round 1/ });
+        expect(deleteBtn).toBeDisabled();
+        expect(deleteBtn).toHaveClass('secondary-btn');
     });
 
     it('leaves them enabled for an explicit operator', () => {

@@ -42,7 +42,7 @@ import { heatsEstimate } from '../../../utils/duration';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { estimatePace } from '../pace';
 import type { EliminationChart, Heat, Lane, Round } from '../types';
-import { formatLaneTime, hasRun, hasTimes, laneColumnCount } from '../lanes';
+import { formatLaneTime, hasRun, hasTimes, laneColumnCount, undecidedLaneLabel } from '../lanes';
 import { executionComparator } from '../runningOrder';
 import { advancingFromLabel } from '../roundSummaryText';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
@@ -219,7 +219,7 @@ interface SortableHeatRowProps {
 }
 
 const getDisplayName = (lane: Lane, getRacerName: (id: number) => string) => {
-  if (lane.placeholderSlot !== null) return `Placeholder ${lane.placeholderSlot}`;
+  if (lane.placeholderSlot !== null) return undecidedLaneLabel(lane.placeholderSlot);
   if (lane.racerId === null) return "Empty";
   return getRacerName(lane.racerId);
 };

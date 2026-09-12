@@ -94,7 +94,9 @@ describe('summarizeCheckIn', () => {
         expect(summary.groups[0].racingGroupName).toBe('Unassigned');
     });
 
-    it('orders groups by name, unassigned last — the roster\'s own order', () => {
+    it('orders groups by id (creation order), unassigned last — the roster\'s own order (#1007)', () => {
+        // Wolves (id 1) was created before Bears (id 2); alphabetically Bears
+        // would come first, which is not the order the roster itself uses.
         const summary = summarizeCheckIn(
             [
                 racer({ id: 1, racingGroupId: 1 }),
@@ -105,8 +107,8 @@ describe('summarizeCheckIn', () => {
         );
 
         expect(summary.groups.map((g) => g.racingGroupName)).toEqual([
-            'Bears',
             'Wolves',
+            'Bears',
             'Unassigned',
         ]);
     });

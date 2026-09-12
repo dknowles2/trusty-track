@@ -222,6 +222,8 @@ export const GET_CERTIFICATES = gql`
         name
         kind
         sortOrder
+        place
+        fromBottom
         artworkKey
         recipient {
           id

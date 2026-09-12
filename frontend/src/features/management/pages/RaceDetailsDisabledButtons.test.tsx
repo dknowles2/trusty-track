@@ -1,0 +1,130 @@
+// @vitest-environment jsdom
+/**
+ * #997 — a disabled button that carries its own inline background/colour
+ * (Add Racer's split button, a racer row's Checked In / Edit) painted
+ * exactly like an enabled one, because an inline style always wins over a
+ * class selector, `.primary-btn:disabled`/`.secondary-btn:disabled`
+ * included. The actual visual fix is the generic `button:disabled` rule in
+ * `index.css`, which is not something jsdom can assert on directly — what
+ * this file pins is the contract that rule depends on: every affected
+ * button renders with the native `disabled` attribute (what the CSS keys
+ * off) and, for consistency with every other secondary-style control, the
+ * `secondary-btn` class.
+ */
+import '../../../setupTests';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import RaceDetails from './RaceDetails';
+
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { useQuery, useMutation, useSubscription } from 'urql';
+
+vi.mock('urql', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('urql')>();
+    return {
+        ...actual,
+        useQuery: vi.fn(),
+        useMutation: vi.fn(),
+        useSubscription: vi.fn(),
+    };
+});
+
+function mockMutations() {
+    (useMutation as any).mockImplementation(() => [{ fetching: false }, vi.fn()]);
+}
+
+afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+});
+
+beforeEach(() => {
+    (useSubscription as any).mockReturnValue([{ data: undefined }, vi.fn()]);
+});
+
+vi.mock('../../../context/AlertContext', () => ({
+    useAlert: () => ({ showAlert: vi.fn(), showConfirm: vi.fn() }),
+}));
+
+function mockLockedRaceWithCheckedInRacer() {
+    (useQuery as any).mockReturnValue([{
+        data: {
+            race: {
+                id: 1,
+                name: 'Concluded Derby',
+                dateTime: null,
+                location: null,
+                trackId: 1,
+                scoringStrategy: 'TIMED',
+                carNumberingStrategy: 'MANUAL',
+                racingGroups: [],
+                racers: [
+                    {
+                        id: 9,
+                        firstName: 'Jordan',
+                        lastName: 'Mitchell',
+                        carNumber: 42,
+                        racingGroupId: null,
+                        carName: 'Blue Streak',
+                        carPassedInspection: true,
+                        carWeight: 5.0,
+                        racerImageUrl: null,
+                        carImageUrl: null,
+                        excludedFromStandings: false,
+                    },
+                ],
+                leaderboard: [],
+                scheduledRacerIds: [],
+                rounds: [],
+                isLocked: true,
+            },
+            tracks: [{ id: 1, name: 'Main Track' }],
+        },
+        fetching: false,
+        error: null,
+    }, vi.fn()]);
+}
+
+function renderRaceDetails() {
+    return render(
+        <MemoryRouter initialEntries={['/races/1']}>
+            <Routes>
+                <Route path="/races/:raceId" element={<RaceDetails />} />
+            </Routes>
+        </MemoryRouter>,
+    );
+}
+
+describe('disabled buttons carry the disabled contract the CSS rule depends on (#997)', () => {
+    it('disables Add Racer and marks it with the class the disabled rule reaches', async () => {
+        mockLockedRaceWithCheckedInRacer();
+        mockMutations();
+
+        renderRaceDetails();
+
+        await waitFor(() => {
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
+        });
+
+        const addRacer = screen.getByRole('button', { name: /Add Racer/ });
+        expect(addRacer).toBeDisabled();
+        expect(addRacer).toHaveClass('secondary-btn');
+    });
+
+    it('disables every Checked In / Edit rendering of a checked-in racer, each carrying the same class', async () => {
+        mockLockedRaceWithCheckedInRacer();
+        mockMutations();
+
+        renderRaceDetails();
+
+        await waitFor(() => {
+            expect(screen.getAllByRole('button', { name: /Checked In \/ Edit/ }).length).toBeGreaterThan(0);
+        });
+
+        const buttons = screen.getAllByRole('button', { name: /Checked In \/ Edit/ });
+        for (const button of buttons) {
+            expect(button).toBeDisabled();
+            expect(button).toHaveClass('secondary-btn');
+        }
+    });
+});

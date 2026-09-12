@@ -1420,6 +1420,7 @@ export default function RaceDetails() {
                                             <td data-label="Status/Edit" style={{ padding: '12px', textAlign: 'center' }}>
                                                 <button
                                                     onClick={() => handleCheckInClick(racer)}
+                                                    className="secondary-btn"
                                                     disabled={checkinDisabled}
                                                     title={checkinTitle}
                                                     style={{
@@ -1427,7 +1428,7 @@ export default function RaceDetails() {
                                                         border: `1px solid ${racer.car_passed_inspection ? 'var(--success-accent-color)' : 'var(--border-color)'}`,
                                                         borderRadius: '20px',
                                                         padding: '6px 12px',
-                                                        cursor: 'pointer',
+                                                        cursor: checkinDisabled ? 'not-allowed' : 'pointer',
                                                         color: racer.car_passed_inspection ? 'var(--success-color)' : 'var(--scouting-blue)',
                                                         fontSize: '0.85rem',
                                                         display: 'inline-flex',
@@ -1515,6 +1516,7 @@ export default function RaceDetails() {
                                     <span className="cell-value" style={{ display: 'flex', justifyContent: 'center' }}>
                                         <button
                                             onClick={() => handleCheckInClick(racer)}
+                                            className="secondary-btn"
                                             disabled={checkinDisabled}
                                             title={checkinTitle}
                                             style={{
@@ -1522,7 +1524,7 @@ export default function RaceDetails() {
                                                 border: `1px solid ${racer.car_passed_inspection ? 'var(--success-accent-color)' : 'var(--border-color)'}`,
                                                 borderRadius: '20px',
                                                 padding: '6px 12px',
-                                                cursor: 'pointer',
+                                                cursor: checkinDisabled ? 'not-allowed' : 'pointer',
                                                 color: racer.car_passed_inspection ? 'var(--success-color)' : 'var(--scouting-blue)',
                                                 fontSize: '0.85rem',
                                                 display: 'inline-flex',

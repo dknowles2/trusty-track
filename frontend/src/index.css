@@ -344,6 +344,25 @@ a.secondary-btn {
   cursor: not-allowed;
 }
 
+/* Add Racer, Checked In / Edit and a round's Delete each carry their own
+   inline `background`/`color` (a split button matched to the toolbar, a
+   checked-in badge coloured green, a destructive action coloured red) — and
+   an inline style always wins over a class selector, `.primary-btn:disabled`
+   and `.secondary-btn:disabled` above included, so those three painted
+   exactly like an enabled button while `disabled` was true (#997). `opacity`
+   is the one property none of the app's inline-styled buttons ever sets, so
+   a rule keyed on it reaches every variant — including a future one written
+   with no class at all — regardless of how its own colours are set.
+   `[aria-disabled='true']` is the non-interactive twin for a `<Link>` styled
+   as a button, which has no `disabled` attribute to match (#790). */
+button:disabled,
+button[aria-disabled='true'],
+a.primary-btn[aria-disabled='true'],
+a.secondary-btn[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .secondary-btn {
   background-color: var(--cub-scouting-gold);
   color: var(--on-accent-color, var(--scouting-blue));

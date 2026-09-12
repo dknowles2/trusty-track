@@ -46,6 +46,8 @@ const RACE = {
             name: 'Fastest Car',
             kind: 'SPEED',
             sortOrder: 2,
+            place: 1,
+            fromBottom: false,
             artworkKey: 'trophy',
             recipient: { id: 2, firstName: 'Grace', lastName: 'Hopper', carNumber: 7 },
         },
@@ -109,13 +111,31 @@ describe('the certificate page', () => {
         expect(plain.querySelector('svg[role="img"]')).toBeNull();
     });
 
-    it('renders the official champion banner and certificate labels', () => {
+    it('renders the official banner and certificate labels', () => {
         mockRace();
         open();
         expect(screen.getAllByText('OFFICIAL')).toHaveLength(3);
-        expect(screen.getAllByText('CHAMPION')).toHaveLength(3);
         expect(screen.getAllByText('THIS CERTIFICATE OF')).toHaveLength(3);
         expect(screen.getAllByText('IS AWARDED TO')).toHaveLength(3);
+    });
+
+    it('heads each certificate by what the award actually is, not a blanket CHAMPION (#1004)', () => {
+        // A Best Paint certificate and a Judges' Choice one used to read
+        // CHAMPION exactly like the pack champion's own — only the first
+        // place speed award earns that word here.
+        mockRace();
+        open();
+
+        const bestPaint = screen.getByText('Best Paint').closest('.certificate')!;
+        expect(bestPaint.querySelector('.certificate-champion-title')).toHaveTextContent('AWARD');
+
+        const judgesChoice = screen.getByText("Judges' Choice").closest('.certificate')!;
+        expect(judgesChoice.querySelector('.certificate-champion-title')).toHaveTextContent('AWARD');
+
+        const fastestCar = screen.getByText('Fastest Car').closest('.certificate')!;
+        expect(fastestCar.querySelector('.certificate-champion-title')).toHaveTextContent('CHAMPION');
+
+        expect(screen.queryAllByText('CHAMPION')).toHaveLength(1);
     });
 
     it('renders date and cubmaster signature blocks', () => {

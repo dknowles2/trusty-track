@@ -3,6 +3,7 @@ import {
   ALL_SOURCE,
   awardHolderWarning,
   carLabel,
+  certificateHeading,
   describeSpeedAward,
   duplicateOfNote,
   forBallot,
@@ -362,5 +363,37 @@ describe('soundsLikeSpeedAward (#999)', () => {
 
   it('is case-insensitive', () => {
     expect(soundsLikeSpeedAward('FASTEST WOLF')).toBe(true);
+  });
+});
+
+describe('certificateHeading (#1004)', () => {
+  it('names the pack champion CHAMPION', () => {
+    expect(certificateHeading({ kind: 'SPEED', place: 1, fromBottom: false })).toBe('CHAMPION');
+  });
+
+  it('names 2nd and 3rd fastest RUNNER-UP', () => {
+    expect(certificateHeading({ kind: 'SPEED', place: 2, fromBottom: false })).toBe('RUNNER-UP');
+    expect(certificateHeading({ kind: 'SPEED', place: 3, fromBottom: false })).toBe('RUNNER-UP');
+  });
+
+  it('falls back to AWARD past 3rd place', () => {
+    expect(certificateHeading({ kind: 'SPEED', place: 4, fromBottom: false })).toBe('AWARD');
+  });
+
+  it('names a Slowest Race survivor AWARD, not CHAMPION — fromBottom is a different race', () => {
+    expect(certificateHeading({ kind: 'SPEED', place: 1, fromBottom: true })).toBe('AWARD');
+  });
+
+  it('names a judged award AWARD, whatever place is stored', () => {
+    expect(certificateHeading({ kind: 'SPECIAL', place: null, fromBottom: false })).toBe('AWARD');
+    // A SPEED-shaped place left over from a kind change (#615's
+    // `_clear_fields_of_other_kind` clears it server-side, but this reads
+    // whatever the caller actually hands it) must not leak CHAMPION onto a
+    // judged certificate.
+    expect(certificateHeading({ kind: 'SPECIAL', place: 1, fromBottom: false })).toBe('AWARD');
+  });
+
+  it('names an award missing its rule AWARD rather than crashing', () => {
+    expect(certificateHeading({ kind: 'SPEED', place: null, fromBottom: false })).toBe('AWARD');
   });
 });

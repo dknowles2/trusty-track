@@ -125,6 +125,32 @@ export function describeSpeedAward(
   return `${position} ${where}`;
 }
 
+export interface CertificateHeadingAward {
+  kind: string;
+  place?: number | null;
+  fromBottom?: boolean | null;
+}
+
+/**
+ * The certificate's own headline word — "CHAMPION", "RUNNER-UP", "AWARD" —
+ * derived from what the award actually is (#1004). Every certificate used
+ * to print "OFFICIAL CHAMPION" outright, so a Best Paint certificate and a
+ * Second Fastest one read exactly like the pack champion's own.
+ *
+ * Only an ordinary-direction `SPEED` award (first, second or third fastest)
+ * gets "CHAMPION"/"RUNNER-UP" — those are the words for winning a race.
+ * `fromBottom` names a survivor of the Slowest Race, not a champion, and a
+ * `SPECIAL` (judged) award has no rule saying a name like "Best Paint" is a
+ * superlative with a 2nd place to be runner-up to — both print the neutral
+ * "AWARD", same as a `SPEED` award placed lower than 3rd.
+ */
+export function certificateHeading(award: CertificateHeadingAward): string {
+  if (award.kind !== 'SPEED' || award.fromBottom) return 'AWARD';
+  if (award.place === 1) return 'CHAMPION';
+  if (award.place === 2 || award.place === 3) return 'RUNNER-UP';
+  return 'AWARD';
+}
+
 /** A racer's name for a list: "Ada Lovelace (#42)".
  *
  * `nameDisplay` defaults to `'FULL'` — this helper is shared by the
