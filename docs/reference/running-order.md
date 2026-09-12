@@ -64,7 +64,10 @@ While the setting is on:
 - **A championship round still runs last.** Its field is drawn from the
   dens' standings, so it is never woven in between them — it runs in its own
   order after every den's round is finished, exactly as it would without
-  this setting.
+  this setting. Its heats are numbered on their own too, starting at 1
+  again rather than continuing the woven count — the Race tab, the
+  Schedule tab and a printed heat sheet all call its first heat "Heat 1",
+  never a number picking up where the dens left off.
 
 ## What it does and does not change
 

@@ -261,6 +261,30 @@ describe('RaceControl Page', () => {
         expect(screen.getByTestId('active-heat-id')).toHaveTextContent('5');
     });
 
+    it('labels a Previous Heats row by its own round\'s heat number, not a count across rounds (#995)', async () => {
+        // Six preliminary heats, all raced, then a championship round whose
+        // own first heat is also raced — the shape that used to read "Heat
+        // 7" here (a running index across the whole schedule) while the
+        // Schedule tab and heat sheet, which read `heatNumber` straight off
+        // the stored row, called it "Heat 1". The active (unrun) heat is the
+        // championship round's second heat, so both raced heats land in
+        // Previous Heats.
+        withHeats([
+            ran(1, 1, 1), ran(2, 1, 2), ran(3, 1, 3), ran(4, 1, 4), ran(5, 1, 5), ran(6, 1, 6),
+            { ...ran(7, 2, 1), roundId: 5, roundName: 'Grand Finals' },
+            { ...notRun(8, 2, 2), roundId: 5, roundName: 'Grand Finals' },
+        ]);
+
+        await openRaceTab();
+
+        expect(screen.getByText('Previous Heats')).toBeInTheDocument();
+        // The championship round's own heat 1 reads "Heat 1", the same
+        // number the preliminary round's own heat 1 reads — never "Heat 7".
+        expect(screen.queryByText('Heat 7')).not.toBeInTheDocument();
+        expect(screen.getAllByText('Heat 1')).toHaveLength(2);
+        expect(screen.getByText('Grand Finals')).toBeInTheDocument();
+    });
+
     it('shows no heat at all when the race has none', async () => {
         // A race whose schedule has not been generated yet. The execution
         // panel is not rendered in that state, so there is nothing to select.

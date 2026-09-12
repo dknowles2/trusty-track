@@ -13,7 +13,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { gql, readHeats, seedRace, type Heat } from './support';
+import { dismissRoundSummary, gql, readHeats, seedRace, type Heat } from './support';
 
 interface InterleavedRace {
     raceId: number;
@@ -120,7 +120,12 @@ test('the race tab offers the other den\'s heat next, not the same round\'s', as
     await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
 
     // The heat on offer is the master order's first — labelled with its den.
-    await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible();
+    // Its own `heatNumber` (#995) rather than a hardcoded "Heat 1": applying
+    // the interleave starts pending heats one past the highest number the
+    // race already held (`apply_master_running_order`'s own rule), which for
+    // two three-heat wizard rounds is 4, not 1 — the Race tab must read that
+    // exact number, never a client-side position in the interleave.
+    await expect(page.getByRole('heading', { name: `Heat ${order[0].heatNumber}` })).toBeVisible();
     await expect(activeHeatCard(page)).toContainText(firstRound);
 
     // And On Deck stages the *other* den's line-up rather than announcing
@@ -139,7 +144,9 @@ test('the race tab offers the other den\'s heat next, not the same round\'s', as
     });
     await page.getByRole('button', { name: /^Next Heat/ }).click();
 
-    await expect(page.getByRole('heading', { name: 'Heat 2' })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('heading', { name: `Heat ${order[1].heatNumber}` })).toBeVisible({
+        timeout: 30000,
+    });
     await expect(activeHeatCard(page)).toContainText(secondRound);
 });
 
@@ -197,3 +204,68 @@ test('the schedule lets a later round\'s heat run while an earlier round is open
     });
     await expect(activeHeatCard(page)).toContainText(roundName.get(secondPick.roundId!)!);
 });
+
+test(
+    'a championship round keeps its own heat numbers under a master running order (#995)',
+    async ({ page }) => {
+        // `execution_sort_key`'s own claim: with the flag on, `heat_number`
+        // is already the global running order for general rounds, and a
+        // championship round is exempt — run after every general round,
+        // renumbered 1..N by every advancement rebuild the way it always
+        // is. The Race tab, On Deck and Previous Heats used to compute a
+        // *second* number — a plain count across the whole interleaved
+        // array — which for the final disagreed with its own `heatNumber`
+        // (#995): six general heats numbered 1..6 across two dens, then a
+        // final whose own first heat is genuinely "Heat 1", used to read
+        // "Heat 7" on this screen while the Schedule tab and heat sheet
+        // already said "Heat 1". This records every general heat, adds a
+        // championship round, and checks the Race tab lands on the final's
+        // own "Heat 1" rather than a continuing count.
+        const { raceId, order } = await seedInterleaved(page, 'Master Order Championship');
+
+        for (const heat of order) {
+            // A place must not exceed the number of real racers *in this
+            // heat* — ranking within the occupied lanes, rather than by raw
+            // lane-array position, is what keeps that true regardless of
+            // which lane a den's empty seat happens to land in.
+            const occupied = heat.lanes.filter((l) => l.racerId !== null);
+            const rank = new Map(occupied.map((l, i) => [l.lane, i]));
+            await gql(
+                page,
+                `mutation SeedResult($heatId: Int!, $lanes: [HeatLaneInput!]!) {
+                    updateHeatResult(heatId: $heatId, lanes: $lanes) { id }
+                }`,
+                {
+                    heatId: heat.id,
+                    lanes: heat.lanes.map((l) => ({
+                        lane: l.lane,
+                        racerId: l.racerId,
+                        placeholderSlot: l.placeholderSlot,
+                        time: l.racerId !== null ? 3.1 + (rank.get(l.lane) ?? 0) / 100 : null,
+                        place: l.racerId !== null ? (rank.get(l.lane) ?? 0) + 1 : null,
+                    })),
+                },
+            );
+        }
+
+        await gql(
+            page,
+            `mutation CreateFinal($raceId: Int!, $roundData: RoundCreateInput!) {
+                createRound(raceId: $raceId, roundData: $roundData) { id }
+            }`,
+            {
+                raceId,
+                roundData: { name: 'Grand Finals', advancementSource: 'ALL', advancementNumRacers: 2, runsPerLane: 1 },
+            },
+        );
+
+        await page.goto(`/race/${raceId}/control/race`);
+        await dismissRoundSummary(page);
+
+        // The final's own first heat — never "Heat 7", the count the old
+        // client-side override would have continued from.
+        await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible({ timeout: 30000 });
+        await expect(page.getByRole('heading', { name: 'Heat 7' })).toHaveCount(0);
+        await expect(activeHeatCard(page)).toContainText('Grand Finals');
+    },
+);

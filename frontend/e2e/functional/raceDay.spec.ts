@@ -840,6 +840,74 @@ test('a skipped heat is passed over rather than left to run', async ({ page }) =
     expect(heat.lanes.every((l) => l.time === null)).toBe(true);
 });
 
+test('a Round Complete! summary names a heat that was skipped and offers to run it (#1001)', async ({
+    page,
+}) => {
+    // A skip settles a heat without a result — legitimate for the round to
+    // finish (`is_finished`), but the advancement cascade decides the
+    // championship field off the standings as they stand, without whatever
+    // this heat would have contributed. The summary has to say so and offer
+    // a way back, or an operator who finds out the cars did turn up has no
+    // route back to it except the Schedule tab.
+    const { raceId, racers } = await seedRace(page, 'Race Day Skipped Round Summary');
+    await createSchedule(page, raceId, { name: 'Pack Final', numTopRacers: 3 });
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Skip Heat' }).click();
+    await page
+        .getByRole('dialog', { name: 'Skip Heat' })
+        .getByRole('button', { name: 'Skip Heat' })
+        .click();
+    await expect(page.getByRole('heading', { name: 'Heat 2' })).toBeVisible({ timeout: 30000 });
+
+    // Wait for the server to hold the skip before reading heats back through
+    // the API, the same ordering the plain skip test above needs.
+    await expect
+        .poll(
+            async () => {
+                const [first] = (await readHeats(page, raceId)).sort((a, b) => a.heatNumber - b.heatNumber);
+                return first.lanes.some((l) => l.skipped);
+            },
+            { timeout: 30000 },
+        )
+        .toBe(true);
+
+    const rounds = await readRounds(page, raceId);
+    const prelim = rounds.find((r) => r.advancementSource === null)!;
+    const prelimHeats = (await readHeats(page, raceId))
+        .filter((h) => h.roundId === prelim.id)
+        .sort((a, b) => a.heatNumber - b.heatNumber);
+    const skipped = prelimHeats[0];
+
+    // Every heat but the skipped one and the last go straight to the
+    // backend; the last is run live through the fake timer, since that is
+    // the one path that always forces a refetch of the round's own
+    // advancement status on this client (see the #856 test above for why).
+    await recordRound(page, prelimHeats.slice(1, -1), racers);
+    await page.reload();
+    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+    await page.getByRole('button', { name: 'Start Timer' }).click();
+    await page.getByRole('button', { name: 'Finish Heat' }).click();
+
+    const summary = page.getByRole('dialog', { name: 'Round Complete!' });
+    await expect(summary).toBeVisible({ timeout: 30000 });
+    await expect(
+        summary.getByText(`Heat ${skipped.heatNumber} was skipped.`, { exact: false }),
+    ).toBeVisible();
+
+    // Running it from the summary closes the modal and selects the heat —
+    // the same path the Schedule tab's own Run uses.
+    const runButton = summary.getByRole('button', { name: `Run heat ${skipped.heatNumber}` });
+    await runButton.click();
+    await expect(summary).toBeHidden();
+    await expect(page.getByRole('heading', { name: `Heat ${skipped.heatNumber}` })).toBeVisible({
+        timeout: 30000,
+    });
+});
+
 test('the result controls fit above the fold at 1366×768 on a 4-lane no-timer track (#940)', async ({
     page,
 }) => {

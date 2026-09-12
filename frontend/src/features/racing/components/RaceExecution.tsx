@@ -50,7 +50,7 @@ import { useRaceFlow } from '../useRaceFlow';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { useTerminology } from '../../../context/TerminologyContext';
-import { advancingFromLabel } from '../roundSummaryText';
+import { advancingFromLabel, skippedHeatWarning } from '../roundSummaryText';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
 /**
@@ -126,6 +126,20 @@ interface RaceExecutionProps {
     racers: Record<number, Racer>;
     roundSummary: AdvancementStatus | null;
     /**
+     * The earliest heat in `roundSummary`'s own round that was skipped and
+     * never re-run (#1001) — `null` when there isn't one. Skipping a heat is
+     * a legitimate way for a round to finish, but the advancement cascade
+     * already ran without that heat's real result; this is what lets the
+     * Round Complete! modal offer a way back if the cars turn up after all.
+     */
+    roundSkippedHeat?: Heat | null;
+    /**
+     * The earliest skipped-and-never-rerun heat anywhere in the race
+     * (#1001), for the Race Complete! modal, which has no single round in
+     * view.
+     */
+    raceSkippedHeat?: Heat | null;
+    /**
      * Every heat the race will ever run has just run (#847) — sticky and
      * edge-detected upstream by `raceCompletion.ts`, the same shape
      * `roundSummary` already uses one level up. Raises the race summary
@@ -189,6 +203,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     laneColors = [],
     racers,
     roundSummary,
+    roundSkippedHeat = null,
+    raceSkippedHeat = null,
     raceJustCompleted = false,
     raceSummaryKey = null,
     hasChampionshipRound = true,
@@ -587,7 +603,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                                    <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.globalHeatNumber ?? activeExecutionHeat.heatNumber}</h2>
+                                    <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.heatNumber}</h2>
                                     <span className="heat-phase-badge" data-testid="heat-phase-badge">
                                         <span className={`heat-phase-dot heat-phase-dot--${heatPhaseDisplay(phase).statusClass}`} />
                                         <span>{heatPhaseDisplay(phase).label}</span>
@@ -880,8 +896,18 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             Automatically advances to the next heat 10 seconds after results are recorded.
                                         </div>
                                     )}
+                                    {/* One `<label>` around the word and the pill
+                                        toggle (#998) — they used to be siblings, a
+                                        `<span>` beside a `<label>` wrapping only the
+                                        44px control, so clicking the word "Auto-advance"
+                                        did nothing. A `<label>` toggles its control from
+                                        anywhere inside it, not only a direct child, so
+                                        nesting the pill's own visuals in a `<span>`
+                                        (never another `<label>` — nested labels are
+                                        invalid HTML) here is enough. */}
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                                     <span style={{ fontSize: '0.9rem', color: 'var(--text-strong-muted-color)', userSelect: 'none' }}>Auto-advance</span>
-                                    <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', cursor: 'pointer' }}>
+                                    <span style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
                                         <input
                                             type="checkbox"
                                             data-testid="auto-advance-toggle"
@@ -906,6 +932,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             transition: 'left 0.2s',
                                             boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
                                         }} />
+                                    </span>
                                     </label>
                                 </div>
                             )}
@@ -1039,7 +1066,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                 <div style={{ fontWeight: 'bold', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                                    <span style={{ fontSize: '1.1rem' }}>Heat {nextExecutionHeat.globalHeatNumber ?? nextExecutionHeat.heatNumber}</span>
+                                    <span style={{ fontSize: '1.1rem' }}>Heat {nextExecutionHeat.heatNumber}</span>
                                     <span style={{ fontSize: '0.8rem', color: 'var(--text-subtle-color)', fontWeight: 'normal' }}>{nextExecutionHeat.roundName || `Round ${nextExecutionHeat.roundNumber}`}</span>
                                 </div>
                                 <div style={{ display: 'grid', gap: '12px' }}>
@@ -1160,6 +1187,46 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     )}
                 </div>
 
+                {/* A skipped heat in this round settled without a real
+                    result (#1001) — the advancement cascade above already
+                    ran against it once, so an operator who finds out the
+                    cars did turn up needs a way back to it before trusting
+                    this line-up. */}
+                {roundSkippedHeat && (
+                    <div
+                        data-testid="round-summary-skipped-heat"
+                        style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '10px',
+                            background: 'var(--warning-bg-color)',
+                            color: 'var(--warning-strong-color)',
+                            border: '1px solid var(--warning-strong-border-color)',
+                            borderRadius: '8px',
+                            padding: '10px 14px',
+                            marginBottom: '20px',
+                            fontSize: '0.9rem',
+                            textAlign: 'center',
+                        }}
+                    >
+                        <span>{skippedHeatWarning(roundSkippedHeat.heatNumber, vehiclesLower, true)}</span>
+                        <button
+                            type="button"
+                            className="secondary-btn"
+                            data-testid="round-summary-run-skipped-heat"
+                            onClick={() => {
+                                flow.dismissSummary();
+                                onRunHeat(roundSkippedHeat);
+                            }}
+                            style={{ padding: '4px 10px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                        >
+                            Run heat {roundSkippedHeat.heatNumber}
+                        </button>
+                    </div>
+                )}
+
                 {roundSummary && (
                     <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--divider-color)', borderRadius: '8px', marginBottom: '20px' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -1261,10 +1328,48 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     <Icon path={mdiTrophy} size={3} color="var(--cub-scouting-gold)" />
                     <p style={{ fontSize: '1.2rem', color: 'var(--text-muted-color)', marginTop: '10px' }}>
                         {hasChampionshipRound
-                            ? "Every heat has been run. Here's where to go next:"
-                            : "Every heat that's currently scheduled has been run. If you're not done yet, add a championship round below — otherwise, here's where to go next:"}
+                            ? "Every heat has been run or skipped. Here's where to go next:"
+                            : "Every heat that's currently scheduled has been run or skipped. If you're not done yet, add a championship round below — otherwise, here's where to go next:"}
                     </p>
                 </div>
+
+                {/* Mirrors the Round Complete! modal's own line (#1001) — a
+                    skip settles a heat without a result, so "every heat is
+                    done" is true and "nothing is missing" is not. */}
+                {raceSkippedHeat && (
+                    <div
+                        data-testid="race-summary-skipped-heat"
+                        style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '10px',
+                            background: 'var(--warning-bg-color)',
+                            color: 'var(--warning-strong-color)',
+                            border: '1px solid var(--warning-strong-border-color)',
+                            borderRadius: '8px',
+                            padding: '10px 14px',
+                            marginBottom: '20px',
+                            fontSize: '0.9rem',
+                            textAlign: 'center',
+                        }}
+                    >
+                        <span>{skippedHeatWarning(raceSkippedHeat.heatNumber, vehiclesLower, false)}</span>
+                        <button
+                            type="button"
+                            className="secondary-btn"
+                            data-testid="race-summary-run-skipped-heat"
+                            onClick={() => {
+                                flow.dismissSummary();
+                                onRunHeat(raceSkippedHeat);
+                            }}
+                            style={{ padding: '4px 10px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                        >
+                            Run heat {raceSkippedHeat.heatNumber}
+                        </button>
+                    </div>
+                )}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
                     {!hasChampionshipRound && (
@@ -1322,7 +1427,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             <Modal
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
-                title={`Edit Results - Heat ${activeExecutionHeat.globalHeatNumber ?? activeExecutionHeat.heatNumber}`}
+                title={`Edit Results - Heat ${activeExecutionHeat.heatNumber}`}
             >
                 <div className="form-group">
                     {/* Which column is *required* follows the race's scoring
