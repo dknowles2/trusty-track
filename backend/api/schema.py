@@ -5159,17 +5159,26 @@ class Mutation:
                     else:
                         # Fallback to ALL if no previous championship round exists
                         adv_source = "ALL"
-                elif (
-                    adv_source in (advancement.ALL, advancement.EACH_GROUP)
-                    and previous_champ_round_id is None
-                    and elimination_round_id is not None
-                ):
-                    # The first championship round chains to the elimination
-                    # round's own survival ranking (#1012) — done here,
-                    # after validation, rather than trusting the wizard's own
-                    # frontend to always ask for it: an API caller can send
-                    # "ALL" just as easily as the UI's old default did.
-                    adv_source = f"ROUND:{elimination_round_id}"
+                else:
+                    # A championship round chains to the elimination round's
+                    # own survival ranking, or to an earlier championship
+                    # round already chained to it, rather than to a
+                    # standings view elimination heats never feed (#1012,
+                    # #1054) — done here, after validation, rather than
+                    # trusting the wizard's own frontend to always ask for
+                    # it: an API caller can send "ALL" just as easily as the
+                    # UI's old default did. `createRound`'s own championship
+                    # branch shares this rule through
+                    # `crud.resolve_championship_source_for_race` rather than
+                    # a second copy (CLAUDE.md's #48) — see
+                    # `domain.advancement.resolve_championship_source` for
+                    # the reasoning, including why a non-elimination general
+                    # round leaves this untouched.
+                    adv_source = advancement.resolve_championship_source(
+                        adv_source,
+                        elimination_round_id=elimination_round_id,
+                        previous_championship_round_id=previous_champ_round_id,
+                    )
 
                 round_obj = crud.create_round(
                     db,
@@ -6599,6 +6608,18 @@ class Mutation:
                 crud.validate_advancement_source(
                     db, race_id, round_data.advancement_source
                 )
+                # "ALL"/"EACH_GROUP" has no candidate to ever fill it when
+                # the race's own qualifying round is an Elimination round
+                # (#1054) — `createRoundWizard` already protects itself
+                # against this (#1012); this door shares the same rule
+                # through `crud.resolve_championship_source_for_race` rather
+                # than growing a second, unwired copy of it (CLAUDE.md's
+                # #48). Resolved after validation, not instead of it: the
+                # requested source still has to be real vocabulary before
+                # anything asks what it should actually mean.
+                resolved_source = crud.resolve_championship_source_for_race(
+                    db, race_id, round_data.advancement_source
+                )
                 if models.SchedulingStrategy(round_data.scheduling_strategy) in (
                     models.SchedulingStrategy.ELIMINATION,
                     models.SchedulingStrategy.BALANCED,
@@ -6631,7 +6652,7 @@ class Mutation:
                     next_round_number,
                     models.SchedulingStrategy(round_data.scheduling_strategy),
                     round_data.name or default_name,
-                    advancement_source=round_data.advancement_source,
+                    advancement_source=resolved_source,
                     advancement_num_racers=round_data.advancement_num_racers,
                     advancement_from_bottom=round_data.advancement_from_bottom,
                 )

@@ -32,6 +32,18 @@ interface RoundConfigModalProps {
   /** The latest championship round, when one exists — what a new round can
    * chain from ("top ten, then top three"). Null before any exist. */
   lastChampionshipRound?: { id: number; name: string | null } | null;
+  /** The id of this race's sole Elimination qualifying round, when it has
+   * one and no other general round exists to feed the aggregate standings
+   * instead (`championshipChaining.ts`'s `soleEliminationRoundId`, #1054).
+   * Elimination heats never feed the aggregate standings
+   * (`.claude/rules/scheduling.md`'s "Ladderless elimination"), so
+   * "Overall"/"Each {group}" would draw from an empty field forever here —
+   * the same reason `createRoundWizard` chains its own first championship
+   * round to the elimination round rather than offering a source that can
+   * never fill. Null for every other race shape (no general round yet, a
+   * PPC or Balanced qualifier, or a mixed race), where those two options
+   * work exactly as they always have. */
+  eliminationRoundId?: number | null;
 }
 
 export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
@@ -44,7 +56,8 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   laneCount,
   championshipTrophies,
   hasGeneralRound,
-  lastChampionshipRound
+  lastChampionshipRound,
+  eliminationRoundId = null
 }) => {
   const { group, vehiclesLower } = useTerminology();
   const [type, setType] = useState<'GENERAL' | 'CHAMPIONSHIP'>('GENERAL');
@@ -53,7 +66,15 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   const [eliminationLosses, setEliminationLosses] = useState(3);
   const [balancedPhases, setBalancedPhases] = useState(Math.max(1, laneCount));
   const [name, setName] = useState('');
-  const [source, setSource] = useState<'ALL' | 'EACH_GROUP' | 'PREVIOUS'>('ALL');
+  // Defaults to the elimination round's own survivors when that is the
+  // only working answer for this race (#1054) — otherwise "Overall", as
+  // always. A lazy initializer rather than an effect: by the time this
+  // modal can be opened, the race's rounds are already loaded, so there is
+  // no later moment at which this would need to change out from under an
+  // operator already using the picker.
+  const [source, setSource] = useState<'ALL' | 'EACH_GROUP' | 'PREVIOUS' | 'ELIMINATION'>(
+    () => (eliminationRoundId != null ? 'ELIMINATION' : 'ALL')
+  );
   const [numTopRacers, setNumTopRacers] = useState(championshipTrophies);
   const [fromBottom, setFromBottom] = useState(false);
   const [pickFieldByHand, setPickFieldByHand] = useState(false);
@@ -141,7 +162,9 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
           effectiveType === 'CHAMPIONSHIP'
             ? source === 'PREVIOUS' && lastChampionshipRound
               ? `ROUND:${lastChampionshipRound.id}`
-              : source
+              : source === 'ELIMINATION' && eliminationRoundId != null
+                ? `ROUND:${eliminationRoundId}`
+                : source
             : undefined,
         advancementNumRacers: effectiveType === 'CHAMPIONSHIP' ? numTopRacers : undefined,
         advancementFromBottom: effectiveType === 'CHAMPIONSHIP' ? fromBottom : undefined,
@@ -289,12 +312,24 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                   <label style={labelStyle}>{fromBottom ? `Slowest ${vehiclesLower} from` : 'Top performers from'}</label>
                   <select
                     value={source}
-                    onChange={(e) => setSource(e.target.value as 'ALL' | 'EACH_GROUP' | 'PREVIOUS')}
+                    onChange={(e) =>
+                      setSource(e.target.value as 'ALL' | 'EACH_GROUP' | 'PREVIOUS' | 'ELIMINATION')
+                    }
                     className="form-control"
                     disabled={loading}
                   >
-                    <option value="ALL">Overall</option>
-                    <option value="EACH_GROUP">Each {group}</option>
+                    {/* "Overall"/"Each {group}" have no candidates to ever
+                        fill them when this race's only qualifying round is
+                        Elimination (#1054) — elimination heats never feed
+                        the aggregate standings. Offer the elimination
+                        round's own survivors explicitly instead. */}
+                    {eliminationRoundId == null && <option value="ALL">Overall</option>}
+                    {eliminationRoundId == null && (
+                      <option value="EACH_GROUP">Each {group}</option>
+                    )}
+                    {eliminationRoundId != null && (
+                      <option value="ELIMINATION">Elimination Round (survivors)</option>
+                    )}
                     {lastChampionshipRound && (
                       <option value="PREVIOUS">
                         {lastChampionshipRound.name || 'Previous championship round'}
@@ -320,6 +355,14 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                   />
                 </div>
               </div>
+              {eliminationRoundId != null && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted-color)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Icon path={mdiInformation} size={0.6} color="var(--text-muted-color)" />
+                  This race's qualifying round is Elimination, so "Overall" and
+                  "Each {group}" have no results to draw from — this round
+                  draws from the Elimination round's own survivors instead.
+                </div>
+              )}
               {/* The trophy minimum is about handing out championship trophies,
                   which a slowest race does not do. */}
               {!fromBottom && (

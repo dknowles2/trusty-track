@@ -26,11 +26,18 @@ rounds chain: top ten race a semifinal, the best three of *them* race the
 final. In the Round Wizard, every championship round after the first draws
 from the round before it automatically. The last cars standing from an
 [elimination round](round-styles.md#elimination) can feed a final the same
-way — including the wizard's *first* championship round, when step 1's own
-qualifying round was Elimination: an elimination round has no "overall" or
-"each den" standings of its own to draw a final from (elimination heats
-never count toward those), so the wizard chains to it automatically rather
-than offering a choice that could never fill.
+way — including the *first* championship round, when the qualifying round
+was Elimination: an elimination round has no "overall" or "each den"
+standings of its own to draw a final from (elimination heats never count
+toward those). Both doors that can add a championship round handle this the
+same way — the Round Wizard, and **Add Round** on the Schedule tab, for a
+championship round added after the elimination round already exists. Either
+way, "The fastest overall" and "The fastest from each den" are not offered
+at all when the race's only qualifying round is Elimination — the picker
+offers "Elimination Round (survivors)" instead, and chains a later
+championship round to the last one added rather than back to the
+elimination round again, so a "Grand Finals" round built on top of a
+"Semifinal" draws from the semifinal's own result.
 
 ### The slowest cars
 

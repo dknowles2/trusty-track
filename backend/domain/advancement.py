@@ -67,6 +67,65 @@ def round_id_in(source: str) -> int | None:
         return None
 
 
+def resolve_championship_source(
+    requested_source: str,
+    *,
+    elimination_round_id: int | None,
+    previous_championship_round_id: int | None,
+) -> str:
+    """Rewrite a requested ``"ALL"``/``"EACH_GROUP"`` source when nothing
+    would ever answer it.
+
+    Elimination heats never feed the aggregate qualifying standings
+    (``.claude/rules/scheduling.md``'s "Ladderless elimination" —
+    ``services.scoring._scoring_heats`` excludes an elimination round's own
+    heats from ``ALL``/``EACH_GROUP`` scope by design, because a car knocked
+    out early races fewer heats than one that survives, and no average or
+    total over an uneven heat count is fair). A championship round asking
+    for ``"ALL"`` or ``"EACH_GROUP"`` in a race whose only qualifying round
+    is an elimination round therefore has no candidate to ever fill it —
+    placeholders forever, with nothing on screen saying why (#1012, #1054).
+
+    ``elimination_round_id`` names that one elimination general round, or is
+    ``None`` when there is nothing to rewrite for: no general round exists
+    yet, the general round is PPC or Balanced (both feed the aggregate
+    standings — Balanced *deliberately*, since its heats are ordinary
+    scored heats, see "Balanced racing"), or the race mixes an elimination
+    general round with a second, non-elimination one — a PPC round still
+    feeds the aggregate in that case, so ``"ALL"`` already has real
+    candidates and is left alone. Callers decide what counts as "the" one
+    elimination round; this function only asks whether one was named.
+
+    ``previous_championship_round_id`` is the most recently created
+    championship round in the race, if any, and wins over
+    ``elimination_round_id`` when both are available — a second final
+    chained off a first should draw from the first's own, more refined
+    field rather than re-picking the same survivors the first final did.
+    It is only consulted once ``elimination_round_id`` is set: an ordinary
+    PPC race routinely has an earlier championship round (a den final, say)
+    that a later ``"ALL"`` round-robin final is *not* meant to chain to —
+    "ALL" there correctly means the whole preliminary field, and rewriting
+    it because some other championship round happens to exist would break
+    that entirely ordinary case.
+
+    A ``"ROUND:<id>"`` request already names a round and is returned
+    unchanged — the caller knows exactly what they want, and there is
+    nothing here to second-guess.
+
+    Shared by ``createRoundWizard``'s per-round loop and ``createRound``'s
+    championship branch (#1054) — the two doors that can create a
+    championship round — so the rule lives in one place rather than
+    reaching only the door it was first written for (CLAUDE.md's #48).
+    """
+    if requested_source not in (ALL, EACH_GROUP):
+        return requested_source
+    if elimination_round_id is None:
+        return requested_source
+    if previous_championship_round_id is not None:
+        return f"{ROUND_PREFIX}{previous_championship_round_id}"
+    return f"{ROUND_PREFIX}{elimination_round_id}"
+
+
 @dataclass(frozen=True)
 class AdvancementRule:
     """How a championship round chooses its field.

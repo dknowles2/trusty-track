@@ -42,6 +42,7 @@ import { heatsEstimate } from '../../../utils/duration';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { estimatePace } from '../pace';
 import { expectedHeatCount } from '../growingRounds';
+import { soleEliminationRoundId } from '../championshipChaining';
 import type { EliminationChart, Heat, Lane, Round } from '../types';
 import { formatLaneTime, hasRun, hasTimes, laneColumnCount, undecidedLaneLabel } from '../lanes';
 import { executionComparator } from '../runningOrder';
@@ -466,6 +467,16 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     [raceRounds]
   );
 
+  // The id of this race's sole Elimination qualifying round, when it has
+  // one and no other general round exists to feed the aggregate standings
+  // instead (#1054) — threaded into `RoundConfigModal` so its "Top
+  // performers from" picker offers a working option rather than "Overall"/
+  // "Each {group}", which elimination heats never feed.
+  const eliminationRoundId = useMemo(
+    () => soleEliminationRoundId(raceRounds),
+    [raceRounds]
+  );
+
   /** "the top 4 from the whole pack", "the slowest 5 from each den" — what
    * the standings currently suggest for a round, read off the same
    * `AdvancementStatus` the badge and the picker's own suggestion use. Null
@@ -798,6 +809,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           championshipTrophies={championshipTrophies}
           hasGeneralRound={hasGeneralRound}
           lastChampionshipRound={lastChampionshipRound}
+          eliminationRoundId={eliminationRoundId}
         />
 
         {/* Picking a championship round's line-up by hand (#711) — opened
