@@ -5,13 +5,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  # `regenerate-doc-screenshots.yml` dispatches this onto the branch of the
-  # pull request it opens: a PR opened with the default `GITHUB_TOKEN`
-  # triggers no `pull_request` run, and `main`'s ruleset requires every
-  # check below by name, so without a run that PR could never merge.
-  # `workflow_dispatch` is the one event a `GITHUB_TOKEN` *can* raise. The
-  # check runs land on the branch's head commit, which is what the ruleset
-  # reads, whatever event created them.
+  # Added so `regenerate-doc-screenshots.yml` could dispatch this onto the
+  # branch of the pull request it opens, on the belief that a bot-opened PR
+  # raises no `pull_request` run. It does (since June 2026) — the run is
+  # merely held awaiting approval, and the ruleset counts that held run's
+  # checks as owed whatever a dispatched run delivers, so the regeneration
+  # now approves its own run instead. Kept: a by-hand run of the whole suite
+  # on any branch, from the Actions tab, is worth having on its own.
   workflow_dispatch: {}
 
 # Nothing here writes to the repository. The default token is broader than

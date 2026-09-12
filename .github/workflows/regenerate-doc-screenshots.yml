@@ -103,15 +103,23 @@ name: Regenerate Doc Screenshots
 #     one run against the newest `main`. A cancelled run has opened nothing
 #     yet, or has opened a PR the next run supersedes (it closes any open
 #     `docs-screenshots/regen-*` PR before opening its own).
-#   - The PR is opened with `GITHUB_TOKEN`, which raises no `pull_request`
-#     event, so `main`'s ruleset — nine required checks by name — would leave
-#     it unmergeable forever. `ci.yml` carries a `workflow_dispatch` trigger
-#     for exactly this: this job dispatches CI onto its own branch, whose
-#     check runs land on the head commit the ruleset reads, and enables
-#     auto-merge so the PR lands the moment they pass. CI's own drift check
-#     cannot fail that run (it is advisory, and the branch *is* the baseline);
-#     only a genuine spec or build break can, which is what should hold a
-#     regeneration back.
+#   - The PR is opened with `GITHUB_TOKEN`. Since June 2026 that does raise a
+#     `pull_request` event — but a bot-opened PR's CI run is created *awaiting
+#     approval* rather than started, and `main`'s ruleset (nine required
+#     checks by name) counts that pending run's checks as still owed: the
+#     first attempt at this dispatched a second, separate CI run onto the
+#     branch, saw every required context green from it, and watched the PR
+#     (#1039) sit at BLOCKED until a person approved the waiting run by hand
+#     — whereupon it merged the moment that run went green. So this job
+#     approves its own PR's run (`actions: write`) and enables auto-merge,
+#     and the PR lands when the checks pass. CI's own drift check cannot fail
+#     that run (it is advisory, and the branch *is* the baseline); only a
+#     genuine spec or build break can, which is what should hold a
+#     regeneration back. Two repository settings have to be on for any of
+#     this to work, and the two earlier by-hand runs of this workflow failed
+#     on the first: Actions → General → "Allow GitHub Actions to create and
+#     approve pull requests", and `main`'s ruleset must *not* require an
+#     extra approval for unattributed changes (a bot PR is one).
 
 on:
   workflow_dispatch: {}
@@ -135,7 +143,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      # `gh workflow run` — dispatching CI onto the branch this job opens.
+      # Approving the CI run GitHub holds back on the PR this job opens.
       actions: write
     steps:
       - uses: actions/checkout@v7
@@ -417,7 +425,7 @@ jobs:
             echo
             echo "---"
             echo
-            echo "Opened automatically after a merge to \`main\`. CI is dispatched onto this branch and auto-merge is on; if a picture here is wrong, close this PR and fix the spec — the next merge regenerates again."
+            echo "Opened automatically after a merge to \`main\`. Its CI run has been approved and auto-merge is on; if a picture here is wrong, close this PR and fix the spec — the next merge regenerates again."
             echo
             echo "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
           } > /tmp/pr-body.md
@@ -428,21 +436,42 @@ jobs:
             --base "${{ github.ref_name }}" \
             --head "$BRANCH"
 
-          # The PR above raised no `pull_request` event (see the header), so
-          # give it the checks the ruleset requires by dispatching CI onto its
-          # branch ourselves.
-          gh workflow run ci.yml --ref "$BRANCH"
+          # The PR above does raise a `pull_request` event, but a bot-opened
+          # PR's run is created *awaiting approval* rather than started, and
+          # the ruleset counts that pending run's checks as owed: with every
+          # required context already green from a separately dispatched run,
+          # #1039 still sat at BLOCKED until a person approved the waiting run
+          # — and merged the moment that run went green. So approve it here
+          # instead of dispatching a duplicate. The run is created
+          # asynchronously after the PR, hence the poll; a run that never
+          # appears, or an approval this token is not allowed to give, fails
+          # the step loudly with what to do by hand.
+          head=$(git rev-parse HEAD)
+          run_id=""
+          for attempt in $(seq 1 24); do
+            run_id=$(gh run list --workflow ci.yml --event pull_request --branch "$BRANCH" \
+              --json databaseId,headSha,status \
+              --jq ".[] | select(.headSha == \"$head\" and .status == \"action_required\") | .databaseId" | head -1)
+            [ -n "$run_id" ] && break
+            sleep 5
+          done
+          if [ -z "$run_id" ]; then
+            echo "No pull_request run awaiting approval appeared for $BRANCH within two minutes." >&2
+            echo "Approve it by hand: Actions → CI → the run for $BRANCH → Approve and run." >&2
+            exit 1
+          fi
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/approve" > /dev/null
 
           # And let it land on its own once those checks pass. After the
-          # dispatch, not before: auto-merge on a PR with no checks yet simply
-          # waits, but a dispatch that failed to enqueue would leave it armed
-          # with nothing ever coming to satisfy it — the step fails first.
+          # approval, not before: auto-merge on a PR with no checks yet simply
+          # waits, but an approval that failed would leave it armed with
+          # nothing ever coming to satisfy it — the step fails first.
           gh pr merge "$BRANCH" --auto --squash
 
           {
             echo "## $COUNT screenshot(s) changed — PR opened"
             echo
-            echo "CI has been dispatched onto \`$BRANCH\` and auto-merge is enabled; the PR lands on its own once the required checks pass."
+            echo "The PR's own CI run has been approved and auto-merge is enabled; it lands on its own once the required checks pass."
             echo
             cat /tmp/pr-body.md
           } >> "$GITHUB_STEP_SUMMARY"
