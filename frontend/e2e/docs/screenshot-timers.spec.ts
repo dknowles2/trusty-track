@@ -69,6 +69,15 @@ class FakeMicroWizard {
                         'Copyright (c) Micro Wizard 2002-2009\r' +
                             'K2 Version 2.3A  Serial Number29284\r',
                     );
+                } else if (/^MG$/i.test(command)) {
+                    // `MG` gets its own ack and must be tested before the
+                    // `M[A-P]` class below — `G` is inside `A-P`, so checking
+                    // that class first swallowed every `MG` into the `*`
+                    // branch and the dedicated `AC` reply below it never ran
+                    // (#1048). Order matches the profile's own `acks` table
+                    // in `microwizard.py`, which lists `^MG$` before
+                    // `^(N1|N2|LR|M[A-P])$` for the same reason.
+                    this.reply('AC\r');
                 } else if (/^(N1|N2|LR|M[A-P])$/i.test(command)) {
                     // The acknowledgement a real K2 gives these — the same
                     // table the profile declares in `microwizard.py`'s `acks`.
@@ -85,8 +94,6 @@ class FakeMicroWizard {
                     // (4.9 s). A device that never acks is not the device the
                     // profile describes; this one acks.
                     this.reply('*\r');
-                } else if (/^MG$/i.test(command)) {
-                    this.reply('AC\r');
                 }
             }
         });
