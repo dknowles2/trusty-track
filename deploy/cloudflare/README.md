@@ -47,8 +47,35 @@ Add one environment variable, **`PYTHON_VERSION` = `3.12`**. Without it the
 build image picks its own, and mkdocs-material's floor moves faster than the
 image does.
 
-Then under **Builds & deployments → Preview deployments**, choose **Custom
-branches** and list `main` alone.
+Then **Custom domains → Set up a custom domain** for `trusty-track.com` and
+again for `www.trusty-track.com`. DNS is already on Cloudflare, so both are
+created for you; Pages redirects the `www` host to the apex.
+
+## The preview of `main`: `main.trusty-track.com`
+
+`main` is not the production branch (see below), so Pages builds it as a
+**preview** on every merge, under the branch alias `main.trusty-track.pages.dev`.
+`main.trusty-track.com` is that alias on a real name — a Cloudflare
+[custom branch alias](https://developers.cloudflare.com/pages/how-to/custom-branch-aliases/),
+which is an ordinary custom domain whose DNS record is then pointed at the
+branch rather than at the project:
+
+1. **Custom domains → Set up a custom domain**, `main.trusty-track.com`,
+   and activate it. Pages creates a proxied CNAME to `trusty-track.pages.dev`.
+2. **DNS → Records** for the zone: change that CNAME's target to
+   **`main.trusty-track.pages.dev`**.
+
+**The record must stay proxied.** Cloudflare only routes a *proxied* CNAME to
+a branch alias; an unproxied one — or the target "corrected" back to the bare
+project name — quietly serves **production** at that address instead, with
+nothing to say so. That is the opposite of a broken preview: it is the
+released site wearing the preview's name. The demo's own CNAME is DNS-only
+for reasons of its own (`.claude/rules/auth-and-demo.md`); do not copy that
+setting here.
+
+Preview deployments carry `X-Robots-Tag: noindex` on every response, so a
+search engine will not send a reader to `main.trusty-track.com` in place of
+the released guides. Nothing in `www/_headers` is needed for that.
 
 ## Which branch is the site
 
@@ -60,12 +87,13 @@ release page, and the front page's demo runs the build the front page is
 describing — where building from `main` had the site documenting features
 that were weeks from any installer, and that the demo did not have.
 
-`main` is still built on every merge, as a **preview** at
-`main.<project>.pages.dev` — the same build, the same `_headers`, only the
-address differs. That is where to read a docs change before it is released.
-Listing `main` alone rather than every non-production branch is what keeps
-feature branches from spending the plan's build quota on previews nobody
-opens.
+`main.trusty-track.com` is the same build from the same script with the same
+`_headers`; only the branch differs. That is where to read a docs change
+before it is released. Pages builds every non-production branch as a preview
+by default, which is what puts a **Cloudflare Pages** check on each pull
+request; if that ever eats the plan's build quota, **Builds & deployments →
+Preview deployments → Custom branches** with `main` alone keeps the one
+preview that has a name and drops the rest.
 
 Two consequences worth knowing:
 
@@ -78,10 +106,6 @@ Two consequences worth knowing:
   `latest` or the demo: `releases/latest/download/<asset>` is what the
   install guides link to, and a site describing a release candidate would
   send readers to an installer that is not the one at that address.
-
-Then **Custom domains → Set up a custom domain** for `trusty-track.com` and
-again for `www.trusty-track.com`. DNS is already on Cloudflare, so both are
-created for you; Pages redirects the `www` host to the apex.
 
 ## What is in `www/` besides the page
 
