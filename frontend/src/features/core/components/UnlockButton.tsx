@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Icon } from '@mdi/react';
 import { mdiLock, mdiLockOpenVariant } from '@mdi/js';
 import { clearPin, writePin } from '../../../api/pin';
+import { verifyPin } from '../../../api/verifyPin';
 
 /**
  * Enter the operator or check-in PIN on this device (#15).
@@ -10,25 +11,53 @@ import { clearPin, writePin } from '../../../api/pin';
  * turned enforcement on sees nothing at all — which is most of them, and is the
  * point of the feature being off by default.
  *
- * Reloads after a PIN is entered. That looks heavy-handed for four digits, and
- * it is the honest option: the subscription socket carries the PIN in its URL
- * because a WebSocket handshake cannot set headers, so a new PIN needs a new
- * socket. Tearing down and rebuilding the urql client and its normalized cache
- * mid-session to save a reload would be a great deal more machinery, and this
- * happens once per device per event.
+ * Reloads after a PIN is entered — but only a PIN the server has already
+ * confirmed resolves to something other than `VIEWER` (#993). Before this,
+ * a wrong guess was written to `localStorage` and the page reloaded anyway:
+ * from the volunteer's side that read as the button doing nothing, and the
+ * wrong PIN then rode along on every later request from that device. The
+ * server is still the one place that decides what a PIN is worth; the
+ * difference is asking it *before* committing to the guess, with
+ * `verifyPin` — a raw request carrying the candidate PIN, never the urql
+ * client or its cache — rather than after.
  */
 export function UnlockButton({ isOperator }: { isOperator: boolean }) {
     const [isOpen, setIsOpen] = useState(false);
     const [pin, setPin] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const [isChecking, setIsChecking] = useState(false);
 
-    const unlock = (e: React.FormEvent) => {
+    const openDialog = () => {
+        setPin('');
+        setError(null);
+        setIsOpen(true);
+    };
+
+    const closeDialog = () => {
+        setIsOpen(false);
+        setPin('');
+        setError(null);
+    };
+
+    const unlock = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!pin) return;
-        writePin(pin);
-        // Not validated here. The server decides what a PIN is worth, and a
-        // wrong one lands the device back as a viewer — which is the same
-        // state it was already in, so there is nothing to roll back.
-        window.location.reload();
+        if (!pin || isChecking) return;
+        setIsChecking(true);
+        setError(null);
+        try {
+            const role = await verifyPin(pin);
+            if (role === 'VIEWER') {
+                setError('That PIN is not right.');
+                return;
+            }
+            // Only a PIN the server just confirmed is ever written.
+            writePin(pin);
+            window.location.reload();
+        } catch {
+            setError('Could not reach the server to check that PIN. Try again.');
+        } finally {
+            setIsChecking(false);
+        }
     };
 
     const lock = () => {
@@ -61,7 +90,7 @@ export function UnlockButton({ isOperator }: { isOperator: boolean }) {
         <>
             <button
                 type="button"
-                onClick={() => setIsOpen(true)}
+                onClick={openDialog}
                 title="Enter the PIN to make changes"
                 aria-label="Enter the PIN to make changes"
                 style={{
@@ -89,7 +118,7 @@ export function UnlockButton({ isOperator }: { isOperator: boolean }) {
                         justifyContent: 'center',
                         zIndex: 2000,
                     }}
-                    onClick={() => setIsOpen(false)}
+                    onClick={closeDialog}
                 >
                     <form
                         onSubmit={unlock}
@@ -117,14 +146,22 @@ export function UnlockButton({ isOperator }: { isOperator: boolean }) {
                             inputMode="numeric"
                             autoFocus
                             value={pin}
-                            onChange={(e) => setPin(e.target.value)}
+                            onChange={(e) => {
+                                setPin(e.target.value);
+                                if (error) setError(null);
+                            }}
                             style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
                         />
+                        {error && (
+                            <p role="status" style={{ margin: 0, fontSize: '0.85rem', color: 'var(--error)' }}>
+                                {error}
+                            </p>
+                        )}
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button type="submit" className="primary-btn" style={{ flex: 1 }}>
-                                Unlock
+                            <button type="submit" className="primary-btn" disabled={isChecking} style={{ flex: 1 }}>
+                                {isChecking ? 'Checking…' : 'Unlock'}
                             </button>
-                            <button type="button" onClick={() => setIsOpen(false)} style={{ flex: 1 }}>
+                            <button type="button" onClick={closeDialog} disabled={isChecking} style={{ flex: 1 }}>
                                 Cancel
                             </button>
                         </div>
