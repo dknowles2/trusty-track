@@ -541,7 +541,7 @@ date** instead, and the call is yours. Details in
 car in it has scratched, say. The schedule moves on, and the skipped heat can
 be run later with **Run** if the cars turn up after all.
 
-Two things to know:
+Three things to know:
 
 - A skipped heat does not hold anything up. The round still finishes, and a
   championship round waiting on it still fills.
@@ -549,6 +549,11 @@ Two things to know:
   scored as if they finished last in it. Under Timed, Cumulative time, or
   Fastest single run, the heat simply is not part of anyone's score. See
   [how skips are scored](reference/scoring.md#points).
+- **If a skipped heat is still sitting there when the round finishes**, the
+  **Round Complete!**/**Race Complete!** summary says so and offers a
+  **Run heat N** button straight back to it. A championship round's field
+  was already decided without that heat's real result, so if the cars did
+  turn up after all, running it there re-decides who advances.
 
 ---
 

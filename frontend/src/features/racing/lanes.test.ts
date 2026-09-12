@@ -3,6 +3,7 @@ import {
   hasTimes,
   hasRun,
   wasSkipped,
+  skippedHeats,
   byPlace,
   assignPlaces,
   formatLaneTime,
@@ -647,5 +648,58 @@ describe('laneColumnCount', () => {
 
   it('is the bare track lane count with no heats at all', () => {
     expect(laneColumnCount(4, [])).toBe(4);
+  });
+});
+
+/**
+ * Issue #1001. The Round Complete!/Race Complete! summaries need to name a
+ * heat that was skipped and never re-run, not just know one exists.
+ */
+describe('skippedHeats', () => {
+  it('is empty when nothing was skipped', () => {
+    const heats = [
+      heat({ id: 1, heatNumber: 1, lanes: [lane({ lane: 1, racerId: 1, time: 3.4, place: 1 })] }),
+    ];
+    expect(skippedHeats(heats)).toEqual([]);
+  });
+
+  it('names a skipped heat', () => {
+    const skipped = heat({
+      id: 2,
+      heatNumber: 2,
+      lanes: [lane({ lane: 1, racerId: 1, skipped: true })],
+    });
+    const heats = [
+      heat({ id: 1, heatNumber: 1, lanes: [lane({ lane: 1, racerId: 1, time: 3.4, place: 1 })] }),
+      skipped,
+    ];
+    expect(skippedHeats(heats)).toEqual([skipped]);
+  });
+
+  it('excludes a heat that was skipped and then re-run', () => {
+    // `wasSkipped` already treats this as not-skipped; this just checks the
+    // list version inherits it rather than re-deriving the rule.
+    const heats = [
+      heat({
+        id: 1,
+        heatNumber: 1,
+        lanes: [lane({ lane: 1, racerId: 1, time: 3.4, skipped: true })],
+      }),
+    ];
+    expect(skippedHeats(heats)).toEqual([]);
+  });
+
+  it('orders several skipped heats by heat number, not list order', () => {
+    const later = heat({
+      id: 1,
+      heatNumber: 5,
+      lanes: [lane({ lane: 1, racerId: 1, skipped: true })],
+    });
+    const earlier = heat({
+      id: 2,
+      heatNumber: 2,
+      lanes: [lane({ lane: 1, racerId: 2, skipped: true })],
+    });
+    expect(skippedHeats([later, earlier])).toEqual([earlier, later]);
   });
 });

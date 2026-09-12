@@ -309,7 +309,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
         <Icon path={mdiDragVertical} size={0.8} color="var(--text-faint-color)" />
       </td>
       <td style={{ padding: '12px', fontWeight: 'bold', width: '80px' }}>
-        Heat {heat.globalHeatNumber ?? heat.heatNumber}
+        Heat {heat.heatNumber}
         {isSkipped && !hasRecordedTimes && (
           <div style={{ color: 'var(--danger-strong-color)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold' }}>Skipped</div>
         )}
@@ -601,6 +601,12 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
         heatNumber: index + 1,
     }));
 
+    // Sorted for the master-running-order panel's own re-render, which reads
+    // `localHeats` straight off this state — the per-round tables key off
+    // `roundId`/`heatNumber` regardless of array order. No `globalHeatNumber`
+    // here (#995): a continuing index across rounds is exactly the number
+    // that disagreed with a championship round's own `heatNumber` on the
+    // Race tab, and nothing in this component reads it any more.
     const optimisticHeats = localHeats.map(h => {
         if (h.roundId === roundId) {
             return updatedRoundHeats.find(u => u.id === h.id) || h;
@@ -609,7 +615,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     }).sort((a, b) => {
         if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
         return a.heatNumber - b.heatNumber;
-    }).map((h, idx) => ({ ...h, globalHeatNumber: idx + 1 }));
+    });
 
     setLocalHeats(optimisticHeats);
 

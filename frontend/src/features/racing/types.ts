@@ -18,10 +18,7 @@ import type {
 
 type RaceControlRace = NonNullable<GetRaceControlDataQuery['race']>;
 
-export type Heat = RaceControlRace['heats'][number] & {
-  /** Present only when the query asks for it. */
-  globalHeatNumber?: number;
-};
+export type Heat = RaceControlRace['heats'][number];
 
 export type Racer = RaceControlRace['racers'][number];
 

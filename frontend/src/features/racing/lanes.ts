@@ -9,7 +9,7 @@
  * Also the conversion to `HeatLaneInput` for the write path, which is a
  * near-identity — the read and write shapes match on purpose.
  */
-import type { Lane, LaneInput } from './types';
+import type { Heat, Lane, LaneInput } from './types';
 
 /**
  * A lane with a recorded result — a time, or a hand-entered place.
@@ -41,6 +41,17 @@ export const hasRun = (lanes: readonly Lane[]): boolean =>
 /** Passed over rather than raced — skipped, and nothing was timed. */
 export const wasSkipped = (lanes: readonly Lane[]): boolean =>
   lanes.some((lane) => lane.skipped) && !hasTimes(lanes);
+
+/**
+ * Heats that were skipped and never re-run, in heat-number order (issue
+ * #1001) — the earliest is the one an operator would want to run first.
+ * `wasSkipped` already asks the per-heat question ("skipped, and nothing has
+ * been timed since"); this lifts it to a list of heats for the Round
+ * Complete!/Race Complete! summaries, both of which need to name *which*
+ * heat rather than just whether one exists.
+ */
+export const skippedHeats = (heats: readonly Heat[]): Heat[] =>
+  heats.filter((h) => wasSkipped(h.lanes)).sort((a, b) => a.heatNumber - b.heatNumber);
 
 /** Lanes in finishing order, unplaced last. */
 export const byPlace = (lanes: readonly Lane[]): Lane[] =>

@@ -161,6 +161,27 @@ describe('RaceExecution', () => {
         expect(screen.getByText('1st')).toBeInTheDocument();
     });
 
+    it('labels the active heat by its own round\'s heat number, beside the round name (#995)', () => {
+        // A championship round is renumbered 1..N on every advancement
+        // rebuild, so a global position across the whole schedule (the old
+        // `globalHeatNumber` override) disagreed with this heading the
+        // moment a final followed a raced preliminary round of more than
+        // one heat. There is no second number source any more — the
+        // heading, the Edit modal title, and the round name below it all
+        // read straight off the stored heat.
+        render(
+            <RaceExecution
+                {...defaultProps}
+                activeExecutionHeat={{ ...mockHeat, heatNumber: 1, roundName: 'Grand Finals' }}
+            />
+        );
+        expect(screen.getByText('Heat 1')).toBeInTheDocument();
+        expect(screen.getByText('Grand Finals')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: /Edit/i }));
+        expect(screen.getByText('Edit Results - Heat 1')).toBeInTheDocument();
+    });
+
     it('shows no lane colour dot when the track has none configured (#611)', () => {
         const { container } = render(
             <RaceExecution
@@ -1593,6 +1614,50 @@ describe('RaceExecution', () => {
             />
         );
         expect(queryByTestId('fake-timer-mole')).not.toBeInTheDocument();
+    });
+
+    describe('the Auto-advance and Finish sound labels toggle their controls (#998)', () => {
+        // Both used to be a `<span>` beside a `<label>` wrapping only the
+        // 44px pill/checkbox itself, so clicking the *word* did nothing —
+        // only the small control did. The fix wraps the whole row in one
+        // `<label>` (Auto-advance) or was already correct (Finish sound,
+        // whose checkbox was already inside its own `<label>`); both are
+        // pinned here so a future edit cannot separate the text from its
+        // control again.
+
+        it('clicking the word "Auto-advance" toggles the switch', () => {
+            const onToggle = vi.fn();
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    autoAdvanceHeat={false}
+                    onToggleAutoAdvance={onToggle}
+                />
+            );
+
+            const checkbox = screen.getByTestId('auto-advance-toggle') as HTMLInputElement;
+            expect(checkbox.checked).toBe(false);
+
+            fireEvent.click(screen.getByText('Auto-advance'));
+
+            expect(onToggle).toHaveBeenCalledWith(true);
+        });
+
+        it('clicking the word "Finish sound" toggles its own checkbox', () => {
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    onToggleAutoAdvance={vi.fn()}
+                />
+            );
+
+            const checkbox = screen.getByTestId('finish-chime-toggle') as HTMLInputElement;
+            expect(checkbox.checked).toBe(false);
+
+            fireEvent.click(screen.getByText('Finish sound'));
+
+            expect(checkbox.checked).toBe(true);
+        });
     });
 });
 
