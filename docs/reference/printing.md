@@ -133,8 +133,10 @@ laptop runs flat, and the announcer still has to know which cars are next.
   one round at a time.
 - A [run-off heat](scoring.md#settling-a-tie-with-a-race-off) prints too,
   as its own one-row table titled **Run-off for Nth place**, right after
-  the round it is settling — or after every round, if it is settling the
-  overall standings.
+  the round it is settling — or, if it is settling the overall standings,
+  right after the last preliminary round and before any championship
+  round, since it decides who is racing in that round before that round
+  can run.
 
 ## The results sheet
 

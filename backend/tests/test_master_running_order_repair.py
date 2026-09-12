@@ -350,3 +350,186 @@ class TestOutageRepairsAcrossRounds:
 
         db.expire_all()
         assert _all_numbers(db, race_id) == before
+
+
+class TestWaveGrowthRepairsAcrossRounds:
+    """A third seam (#1019): elimination and balanced rounds grow their own
+    schedule on every recorded result, through `extend_elimination_round` /
+    `extend_balanced_round` on the `record_heat_result` cascade — not through
+    `admit_late_racers` or `apply_outages_to_scheduled_heats`, which is why it
+    was missed the first two times this file's seams were closed. Each of
+    these exercises two features at once — wave/phase growth and the master
+    order — the way #1025 asked: neither alone reproduces the bug.
+    """
+
+    def test_an_elimination_wave_gets_globally_safe_numbers(self, db, client):
+        _, race_id = _race(db, "Elimination Wave Derby", lane_count=4)
+        pack = _group(db, race_id, "Pack", 4, car_start=1)
+        others = _group(db, race_id, "Others", 4, car_start=100)
+        elim_round = crud.create_round(
+            db,
+            race_id=race_id,
+            round_number=1,
+            scheduling_strategy=models.SchedulingStrategy.ELIMINATION,
+            name="Elimination Round",
+            elimination_losses=2,
+            racing_group_id=pack.id,
+        )
+        crud.generate_heats_for_round(db, elim_round.id)
+        others_round = _round(db, race_id, others.id, 2)
+        _run(client, db, race_id, others_round.id, count=2)
+
+        _turn_on_master_running_order(db, race_id)
+        crud.apply_master_running_order(db, race_id)
+        highest_before = max(h.heat_number for h in crud.get_heats(db, race_id))
+        before_ids = {h.id for h in crud.get_heats(db, race_id)}
+
+        # Finish the elimination round's current wave through the ordinary
+        # result-recording cascade — the same seam `record_heat_result`
+        # already calls `extend_elimination_round` from on every result.
+        pending = crud.get_heats(db, race_id, round_id=elim_round.id)
+        _run(client, db, race_id, elim_round.id, count=len(pending))
+
+        all_heats = crud.get_heats(db, race_id)
+        new_heats = [h for h in all_heats if h.id not in before_ids]
+        assert new_heats  # the wave actually grew: nobody is out at 2 losses yet
+        assert all(h.heat_number > highest_before for h in new_heats)
+        pending_numbers = [h.heat_number for h in all_heats if h.recorded_at is None]
+        assert len(pending_numbers) == len(set(pending_numbers))
+
+    def test_a_balanced_phase_gets_globally_safe_numbers(self, db, client):
+        _, race_id = _race(db, "Balanced Wave Derby", lane_count=4)
+        pack = _group(db, race_id, "Pack", 4, car_start=1)
+        others = _group(db, race_id, "Others", 4, car_start=100)
+        balanced_round = crud.create_round(
+            db,
+            race_id=race_id,
+            round_number=1,
+            scheduling_strategy=models.SchedulingStrategy.BALANCED,
+            name="Balanced Round",
+            racing_group_id=pack.id,
+        )
+        crud.generate_heats_for_round(db, balanced_round.id)
+        others_round = _round(db, race_id, others.id, 2)
+        _run(client, db, race_id, others_round.id, count=2)
+
+        _turn_on_master_running_order(db, race_id)
+        crud.apply_master_running_order(db, race_id)
+        highest_before = max(h.heat_number for h in crud.get_heats(db, race_id))
+        before_ids = {h.id for h in crud.get_heats(db, race_id)}
+
+        pending = crud.get_heats(db, race_id, round_id=balanced_round.id)
+        _run(client, db, race_id, balanced_round.id, count=len(pending))
+
+        all_heats = crud.get_heats(db, race_id)
+        new_heats = [h for h in all_heats if h.id not in before_ids]
+        # The round's own target is its usable lane count (4) phases; one
+        # phase raced is short of that, so the next phase must exist.
+        assert new_heats
+        assert all(h.heat_number > highest_before for h in new_heats)
+        pending_numbers = [h.heat_number for h in all_heats if h.recorded_at is None]
+        assert len(pending_numbers) == len(set(pending_numbers))
+
+    def test_the_flag_off_twin_keeps_round_local_numbering(self, db, client):
+        # The same elimination shape as above, with the flag at its default
+        # (off): a new wave still starts one past the round's own previous
+        # maximum, exactly as it always has — `repair_master_running_order`
+        # is a no-op the instant it reads the flag.
+        _, race_id = _race(db, "Elimination Flag Off Derby", lane_count=4)
+        pack = _group(db, race_id, "Pack", 4, car_start=1)
+        elim_round = crud.create_round(
+            db,
+            race_id=race_id,
+            round_number=1,
+            scheduling_strategy=models.SchedulingStrategy.ELIMINATION,
+            name="Elimination Round",
+            elimination_losses=2,
+            racing_group_id=pack.id,
+        )
+        crud.generate_heats_for_round(db, elim_round.id)
+        highest_before = max(
+            h.heat_number for h in crud.get_heats(db, race_id, round_id=elim_round.id)
+        )
+
+        pending = crud.get_heats(db, race_id, round_id=elim_round.id)
+        _run(client, db, race_id, elim_round.id, count=len(pending))
+
+        heats = crud.get_heats(db, race_id, round_id=elim_round.id)
+        new_heats = [h for h in heats if h.heat_number > highest_before]
+        assert new_heats
+        assert min(h.heat_number for h in new_heats) == highest_before + 1
+
+
+class TestWithdrawalRepairsAcrossRounds:
+    """The second route #1019 named: a withdrawal that regenerates an unraced
+    general round renumbers it 1..N, which — under the master order — used to
+    jump the whole round to the front of the race-wide sequence rather than
+    keeping the place it had already been given.
+    """
+
+    def test_a_regenerated_unraced_round_keeps_its_place_in_the_order(self, db, client):
+        _, race_id = _race(db, "Withdrawal Repair Derby", lane_count=4)
+        lions = _group(db, race_id, "Lions", 4, car_start=1)
+        tigers = _group(db, race_id, "Tigers", 4, car_start=100)
+        lions_round = _round(db, race_id, lions.id, 1)
+        tigers_round = _round(db, race_id, tigers.id, 2)
+        _run(client, db, race_id, tigers_round.id, count=2)
+
+        _turn_on_master_running_order(db, race_id)
+        crud.apply_master_running_order(db, race_id)
+        lions_before_ids = {
+            h.id for h in crud.get_heats(db, race_id, round_id=lions_round.id)
+        }
+        tigers_pending_before = [
+            h.heat_number
+            for h in crud.get_heats(db, race_id, round_id=tigers_round.id)
+            if h.recorded_at is None
+        ]
+        assert tigers_pending_before  # the fixture left Tigers heats pending
+
+        lions_racer = (
+            db.query(models.Racer)
+            .filter(models.Racer.racing_group_id == lions.id)
+            .first()
+        )
+        lions_racer.car_passed_inspection = False
+        db.commit()
+        crud.withdraw_absent_racers(db, race_id)
+
+        db.expire_all()
+        lions_after = crud.get_heats(db, race_id, round_id=lions_round.id)
+        assert all(h.id not in lions_before_ids for h in lions_after)  # rebuilt
+        # Before #1019 the regenerated round restarted at 1..N and, under the
+        # master order's "general rounds sort by heat_number alone" rule,
+        # jumped ahead of every one of Tigers' still-pending heats — heats
+        # the announcer had already been told came next. It has to land
+        # after them instead.
+        assert all(h.heat_number > max(tigers_pending_before) for h in lions_after)
+
+        pending_numbers = [
+            h.heat_number for h in crud.get_heats(db, race_id) if h.recorded_at is None
+        ]
+        assert len(pending_numbers) == len(set(pending_numbers))
+
+    def test_the_flag_off_twin_keeps_round_local_numbering(self, db):
+        _, race_id = _race(db, "Withdrawal Flag Off Derby", lane_count=4)
+        lions = _group(db, race_id, "Lions", 4, car_start=1)
+        lions_round = _round(db, race_id, lions.id, 1)
+
+        lions_racer = (
+            db.query(models.Racer)
+            .filter(models.Racer.racing_group_id == lions.id)
+            .first()
+        )
+        lions_racer.car_passed_inspection = False
+        db.commit()
+        crud.withdraw_absent_racers(db, race_id)
+
+        db.expire_all()
+        lions_after = sorted(
+            crud.get_heats(db, race_id, round_id=lions_round.id),
+            key=lambda h: h.heat_number,
+        )
+        assert [h.heat_number for h in lions_after] == list(
+            range(1, len(lions_after) + 1)
+        )

@@ -310,3 +310,79 @@ async def test_on_deck_shortens_towards_the_end_of_a_race(db, race, four_heats):
     on_deck = await _first(db, "on_deck", race.id)
 
     assert [heat.id for heat in on_deck] == [four_heats[3].id]
+
+
+@pytest.mark.anyio
+async def test_currently_racing_prefers_an_overall_run_off_over_a_pending_final(
+    db, race, racers
+):
+    """(#1018) A run-off settling the *overall* standings decides who is even
+    in the Final, so the Final's own placeholder heats must not present as
+    "Now Racing" ahead of it — the room would be told the wrong cars are on
+    the track while the run-off is what is actually armed."""
+    prelim = crud.create_round(db, race_id=race.id, round_number=1)
+    heat = models.Heat(race_id=race.id, round_id=prelim.id, heat_number=1)
+    db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(
+        heat,
+        as_lanes(
+            [
+                {"lane": 1, "racer_id": racers[0].id, "time": 3.0, "place": 1},
+                {"lane": 2, "racer_id": racers[1].id, "time": 3.0, "place": 1},
+            ]
+        ),
+    )
+    db.commit()
+
+    final = crud.create_round(
+        db,
+        race_id=race.id,
+        round_number=2,
+        advancement_source="ALL",
+        advancement_num_racers=2,
+    )
+    crud.generate_heats_for_round(db, final.id, num_placeholders=2)
+
+    run_off = crud.create_run_off_heat(db, race.id, None, [racers[0].id, racers[1].id])
+
+    current = await _first(db, "currently_racing", race.id)
+
+    assert current is not None
+    assert current.id == run_off.id
+
+
+@pytest.mark.anyio
+async def test_on_deck_still_offers_the_final_right_behind_the_overall_run_off(
+    db, race, racers
+):
+    """The Final is next once the run-off is settled, not lost behind it."""
+    prelim = crud.create_round(db, race_id=race.id, round_number=1)
+    heat = models.Heat(race_id=race.id, round_id=prelim.id, heat_number=1)
+    db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(
+        heat,
+        as_lanes(
+            [
+                {"lane": 1, "racer_id": racers[0].id, "time": 3.0, "place": 1},
+                {"lane": 2, "racer_id": racers[1].id, "time": 3.0, "place": 1},
+            ]
+        ),
+    )
+    db.commit()
+
+    final = crud.create_round(
+        db,
+        race_id=race.id,
+        round_number=2,
+        advancement_source="ALL",
+        advancement_num_racers=2,
+    )
+    final_heats = crud.generate_heats_for_round(db, final.id, num_placeholders=2)
+
+    crud.create_run_off_heat(db, race.id, None, [racers[0].id, racers[1].id])
+
+    on_deck = await _first(db, "on_deck", race.id)
+
+    assert [heat.id for heat in on_deck] == [h.id for h in final_heats]

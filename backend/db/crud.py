@@ -1101,9 +1101,6 @@ def get_heats(
 #: `execution_sort_key`'s scheme without that function knowing run-offs
 #: exist: nothing generated ever reaches a heat_number this large.
 _RUN_OFF_HEAT_NUMBER = 10_000_000
-#: Sorts after every real round when a run-off settles the overall standings
-#: (`settles_round_id is None`) rather than one specific round's.
-_RUN_OFF_NO_ROUND_NUMBER = 1_000_000
 
 
 def heats_in_running_order(db: Session, race_id: int) -> list[models.Heat]:
@@ -1134,16 +1131,37 @@ def heats_in_running_order(db: Session, race_id: int) -> list[models.Heat]:
     non-`OFFICIAL` kind, but by name — because the audience is meant to see
     it: `onDeck`/`currentlyRacing` are what tell the wall displays a run-off
     is what is happening right now. It sorts immediately after every heat of
-    the round it settles (or after every round, if it settles the race's
-    overall standings) via the two sentinels above; `heat.round` is `None`
-    for it, so it cannot use `heat.round.round_number` the way an official
-    heat's key does below.
+    the round it settles, via the sentinel above; `heat.round` is `None` for
+    it, so it cannot use `heat.round.round_number` the way an official heat's
+    key does below.
+
+    A run-off settling the race's *overall* standings (`settles_round_id is
+    None`) is sorted right after the last general round instead — never
+    after every round (#1018). It decides who is *in* a championship field
+    drawn from those standings, so it has to run before that field does; a
+    run-off is one lane assignment away from being unrunnable if it lands
+    after the very round whose field it is meant to settle.
     """
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     master = bool(race is not None and race.master_running_order)
     heats = models.scheduled_or_run_off_heats(
         db.query(models.Heat).filter(models.Heat.race_id == race_id)
     ).all()
+    last_general_round_number: int | None = None
+
+    def _last_general_round_number() -> int:
+        nonlocal last_general_round_number
+        if last_general_round_number is None:
+            last_general_round_number = (
+                db.query(func.max(models.Round.round_number))
+                .filter(
+                    models.Round.race_id == race_id,
+                    models.Round.advancement_source.is_(None),
+                )
+                .scalar()
+                or 0
+            )
+        return last_general_round_number
 
     def _key(heat: models.Heat) -> tuple[int, int, int]:
         if heat.kind == models.HeatKind.RUN_OFF:
@@ -1151,11 +1169,11 @@ def heats_in_running_order(db: Session, race_id: int) -> list[models.Heat]:
             return running_order.execution_sort_key(
                 round_number=settles.round_number
                 if settles
-                else _RUN_OFF_NO_ROUND_NUMBER,
+                else _last_general_round_number(),
                 heat_number=_RUN_OFF_HEAT_NUMBER + heat.id,
                 is_championship=(settles.advancement_source is not None)
                 if settles
-                else True,
+                else False,
                 master_order=master,
             )
         round_obj = heat.round
@@ -2450,11 +2468,15 @@ def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
     """
     disrupted_round_ids: list[int] = []
     races = db.query(models.Race).filter(models.Race.track_id == track_id).all()
-    # Heats a full regeneration below creates, by race and then by round —
-    # repaired into each race's master running order (#549, stage 3) once
-    # every race on this track has been brought into line. The vacate branch
-    # never lands here: it keeps every heat's id and heat_number, so there is
-    # nothing for a repair to fold in.
+    # Heats a full regeneration or a wave/phase appended below creates, by
+    # race and then by round — repaired into each race's master running
+    # order (#549, stage 3; #1019) once every race on this track has been
+    # brought into line. The vacate branch's own lane-vacating never lands
+    # here on its own: it keeps every existing heat's id and heat_number.
+    # But it can also trigger `extend_elimination_round`/`extend_balanced_round`
+    # to append a new wave once vacating a lane finishes off the schedule
+    # that was there, and that new wave *does* need a fresh number under the
+    # master order — the same seam #1019 closed in `record_heat_result`.
     new_heats_by_race: dict[int, dict[int, list[models.Heat]]] = {}
 
     for race in races:
@@ -2503,8 +2525,10 @@ def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
                 if not round_obj.disrupted:
                     round_obj.disrupted = True
                     disrupted_round_ids.append(round_obj.id)
-                extend_elimination_round(db, round_obj.id)
-                extend_balanced_round(db, round_obj.id)
+                grown = extend_elimination_round(db, round_obj.id)
+                grown += extend_balanced_round(db, round_obj.id)
+                if grown:
+                    new_heats_by_race.setdefault(race.id, {})[round_obj.id] = grown
 
     db.commit()
     for race_id, new_heats_by_round in new_heats_by_race.items():
@@ -2670,6 +2694,12 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
     }
     usable = usable_lanes_for_race(db, race_id)
     changed_round_ids: list[int] = []
+    # Heats this call creates, by round — repaired into the master running
+    # order (#549, stage 3; #1019) after the loop, the same shape
+    # `admit_late_racers` already uses. A round shrinking (the vacate branch)
+    # never lands here, since it keeps every existing heat's id and number;
+    # only the two cases below that create heats with fresh numbers do.
+    new_heats_by_round: dict[int, list[models.Heat]] = {}
 
     rounds = db.query(models.Round).filter(models.Round.race_id == race_id).all()
     for round_obj in rounds:
@@ -2723,7 +2753,9 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
         if round_obj.advancement_source is None and advancement.may_rebuild(heat_lanes):
             eligible = eligible_racer_ids(db, race_id, round_obj.racing_group_id)
             if len(eligible) >= 2:
-                generate_heats_for_round(db, round_obj.id, clear_existing=True)
+                new_heats_by_round[round_obj.id] = generate_heats_for_round(
+                    db, round_obj.id, clear_existing=True
+                )
                 changed_round_ids.append(round_obj.id)
                 continue
             # Too few checked-in racers left for a schedule; fall through and
@@ -2751,10 +2783,13 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
                 vacated = True
         if vacated:
             changed_round_ids.append(round_obj.id)
-            extend_elimination_round(db, round_obj.id)
-            extend_balanced_round(db, round_obj.id)
+            grown = extend_elimination_round(db, round_obj.id)
+            grown += extend_balanced_round(db, round_obj.id)
+            if grown:
+                new_heats_by_round[round_obj.id] = grown
 
     db.commit()
+    repair_master_running_order(db, race_id, new_heats_by_round)
     return changed_round_ids
 
 
@@ -3204,8 +3239,10 @@ def record_heat_result(
             # whose schedule grows on results is only complete when its story
             # has ended, and extending it first keeps the two questions from
             # racing each other.
-            extend_elimination_round(db, heat.round.id)
-            extend_balanced_round(db, heat.round.id)
+            grown = extend_elimination_round(db, heat.round.id)
+            grown += extend_balanced_round(db, heat.round.id)
+            if grown:
+                repair_master_running_order(db, heat.race_id, {heat.round.id: grown})
             trigger_auto_advancements(db, heat.race_id, heat.round.id)
         elif heat.kind is models.HeatKind.RUN_OFF:
             # (#1015) A run-off has no `round_id` (#550), so the branch above
@@ -3554,17 +3591,24 @@ def repair_master_running_order(
 
     (#549, stage 3)
 
-    Called from the two seams that change a group's heat count while a race
-    is under way — :func:`admit_late_racers` (#172) and
-    :func:`apply_outages_to_scheduled_heats` (#171), which both regenerate a
-    round wholesale when nothing has been raced, and the first also appends a
-    wave to a round that is part-way through. Neither is hooked by reaching
-    into :func:`generate_heats_for_round` itself, which both call for the
-    "nothing raced" case: that function also serves `regenerateRound`,
-    `createRoundWizard` and every scheduling-strategy's first wave/phase,
-    none of which is a mid-event cascade this issue is about, so hooking it
-    would repair far more than the two seams the issue names. Each of the two
-    callers instead passes exactly the heats *it* just created.
+    Called from every seam that changes a group's heat count while a race
+    is under way — :func:`admit_late_racers` (#172),
+    :func:`apply_outages_to_scheduled_heats` (#171) and
+    :func:`withdraw_absent_racers` (#228), which each regenerate a round
+    wholesale when nothing has been raced, and :func:`record_heat_result`
+    (via `extend_elimination_round`/`extend_balanced_round`), which appends a
+    wave or phase to an elimination or balanced round on every recorded
+    result — the third seam #1019 found, alongside a part-way admission and
+    a shrinking track's own outage, that appends rather than rebuilds. None
+    of these is hooked by reaching into :func:`generate_heats_for_round`
+    itself, which several of them call for the "nothing raced" case: that
+    function also serves `regenerateRound`, `createRoundWizard` and every
+    scheduling-strategy's first wave/phase, none of which is a mid-event
+    cascade this issue is about, so hooking it would repair far more than
+    the seams named above. Each caller instead
+    passes exactly the heats *it* just created — `record_heat_result` a
+    single round's fresh wave, the other three whatever rounds their own
+    cascade actually touched.
 
     `new_heats_by_round` is empty on a call that changed nothing (an outage
     that only vacated lanes, an admission with no eligible latecomer), and an
