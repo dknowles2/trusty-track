@@ -1418,3 +1418,58 @@ input:checked + .slider:before {
     flex-wrap: wrap;
   }
 }
+
+/*
+ * Below that, wrapping alone is not enough (#996): a bare `flex-wrap` packs
+ * items greedily, and with `minWidth: 0` on the name block it shrank to a
+ * sliver rather than moving to its own line — one word per line, and the
+ * recipient text rendered close enough to overlap it. Below 600px each row
+ * is pinned onto four explicit lines instead: name + artwork, description,
+ * recipient, then the controls (arrows, edit, delete) together.
+ *
+ * This still uses `.award-row-main`'s own flex-wrap layout, not a grid —
+ * `order` decides which line an item joins, and `flex-basis: 100%` is what
+ * forces a line break, a standard flexbox trick (an item claiming the whole
+ * line pushes whatever comes after it onto a fresh one). `.award-row-name`
+ * (the name + description wrapper, kept as one ordinary block box at every
+ * wider width so desktop is untouched) switches to `display: contents` here
+ * so its two children join this row directly and can be pinned to separate
+ * lines on their own.
+ */
+@media screen and (max-width: 600px) {
+  .award-row-main {
+    row-gap: 0.5rem;
+  }
+
+  .award-row-name {
+    display: contents;
+  }
+
+  .award-row-artwork {
+    order: 1;
+    flex-shrink: 0;
+  }
+
+  .award-row-name-text {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .award-row-desc {
+    order: 2;
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .award-row-recipient {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .award-row-arrows,
+  .award-row-edit,
+  .award-row-delete {
+    order: 4;
+  }
+}

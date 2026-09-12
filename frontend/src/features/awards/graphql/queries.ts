@@ -168,6 +168,9 @@ export const VOTING_BALLOT_QUERY = gql`
         carNumber
         carName
         carImageUrl
+        racingGroup {
+          color
+        }
       }
     }
   }

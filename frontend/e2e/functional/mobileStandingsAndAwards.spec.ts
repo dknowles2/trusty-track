@@ -127,3 +127,145 @@ test('an Awards row wraps rather than overflowing a 390px phone (#950)', async (
     expect(deleteBox).not.toBeNull();
     expect(deleteBox!.x + deleteBox!.width).toBeLessThanOrEqual(PHONE_VIEWPORT.width);
 });
+
+/**
+ * #950's own test above seeds one award with no rule and no recipient —
+ * the empty-state row. #996 is the seam it left: a *populated* row, with a
+ * real recipient name and a real description, both at once. `flexWrap`
+ * alone (#950's fix) was not enough there — `minWidth: 0` on the name
+ * block let it shrink to a sliver instead of wrapping onto its own line,
+ * so a long description went one word per line and a recipient's name
+ * rendered close enough to visually overlap it.
+ */
+test('an Awards row stacks its name, description, recipient and controls onto separate lines rather than overlapping on a 390px phone, once awards are decided (#996)', async ({
+    page,
+}) => {
+    const { raceId, racers } = await seedRace(page, 'Mobile Awards Populated ' + Date.now());
+    await createSchedule(page, raceId);
+    await ensureConfigured(page);
+
+    // Real results, so a SPEED award actually resolves to a racer's full
+    // name rather than "Not decided by the racing yet" — the exact
+    // "recipient text overlapping the description" shape #996 reported.
+    const heats = await readHeats(page, raceId);
+    await recordRound(page, heats, racers);
+
+    // A row with no rule at all — the exact "Not set up — this award
+    // cannot be won" text #996 found wrapping one word per line.
+    await gql(
+        page,
+        `mutation($raceId: Int!, $award: AwardInput!) {
+            createAward(raceId: $raceId, award: $award) { id }
+        }`,
+        {
+            raceId,
+            award: {
+                name: 'Judges’ Special Recognition For Outstanding Craftsmanship',
+                kind: 'SPECIAL',
+                votable: false,
+            },
+        },
+    );
+
+    // Two decided SPEED awards, so a recipient's real name renders.
+    await gql(
+        page,
+        `mutation($raceId: Int!, $award: AwardInput!) {
+            createAward(raceId: $raceId, award: $award) { id }
+        }`,
+        { raceId, award: { name: 'Fastest Overall', kind: 'SPEED', source: 'ALL', place: 1 } },
+    );
+    await gql(
+        page,
+        `mutation($raceId: Int!, $award: AwardInput!) {
+            createAward(raceId: $raceId, award: $award) { id }
+        }`,
+        { raceId, award: { name: 'Second Fastest', kind: 'SPEED', source: 'ALL', place: 2 } },
+    );
+
+    await page.setViewportSize(PHONE_VIEWPORT);
+    await page.goto(`/race/${raceId}/awards`);
+    await page.waitForLoadState('networkidle');
+
+    // Wait for the recipient to resolve — car #1 (Ada Ant) is the fastest,
+    // by `recordRound`'s own car-number-ascending rule.
+    await expect(page.getByText('Ada Ant', { exact: false })).toBeVisible();
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(PHONE_VIEWPORT.width + 2);
+
+    const rows = page.locator('.award-row-main');
+    const rowCount = await rows.count();
+    expect(rowCount).toBeGreaterThanOrEqual(3);
+
+    for (let i = 0; i < rowCount; i++) {
+        const row = rows.nth(i);
+        const boxes: { name: string; box: { x: number; y: number; width: number; height: number } }[] =
+            [];
+        for (const selector of [
+            '.award-row-artwork',
+            '.award-row-name-text',
+            '.award-row-desc',
+            '.award-row-recipient',
+            '.award-row-edit',
+            '.award-row-delete',
+        ]) {
+            const locator = row.locator(selector);
+            if (await locator.count()) {
+                const box = await locator.boundingBox();
+                if (box) boxes.push({ name: selector, box });
+            }
+        }
+
+        // Nothing in this row's content extends past the viewport edge.
+        for (const { name, box } of boxes) {
+            expect(
+                box.x + box.width,
+                `${name} in row ${i} extends past the 390px viewport`,
+            ).toBeLessThanOrEqual(PHONE_VIEWPORT.width + 2);
+        }
+
+        // The description and the recipient must each get real width, not
+        // be squeezed toward zero — this is the check that actually catches
+        // #996's failure and the pairwise-overlap check below does not.
+        // `minWidth: 0` plus a flex row with no forced line breaks does not
+        // paint two elements on top of each other in any way a bounding-box
+        // comparison can see: the browser instead collapses the *box* of a
+        // shrinkable flex item toward zero width while its overflowing text
+        // still renders (default `overflow: visible`), stacking one word
+        // per line inside a nominally ~1px-wide container. Two adjacent
+        // collapsed boxes therefore never register as overlapping by
+        // bounding rect, even though the room reports it looks that way.
+        // Measured directly against a reverted `index.css`: the collapsed
+        // width was under 21px on every one of these two elements, against
+        // 292px once the fix's forced line breaks are in place.
+        for (const selector of ['.award-row-desc', '.award-row-recipient']) {
+            const box = boxes.find((b) => b.name === selector)?.box;
+            if (!box) continue;
+            expect(
+                box.width,
+                `${selector} in row ${i} has collapsed to near-zero width`,
+            ).toBeGreaterThan(100);
+        }
+
+        // No two pieces of this row's content overlap each other — a
+        // second-order check for the case where two boxes genuinely do
+        // occupy the same rectangle (a different way #996's failure could
+        // have shown up), kept alongside the width check above rather than
+        // instead of it.
+        for (let a = 0; a < boxes.length; a++) {
+            for (let b = a + 1; b < boxes.length; b++) {
+                const boxA = boxes[a].box;
+                const boxB = boxes[b].box;
+                const overlaps =
+                    boxA.x < boxB.x + boxB.width &&
+                    boxA.x + boxA.width > boxB.x &&
+                    boxA.y < boxB.y + boxB.height &&
+                    boxA.y + boxA.height > boxB.y;
+                expect(overlaps, `${boxes[a].name} overlaps ${boxes[b].name} in row ${i}`).toBe(
+                    false,
+                );
+            }
+        }
+    }
+});

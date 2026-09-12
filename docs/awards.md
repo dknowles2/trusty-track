@@ -125,10 +125,17 @@ walking the cars around with a clipboard.
    for you — it is your call, the same way starting the ceremony itself is.
 
 **If some cars have no photo, this page tells you before you open voting.**
-A car with no photo shows as a gray square on the ballot instead — fine for a
-speed award, not for one about how the car looks. A line above the voting
-button counts how many cars are missing a photo and links to the roster,
-where **Upload Photos** (in the **⋯** menu) adds several at once.
+A car with no photo shows its number in large type on its den's colour
+instead of a photo, so a voter still has something to tap — fine for a
+speed award, not as good as a photo for one about how the car looks. A line
+above the voting button counts how many cars are missing a photo and links
+to the roster, where **Upload Photos** (in the **⋯** menu) adds several at
+once.
+
+**Only the first award is open on the ballot; the rest are collapsed
+behind their own heading.** Tapping a heading opens that award and shows
+its cars; a voter who has already voted for one sees so on its heading
+without having to open it — "You voted for #12", say.
 
 **Nobody's name or photo appears on the voting page.** Voting is about the
 cars, and only the cars: a car's number, its name if it has one, and its

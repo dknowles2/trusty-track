@@ -217,7 +217,7 @@ describe('AwardArtwork takes an explicit palette instead of a hardcoded module-l
   it('Awards.tsx (App) still needs no palette prop — the default already is the App surface\'s tokens, and derives variant from the App theme (#498)', () => {
     const awards = read('features/awards/pages/Awards.tsx');
     expect(awards).toContain(
-      "<AwardArtwork\n                artworkKey={award.artworkKey}\n                size={32}\n                variant={appIsDark ? 'dark' : 'light'}\n              />",
+      "<AwardArtwork\n                  artworkKey={award.artworkKey}\n                  size={32}\n                  variant={appIsDark ? 'dark' : 'light'}\n                />",
     );
   });
 });

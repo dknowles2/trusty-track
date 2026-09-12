@@ -7,11 +7,13 @@
  * exception exists: no login, just an address shared around the room.
  *
  * **Cars only, never children.** The query behind this page
- * (`VOTING_BALLOT_QUERY`) asks for `carNumber`, `carName` and `carImageUrl`
- * and nothing else — no racer name, no `racerImageUrl`. Enforcing that here,
- * in what this page asks for, is deliberate: queries carry no role check
- * anywhere in this app, so anonymity is a property of this one query, not of
- * the server.
+ * (`VOTING_BALLOT_QUERY`) asks for `carNumber`, `carName`, `carImageUrl` and
+ * the racer's `racingGroup { color }` — a den's chosen colour, not a
+ * child's name — and nothing else: no racer name, no `racerImageUrl`.
+ * Enforcing that here, in what this page asks for, is deliberate: queries
+ * carry no role check anywhere in this app, so anonymity is a property of
+ * this one query, not of the server. The group colour exists to fill a
+ * photo-less car's tile (#1006) — see `tileFill` below.
  *
  * **No device lock.** A shared iPad passes from hand to hand all day, so a
  * vote just cast does not block the next one — it only shows a short
@@ -31,6 +33,8 @@ import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { useRunMutation } from '../../../context/runMutation';
 import { errorText } from '../../../utils/errors';
+import { getDeterministicColor } from '../../../utils/avatarUtils';
+import { getContrastColor } from '../../../utils/colors';
 import { forBallot } from '../awardText';
 import { CAST_VOTE_MUTATION, VOTING_BALLOT_QUERY } from '../graphql/queries';
 
@@ -39,7 +43,34 @@ type BallotCar = {
   carNumber?: number | null;
   carName?: string | null;
   carImageUrl?: string | null;
+  racingGroup?: { color?: string | null } | null;
 };
+
+/**
+ * The tile fill for a car with no photo (#1006) — the roster's own
+ * initials-avatar treatment (`RacerAvatar`), adapted for a page that
+ * deliberately carries no racer name to key a colour off. The den's own
+ * colour is what a voter recognises beside the physical car at the table,
+ * so it wins whenever the car has one; a racer with no den falls back to a
+ * colour keyed on the car number — the only other stable, name-free thing
+ * this page has. Text colour follows `getContrastColor` so the number
+ * stays legible against whichever colour that turns out to be, on every
+ * theme — the tile's own background is user data (a den's chosen colour),
+ * not a theme token, so contrast has to be computed rather than assumed.
+ */
+// No explicit return type here on purpose — spelling it out needs either a
+// generic (`ReturnType<typeof getContrastColor>`, whose `<...>` reads as a
+// stray JSX tag to `terminologyGuard.test.ts`'s scanner and swallows every
+// plain-code line up to the next real `<` as if it were JSX text) or a
+// repeated `'black' | 'white'` literal (which trips `tokenSystem.test.ts`'s
+// colour-literal sweep the same way spelling out the union anywhere else in
+// this tree would). Every other caller of `getContrastColor` in this app
+// just consumes its return value without re-declaring the type, for the
+// same reason — inference gives the identical type with neither problem.
+function tileFill(entry: BallotCar) {
+  const background = entry.racingGroup?.color || getDeterministicColor(entry.carNumber ?? entry.id);
+  return { background, color: getContrastColor(background) };
+}
 
 type BallotAward = {
   id: number;
@@ -162,16 +193,44 @@ export default function VotingBallot() {
       )}
 
       {votingOpen &&
-        votable.map((award) => (
-          <section
+        votable.map((award, index) => (
+          // Collapsed past the first award (#1006) — three awards times a
+          // roster's worth of tiles was a wall of squares nobody could find
+          // the second award in without scrolling past the first. `open`
+          // is only ever passed the same value across renders for a given
+          // award (it depends on nothing but this award's fixed position
+          // in the list), so React never re-applies it after mount and a
+          // voter's own manual expand/collapse survives every re-render —
+          // including the one `justVoted` triggers when they cast a vote.
+          <details
             key={award.id}
+            open={index === 0}
             style={{
               marginTop: '1.75rem',
               paddingTop: '1.25rem',
               borderTop: '1px solid var(--divider-color)',
             }}
           >
-            <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>{award.name}</h2>
+            <summary style={{ cursor: 'pointer', fontSize: '1.1rem', marginBottom: '0.75rem' }}>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'baseline',
+                  gap: '0.5rem',
+                }}
+              >
+                <strong>{award.name}</strong>
+                {justVoted[award.id] && (
+                  // The summary line stays informative while the section
+                  // is collapsed — a voter checking whether they already
+                  // voted here should not have to reopen it to find out.
+                  <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted-color)' }}>
+                    You voted for {votedCarLabel(justVoted[award.id], vehicleLower)}
+                  </span>
+                )}
+              </span>
+            </summary>
 
             {justVoted[award.id] ? (
               <StatusBanner
@@ -201,58 +260,79 @@ export default function VotingBallot() {
                   gap: '0.75rem',
                 }}
               >
-                {entries.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    disabled={submitting === award.id}
-                    onClick={() => vote(award.id, entry)}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                      padding: '0.6rem',
-                      borderRadius: '12px',
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--surface-color)',
-                      cursor: submitting === award.id ? 'wait' : 'pointer',
-                    }}
-                  >
-                    {entry.carImageUrl ? (
-                      <img
-                        src={entry.carImageUrl}
-                        alt=""
-                        style={{
-                          width: '100%',
-                          aspectRatio: '1 / 1',
-                          objectFit: 'cover',
-                          borderRadius: '8px',
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: '100%',
-                          aspectRatio: '1 / 1',
-                          borderRadius: '8px',
-                          background: 'var(--surface-soft-color)',
-                        }}
-                      />
-                    )}
-                    <strong>
-                      {entry.carNumber != null ? `#${entry.carNumber}` : 'Unnumbered'}
-                    </strong>
-                    {entry.carName && (
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
-                        {entry.carName}
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {entries.map((entry) => {
+                  const fill = tileFill(entry);
+                  return (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      disabled={submitting === award.id}
+                      onClick={() => vote(award.id, entry)}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.6rem',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--surface-color)',
+                        cursor: submitting === award.id ? 'wait' : 'pointer',
+                      }}
+                    >
+                      {entry.carImageUrl ? (
+                        <img
+                          src={entry.carImageUrl}
+                          alt=""
+                          style={{
+                            width: '100%',
+                            aspectRatio: '1 / 1',
+                            objectFit: 'cover',
+                            borderRadius: '8px',
+                          }}
+                        />
+                      ) : (
+                        // No photo yet (#1006) — the roster's own
+                        // initials-avatar treatment, filled with the car
+                        // number rather than left an empty square nobody
+                        // can tell apart from its neighbours. Bare digits
+                        // here, not "#42" — the `#` form is what the label
+                        // underneath already shows, and giving the two an
+                        // identical string would make them indistinguishable
+                        // to anything (a test, a screen reader) matching by
+                        // text rather than position.
+                        <div
+                          aria-hidden="true"
+                          style={{
+                            width: '100%',
+                            aspectRatio: '1 / 1',
+                            borderRadius: '8px',
+                            background: fill.background,
+                            color: fill.color,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.6rem',
+                            fontWeight: 700,
+                          }}
+                        >
+                          {entry.carNumber != null ? entry.carNumber : '?'}
+                        </div>
+                      )}
+                      <strong>
+                        {entry.carNumber != null ? `#${entry.carNumber}` : 'Unnumbered'}
+                      </strong>
+                      {entry.carName && (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
+                          {entry.carName}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
-          </section>
+          </details>
         ))}
     </div>
   );

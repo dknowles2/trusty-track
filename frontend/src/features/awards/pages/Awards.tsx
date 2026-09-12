@@ -344,7 +344,7 @@ export default function Awards() {
           {missingPhotoCount > 0 && (
             <span style={{ flexBasis: '100%', color: 'var(--warning-alt-color)' }}>
               {missingPhotoCount} of {racers.length} {vehiclesLower} have no photo — voters
-              will see a gray square instead. <Link to={`/race/${id}`}>Upload photos</Link> from
+              will see the car's number instead. <Link to={`/race/${id}`}>Upload photos</Link> from
               the roster.
             </span>
           )}
@@ -399,9 +399,19 @@ export default function Awards() {
               word of a long name onto its own line while Edit/Delete were
               pushed past the viewport edge (#950). `.award-row-main`'s
               media rule in index.css turns wrapping on below 768px, where
-              it is needed; nothing here changes at desktop widths. */}
+              it is needed; nothing here changes at desktop widths.
+
+              Below 600px the row stacks onto four lines instead (#996):
+              name + artwork, description, recipient, controls. That needs
+              the name and its description to become independent flex
+              items — `.award-row-name` switches to `display: contents` at
+              that width so its two children (`.award-row-name-text`,
+              `.award-row-desc`) join the row directly, each pinned to its
+              own line with `flex-basis: 100%` — while staying nested,
+              inert wrapper divs at every wider width, which is what keeps
+              desktop pixel-identical to before. See index.css. */}
           <div className="award-row-main" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="award-row-arrows" style={{ display: 'flex', flexDirection: 'column' }}>
               <button
                 type="button"
                 className="secondary-btn"
@@ -425,39 +435,48 @@ export default function Awards() {
             </div>
 
             {award.artworkKey && (
-              <AwardArtwork
-                artworkKey={award.artworkKey}
-                size={32}
-                variant={appIsDark ? 'dark' : 'light'}
-              />
+              <div className="award-row-artwork">
+                <AwardArtwork
+                  artworkKey={award.artworkKey}
+                  size={32}
+                  variant={appIsDark ? 'dark' : 'light'}
+                />
+              </div>
             )}
 
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <strong>{award.name}</strong>
-              <div style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
-                {award.kind === 'SPEED'
-                  ? describeSpeedAward(award, rounds, racingGroups, groupLower)
-                  : 'Chosen by the judges'}
+            <div className="award-row-name" style={{ flex: 1, minWidth: 0 }}>
+              <div className="award-row-name-text">
+                <strong>{award.name}</strong>
               </div>
-              {/* The roll-down's own explanation (#615) — a trophy that
-                  did not go to the standings' own Nth place, or a judged
-                  pick that collides with a speed trophy the same racer
-                  already holds. Neither fires while
-                  `Race.oneTrophyPerRacer` is off. */}
-              {(() => {
-                const note =
-                  award.kind === 'SPEED'
-                    ? rollDownNote(award, award.position, award.passedOver ?? [])
-                    : duplicateOfNote(award.duplicateOf);
-                return note ? (
-                  <div style={{ color: 'var(--warning-soft-color)', fontSize: '0.8rem', marginTop: '0.15rem' }}>
-                    {note}
-                  </div>
-                ) : null;
-              })()}
+              <div className="award-row-desc">
+                <div style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
+                  {award.kind === 'SPEED'
+                    ? describeSpeedAward(award, rounds, racingGroups, groupLower)
+                    : 'Chosen by the judges'}
+                </div>
+                {/* The roll-down's own explanation (#615) — a trophy that
+                    did not go to the standings' own Nth place, or a judged
+                    pick that collides with a speed trophy the same racer
+                    already holds. Neither fires while
+                    `Race.oneTrophyPerRacer` is off. */}
+                {(() => {
+                  const note =
+                    award.kind === 'SPEED'
+                      ? rollDownNote(award, award.position, award.passedOver ?? [])
+                      : duplicateOfNote(award.duplicateOf);
+                  return note ? (
+                    <div style={{ color: 'var(--warning-soft-color)', fontSize: '0.8rem', marginTop: '0.15rem' }}>
+                      {note}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+            <div
+              className="award-row-recipient"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}
+            >
               {award.recipient ? (
                 <>
                   {award.recipient.racerImageUrl && (
@@ -504,7 +523,7 @@ export default function Awards() {
 
             <button
               type="button"
-              className="secondary-btn"
+              className="secondary-btn award-row-edit"
               aria-label={`Edit ${award.name}`}
               onClick={() => setEditing(award)}
               disabled={operatorDisabled}
@@ -514,7 +533,7 @@ export default function Awards() {
             </button>
             <button
               type="button"
-              className="secondary-btn"
+              className="secondary-btn award-row-delete"
               aria-label={`Delete ${award.name}`}
               onClick={() => handleDelete(award)}
               disabled={operatorDisabled}
