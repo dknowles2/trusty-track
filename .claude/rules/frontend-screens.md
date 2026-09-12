@@ -1,3 +1,25 @@
+---
+paths:
+  - frontend/src/index.css
+  - frontend/src/theming/**
+  - frontend/src/features/core/**
+  - frontend/src/features/printables/**
+  - frontend/src/features/settings/**
+  - frontend/src/features/management/pages/Home.tsx
+  - frontend/src/features/management/pages/RaceDetails.tsx
+  - frontend/src/features/management/components/RaceForm.tsx
+  - frontend/src/features/management/components/RaceSetupWizard.tsx
+  - frontend/src/features/management/raceSettingsSections.ts
+  - frontend/src/features/management/setupChecklist.ts
+  - frontend/src/features/management/raceSummary.ts
+  - frontend/src/components/ui/imageEdit.ts
+  - frontend/src/components/ui/ImageCropModal.tsx
+  - frontend/src/components/ui/CameraCapture.tsx
+  - frontend/src/utils/csv.ts
+  - backend/domain/printables.py
+  - backend/services/printables.py
+---
+
 # Navigation, the roster toolbar, forms, settings, themes, printables
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching `Navigation.tsx`, `RaceDetails.tsx`, `RaceForm.tsx`, `SystemSettings.tsx`, `theming/`, `features/printables/`, or photo cropping.

@@ -1,3 +1,15 @@
+---
+paths:
+  - backend/domain/displays.py
+  - backend/domain/display_names.py
+  - backend/domain/scenes.py
+  - backend/domain/intermission.py
+  - backend/services/displays.py
+  - frontend/src/features/observation/**
+  - frontend/src/features/racing/intermission.ts
+  - frontend/src/features/racing/components/IntermissionControl.tsx
+---
+
 # Audience displays
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching `domain/displays.py`, `services/displays.py`, `Observation.tsx`, or the Displays panel.

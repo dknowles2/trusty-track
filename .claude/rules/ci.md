@@ -1,3 +1,13 @@
+---
+paths:
+  - .github/**
+  - .pre-commit-config.yaml
+  - frontend/playwright.config.ts
+  - frontend/e2e/functional/**
+  - frontend/e2e/environment.ts
+  - packaging/build-mac.sh
+---
+
 # What CI checks, and the functional e2e specs
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching `.github/workflows/`, the release workflow, or `frontend/e2e/functional/`.
