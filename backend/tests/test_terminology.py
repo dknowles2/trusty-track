@@ -355,7 +355,7 @@ class TestBlankWordIsRefused:
 
         res = response.json()
         assert "errors" in res
-        assert "racing_group_singular cannot be blank" in str(res["errors"])
+        assert "Racing group singular cannot be blank." in str(res["errors"])
         db.refresh(race)
         assert race.racing_group_singular is None
 
@@ -391,7 +391,7 @@ class TestBlankWordIsRefused:
 
         res = response.json()
         assert "errors" in res
-        assert "racing_group_singular cannot be blank" in str(res["errors"])
+        assert "Racing group singular cannot be blank." in str(res["errors"])
         # Refused whole: no race was written, not a race with a blank word.
         assert (
             db.query(models.Race)
@@ -494,9 +494,54 @@ class TestBlankWordIsRefused:
 
         res = response.json()
         assert "errors" in res
+        # #1023: the sentence `schemas.InitialConfigCreate`'s validator
+        # wrote — the exact wrapper this mutation used to leak on the very
+        # first screen an operator ever sees, since `createInitialConfig`
+        # builds an `InitialConfigCreate` the same way every other resolver
+        # this issue touched builds its own schema object.
+        message = res["errors"][0]["message"]
+        assert message == "Organization singular cannot be blank."
+        assert "validation error for" not in message
+        assert "type=value_error" not in message
         # Refused before anything was written — no organization exists to
         # have picked up the blank word.
         assert crud.get_tracks(db) == []
+
+    def test_createinitialconfig_refuses_a_whitespace_word_too(self, client, db):
+        """A single space, not just `""` — the `<input required>` gap #905
+        found on `updateInitialConfig` exists on this mutation too, since it
+        goes through the identical validator on `InitialConfigCreate`.
+        """
+        db.query(models.Track).delete()
+        db.query(models.Organization).delete()
+        db.commit()
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation($config: InitialConfigInput!) {
+                    createInitialConfig(config: $config) { organizationName }
+                }
+                """,
+                "variables": {
+                    "config": {
+                        "organizationName": "Whitespace Word Pack",
+                        "racingGroupSingular": "   ",
+                        "tracks": [
+                            {"name": "Main Track", "laneCount": 4, "timerType": "FAKE"}
+                        ],
+                    }
+                },
+            },
+        )
+
+        res = response.json()
+        assert "errors" in res
+        message = res["errors"][0]["message"]
+        assert message == "Racing group singular cannot be blank."
+        assert crud.get_tracks(db) == []
+        assert db.query(models.Organization).count() == 0
 
     def test_updateinitialconfig_refuses_a_blank_organization_default(self, client, db):
         """The hole #704 was actually filed for: `updateInitialConfig` never
@@ -527,7 +572,7 @@ class TestBlankWordIsRefused:
 
         res = response.json()
         assert "errors" in res
-        assert "racing_group_plural cannot be blank" in str(res["errors"])
+        assert "racing group plural cannot be blank" in str(res["errors"])
         db.refresh(organization)
         assert organization.racing_group_plural is None
 

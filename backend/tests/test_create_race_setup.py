@@ -133,6 +133,102 @@ class TestRacingGroups:
         assert db.query(models.RacingGroup).count() == before
 
 
+class TestUnknownTrack:
+    """#1023: a `trackId` naming no track is refused with a sentence, not
+    the raw `sqlite3.IntegrityError` the `INSERT`'s own foreign key
+    constraint used to surface — reachable through a stale id (a track
+    deleted from another tab while the wizard was open) rather than the
+    ordinary form, which will not submit without a track.
+    """
+
+    def test_create_race_refuses_an_unknown_track(self, client, db):
+        organization_id, _track_id = _context(db)
+        before_races = db.query(models.Race).count()
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": CREATE,
+                "variables": {
+                    "race": {
+                        "name": "Stale Track Race",
+                        "organizationId": organization_id,
+                        "trackId": 999999,
+                    }
+                },
+            },
+        )
+
+        body = response.json()
+        assert "errors" in body
+        message = body["errors"][0]["message"]
+        assert message == "Cannot create a race: track 999999 does not exist."
+        assert "IntegrityError" not in message
+        assert "FOREIGN KEY" not in message
+        assert db.query(models.Race).count() == before_races
+
+    def test_create_race_with_an_unknown_track_creates_no_racing_groups_either(
+        self, client, db
+    ):
+        organization_id, _track_id = _context(db)
+        before_groups = db.query(models.RacingGroup).count()
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": CREATE,
+                "variables": {
+                    "race": {
+                        "name": "Stale Track Race",
+                        "organizationId": organization_id,
+                        "trackId": 999999,
+                        "racingGroups": [{"name": "Lion"}],
+                    }
+                },
+            },
+        )
+
+        assert "errors" in response.json()
+        assert db.query(models.RacingGroup).count() == before_groups
+
+    def test_create_race_with_a_real_track_is_unaffected(self, client, db):
+        """The existing path — a real track id — is untouched by the check."""
+        organization_id, track_id = _context(db)
+
+        created = _create(client, organization_id, track_id, name="Real Track Race")
+
+        assert created["id"] is not None
+
+    def test_update_race_refuses_an_unknown_track_too(self, client, db):
+        """`update_race`'s own `UPDATE` has the identical foreign key, so a
+        changed `trackId` naming no track needs the identical guard.
+        """
+        organization_id, track_id = _context(db)
+        created = _create(client, organization_id, track_id, name="Race To Retarget")
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation Update($id: Int!, $race: RaceUpdateInput!) {
+                    updateRace(id: $id, race: $race) { id trackId }
+                }
+                """,
+                "variables": {
+                    "id": created["id"],
+                    "race": {"trackId": 999999},
+                },
+            },
+        )
+
+        body = response.json()
+        assert "errors" in body
+        message = body["errors"][0]["message"]
+        assert message == "Cannot update race: track 999999 does not exist."
+        assert "IntegrityError" not in message
+        assert "FOREIGN KEY" not in message
+
+
 class TestTerminologyAtCreation:
     def test_the_override_is_stored_and_resolves_on_the_new_race(self, client, db):
         organization_id, track_id = _context(db)

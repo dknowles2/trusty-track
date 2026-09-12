@@ -411,7 +411,22 @@ def create_race(db: Session, race: schemas.RaceCreate) -> models.Race:
     racing group or award row is built from the same payload, so nothing
     downstream of the name is ever begun on a race that was going to be
     refused anyway.
+
+    `track_id` must name a track that exists ([#1023](https://github.com/dknowles2/trusty-track/issues/1023))
+    — the same rule `create_racer` follows for `race_id` (#819), one level
+    up. The setup wizard's own form will not submit without a track, so
+    this is reachable only through a stale id (a track deleted from another
+    tab while the wizard was open) or a hand-built call; left unchecked, the
+    `INSERT`'s own foreign key constraint refused it instead, and the
+    operator saw the raw `sqlite3.IntegrityError` — the SQL text and bound
+    parameters — as the GraphQL error message. Checked before the first
+    `flush()`, so a refused race creates no racing groups or awards either,
+    the same all-or-nothing shape the duplicate-name refusal above already
+    has.
     """
+    if db.query(models.Track).filter(models.Track.id == race.track_id).first() is None:
+        raise ValueError(f"Cannot create a race: track {race.track_id} does not exist.")
+
     race_data = race.model_dump()
     racing_groups = race_data.pop("racing_groups", [])
     award_copies = race_data.pop("awards", [])
@@ -486,12 +501,23 @@ def update_race(
 
     A rename to a name already in use is refused with a readable sentence
     (#748), the same as `create_race` above — see `_raise_race_name_conflict`.
+
+    A changed `track_id` naming no track has the same hole `create_race`
+    closed ([#1023](https://github.com/dknowles2/trusty-track/issues/1023)):
+    left to the `UPDATE`'s own foreign key constraint, the failure surfaced
+    as a raw `sqlite3.IntegrityError` rather than a sentence. `track_id` is
+    absent from most updates (absent means leave alone, same as every other
+    field here), so this only checks when the caller actually sent one.
     """
     db_race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not db_race:
         return None
 
     update_data = race_update.model_dump(exclude_unset=True)
+    if update_data.get("track_id") is not None:
+        track_id = update_data["track_id"]
+        if db.query(models.Track).filter(models.Track.id == track_id).first() is None:
+            raise ValueError(f"Cannot update race: track {track_id} does not exist.")
     for key, value in update_data.items():
         setattr(db_race, key, value)
     # Captured before the commit attempt: a failed commit expires every

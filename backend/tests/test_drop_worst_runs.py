@@ -192,6 +192,31 @@ class TestCreateRaceMutation:
         body = response.json()
         assert body["data"] is None
         assert "errors" in body
+        # #1023: the sentence the validator wrote, not Pydantic's wrapper.
+        message = body["errors"][0]["message"]
+        assert message == "The number of runs to drop cannot be negative."
+        assert "validation error for" not in message
+
+    def test_negative_is_refused_on_update_too(self, client, db: Session):
+        race = _seed(db)
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateRace(id: {race.id}, race: {{ dropWorstRuns: -2 }}) {{
+                        dropWorstRuns
+                    }}
+                }}
+                """
+            },
+        )
+        body = response.json()
+        assert "errors" in body
+        message = body["errors"][0]["message"]
+        assert message == "The number of runs to drop cannot be negative."
+        assert "validation error for" not in message
 
 
 class TestGetLeaderboardAppliesTheDrop:

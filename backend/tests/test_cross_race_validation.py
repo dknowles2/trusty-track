@@ -270,6 +270,17 @@ def test_create_racer_refuses_an_external_image_url(client, db):
     ).json()
 
     assert body.get("errors")
+    # #1023: the sentence the validator wrote, not Pydantic's own wrapper —
+    # and not `str.capitalize()`'s mangled version of it either
+    # ("Racer_image_url must be a path returned by uploadimage, not an
+    # external url."), which is what a naive fix would have shipped.
+    message = body["errors"][0]["message"]
+    assert message == (
+        "The racer's photo must be a path returned by uploadImage, not an external URL."
+    )
+    assert "validation error for" not in message
+    assert "uploadimage" not in message
+    assert "racer_image_url" not in message
     assert (
         db.query(models.Racer)
         .filter(models.Racer.race_id == race.id, models.Racer.last_name == "Comer")
@@ -295,6 +306,10 @@ def test_create_racer_refuses_a_protocol_relative_url(client, db):
     ).json()
 
     assert body.get("errors")
+    message = body["errors"][0]["message"]
+    assert message == (
+        "The car's photo must be a path returned by uploadImage, not an external URL."
+    )
 
 
 def test_create_racer_accepts_an_uploaded_photo_path(client, db):
