@@ -44,6 +44,14 @@ export const GET_RACE_DETAILS = gql`
       # terminology overrides above.
       nameDisplay
       resolvedNameDisplay
+      # A per-race override of the install-wide Display/Printables themes
+      # (#1081), null where this race inherits — the raw columns
+      # RaceForm's Appearance pickers read back, mirroring nameDisplay
+      # above. There is no resolved field selected here: the form's own
+      # preview resolves these against a separate install-themes query,
+      # the same way the settings page's own preview does.
+      displayTheme
+      printablesTheme
       # Whether the race is locked against further edits (#585) — gates the
       # roster toolbar and drives the "Locked" badge.
       isLocked
@@ -156,6 +164,17 @@ export const UPDATE_RACE = gql`
       # cached resolved value exactly as it found it.
       nameDisplay
       resolvedNameDisplay
+      # Same shape again, for the per-race Display/Printables theme
+      # override (#1081) — resolvedPrintablesTheme is selected here for
+      # the identical cache reason resolvedNameDisplay is: a printables
+      # page holding this race in the normalized cache needs its cached
+      # resolved theme refreshed by this same mutation, not left stale
+      # until a reload. There is no resolvedDisplayTheme field to select
+      # — the one real consumer of a race's resolved Display theme is the
+      # displayAssignment subscription, not a GraphQL query.
+      displayTheme
+      printablesTheme
+      resolvedPrintablesTheme
       # The raw override columns above are what the form edits;
       # terminology is the resolved value RaceTerminologyGate reads
       # (#496 stage 4, issue #531). Without it, graphcache writes the raw

@@ -10,21 +10,22 @@ name at the top of the page — or, without going there first, from **Edit
 race** in a race row's **⋯** menu on Home, or from the **Edit race** button on
 Race Control. All three open the same form.
 
-**The edit form is in five sections**, listed down its left: **Event**,
-**Scoring**, **Check-in**, **Words and names** and **Displays**. Pick the one
-holding the setting you came for; **Save Changes** saves every section at
-once, whichever is up. If something in a section that is not on screen would
-stop the save — a blank name, say — the form switches to that section and
-says what is wrong, rather than refusing over a field you cannot see. The
-**+ Create New Race** form is the same fields on one page under the same
-headings, since the first time through you are filling everything in
-anyway — it is the last step of the setup wizard, described next. Two of the
-five sections hold nothing on that first page, and are absent from it rather
-than showing as an empty heading: **Words and names**, because both its
-controls override an install-wide default that has nothing to override until
-the race exists; and **Displays**, because the QR code headline and Wi-Fi
-guidance it holds serve one audience-display view most races never assign,
-and the day you create a race is not the day to be asked about it.
+**The edit form is in six sections**, listed down its left: **Event**,
+**Scoring**, **Check-in**, **Words and names**, **Appearance** and
+**Displays**. Pick the one holding the setting you came for; **Save
+Changes** saves every section at once, whichever is up. If something in a
+section that is not on screen would stop the save — a blank name, say — the
+form switches to that section and says what is wrong, rather than refusing
+over a field you cannot see. The **+ Create New Race** form is the same
+fields on one page under the same headings, since the first time through
+you are filling everything in anyway — it is the last step of the setup
+wizard, described next. Three of the six sections hold nothing on that
+first page, and are absent from it rather than showing as an empty heading:
+**Words and names** and **Appearance**, because both override an
+install-wide default that has nothing to override until the race exists;
+and **Displays**, because the QR code headline and Wi-Fi guidance it holds
+serve one audience-display view most races never assign, and the day you
+create a race is not the day to be asked about it.
 
 ## Creating a race: the setup wizard
 
@@ -151,6 +152,26 @@ exists.
 
 **Auto-advance**, on the race screen itself, is also remembered per race:
 when on, the screen moves to the next heat ten seconds after results land.
+
+### Appearance
+
+The look of the wall display and printed documents for this race. Neither
+picker is offered until the race is created — both override an install-wide
+default, and there is nothing to override until the race exists.
+
+| Field | What it does |
+| --- | --- |
+| **Display theme** | Overrides System Settings' own Display theme for this race's wall screens and projector — see [Themes](themes.md#three-screens-three-choices) |
+| **Printables theme** | Overrides System Settings' own Printables theme for this race's pit passes, licences, heat sheets and certificates — see [Themes](themes.md#three-screens-three-choices) |
+
+"Use the install's setting" keeps this race following whatever System
+Settings is set to, including a later change — that is the default for a
+race with no opinion of its own. Picking one of the seven themes, including
+"Field Uniform (default)," pins this race to it regardless of what the
+install does afterwards. A preview underneath both pickers shows the
+resolved look — the race's own choice if it has one, otherwise the
+install's current setting. The App theme has no row here at all: it stays
+per device, and travels with neither the race nor the install.
 
 ### Displays
 

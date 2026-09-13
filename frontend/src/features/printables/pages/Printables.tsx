@@ -167,7 +167,7 @@ export default function Printables() {
     const sheets = sheetCount(cards.length, spec);
 
     return (
-        <div className="printables-page" {...printablesThemeRootProps(data?.initialConfig?.printablesTheme)}>
+        <div className="printables-page" {...printablesThemeRootProps(data?.race?.resolvedPrintablesTheme)}>
             <div className="printables-controls no-print">
                 <div>
                     <Link

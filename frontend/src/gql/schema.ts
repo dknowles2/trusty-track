@@ -1175,6 +1175,7 @@ export type Race = {
   championshipTrophies: Scalars['Int']['output'];
   checkedInCount: Scalars['Int']['output'];
   dateTime?: Maybe<Scalars['String']['output']>;
+  displayTheme?: Maybe<Scalars['String']['output']>;
   dropWorstRuns: Scalars['Int']['output'];
   excludeRoundWinnersFromQualifyingStandings: Scalars['Boolean']['output'];
   globalStartNumber: Scalars['Int']['output'];
@@ -1192,6 +1193,7 @@ export type Race = {
   organizationId: Scalars['Int']['output'];
   organizationPlural?: Maybe<Scalars['String']['output']>;
   organizationSingular?: Maybe<Scalars['String']['output']>;
+  printablesTheme?: Maybe<Scalars['String']['output']>;
   qrHeadline?: Maybe<Scalars['String']['output']>;
   qrWifiNote?: Maybe<Scalars['String']['output']>;
   racers: Array<Racer>;
@@ -1200,6 +1202,7 @@ export type Race = {
   racingGroups: Array<RacingGroup>;
   registeredCount: Scalars['Int']['output'];
   resolvedNameDisplay: Scalars['String']['output'];
+  resolvedPrintablesTheme: Scalars['String']['output'];
   rounds: Array<Round>;
   runOffHeats: Array<RunOffHeat>;
   scheduledRacerIds: Array<Scalars['Int']['output']>;
@@ -1287,10 +1290,13 @@ export type RaceUpdateInput = {
   autoAdvanceHeat?: InputMaybe<Scalars['Boolean']['input']>;
   carNumberingStrategy?: InputMaybe<Scalars['String']['input']>;
   championshipTrophies?: InputMaybe<Scalars['Int']['input']>;
+  clearDisplayTheme?: Scalars['Boolean']['input'];
   clearNameDisplay?: Scalars['Boolean']['input'];
+  clearPrintablesTheme?: Scalars['Boolean']['input'];
   clearTerminology?: Scalars['Boolean']['input'];
   clearWeightLimit?: Scalars['Boolean']['input'];
   dateTime?: InputMaybe<Scalars['String']['input']>;
+  displayTheme?: InputMaybe<Scalars['String']['input']>;
   dropWorstRuns?: InputMaybe<Scalars['Int']['input']>;
   excludeRoundWinnersFromQualifyingStandings?: InputMaybe<Scalars['Boolean']['input']>;
   globalStartNumber?: InputMaybe<Scalars['Int']['input']>;
@@ -1302,6 +1308,7 @@ export type RaceUpdateInput = {
   oneTrophyPerRacer?: InputMaybe<Scalars['Boolean']['input']>;
   organizationPlural?: InputMaybe<Scalars['String']['input']>;
   organizationSingular?: InputMaybe<Scalars['String']['input']>;
+  printablesTheme?: InputMaybe<Scalars['String']['input']>;
   qrHeadline?: InputMaybe<Scalars['String']['input']>;
   qrWifiNote?: InputMaybe<Scalars['String']['input']>;
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;

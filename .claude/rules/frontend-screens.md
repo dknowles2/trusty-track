@@ -85,8 +85,12 @@ is how the event runs on that track); *Scoring* (method, drop worst, ties,
 championship trophies, the Grand Finals exclusion, one trophy per racer —
 all three of the last are "who wins"); *Check-in* (numbering, the weight
 check); *Words and names* (the terminology and name-display overrides —
-both about what strangers read). The blurbs deliberately name no built-in
-vocabulary, since the last section exists so a race can replace it.
+both about what strangers read); *Appearance* (the per-race Display/
+Printables theme override, #1081 — sibling to *Words and names* rather than
+to *Displays* below it: both are about what a stranger at the event
+encounters, where *Displays* is one specific view's own call-to-action
+text). The blurbs deliberately name no built-in vocabulary, since the
+*Words and names* section exists so a race can replace it.
 
 **The create form is the wizard case and is flat**, exactly as the first run
 of System Settings is: `sectionsFor(false)` returns nothing and the form
@@ -116,9 +120,11 @@ check ever runs.
 and "Timer & Hardware" tabs describe track settings, which are per track in
 System Settings — shared hardware in the room, not a race fact (#171's
 reasoning) — so the race form only picks a track and says where the rest
-lives. Its "Displays & Media" tab names a display theme (per install, in
-System Settings → Appearance) and header text and sponsor images, which do
-not exist. Its discoverability items — a one-click route from Race Control
+lives. Its "Displays & Media" tab names a display theme — per install by
+default, in System Settings → Appearance, and now overridable per race in
+this form's own *Appearance* section (#1081) — and header text and sponsor
+images, and the latter two still do not exist. Its discoverability items — a
+one-click route from Race Control
 and an explicit action on Home's race table — had already landed in #589.
 
 ### The settings page is sectioned, except the first time
@@ -350,6 +356,36 @@ operator's own list (see "Telling an audience display what to show" in
 display to set the same theme on each defeats the point. The App theme is
 `localStorage` only (`trustytrack.appTheme`, same shape as the PIN and the
 finish chime) and is never sent to the server.
+
+**A race can override Display/Printables for itself, on top of the
+install-wide pair above** ([#1081](https://github.com/dknowles2/trusty-track/issues/1081)),
+mirroring the layering `domain/terminology.py` and `domain/name_display.py`
+already give their own two scopes. `Race.display_theme`/`printables_theme`
+are nullable `varchar` columns — null means "inherit the install's
+setting", any other string (including `"MATCH_APP"`, a real choice here,
+not the inherit state) is a real per-race override — resolved by
+`domain.theme.resolve_theme_setting(organization_setting, race_override)`,
+the one pure function both call sites share. `RaceForm`'s Appearance section
+(beside *Words and names*, not beside *Displays* — see "The race form is
+sectioned" above) reuses `ThemePicker` with a new `inheritOption` prop: a
+third control ahead of even "Field Uniform (default)", since a race's
+"inherit" state is not expressible as any `ThemeKey`/`MATCH_APP` value the
+picker's own `value`/`onChange` already carry. **Publishing is race-scoped,
+not install-wide** — `updateRace` nudges `_publish_race_display_theme_change`
+(only the displays `DisplayRegistry.for_race` says are pointed at *this*
+race), the sibling of `_broadcast_display_theme_change` above rather than a
+call to it; a race's own change must not repaint a display sitting on a
+different race. Printables reads the identical resolved value through
+`Race.resolvedPrintablesTheme`, a GraphQL field the four print pages select
+instead of `initialConfig.printablesTheme` (the install-only value they used
+before this existed) — there is no `resolvedDisplayTheme` field, since the
+one real consumer of a race's resolved Display theme is the
+`displayAssignment` subscription's `_display_theme_setting`, which resolves
+directly against the database rather than through a query. Not on the
+create form: both pickers are update-only, the same shape the terminology
+and name-display overrides already take, since a race being created has
+nothing yet to override. Since `updateRace` is allowed on the demo, this
+incidentally gives a demo visitor per-race theme control too.
 
 **No clear flag, unlike the PIN or the weight limit — because there is no
 bare-null state to disambiguate.** `setThemes(displayTheme, printablesTheme)`

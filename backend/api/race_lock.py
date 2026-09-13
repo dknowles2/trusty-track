@@ -368,6 +368,8 @@ _CLEAR_FLAG_TARGETS: dict[str, tuple[str, ...]] = {
         "vehicle_artwork_key",
     ),
     "clear_name_display": ("name_display",),
+    "clear_display_theme": ("display_theme",),
+    "clear_printables_theme": ("printables_theme",),
 }
 
 
