@@ -33,6 +33,25 @@ export function regenerateRoundConfirmMessage(roundName: string): string {
 }
 
 /**
+ * Re-Run's own wording (#1083), used by `RaceControl.tsx`'s `handleRunHeat`
+ * whenever the heat being re-run holds a recorded time or place —
+ * `hasTimes`, not `hasRun`: a heat that was only ever skipped has nothing to
+ * lose, and the button reads "Run" rather than "Re-Run" for exactly that
+ * case, so it never reaches this message.
+ *
+ * Names the heat number, so a dialog left open while the operator's own
+ * selection moves elsewhere is visibly stale rather than silently acting on
+ * whatever heat the click landed on, and how many lanes hold a result, so
+ * the size of the clear is not a surprise.
+ */
+export function reRunHeatConfirmMessage(heatNumber: number, resultCount: number): string {
+  const lanesPhrase = resultCount === 1
+    ? 'the recorded result for its 1 lane'
+    : `the recorded results for its ${resultCount} lanes`;
+  return `Re-run Heat ${heatNumber}? This clears ${lanesPhrase}. The cars will race again and the standings will update.`;
+}
+
+/**
  * Whether regenerating this round would discard something the operator did
  * on purpose, so the confirmation can be skipped when it would not.
  *

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { executionComparator, type OrderedHeat } from './runningOrder';
+import { executionComparator, isUnfinished, type OrderedHeat } from './runningOrder';
+import type { Lane } from './types';
 
 /**
  * The frontend copy of `backend/domain/running_order.execution_sort_key`.
@@ -67,5 +68,50 @@ describe('executionComparator', () => {
     const colliding = [heat(2, 2, 1), heat(1, 1, 1), heat(2, 2, 2), heat(1, 1, 2)];
     const sorted = [...colliding].sort(executionComparator(true, new Set()));
     expect(sorted).toEqual([heat(1, 1, 1), heat(2, 2, 1), heat(1, 1, 2), heat(2, 2, 2)]);
+  });
+});
+
+/**
+ * `isUnfinished`, the client mirror of `_unfinished` in
+ * `backend/api/schema.py` (~L105), which wraps `domain.lanes.is_finished` —
+ * "any lane has a result, or is skipped" — for the `onDeck` and
+ * `currentlyRacing` subscriptions (#1084). Every case here has a matching
+ * one in `backend/tests/test_query_counts.py`'s neighbourhood or
+ * `test_on_deck` — see that file's own re-run case for the cross-reference
+ * the other direction.
+ */
+describe('isUnfinished', () => {
+  const lane = (over: Partial<Lane> = {}): Lane => ({
+    lane: 1,
+    racerId: 1,
+    placeholderSlot: null,
+    time: null,
+    place: null,
+    skipped: false,
+    ...over,
+  });
+
+  it('is unfinished when no lane has run', () => {
+    expect(isUnfinished({ lanes: [lane(), lane({ lane: 2 })] })).toBe(true);
+  });
+
+  it('is unfinished when there are no lanes at all', () => {
+    expect(isUnfinished({ lanes: [] })).toBe(true);
+  });
+
+  it('is finished once any lane holds a time', () => {
+    expect(isUnfinished({ lanes: [lane({ time: 3.5 })] })).toBe(false);
+  });
+
+  it('is finished once any lane holds a hand-entered place with no time (#490)', () => {
+    expect(isUnfinished({ lanes: [lane({ place: 1 })] })).toBe(false);
+  });
+
+  it('is finished by a skipped lane even with nothing recorded (#1001) — the same rule as the backend, not the looser has_results one', () => {
+    expect(isUnfinished({ lanes: [lane({ skipped: true })] })).toBe(false);
+  });
+
+  it('is finished if only one of several lanes ran', () => {
+    expect(isUnfinished({ lanes: [lane({ time: 3.5 }), lane({ lane: 2 })] })).toBe(false);
   });
 });
