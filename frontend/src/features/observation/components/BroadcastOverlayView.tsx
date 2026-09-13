@@ -176,7 +176,12 @@ export default function BroadcastOverlayView({
                         background: SCRIM,
                         color: SCRIM_TEXT,
                         textShadow: TEXT_SHADOW,
-                        fontSize: '1.7vmin',
+                        // Never below 2vmin (#1073's legibility floor is
+                        // exactly 2% of viewport height, which every
+                        // supported viewport is landscape enough for
+                        // `vmin` to equal) — every name and time in this
+                        // ticker inherits this container's own font-size.
+                        fontSize: '2.2vmin',
                         maxWidth: '92vw',
                         overflow: 'hidden',
                     }}
@@ -332,15 +337,20 @@ export default function BroadcastOverlayView({
                             <div key={lane} style={{ display: 'flex', alignItems: 'center', gap: '0.8vmin' }}>
                                 <LaneBadge
                                     color={colorForLane(laneColors, lane)}
-                                    style={{ fontSize: '1.5vmin', color: SCRIM_TEXT_MUTED }}
+                                    style={{ fontSize: '2vmin', color: SCRIM_TEXT_MUTED }}
                                 >
                                     {lane}
                                 </LaneBadge>
-                                <span style={{ fontSize: '1.9vmin', fontWeight: 'bold' }}>
+                                {/* Never below 2vmin (#1073's own legibility
+                                    floor) — a name and a car number are both
+                                    things it exists to protect, on a lower
+                                    third a viewer joining mid-stream reads
+                                    with no other context. */}
+                                <span style={{ fontSize: '2.2vmin', fontWeight: 'bold' }}>
                                     {formatDisplayName(nameDisplay, racer.firstName, racer.lastName)}
                                 </span>
                                 {racer.carNumber != null && (
-                                    <span style={{ fontSize: '1.5vmin', color: SCRIM_TEXT_MUTED }}>
+                                    <span style={{ fontSize: '2vmin', color: SCRIM_TEXT_MUTED }}>
                                         {vehicle} #{racer.carNumber}
                                     </span>
                                 )}
