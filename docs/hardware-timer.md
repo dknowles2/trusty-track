@@ -97,10 +97,12 @@ If you have more than one track, **Settings → Tracks** has a **Check this
 timer** link at the foot of each track's card, which takes you straight to that
 track's panel.
 
-A **← Back to _your race_** link sits top-left if you came here from one —
-one click returns you to it rather than the pill's dropdown or the browser's
-Back button. Arrive with no race in view (from Home, or Settings itself) and
-it reads **← Back to settings** instead.
+A link sits top-left to take you back where you came from. Reach this page
+from **Settings** — the nav link, or a track's own **Check this timer**
+link — and it reads **← Back to settings**, one click back to the page you
+were on. Reach it instead from a race's own "Not ready to race yet" panel
+(its **Check it** link next to the timer row) and it reads **← Back to
+_your race_**, returning you to that race rather than to Settings.
 
 ![The timer check page with a healthy timer: Ready in green, the identified device, its provenance note, the test panel, and the serial traffic beneath](assets/screenshots/timers/02-timer-check-ready.png)
 _A healthy timer: **Ready**, the device it identified itself as, and — in the yellow note — how well that device's support has actually been tested._

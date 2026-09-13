@@ -688,9 +688,18 @@ const TimerDiagnostics: React.FC = () => {
         document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' });
     }, [hash, tracks.length]);
 
+    // A `#timer-<id>` hash means this was opened from a track's own card in
+    // Settings' Tracks section (`TrackCard.tsx`) — land back there rather
+    // than on General, which is what a plain `/system-settings` reopens to
+    // (#1077). The two nav links into this page carry no hash and get the
+    // section-less destination they always have.
+    const backDestination = hash.startsWith('#timer-')
+        ? { to: '/system-settings?section=tracks', label: 'Back to settings' }
+        : { to: '/system-settings', label: 'Back to settings' };
+
     return (
         <div style={{ padding: '1.5rem', maxWidth: '820px', margin: '0 auto' }}>
-            <BackLink fallback={{ to: '/system-settings', label: 'Back to settings' }} />
+            <BackLink destination={backDestination} />
             <h1 style={{ marginTop: 0 }}>Timer check</h1>
             <p style={{ color: 'var(--text-strong-muted-color)' }}>
                 Live view of every track's timer. Use this before the event to confirm the timer is
