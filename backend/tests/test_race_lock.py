@@ -59,6 +59,38 @@ def test_every_locked_mutation_exists():
     )
 
 
+def _race_update_input_fields() -> set[str]:
+    """Every field `RaceUpdateInput` declares, read from the SDL and
+    converted back to `snake_case` — the same derivation `_mutation_names`
+    above uses for the `Mutation` type, applied instead to the input
+    `updateRace`'s lock check is compared against."""
+    body = schema.as_str().split("input RaceUpdateInput {", 1)[1].split("\n}", 1)[0]
+    names = set()
+    for line in body.splitlines():
+        line = line.strip()
+        if not line or line.startswith(('"', "#")):
+            continue
+        names.add(race_lock._snake(line.split(":", 1)[0].strip()))
+    return names
+
+
+def test_every_clear_flag_the_mutation_declares_is_a_clear_flag_target():
+    """The direction that actually caught #1121's own gap: every
+    `RaceUpdateInput` field named like a clear flag (`clear_weight_limit`,
+    `clear_display_theme`, ...) has to be a key in `_CLEAR_FLAG_TARGETS`, or
+    `is_lock_only_update` cannot recognise it and a locked race's own
+    unlock-only resend is wrongly refused the moment a form starts sending
+    it — which is exactly what shipped, briefly, until the ad hoc tests on
+    #1121's own PR caught it by hand. `test_every_locked_mutation_exists`
+    above checks the opposite direction (a stale entry naming a mutation
+    gone from the schema) because a mutation this module has not heard of
+    yet is harmless; a clear flag this dict has not heard of yet is not."""
+    clear_flags = {
+        name for name in _race_update_input_fields() if name.startswith("clear_")
+    }
+    assert clear_flags <= set(race_lock._CLEAR_FLAG_TARGETS)
+
+
 def test_the_lock_leaves_reads_and_display_and_voting_mutations_alone():
     """The allowed-while-locked mutations named in `race_lock`'s own module
     docstring — none of them belongs in the denylist."""
@@ -637,6 +669,148 @@ def test_a_locked_races_other_fields_are_refused_even_alongside_the_unlock(
     db.expire_all()
     stored = db.get(models.Race, race.id)
     assert stored.name == "Lock Derby"
+    assert stored.is_locked is True
+
+
+def _full_resend(race: models.Race, **overrides: object) -> dict:
+    """The same whole-race payload `RaceForm` sends on every save — the
+    fields `test_unlocking_works_when_the_form_resends_every_field_unchanged`
+    lists by hand, factored out so the theme-flag tests below can each layer
+    one field on top without repeating the other dozen unchanged ones a
+    fourth and fifth time."""
+    return {
+        "name": race.name,
+        "trackId": race.track_id,
+        "scoringStrategy": race.scoring_strategy.value,
+        "tiebreaker": race.tiebreaker.value,
+        "dropWorstRuns": race.drop_worst_runs,
+        "carNumberingStrategy": race.car_numbering_strategy.value,
+        "globalStartNumber": race.global_start_number,
+        "championshipTrophies": race.championship_trophies,
+        "masterRunningOrder": race.master_running_order,
+        "excludeRoundWinnersFromQualifyingStandings": (
+            race.exclude_round_winners_from_qualifying_standings
+        ),
+        "clearWeightLimit": race.weight_limit_oz is None,
+        "clearTerminology": race.racing_group_singular is None,
+        "clearNameDisplay": race.name_display is None,
+        **overrides,
+    }
+
+
+def test_unlocking_works_alongside_clearing_themes_already_null(client, db, race):
+    """#1121 added `clearDisplayTheme`/`clearPrintablesTheme` to `updateRace`,
+    and `RaceForm` sends both as `true` on every save of a race with no
+    override of its own (see `update_race`'s own comment on why it compares
+    stored values rather than trusting the flag) — so a race that has never
+    set either theme sends this exact payload on the ordinary unlock save,
+    not just on an edge case. #1123 is that no test pinned it directly."""
+    assert race.display_theme is None
+    assert race.printables_theme is None
+    _lock(db, race)
+
+    body = _post(
+        client,
+        UPDATE_RACE,
+        {
+            "id": race.id,
+            "race": _full_resend(
+                race,
+                isLocked=False,
+                clearDisplayTheme=True,
+                clearPrintablesTheme=True,
+            ),
+        },
+    ).json()
+
+    assert not body.get("errors"), body.get("errors")
+    db.expire_all()
+    stored = db.get(models.Race, race.id)
+    assert stored.is_locked is False
+    assert stored.display_theme is None
+    assert stored.printables_theme is None
+
+
+def test_clearing_a_set_display_theme_is_refused_even_alongside_the_unlock(
+    client, db, race
+):
+    """A locked race whose `display_theme` is already a real override —
+    clearing it is a genuine change to the record, the same as the rename in
+    `test_a_locked_races_other_fields_are_refused_even_alongside_the_unlock`,
+    just reached through a clear flag instead of an ordinary field."""
+    race.display_theme = "old-glory"
+    db.commit()
+    _lock(db, race)
+
+    body = _post(
+        client,
+        UPDATE_RACE,
+        {
+            "id": race.id,
+            "race": _full_resend(race, isLocked=False, clearDisplayTheme=True),
+        },
+    ).json()
+
+    assert body.get("errors")
+    assert race_lock.LOCK_MESSAGE in body["errors"][0]["message"]
+    db.expire_all()
+    stored = db.get(models.Race, race.id)
+    assert stored.display_theme == "old-glory"
+    assert stored.is_locked is True
+
+
+def test_setting_a_different_display_theme_is_refused_even_alongside_the_unlock(
+    client, db, race
+):
+    """Setting `displayTheme` to a real, different key is a genuine change
+    whether or not any clear flag is involved — `display_theme` itself, not
+    only `clear_display_theme`, has to be compared against the race's
+    current stored value."""
+    assert race.display_theme is None
+    _lock(db, race)
+
+    body = _post(
+        client,
+        UPDATE_RACE,
+        {
+            "id": race.id,
+            "race": _full_resend(race, isLocked=False, displayTheme="under-the-lights"),
+        },
+    ).json()
+
+    assert body.get("errors")
+    assert race_lock.LOCK_MESSAGE in body["errors"][0]["message"]
+    db.expire_all()
+    stored = db.get(models.Race, race.id)
+    assert stored.display_theme is None
+    assert stored.is_locked is True
+
+
+def test_clearing_a_set_printables_theme_is_refused_even_alongside_the_unlock(
+    client, db, race
+):
+    """Same as
+    `test_clearing_a_set_display_theme_is_refused_even_alongside_the_unlock`,
+    for the printables column — the two clear flags are independent entries
+    in `_CLEAR_FLAG_TARGETS` and each wants its own coverage."""
+    race.printables_theme = "old-glory"
+    db.commit()
+    _lock(db, race)
+
+    body = _post(
+        client,
+        UPDATE_RACE,
+        {
+            "id": race.id,
+            "race": _full_resend(race, isLocked=False, clearPrintablesTheme=True),
+        },
+    ).json()
+
+    assert body.get("errors")
+    assert race_lock.LOCK_MESSAGE in body["errors"][0]["message"]
+    db.expire_all()
+    stored = db.get(models.Race, race.id)
+    assert stored.printables_theme == "old-glory"
     assert stored.is_locked is True
 
 
