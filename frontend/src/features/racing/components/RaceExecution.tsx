@@ -13,11 +13,11 @@ import { INTERMISSION_PRESETS } from '../intermission';
 import { heatsEstimate } from '../../../utils/duration';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { estimatedFinishTime, formatClockTime, paceLabel, type PaceEstimate } from '../pace';
-import RacerAvatar from '../../management/components/RacerAvatar';
+import LaneAvatar from './LaneAvatar';
 import LaneBadge from '../../../components/ui/LaneBadge';
 import { colorForLane } from '../../settings/laneColors';
 import { Icon } from '@mdi/react';
-import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange, mdiPlay } from '@mdi/js';
+import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange, mdiPlay, mdiVolumeHigh, mdiVolumeOff } from '@mdi/js';
 
 // These types are derived from the generated GraphQL operation types in
 // ../types. They are re-exported here because several components already
@@ -32,7 +32,7 @@ export type {
 import type { Heat, Racer, AdvancementStatus, LaneInput, Lane, LiveLane } from '../types';
 import type { HeatPhase } from '../../../gql/operations';
 import { formatLaneTime, hasRun, hasTimes, isLaneEmpty, isTimeBasedStrategy, toInput, placeIssue, timeIssue, parseTimeText, tiedTimeGroups } from '../lanes';
-import { chimeEnabled, setChimeEnabled, shouldChime } from '../chime';
+import { chimeEnabled } from '../chime';
 import {
     playFinishSound,
     playGateReleaseSound,
@@ -41,7 +41,6 @@ import {
     shouldFinishSound,
     shouldGateReleaseSound,
     shouldStagingReadySound,
-    writeSoundSettings,
     type SoundEffectsSettings,
 } from '../../audio/soundEffects';
 import SoundSettingsSection from '../../audio/components/SoundSettingsSection';
@@ -52,6 +51,7 @@ import { errorText } from '../../../utils/errors';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { advancingFromLabel, skippedHeatWarning } from '../roundSummaryText';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
+import { readLanePhotoPreference, writeLanePhotoPreference, type LanePhotoPreference } from '../lanePhoto';
 
 /**
  * A lane being edited by hand. `time` is held as text while the operator types
@@ -394,7 +394,6 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     // transitions trigger audio only when crossing the boundary, never on
     // render or page reload.
     const [soundSettings, setSoundSettings] = useState<SoundEffectsSettings>(() => readSoundSettings(window.localStorage));
-    const [chimeOn, setChimeOn] = useState(() => chimeEnabled(window.localStorage));
     const [isSoundModalOpen, setIsSoundModalOpen] = useState(false);
     const previousPhase = useRef<HeatPhase | null>(null);
 
@@ -407,11 +406,32 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             } else if (soundSettings.stagingReady && shouldStagingReadySound(previousPhase.current, phase)) {
                 playStagingReadySound();
             }
-        } else if (chimeOn && shouldChime(previousPhase.current, phase)) {
+        } else if (chimeEnabled(window.localStorage) && shouldFinishSound(previousPhase.current, phase)) {
+            // The standalone "Finish sound" checkbox is gone (#1074) — Sound
+            // options is the one control now — but this legacy flag is the
+            // one thing that checkbox ever wrote on its own (`master` was
+            // deliberately untouched, #871), so a device that had it checked
+            // before this change keeps chiming without the operator needing
+            // to visit Sound options at all. Read-only from here: nothing in
+            // this component writes it any more, only the panel's own "Heat
+            // Finish" row does, keeping it in sync with `finish` exactly as
+            // before.
             playFinishSound();
         }
         previousPhase.current = phase;
-    }, [phase, soundSettings, chimeOn]);
+    }, [phase, soundSettings]);
+
+    // Which picture a lane shows: the racer's own portrait or the car photo
+    // (#1075), per device — like the sound settings above. Read once on
+    // mount; the header's own toggle below keeps this in step while the
+    // screen is open.
+    const [lanePhotoPreference, setLanePhotoPreferenceState] = useState<LanePhotoPreference>(
+        () => readLanePhotoPreference(window.localStorage),
+    );
+    const setLanePhotoPreference = (preference: LanePhotoPreference) => {
+        writeLanePhotoPreference(window.localStorage, preference);
+        setLanePhotoPreferenceState(preference);
+    };
 
 
     const isRoundSummaryOpen = flow.screen.kind === 'ROUND_SUMMARY';
@@ -867,21 +887,29 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     <>
                                         {/* On a track with no timer, arming never happens (#490) — this
                                             is the only control that records a result, so it takes the
-                                            primary spot rather than sitting secondary to an "Override"
-                                            of something that was never going to run automatically. */}
+                                            primary spot and keeps its keyboard hint, the same as
+                                            Next Heat's — an operator uses it every heat, and its key is
+                                            worth teaching.
+                                            On a track with a timer, this same handler is "Override" —
+                                            a false trip, a car that jumped a lane, a missed finish — an
+                                            exception rather than a heat's ordinary path to a result, so
+                                            it reads as a text link rather than a button and carries no
+                                            inline hint; the shortcut still works, named in the `title`
+                                            instead (#1074). */}
                                         <button
                                             onClick={handleEditOpen}
-                                            className={hasTimer ? 'secondary-btn' : 'primary-btn'}
+                                            className={hasTimer ? undefined : 'primary-btn'}
                                             disabled={raceLocked}
-                                            title={raceLocked ? lockedTitle : undefined}
+                                            title={raceLocked ? lockedTitle : hasTimer ? `Override this heat's result — for a false trip, a missed finish, or a lane mix-up (press ${SHORTCUT_HINTS.EDIT})` : undefined}
                                             style={hasTimer ? {
-                                                padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px'
+                                                padding: '6px 4px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: 'var(--text-muted-color)', textDecoration: 'underline', cursor: 'pointer', height: '36px'
                                             } : {
                                                 padding: '6px 14px', fontSize: '0.9rem', background: 'var(--cub-scouting-gold)', color: 'var(--text-emphasis-color)', border: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px'
                                             }}
                                         >
-                                            <Icon path={mdiPencil} size={0.7} /> {hasTimer ? 'Override' : 'Enter Results'}
-                                            <kbd style={KBD_STYLE}>{SHORTCUT_HINTS.EDIT}</kbd>
+                                            {!hasTimer && <Icon path={mdiPencil} size={0.7} />}
+                                            {hasTimer ? 'Override' : 'Enter Results'}
+                                            {!hasTimer && <kbd style={KBD_STYLE}>{SHORTCUT_HINTS.EDIT}</kbd>}
                                         </button>
                                         <button
                                             onClick={handleSkipHeat}
@@ -896,48 +924,56 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 )}
                             </div>
 
-                            {/* BOTTOM RIGHT: sound, then auto-advance */}
+                            {/* BOTTOM RIGHT: lane photo, sound, then auto-advance */}
                             <div className="race-execution-controls-right" style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-                            {/* The finish chime (#208). Off until somebody asks
-                                for it, and remembered per device — the
-                                operator's laptop wants it, a wall display does
-                                not. */}
-                            <label
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', color: 'var(--text-strong-muted-color)', cursor: 'pointer', userSelect: 'none' }}
-                                title="Play a short sound when a heat's results are recorded."
-                            >
-                                <input
-                                    type="checkbox"
-                                    data-testid="finish-chime-toggle"
-                                    checked={chimeOn}
-                                    onChange={(e) => {
-                                        const nextChime = e.target.checked;
-                                        setChimeEnabled(window.localStorage, nextChime);
-                                        setChimeOn(nextChime);
-                                        const current = readSoundSettings(window.localStorage);
-                                        const updated: SoundEffectsSettings = {
-                                            ...current,
-                                            finish: nextChime,
-                                        };
-                                        writeSoundSettings(window.localStorage, updated);
-                                        setSoundSettings(updated);
-                                        // Played on the way on, never on the way
-                                        // off: it is the only way to find out
-                                        // whether the machine's sound is muted
-                                        // without waiting for a heat to finish.
-                                        if (nextChime) playFinishSound();
-                                    }}
-                                />
-                                Finish sound
+                            {/* Which picture a lane shows (#1075) — per
+                                device, like sound. Car by default: this
+                                screen's main reader is the operator pulling
+                                cars out of parc fermé, not the announcer. */}
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                <span style={{ fontSize: '0.9rem', color: 'var(--text-strong-muted-color)', userSelect: 'none' }}>
+                                    Show {vehiclesLower} photos
+                                </span>
+                                <span style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
+                                    <input
+                                        type="checkbox"
+                                        data-testid="lane-photo-toggle"
+                                        aria-label={`Show ${vehiclesLower} photos`}
+                                        checked={lanePhotoPreference === 'car'}
+                                        onChange={(e) => setLanePhotoPreference(e.target.checked ? 'car' : 'portrait')}
+                                        style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
+                                    />
+                                    <div style={{
+                                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                        background: lanePhotoPreference === 'car' ? 'var(--scouting-blue)' : 'var(--input-border-color)',
+                                        borderRadius: '24px',
+                                        transition: 'background 0.2s',
+                                    }} />
+                                    <div style={{
+                                        position: 'absolute',
+                                        height: '18px', width: '18px',
+                                        left: lanePhotoPreference === 'car' ? '23px' : '3px',
+                                        bottom: '3px',
+                                        background: 'var(--surface-color)',
+                                        borderRadius: '50%',
+                                        transition: 'left 0.2s',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                                    }} />
+                                </span>
                             </label>
                             <button
                                 type="button"
                                 className="btn btn-secondary btn-sm"
-                                style={{ fontSize: '0.8rem', padding: '2px 8px' }}
+                                style={{ fontSize: '0.8rem', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '5px' }}
                                 onClick={() => setIsSoundModalOpen(true)}
                                 title="Configure race sound effects"
                                 data-testid="sound-effects-modal-trigger"
                             >
+                                {/* A muted hint on the button itself (#1074) —
+                                    without it, folding the corner checkbox
+                                    into this panel left nothing on the header
+                                    saying whether sound is on at all. */}
+                                <Icon path={soundSettings.master ? mdiVolumeHigh : mdiVolumeOff} size={0.6} />
                                 Sound options
                             </button>
                             {onToggleAutoAdvance && (
@@ -1060,15 +1096,22 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             Lane {r.lane}
                                         </LaneBadge>
 
-                                        <div className="race-execution-avatar-wrap" style={{ width: '48px', height: '48px', flexShrink: 0, borderRadius: '50%', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                        {/* Car or face — the operator's own toggle (#1075), the same
+                                            picture On Deck shows below (#608's rule survives it). The
+                                            wrap no longer forces a circular clip: `LaneAvatar` decides
+                                            its own shape per kind, since a car photo reads as a
+                                            rounded rect rather than the portrait's circle. */}
+                                        <div className="race-execution-avatar-wrap" style={{ width: '48px', height: '48px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                                             {!empty && (
-                                                <RacerAvatar
+                                                <LaneAvatar
                                                     racer={{
                                                         id: racer?.id || r.racerId || 0,
-                                                        first_name: racer?.firstName || '',
-                                                        last_name: racer?.lastName || '',
-                                                        racer_image_url: racer?.racerImageUrl
+                                                        firstName: racer?.firstName || '',
+                                                        lastName: racer?.lastName || '',
+                                                        racerImageUrl: racer?.racerImageUrl,
+                                                        carImageUrl: racer?.carImageUrl,
                                                     }}
+                                                    preference={lanePhotoPreference}
                                                     size="48px"
                                                 />
                                             )}
@@ -1178,13 +1221,15 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
                                                                                             <div className="race-execution-ondeck-avatar-wrap" style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                                                 {!empty && (
-                                                                                                    <RacerAvatar
+                                                                                                    <LaneAvatar
                                                                                                         racer={{
                                                                                                             id: racer?.id || r.racerId || 0,
-                                                                                                            first_name: racer?.firstName || '',
-                                                                                                            last_name: racer?.lastName || '',
-                                                                                                            racer_image_url: racer?.racerImageUrl
+                                                                                                            firstName: racer?.firstName || '',
+                                                                                                            lastName: racer?.lastName || '',
+                                                                                                            racerImageUrl: racer?.racerImageUrl,
+                                                                                                            carImageUrl: racer?.carImageUrl,
                                                                                                         }}
+                                                                                                        preference={lanePhotoPreference}
                                                                                                         size="60px"
                                                                                                     />
                                                                                                 )}
@@ -1662,9 +1707,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 isOpen={isSoundModalOpen}
                 onClose={() => {
                     setIsSoundModalOpen(false);
-                    const refreshed = readSoundSettings(window.localStorage);
-                    setSoundSettings(refreshed);
-                    setChimeOn(refreshed.master && refreshed.finish);
+                    setSoundSettings(readSoundSettings(window.localStorage));
                 }}
                 title="Race Sound Effects"
             >
@@ -1675,9 +1718,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         className="btn btn-primary"
                         onClick={() => {
                             setIsSoundModalOpen(false);
-                            const refreshed = readSoundSettings(window.localStorage);
-                            setSoundSettings(refreshed);
-                            setChimeOn(refreshed.master && refreshed.finish);
+                            setSoundSettings(readSoundSettings(window.localStorage));
                         }}
                     >
                         Done

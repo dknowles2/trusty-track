@@ -173,6 +173,9 @@ export const GET_RACE_CONTROL_DATA = gql`
         lastName
         carNumber
         racerImageUrl
+        # The car's own photo (#1075) — the lane photo toggle's other
+        # picture, alongside racerImageUrl above.
+        carImageUrl
         # Whether this racer may be picked for a hand-picked championship
         # field (#711) — a pick does not override check-in, so the picker
         # offers only checked-in racers.
