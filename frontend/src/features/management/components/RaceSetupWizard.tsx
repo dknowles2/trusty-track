@@ -262,7 +262,7 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
                                     className="setup-step-pill"
                                     data-testid={`setup-step-pill-${i}`}
                                     onClick={() => goTo(i)}
-                                    style={{ ...pillStyle, font: 'inherit', cursor: 'pointer', appearance: 'none' }}
+                                    style={{ ...pillStyle, fontFamily: 'inherit', cursor: 'pointer', appearance: 'none' }}
                                 >
                                     {label}
                                 </button>
