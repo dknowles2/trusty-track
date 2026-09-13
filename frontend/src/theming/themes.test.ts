@@ -147,6 +147,10 @@ describe('THEMES — integrity', () => {
     expect(fieldUniform.app.tokens['--scouting-red']).toBe('#D63232');
     expect(fieldUniform.app.tokens['--background-color']).toBe('#f5f5f5');
     expect(fieldUniform.app.tokens['--text-color']).toBe('#333333');
+    // #1060: pinned alongside the rest of this invariant, so a future edit
+    // to the deepened caution orange (see index.css's own :root fallback,
+    // which must match this value exactly) cannot drift unnoticed.
+    expect(fieldUniform.app.tokens['--caution-text-color']).toBe('#b3450a');
     expect(fieldUniform.display.tokens['--display-bg-color']).toBe('#0A0A0A');
     expect(fieldUniform.display.tokens['--display-surface-color']).toBe('#1a1a1a');
     expect(fieldUniform.display.tokens['--display-accent-color']).toBe('#FCD116');
