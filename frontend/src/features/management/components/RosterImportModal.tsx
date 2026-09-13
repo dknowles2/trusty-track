@@ -181,8 +181,22 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
     // urql's fetching flag only lands once a render has caught up, and two
     // clicks in the same tick can both fire before that happens.
     const confirmingRef = useRef(false);
+    // A generation counter guarding `runPreview`'s async completion against
+    // a stale response. Before #1086 each source got its own mount of this
+    // component, so switching programs meant unmounting one preview in
+    // flight rather than living alongside it; now the same instance
+    // persists across Back → pick the other program → Continue, and
+    // `handleFileChange`'s closure over `config` would otherwise let a
+    // slow-resolving GPRM preview land in `preview` under DerbyNet's own
+    // file step once it finally settled. `reset()` bumps it — Back, Close
+    // and picking a new file all call `reset()` before anything else, so
+    // that is the one place "this preview is no longer the one on screen"
+    // needs saying. `runPreview` captures the generation current when it
+    // starts and checks it again before either `setPreview` or `setStatus`.
+    const generationRef = useRef(0);
 
     const reset = () => {
+        generationRef.current += 1;
         setFileName(null);
         setFileData(null);
         setPreview(null);
@@ -190,15 +204,17 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
         setImported(false);
     };
 
-    const runPreview = async (dataUrl: string) => {
+    const runPreview = async (dataUrl: string, generation: number) => {
         setStatus(null);
         setPreview(null);
         try {
             const result = await previewMutation({ raceId, fileData: dataUrl });
+            if (generationRef.current !== generation) return;
             if (result.error) throw result.error;
             const data = result.data as Record<string, RosterImportPreview> | null | undefined;
             setPreview(data?.[config.previewField] ?? null);
         } catch (error: unknown) {
+            if (generationRef.current !== generation) return;
             setStatus({
                 type: 'error',
                 message: errorText(error, 'That file could not be read.'),
@@ -211,13 +227,14 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
         if (!selected) return;
 
         reset();
+        const generation = generationRef.current;
         setFileName(selected.name);
 
         const reader = new FileReader();
         reader.onload = (event) => {
             const dataUrl = event.target?.result as string;
             setFileData(dataUrl);
-            void runPreview(dataUrl);
+            void runPreview(dataUrl, generation);
         };
         reader.onerror = () => setStatus({ type: 'error', message: 'Failed to read that file.' });
         reader.readAsDataURL(selected);

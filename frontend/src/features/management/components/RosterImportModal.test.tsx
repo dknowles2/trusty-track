@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '../../../setupTests';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useMutation } from 'urql';
 import RosterImportModal, { IMPORT_OTHER_SOFTWARE_LABEL, RosterImportSource } from './RosterImportModal';
@@ -281,6 +281,13 @@ describe('RosterImportModal (chooser)', () => {
         expect(screen.queryByRole('button', { name: /Select .* Database/ })).not.toBeInTheDocument();
     });
 
+    it('disables Continue until a source is picked', () => {
+        mockMutations('gprm');
+        openChooser();
+
+        expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    });
+
     it('continues to the file step for the picked source', async () => {
         mockMutations('derbynet');
         openChooser();
@@ -311,6 +318,55 @@ describe('RosterImportModal (chooser)', () => {
         // Continuing again on the same source shows an empty file step --
         // the file picked before Back is gone, not carried over.
         await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+        expect(screen.getByText('Select DerbyNet Database')).toBeInTheDocument();
+        expect(screen.queryByText('Alex Rivera')).not.toBeInTheDocument();
+    });
+
+    // The reviewer on #1086 flagged this as a follow-up, not a blocker: the
+    // component instance now persists across a source switch (it used to be
+    // a fresh mount per source), so `runPreview`'s async completion needs
+    // its own guard against a stale response landing under the wrong
+    // program's file step.
+    it('does not show a stale preview after backing out mid-preview and switching source', async () => {
+        let resolveGprmPreview!: (value: { data: Record<string, unknown> }) => void;
+        const gprmPreviewPromise = new Promise<{ data: Record<string, unknown> }>((resolve) => {
+            resolveGprmPreview = resolve;
+        });
+        const gprmPreview = vi.fn().mockReturnValue(gprmPreviewPromise);
+        const derbynetPreview = vi.fn().mockResolvedValue({
+            data: { previewDerbynetImport: PREVIEW_RESULT },
+        });
+        (useMutation as unknown as ReturnType<typeof vi.fn>).mockImplementation((doc: unknown) => {
+            if (doc === PREVIEW_GPRM_IMPORT) return [{ fetching: false }, gprmPreview];
+            if (doc === PREVIEW_DERBYNET_IMPORT) return [{ fetching: false }, derbynetPreview];
+            return [{}, vi.fn()];
+        });
+
+        openChooser();
+
+        // Start a GPRM preview and leave it unresolved.
+        await userEvent.click(screen.getByRole('radio', { name: /GrandPrix Race Manager/ }));
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+        await selectFile('gprm', 'roster.sqlite');
+        expect(gprmPreview).toHaveBeenCalled();
+
+        // Back out, without waiting for that preview, and switch to DerbyNet.
+        await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+        await userEvent.click(screen.getByRole('radio', { name: /DerbyNet/ }));
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+        expect(screen.getByText('Select DerbyNet Database')).toBeInTheDocument();
+
+        // The abandoned GPRM preview settles only now. Flushed inside
+        // `act()` so its `.then` genuinely runs (and its `setPreview` would
+        // genuinely land) before the assertion below -- otherwise this test
+        // passes for the wrong reason, whether or not the guard exists.
+        await act(async () => {
+            resolveGprmPreview({ data: { previewGprmImport: PREVIEW_RESULT } });
+            await gprmPreviewPromise;
+        });
+
+        // Still on DerbyNet's own, file-less step -- the stale GPRM result
+        // must not have populated `preview`.
         expect(screen.getByText('Select DerbyNet Database')).toBeInTheDocument();
         expect(screen.queryByText('Alex Rivera')).not.toBeInTheDocument();
     });
