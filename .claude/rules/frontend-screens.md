@@ -227,13 +227,27 @@ on Home is meant to do next, remembered race or not.
 `features/core/components/BackLink.tsx` is the other half, top-left on all
 three pages, replacing three ad-hoc links (Activity's own "← Back to
 settings", Timer check's unstyled one at the foot, and Settings' — which had
-none). Three states, in order: a race is remembered → "← Back to *{name}*",
-linking straight to it; none is remembered but the caller passed a
-`fallback` → the two sub-pages' "← Back to settings"; neither → nothing,
-which is what Settings itself renders when an operator arrived with no race
-in view. Read once at mount (`useState(() => readLastRace())`), not
-subscribed to storage — each of the three is a fresh page on every
-navigation, so a value read as the page loads is already the right one.
+none). It originally checked a remembered race ahead of everything else, on
+the theory that "the state every page wants once an operator has actually
+been in a race" beat a caller-supplied fallback — but Timer check and
+Activity are reachable **only** from Settings (a nav link, a `?section=`
+deep link, or a track card's `#timer-<id>` link), so once an operator had
+visited any race that session, "← Back to settings" became unreachable from
+either sub-page even though Settings was the only place they are linked from
+([#1077](https://github.com/dknowles2/trusty-track/issues/1077)). The order
+is now, checked top to bottom: the router's `location.state.from` — set only
+by `ReadinessStrip`'s "Check it" link, the one route into Timer check that
+starts *inside* a race — wins outright, since it names the exact page the
+operator left rather than a device-wide guess; then the caller's
+`destination` (renamed from `fallback`, since for the two sub-pages it is
+not a fallback at all — it is used whether or not a race is remembered);
+then a remembered race (`readLastRace`, in `lastRace.ts`) — this is Settings'
+own case, since Settings has no fixed `destination` to give and is reachable
+with no race in view (from Home, say); then nothing, which is what Settings
+renders when neither a race nor anywhere else applies. The remembered race is
+still read once at mount (`useState(() => readLastRace())`), not subscribed
+to storage — each of the three is a fresh page on every navigation, so a
+value read as the page loads is already the right one.
 
 ### Themes
 

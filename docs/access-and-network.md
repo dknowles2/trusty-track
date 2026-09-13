@@ -229,10 +229,10 @@ Every operation anyone performs is recorded: what it was, when, which role did
 it, and — kept out of the way until you ask for it — which device. It is the
 answer to "who deleted that round", which until now had none.
 
-A **← Back to _your race_** link sits top-left, the same one Timer check and
-Settings itself carry: leave a race to check something here and one click
-returns you to it. Arrive with no race in view and it reads **← Back to
-settings** instead.
+A **← Back to settings** link sits top-left, the same one Timer check
+carries — this page is only ever reached from Settings, so one click
+returns you there rather than to whichever race you happened to have open
+in another tab.
 
 ![The activity log](assets/screenshots/settings/04-activity-log.png)
 _The timeline, newest first. Each line carries the time, what was done, and which role did it; the details beneath name what it was done to._

@@ -109,14 +109,14 @@ export default function ActivityLog() {
                     This page is for the operator's device. Unlock with the operator PIN to
                     see it.
                 </p>
-                <BackLink fallback={{ to: '/system-settings', label: 'Back to settings' }} />
+                <BackLink destination={{ to: '/system-settings', label: 'Back to settings' }} />
             </div>
         );
     }
 
     return (
         <div className="container" style={{ padding: '2rem', maxWidth: '900px' }}>
-            <BackLink fallback={{ to: '/system-settings', label: 'Back to settings' }} />
+            <BackLink destination={{ to: '/system-settings', label: 'Back to settings' }} />
 
             <div
                 style={{

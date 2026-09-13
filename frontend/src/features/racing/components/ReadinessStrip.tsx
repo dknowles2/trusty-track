@@ -11,7 +11,7 @@
  * and a name.
  */
 
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useQuery, useSubscription } from 'urql';
 import { Icon } from '@mdi/react';
 import { mdiAlertCircle, mdiAlertOutline, mdiCheckCircle, mdiInformationOutline } from '@mdi/js';
@@ -43,7 +43,7 @@ const APPEARANCE: Record<ReadinessLevel, { icon: string; colour: string }> = {
     INFO: { icon: mdiInformationOutline, colour: 'var(--neutral-info-color)' },
 };
 
-function Row({ item }: { item: ReadinessItem }) {
+function Row({ item, from }: { item: ReadinessItem; from: string }) {
     const { icon, colour } = APPEARANCE[item.level];
     return (
         <li
@@ -55,7 +55,11 @@ function Row({ item }: { item: ReadinessItem }) {
             <strong style={{ minWidth: '5.5rem' }}>{item.label}</strong>
             <span style={{ color: 'var(--text-heading-alt-color)' }}>{item.detail}</span>
             {item.href && (
-                <Link to={item.href} style={{ fontSize: '0.85rem' }}>
+                // `state.from` is this race page's own path — `BackLink` on the
+                // page this opens (Timer check, today) honours it ahead of a
+                // remembered race, so "Check it" from here comes straight back
+                // to this race rather than to Settings (#1077).
+                <Link to={item.href} state={{ from }} style={{ fontSize: '0.85rem' }}>
                     Check it
                 </Link>
             )}
@@ -76,6 +80,7 @@ export default function ReadinessStrip({
     checkedInCount,
     heatCount,
 }: Props) {
+    const location = useLocation();
     const [timerResult] = useSubscription({
         query: TIMER_READINESS_SUBSCRIPTION,
         variables: { trackId: trackId ?? 0 },
@@ -140,7 +145,7 @@ export default function ReadinessStrip({
                     </div>
                     <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '0.4rem' }}>
                         {items.map((item) => (
-                            <Row key={item.key} item={item} />
+                            <Row key={item.key} item={item} from={location.pathname} />
                         ))}
                     </ul>
                 </>

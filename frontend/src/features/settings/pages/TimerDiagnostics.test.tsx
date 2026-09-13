@@ -343,4 +343,24 @@ describe('reaching one track from its settings card', () => {
         expect(document.getElementById('timer-8')!.style.boxShadow).toContain('cub-scouting-gold');
         expect(document.getElementById('timer-7')!.style.boxShadow).toBe('');
     });
+
+    it('sends the back link to Settings’ Tracks section, not General', () => {
+        // Opened from a track's own card, so the operator was on Tracks —
+        // `?section=tracks` is a cheap way back there rather than reopening
+        // Settings on General (#1077).
+        setup([track({ id: 8 })], null, '/timer-check#timer-8');
+
+        expect(screen.getByTestId('back-link')).toHaveAttribute(
+            'href',
+            '/system-settings?section=tracks',
+        );
+    });
+});
+
+describe('the back link (#1077)', () => {
+    it('goes to plain Settings when opened from the nav, not a track card', () => {
+        setup([track({ id: 7 })], null, '/timer-check');
+
+        expect(screen.getByTestId('back-link')).toHaveAttribute('href', '/system-settings');
+    });
 });

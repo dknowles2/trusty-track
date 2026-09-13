@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 vi.mock('urql', async (importOriginal) => {
     const actual = await importOriginal<typeof import('urql')>();
@@ -139,5 +140,44 @@ describe('ReadinessStrip', () => {
 
         expect(screen.getByTestId('readiness-timer')).toHaveAttribute('data-level', 'OK');
         expect(screen.getByText(/Never run against this hardware/)).toBeInTheDocument();
+    });
+
+    it('carries the current race page as router state on the "Check it" link (#1077)', async () => {
+        // `BackLink` on Timer check honours `location.state.from` ahead of a
+        // remembered race, so this is what lets "Check it" from inside a race
+        // come back to *this* race rather than to Settings.
+        backend({ state: 'DISCONNECTED' });
+
+        function LocationProbe() {
+            const location = useLocation();
+            return <div data-testid="landed-with-state">{JSON.stringify(location.state)}</div>;
+        }
+
+        render(
+            <MemoryRouter initialEntries={['/race/9/control']}>
+                <Routes>
+                    <Route
+                        path="/race/:raceId/control"
+                        element={
+                            <ReadinessStrip
+                                raceId={9}
+                                trackId={1}
+                                timerType="AUTO_DETECT_BACKEND"
+                                registeredCount={20}
+                                checkedInCount={20}
+                                heatCount={20}
+                            />
+                        }
+                    />
+                    <Route path="/timer-check" element={<LocationProbe />} />
+                </Routes>
+            </MemoryRouter>,
+        );
+
+        await userEvent.click(screen.getByRole('link', { name: 'Check it' }));
+
+        expect(screen.getByTestId('landed-with-state')).toHaveTextContent(
+            JSON.stringify({ from: '/race/9/control' }),
+        );
     });
 });
