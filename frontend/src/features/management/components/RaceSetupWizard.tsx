@@ -88,10 +88,10 @@ const cellInputStyle = { width: '100%', padding: '6px 8px', borderRadius: '4px',
 
 export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardProps) {
     const [context] = useQuery({ query: GET_RACE_SETUP_CONTEXT });
-    const previousRaces: PreviousRace[] = useMemo(
-        () => [...(context.data?.races ?? [])].reverse(),
-        [context.data?.races],
-    );
+    // `Query.races` is newest-first from the server (#1129) — that order is
+    // the source of truth for this dropdown, so it is used as returned
+    // rather than re-sorted (or reversed) here.
+    const previousRaces: PreviousRace[] = context.data?.races ?? [];
     const installDefault: Terminology = context.data?.initialConfig?.terminology ?? DEFAULT_TERMINOLOGY;
     const hasPrevious = previousRaces.length > 0;
 
