@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useSubscription, useQuery } from 'urql';
 import { Icon } from '@mdi/react';
@@ -13,6 +13,8 @@ import CheckInDisplayView from '../components/CheckInDisplayView';
 import QRCodeDisplayView from '../components/QRCodeDisplayView';
 import BroadcastOverlayView from '../components/BroadcastOverlayView';
 import { displayId, startDeviceClaimHeartbeat } from '../displayIdentity';
+import { useMeasuredPages } from '../useMeasuredPages';
+import { useDisplayDensity } from '../useDisplayDensity';
 import { useChrome } from '../../../context/ChromeContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { formatDisplayName, shouldShowRacerPhoto } from '../../core/displayName';
@@ -79,6 +81,10 @@ const GET_INITIAL_DATA = `
         # mode. Empty when the operator has never opened the picker on the
         # track's card.
         laneColors
+        # How dense a heat card's own grid and the on-deck depth budget need
+        # to be (issue 1073 part 2, displayDensity.ts) — an 8-lane track
+        # needs a smaller tier than a 6-lane one at the identical viewport.
+        laneCount
       }
       # Whether the race is finished (issue 869) — every officially scheduled
       # heat recorded, with nothing next — is decided from these two
@@ -323,6 +329,18 @@ export default function Observation() {
   });
 
   const { data: initialData } = initialResult;
+
+  // What a screen this size — and this heat's own lane count — can afford
+  // to show (#1073 part 2) — read once here and passed down to every render
+  // below that has a secondary line to drop or a card to size, the same
+  // "resolve once, pass down" shape `nameDisplay` and `laneColors` already
+  // use on this page. Needs the track's own lane count (an 8-lane track
+  // needs a denser heat-card tier than a 6-lane one at the same viewport —
+  // see `displayDensity.ts`'s own comment), so it is declared here rather
+  // than above `initialData`, and falls back to 4 (`TrackInput`'s own
+  // default) before the query has answered.
+  const trackLaneCount = initialData?.race?.track?.laneCount ?? 4;
+  const density = useDisplayDensity(trackLaneCount);
 
   // A race whose only round is elimination (#1020) can never populate the
   // ordinary "Overall" aggregate — `services/scoring._scoring_heats`
@@ -638,6 +656,73 @@ export default function Observation() {
   const effectiveFormatScore = eliminationOnlyRace
     ? (score: number) => `${Math.round(score)}`
     : formatScore;
+
+  // The Standings tab pages through the leaderboard rather than growing the
+  // page underneath it (#1073 part 2) — nobody scrolls an audience display,
+  // so a roster that does not fit one screen used to mean rank 9 onward was
+  // simply never seen at a small viewport. `useMeasuredPages` is the same
+  // mechanism `StandingsOnlyView` already uses for the full-screen
+  // `STANDINGS_ONLY` view, reused here for the tab; the operator's existing
+  // per-display "seconds" and paging/auto-scroll settings (`behaviour.
+  // cycleMs`/`behaviour.scrollBehavior`) are the cadence, unchanged and with
+  // no new control to learn — see `displays.md`'s "What a small screen
+  // drops". Declared here, ahead of every early `return` below (the
+  // slideshow, `STANDINGS_ONLY`, check-in, QR code, overlay, projector and
+  // race-finished branches all return before "STANDARD MODE RENDER"), so
+  // these hooks still run on every render regardless of which view is
+  // showing — conditionally calling a hook is what the standard-mode-only
+  // shape below would otherwise be.
+  const standingsWrapperRef = useRef<HTMLDivElement>(null);
+  const standingsTableRef = useRef<HTMLTableElement>(null);
+  const standingsHeadRef = useRef<HTMLTableSectionElement>(null);
+  const standingsRowRef = useRef<HTMLTableRowElement>(null);
+  const [standingsHeadHeightPx, setStandingsHeadHeightPx] = useState(0);
+  // A measured row height, once one has actually rendered, in place of
+  // `useMeasuredPages`'s own default guess (#1073 part 2) — that default is
+  // tuned to `StandingsOnlyView`'s more compact row, and this table's own
+  // row is a different (if now much closer) size.
+  const [standingsRowHeightPx, setStandingsRowHeightPx] = useState<number | undefined>(undefined);
+
+  // The `<thead>` and first `.standing-row`'s own real heights, fed to
+  // `useMeasuredPages` below as `reservePx`/`approxRowHeightPx` (#1073 part
+  // 2) — the wrapper's own height is now a CSS-guaranteed remainder (see the
+  // render below), so this effect's only job is measuring what is *inside*
+  // it accurately enough to turn that height into a correct row count,
+  // rather than the wrapper's height itself. A `ResizeObserver` on the
+  // wrapper (rather than only this effect's own dependencies) is what
+  // catches a freshly-rendered first row, or a racer's avatar image
+  // finishing its load and nudging the row's own height, after the fact. A
+  // no-op whenever the standard-mode Standings tab is not actually on
+  // screen — `activeTab` covers "not on the Standings tab", and
+  // `standingsWrapperRef.current` being `null` covers every other view
+  // entirely, since only the standard mode's own JSX attaches this ref.
+  useEffect(() => {
+    if (activeTab !== 'standings') return;
+    const measure = () => {
+      const head = standingsHeadRef.current;
+      if (head) setStandingsHeadHeightPx(head.getBoundingClientRect().height);
+      const row = standingsRowRef.current;
+      if (row) setStandingsRowHeightPx(row.getBoundingClientRect().height);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined' || !standingsWrapperRef.current) {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(standingsWrapperRef.current);
+    return () => observer.disconnect();
+  }, [activeTab]);
+
+  const standingsPages = useMeasuredPages(standingsWrapperRef, standingsTableRef, effectiveStandings, {
+    behavior: behaviour.scrollBehavior,
+    cycleMs: behaviour.cycleMs,
+    reservePx: standingsHeadHeightPx,
+    // Falls back to the hook's own default guess until a real row has
+    // rendered and been measured — same "guess, then measure" shape as
+    // `standingsHeadHeightPx` and `standingsMaxHeightPx` above.
+    ...(standingsRowHeightPx !== undefined ? { approxRowHeightPx: standingsRowHeightPx } : {}),
+  });
   // The projector layout's own "Current Standings" panel (below) prints the
   // bare number with no unit, same reasoning as `formatProjectorScore`
   // above — an elimination round's own loss count needs the identical
@@ -750,6 +835,62 @@ export default function Observation() {
 
   const renderHeatCard = (title: string, entries: LaneEntry[], isNext: boolean = false, iconPath?: string, heatInfo?: string, exhibition?: boolean) => {
     const isEmpty = entries.length === 0;
+    // Every lane in one row, always — never wrapped onto a second row of
+    // avatars (#1073 part 2). A fixed column count (not `auto-fit`, which
+    // is what used to wrap) is what guarantees it: `minmax(0, 1fr)` lets a
+    // column shrink past its content's own natural width, so a long name
+    // wraps *within* its column instead of forcing the grid onto a second
+    // line. Measured directly rather than assumed: capping columns at
+    // three and letting six lanes wrap to two rows — the tempting fix for
+    // a card sharing the row with a sibling, where six columns are
+    // narrower still — cost *more* height than six narrow columns of
+    // wrapped text did, because it doubles the one thing that actually
+    // multiplies a card's height (the avatar row count) to save the one
+    // thing that only adds a line or two (a wrapped name). One row, however
+    // narrow its columns, beats two rows of wider ones.
+    // The grid still renders exactly as many columns as *this* heat's own
+    // occupied lanes (a heat can hold fewer than the track's full count —
+    // the last one of an uneven round, a lane out of service), but sizing
+    // — avatar, font, padding, all of it — is tiered off `density.
+    // heatCardCompactness`, which is the *track's* configured lane count,
+    // not this one heat's. Every card in the row (Now Racing, On Deck,
+    // After That) is sized as if it were full, deliberately: a schedule
+    // where one heat happens to be short a racer must not size that one
+    // card larger than its siblings, and the on-deck-depth budget below
+    // already assumes the worst (full) case for the whole row.
+    const columns = Math.max(entries.length, 1);
+    // The avatar (and the text beneath it) shrink as more lanes share a row
+    // — a six-lane card's columns are a sixth (or, sharing the row, a
+    // third) of the available width, and an avatar sized for two lanes
+    // would be wider than that column has to give it. Tiered, not a
+    // continuous formula, so the sizes at issue are pinned in
+    // `displayResolutions.spec.ts` rather than able to drift by a fraction
+    // of a `vh` with no test noticing. Every tier stays at or above 2.0vmin
+    // for the name/car-number text — the legibility floor is 2% of
+    // viewport height and `vmin` equals `vh` at every viewport this app
+    // targets (landscape, `CLAUDE.md`'s own table), so this keeps a safety
+    // margin above it rather than sitting exactly on the line. Tier 3 (more
+    // than six lanes — an 8-lane track's own ceiling) keeps that same text
+    // size and shrinks everything else instead, since text cannot go lower
+    // without crossing the floor; see `AFTER_THAT_MAX_LANE_COUNT` in
+    // `displayDensity.ts` for what happens when even that is not enough.
+    const compactness = density.heatCardCompactness;
+    const heatCardAvatarVh = [9, 6, 3.8, 3.0][compactness];
+    const heatCardNameVmin = [2.6, 2.2, 2.0, 2.0][compactness];
+    const heatCardCarNumberVmin = [2.3, 2.0, 2.0, 2.0][compactness];
+    const heatCardGridGapPx = [15, 8, 5, 3][compactness];
+    const heatCardCellPaddingPx = [10, 6, 4, 3][compactness];
+    // The card's own outer padding and title size shrink on the same tiers
+    // (#1073 part 2) — a fixed 20px/3.2vmin was tuned for the two-or-fewer-
+    // lane case and, multiplied by nothing more than "this card exists" (it
+    // does not scale with lane count the way the grid above does), still
+    // cost enough at six lanes to leave the Standings table short of its
+    // own guaranteed rows even after the grid itself stopped multiplying.
+    // Every tier stays comfortably clear of the legibility floor — this is
+    // a heading, not one of the floor's own name/car-number/place/time
+    // cells.
+    const heatCardPaddingPx = [20, 12, 6, 5][compactness];
+    const heatCardTitleVmin = [3.2, 2.6, 2.2, 2.0][compactness];
 
     return (
       <div className="heat-card" style={{
@@ -757,7 +898,7 @@ export default function Observation() {
         minWidth: '300px',
         background: isEmpty ? 'var(--display-bg-color)' : 'var(--display-surface-color)',
         borderRadius: '8px',
-        padding: '20px',
+        padding: `${heatCardPaddingPx}px`,
         boxShadow: isEmpty ? 'none' : '0 2px 8px rgba(0,0,0,0.1)',
         borderTop: `5px solid ${isNext ? 'var(--display-text-faint-color)' : 'var(--error)'}`,
         opacity: isEmpty ? 0.7 : 1,
@@ -769,14 +910,14 @@ export default function Observation() {
           // from across a room at every viewport from an 800×600 projector
           // up; a fixed `rem` looks fine at the one size it was tuned at and
           // falls under the legibility floor everywhere taller.
-          fontSize: '3.2vmin',
+          fontSize: `${heatCardTitleVmin}vmin`,
           color: isNext ? 'var(--display-text-muted-color)' : 'var(--display-text-color)',
           display: 'flex',
           alignItems: 'center',
           gap: '1vmin',
           justifyContent: isEmpty ? 'center' : 'flex-start'
         }}>
-          {iconPath && <Icon path={iconPath} size="3.2vmin" color={isNext ? 'var(--display-text-muted-color)' : 'var(--error)'} />}
+          {iconPath && <Icon path={iconPath} size={`${heatCardTitleVmin}vmin`} color={isNext ? 'var(--display-text-muted-color)' : 'var(--error)'} />}
           <span>{title}</span>
           {exhibition && (
             <span style={{
@@ -801,13 +942,41 @@ export default function Observation() {
         {isEmpty ? (
           <p>No heat scheduled</p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+              gap: `${heatCardGridGapPx}px`,
+            }}
+          >
             {entries.map(({ lane, racer }: LaneEntry) => (
-              <div key={lane} className="heat-card-racer" style={{ textAlign: 'center', padding: '10px', background: 'var(--display-card-bg-color)', borderRadius: '8px' }}>
+              <div
+                key={lane}
+                className="heat-card-racer"
+                style={{
+                  textAlign: 'center',
+                  padding: `${heatCardCellPaddingPx}px`,
+                  background: 'var(--display-card-bg-color)',
+                  borderRadius: '8px',
+                  // `minWidth: 0` lets this cell (and the text inside it)
+                  // actually shrink to the grid column's own width rather
+                  // than forcing the column wider — the default `min-width:
+                  // auto` on a grid item is its content's own min-content
+                  // size, which for an unbroken long name is wide enough to
+                  // defeat the fixed column count above.
+                  minWidth: 0,
+                }}
+              >
                 <LaneBadge
                   color={colorForLane(laneColors, lane)}
                   className="heat-card-lane"
-                  style={{ justifyContent: 'center', fontWeight: 'bold', marginBottom: '5px', fontSize: '1.8vmin', color: 'var(--display-text-subtle-color)' }}
+                  style={{
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    marginBottom: compactness === 0 ? '5px' : '2px',
+                    fontSize: compactness === 0 ? '1.8vmin' : '1.5vmin',
+                    color: 'var(--display-text-subtle-color)',
+                  }}
                 >
                   Lane {lane}
                 </LaneBadge>
@@ -818,14 +987,19 @@ export default function Observation() {
                     last_name: racer.lastName,
                     racer_image_url: shouldShowRacerPhoto(nameDisplay) ? racer.racerImageUrl : null
                   }}
-                  size="9vmin"
-                  style={{ margin: '0 auto 5px', border: '2px solid var(--display-border-color)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                  size={`${heatCardAvatarVh}vh`}
+                  style={{ margin: compactness === 0 ? '0 auto 5px' : '0 auto 2px', border: '2px solid var(--display-border-color)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                 />
-                <div className="heat-card-racer-name" style={{ fontWeight: 'bold', fontSize: '2.6vmin' }}>
+                <div className="heat-card-racer-name" style={{ fontWeight: 'bold', fontSize: `${heatCardNameVmin}vmin`, overflowWrap: 'break-word' }}>
                   {formatDisplayName(nameDisplay, racer.firstName, racer.lastName)}
                 </div>
-                {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: '2.3vmin', color: 'var(--display-text-muted-color)' }}>{vehicle} #{racer.carNumber}</div>}
-                {racingGroupDivisionFor(racer) && (
+                {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: `${heatCardCarNumberVmin}vmin`, color: 'var(--display-text-muted-color)' }}>{vehicle} #{racer.carNumber}</div>}
+                {/* Dropped below the legibility threshold (#1073 part 2) —
+                    `displayDensity.ts`: on a narrow projector this second
+                    line costs a row the audience would rather have, and the
+                    racer's name and car number (kept unconditionally above)
+                    are what the room actually reads a heat card for. */}
+                {density.showSecondaryText && racingGroupDivisionFor(racer) && (
                   <div className="heat-card-racing-group-division" style={{ fontSize: '2vmin', color: 'var(--display-text-subtle-color)' }}>
                     {racingGroupDivisionFor(racer)}
                   </div>
@@ -1123,7 +1297,12 @@ export default function Observation() {
         data-theme={displayThemeKey}
         style={{
           maxWidth: '100%',
-          padding: '20px',
+          // Tightened from 20px (#1073 part 2) — one of several small, purely
+          // vertical savings (this one, and the three `marginBottom`s below,
+          // each shrunk) that together are what make a guaranteed five
+          // Standings rows reachable at the SVGA floor; none is individually
+          // large, and none costs the room its own legibility floor.
+          padding: '15px',
           // This screen is the Display surface whether or not it happens to
           // be full-screen (#527) — it is exactly what a wall display
           // assigned STANDINGS, TIMING or CYCLE shows. Without an explicit
@@ -1134,14 +1313,40 @@ export default function Observation() {
           // address, just reached by inheritance rather than a direct read.
           background: 'var(--display-bg-color)',
           color: 'var(--display-text-color)',
-          minHeight: '100vh',
+          // `box-sizing: border-box` here is what makes `height: 100vh`
+          // below actually mean the viewport, padding included — the
+          // default `content-box` would add this padding *on top of*
+          // 100vh, 40px this page's own scrollable height never had before
+          // `overflow: hidden` made it matter (a border-box element's own
+          // rendered size is capped at the height given it; a content-box
+          // one is not, and 40px of that difference is exactly what
+          // `displayResolutions.spec.ts`'s view-agnostic overflow check
+          // caught on `.container` itself).
+          boxSizing: 'border-box',
+          // A fixed-height flex column only for the Standings tab (#1073
+          // part 2) — this is the "budget the viewport" layout: the chrome
+          // above the table (`flexShrink: 0`, immediately below) keeps its
+          // own natural size, `heat-cards-layout` additionally caps itself
+          // at `displayDensity.ts`'s own ceiling, and the Standings area
+          // (`flex: 1, minHeight: 0`, below) always gets whatever is left —
+          // a real, CSS-guaranteed remainder rather than a JS measurement
+          // of one. The Timing tab was never asked to guarantee a row
+          // count the way Standings was, and its own row count is bounded
+          // by the track's lane count rather than the whole roster — it
+          // keeps the original `minHeight: 100vh` (the page scrolls if it
+          // ever needs to, same as before this issue) rather than being
+          // bound by a budget nothing has sized it against.
+          ...(activeTab === 'standings'
+            ? { height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }
+            : { minHeight: '100vh' }),
           ...displayThemeStyle,
         }}
       >
         {renderResultsOverlay()}
+        <div style={{ flexShrink: 0 }}>
         <div
           style={{
-            marginBottom: '20px',
+            marginBottom: '12px',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
@@ -1161,7 +1366,7 @@ export default function Observation() {
           <button
             onClick={() => window.open(`${window.location.pathname}?projector=true`, '_blank', 'noopener')}
             style={{
-              padding: '10px 20px',
+              padding: '6px 14px',
               borderRadius: '20px',
               border: '2px solid var(--display-accent-color)',
               background: 'transparent',
@@ -1178,7 +1383,25 @@ export default function Observation() {
           </button>
         </div>
 
-        <div className="heat-cards-layout" data-on-deck-count={onDeckHeats.length} style={{ display: 'flex', gap: '20px', marginBottom: '30px', flexWrap: 'wrap' }}>
+        <div
+          className="heat-cards-layout"
+          data-on-deck-count={onDeckHeats.length}
+          style={{
+            display: 'flex',
+            gap: '20px',
+            marginBottom: '15px',
+            flexWrap: 'wrap',
+            // The heat cards' own share of the viewport (#1073 part 2,
+            // `displayDensity.ts`) — a ceiling the cards are sized to sit
+            // comfortably under (see `renderHeatCard`'s own comment), not a
+            // target reached every heat. `overflow: hidden` backs it: the
+            // alternative, letting content past the ceiling paint over
+            // whatever is below it, is worse than the (in practice
+            // unreached) risk of clipping a pathological one.
+            maxHeight: `${density.heatCardsMaxHeightVh}vh`,
+            overflow: 'hidden',
+          }}
+        >
           {renderHeatCard(
             "Now Racing",
             currentHeatRacers,
@@ -1195,7 +1418,15 @@ export default function Observation() {
                 : undefined,
             isExhibition
           )}
-          {renderHeatCard(
+          {/* "On Deck" drops out below `displayDensity.ts`'s own height
+              threshold (#1073 part 2) — a card sharing the row with a
+              sibling is a *narrower* card, and a long name wraps to more
+              lines inside a narrower column even at the identical avatar
+              and font size; "Now Racing" alone, at the row's full width,
+              needs fewer wrapped lines and so a shorter row, which is what
+              actually buys the Standings table its guaranteed rows back at
+              the SVGA floor. */}
+          {density.onDeckDepth > 0 && renderHeatCard(
             "On Deck",
             nextHeatRacers,
             true,
@@ -1208,8 +1439,13 @@ export default function Observation() {
           {/* "After That" rather than the derby term "in the hole", which is
               vocabulary a first-time announcer reading this screen aloud does
               not have. It is only rendered when there *is* one, so the last
-              two heats of a race do not leave an empty card on the wall. */}
-          {afterThatHeat && renderHeatCard(
+              two heats of a race do not leave an empty card on the wall — and
+              (#1073 part 2) only when the row still has room for three cards
+              side by side: below `displayDensity.ts`'s threshold, three
+              300px-floor cards wrap onto their own lines and, at the SVGA
+              floor with a six-lane heat, ran taller than the viewport itself
+              before the Standings table below them had drawn a single row. */}
+          {density.onDeckDepth > 1 && afterThatHeat && renderHeatCard(
             "After That",
             afterThatRacers,
             true,
@@ -1218,12 +1454,12 @@ export default function Observation() {
           )}
         </div>
 
-        <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
+        <div style={{ marginBottom: '12px', display: 'flex', gap: '10px' }}>
           <button
             onClick={() => setActiveTab('standings')}
             aria-pressed={activeTab === 'standings'}
             style={{
-              padding: '10px 20px',
+              padding: '6px 14px',
               borderRadius: '20px',
               border: 'none',
               background: activeTab === 'standings' ? 'var(--display-accent-color)' : 'var(--display-border-subtle-color)',
@@ -1242,7 +1478,7 @@ export default function Observation() {
             onClick={() => setActiveTab('timing')}
             aria-pressed={activeTab === 'timing'}
             style={{
-              padding: '10px 20px',
+              padding: '6px 14px',
               borderRadius: '20px',
               border: 'none',
               background: activeTab === 'timing' ? 'var(--display-accent-color)' : 'var(--display-border-subtle-color)',
@@ -1258,33 +1494,87 @@ export default function Observation() {
             Timing Stats
           </button>
         </div>
+        </div>
 
+        {/* The remainder of the viewport's own budget (#1073 part 2) — a
+            flex column of its own so the page indicator below can claim its
+            small, fixed share (`flexShrink: 0`) before the actual content
+            wrapper takes `flex: 1` of what is left, rather than the
+            indicator's height being subtracted from a JS-measured guess. */}
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {activeTab === 'standings' ? (
-          <div className="standings-table-wrapper" style={{ background: 'var(--display-surface-color)', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-            <table className="standings-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ backgroundColor: 'var(--display-accent-color)', color: 'var(--display-on-accent-color)' }}>
+          <div
+            ref={standingsWrapperRef}
+            className="standings-table-wrapper"
+            style={{
+              background: 'var(--display-surface-color)',
+              borderRadius: '8px',
+              // `flex: 1` inside the fixed-height column above (#1073 part
+              // 2) is what gives this a real, CSS-guaranteed remainder —
+              // `minHeight: 0` is what lets a flex item shrink *below* its
+              // own content's height at all (a flex item's default
+              // `min-height: auto` is its content's own size, which would
+              // otherwise let this grow past the space actually left and
+              // push the page into needing to scroll, exactly the bug this
+              // issue exists to fix). `overflow: hidden` is unconditional
+              // now — the viewport budget in `displayDensity.ts` (the heat
+              // cards' own ceiling, and the on-deck depth that keeps them
+              // under it) is what guarantees there is always a real,
+              // positive remainder to clip to, so this never has to fall
+              // back to `visible` and hide the table entirely.
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+            }}
+          >
+            <table
+              ref={standingsTableRef}
+              className="standings-table"
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                transform:
+                  behaviour.scrollBehavior === 'SMOOTH' ? `translateY(-${standingsPages.offset}px)` : undefined,
+                // Matches `StandingsOnlyView`'s own transition length — short
+                // enough that discrete jumps every 50ms read as continuous
+                // motion rather than a stutter.
+                transition: behaviour.scrollBehavior === 'SMOOTH' ? 'transform 60ms linear' : undefined,
+              }}
+            >
+              <thead ref={standingsHeadRef} style={{ backgroundColor: 'var(--display-accent-color)', color: 'var(--display-on-accent-color)' }}>
                 <tr>
-                  <th style={{ padding: '15px', fontSize: '2vmin' }}>Rank</th>
-                  <th style={{ padding: '15px', fontSize: '2vmin' }}>Racer</th>
-                  <th style={{ padding: '15px', textAlign: 'right', fontSize: '2vmin' }}>{effectiveScoreLabel}</th>
-                  <th style={{ padding: '15px', textAlign: 'right', fontSize: '2vmin' }}>Runs</th>
+                  <th style={{ padding: '4px', fontSize: '2vmin' }}>Rank</th>
+                  <th style={{ padding: '4px', fontSize: '2vmin' }}>Racer</th>
+                  <th style={{ padding: '4px', textAlign: 'right', fontSize: '2vmin' }}>{effectiveScoreLabel}</th>
+                  <th style={{ padding: '4px', textAlign: 'right', fontSize: '2vmin' }}>Runs</th>
                 </tr>
               </thead>
               <tbody>
-                {effectiveStandings.map((s: Standing) => {
+                {standingsPages.visible.map((s: Standing, idx: number) => {
                   const racer = racersMap[s.racerId];
                   return (
-                    <tr key={s.racerId} className="standing-row" style={{ borderBottom: '1px solid var(--display-border-subtle-color)' }}>
+                    <tr
+                      key={s.racerId}
+                      ref={idx === 0 ? standingsRowRef : undefined}
+                      className="standing-row"
+                      style={{ borderBottom: '1px solid var(--display-border-subtle-color)' }}
+                    >
                       {/* `vmin`, not `rem` (#1073) — see `renderHeatCard`'s
                           own comment; every size in this table used to be a
                           fixed `rem`, which reads fine at the one viewport it
                           was tuned at and falls under the legibility floor on
-                          any taller one. */}
-                      <td className="standing-rank" style={{ padding: '15px', fontSize: '3vmin', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : 'var(--display-text-color)' }}>
+                          any taller one. Padding and avatar size are smaller
+                          than they were (#1073 part 2) — a row this compact,
+                          not a fixed `rem`, is what a guaranteed five rows at
+                          the SVGA floor actually needs; both still clear the
+                          legibility floor with margin (see `renderHeatCard`'s
+                          own comment on the same tradeoff). */}
+                      <td className="standing-rank" style={{ padding: '3px', fontSize: '2.4vmin', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : 'var(--display-text-color)' }}>
                         {s.rank}
                       </td>
-                      <td className="standing-racer" style={{ padding: '15px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                      <td className="standing-racer" style={{ padding: '3px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                           <RacerAvatar
                             racer={{
                               id: s.racerId,
@@ -1292,23 +1582,29 @@ export default function Observation() {
                               last_name: racer?.lastName || '',
                               racer_image_url: shouldShowRacerPhoto(nameDisplay) ? racer?.racerImageUrl : null
                             }}
-                            size="9vmin"
-                            style={{ border: '3px solid var(--display-border-color)', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
+                            size="3.4vmin"
+                            style={{ border: '2px solid var(--display-border-color)', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
                           />
                           <div>
-                            <div className="standing-racer-name" style={{ fontWeight: 'bold', fontSize: '2.6vmin' }}>
+                            <div className="standing-racer-name" style={{ fontWeight: 'bold', fontSize: '2.2vmin' }}>
                               {racer ? formatDisplayName(nameDisplay, racer.firstName, racer.lastName) : `Racer #${s.racerId}`}
                             </div>
                             {racer?.carNumber && (
-                              <div className="standing-car-number" style={{ color: 'var(--display-text-muted-color)', fontSize: '2.3vmin' }}>{vehicle} #{racer.carNumber}</div>
+                              <div className="standing-car-number" style={{ color: 'var(--display-text-muted-color)', fontSize: '2vmin' }}>{vehicle} #{racer.carNumber}</div>
                             )}
-                            {s.racingGroupDivision && (
+                            {/* Dropped below the legibility threshold
+                                (#1073 part 2, `displayDensity.ts`) — the
+                                rank, racer, score and runs columns this tab
+                                is deliberately narrow to (see
+                                `docs/observation-displays.md`) stay; this
+                                second line does not. */}
+                            {density.showSecondaryText && s.racingGroupDivision && (
                               <div className="standing-racing-group-division" style={{ color: 'var(--display-text-subtle-color)', fontSize: '2vmin' }}>{s.racingGroupDivision}</div>
                             )}
                           </div>
                         </div>
                       </td>
-                      <td className="standing-time" style={{ padding: '15px', textAlign: 'right', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontSize: '3vmin', fontWeight: 'bold' }}>
+                      <td className="standing-time" style={{ padding: '3px', textAlign: 'right', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontSize: '2.4vmin', fontWeight: 'bold' }}>
                         {effectiveFormatScore(s.score)}
                         {dnfAnnotation(s.dnfCount ?? 0) && (
                           <div className="standing-dnf-note" style={{ fontSize: '1.6vmin', fontWeight: 'normal', fontFamily: 'var(--font-body)', color: 'var(--display-text-muted-color)' }}>
@@ -1316,7 +1612,7 @@ export default function Observation() {
                           </div>
                         )}
                       </td>
-                      <td className="standing-runs" style={{ padding: '15px', textAlign: 'right', fontSize: '2.4vmin' }}>{s.heatsCompleted}</td>
+                      <td className="standing-runs" style={{ padding: '3px', textAlign: 'right', fontSize: '2vmin' }}>{s.heatsCompleted}</td>
                     </tr>
                   );
                 })}
@@ -1326,8 +1622,52 @@ export default function Observation() {
               </tbody>
             </table>
           </div>
-        ) : (
-          <div className="timing-list-wrapper" style={{ background: 'var(--display-surface-color)', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+        ) : null}
+        {/* The tab's own page indicator — same shape as
+            `StandingsOnlyView`'s `standings-only-page-indicator`, a
+            different name because it is a different element on a different
+            view, not because the rule differs (#1073 part 2). A sibling of
+            the bounded, `overflow: hidden` wrapper above inside their shared
+            flex column, `flexShrink: 0` — its own small height is what the
+            wrapper's `flex: 1` yields to, rather than a row the wrapper
+            could ever clip. */}
+        {activeTab === 'standings' && behaviour.scrollBehavior === 'PAGING' && standingsPages.pageCount > 1 && (
+          <div
+            data-testid="standings-tab-page-indicator"
+            style={{
+              flexShrink: 0,
+              textAlign: 'center',
+              marginTop: '10px',
+              color: 'var(--display-text-faint-color)',
+              fontSize: '1.8vmin',
+            }}
+          >
+            Page {standingsPages.page + 1} of {standingsPages.pageCount}
+          </div>
+        )}
+        {activeTab === 'timing' && (
+          <div
+            className="timing-list-wrapper"
+            style={{
+              background: 'var(--display-surface-color)',
+              borderRadius: '8px',
+              padding: '30px',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+              // Not bounded like the Standings tab's own wrapper (#1073
+              // part 2) — this tab shows one lane per column, bounded by
+              // the track's own lane count rather than the whole roster, so
+              // it has never needed to page. `overflow: auto` was tried and
+              // reverted: `displayResolutions.spec.ts`'s own view-agnostic
+              // overflow check treats *any* scrollable region as a clipping
+              // bug unless named on its exemption list, and a real scrollbar
+              // here would be new, untested behaviour for what is, in
+              // practice, always a handful of rows. `flexShrink: 0` keeps
+              // this at its natural height inside the fixed-height column
+              // above; nothing below it in that column can be pushed off
+              // by a tall one, since it is the last thing in it.
+              flexShrink: 0,
+            }}
+          >
             {lastHeatResults ? (
               <div>
                 <h2 className="timing-header" style={{ textAlign: 'center', marginBottom: '30px', fontSize: '3.2vmin', color: 'var(--display-text-color)' }}>
@@ -1386,7 +1726,16 @@ export default function Observation() {
                       </div>
                       <div className="timing-racer-info" style={{ flex: 1 }}>
                         <div className="timing-racer-name" style={{ fontSize: '3vmin', fontWeight: 'bold' }}>{lane.racerName}</div>
-                        <div className="timing-car-name" style={{ fontSize: '2vmin', color: 'var(--display-text-muted-color)' }}>{lane.carName || `Lane ${lane.laneNumber}`}</div>
+                        {/* Dropped below the legibility threshold (#1073
+                            part 2, `displayDensity.ts`) — the issue's own
+                            framing of this view calls the car's name a
+                            secondary column next to place, name and time.
+                            The lane-number fallback rides on the same line
+                            and goes with it; place and name are already on
+                            screen without it. */}
+                        {density.showSecondaryText && (
+                          <div className="timing-car-name" style={{ fontSize: '2vmin', color: 'var(--display-text-muted-color)' }}>{lane.carName || `Lane ${lane.laneNumber}`}</div>
+                        )}
                       </div>
                       <div className="timing-time" style={{ fontSize: '4.5vmin', fontWeight: 'bold', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>
                         {formatLaneTime(lane.time)}
@@ -1412,6 +1761,7 @@ export default function Observation() {
             )}
           </div>
         )}
+        </div>
       </div>
     );
   }
