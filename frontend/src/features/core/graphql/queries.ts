@@ -53,6 +53,11 @@ export const INITIAL_CONFIG_QUERY = gql`
       # decisions.
       role
       demoMode
+      # Which mutations the demo refuses (#1092, #1095) — read through
+      # features/core/hooks/useDemoRefusal.ts so a control can disable
+      # itself before the click rather than after, from the one list
+      # demo_policy.py already keeps.
+      demoRefusedMutations
       terminology {
         racingGroupSingular
         racingGroupPlural

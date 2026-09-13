@@ -72,6 +72,12 @@ LAST_NAMES = [
     "Axle",
 ]
 
+#: No caller may generate more than this in one call, demo or not (#1092) —
+#: a bound belongs on the generator itself. `Mutation.populate_race` layers
+#: a stricter, demo-only cap on top of this one; this is the backstop for
+#: every other caller, since `count` had no ceiling of its own before.
+MAX_POPULATE_COUNT = 200
+
 RACING_GROUPS = [
     {"name": "Lion", "color": "#F4D03F", "division": "Lion"},
     {"name": "Tiger", "color": "#E67E22", "division": "Tiger"},
@@ -121,6 +127,11 @@ def generate_fake_racers(
     assign_racing_groups: bool = True,
     check_in: bool = False,
 ):
+    if count > MAX_POPULATE_COUNT:
+        raise ValueError(
+            f"Cannot populate more than {MAX_POPULATE_COUNT} racers at once."
+        )
+
     # Ensure assets exist
     if getattr(sys, "frozen", False):
         # In a PyInstaller bundle, the root is sys._MEIPASS

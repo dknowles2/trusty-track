@@ -376,6 +376,7 @@ export type InitialConfigStatus = {
   currentRaceId?: Maybe<Scalars['Int']['output']>;
   debugMode: Scalars['Boolean']['output'];
   demoMode: Scalars['Boolean']['output'];
+  demoRefusedMutations: Array<Scalars['String']['output']>;
   displayTheme: Scalars['String']['output'];
   initialized: Scalars['Boolean']['output'];
   isOperator: Scalars['Boolean']['output'];

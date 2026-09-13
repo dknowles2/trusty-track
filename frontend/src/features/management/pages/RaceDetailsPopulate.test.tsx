@@ -192,4 +192,61 @@ describe('RaceDetails Populate', () => {
         expect(mockShowAlert).toHaveBeenCalledWith("Please enter a valid count > 0", "Invalid Input");
         expect(genericMutationMock).not.toHaveBeenCalled();
     });
+
+    it('shows the server\'s own message when populate is refused (#1092)', async () => {
+        // Before this, a swallowed `catch {}` replaced whatever the server
+        // said — including the demo's own "populateRace is not available"
+        // sentence, or (post-#1092) the cap's own message — with the fixed
+        // string "Failed to populate test racers", every time.
+        const user = userEvent.setup();
+
+        (useQuery as any).mockReturnValue([{
+            data: {
+                race: {
+                    id: 1,
+                    name: 'Test Race',
+                    scoringStrategy: 'TIMED',
+                    carNumberingStrategy: 'PER_GROUP',
+                    racers: [],
+                    racingGroups: [],
+                    leaderboard: []
+                },
+                tracks: []
+            },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+
+        const failingMutationMock = vi.fn().mockResolvedValue({
+            error: {
+                graphQLErrors: [
+                    { message: 'The demo allows at most 40 racers per Populate Test Data call.' },
+                ],
+            },
+        });
+        mockMutations([[GQL.POPULATE_RACE, failingMutationMock]]);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={['/races/1']}>
+                    <Routes>
+                        <Route path="/races/:raceId" element={<RaceDetails />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        await waitFor(() => screen.getByTestId('race-summary-line'));
+
+        await user.click(document.querySelector('.split-btn-arrow')!);
+        await user.click(screen.getByText(/Populate Test Data/i));
+        await user.click(screen.getByText('Generate'));
+
+        await waitFor(() => {
+            expect(mockShowAlert).toHaveBeenCalledWith(
+                'The demo allows at most 40 racers per Populate Test Data call.',
+                'Error',
+            );
+        });
+    });
 });
