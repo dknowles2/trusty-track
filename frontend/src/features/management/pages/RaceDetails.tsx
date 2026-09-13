@@ -31,11 +31,12 @@ import CheckInProgress from '../components/CheckInProgress';
 import SortableHeader from '../components/SortableHeader';
 import BulkPhotoUploadModal from '../components/BulkPhotoUploadModal';
 import RacerAvatar from '../components/RacerAvatar';
+import EditRaceButton from '../components/EditRaceButton';
 import { Icon } from '@mdi/react';
 import {
   mdiMagnify, mdiNumeric,
   mdiChevronDown, mdiLightningBolt, mdiFileUpload, mdiDatabaseImport, mdiDotsHorizontal, mdiClose,
-  mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiCamera, mdiPrinter,
+  mdiCheckDecagram, mdiPlus, mdiAccountGroup, mdiCamera, mdiPrinter,
   mdiQrcodeScan, mdiTrophyBroken
 } from '@mdi/js';
 import CheckInScanner from '../../printables/components/CheckInScanner';
@@ -449,7 +450,7 @@ export default function RaceDetails() {
         window.location.href = '/';
     } catch (e: unknown) {
         console.error("Failed to delete race", e);
-        showAlert("Failed to delete race", "Error");
+        showAlert(errorText(e, "Failed to delete race"), "Error");
     }
   };
 
@@ -948,16 +949,12 @@ export default function RaceDetails() {
                   {race?.name}
                   {race?.is_locked && <LockedBadge />}
               </h1>
-              <button
+              <EditRaceButton
                   onClick={() => setIsEditingRace(true)}
-                  className="secondary-btn"
                   disabled={!isOperator}
                   title={operatorRoleTitle}
                   data-testid="edit-race-btn"
-                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.85rem' }}
-              >
-                  <Icon path={mdiPencil} size={0.6} /> Edit race
-              </button>
+              />
           </div>
           <p data-testid="race-summary-line" style={{ margin: '0.35rem 0 0', color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
               {raceSummaryLine(

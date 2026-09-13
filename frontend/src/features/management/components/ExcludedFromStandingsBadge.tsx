@@ -19,16 +19,11 @@ export default function ExcludedFromStandingsBadge({ racer }: Props) {
     <span
       data-testid={`excluded-from-standings-${racer.id}`}
       title="Races, but is left out of the standings, advancement and awards."
+      className="status-pill"
       style={{
-        display: 'inline-block',
-        marginLeft: '6px',
-        padding: '2px 8px',
-        borderRadius: '20px',
         background: 'var(--info-notice-bg-color)',
         border: '1px solid var(--scouting-blue)',
         color: 'var(--scouting-blue)',
-        fontSize: '0.75rem',
-        whiteSpace: 'nowrap',
       }}
     >
       Not ranked

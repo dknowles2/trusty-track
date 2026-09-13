@@ -24,16 +24,11 @@ export default function NoHeatsBadge({ racer, scheduledRacerIds, anyHeatsSchedul
     <span
       data-testid={`no-heats-${racer.id}`}
       title={statusNotice(status) ?? undefined}
+      className="status-pill"
       style={{
-        display: 'inline-block',
-        marginLeft: '6px',
-        padding: '2px 8px',
-        borderRadius: '20px',
         background: 'var(--warning-strong-bg-color)',
         border: '1px solid var(--warning-strong-border-color)',
         color: 'var(--warning-strong-color)',
-        fontSize: '0.75rem',
-        whiteSpace: 'nowrap',
       }}
     >
       {label}

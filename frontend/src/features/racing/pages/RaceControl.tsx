@@ -13,6 +13,7 @@ import LaneBadge from '../../../components/ui/LaneBadge';
 import { colorForLane } from '../../settings/laneColors';
 import ReadinessStrip from '../components/ReadinessStrip';
 import { FreeRaceTab } from '../components/FreeRaceTab';
+import EditRaceButton from '../../management/components/EditRaceButton';
 import {
   GET_RACE_CONTROL_DATA,
   HEAT_SESSION_SUBSCRIPTION,
@@ -28,7 +29,7 @@ import {
   UNPIN_ROUND_FIELD_MUTATION,
 } from '../graphql/queries';
 import { Icon } from '@mdi/react';
-import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiPencil } from '@mdi/js';
+import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane, EliminationChart } from '../types';
 import { hasRun, hasTime, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shouldDerivePlaces, skippedHeats } from '../lanes';
 import { executionComparator, isUnfinished } from '../runningOrder';
@@ -1057,16 +1058,12 @@ export default function RaceControl() {
             its own; the spacer this replaced existed only to balance the
             centered tab group against the title on the left. */}
         <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-end' }}>
-          <button
+          <EditRaceButton
             onClick={() => navigate(`/race/${id}?edit=true`)}
-            className="secondary-btn"
             disabled={!isOperator}
             title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
             data-testid="race-control-edit-race"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
-          >
-            <Icon path={mdiPencil} size={0.7} /> Edit race
-          </button>
+          />
         </div>
       </div>
 

@@ -365,6 +365,27 @@ button:disabled {
 }
 
 /*
+ * A small status pill beside a roster row's Check In button — "Not ranked"
+ * (ExcludedFromStandingsBadge) and "No heats" (NoHeatsBadge) (#1093). Both
+ * were `inline-block` at 0.75rem beside an `inline-flex; align-items:
+ * center` button, so the pill's text baseline-aligned with the row rather
+ * than centring in its own box — the smaller font landed high against the
+ * button's centred label. This is the shape the two badges shared; each
+ * still sets its own background/border/colour tokens, since that is the
+ * only thing that ever told them apart.
+ */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/*
  * Keyboard focus (#498). Nothing visibly marked a focused control before
  * this — a theming pass is the natural moment to add one, since Clear Sight
  * exists partly for someone who benefits from seeing it. `:focus-visible`
