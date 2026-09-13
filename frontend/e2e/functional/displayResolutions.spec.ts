@@ -17,6 +17,18 @@
  * exercised against real content rather than an empty state that would pass
  * trivially.
  *
+ * A second, 8-lane/32-racer race (`seedRace`, parametrized rather than a
+ * second copy of the setup) exists for exactly one test — "Standings (8-lane
+ * track)" below — because an 8-lane track is `Track.lane_count`'s own
+ * ceiling and review found that `displayDensity.ts`'s viewport budget, tuned
+ * and gated only against the 6-lane seed, broke the Standings tab's own
+ * guaranteed row count at 1280×720 once a track actually used it (#1073's
+ * own follow-up review, `displayDensity.ts`'s "Lane count is an input
+ * alongside width and height" section). Every other view in this file stays
+ * on the 6-lane seed — the density budget's lane-count tiering only touches
+ * the heat cards and the Standings tab it sits above, so there is nothing
+ * for a second seed to add anywhere else.
+ *
  * Four checks, run at every viewport (except the results overlay — see its
  * own test for why that one is scoped to 800×600):
  *   1. No horizontal overflow — `document.documentElement.scrollWidth <=
@@ -152,6 +164,150 @@ async function readHeats(request: APIRequestContext, raceId: number): Promise<He
     return [...data.race.heats].sort((a, b) => a.heatNumber - b.heatNumber);
 }
 
+// 32 racers' worth of real (if make-believe) names — the 6-lane seed below
+// uses the first 24, the 8-lane one (`seedRace`'s own review-follow-up case)
+// uses all 32 — searched for directly in rendered text rather than
+// hand-maintaining a per-component selector list.
+const FIRST_NAMES = [
+    'Wren', 'Milo', 'Nadia', 'Otis', 'Priya', 'Quinn', 'Reid', 'Sana',
+    'Toby', 'Uma', 'Viktor', 'Wanda', 'Xiomara', 'Yusuf', 'Zara', 'Abel',
+    'Bibi', 'Cyrus', 'Dara', 'Enzo', 'Farrah', 'Gino', 'Hana', 'Ivo',
+    'Jael', 'Kato', 'Lior', 'Maren', 'Neo', 'Opal', 'Pilar', 'Quill',
+];
+const LAST_NAMES = [
+    'Ashworth', 'Blackwood', 'Cortez', 'Delacroix', 'Ellery', 'Fenwick',
+    'Grantham', 'Halloway', 'Iverson', 'Jacoby', 'Kestrel', 'Larkspur',
+    'Marchetti', 'Norwood', 'Oaksley', 'Pemberton', 'Quintrell', 'Rosewood',
+    'Sutcliffe', 'Thackeray', 'Underhill', 'Vandermeer', 'Whitfield', 'Yarborough',
+    'Zamora', 'Ainsworth', 'Bramblewood', 'Castellane', 'Dunmore', 'Everhart',
+    'Fairweather', 'Gladstone',
+];
+
+interface SeededRace {
+    raceId: number;
+    racers: Racer[];
+    carNumberById: Map<number, number>;
+    pendingRacerNames: string[];
+}
+
+/**
+ * Builds one race with its own track, so a track's own `laneCount` — the
+ * thing under test in the 8-lane case below — is never shared between the
+ * two seeds. Parametrized (`laneCount`, `racerCount`) rather than copied,
+ * so the two seeds cannot quietly drift apart on everything *but* the one
+ * property the second one exists to vary.
+ */
+async function seedRace(
+    request: APIRequestContext,
+    organizationId: number,
+    opts: { laneCount: number; racerCount: number; unrecordedTailCount: number; label: string },
+): Promise<SeededRace> {
+    const track = await gql<{ createTrack: { id: number } }>(
+        request,
+        `mutation($track: TrackInput!) { createTrack(track: $track) { id } }`,
+        { track: { name: `Display Resolutions Track (${opts.label}) ${Date.now()}`, laneCount: opts.laneCount, timerType: 'FAKE' } },
+    );
+
+    const race = await gql<{ createRace: { id: number } }>(
+        request,
+        `mutation($race: RaceInput!) { createRace(race: $race) { id } }`,
+        {
+            race: {
+                name: `Display Resolutions Race (${opts.label}) ${Date.now()}`,
+                organizationId,
+                trackId: track.createTrack.id,
+                carNumberingStrategy: 'MANUAL',
+                scoringStrategy: 'TIMED',
+            },
+        },
+    );
+    const raceId = race.createRace.id;
+
+    const groups = ['Lion', 'Tiger', 'Wolf', 'Bear'];
+    const groupIds: number[] = [];
+    for (const name of groups) {
+        const created = await gql<{ createRacingGroup: { id: number } }>(
+            request,
+            `mutation($raceId: Int!, $racingGroup: RacingGroupInput!) {
+                createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) { id }
+            }`,
+            { raceId, racingGroup: { name, color: '#2E86C1', division: name } },
+        );
+        groupIds.push(created.createRacingGroup.id);
+    }
+
+    // A 1×1 transparent PNG, uploaded once through the same door the UI
+    // does (`RacerInput.racerImageUrl` refuses anything but an
+    // `uploadImage`-issued `/static/...` path) — the slideshow (and every
+    // avatar on this page) needs *a* photo to have anything to show.
+    const uploaded = await gql<{ uploadImage: string }>(
+        request,
+        `mutation($dataUrl: String!) { uploadImage(dataUrl: $dataUrl) }`,
+        {
+            dataUrl:
+                'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+        },
+    );
+    const PLACEHOLDER_PHOTO = uploaded.uploadImage;
+
+    const racers: Racer[] = [];
+    for (let i = 0; i < opts.racerCount; i++) {
+        const created = await gql<{ createRacer: { id: number } }>(
+            request,
+            `mutation($racer: RacerInput!) { createRacer(racer: $racer) { id } }`,
+            {
+                racer: {
+                    raceId,
+                    firstName: FIRST_NAMES[i],
+                    lastName: LAST_NAMES[i],
+                    carNumber: i + 1,
+                    racingGroupId: groupIds[i % groupIds.length],
+                    // Half the roster has a photo — enough for the
+                    // slideshow (#175, "no photo, no slide") to have real
+                    // content without every avatar on every other view
+                    // being a photo (the initials-placeholder path through
+                    // `RacerAvatar` is worth exercising too).
+                    racerImageUrl: i % 2 === 0 ? PLACEHOLDER_PHOTO : null,
+                },
+            },
+        );
+        racers.push({ id: created.createRacer.id, firstName: FIRST_NAMES[i], lastName: LAST_NAMES[i], carNumber: i + 1 });
+    }
+    const carNumberById = new Map(racers.map((r) => [r.id, r.carNumber]));
+
+    // All but the last three check in — the check-in view's own "still
+    // pending" list, and its "N of <racerCount> checked in" summary, get
+    // real content rather than an all-or-nothing empty state.
+    const pendingRacerNames = racers.slice(-3).map((r) => `${r.firstName} ${r.lastName}`);
+    for (const racer of racers.slice(0, -3)) {
+        await gql(
+            request,
+            `mutation($id: Int!) { checkInRacer(id: $id, passedInspection: true, weight: null) { id } }`,
+            { id: racer.id },
+        );
+    }
+
+    await gql(
+        request,
+        `mutation($raceId: Int!, $config: WizardConfigurationInput!) {
+            createRoundWizard(raceId: $raceId, config: $config) { id }
+        }`,
+        { raceId, config: { generalRound: { type: 'ALL', runsPerLane: 3 }, championshipRounds: [] } },
+    );
+
+    const heats = await readHeats(request, raceId);
+
+    // Leave the tail unrecorded so "Now Racing" / "On Deck" / "After That"
+    // stay populated everywhere that reads them (Projector, the standard
+    // Standings tab's own heat cards, the Broadcast overlay's lower third).
+    const toRecord = heats.slice(0, Math.max(0, heats.length - opts.unrecordedTailCount));
+    for (const heat of toRecord) {
+        await recordHeat(request, heat, carNumberById);
+    }
+
+    return { raceId, racers, carNumberById, pendingRacerNames };
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test.describe('audience displays render cleanly at low resolutions (#1073, part 1)', () => {
@@ -159,6 +315,13 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
     let racers: Racer[];
     let pendingRacerNames: string[];
     let carNumberById: Map<number, number>;
+
+    // The 8-lane/32-racer case (#1073's own follow-up review) — used by
+    // exactly one test, "Standings (8-lane track)" below. See this file's
+    // own header comment for why it needs a second seed rather than a
+    // parametrized version of every test here.
+    let raceId8: number;
+    let racers8: Racer[];
 
     test.beforeAll(async ({ request }) => {
         // `ensureConfigured` needs a `Page` to drive the first-run form, but
@@ -174,128 +337,20 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
                 'No organization configured — run the full suite (configure.setup.ts) rather than this spec alone.',
             );
         }
+        const organizationId = existing.organizations[0].id;
 
-        const track = await gql<{ createTrack: { id: number } }>(
-            request,
-            `mutation($track: TrackInput!) { createTrack(track: $track) { id } }`,
-            { track: { name: `Display Resolutions Track ${Date.now()}`, laneCount: 6, timerType: 'FAKE' } },
-        );
-
-        const race = await gql<{ createRace: { id: number } }>(
-            request,
-            `mutation($race: RaceInput!) { createRace(race: $race) { id } }`,
-            {
-                race: {
-                    name: `Display Resolutions Race ${Date.now()}`,
-                    organizationId: existing.organizations[0].id,
-                    trackId: track.createTrack.id,
-                    carNumberingStrategy: 'MANUAL',
-                    scoringStrategy: 'TIMED',
-                },
-            },
-        );
-        raceId = race.createRace.id;
-
-        const groups = ['Lion', 'Tiger', 'Wolf', 'Bear'];
-        const groupIds: number[] = [];
-        for (const name of groups) {
-            const created = await gql<{ createRacingGroup: { id: number } }>(
-                request,
-                `mutation($raceId: Int!, $racingGroup: RacingGroupInput!) {
-                    createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) { id }
-                }`,
-                { raceId, racingGroup: { name, color: '#2E86C1', division: name } },
-            );
-            groupIds.push(created.createRacingGroup.id);
-        }
-
-        // 24 racers, over four racing groups, real (if make-believe) names —
-        // the busiest case the issue asks for, and names we can search
-        // rendered text for directly rather than hand-maintaining a
-        // per-component selector list.
-        const FIRST_NAMES = [
-            'Wren', 'Milo', 'Nadia', 'Otis', 'Priya', 'Quinn', 'Reid', 'Sana',
-            'Toby', 'Uma', 'Viktor', 'Wanda', 'Xiomara', 'Yusuf', 'Zara', 'Abel',
-            'Bibi', 'Cyrus', 'Dara', 'Enzo', 'Farrah', 'Gino', 'Hana', 'Ivo',
-        ];
-        const LAST_NAMES = [
-            'Ashworth', 'Blackwood', 'Cortez', 'Delacroix', 'Ellery', 'Fenwick',
-            'Grantham', 'Halloway', 'Iverson', 'Jacoby', 'Kestrel', 'Larkspur',
-            'Marchetti', 'Norwood', 'Oaksley', 'Pemberton', 'Quintrell', 'Rosewood',
-            'Sutcliffe', 'Thackeray', 'Underhill', 'Vandermeer', 'Whitfield', 'Yarborough',
-        ];
-
-        // A 1×1 transparent PNG, uploaded once through the same door the UI
-        // does (`RacerInput.racerImageUrl` refuses anything but an
-        // `uploadImage`-issued `/static/...` path) — the slideshow (and
-        // every avatar on this page) needs *a* photo to have anything to
-        // show.
-        const uploaded = await gql<{ uploadImage: string }>(
-            request,
-            `mutation($dataUrl: String!) { uploadImage(dataUrl: $dataUrl) }`,
-            {
-                dataUrl:
-                    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
-            },
-        );
-        const PLACEHOLDER_PHOTO = uploaded.uploadImage;
-
-        racers = [];
-        for (let i = 0; i < 24; i++) {
-            const created = await gql<{ createRacer: { id: number } }>(
-                request,
-                `mutation($racer: RacerInput!) { createRacer(racer: $racer) { id } }`,
-                {
-                    racer: {
-                        raceId,
-                        firstName: FIRST_NAMES[i],
-                        lastName: LAST_NAMES[i],
-                        carNumber: i + 1,
-                        racingGroupId: groupIds[i % groupIds.length],
-                        // Half the roster has a photo — enough for the
-                        // slideshow (#175, "no photo, no slide") to have
-                        // real content without every avatar on every other
-                        // view being a photo (the initials-placeholder path
-                        // through `RacerAvatar` is worth exercising too).
-                        racerImageUrl: i % 2 === 0 ? PLACEHOLDER_PHOTO : null,
-                    },
-                },
-            );
-            racers.push({ id: created.createRacer.id, firstName: FIRST_NAMES[i], lastName: LAST_NAMES[i], carNumber: i + 1 });
-        }
-        carNumberById = new Map(racers.map((r) => [r.id, r.carNumber]));
-
-        // All but the last three check in — the check-in view's own "still
-        // pending" list, and its "N of 24 checked in" summary, get real
-        // content rather than an all-or-nothing empty state.
-        pendingRacerNames = racers.slice(-3).map((r) => `${r.firstName} ${r.lastName}`);
-        for (const racer of racers.slice(0, -3)) {
-            await gql(
-                request,
-                `mutation($id: Int!) { checkInRacer(id: $id, passedInspection: true, weight: null) { id } }`,
-                { id: racer.id },
-            );
-        }
-
-        await gql(
-            request,
-            `mutation($raceId: Int!, $config: WizardConfigurationInput!) {
-                createRoundWizard(raceId: $raceId, config: $config) { id }
-            }`,
-            { raceId, config: { generalRound: { type: 'ALL', runsPerLane: 3 }, championshipRounds: [] } },
-        );
-
-        const heats = await readHeats(request, raceId);
-
-        // Leave the last four heats unrecorded: three keep "Now Racing" / "On
-        // Deck" / "After That" populated everywhere that reads them
-        // (Projector, the standard Standings tab's own heat cards, the
-        // Broadcast overlay's lower third); the fourth is spent later,
-        // deliberately, by the results-overlay test.
-        const toRecord = heats.slice(0, Math.max(0, heats.length - 4));
-        for (const heat of toRecord) {
-            await recordHeat(request, heat, carNumberById);
-        }
+        const primary = await seedRace(request, organizationId, {
+            laneCount: 6,
+            racerCount: 24,
+            // Three keep the heat cards populated; the fourth is spent
+            // later, deliberately, by the results-overlay test.
+            unrecordedTailCount: 4,
+            label: '6-lane',
+        });
+        raceId = primary.raceId;
+        racers = primary.racers;
+        carNumberById = primary.carNumberById;
+        pendingRacerNames = primary.pendingRacerNames;
 
         // A resolvable SPEED award (a winner falls out of the standings
         // already recorded above) and an unresolved SPECIAL one — the
@@ -311,6 +366,15 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             `mutation($raceId: Int!, $award: AwardInput!) { createAward(raceId: $raceId, award: $award) { id } }`,
             { raceId, award: { name: 'Best Paint', kind: 'SPECIAL' } },
         );
+
+        const eightLane = await seedRace(request, organizationId, {
+            laneCount: 8,
+            racerCount: 32,
+            unrecordedTailCount: 3,
+            label: '8-lane',
+        });
+        raceId8 = eightLane.raceId;
+        racers8 = eightLane.racers;
     });
 
     /** Every leaf element (no element children) whose own text is exactly a
@@ -467,7 +531,11 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
      * viewports can show at once — a page indicator naming more than one
      * page.
      */
-    async function standingsTabPagingFailures(page: Page, viewportHeight: number): Promise<string[]> {
+    async function standingsTabPagingFailures(
+        page: Page,
+        viewportHeight: number,
+        totalRacerCount: number = racers.length,
+    ): Promise<string[]> {
         const bad: string[] = [];
         const rows = page.locator('.standing-row');
         const rowCount = await rows.count();
@@ -478,8 +546,8 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
         if (rowCount < MIN_GUARANTEED_STANDINGS_ROWS) {
             bad.push(`only ${rowCount} of a guaranteed minimum ${MIN_GUARANTEED_STANDINGS_ROWS} standings rows rendered`);
         }
-        if (rowCount >= racers.length) {
-            bad.push(`rendered every racer (${rowCount} of ${racers.length}) rather than paging`);
+        if (rowCount >= totalRacerCount) {
+            bad.push(`rendered every racer (${rowCount} of ${totalRacerCount}) rather than paging`);
         }
         for (let i = 0; i < rowCount; i++) {
             const box = await rows.nth(i).boundingBox();
@@ -563,6 +631,41 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             // The racing-group division under a name, and (on the heat
             // cards above the table) under a staged racer, drop below the
             // 1024px width threshold.
+            const densityFailures = await secondaryTextFailures(page, vp, [
+                '.standing-racing-group-division',
+                '.heat-card-racing-group-division',
+            ]);
+            expect(densityFailures, `at ${vp.name}:\n${densityFailures.join('\n')}`).toEqual([]);
+        });
+    });
+
+    /**
+     * The 8-lane/32-racer case #1073's own follow-up review added
+     * (`Track.lane_count`'s own ceiling): `displayDensity.ts`'s viewport
+     * budget was tuned and gated only against the 6-lane seed above, and an
+     * 8-lane track broke the Standings tab's own guaranteed row count at
+     * 1280×720 — three cards at `heatCardCompactness`'s old top tier (shared
+     * with 6 lanes) cost enough of `heatCardsMaxHeightVh` to starve the
+     * table. Runs the identical checks as "Standings" above, against the
+     * 8-lane race instead — the same four clean-render checks plus the
+     * ≥5-rows guarantee — at all four viewports, including the one that
+     * failed in review.
+     */
+    test("Standings (8-lane track, Track.lane_count's own ceiling — #1073 review)", async ({ page }) => {
+        const racerNames8 = racers8.map((r) => `${r.firstName} ${r.lastName}`);
+        await forEachViewport(page, async (vp) => {
+            await page.goto(`/race/${raceId8}/observation`);
+            await page.waitForLoadState('networkidle');
+            await expect(page.locator('.standings-table')).toBeVisible();
+            await assertCleanRender(page, {
+                fullScreen: false,
+                overlapSelectors: ['.heat-card', '.standing-row'],
+                racerNames: racerNames8,
+            });
+
+            const pagingFailures = await standingsTabPagingFailures(page, vp.height, racers8.length);
+            expect(pagingFailures, `at ${vp.name}:\n${pagingFailures.join('\n')}`).toEqual([]);
+
             const densityFailures = await secondaryTextFailures(page, vp, [
                 '.standing-racing-group-division',
                 '.heat-card-racing-group-division',

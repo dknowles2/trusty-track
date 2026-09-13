@@ -81,6 +81,10 @@ const GET_INITIAL_DATA = `
         # mode. Empty when the operator has never opened the picker on the
         # track's card.
         laneColors
+        # How dense a heat card's own grid and the on-deck depth budget need
+        # to be (issue 1073 part 2, displayDensity.ts) — an 8-lane track
+        # needs a smaller tier than a 6-lane one at the identical viewport.
+        laneCount
       }
       # Whether the race is finished (issue 869) — every officially scheduled
       # heat recorded, with nothing next — is decided from these two
@@ -206,12 +210,6 @@ export default function Observation() {
   // whichever `IdentifyPresence` instance the previous branch had rendered.
   const identify = useIdentifyOverlay(assignment);
 
-  // What a screen this size can afford to show (#1073 part 2) — read once
-  // here and passed down to every render below that has a secondary line to
-  // drop, the same "resolve once, pass down" shape `nameDisplay` and
-  // `laneColors` already use on this page.
-  const density = useDisplayDensity();
-
   const urlIntent = useMemo(() => readUrl(searchParams), [searchParams]);
   const behaviour = useMemo(
     () =>
@@ -331,6 +329,18 @@ export default function Observation() {
   });
 
   const { data: initialData } = initialResult;
+
+  // What a screen this size — and this heat's own lane count — can afford
+  // to show (#1073 part 2) — read once here and passed down to every render
+  // below that has a secondary line to drop or a card to size, the same
+  // "resolve once, pass down" shape `nameDisplay` and `laneColors` already
+  // use on this page. Needs the track's own lane count (an 8-lane track
+  // needs a denser heat-card tier than a 6-lane one at the same viewport —
+  // see `displayDensity.ts`'s own comment), so it is declared here rather
+  // than above `initialData`, and falls back to 4 (`TrackInput`'s own
+  // default) before the query has answered.
+  const trackLaneCount = initialData?.race?.track?.laneCount ?? 4;
+  const density = useDisplayDensity(trackLaneCount);
 
   // A race whose only round is elimination (#1020) can never populate the
   // ordinary "Overall" aggregate — `services/scoring._scoring_heats`
@@ -838,35 +848,49 @@ export default function Observation() {
     // multiplies a card's height (the avatar row count) to save the one
     // thing that only adds a line or two (a wrapped name). One row, however
     // narrow its columns, beats two rows of wider ones.
-    const laneCount = Math.max(entries.length, 1);
-    const columns = laneCount;
+    // The grid still renders exactly as many columns as *this* heat's own
+    // occupied lanes (a heat can hold fewer than the track's full count —
+    // the last one of an uneven round, a lane out of service), but sizing
+    // — avatar, font, padding, all of it — is tiered off `density.
+    // heatCardCompactness`, which is the *track's* configured lane count,
+    // not this one heat's. Every card in the row (Now Racing, On Deck,
+    // After That) is sized as if it were full, deliberately: a schedule
+    // where one heat happens to be short a racer must not size that one
+    // card larger than its siblings, and the on-deck-depth budget below
+    // already assumes the worst (full) case for the whole row.
+    const columns = Math.max(entries.length, 1);
     // The avatar (and the text beneath it) shrink as more lanes share a row
     // — a six-lane card's columns are a sixth (or, sharing the row, a
     // third) of the available width, and an avatar sized for two lanes
     // would be wider than that column has to give it. Tiered, not a
     // continuous formula, so the sizes at issue are pinned in
     // `displayResolutions.spec.ts` rather than able to drift by a fraction
-    // of a `vh` with no test noticing. Every tier stays at or above 2.1vmin
+    // of a `vh` with no test noticing. Every tier stays at or above 2.0vmin
     // for the name/car-number text — the legibility floor is 2% of
     // viewport height and `vmin` equals `vh` at every viewport this app
     // targets (landscape, `CLAUDE.md`'s own table), so this keeps a safety
-    // margin above it rather than sitting exactly on the line.
-    const compactness = laneCount <= 2 ? 0 : laneCount <= 4 ? 1 : 2;
-    const heatCardAvatarVh = [9, 6, 3.8][compactness];
-    const heatCardNameVmin = [2.6, 2.2, 2.0][compactness];
-    const heatCardCarNumberVmin = [2.3, 2.0, 2.0][compactness];
-    const heatCardGridGapPx = compactness === 0 ? 15 : compactness === 1 ? 8 : 5;
-    const heatCardCellPaddingPx = compactness === 0 ? 10 : compactness === 1 ? 6 : 4;
+    // margin above it rather than sitting exactly on the line. Tier 3 (more
+    // than six lanes — an 8-lane track's own ceiling) keeps that same text
+    // size and shrinks everything else instead, since text cannot go lower
+    // without crossing the floor; see `AFTER_THAT_MAX_LANE_COUNT` in
+    // `displayDensity.ts` for what happens when even that is not enough.
+    const compactness = density.heatCardCompactness;
+    const heatCardAvatarVh = [9, 6, 3.8, 3.0][compactness];
+    const heatCardNameVmin = [2.6, 2.2, 2.0, 2.0][compactness];
+    const heatCardCarNumberVmin = [2.3, 2.0, 2.0, 2.0][compactness];
+    const heatCardGridGapPx = [15, 8, 5, 3][compactness];
+    const heatCardCellPaddingPx = [10, 6, 4, 3][compactness];
     // The card's own outer padding and title size shrink on the same tiers
     // (#1073 part 2) — a fixed 20px/3.2vmin was tuned for the two-or-fewer-
     // lane case and, multiplied by nothing more than "this card exists" (it
     // does not scale with lane count the way the grid above does), still
     // cost enough at six lanes to leave the Standings table short of its
     // own guaranteed rows even after the grid itself stopped multiplying.
-    // 2.6vmin stays comfortably clear of the legibility floor — this is a
-    // heading, not one of the floor's own name/car-number/place/time cells.
-    const heatCardPaddingPx = compactness === 0 ? 20 : compactness === 1 ? 12 : 6;
-    const heatCardTitleVmin = compactness === 0 ? 3.2 : compactness === 1 ? 2.6 : 2.2;
+    // Every tier stays comfortably clear of the legibility floor — this is
+    // a heading, not one of the floor's own name/car-number/place/time
+    // cells.
+    const heatCardPaddingPx = [20, 12, 6, 5][compactness];
+    const heatCardTitleVmin = [3.2, 2.6, 2.2, 2.0][compactness];
 
     return (
       <div className="heat-card" style={{

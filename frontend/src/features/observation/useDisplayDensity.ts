@@ -5,6 +5,12 @@
  * keeps them current across a resize. A display's window is not resized
  * while an event is running in practice, but the Displays panel's own live
  * preview and a developer's browser both are.
+ *
+ * `laneCount` is the caller's own — the track's configured lane count, not
+ * something this hook can read off the window — since how dense a heat
+ * card's own grid needs to be depends on it as much as the viewport does
+ * (an 8-lane track needs a smaller tier than a 6-lane one at the identical
+ * size). Passed straight through to `densityFor` on every render.
  */
 
 import { useEffect, useState } from 'react';
@@ -15,7 +21,7 @@ function currentViewport(): { width: number; height: number } {
     return { width: window.innerWidth, height: window.innerHeight };
 }
 
-export function useDisplayDensity(): DisplayDensity {
+export function useDisplayDensity(laneCount: number): DisplayDensity {
     const [viewport, setViewport] = useState(currentViewport);
 
     useEffect(() => {
@@ -24,5 +30,5 @@ export function useDisplayDensity(): DisplayDensity {
         return () => window.removeEventListener('resize', onResize);
     }, []);
 
-    return densityFor(viewport.width, viewport.height);
+    return densityFor(viewport.width, viewport.height, laneCount);
 }

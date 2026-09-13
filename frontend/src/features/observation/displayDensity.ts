@@ -18,12 +18,23 @@
  * whatever the cards happen to need. That only works because the cards are
  * sized to actually fit inside it — see `Observation.tsx`'s `renderHeatCard`
  * for the matching half (a fixed one-row-per-heat grid, an avatar size tied
- * to how many lanes are sharing that row) — this module only decides the
- * budget and how many cards may draw from it.
+ * to `heatCardCompactness` below) — this module decides the budget, how many
+ * cards may draw from it, and how compact each one has to be.
+ *
+ * **Lane count is an input alongside width and height, not an afterthought.**
+ * An 8-lane track (`Track.lane_count`'s own ceiling — `.claude/rules/
+ * scheduling.md`) needs a denser heat-card tier than a 6-lane one at the
+ * identical viewport: the same row's worth of avatars is split across two
+ * more columns, so each one is narrower and a long name wraps to more lines
+ * at the same font size. The first version of this budget was tuned and
+ * tested only against the seed's own 6-lane track, and a track configured
+ * for the data model's actual maximum broke the Standings tab's own
+ * guaranteed row count at 1280×720 — found in review, reproduced with a
+ * dedicated 8-lane/32-racer case in `displayResolutions.spec.ts`.
  *
  * Pure, no React — the same split `slideshow.ts` and `standingsScroll.ts`
- * draw, so a table-driven test can sweep every viewport the app is asked to
- * render at without a DOM.
+ * draw, so a table-driven test can sweep every viewport (and lane count) the
+ * app is asked to render at without a DOM.
  */
 
 /**
@@ -39,18 +50,22 @@ const SECONDARY_TEXT_MIN_WIDTH_PX = 1024;
 /**
  * The width below which "Now Racing", "On Deck" and "After That" no longer
  * fit in one row. Each heat card has a 300px `minWidth` floor
- * (`renderHeatCard`'s own) *plus* its own 20px-a-side padding — a card's
- * true minimum outer width is 340px, not 300 — so three side by side need
- * 3×340 = 1020px, plus the row's own two 20px gaps (40px) and the page's own
- * 40px of padding: 1100px. Under that, `heat-cards-layout`'s `flexWrap`
- * stacks a card onto its own line instead — two cards fit at 984px available
- * (1024 wide) and wrap the third onto a row by itself, which is what
- * genuinely happened at the XGA viewport before this constant accounted for
- * each card's own padding: two rows of cards, rather than one, together ran
- * past the heat-cards budget below even though each individual row (a
- * single avatar row apiece) did not. Every viewport actually in use
- * (`CLAUDE.md`'s own table) sits clear of the 1100px line either way — 1024
- * and below stay under it, 1280 and 1920 stay comfortably over.
+ * (`renderHeatCard`'s own) *plus* its own padding on each side — a card's
+ * true minimum outer width is its `minWidth` plus twice that padding, not
+ * the bare 300 — so three side by side need three of those plus the row's
+ * own two 20px gaps and the page's own 40px of padding. This constant uses
+ * the *least* compact tier's padding (20px a side, `compactness === 0`,
+ * ≤2 lanes) as the per-card floor — 340px, giving 1100px overall — which is
+ * deliberately conservative rather than exact: the tested, busy cases
+ * (6 and 8 lanes) use a much smaller padding tier (6px and 5px), so their
+ * true floor is closer to 1000px, well inside this line. Tightening this
+ * constant to match the busy tiers exactly was considered and rejected —
+ * it would depend on which lane count is actually on screen, which is
+ * exactly the "one line, one number" property this width threshold has today
+ * and `onDeckDepth`'s own lane-count check (below) does not need to share.
+ * Every viewport actually in use (`CLAUDE.md`'s own table) sits clear of the
+ * 1100px line either way — 1024 and below stay under it, 1280 and 1920 stay
+ * comfortably over.
  */
 const AFTER_THAT_MIN_WIDTH_PX = 1100;
 
@@ -69,6 +84,21 @@ const AFTER_THAT_MIN_WIDTH_PX = 1100;
  * 600px SVGA floor drops it.
  */
 const ON_DECK_MIN_HEIGHT_PX = 700;
+
+/**
+ * Above this lane count, three cards side by side at 1280×720 (`onDeckDepth
+ * === 2`) still leave the Standings table short of its own guaranteed row
+ * count even at `heatCardCompactness`'s own densest tier — three 8-lane
+ * heat cards, each a fixed 8-column grid, cost enough of
+ * `heatCardsMaxHeightVh` between them that a fifth Standings row does not
+ * fit. Text cannot shrink any further without crossing the legibility floor
+ * (`heatCardCompactness`'s own tier 3 already sits its name/car-number text
+ * on that floor), so the budget drops "After That" instead — the same
+ * height-for-width trade `ON_DECK_MIN_HEIGHT_PX` already makes, applied a
+ * second way. Measured directly against `displayResolutions.spec.ts`'s own
+ * 8-lane/32-racer case; 6 lanes and below never reach this.
+ */
+const AFTER_THAT_MAX_LANE_COUNT = 6;
 
 /**
  * The heat cards row's own ceiling, as a percentage of viewport height —
@@ -97,35 +127,59 @@ export interface DisplayDensity {
      * How many upcoming heats the row above the Standings table shows,
      * beyond the one currently racing — 2 ("On Deck" and "After That")
      * ordinarily, 1 (just "On Deck") once the row can no longer hold three
-     * cards side by side, 0 (just "Now Racing") once even two cards side by
-     * side risk starving the table of its own guaranteed rows.
+     * cards side by side, or once a high enough lane count means three
+     * cards would starve the table even where they'd otherwise fit; 0
+     * (just "Now Racing") once even two cards side by side risk starving
+     * the table of its own guaranteed rows.
      */
     onDeckDepth: 0 | 1 | 2;
     /** The heat cards row's own height ceiling, as a bare `vh` number (not
      * a CSS string) so a caller can compose it into a `calc()` or a test can
      * compare it as a plain number. */
     heatCardsMaxHeightVh: number;
+    /**
+     * How compact a heat card's own avatar, font and padding sizes must be,
+     * tiered by the track's own lane count (not any one heat's occupied
+     * lanes — every card is sized as if it were full, the conservative and
+     * consistent assumption): `0` (≤2 lanes, today's original sizing)
+     * through `3` (more than 6 — an 8-lane track's own ceiling). `Observation
+     * .tsx`'s `renderHeatCard` is the only reader.
+     */
+    heatCardCompactness: 0 | 1 | 2 | 3;
+}
+
+function compactnessForLaneCount(laneCount: number): DisplayDensity['heatCardCompactness'] {
+    if (laneCount <= 2) return 0;
+    if (laneCount <= 4) return 1;
+    if (laneCount <= 6) return 2;
+    return 3;
 }
 
 /**
- * What a screen of this size may afford to show.
+ * What a screen of this size, showing a track of this lane count, may
+ * afford to show.
  *
  * Row *count* on the Standings table itself is deliberately not this
  * module's job even though it is the other half of "density" —
  * `useMeasuredPages` already measures a container's real height and pages
  * through whatever does not fit, which is the actual answer to "how many
  * rows fit" (a fixed guess here could only disagree with it). This module is
- * left with the properties that genuinely depend on the viewport alone:
- * whether a second line of text under a name is worth its row, how many
- * heat cards the row above the table can afford to show, and how much of
- * the screen that row may ever take.
+ * left with the properties that genuinely depend on the viewport and the
+ * track alone: whether a second line of text under a name is worth its row,
+ * how many heat cards the row above the table can afford to show, how
+ * compact each one has to be, and how much of the screen that row may ever
+ * take.
  */
-export function densityFor(viewportWidth: number, viewportHeight: number): DisplayDensity {
-    const onDeckDepth: DisplayDensity['onDeckDepth'] =
+export function densityFor(viewportWidth: number, viewportHeight: number, laneCount: number): DisplayDensity {
+    let onDeckDepth: DisplayDensity['onDeckDepth'] =
         viewportHeight < ON_DECK_MIN_HEIGHT_PX ? 0 : viewportWidth >= AFTER_THAT_MIN_WIDTH_PX ? 2 : 1;
+    if (onDeckDepth === 2 && laneCount > AFTER_THAT_MAX_LANE_COUNT) {
+        onDeckDepth = 1;
+    }
     return {
         showSecondaryText: viewportWidth >= SECONDARY_TEXT_MIN_WIDTH_PX,
         onDeckDepth,
         heatCardsMaxHeightVh: HEAT_CARDS_BUDGET_VH,
+        heatCardCompactness: compactnessForLaneCount(laneCount),
     };
 }
