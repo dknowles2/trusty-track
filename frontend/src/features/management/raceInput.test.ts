@@ -91,6 +91,7 @@ describe('buildCreateRaceInput', () => {
                     artwork_key: 'trophy',
                     sort_order: 0,
                     votable: false,
+                    copied_from_round_id: null,
                 },
             ],
         });
@@ -106,6 +107,7 @@ describe('buildCreateRaceInput', () => {
                 artworkKey: 'trophy',
                 sortOrder: 0,
                 votable: false,
+                copiedFromRoundId: null,
             },
         ]);
         expect(input.awards[0]).not.toHaveProperty('racerId');
@@ -113,6 +115,54 @@ describe('buildCreateRaceInput', () => {
 
     it('sends an empty award list for a plain submission with no copy step', () => {
         expect(buildCreateRaceInput(baseFormData).awards).toEqual([]);
+    });
+
+    it('sends a null round plan for a plain submission with no copy step (#1088)', () => {
+        expect(buildCreateRaceInput(baseFormData).roundPlan).toBeNull();
+    });
+
+    it('carries a copied round plan through to the camelCase createRace input', () => {
+        const input = buildCreateRaceInput({
+            ...baseFormData,
+            racing_groups: [],
+            round_plan: {
+                generalRound: { type: 'ALL', schedulingStrategy: 'PPC', runsPerLane: 2 },
+                championshipRounds: [
+                    {
+                        name: 'Finals',
+                        source: 'ALL',
+                        numTopRacers: 3,
+                        runsPerLane: 1,
+                        advancementFromBottom: false,
+                        sourceRoundId: 9,
+                    },
+                ],
+            },
+        });
+
+        expect(input.roundPlan).toEqual({
+            generalRound: {
+                type: 'ALL',
+                schedulingStrategy: 'PPC',
+                runsPerLane: 2,
+                eliminationLosses: null,
+                balancedPhases: null,
+            },
+            championshipRounds: [
+                {
+                    name: 'Finals',
+                    source: 'ALL',
+                    numTopRacers: 3,
+                    runsPerLane: 1,
+                    advancementFromBottom: false,
+                    sourceRoundId: 9,
+                },
+            ],
+        });
+    });
+
+    it('sends null when a copy leaves "Copy the rounds too" unticked', () => {
+        expect(buildCreateRaceInput({ ...baseFormData, round_plan: null }).roundPlan).toBeNull();
     });
 
     it('carries the words the wizard chose, and nulls where the race inherits (#662)', () => {
@@ -145,9 +195,11 @@ describe('buildCreateRaceInput', () => {
             globalStartNumber: 1,
             championshipTrophies: 3,
             weightLimitOz: 5.0,
-            // A plain form submission: no groups, no awards, and every word inherited.
+            // A plain form submission: no groups, no awards, no round plan,
+            // and every word inherited.
             racingGroups: [],
             awards: [],
+            roundPlan: null,
             racingGroupSingular: null,
             racingGroupPlural: null,
             organizationSingular: null,

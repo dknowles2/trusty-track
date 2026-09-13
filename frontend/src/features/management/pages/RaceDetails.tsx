@@ -205,19 +205,24 @@ export default function RaceDetails() {
 
   // What the setup checklist reads (#199, extended by #847). Every number is
   // one the page already had, except the round count — see the query for why
-  // `scheduledRacerIds` cannot stand in for it. `awardCount` and `isLocked`
-  // back the awards/printables steps — see `setupChecklist.ts` for why
-  // locking, not a dismiss control, is what quiets either of them.
+  // `scheduledRacerIds` cannot stand in for it. `hasScheduledHeats` reuses
+  // that same field (`anyHeatsScheduled`, above) rather than a query per
+  // round (#1088) — a round can exist with zero heats (a copied plan with
+  // no roster yet), and "Generate a schedule" must not read done for one.
+  // `awardCount` and `isLocked` back the awards/printables steps — see
+  // `setupChecklist.ts` for why locking, not a dismiss control, is what
+  // quiets either of them.
   const setupProgress = useMemo(
     () => ({
       racingGroupCount: data?.race?.racingGroups?.length ?? 0,
       racerCount: data?.race?.registeredCount ?? 0,
       checkedInCount: data?.race?.checkedInCount ?? 0,
       roundCount: data?.race?.rounds?.length ?? 0,
+      hasScheduledHeats: anyHeatsScheduled,
       awardCount: data?.race?.awards?.length ?? 0,
       isLocked: data?.race?.isLocked ?? false,
     }),
-    [data],
+    [data, anyHeatsScheduled],
   );
 
   const loading = fetching && !data;

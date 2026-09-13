@@ -54,6 +54,46 @@ const lastYear = {
         sortOrder: number;
         votable: boolean;
     }>,
+    roundPlan: null as {
+        generalRound: {
+            type: string;
+            schedulingStrategy: string;
+            runsPerLane: number;
+            eliminationLosses: number | null;
+            balancedPhases: number | null;
+        };
+        championshipRounds: Array<{
+            name: string;
+            source: string;
+            numTopRacers: number;
+            runsPerLane: number;
+            advancementFromBottom: boolean;
+            sourceRoundId: number;
+        }>;
+    } | null,
+};
+
+/** A round plan as `GET_RACE_SETUP_SOURCE` would return it (#1088): one PPC
+ * qualifying round (2 runs per lane) and one `ALL` top-3 final whose id is
+ * 9 — the same id a `ROUND:9` award names below. */
+const roundPlanFixture = {
+    generalRound: {
+        type: 'ALL',
+        schedulingStrategy: 'PPC',
+        runsPerLane: 2,
+        eliminationLosses: null,
+        balancedPhases: null,
+    },
+    championshipRounds: [
+        {
+            name: 'Finals',
+            source: 'ALL',
+            numTopRacers: 3,
+            runsPerLane: 1,
+            advancementFromBottom: false,
+            sourceRoundId: 9,
+        },
+    ],
 };
 
 /** Answers each of the three queries the wizard (and the form inside it)
@@ -62,8 +102,9 @@ function mockQueries({
     races = [] as Array<{ id: number; name: string }>,
     installDefault = DEFAULT_TERMINOLOGY,
     sourceAwards = lastYear.awards,
+    sourceRoundPlan = lastYear.roundPlan,
 } = {}) {
-    const source = { ...lastYear, awards: sourceAwards };
+    const source = { ...lastYear, awards: sourceAwards, roundPlan: sourceRoundPlan };
     vi.mocked(useQuery).mockImplementation(((args: { query: { definitions: Array<{ name?: { value: string } }> }; pause?: boolean }) => {
         const name = args.query.definitions[0]?.name?.value;
         if (name === 'GetRaceSetupContext') {
@@ -449,5 +490,104 @@ describe('with a previous race', () => {
         expect(screen.getByTestId('setup-step-start')).toBeInTheDocument();
         await userEvent.click(screen.getByRole('radio', { name: /^Copy settings from a previous race/ }));
         expect(screen.getByTestId('setup-step-start')).toBeInTheDocument();
+    });
+});
+
+describe('copying the round plan (#1088)', () => {
+    it('the Details step shows the round summary and re-points a copied ROUND: award', async () => {
+        mockQueries({
+            races: [{ id: 4, name: 'Last Year' }],
+            sourceRoundPlan: roundPlanFixture,
+            sourceAwards: [
+                {
+                    id: 4,
+                    name: 'Pack Champion',
+                    kind: 'SPEED',
+                    source: 'ROUND:9',
+                    place: 1,
+                    fromBottom: false,
+                    racingGroupId: null,
+                    artworkKey: 'trophy',
+                    sortOrder: 0,
+                    votable: false,
+                },
+            ],
+        });
+        const { onSubmit } = renderWizard();
+
+        await userEvent.click(screen.getByRole('radio', { name: /^Copy settings from a previous race/ }));
+        await userEvent.selectOptions(screen.getByLabelText('Previous race'), '4');
+        await next();
+        // A round-scoped award now copies, since the plan reproduces it.
+        expect(screen.getByTestId('setup-awards-copy-summary')).toHaveTextContent('Pack Champion');
+
+        await next();
+        expect(screen.getByTestId('setup-round-plan-summary')).toHaveTextContent(
+            'Rounds: 1 qualifying (PPC, 2 runs per lane) → Finals (top 3) — from *Last Year*',
+        );
+        const checkbox = screen.getByRole('checkbox', { name: 'Copy the rounds too' });
+        expect(checkbox).toBeChecked();
+
+        await userEvent.type(screen.getByLabelText('Event Name'), 'This Year');
+        await userEvent.click(screen.getByRole('button', { name: 'Create Race' }));
+
+        const data = onSubmit.mock.calls[0][0];
+        expect(data.round_plan).toEqual(roundPlanFixture);
+        expect(data.awards?.[0]).toMatchObject({ name: 'Pack Champion', source: 'ROUND:9', copied_from_round_id: 9 });
+    });
+
+    it('unticking "Copy the rounds too" sends no plan and drops the round-scoped award', async () => {
+        mockQueries({
+            races: [{ id: 4, name: 'Last Year' }],
+            sourceRoundPlan: roundPlanFixture,
+            sourceAwards: [
+                {
+                    id: 4,
+                    name: 'Pack Champion',
+                    kind: 'SPEED',
+                    source: 'ROUND:9',
+                    place: 1,
+                    fromBottom: false,
+                    racingGroupId: null,
+                    artworkKey: 'trophy',
+                    sortOrder: 0,
+                    votable: false,
+                },
+            ],
+        });
+        const { onSubmit } = renderWizard();
+
+        await userEvent.click(screen.getByRole('radio', { name: /^Copy settings from a previous race/ }));
+        await userEvent.selectOptions(screen.getByLabelText('Previous race'), '4');
+        await next();
+        await next();
+
+        await userEvent.click(screen.getByRole('checkbox', { name: 'Copy the rounds too' }));
+        expect(screen.getByTestId('setup-round-plan-summary')).toHaveTextContent('Not copying the rounds');
+
+        // Going back to the groups/awards step reflects the same choice —
+        // the award is now excluded, not copied.
+        await userEvent.click(screen.getByRole('button', { name: '2. Dens' }));
+        expect(screen.getByTestId('setup-awards-excluded')).toHaveTextContent('Pack Champion');
+
+        await next();
+        await userEvent.type(screen.getByLabelText('Event Name'), 'This Year');
+        await userEvent.click(screen.getByRole('button', { name: 'Create Race' }));
+
+        const data = onSubmit.mock.calls[0][0];
+        expect(data.round_plan ?? null).toBeNull();
+        expect(data.awards).toEqual([]);
+    });
+
+    it('no round plan on the source race: no round-plan section at all', async () => {
+        mockQueries({ races: [{ id: 4, name: 'Last Year' }] });
+        renderWizard();
+
+        await userEvent.click(screen.getByRole('radio', { name: /^Copy settings from a previous race/ }));
+        await userEvent.selectOptions(screen.getByLabelText('Previous race'), '4');
+        await next();
+        await next();
+
+        expect(screen.queryByTestId('setup-round-plan')).toBeNull();
     });
 });

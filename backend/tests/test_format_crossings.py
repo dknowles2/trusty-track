@@ -107,6 +107,46 @@ query RaceStatus($raceId: Int!) {
 }
 """
 
+COPY_SOURCE = """
+query CopySource($raceId: Int!) {
+    race(raceId: $raceId) {
+        racingGroups { name color }
+        roundPlan {
+            generalRound {
+                type
+                schedulingStrategy
+                runsPerLane
+                eliminationLosses
+                balancedPhases
+            }
+            championshipRounds {
+                name
+                source
+                numTopRacers
+                runsPerLane
+                advancementFromBottom
+                sourceRoundId
+            }
+        }
+    }
+}
+"""
+
+CREATE_RACE = """
+mutation CreateRace($race: RaceInput!) {
+    createRace(race: $race) {
+        id
+        rounds { id roundNumber advancementSource }
+    }
+}
+"""
+
+REGENERATE_ROUND = """
+mutation Regenerate($roundId: Int!) {
+    regenerateRound(roundId: $roundId) { id }
+}
+"""
+
 RACER_COUNT = 7
 LANE_COUNT = 4
 TOP_N = 2
@@ -157,10 +197,20 @@ def _setup_race(db, label: str) -> tuple[models.Race, list[int]]:
     return race, ids
 
 
-def _create_general_round(client, race_id: int, style: str) -> int:
+def _create_general_round(
+    client, race_id: int, style: str, runs_per_lane: int = 1
+) -> int:
     """Build the general round through the wizard, alone — the same door
-    `test_wizard_round_styles.py` drives. Returns its id."""
-    general_round: dict = {"type": "ALL", "runsPerLane": 1}
+    `test_wizard_round_styles.py` drives. Returns its id.
+
+    ``runs_per_lane`` defaults to 1, matching every cell of the 24-cell
+    sweep above — the copy sweep below is what exercises a value other
+    than the default, since #1119's review found that every existing test
+    here (and in `test_create_race_round_plan.py`) used 1, which is
+    exactly why `Round.runs_per_lane` being silently discarded on
+    regeneration went uncaught.
+    """
+    general_round: dict = {"type": "ALL", "runsPerLane": runs_per_lane}
     if style != "PPC":
         general_round["schedulingStrategy"] = style
     body = client.post(
@@ -486,3 +536,180 @@ def test_format_crossing(db, client, general_style, championship_shape, master_o
 
     status = _race_status(client, race.id)
     assert status == "FINISHED", f"race never reached FINISHED (status={status})"
+
+
+def _copy_race_via_round_plan(
+    client, db, source_race_id: int, label: str
+) -> tuple[int, list[int], int, int | None]:
+    """Build a *second* race the way the setup wizard's copy step does
+    (#1088): `Race.roundPlan` off the source race, `createRace` with that
+    plan and the source's racing groups. Returns
+    ``(race_id, racer_ids, general_round_id, championship_round_id)``.
+
+    A round plan copied at race-creation time has no roster yet — the
+    general round is created with no heats (`crud.create_rounds_from_plan`'s
+    `tolerate_empty_roster`) rather than refusing the whole race — so this
+    adds a roster afterwards, the same order an operator actually follows
+    (create the race, then import or add racers), and calls
+    `regenerateRound` on the general round once there is one to schedule,
+    the same manual step that recovers a round from a lane outage.
+    """
+    source_body = client.post(
+        "/graphql",
+        json={"query": COPY_SOURCE, "variables": {"raceId": source_race_id}},
+    ).json()
+    assert "errors" not in source_body, source_body
+    source = source_body["data"]["race"]
+    plan = source["roundPlan"]
+    assert plan is not None
+
+    org = crud.create_organization(db, schemas.OrganizationCreate(name=f"{label} Pack"))
+    track = crud.create_track(
+        db,
+        schemas.TrackCreate(
+            name=f"{label} Track", lane_count=LANE_COUNT, timer_type="FAKE"
+        ),
+    )
+
+    create_body = client.post(
+        "/graphql",
+        json={
+            "query": CREATE_RACE,
+            "variables": {
+                "race": {
+                    "name": label,
+                    "organizationId": org.id,
+                    "trackId": track.id,
+                    "carNumberingStrategy": "MANUAL",
+                    "racingGroups": [
+                        {"name": g["name"], "color": g["color"]}
+                        for g in source["racingGroups"]
+                    ],
+                    "roundPlan": plan,
+                }
+            },
+        },
+    ).json()
+    assert "errors" not in create_body, create_body
+    new_race = create_body["data"]["createRace"]
+    race_id: int = new_race["id"]
+
+    group_by_name = {g.name: g.id for g in crud.get_racing_groups(db, race_id)}
+    ids = []
+    for n in range(RACER_COUNT):
+        group_name = "Wolves" if n % 2 == 0 else "Bears"
+        racer = crud.create_racer(
+            db,
+            schemas.RacerCreate(
+                race_id=race_id,
+                first_name=f"Racer{n}",
+                last_name=label,
+                car_number=n + 1,
+                car_passed_inspection=True,
+                racing_group_id=group_by_name.get(group_name),
+            ),
+        )
+        ids.append(racer.id)
+
+    general_round_id = next(
+        r["id"] for r in new_race["rounds"] if r["advancementSource"] is None
+    )
+    championship_round_id = next(
+        (r["id"] for r in new_race["rounds"] if r["advancementSource"] is not None),
+        None,
+    )
+
+    regen_body = client.post(
+        "/graphql",
+        json={"query": REGENERATE_ROUND, "variables": {"roundId": general_round_id}},
+    ).json()
+    assert "errors" not in regen_body, regen_body
+
+    return race_id, ids, general_round_id, championship_round_id
+
+
+# A representative subset, not the full 24-cell sweep above (#1088's own
+# note: doubling this file's runtime for what is, past the copy step
+# itself, the identical race-to-FINISHED proof already run once per cell).
+# One cell per general style, plus both ways a championship round can name
+# its source once copied (`ALL`/`EACH_GROUP` derived from the wizard's own
+# literal answer, `ROUND:<id>` recovered and re-chained by `domain.
+# round_plan.plan_from_rounds` — see its docstring for what "recovered"
+# means when the original round was elimination-chained).
+COPY_CELLS = [
+    ("PPC", "none"),
+    ("PPC", "ALL"),
+    ("ELIMINATION", "ALL"),
+    ("ELIMINATION", "ROUND"),
+    ("BALANCED", "EACH_GROUP"),
+    ("BALANCED", "ROUND"),
+]
+
+
+@pytest.mark.parametrize(("general_style", "championship_shape"), COPY_CELLS)
+def test_copied_round_plan_races_to_finished(
+    db, client, general_style, championship_shape
+):
+    """The proof #1088 asked this sweep for: a race built by copying
+    another race's round plan reaches `FINISHED` the same way a wizard-built
+    one does, for a representative spread of general styles and
+    championship shapes — the plan copied is a real plan, not merely a
+    shape that *looks* like the original wizard answer.
+    """
+    label = f"CopySource {general_style} {championship_shape}"
+    race, ids = _setup_race(db, label)
+
+    # 2 runs per lane for the PPC cells — every other test in this file and
+    # in `test_create_race_round_plan.py` used 1 (the wizard's own default),
+    # which is exactly how `Round.runs_per_lane` being silently discarded on
+    # `regenerateRound` (#1119's review) went uncaught: PPC is the only
+    # general style `generate_heats_for_round`'s `runs` parameter actually
+    # multiplies the heat count by (elimination/balanced schedule one
+    # wave/phase regardless of it), so only those two cells can prove it.
+    source_runs_per_lane = 2 if general_style == "PPC" else 1
+    general_round_id = _create_general_round(
+        client, race.id, general_style, runs_per_lane=source_runs_per_lane
+    )
+
+    if championship_shape in ("ALL", "EACH_GROUP"):
+        _champ_round_id, errors = _create_championship_round(
+            client, race.id, championship_shape
+        )
+        assert not errors, errors
+    elif championship_shape == "ROUND":
+        _champ_round_id, errors = _create_championship_round(
+            client, race.id, f"ROUND:{general_round_id}"
+        )
+        assert not errors, errors
+
+    copy_label = f"Copy {general_style} {championship_shape}"
+    new_race_id, new_ids, new_general_id, new_champ_id = _copy_race_via_round_plan(
+        client, db, race.id, copy_label
+    )
+
+    if general_style == "PPC":
+        # The bug #1119's review found: `regenerateRound` on the copied
+        # general round (built with zero heats, `tolerate_empty_roster`)
+        # used to fall back to 1 run per lane regardless of what the plan
+        # asked for, since there were no existing heats to derive the count
+        # from. `_copy_race_via_round_plan` has already called
+        # `regenerateRound` once a roster exists; RACER_COUNT * 2 heats
+        # proves the copied `runs_per_lane` survived that round trip.
+        general_heats = (
+            db.query(models.Heat).filter(models.Heat.round_id == new_general_id).all()
+        )
+        assert len(general_heats) == RACER_COUNT * 2, (
+            f"expected {RACER_COUNT * 2} heats (2 runs per lane, copied from "
+            f"the source), got {len(general_heats)}"
+        )
+
+    _race_everything(db, new_race_id, new_ids)
+
+    _assert_no_solo_heat_in_growing_rounds(db, new_race_id)
+
+    if new_champ_id is not None:
+        _assert_championship_filled(db, new_champ_id)
+        _assert_seeded_awards_resolve(db, new_race_id, new_champ_id)
+
+    status = _race_status(client, new_race_id)
+    assert status == "FINISHED", f"copied race never reached FINISHED (status={status})"

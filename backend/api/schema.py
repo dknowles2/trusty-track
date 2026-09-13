@@ -38,6 +38,7 @@ from backend.domain import elimination as domain_elimination
 from backend.domain import heat_session as domain_heat_session
 from backend.domain import intermission as domain_intermission
 from backend.domain import name_display as domain_name_display
+from backend.domain import round_plan as domain_round_plan
 from backend.domain import scenes as domain_scenes
 from backend.domain import scoring as domain_scoring
 from backend.domain import terminology as domain_terminology
@@ -616,6 +617,10 @@ class Round:
     #: group, straight off the id the frontend already has the name for
     #: (`race.racingGroups`) rather than a second name-resolving field here.
     racing_group_id: int | None
+    #: How many heats a car races per lane (#1088). Null for a round created
+    #: before this column existed — `domain.round_plan.plan_from_rounds`
+    #: treats that the same as `1`, the wizard's own default.
+    runs_per_lane: int | None
 
     @strawberry.field
     def heats(self, info: Info) -> list[Heat]:
@@ -1042,6 +1047,10 @@ class AwardCopyInput:
     artwork_key: str | None = None
     sort_order: int | None = None
     votable: bool = False
+    #: The previous race's round id this award's `source` named (#1088) —
+    #: see `schemas.AwardCopyCreate.copied_from_round_id`, which this maps
+    #: onto directly.
+    copied_from_round_id: int | None = None
 
 
 @strawberry.input
@@ -1092,6 +1101,12 @@ class RaceInput:
     #: recipient attached (#170). Empty (the default) creates none, which is
     #: what a `RaceForm` submission with no copy step sends.
     awards: list[AwardCopyInput] = strawberry.field(default_factory=list)
+    #: The round wizard's answer, applied in the same transaction once the
+    #: race and its racing groups exist (#1088) — the setup wizard's copy
+    #: step, carrying a previous race's round structure over. Null (the
+    #: default) creates no rounds, exactly what every caller before this
+    #: field existed got. See `schemas.RaceCreate.round_plan`.
+    round_plan: "WizardConfigurationInput | None" = None
     #: A per-race terminology override, settable at creation (#662) — the
     #: wizard's "what is raced / who is holding it" answers land here, so a
     #: Space Derby reads "Rocket" from its first screen rather than after a
@@ -1287,6 +1302,15 @@ class WizardChampionshipRoundInput:
     #: Draw the field from the bottom of the standings — a Slowest Race
     #: bracket. See `RoundCreateInput.advancement_from_bottom`.
     advancement_from_bottom: bool = False
+    #: Set only when this plan came from `Race.roundPlan` for a race
+    #: setup wizard's copy step (#1088) — the id of the *previous* race's
+    #: championship round this entry was derived from. Not a round field;
+    #: `crud.create_rounds_from_plan` reads it only to build the
+    #: old-round-id-to-new-round-id map `createRace` uses to re-point a
+    #: copied `ROUND:<id>` award at its own new round. Null (the ordinary
+    #: case, every plan the round wizard itself builds by hand) means this
+    #: entry has no previous round to remap.
+    source_round_id: int | None = None
 
 
 @strawberry.input
@@ -1297,6 +1321,50 @@ class WizardConfigurationInput:
 
     general_round: WizardGeneralRoundInput
     championship_rounds: list[WizardChampionshipRoundInput]
+
+
+@strawberry.type
+class WizardGeneralRound:
+    """Mirrors `WizardGeneralRoundInput` — see `WizardConfiguration`."""
+
+    type: str
+    scheduling_strategy: str
+    runs_per_lane: int
+    elimination_losses: int | None
+    balanced_phases: int | None
+
+
+@strawberry.type
+class WizardChampionshipRound:
+    """Mirrors `WizardChampionshipRoundInput`, plus `source_round_id` — see
+    `WizardConfiguration`."""
+
+    name: str
+    source: str
+    num_top_racers: int
+    runs_per_lane: int
+    advancement_from_bottom: bool
+    #: This championship round's own id, in the race `Race.roundPlan` was
+    #: read off of (#1088) — an *output* field, unlike the identically
+    #: named field on `WizardChampionshipRoundInput`, which is an input a
+    #: caller sets. `raceSetup.copyableAwards` reads this to build a copied
+    #: award's `copiedFromRoundId`, and a resubmitted `RaceInput.roundPlan`
+    #: carries it straight back as that input field — the round trip is
+    #: the whole reason the two fields share a name.
+    source_round_id: int
+
+
+@strawberry.type
+class WizardConfiguration:
+    """Mirrors `WizardConfigurationInput` — the round wizard's answer,
+    derived back out of a race's existing rounds (#1088). See
+    `domain.round_plan.plan_from_rounds`, which this is a thin Strawberry
+    shell over. Strawberry does not let an `@strawberry.input` double as an
+    `@strawberry.type`, hence the separate (but field-for-field identical,
+    barring `source_round_id`) output types above."""
+
+    general_round: WizardGeneralRound
+    championship_rounds: list[WizardChampionshipRound]
 
 
 @strawberry.type
@@ -2166,6 +2234,59 @@ class Race:
     def rounds(self, info: Info) -> list[Round]:
         """Get all rounds for this race."""
         return typing.cast(Any, _loaders(info).rounds_for_race(self.id))
+
+    @strawberry.field
+    def round_plan(self, info: Info) -> WizardConfiguration | None:
+        """The round wizard's answer that would have built this race's
+        rounds (#1088) — `domain.round_plan.plan_from_rounds`, reading off
+        the same per-race batch `rounds` above serves from, so asking for
+        this costs nothing beyond that query. `None` for a race with no
+        rounds yet, the same as a race whose wizard was never run.
+
+        This is what the race setup wizard's copy step reads to build a
+        new race's own `RaceInput.roundPlan`, and what `raceSetup.
+        copyableAwards` reads `championshipRounds[].sourceRoundId` off of
+        to remap a copied `ROUND:<id>` award.
+        """
+        rounds = _loaders(info).rounds_for_race(self.id)
+        facts = [
+            domain_round_plan.RoundFact(
+                id=r.id,
+                round_number=r.round_number,
+                name=r.name,
+                scheduling_strategy=r.scheduling_strategy,
+                advancement_source=r.advancement_source,
+                advancement_num_racers=r.advancement_num_racers,
+                advancement_from_bottom=r.advancement_from_bottom,
+                elimination_losses=r.elimination_losses,
+                balanced_phases=r.balanced_phases,
+                runs_per_lane=r.runs_per_lane,
+            )
+            for r in rounds
+        ]
+        plan = domain_round_plan.plan_from_rounds(facts)
+        if plan is None:
+            return None
+        return WizardConfiguration(
+            general_round=WizardGeneralRound(
+                type=plan.general_round.type,
+                scheduling_strategy=plan.general_round.scheduling_strategy,
+                runs_per_lane=plan.general_round.runs_per_lane,
+                elimination_losses=plan.general_round.elimination_losses,
+                balanced_phases=plan.general_round.balanced_phases,
+            ),
+            championship_rounds=[
+                WizardChampionshipRound(
+                    name=c.name,
+                    source=c.source,
+                    num_top_racers=c.num_top_racers,
+                    runs_per_lane=c.runs_per_lane,
+                    advancement_from_bottom=c.advancement_from_bottom,
+                    source_round_id=c.source_round_id,
+                )
+                for c in plan.championship_rounds
+            ],
+        )
 
     @strawberry.field
     def heats(self, info: Info) -> list[Heat]:
@@ -5198,7 +5319,14 @@ class Mutation:
     async def create_round_wizard(
         self, info: Info, race_id: int, config: WizardConfigurationInput
     ) -> list[Round]:
-        """Create rounds using the wizard logic."""
+        """Create rounds using the wizard logic.
+
+        A thin wrapper over `crud.create_rounds_from_plan` (#1088) — that
+        function is this mutation's own body, factored out so `createRace`'s
+        copy step can build a copied round plan's rounds too, in the same
+        transaction as the race itself. Behaviour here is unchanged; the
+        wizard's own tests are the proof.
+        """
         db = info.context["db"]
         race = db.query(models.Race).filter(models.Race.id == race_id).first()
         if not race:
@@ -5208,201 +5336,27 @@ class Mutation:
         if existing_rounds:
             raise ValueError("Cannot use wizard: rounds already exist for this race.")
 
-        # Validated up front, before anything is created: a bad value partway
-        # through would leave the earlier rounds needing the same rollback as
-        # a scheduling failure, for a check that costs nothing to do first
-        # (#321, mirroring `createRound`'s checks).
-        if config.general_round.runs_per_lane < 1:
-            raise ValueError("A round needs at least one run per lane.")
-        for champ_cfg in config.championship_rounds:
-            if champ_cfg.runs_per_lane < 1:
-                raise ValueError("A round needs at least one run per lane.")
-            if champ_cfg.num_top_racers < 1:
-                raise ValueError("num_top_racers must be at least 1.")
-            if champ_cfg.source != "PREVIOUS":
-                crud.validate_advancement_source(db, race_id, champ_cfg.source)
-
-        gen_strategy = getattr(config.general_round, "scheduling_strategy", None)
-        is_gen_elimination = gen_strategy in (
-            models.SchedulingStrategy.ELIMINATION,
-            "ELIMINATION",
+        plan = schemas.WizardConfigurationCreate(
+            **typing.cast(Any, strawberry.asdict(config))
         )
-        is_gen_balanced = gen_strategy in (
-            models.SchedulingStrategy.BALANCED,
-            "BALANCED",
-        )
-        if (is_gen_elimination or is_gen_balanced) and len(
-            crud.usable_lanes_for_race(db, race_id)
-        ) < 2:
-            raise ValueError(
-                "An elimination or balanced round requires at least two usable lanes."
-            )
-        # Same minimums `createRound` enforces (#321) — a bad value partway
-        # through the batch would need the same rollback as a scheduling
-        # failure, for a check that costs nothing to do first.
-        if (
-            is_gen_elimination
-            and config.general_round.elimination_losses is not None
-            and config.general_round.elimination_losses < 1
-        ):
-            raise ValueError("A car must be allowed at least one loss.")
-        if (
-            is_gen_balanced
-            and config.general_round.balanced_phases is not None
-            and config.general_round.balanced_phases < 1
-        ):
-            raise ValueError("A round needs at least one phase.")
-
-        created_rounds = []
-        current_round_number = 1
-
+        created_rounds: list[models.Round] = []
         try:
-            gen_strat = (
-                models.SchedulingStrategy(config.general_round.scheduling_strategy)
-                if config.general_round.scheduling_strategy
-                else models.SchedulingStrategy.PPC
-            )
-            # As many losses/phases as asked for, falling back to the same
-            # defaults `createRound` uses (three losses; one phase per lane)
-            # — the wizard's step 1 offers this as the same "How it's raced"
-            # choice (#943), so it inherits the same defaults.
-            gen_losses = (
-                config.general_round.elimination_losses or 3
-                if is_gen_elimination
-                else None
-            )
-            gen_phases = (
-                config.general_round.balanced_phases
-                or crud.lane_count_for_race(db, race_id)
-                if is_gen_balanced
-                else None
-            )
-            # No name field for the general round in step 1 (RoundConfigModal
-            # has one; the wizard names it the same way `createRound` would).
-            general_round_name = (
-                "Elimination Round"
-                if is_gen_elimination
-                else "Balanced Round"
-                if is_gen_balanced
-                else crud.default_general_round_name(db, race)
-            )
-            # "By {group}" is offered only alongside "Everyone races in every
-            # lane" (`RoundConfigModal` hides the Format picker for the other
-            # two styles, and the wizard's step 1 now matches) — so a
-            # non-PPC general round is always "ALL", whatever the frontend
-            # sent.
-            is_ppc = gen_strat == models.SchedulingStrategy.PPC
-            general_round_type = config.general_round.type if is_ppc else "ALL"
-            # General Round(s) — one call, whichever format was asked for
-            # (#1013, #1025): `crud.create_general_round` is the one copy of
-            # "one round per group" this used to duplicate against
-            # `createRound`'s own, unwired copy of the same choice.
-            general_rounds = crud.create_general_round(
-                db,
-                race,
-                current_round_number,
-                gen_strat,
-                general_round_type,
-                name=general_round_name,
-                runs_per_lane=config.general_round.runs_per_lane,
-                elimination_losses=gen_losses,
-                balanced_phases=gen_phases,
-            )
-            # On the rollback list from the moment the rows exist —
-            # `create_round` commits, so a failure in heat generation leaves
-            # rounds the rollback must know about (#249).
-            created_rounds.extend(general_rounds)
-            current_round_number += len(general_rounds)
-
-            # Elimination heats never feed the aggregate standings
-            # (CLAUDE.md's "Ladderless elimination"), so a championship round
-            # whose source is "ALL" or "EACH_GROUP" would draw from an empty
-            # field forever when the qualifier was elimination — the round
-            # can never fill (#1012). `general_round_type` is forced to
-            # "ALL" for any non-PPC style above, so this is exactly one
-            # round when it applies.
-            elimination_round_id = (
-                general_rounds[0].id if is_gen_elimination and general_rounds else None
-            )
-
-            # Championship Rounds — always PPC. A championship round can
-            # never itself be elimination or balanced (CLAUDE.md's
-            # "Ladderless elimination": "An elimination round cannot also be
-            # a championship round"), and the wizard's step 2 never offers
-            # "How it's raced" for exactly that reason — there is nothing
-            # here to read the general round's own style from.
-            previous_champ_round_id = None
-            for champ_cfg in config.championship_rounds:
-                adv_source = champ_cfg.source
-                if adv_source == "PREVIOUS":
-                    if previous_champ_round_id:
-                        adv_source = f"ROUND:{previous_champ_round_id}"
-                    elif elimination_round_id is not None:
-                        adv_source = f"ROUND:{elimination_round_id}"
-                    else:
-                        # Fallback to ALL if no previous championship round exists
-                        adv_source = "ALL"
-                else:
-                    # A championship round chains to the elimination round's
-                    # own survival ranking, or to an earlier championship
-                    # round already chained to it, rather than to a
-                    # standings view elimination heats never feed (#1012,
-                    # #1054) — done here, after validation, rather than
-                    # trusting the wizard's own frontend to always ask for
-                    # it: an API caller can send "ALL" just as easily as the
-                    # UI's old default did. `createRound`'s own championship
-                    # branch shares this rule through
-                    # `crud.resolve_championship_source_for_race` rather than
-                    # a second copy (CLAUDE.md's #48) — see
-                    # `domain.advancement.resolve_championship_source` for
-                    # the reasoning, including why a non-elimination general
-                    # round leaves this untouched.
-                    adv_source = advancement.resolve_championship_source(
-                        adv_source,
-                        elimination_round_id=elimination_round_id,
-                        previous_championship_round_id=previous_champ_round_id,
-                    )
-
-                round_obj = crud.create_round(
-                    db,
-                    race_id,
-                    current_round_number,
-                    models.SchedulingStrategy.PPC,
-                    champ_cfg.name,
-                    advancement_source=adv_source,
-                    advancement_num_racers=champ_cfg.num_top_racers,
-                    advancement_from_bottom=champ_cfg.advancement_from_bottom,
-                )
-                db.flush()  # Ensure the round ID is generated
-                previous_champ_round_id = round_obj.id
-                created_rounds.append(round_obj)
-
-                # As many runs as asked for, exactly as the general round
-                # above does (#143). One call: `runs` is a parameter now, and
-                # the rebuild paths preserve it from the heats (#230).
-                crud.generate_heats_for_round(
-                    db,
-                    round_obj.id,
-                    num_placeholders=crud.round_field_size(db, round_obj),
-                    clear_existing=True,
-                    runs=champ_cfg.runs_per_lane,
-                )
-                current_round_number += 1
-
+            created_rounds, _ = crud.create_rounds_from_plan(db, race, plan)
             # Championship trophies (#1082): the moment a final exists to
             # point them at, seed one SPEED award per place. Presence —
-            # `seed_championship_awards`' own guard — is what keeps this from
-            # ever adding a second set, not whether the wizard has run
+            # `seed_championship_awards`' own guard — is what keeps this
+            # from ever adding a second set, not whether the wizard has run
             # before; `created_rounds[-1]` is the last championship round
             # just built above, matching #862's "the last championship
             # round" convention rather than `ALL`.
             if config.championship_rounds:
                 crud.seed_championship_awards(db, created_rounds[-1])
         except ValueError as e:
-            # Reverse creation order: the general round cannot be deleted
-            # while championship rounds still exist, so a forward rollback
-            # raised out of the rollback and left the half-made rounds
-            # committed — and every later wizard run refused (#249).
+            # `create_rounds_from_plan` already rolls back anything it
+            # created on its own failure, leaving `created_rounds` at its
+            # initial `[]` — this covers the (practically unreachable)
+            # case of the seeding call above failing after a successful
+            # plan, the same defensive backstop the wizard always had.
             for r in reversed(created_rounds):
                 crud.delete_round(db, r.id)
             raise e
@@ -6954,6 +6908,7 @@ class Mutation:
                     advancement_source=resolved_source,
                     advancement_num_racers=round_data.advancement_num_racers,
                     advancement_from_bottom=round_data.advancement_from_bottom,
+                    runs_per_lane=round_data.runs_per_lane,
                 )
                 created_rounds.append(round_obj)
 
