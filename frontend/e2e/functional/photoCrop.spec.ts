@@ -105,20 +105,32 @@ async function seedRacerWithPhoto(page: Page, raceName: string): Promise<{ raceI
 async function openCropModal(page: Page, raceId: number): Promise<Locator> {
     await page.goto(`/race/${raceId}`);
     // `index.css` declares both bundled faces `font-display: swap`
-    // (`.claude/rules/documentation.md`'s "The font wait"), and a swap that
-    // lands after the crop box has already settled reflows the stage a
-    // second time — an occasional few-pixel-to-tens-of-pixels shift with no
-    // pointer involved at all, which this spec's own drag assertions have no
-    // way to tell apart from a real one. Closing the swap window before the
-    // modal is even opened, the same wait the docs screenshots use, is
-    // cheaper than teaching those assertions to ignore a font-driven reflow.
+    // (`.claude/rules/documentation.md`'s "The font wait"); closing the swap
+    // window before anything is measured rules it out as a source of reflow,
+    // the same wait the docs screenshots use.
     await page.evaluate(() => document.fonts.ready);
     await page.getByRole('button', { name: /Checked In/ }).click();
 
     const form = page.getByRole('dialog', { name: 'Racer Check In' });
     await form.getByRole('button', { name: /rotate \/ recrop/i }).click();
 
-    return page.getByRole('dialog', { name: /rotate \/ recrop photo/i });
+    const dialog = page.getByRole('dialog', { name: /rotate \/ recrop photo/i });
+    await expect(dialog).toBeVisible();
+    // `Modal.tsx`'s own entrance animation (`fadeIn 0.2s ease-out`)
+    // translates the dialog — and the crop box inside it — down from
+    // `translateY(20px)` to its resting position. That is exactly the
+    // "top should not have moved" flake this spec hit in CI (received 20,
+    // every time, at the wide viewport): under load, two `boundingBox()`
+    // reads 50ms apart can land on the same still-mid-animation frame and
+    // read as "settled" to `settledBoundingBox` before the animation's own
+    // 200ms is actually up. Waiting the animation out here — the same
+    // `getAnimations()`-based wait `settleTransitions` uses in the docs
+    // harness — closes the gap at its source rather than teaching every
+    // assertion below to tolerate a stray 20px that has nothing to do with
+    // the drag being tested.
+    await dialog.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+
+    return dialog;
 }
 
 /**
