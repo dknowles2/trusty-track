@@ -6,6 +6,7 @@ import * as Types from './schema';
 
 export type AwardCopyInput = {
   artworkKey?: string | null | undefined;
+  copiedFromRoundId?: number | null | undefined;
   fromBottom?: boolean;
   kind?: string;
   name: string;
@@ -121,6 +122,7 @@ export type RaceInput = {
   racingGroupPlural?: string | null | undefined;
   racingGroupSingular?: string | null | undefined;
   racingGroups?: Array<RacingGroupInput>;
+  roundPlan?: WizardConfigurationInput | null | undefined;
   scoringStrategy?: string;
   tiebreaker?: string;
   trackId: number;
@@ -244,6 +246,7 @@ export type WizardChampionshipRoundInput = {
   numTopRacers?: number;
   runsPerLane?: number;
   source?: string;
+  sourceRoundId?: number | null | undefined;
 };
 
 export type WizardConfigurationInput = {
@@ -603,7 +606,7 @@ export type GetRaceSetupSourceQueryVariables = Exact<{
 }>;
 
 
-export type GetRaceSetupSourceQuery = { race: { id: number, location: string | null, scoringStrategy: string, tiebreaker: string, dropWorstRuns: number, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, vehicleArtworkKey: string | null, racingGroups: Array<{ id: number, name: string, color: string, division: string | null, carNumberRangeStart: number | null, carNumberRangeEnd: number | null }>, awards: Array<{ id: number, name: string, kind: string, source: string | null, place: number | null, fromBottom: boolean, racingGroupId: number | null, artworkKey: string | null, sortOrder: number, votable: boolean }> } | null };
+export type GetRaceSetupSourceQuery = { race: { id: number, location: string | null, scoringStrategy: string, tiebreaker: string, dropWorstRuns: number, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, vehicleArtworkKey: string | null, racingGroups: Array<{ id: number, name: string, color: string, division: string | null, carNumberRangeStart: number | null, carNumberRangeEnd: number | null }>, awards: Array<{ id: number, name: string, kind: string, source: string | null, place: number | null, fromBottom: boolean, racingGroupId: number | null, artworkKey: string | null, sortOrder: number, votable: boolean }>, roundPlan: { generalRound: { type: string, schedulingStrategy: string, runsPerLane: number, eliminationLosses: number | null, balancedPhases: number | null }, championshipRounds: Array<{ name: string, source: string, numTopRacers: number, runsPerLane: number, advancementFromBottom: boolean, sourceRoundId: number }> } | null } | null };
 
 export type PopulateRaceMutationVariables = Exact<{
   raceId: number;

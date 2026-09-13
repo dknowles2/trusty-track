@@ -461,6 +461,23 @@ export const GET_RACE_SETUP_SOURCE = gql`
         sortOrder
         votable
       }
+      roundPlan {
+        generalRound {
+          type
+          schedulingStrategy
+          runsPerLane
+          eliminationLosses
+          balancedPhases
+        }
+        championshipRounds {
+          name
+          source
+          numTopRacers
+          runsPerLane
+          advancementFromBottom
+          sourceRoundId
+        }
+      }
     }
   }
 `;

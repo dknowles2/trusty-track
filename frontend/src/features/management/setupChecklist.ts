@@ -83,6 +83,18 @@ export interface SetupProgress {
     racerCount: number;
     checkedInCount: number;
     roundCount: number;
+    /**
+     * Whether any round actually has a schedulable heat — `scheduledRacerIds.
+     * length > 0` on the page (`RaceDetails.tsx`'s own `anyHeatsScheduled`,
+     * already fetched for the roster's "No heats" badge, so this reuses it
+     * rather than adding a query per round — see `test_query_counts.py`).
+     * `roundCount > 0` alone is not "a schedule": a round plan copied at
+     * race-creation time (#1088's `tolerate_empty_roster`) exists with zero
+     * heats until the roster is in and the operator regenerates it, and the
+     * "Generate a schedule" step must not read done for a round nothing can
+     * be raced from yet.
+     */
+    hasScheduledHeats: boolean;
     /** Speed or special, whole-race — same count `awards { id }` gives the page (#170). */
     awardCount: number;
     /** Locked against further edits (#585) — the "I am done" signal that quiets
@@ -154,12 +166,20 @@ export interface ChecklistStep {
  * `shouldCollapseChecklist` below for the panel's own answer to that.
  */
 export function checklistFor(progress: SetupProgress, words: TerminologyWords): ChecklistStep[] {
-    const { racingGroupCount, racerCount, checkedInCount, roundCount, awardCount, isLocked } = progress;
+    const { racingGroupCount, racerCount, checkedInCount, roundCount, hasScheduledHeats, awardCount, isLocked } =
+        progress;
     const { groupsLower, vehiclesLower } = words;
 
     const checkinDone = racerCount > 0 && checkedInCount === racerCount;
     const awardsDone = awardCount > 0;
     const printablesSkipped = checkedInCount > 0 || isLocked;
+    // A round row existing is not "a schedule" on its own — a round plan
+    // copied at race-creation time (#1088) can exist with zero heats until
+    // the roster is in and the operator regenerates it. `scheduleDone`
+    // requires both; a round with no heats yet gets its own hint below,
+    // rather than reading identically to "nothing has been scheduled".
+    const roundExistsWithNoHeats = roundCount > 0 && !hasScheduledHeats;
+    const scheduleDone = roundCount > 0 && hasScheduledHeats;
 
     return [
         {
@@ -201,8 +221,10 @@ export function checklistFor(progress: SetupProgress, words: TerminologyWords): 
         {
             key: 'schedule',
             label: 'Generate a schedule',
-            hint: 'Race Control builds the heats and runs them.',
-            done: roundCount > 0,
+            hint: roundExistsWithNoHeats
+                ? `The qualifying round is built but has no heats yet — regenerate it once enough ${vehiclesLower} are checked in.`
+                : 'Race Control builds the heats and runs them.',
+            done: scheduleDone,
             skipped: false,
             optional: false,
             action: 'Go to Race Control',

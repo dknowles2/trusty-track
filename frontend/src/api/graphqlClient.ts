@@ -117,6 +117,13 @@ export const EMBEDDED_TYPES = [
   'TimingStatsLane',
   'TrackRecord',
   'TrackRecordBreak',
+  // The round wizard's answer, derived back out of a race's rounds on every
+  // read (`domain.round_plan.plan_from_rounds`, #1088) — the same
+  // "computed row, not a record" shape as `AdvancementRacer` and
+  // `EliminationChart` above.
+  'WizardChampionshipRound',
+  'WizardConfiguration',
+  'WizardGeneralRound',
 ] as const;
 
 /**

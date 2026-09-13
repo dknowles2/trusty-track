@@ -1,18 +1,28 @@
 import type { RaceFormData } from './components/RaceForm';
-import { toAwardCopyInput, toRacingGroupInput, type AwardCopyDraft, type RacingGroupDraft } from './raceSetup';
+import {
+    toAwardCopyInput,
+    toRacingGroupInput,
+    toWizardConfigurationInput,
+    type AwardCopyDraft,
+    type RacingGroupDraft,
+    type SourceRoundPlan,
+} from './raceSetup';
 
 /**
- * Everything the setup wizard hands a create-race handler (#662, #722): the
- * form's own fields, the racing groups scaffolded or copied on the way to
- * it, and any award definitions carried over from a previous race. `awards`
- * is optional because a scratch setup has none to send — `raceSetup.
- * copyableAwards` returns an empty list rather than this field being absent,
- * but a plain `RaceForm` submission with no wizard at all has no such field
- * either.
+ * Everything the setup wizard hands a create-race handler (#662, #722,
+ * #1088): the form's own fields, the racing groups scaffolded or copied on
+ * the way to it, any award definitions carried over from a previous race,
+ * and a copied round plan. `awards` and `round_plan` are optional because a
+ * scratch setup has neither to send — `raceSetup.copyableAwards` returns an
+ * empty list rather than `awards` being absent, but a plain `RaceForm`
+ * submission with no wizard at all has no such fields either, and a copy
+ * whose "Copy the rounds too" checkbox is unticked sends `round_plan: null`
+ * explicitly rather than omitting the field.
  */
 export type RaceSetupData = RaceFormData & {
     racing_groups: readonly RacingGroupDraft[];
     awards?: readonly AwardCopyDraft[];
+    round_plan?: SourceRoundPlan | null;
 };
 
 /**
@@ -41,6 +51,7 @@ export type RaceSetupData = RaceFormData & {
 export function buildCreateRaceInput(data: RaceFormData | RaceSetupData) {
     const racingGroups = 'racing_groups' in data ? data.racing_groups : [];
     const awards = 'awards' in data && data.awards ? data.awards : [];
+    const roundPlan = 'round_plan' in data && data.round_plan ? data.round_plan : null;
     return {
         name: data.name,
         dateTime: data.date_time,
@@ -55,6 +66,7 @@ export function buildCreateRaceInput(data: RaceFormData | RaceSetupData) {
         weightLimitOz: data.weight_limit_oz,
         racingGroups: racingGroups.map(toRacingGroupInput),
         awards: awards.map(toAwardCopyInput),
+        roundPlan: roundPlan ? toWizardConfigurationInput(roundPlan) : null,
         racingGroupSingular: data.racing_group_singular ?? null,
         racingGroupPlural: data.racing_group_plural ?? null,
         organizationSingular: data.organization_singular ?? null,

@@ -10,6 +10,7 @@ const progress = (over: Partial<SetupProgress> = {}): SetupProgress => ({
     racerCount: 0,
     checkedInCount: 0,
     roundCount: 0,
+    hasScheduledHeats: true,
     awardCount: 0,
     isLocked: false,
     ...over,
@@ -31,6 +32,25 @@ describe('SetupChecklist', () => {
         );
 
         expect(screen.queryByTestId('setup-checklist')).not.toBeInTheDocument();
+    });
+
+    it('reads the schedule step as outstanding, with a regenerate hint, for a round with no heats yet (#1088)', () => {
+        render(
+            <SetupChecklist
+                progress={progress({
+                    racingGroupCount: 1,
+                    racerCount: 5,
+                    checkedInCount: 5,
+                    roundCount: 1,
+                    hasScheduledHeats: false,
+                })}
+                onAction={{}}
+            />,
+        );
+
+        const scheduleStep = screen.getByTestId('setup-step-schedule');
+        expect(scheduleStep).toHaveAttribute('data-done', 'false');
+        expect(scheduleStep).toHaveTextContent(/regenerate/i);
     });
 
     it('still shows while awards are undefined and the race is not locked (#847)', () => {

@@ -203,7 +203,7 @@ Racer           id, race_id, racing_group_id?,
 Round           id, race_id, round_number, name, scheduling_strategy,
                 advancement_source, advancement_num_racers, racing_group_id?,
                 advancement_from_bottom, elimination_losses?,
-                balanced_phases?
+                balanced_phases?, runs_per_lane?
 
 Heat            id, race_id, round_id?, kind, heat_number,
                 created_at?, recorded_at?
