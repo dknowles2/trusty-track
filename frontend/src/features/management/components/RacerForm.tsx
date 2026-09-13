@@ -9,6 +9,11 @@ import { weightNotice, weightVerdict } from '../weightCheck';
 import { duplicateCarNumberNotice, type CarNumberHolder } from '../carNumberCheck';
 import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { errorText } from '../../../utils/errors';
+import {
+  PHOTOS_REFUSED_ON_DEMO_MESSAGE,
+  useIsRefusedOnDemo,
+} from '../../core/hooks/useDemoRefusal';
 
 export interface RacerData {
   first_name: string;
@@ -110,6 +115,11 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   const firstNameRef = useRef<HTMLInputElement>(null);
   const [, uploadImageMutation] = useMutation(UPLOAD_IMAGE);
   const { showAlert } = useAlert();
+  // Refused before the upload, not after (#1095) — a 4 MB photo read into a
+  // data URL, cropped and sent, only to be told no at the end, is the wrong
+  // order. `useIsRefusedOnDemo` reads the one list the server itself refuses
+  // against, so this can never drift from what `uploadImage` actually does.
+  const photosRefused = useIsRefusedOnDemo('uploadImage');
 
   // Advisory, and recomputed as the operator types. Nothing here blocks the
   // save — the inspector decides, and a car that is over gets checked in with
@@ -147,6 +157,15 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   };
 
   const uploadFile = async (file: File, type: 'racer' | 'car') => {
+      // Belt and braces alongside the disabled controls below: even a
+      // caller that reached this function some other way (a drag-and-drop
+      // extension, say) gets the same early refusal a click on a disabled
+      // control never lets through in the first place, without reading a
+      // 4 MB file into memory first for nothing.
+      if (photosRefused) {
+          showAlert(PHOTOS_REFUSED_ON_DEMO_MESSAGE, 'Error');
+          return;
+      }
       const reader = new FileReader();
       reader.onload = async (e) => {
           const dataUrl = e.target?.result as string;
@@ -160,7 +179,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
               }));
           } catch (error) {
               console.error('Upload failed', error);
-              showAlert('Failed to upload photo. Please try again.', 'Error');
+              showAlert(errorText(error, 'Failed to upload photo. Please try again.'), 'Error');
           }
       };
       reader.readAsDataURL(file);
@@ -363,26 +382,32 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                 {formData.racer_image_url && (
                     <img src={formData.racer_image_url} alt="Racer" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: 'var(--divider-color)' }} />
                 )}
-                <div style={{ display: 'flex', gap: '5px' }}>
+                <div style={{ display: 'flex', gap: '5px' }} title={photosRefused ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}>
                     <input
                         type="file"
                         accept="image/*"
                         style={{ width: '0.1px', height: '0.1px', opacity: 0, overflow: 'hidden', position: 'absolute', zIndex: -1 }}
                         id="racer-file"
+                        disabled={photosRefused}
                         onChange={(e) => {
                             if (e.target.files && e.target.files[0]) {
                                 uploadFile(e.target.files[0], 'racer');
                             }
                         }}
                     />
-                    <label htmlFor="racer-file" className="secondary-btn" style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid var(--input-border-color)', borderRadius: '4px' }}>
+                    <label
+                        htmlFor="racer-file"
+                        className="secondary-btn"
+                        style={{ flex: 1, textAlign: 'center', cursor: photosRefused ? 'not-allowed' : 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid var(--input-border-color)', borderRadius: '4px', opacity: photosRefused ? 0.5 : 1 }}
+                    >
                          Upload File
                     </label>
                     <button
                         type="button"
                         className="secondary-btn"
                         onClick={() => setShowCamera('racer')}
-                        style={{ flex: 1, padding: '5px', fontSize: '0.8rem', cursor: 'pointer' }}
+                        disabled={photosRefused}
+                        style={{ flex: 1, padding: '5px', fontSize: '0.8rem', cursor: photosRefused ? 'not-allowed' : 'pointer' }}
                     >
                         📷 Camera
                     </button>
@@ -392,7 +417,9 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                         type="button"
                         className="secondary-btn"
                         onClick={() => setCropTarget('racer')}
-                        style={{ width: '100%', marginTop: '5px', padding: '5px', fontSize: '0.8rem', cursor: 'pointer' }}
+                        disabled={photosRefused}
+                        title={photosRefused ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}
+                        style={{ width: '100%', marginTop: '5px', padding: '5px', fontSize: '0.8rem', cursor: photosRefused ? 'not-allowed' : 'pointer' }}
                     >
                         ⟳ Rotate / Recrop
                     </button>
@@ -404,26 +431,32 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                 {formData.car_image_url && (
                     <img src={formData.car_image_url} alt={vehicle} style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: 'var(--divider-color)' }} />
                 )}
-                <div style={{ display: 'flex', gap: '5px' }}>
+                <div style={{ display: 'flex', gap: '5px' }} title={photosRefused ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}>
                     <input
                         type="file"
                         accept="image/*"
                         style={{ width: '0.1px', height: '0.1px', opacity: 0, overflow: 'hidden', position: 'absolute', zIndex: -1 }}
                         id="car-file"
+                        disabled={photosRefused}
                         onChange={(e) => {
                             if (e.target.files && e.target.files[0]) {
                                 uploadFile(e.target.files[0], 'car');
                             }
                         }}
                     />
-                    <label htmlFor="car-file" className="secondary-btn" style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid var(--input-border-color)', borderRadius: '4px' }}>
+                    <label
+                        htmlFor="car-file"
+                        className="secondary-btn"
+                        style={{ flex: 1, textAlign: 'center', cursor: photosRefused ? 'not-allowed' : 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid var(--input-border-color)', borderRadius: '4px', opacity: photosRefused ? 0.5 : 1 }}
+                    >
                          Upload File
                     </label>
                     <button
                         type="button"
                         className="secondary-btn"
                         onClick={() => setShowCamera('car')}
-                        style={{ flex: 1, padding: '5px', fontSize: '0.8rem', cursor: 'pointer' }}
+                        disabled={photosRefused}
+                        style={{ flex: 1, padding: '5px', fontSize: '0.8rem', cursor: photosRefused ? 'not-allowed' : 'pointer' }}
                     >
                         📷 Camera
                     </button>
@@ -433,7 +466,9 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                         type="button"
                         className="secondary-btn"
                         onClick={() => setCropTarget('car')}
-                        style={{ width: '100%', marginTop: '5px', padding: '5px', fontSize: '0.8rem', cursor: 'pointer' }}
+                        disabled={photosRefused}
+                        title={photosRefused ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}
+                        style={{ width: '100%', marginTop: '5px', padding: '5px', fontSize: '0.8rem', cursor: photosRefused ? 'not-allowed' : 'pointer' }}
                     >
                         ⟳ Rotate / Recrop
                     </button>

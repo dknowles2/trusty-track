@@ -291,24 +291,13 @@ class TestTracksCannotBeReconfigured:
 
 class TestBulkGenerators:
     """Unbounded row creation behind no credential, on an instance other people
-    are looking at."""
+    are looking at.
 
-    def test_populate_creates_nothing(self, client, db, group, default_track, demo):  # noqa: ARG002
-        race = crud.create_race(
-            db,
-            schemas.RaceCreate(
-                name="Demo Populate", organization_id=group.id, track_id=default_track
-            ),
-        )
-        before = db.query(models.Racer).count()
-
-        client.post(
-            "/graphql",
-            json={"query": f"mutation {{ populateRace(raceId: {race.id}) }}"},
-        )
-
-        db.expire_all()
-        assert db.query(models.Racer).count() == before
+    `populateRace` moved off the denylist (#1092): filling a race with test
+    racers is the single most natural thing a demo visitor tries, and
+    refusing it left a visitor who created their own race no way to fill it.
+    It is capped instead — see `TestPopulateIsCappedOnTheDemo` below.
+    """
 
     def test_the_practice_race_is_not_created(self, client, db, group, demo):  # noqa: ARG002
         before = db.query(models.Race).count()
@@ -319,6 +308,168 @@ class TestBulkGenerators:
 
         db.expire_all()
         assert db.query(models.Race).count() == before
+
+
+def _populate_mutation(race_id: int, count: int, *, photos: bool = False) -> str:
+    return f"""
+        mutation {{
+          populateRace(raceId: {race_id}, config: {{
+            count: {count}, addRacerPhotos: {str(photos).lower()},
+            addCarPhotos: {str(photos).lower()}, assignRacingGroups: false
+          }})
+        }}
+    """
+
+
+class TestPopulateIsCappedOnTheDemo:
+    """`populateRace` is allowed on the demo, but capped and photo-free
+    (#1092) — `Mutation.populate_race`'s own demo branch, not a change to
+    `populate.generate_fake_racers` itself."""
+
+    def test_allowed_up_to_the_cap(self, client, db, group, default_track, demo):  # noqa: ARG002
+        from backend.api.schema import DEMO_POPULATE_MAX_COUNT
+
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Demo Populate", organization_id=group.id, track_id=default_track
+            ),
+        )
+
+        response = client.post(
+            "/graphql",
+            json={"query": _populate_mutation(race.id, DEMO_POPULATE_MAX_COUNT)},
+        )
+
+        assert response.json().get("errors") is None
+        db.expire_all()
+        assert db.query(models.Racer).filter(
+            models.Racer.race_id == race.id
+        ).count() == (DEMO_POPULATE_MAX_COUNT)
+
+    def test_refused_above_the_cap(self, client, db, group, default_track, demo):  # noqa: ARG002
+        from backend.api.schema import DEMO_POPULATE_MAX_COUNT
+
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Demo Populate Over",
+                organization_id=group.id,
+                track_id=default_track,
+            ),
+        )
+
+        response = client.post(
+            "/graphql",
+            json={"query": _populate_mutation(race.id, DEMO_POPULATE_MAX_COUNT + 1)},
+        )
+
+        errors = response.json().get("errors") or []
+        assert errors, "expected the mutation to be refused"
+        assert str(DEMO_POPULATE_MAX_COUNT) in errors[0]["message"]
+        db.expire_all()
+        assert (
+            db.query(models.Racer).filter(models.Racer.race_id == race.id).count() == 0
+        )
+
+    def test_an_ordinary_install_is_not_capped_at_the_demo_limit(
+        self, client, db, group, default_track
+    ):
+        """Off the demo, only the global ceiling (`MAX_POPULATE_COUNT`)
+        applies — the demo's stricter cap is this resolver's own branch,
+        gated on `demo_mode.enabled()`."""
+        from backend.api.schema import DEMO_POPULATE_MAX_COUNT
+
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Ordinary Populate",
+                organization_id=group.id,
+                track_id=default_track,
+            ),
+        )
+
+        response = client.post(
+            "/graphql",
+            json={"query": _populate_mutation(race.id, DEMO_POPULATE_MAX_COUNT + 5)},
+        )
+
+        assert response.json().get("errors") is None
+        db.expire_all()
+        assert db.query(models.Racer).filter(
+            models.Racer.race_id == race.id
+        ).count() == (DEMO_POPULATE_MAX_COUNT + 5)
+
+    def test_photo_flags_are_refused_regardless_of_count(
+        self,
+        client,
+        db,
+        group,
+        default_track,
+        demo,  # noqa: ARG002
+    ):
+        """A generated image is still a disk write with no credential — the
+        same reasoning `uploadImage` is refused for."""
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Demo Populate Photos",
+                organization_id=group.id,
+                track_id=default_track,
+            ),
+        )
+
+        response = client.post(
+            "/graphql",
+            json={"query": _populate_mutation(race.id, 5, photos=True)},
+        )
+
+        errors = response.json().get("errors") or []
+        assert errors, "expected the photo flags to be refused"
+        db.expire_all()
+        assert (
+            db.query(models.Racer).filter(models.Racer.race_id == race.id).count() == 0
+        )
+
+    def test_an_ordinary_install_can_still_ask_for_photos(
+        self, client, db, group, default_track
+    ):
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Ordinary Populate Photos",
+                organization_id=group.id,
+                track_id=default_track,
+            ),
+        )
+
+        response = client.post(
+            "/graphql",
+            json={"query": _populate_mutation(race.id, 3, photos=True)},
+        )
+
+        assert response.json().get("errors") is None
+
+
+class TestPopulateHasAGlobalCeiling:
+    """`db.populate.generate_fake_racers` refuses more than
+    `MAX_POPULATE_COUNT` regardless of the demo — a bound belongs on the
+    generator itself, not only on the demo's stricter limit."""
+
+    def test_the_ceiling_applies_off_the_demo_too(self, db, group, default_track):
+        from backend.db import populate
+
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Huge Populate", organization_id=group.id, track_id=default_track
+            ),
+        )
+
+        with pytest.raises(ValueError, match=str(populate.MAX_POPULATE_COUNT)):
+            populate.generate_fake_racers(
+                db, race.id, count=populate.MAX_POPULATE_COUNT + 1
+            )
 
 
 class TestTheRestRoutes:
@@ -468,6 +619,39 @@ class TestTheClientIsTold:
 
         assert data["initialConfig"]["initialized"] is False
         assert data["initialConfig"]["demoMode"] is True
+
+
+class TestTheClientIsToldWhatIsRefused:
+    """`initialConfig.demoRefusedMutations` (#1092, #1095) — the one source
+    for a control that wants to disable itself before the click, rather than
+    a second hand-kept list on the frontend free to drift from this file's
+    own `REFUSED_MUTATIONS`."""
+
+    QUERY = "{ initialConfig { demoRefusedMutations } }"
+
+    def test_a_demo_reports_the_denylist(self, client, demo):  # noqa: ARG002
+        data = client.post("/graphql", json={"query": self.QUERY}).json()["data"]
+
+        assert (
+            set(data["initialConfig"]["demoRefusedMutations"])
+            == demo_policy.REFUSED_MUTATIONS
+        )
+
+    def test_an_ordinary_install_reports_nothing_refused(self, client):
+        data = client.post("/graphql", json={"query": self.QUERY}).json()["data"]
+
+        assert data["initialConfig"]["demoRefusedMutations"] == []
+
+    def test_populate_race_is_not_in_the_list(self, client, demo):  # noqa: ARG002
+        """It moved off the denylist (#1092) — allowed, but capped."""
+        data = client.post("/graphql", json={"query": self.QUERY}).json()["data"]
+
+        assert "populateRace" not in data["initialConfig"]["demoRefusedMutations"]
+
+    def test_upload_image_is_still_in_the_list(self, client, demo):  # noqa: ARG002
+        data = client.post("/graphql", json={"query": self.QUERY}).json()["data"]
+
+        assert "uploadImage" in data["initialConfig"]["demoRefusedMutations"]
 
 
 class _NeverSeeds:

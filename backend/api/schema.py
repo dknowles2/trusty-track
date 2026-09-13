@@ -25,6 +25,7 @@ from strawberry.types import Info
 from backend import demo_mode
 from backend.api import auth
 from backend.api.auth import AuditExtension, RolePolicyExtension
+from backend.api.demo_policy import REFUSED_MUTATIONS as DEMO_REFUSED_MUTATIONS
 from backend.api.demo_policy import DemoPolicyExtension
 from backend.api.loaders import RequestLoaders
 from backend.api.pubsub import pubsub
@@ -842,6 +843,13 @@ class InitialConfigStatus:
     #: tab holds a subscription socket open, and an instance with a socket open
     #: never scales to zero.
     demo_mode: bool = False
+    #: Which mutations `DemoPolicyExtension` refuses on this instance —
+    #: `demo_policy.REFUSED_MUTATIONS` itself, sorted, or empty off the demo
+    #: (#1092/#1095). The frontend disables a control *before* the click by
+    #: checking this list rather than keeping its own hand-written copy of
+    #: `demo_policy.py`'s table, which is exactly the kind of second copy
+    #: this codebase's own rule (#48) warns drifts from the original.
+    demo_refused_mutations: list[str] = strawberry.field(default_factory=list)
     #: Whether an operator PIN is set — i.e. whether roles are enforced at all
     #: (#15). Never the PIN or its hash: this says only that a lock exists, so
     #: the settings page can tell the operator which state they are in.
@@ -1578,6 +1586,13 @@ class RacingGroup:
             .filter(models.Racer.racing_group_id == self.id)
             .all()
         )
+
+
+#: The demo allows `populateRace` (#1092), but at a stricter cap than the
+#: global one `db.populate.MAX_POPULATE_COUNT` enforces for every caller —
+#: enough for a real-looking roster without one visitor spending the whole
+#: instance's row budget in a single call.
+DEMO_POPULATE_MAX_COUNT = 40
 
 
 @strawberry.input
@@ -3337,10 +3352,14 @@ class Query:
             # remembers its answer on the context, so `role` below costs
             # nothing extra.
             role = auth.resolve_role(info.context)
+            demo_on = demo_mode.enabled()
             return InitialConfigStatus(
                 initialized=True,
                 version=_version,
-                demo_mode=demo_mode.enabled(),
+                demo_mode=demo_on,
+                demo_refused_mutations=sorted(DEMO_REFUSED_MUTATIONS)
+                if demo_on
+                else [],
                 organization_name=organization.name if organization else None,
                 debug_mode=organization.debug_mode if organization else False,
                 tracks=typing.cast(Any, tracks),
@@ -3362,10 +3381,12 @@ class Query:
         # it serves, so this is only reachable if seeding failed — and a first
         # -run wizard is the one screen that must not be idled out from under
         # somebody halfway through it.
+        demo_on = demo_mode.enabled()
         return InitialConfigStatus(
             initialized=False,
             version=_version,
-            demo_mode=demo_mode.enabled(),
+            demo_mode=demo_on,
+            demo_refused_mutations=sorted(DEMO_REFUSED_MUTATIONS) if demo_on else [],
             **_terminology_status_kwargs(None),
             **_name_display_status_kwargs(None),
         )
@@ -6193,8 +6214,31 @@ class Mutation:
     async def populate_race(
         self, info: Info, race_id: int, config: PopulateTestDataInput
     ) -> str:
-        """Populate a race with test data."""
+        """Populate a race with test data.
+
+        Allowed on the demo (#1092), unlike most bulk generators — filling a
+        race with test racers is the single most natural thing a demo
+        visitor tries, and refusing it left anyone who created their own
+        race with no way to fill it. Two demo-only limits apply, both
+        checked here rather than in `populate.generate_fake_racers` so an
+        ordinary install's own behaviour (bounded only by
+        `MAX_POPULATE_COUNT`) is untouched: `count` may not exceed
+        `DEMO_POPULATE_MAX_COUNT`, and the photo flags are refused outright
+        since a generated image is still a caller-triggered disk write on a
+        host with no credential — the same reasoning `uploadImage` is
+        refused for.
+        """
         from backend.db import populate
+
+        if demo_mode.enabled():
+            if config.count > DEMO_POPULATE_MAX_COUNT:
+                raise ValueError(
+                    "The demo allows at most "
+                    f"{DEMO_POPULATE_MAX_COUNT} racers per Populate Test "
+                    "Data call."
+                )
+            if config.add_racer_photos or config.add_car_photos:
+                raise ValueError("Photos can't be generated on the demo.")
 
         db = info.context["db"]
         populate.generate_fake_racers(

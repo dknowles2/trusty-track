@@ -139,7 +139,7 @@ export default function Home() {
             navigate(`/race/${result.data.createPracticeRace.id}/control/race`);
         } catch (e) {
             console.error("Failed to create practice race", e);
-            showAlert("Could not create a practice race", "Error");
+            showAlert(errorText(e, "Could not create a practice race"), "Error");
         } finally {
             startingPractice.current = false;
         }

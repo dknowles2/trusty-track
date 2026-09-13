@@ -74,9 +74,24 @@ REFUSED_MUTATIONS = frozenset(
         # inspect — refused here too, belt and braces, the same as every
         # other route to the disk or to somebody else's screen.
         "bulkAssignPhotos",
-        # Unbounded row generators behind no credential. The demo is seeded
-        # already, so a visitor has no reason to reach for either.
-        "populateRace",
+        # `populateRace` moved off this list (#1092). "Unbounded" was the
+        # stated reason, but `count` is a caller-supplied parameter, not an
+        # unbounded loop — `Mutation.populate_race` now caps it at
+        # `DEMO_POPULATE_MAX_COUNT` and refuses the photo flags outright
+        # (still a disk write with no credential, same reasoning as
+        # `uploadImage` below), which is the actual risk this entry was
+        # guarding against. Filling a race with test racers is the single
+        # most natural thing for a demo visitor to try, and creating their
+        # own race (allowed) used to leave them with no way to fill it: CSV
+        # import, GPRM/DerbyNet import and this were all refused.
+        #
+        # `createPracticeRace` stays refused — a separate call, not swept up
+        # in the same reopening. It creates a whole race (roster, check-ins,
+        # a raced preliminary round, a championship) in one mutation with no
+        # parameter a demo-specific cap could bind, unlike `populateRace`'s
+        # `count`, and a visitor curious what a rehearsal looks like can
+        # already build the same shape by hand: create a race, then
+        # `populateRace` up to the cap.
         "createPracticeRace",
         # Bulk row creation from caller-supplied text. One visitor importing
         # ten thousand racers ruins the demo for everyone else until the reset.
