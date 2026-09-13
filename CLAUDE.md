@@ -285,7 +285,7 @@ Defined entirely in `backend/api/schema.py`.
 - Track records: `createTrackRecord`, `updateTrackRecord`, `deleteTrackRecord`
 - Round/Heat: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `pinRoundField`, `unpinRoundField`, `updateHeatResult`, `reorderHeats`, `applyMasterRunningOrder`
 - Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `startTimerTest`, `fakeTimerStart`, `fakeTimerFinish`
-- Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards`
+- Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards`, `seedChampionshipAwards` (the Awards page's empty-state button, #1082 — the same seeding a final round's creation already does)
 - Voting: `castVote` — the one mutation `VIEWER` may run
 - Audience displays: `assignDisplay`, `advanceDisplay`, `identifyDisplay`, `renameDisplay`, `forgetDisplay`
 - Display scenes (#613): `createScene`, `renameScene`, `deleteScene`, `updateSceneDisplay`, `removeSceneDisplay`, `applyScene`, `applyScenePreset`

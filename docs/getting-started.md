@@ -134,7 +134,7 @@ Once your system settings are configured, you're ready to create a race event.
        - **Scoring**: Four methods — **Timed** (average heat time), **Points** (finishing places added up), **Cumulative time** (heat times added up), and **Fastest single run** (each racer's single best time). Every option shows its own one-line description right on the form. See [Scoring & Championships](scoring-and-championships.md) for what each means on race day.
        - **Drop worst run(s)**: `0` is off. Set it above `0` to drop each racer's worst counted results before scoring, once everyone who has raced has enough runs to spare.
        - **Ties**: How a tied score is settled where it decides something. **Leave it shared** is the default.
-       - **Championship Trophies**: How many cars go into the final (3 by default).
+       - **Championship Trophies**: How many cars go into the final (3 by default) — and how many trophies Trusty Track creates on the [Awards](awards.md) page for you once that final exists.
      - Under **Check-in**:
        - **Car Numbering**: Choose how car numbers should be assigned (Manual allows you to enter numbers during check-in).
        - **Check car weights at inspection**: On by default at 5.0 oz, the usual pack rule. Change the limit, or turn the check off entirely if your pack does not weigh cars.

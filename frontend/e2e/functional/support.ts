@@ -257,6 +257,7 @@ export async function recordRound(
         }));
         const ordered = [...timed].sort((a, b) => a.time - b.time);
         const place = new Map(ordered.map((lane, idx) => [lane.lane, idx + 1]));
+        const timeByLane = new Map(timed.map((lane) => [lane.lane, lane.time]));
 
         await gql(
             page,
@@ -265,12 +266,20 @@ export async function recordRound(
             }`,
             {
                 heatId: heat.id,
-                lanes: timed.map((lane) => ({
+                // Every stored lane, not just the occupied ones —
+                // `updateHeatResult` requires the sent lane set to match the
+                // heat's own stored one exactly (`crud._validate_lane_payload`),
+                // and a championship final can hold fewer real racers than
+                // the track has lanes (a genuinely empty lane 4 of 4 on a
+                // three-car final, say). Occupied lanes are unaffected;
+                // this only adds back the lanes the old, occupied-only
+                // payload silently dropped.
+                lanes: heat.lanes.map((lane) => ({
                     lane: lane.lane,
                     racerId: lane.racerId,
                     placeholderSlot: lane.placeholderSlot,
-                    time: lane.time,
-                    place: place.get(lane.lane)!,
+                    time: lane.racerId !== null ? timeByLane.get(lane.lane)! : null,
+                    place: lane.racerId !== null ? place.get(lane.lane)! : null,
                 })),
             },
         );

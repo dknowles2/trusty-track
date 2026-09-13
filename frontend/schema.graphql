@@ -471,6 +471,7 @@ type Mutation {
   updateAward(id: Int!, award: AwardInput!): Award
   deleteAward(id: Int!): Boolean!
   reorderAwards(raceId: Int!, awardIds: [Int!]!): [Award!]!
+  seedChampionshipAwards(raceId: Int!): [Award!]!
   castVote(awardId: Int!, racerId: Int!, ballotKey: String!): String
   createTrack(track: TrackInput!): Track!
   updateTrack(id: Int!, track: TrackInput!): Track

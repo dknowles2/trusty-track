@@ -4487,6 +4487,107 @@ def create_award(db: Session, race_id: int, award: schemas.AwardCreate) -> model
     return db_award
 
 
+def last_championship_round(db: Session, race_id: int) -> models.Round | None:
+    """The race's own final — the highest-`round_number` round carrying an
+    `advancement_source` — for `seedChampionshipAwards` to point a fresh set
+    of trophies at (#1082). The same "last championship round" #862 already
+    uses for `AwardForm`'s default source and
+    `resolve_championship_source_for_race`'s own chaining; kept as a third
+    reader rather than a second copy of the query.
+    """
+    return (
+        db.query(models.Round)
+        .filter(
+            models.Round.race_id == race_id,
+            models.Round.advancement_source.is_not(None),
+        )
+        .order_by(models.Round.round_number.desc())
+        .first()
+    )
+
+
+def seed_championship_awards(
+    db: Session, round_obj: models.Round
+) -> list[models.Award]:
+    """Create this race's championship trophies, the moment a final round
+    exists to point them at (#1082).
+
+    Called from both doors that can create a championship round —
+    `createRoundWizard`'s per-round loop, for its own last round, and
+    `createRound`'s championship branch, for the round it just built — right
+    after that round's placeholder heats are generated, and from
+    `seedChampionshipAwards` (via `seed_championship_awards_for_race` below)
+    for a race whose wizard was skipped or whose seeded set was deleted.
+
+    `domain.awards.championship_award_seed` is the pure rule; this is the
+    I/O around it — the race's own `championship_trophies`, whether the race
+    already carries a `SPEED` award (the whole "never seed twice" guard —
+    presence, not a flag), and, for an `EACH_GROUP` final, every racing
+    group in the race, the same population `round_field_size` counts to size
+    that round's own field.
+
+    Returns the created awards, in presentation order after whatever the
+    race already had — or an empty list when the rule seeds nothing: no
+    trophies configured, no seats in the field, or (the ordinary case, after
+    the first final) a `SPEED` award already exists.
+    """
+    race = db.query(models.Race).filter(models.Race.id == round_obj.race_id).first()
+    if race is None:
+        return []
+
+    is_each_group = round_obj.advancement_source == advancement.EACH_GROUP
+    racing_group_ids = (
+        [g.id for g in get_racing_groups(db, round_obj.race_id)]
+        if is_each_group
+        else []
+    )
+    existing_awards = get_awards(db, round_obj.race_id)
+
+    seeds = awards.championship_award_seed(
+        race.championship_trophies,
+        round_obj.advancement_num_racers or 0,
+        racing_group_ids,
+        is_each_group=is_each_group,
+        existing_awards=existing_awards,
+        sort_order_start=_next_award_sort_order(db, round_obj.race_id),
+    )
+    if not seeds:
+        return []
+
+    source = f"{advancement.ROUND_PREFIX}{round_obj.id}"
+    created: list[models.Award] = []
+    for seed in seeds:
+        db_award = models.Award(
+            race_id=round_obj.race_id,
+            name=seed.name,
+            kind=models.AwardKind.SPEED,
+            source=source,
+            place=seed.place,
+            racing_group_id=seed.racing_group_id,
+            sort_order=seed.sort_order,
+        )
+        _set_speed_artwork_key(db_award)
+        db.add(db_award)
+        created.append(db_award)
+    db.commit()
+    for db_award in created:
+        db.refresh(db_award)
+    return created
+
+
+def seed_championship_awards_for_race(db: Session, race_id: int) -> list[models.Award]:
+    """The `seedChampionshipAwards` mutation's own door onto
+    `seed_championship_awards` (#1082) — the empty-state **Add the N
+    championship trophies** button finds the race's own final for itself
+    rather than being handed one, since the round-creation callers already
+    have it in hand from the round they just built.
+    """
+    round_obj = last_championship_round(db, race_id)
+    if round_obj is None:
+        raise ValueError("This race has no championship round yet.")
+    return seed_championship_awards(db, round_obj)
+
+
 def update_award(
     db: Session, award_id: int, award_update: schemas.AwardUpdate
 ) -> models.Award | None:

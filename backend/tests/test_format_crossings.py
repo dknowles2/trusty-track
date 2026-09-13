@@ -61,6 +61,7 @@ import pytest
 from backend.db import crud, models, schemas
 from backend.domain import lanes as lanes_module
 from backend.domain.audit import ResultSource
+from backend.services import awards as awards_service
 
 WIZARD = """
 mutation Wizard($raceId: Int!, $config: WizardConfigurationInput!) {
@@ -356,6 +357,61 @@ def _assert_championship_filled(db, round_id: int) -> None:
     )
 
 
+def _assert_seeded_awards_resolve(db, race_id: int, round_id: int) -> None:
+    """The championship trophies `createRound` seeds for this final (#1082)
+    resolve to the round's own actual top finishers, in order, once the
+    round is fully raced — not merely that seeding wrote the right number of
+    rows. Ground truth comes from the round's own recorded lane times rather
+    than from re-deriving who *should* have advanced (elimination and
+    balanced waves make that a second copy of the scheduler); a seeded
+    award's own source already points at this round (#862), so its
+    recipient must agree with this round's own stopwatch regardless of how
+    the field reached it.
+    """
+    source = f"ROUND:{round_id}"
+    seeded = [
+        award
+        for award in crud.get_awards(db, race_id)
+        if award.kind == models.AwardKind.SPEED and award.source == source
+    ]
+    assert seeded, f"no seeded awards found for round {round_id}"
+
+    heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
+    times: dict[int, float] = {}
+    for lanes in crud.lanes_for_heats(db, heats):
+        for lane in lanes:
+            if lane.racer_id is not None and lane.time is not None:
+                times[lane.racer_id] = lane.time
+    racer_group = {
+        racer.id: racer.racing_group_id
+        for racer in db.query(models.Racer).filter(models.Racer.race_id == race_id)
+    }
+
+    recipients = awards_service.recipients_for(db, race_id)
+    by_group: dict[int | None, list[models.Award]] = {}
+    for award in seeded:
+        by_group.setdefault(award.racing_group_id, []).append(award)
+
+    for group_id, group_awards in by_group.items():
+        eligible_ids = [
+            racer_id
+            for racer_id in times
+            if group_id is None or racer_group.get(racer_id) == group_id
+        ]
+        eligible_ids.sort(key=lambda racer_id: times[racer_id])
+        for award in group_awards:
+            expected = (
+                eligible_ids[award.place - 1]
+                if award.place - 1 < len(eligible_ids)
+                else None
+            )
+            actual = recipients.get(award.id)
+            assert actual == expected, (
+                f"seeded award {award.id} (place {award.place}, group "
+                f"{group_id}) resolved to {actual}, expected {expected}"
+            )
+
+
 CELLS = [
     ("PPC", "none", "off"),
     ("PPC", "none", "on"),
@@ -426,6 +482,7 @@ def test_format_crossing(db, client, general_style, championship_shape, master_o
 
     if champ_round_id is not None:
         _assert_championship_filled(db, champ_round_id)
+        _assert_seeded_awards_resolve(db, race.id, champ_round_id)
 
     status = _race_status(client, race.id)
     assert status == "FINISHED", f"race never reached FINISHED (status={status})"

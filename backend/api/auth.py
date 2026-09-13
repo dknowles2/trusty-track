@@ -179,6 +179,10 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         "updateAward",
         "deleteAward",
         "reorderAwards",
+        # The empty-state button's own mutation (#1082) — same bucket, since
+        # it writes exactly the SPEED awards `createAward` could write by
+        # hand, one at a time, for a race whose wizard was skipped.
+        "seedChampionshipAwards",
         # Timer
         "prepareHeat",
         "abortHeat",

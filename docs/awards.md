@@ -9,6 +9,22 @@ whole list is in one place when it is time to announce them.
 
 ![The awards list, showing what each award is for and who currently holds it](assets/screenshots/awards/01-awards-list.png)
 
+## The championship trophies are already here
+
+The moment your race has a final — built by the Round Wizard, or added
+afterward through **Add Round** — this page already has 1st, 2nd, 3rd (and
+however many more **Championship Trophies** on the race settings asks for)
+pointed at it, with nobody decided yet until the racing says so. If your
+pack races by den as well, each den gets its own set. Nothing to type in by
+hand for the trophies every derby gives out; add Best Paint or any other
+award of your own the ordinary way, below.
+
+Deleted them by mistake, or skipped the wizard entirely? The empty state
+here offers an **Add the N championship trophies** button that brings the
+same set back once a final exists — see [The Championship Trophies
+number](reference/championship-rounds.md#the-championship-trophies-number)
+for the exact rule.
+
 ## The two kinds
 
 Every award is one name and one winner. What differs is where the winner comes

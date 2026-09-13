@@ -159,7 +159,16 @@ Each championship round has its own page in the Standings selector instead.
 
 ## The Championship Trophies number
 
-**Championship Trophies** on the race settings decides how many cars the
-wizard puts into the final — it is about the racing, not about how many
-physical trophies you hand out. The trophies themselves live on the
-[Awards](../awards.md) page.
+**Championship Trophies** on the race settings is two things at once: it
+decides how many cars the wizard puts into the final, and it is how many
+trophies actually get created. The moment a final round exists — built by
+the wizard, or added afterward through **Add Round** — Trusty Track seeds
+one speed award per place, 1st through however many trophies you asked for,
+pointed at that final, onto the [Awards](../awards.md) page. If your pack
+races by den as well, each den gets its own set. Changing the number
+afterward does not add or remove awards already there — it only changes
+what a *new* final would seed, and it stays the floor on how many cars a
+final can hold: you cannot hand out more championship trophies than there
+are cars in the final to win them. If the Awards page's seeded set gets
+deleted, or the wizard was skipped entirely, an **Add the N championship
+trophies** button on that page's empty state brings it back on demand.

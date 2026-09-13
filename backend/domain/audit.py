@@ -269,6 +269,7 @@ ACTION_PHRASES: dict[str, str] = {
     "createAward": "Added an award",
     "updateAward": "Changed an award",
     "deleteAward": "Deleted an award",
+    "seedChampionshipAwards": "Added the championship trophies",
     "prepareHeat": "Armed a heat",
     "abortHeat": "Aborted a heat",
     "deleteRace": "Deleted a race",

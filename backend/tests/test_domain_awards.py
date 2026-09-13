@@ -14,9 +14,12 @@ from backend.domain.awards import (
     SPEED,
     TORTOISE,
     TROPHY,
+    AwardSeed,
     SpeedRule,
     can_be_voted_on,
+    championship_award_seed,
     default_artwork_key,
+    ordinal,
     place_is_contested,
     rank_tally,
     recipient_of,
@@ -250,3 +253,136 @@ class TestPlaceIsContested:
         rule = SpeedRule(source=ALL, place=1, from_bottom=True)
         rows = ranked_standings((7, 1, None), (8, 2, None), (9, 2, None))
         assert place_is_contested(rule, rows) is True
+
+
+class _StubAward:
+    """A minimal stand-in for `models.Award`, just enough for
+    `championship_award_seed`'s structural `kind` check — this module stays
+    importable with no database, and a plain object here proves it."""
+
+    def __init__(self, kind: str) -> None:
+        self.kind = kind
+
+
+class TestOrdinal:
+    @pytest.mark.parametrize(
+        ("place", "expected"),
+        [
+            (1, "1st"),
+            (2, "2nd"),
+            (3, "3rd"),
+            (4, "4th"),
+            (10, "10th"),
+            (11, "11th"),
+            (12, "12th"),
+            (13, "13th"),
+            (21, "21st"),
+            (22, "22nd"),
+            (23, "23rd"),
+            (101, "101st"),
+            (111, "111th"),
+        ],
+    )
+    def test_matches_the_frontend_s_own_convention(
+        self, place: int, expected: str
+    ) -> None:
+        """The same edge cases `awardText.ordinal.test.ts` pins on the
+        frontend — 11th/12th/13th, not 11st/12nd/13rd."""
+        assert ordinal(place) == expected
+
+
+class TestChampionshipAwardSeed:
+    """The table #1082 asks for: trophies × (overall | per-group) ×
+    existing awards (none / SPEED present / judged only) → the exact seed
+    list, plus the floor relationship in the other direction (`place` never
+    exceeds the field)."""
+
+    def test_one_award_per_place_overall(self) -> None:
+        seeds = championship_award_seed(
+            3, 8, [], is_each_group=False, existing_awards=[]
+        )
+        assert seeds == [
+            AwardSeed(name="1st Place", place=1, racing_group_id=None, sort_order=0),
+            AwardSeed(name="2nd Place", place=2, racing_group_id=None, sort_order=1),
+            AwardSeed(name="3rd Place", place=3, racing_group_id=None, sort_order=2),
+        ]
+
+    def test_sort_order_continues_after_the_race_s_existing_awards(self) -> None:
+        seeds = championship_award_seed(
+            2,
+            8,
+            [],
+            is_each_group=False,
+            existing_awards=[],
+            sort_order_start=5,
+        )
+        assert [seed.sort_order for seed in seeds] == [5, 6]
+
+    def test_one_set_per_racing_group_when_each_group(self) -> None:
+        seeds = championship_award_seed(
+            2, 4, [10, 20], is_each_group=True, existing_awards=[]
+        )
+        assert [(seed.racing_group_id, seed.place) for seed in seeds] == [
+            (10, 1),
+            (10, 2),
+            (20, 1),
+            (20, 2),
+        ]
+        assert [seed.sort_order for seed in seeds] == [0, 1, 2, 3]
+
+    def test_an_existing_speed_award_blocks_seeding_entirely(self) -> None:
+        existing = [_StubAward(kind=SPEED)]
+        assert (
+            championship_award_seed(
+                3, 8, [], is_each_group=False, existing_awards=existing
+            )
+            == []
+        )
+
+    def test_a_judged_only_race_is_still_seeded(self) -> None:
+        """The guard is a SPEED award's presence, not any award at all — a
+        race that already has a hand-added Best Paint still gets its
+        trophies."""
+        existing = [_StubAward(kind=SPECIAL)]
+        seeds = championship_award_seed(
+            2, 8, [], is_each_group=False, existing_awards=existing
+        )
+        assert len(seeds) == 2
+
+    def test_no_trophies_configured_seeds_nothing(self) -> None:
+        assert (
+            championship_award_seed(0, 8, [], is_each_group=False, existing_awards=[])
+            == []
+        )
+
+    def test_a_non_positive_trophy_count_seeds_nothing(self) -> None:
+        assert (
+            championship_award_seed(-1, 8, [], is_each_group=False, existing_awards=[])
+            == []
+        )
+
+    def test_place_never_exceeds_the_final_s_own_field(self) -> None:
+        """The floor relationship in the other direction — a Slowest Race
+        bracket, say, can ask for fewer racers than there are trophies."""
+        seeds = championship_award_seed(
+            3, 1, [], is_each_group=False, existing_awards=[]
+        )
+        assert [seed.place for seed in seeds] == [1]
+
+    def test_each_group_caps_per_group_not_the_combined_total(self) -> None:
+        seeds = championship_award_seed(
+            3, 1, [10, 20], is_each_group=True, existing_awards=[]
+        )
+        assert [(seed.racing_group_id, seed.place) for seed in seeds] == [
+            (10, 1),
+            (20, 1),
+        ]
+
+    def test_a_zero_or_unknown_field_size_is_not_treated_as_a_bound(self) -> None:
+        """`field_size <= 0` means "not known" rather than "no seats" — a
+        caller that could not size the field must not seed zero trophies for
+        a race that asked for some."""
+        seeds = championship_award_seed(
+            3, 0, [], is_each_group=False, existing_awards=[]
+        )
+        assert len(seeds) == 3
