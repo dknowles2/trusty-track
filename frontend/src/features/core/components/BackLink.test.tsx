@@ -85,4 +85,37 @@ describe('BackLink', () => {
         expect(link).toHaveTextContent('Back to 2026 Pinewood Derby');
         expect(link).toHaveAttribute('href', '/race/3/control');
     });
+
+    it('never borrows a different race\'s name for the state.from label (review finding on #1107)', () => {
+        // `from` names race 7 (this tab's own history), but the device
+        // remembers race 12 (left over from a different tab, or an earlier
+        // visit) — the label must not claim this is race 12's back link.
+        writeLastRace({ id: 12, name: 'Someone Else\'s Race' });
+
+        render(
+            <MemoryRouter initialEntries={[{ pathname: '/timer-check', state: { from: '/race/7/control' } }]}>
+                <BackLink destination={SETTINGS_DESTINATION} />
+            </MemoryRouter>,
+        );
+
+        const link = screen.getByTestId('back-link');
+        expect(link).not.toHaveTextContent("Someone Else's Race");
+        expect(link).toHaveAttribute('href', '/race/7/control');
+    });
+
+    it('ignores a state.from that is not a same-app path (review finding on #1107)', () => {
+        // `location.state` is whatever the history entry happens to carry,
+        // not something this component controls — a non-string or an
+        // off-app value must fall through to the destination rather than
+        // being handed to `<Link to>` as-is.
+        render(
+            <MemoryRouter initialEntries={[{ pathname: '/timer-check', state: { from: 'https://evil.example.com' } }]}>
+                <BackLink destination={SETTINGS_DESTINATION} />
+            </MemoryRouter>,
+        );
+
+        const link = screen.getByTestId('back-link');
+        expect(link).toHaveTextContent('Back to settings');
+        expect(link).toHaveAttribute('href', '/system-settings');
+    });
 });

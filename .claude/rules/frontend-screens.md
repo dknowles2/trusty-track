@@ -249,6 +249,18 @@ still read once at mount (`useState(() => readLastRace())`), not subscribed
 to storage — each of the three is a fresh page on every navigation, so a
 value read as the page loads is already the right one.
 
+**Two things a reviewer of #1107 caught before merge, both about `state.from`
+not being fully trustworthy.** `location.state` is history, not a value this
+component controls, so it is validated rather than assumed: `from` is used
+only when it is a string starting with `/`, and anything else — absent, the
+wrong type, an off-app URL — is treated as no `from` at all and falls
+through to `destination`. And the *label* shown alongside it still comes
+from `readLastRace()`, which is per-*device* storage rather than per-tab —
+`from` might name a race a **different** tab last visited, so the remembered
+race's name is only used when its id matches the one embedded in `from`
+(`raceIdFromPath`); a mismatch renders the generic "Back to the race" rather
+than another race's name.
+
 ### Themes
 
 Three independently configurable colour surfaces (#498) — **App** (the
