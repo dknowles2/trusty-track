@@ -135,7 +135,7 @@ export default function ResultsSheet() {
     const hasChampionshipTable = championshipTables.length > 0;
 
     return (
-        <div className="printables-page" {...printablesThemeRootProps(data?.initialConfig?.printablesTheme)}>
+        <div className="printables-page" {...printablesThemeRootProps(data?.race?.resolvedPrintablesTheme)}>
             <div className="printables-controls no-print">
                 <div>
                     <Link

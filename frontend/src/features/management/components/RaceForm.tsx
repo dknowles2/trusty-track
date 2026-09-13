@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from 'urql';
+import { gql, useQuery } from 'urql';
 
 import { DEFAULT_LIMIT_OZ, formatOunces } from '../weightCheck';
 import { DEFAULT_TERMINOLOGY, VEHICLE_ARTWORK_OPTIONS } from '../../settings/terminologyDefaults';
@@ -9,6 +9,10 @@ import { SCORING_STRATEGY_OPTIONS } from '../../stats/scoringStrategyText';
 import { NAME_DISPLAY_OPTIONS } from '../../core/displayName';
 import { GET_TRACKS } from '../../core/graphql/queries';
 import SettingsNav from '../../settings/components/SettingsNav';
+import ThemePicker from '../../settings/components/ThemePicker';
+import AppearancePreview from '../../settings/components/AppearancePreview';
+import { readAppTheme } from '../../../theming/appTheme';
+import type { SurfaceThemeSetting } from '../../../theming/themes';
 import {
     firstProblem,
     MAX_CHAMPIONSHIP_TROPHIES,
@@ -17,6 +21,25 @@ import {
     sectionsFor,
     type RaceSectionId,
 } from '../raceSettingsSections';
+
+/**
+ * The install's own Display/Printables setting, for the Appearance
+ * section's preview (#1081) — the baseline a race resolves against while
+ * its own picker reads "Use the install's setting". A dedicated query
+ * rather than adding these two fields to the widely-shared
+ * `GetInitialConfigStatus` (`features/core/graphql/queries.ts`, read by
+ * `App.tsx`, `Navigation.tsx` and several role/demo hooks): this form is
+ * the only caller, and growing the shared query would mean every one of
+ * those unrelated reads paying for two fields nothing there uses.
+ */
+const GET_INSTALL_THEMES_FOR_RACE_FORM = gql`
+    query GetInstallThemesForRaceForm {
+        initialConfig {
+            displayTheme
+            printablesTheme
+        }
+    }
+`;
 
 export interface RaceFormData {
     name: string;
@@ -106,6 +129,20 @@ export interface RaceFormData {
      * same word" distinction the terminology override makes.
      */
     name_display?: string | null;
+    /**
+     * A per-race override of the install-wide Display/Printables themes
+     * (#1081), null where this race inherits whatever System Settings has
+     * chosen. Unlike the terminology fields above, `'MATCH_APP'` is itself
+     * a real value here (Field Uniform, pinned to this race) — not the
+     * inherit state — so the picker's own "Use the install's setting"
+     * option is a value distinct from every `ThemeKey` and from
+     * `'MATCH_APP'`, the same "inherited vs. set to the same look"
+     * distinction `name_display`'s `'FULL'` makes above. Update-only, and
+     * absent from the create form for the same reason: a race being
+     * created has nothing yet to override.
+     */
+    display_theme?: string | null;
+    printables_theme?: string | null;
     /**
      * Locked against further edits (#585) — an event that has concluded,
      * guarded against an accidental change rather than a person with
@@ -234,6 +271,21 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
     const [tracksResult] = useQuery({ query: GET_TRACKS });
     const tracks = useMemo(() => tracksResult.data?.tracks || [], [tracksResult.data?.tracks]);
     const fetchingTracks = tracksResult.fetching;
+
+    // The install's own Display/Printables setting (#1081), read only for
+    // the Appearance section's preview — never merged into what actually
+    // gets saved, which is exactly the raw override (or null) `formData`
+    // already carries. `pause`d outside `isEditing`: the create form never
+    // renders this section at all, so there is nothing for the answer to
+    // preview.
+    const [installThemesResult] = useQuery({
+        query: GET_INSTALL_THEMES_FOR_RACE_FORM,
+        pause: !isEditing,
+    });
+    const installDisplayTheme = (installThemesResult.data?.initialConfig?.displayTheme ??
+        'MATCH_APP') as SurfaceThemeSetting;
+    const installPrintablesTheme = (installThemesResult.data?.initialConfig?.printablesTheme ??
+        'MATCH_APP') as SurfaceThemeSetting;
 
     // Sectioned while editing, flat while creating — `sectionsFor` says why.
     // Event first: the lock lives there, and an event that has concluded is
@@ -1002,6 +1054,59 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                     Overrides the install-wide default from System Settings, for this race only.
                                 </p>
                             </div>
+                        </section>
+                    )}
+
+                    {/* ---- Appearance: the look of this race's own screens and paper (#1081) ---- */}
+                    {/* Both pickers are update-only — `updateRace` is the only mutation
+                        that accepts them — so on the create form this whole section is
+                        absent rather than an empty heading, the same `isEditing &&` gate
+                        "Words and names" uses just above. "Use the install's setting" is
+                        `ThemePicker`'s own `inheritOption`, mapping to `null` rather than
+                        to `'MATCH_APP'` — that string is Field Uniform pinned to this race
+                        regardless of what the install picks later, a different, real
+                        choice from inheriting. */}
+                    {isEditing && shows('appearance') && (
+                        <section aria-labelledby="race-section-appearance" data-testid="race-section-appearance">
+                            <GroupHeading id="appearance" sectioned={sectioned} />
+
+                            <ThemePicker
+                                id="race-display-theme"
+                                label="Display theme"
+                                blurb="What the wall display and the projector show for this race."
+                                surface="display"
+                                value={formData.display_theme ?? ''}
+                                onChange={(value) => handleChange('display_theme', value)}
+                                includeMatchApp
+                                inheritOption={{
+                                    pressed: formData.display_theme == null,
+                                    onSelect: () =>
+                                        setFormData(prev => ({ ...prev, display_theme: null })),
+                                }}
+                            />
+                            <ThemePicker
+                                id="race-printables-theme"
+                                label="Printables theme"
+                                blurb="Pit passes, licences, heat sheets and certificates printed for this race."
+                                surface="printables"
+                                value={formData.printables_theme ?? ''}
+                                onChange={(value) => handleChange('printables_theme', value)}
+                                includeMatchApp
+                                inheritOption={{
+                                    pressed: formData.printables_theme == null,
+                                    onSelect: () =>
+                                        setFormData(prev => ({ ...prev, printables_theme: null })),
+                                }}
+                            />
+                            <p style={{ ...helpStyle, marginTop: 0 }}>
+                                Overrides the install-wide default from System Settings, for this race only.
+                            </p>
+                            <p style={{ fontWeight: 'bold', margin: '0.5rem 0 0.75rem' }}>Preview</p>
+                            <AppearancePreview
+                                appThemeKey={readAppTheme()}
+                                displaySetting={(formData.display_theme ?? installDisplayTheme) as SurfaceThemeSetting}
+                                printablesSetting={(formData.printables_theme ?? installPrintablesTheme) as SurfaceThemeSetting}
+                            />
                         </section>
                     )}
 

@@ -41,6 +41,7 @@ interface RaceFixture {
     location: string;
     scoringStrategy: string;
     resolvedNameDisplay: string;
+    resolvedPrintablesTheme: string;
     rounds: RaceFixtureRound[];
     leaderboard: RaceFixtureLeaderboardEntry[];
     racers: { id: number; excludedFromStandings: boolean }[];
@@ -54,6 +55,7 @@ const RACE: RaceFixture = {
     location: 'St Anne’s Hall',
     scoringStrategy: 'TIMED',
     resolvedNameDisplay: 'FULL',
+    resolvedPrintablesTheme: 'MATCH_APP',
     rounds: [{ id: 1, name: null, roundNumber: 1, advancementSource: null }],
     leaderboard: [
         {
@@ -90,7 +92,7 @@ function mockData(raceOverrides: Partial<RaceFixture> = {}, championshipEntriesB
             : (opts.query as string);
 
         if (name === 'GetResultsSheet') {
-            return [{ data: { race, initialConfig: { printablesTheme: null } }, fetching: false, error: undefined }, vi.fn()];
+            return [{ data: { race }, fetching: false, error: undefined }, vi.fn()];
         }
         // The championship query (or the paused Noop fallback) — build a
         // `race` payload carrying one aliased field per round id.

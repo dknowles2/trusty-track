@@ -150,6 +150,12 @@ export default function RaceDetails() {
       // name-display setting (#552) — `RaceForm`'s checkbox is on exactly
       // when this is non-null.
       name_display: data.race.nameDisplay ?? null,
+      // Raw overrides, null where this race inherits the install-wide
+      // Display/Printables themes (#1081) — `RaceForm`'s Appearance
+      // pickers read these back the same way the name-display checkbox
+      // reads its own field above.
+      display_theme: data.race.displayTheme ?? null,
+      printables_theme: data.race.printablesTheme ?? null,
       // Locked against further edits (#585) — `RaceForm`'s lock/unlock
       // toggle reads this back the same way every other field here does.
       is_locked: data.race.isLocked,
@@ -429,6 +435,14 @@ export default function RaceDetails() {
               // distinct from inheriting, so going back to null needs its
               // own flag too.
               clearNameDisplay: updateInput.name_display == null,
+              displayTheme: updateInput.display_theme ?? undefined,
+              printablesTheme: updateInput.printables_theme ?? undefined,
+              // Same trap again, for the per-race Display/Printables theme
+              // override (#1081): `'MATCH_APP'` set explicitly is a real
+              // override here, distinct from inheriting, so going back to
+              // null needs its own flag too.
+              clearDisplayTheme: updateInput.display_theme == null,
+              clearPrintablesTheme: updateInput.printables_theme == null,
               isLocked: updateInput.is_locked,
           };
           const result = await updateRaceMutation({ id: parsedRaceId, race: raceInput });

@@ -10,6 +10,12 @@
  * deliver: the App theme is per-device `localStorage` and never reaches the
  * server, so a wall display or a printed page has no App picker to match
  * (#528) — the name now says what the option actually does.
+ *
+ * `RaceForm`'s own Appearance section (#1081) reuses this component and
+ * adds one more option ahead of even "Field Uniform (default)" —
+ * `inheritOption`, "use the install's setting" — since a race's override
+ * has a state (null) no `ThemeKey`/`MATCH_APP` value can express on its
+ * own.
  */
 
 import { THEMES, type PickerSurface, type ThemeKey } from '../../../theming/themes';
@@ -25,6 +31,18 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   includeMatchApp: boolean;
+  /**
+   * A race-only extra option, rendered first (#1081): "use whatever this
+   * install is set to right now". `value`/`onChange` above only ever carry
+   * a `ThemeKey` or `'MATCH_APP'` — the install's own vocabulary, which
+   * every other caller of this component (System Settings' three pickers)
+   * writes straight to that install. A race's override is a third state on
+   * top of that whole vocabulary (null, in `RaceFormData`), not a fourth
+   * member of it, so it is a separate control rather than a sentinel
+   * string threaded through `value` that every other caller would have to
+   * start excluding. Absent everywhere but the race form.
+   */
+  inheritOption?: { pressed: boolean; onSelect: () => void };
 }
 
 function swatchGradient(surface: PickerSurface, key: ThemeKey): string {
@@ -38,7 +56,16 @@ function swatchGradient(surface: PickerSurface, key: ThemeKey): string {
   return `linear-gradient(135deg, ${primary} 0%, ${primary} 50%, ${accent} 50%, ${accent} 100%)`;
 }
 
-export default function ThemePicker({ id, label, blurb, surface, value, onChange, includeMatchApp }: Props) {
+export default function ThemePicker({
+  id,
+  label,
+  blurb,
+  surface,
+  value,
+  onChange,
+  includeMatchApp,
+  inheritOption,
+}: Props) {
   return (
     <div style={{ marginBottom: '1.75rem' }}>
       <p id={`${id}-label`} style={{ margin: '0 0 0.25rem', fontWeight: 'bold' }}>
@@ -50,6 +77,21 @@ export default function ThemePicker({ id, label, blurb, surface, value, onChange
         aria-labelledby={`${id}-label`}
         style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}
       >
+        {inheritOption && (
+          <button
+            type="button"
+            data-testid={`${id}-option-INHERIT`}
+            aria-pressed={inheritOption.pressed}
+            onClick={inheritOption.onSelect}
+            className="theme-swatch-btn"
+            title="Use whatever this install's own setting is, and follow it if it ever changes"
+          >
+            <span className="theme-swatch theme-swatch-match-app" aria-hidden="true">
+              ↳
+            </span>
+            <span>Use the install's setting</span>
+          </button>
+        )}
         {includeMatchApp && (
           <button
             type="button"

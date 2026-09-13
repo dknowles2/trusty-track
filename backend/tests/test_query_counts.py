@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
+from backend.api.schema import Subscription
 from backend.db import crud, models, schemas
 from backend.domain import lanes as domain_lanes
 from backend.tests.helpers import as_lanes
@@ -211,6 +212,39 @@ def test_observation_query_count(client, populated_race):
 
     assert counter.count <= 25, (
         f"Observation page load issued {counter.count} SQL queries."
+    )
+
+
+class _SubscriptionInfo:
+    """The minimal `Info` shape `display_assignment` reads (#1081) — just
+    `context["db"]`, the same as `test_display_subscription.py`'s own
+    `_info` helper. Not reused from there: this file counts queries with a
+    `db` from its own `populated_race` fixture, not that module's."""
+
+    def __init__(self, db):
+        self.context = {"db": db}
+
+
+@pytest.mark.asyncio
+async def test_display_assignment_theme_lookup_does_not_add_a_query(populated_race, db):
+    """A race's own Display theme override (#1081) is resolved by joining
+    `Race` to its `Organization` in one query — `_display_theme_setting`
+    used to read the organization row alone, and re-adding the race layer
+    on top must not turn that into two queries fired on every event this
+    subscription re-reads on."""
+    stream = Subscription().display_assignment(
+        _SubscriptionInfo(db),
+        display_id="query-count-display",
+        race_id=populated_race.id,
+    )
+    try:
+        with _QueryCounter() as counter:
+            await stream.__anext__()
+    finally:
+        await stream.aclose()
+
+    assert counter.count <= 1, (
+        f"display_assignment's opening payload issued {counter.count} SQL queries."
     )
 
 
