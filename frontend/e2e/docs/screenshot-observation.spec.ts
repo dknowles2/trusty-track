@@ -22,7 +22,7 @@
  * `race-day.spec.ts`.
  */
 
-import { test, expect } from './screenshots-setup';
+import { test, expect, screenshotLocator } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -298,18 +298,38 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     // — so once the audience tab is on the ceremony route, a row that reads
     // connected is the settled one, not the stale pre-navigation one.
     await audienceScreen.waitForURL(/\/awards\/present/);
+    // The ceremony page's own subscription still has a beat of churn ahead of
+    // it once the route lands — React's StrictMode double-invokes the mount
+    // effect in this dev-server build (`main.tsx`), so the subscription that
+    // registers this display opens, closes and reopens once more in quick
+    // succession, each edge its own `connections += 1`/`-= 1` on the
+    // registry and its own wake-up to the operator's `displays` list. On a
+    // quiet machine that finishes before either assertion below ever runs;
+    // under CI's load the second open can still be in flight, and the two
+    // waits then land on either side of it exactly the way this file's other
+    // reconnect gap (`page`'s own navigation past the observation page,
+    // above) does. Draining the audience tab's network activity first is the
+    // same fix picture 01 already relies on after every navigation, applied
+    // here so the row's connected state has actually settled — not merely
+    // been asserted once — before anything downstream measures it.
+    await audienceScreen.waitForLoadState('networkidle');
     await expect(displayRow.getByText('Not connected')).toBeHidden();
     await expect(displayRow.getByRole('button', { name: 'Identify Gym north' })).toBeEnabled();
-    // Wait for the reconnect to settle the ordering before measuring the clip,
-    // or the row can move between boundingBox() and the screenshot.
+    // Wait for the reconnect to settle the ordering before capturing, or the
+    // row can move between a locator lookup and the screenshot.
     await expect(page.locator('[data-testid^="display-"]').first()).toContainText('Gym north');
-    const rowBox = await displayRow.boundingBox();
-    await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, '11-ceremony-controls.png'),
-        ...(rowBox
-            ? { clip: { x: rowBox.x, y: rowBox.y, width: rowBox.width, height: rowBox.height } }
-            : {}),
-    });
+    // `screenshotLocator` rather than a `boundingBox()` + `page.screenshot`
+    // clip (#1068): a pre-measured clip is a snapshot of where the row *was*,
+    // and this row has just spent this whole block moving and re-sorting —
+    // `Locator.screenshot()` re-resolves the box at capture time instead. It
+    // also gets the row its own hover-park and `settleTransitions` treatment
+    // (see that function's doc comment), which matters here specifically:
+    // `.secondary-btn`'s background is what these controls' disabled state
+    // differs by (`.secondary-btn:disabled` vs the gold default), and that
+    // colour is a `transition: background-color 0.2s` off the plain `button`
+    // rule — exactly the shape `race-setup/11-edit-race-settings.png` needed
+    // this same helper for.
+    await screenshotLocator(displayRow, { path: path.join(SCREENSHOT_DIR, '11-ceremony-controls.png') });
 
     await displayContext.close();
 
