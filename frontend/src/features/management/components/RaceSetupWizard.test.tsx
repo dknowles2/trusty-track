@@ -238,6 +238,71 @@ describe('with no previous races', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
         expect(onCancel).toHaveBeenCalled();
     });
+
+    describe('step pills (#1087)', () => {
+        it('clicking a visited pill jumps back to that step, keeping the groups list', async () => {
+            mockQueries();
+            renderWizard();
+
+            await next();
+            expect(screen.getByTestId('setup-step-groups')).toBeInTheDocument();
+            await next();
+            expect(screen.getByLabelText('Event Name')).toBeInTheDocument();
+
+            await userEvent.click(screen.getByRole('button', { name: '1. Kind of event' }));
+            expect(screen.getByTestId('setup-step-kind')).toBeInTheDocument();
+
+            await next();
+            expect(screen.getByTestId('setup-step-groups')).toBeInTheDocument();
+            expect(screen.getByLabelText('Den 1 name')).toHaveValue('Lion');
+        });
+
+        it('the current step and a future step have no button, and clicking them does nothing', async () => {
+            mockQueries();
+            renderWizard();
+
+            await next();
+            expect(screen.getByTestId('setup-step-groups')).toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: '2. Dens' })).toBeNull();
+            expect(screen.queryByRole('button', { name: '3. Details' })).toBeNull();
+            expect(screen.getByText('2. Dens')).not.toHaveAttribute('aria-disabled');
+            expect(screen.getByText('3. Details')).toHaveAttribute('aria-disabled', 'true');
+
+            await userEvent.click(screen.getByText('2. Dens'));
+            expect(screen.getByTestId('setup-step-groups')).toBeInTheDocument();
+            await userEvent.click(screen.getByText('3. Details'));
+            expect(screen.getByTestId('setup-step-groups')).toBeInTheDocument();
+        });
+
+        it('after jumping back to kind and changing the organization, Next regenerates the groups', async () => {
+            mockQueries();
+            renderWizard();
+
+            await next();
+            expect(screen.getByLabelText('Den 1 name')).toHaveValue('Lion');
+            await next();
+
+            await userEvent.click(screen.getByRole('button', { name: '1. Kind of event' }));
+            await userEvent.click(screen.getByRole('radio', { name: /^A district or council derby/ }));
+            await next();
+            expect(screen.getByLabelText('Rank 1 name')).toBeInTheDocument();
+        });
+
+        it('jumping back without changing the answer keeps an edited group name', async () => {
+            mockQueries();
+            renderWizard();
+
+            await next();
+            await userEvent.clear(screen.getByLabelText('Den 1 name'));
+            await userEvent.type(screen.getByLabelText('Den 1 name'), 'Custom Lions');
+            await next();
+
+            await userEvent.click(screen.getByRole('button', { name: '1. Kind of event' }));
+            await next();
+            expect(screen.getByLabelText('Den 1 name')).toHaveValue('Custom Lions');
+        });
+    });
 });
 
 describe('with a previous race', () => {
@@ -356,5 +421,33 @@ describe('with a previous race', () => {
         await userEvent.selectOptions(screen.getByLabelText('Previous race'), '4');
         const steps = within(screen.getByRole('list', { name: 'Setup steps' })).getAllByRole('listitem');
         expect(steps.map((s) => s.textContent)).toEqual(['1. Start', '2. Dens', '3. Details']);
+    });
+
+    it('in copy mode the pills are the three-step list, and a jump to start survives a mode switch (#1087)', async () => {
+        mockQueries({ races: [{ id: 4, name: 'Last Year' }] });
+        renderWizard();
+
+        await userEvent.click(screen.getByRole('radio', { name: /^Copy settings from a previous race/ }));
+        await userEvent.selectOptions(screen.getByLabelText('Previous race'), '4');
+        await next();
+        expect(screen.getByTestId('setup-step-groups')).toBeInTheDocument();
+        await next();
+        expect(screen.getByLabelText('Event Name')).toBeInTheDocument();
+
+        const steps = within(screen.getByRole('list', { name: 'Setup steps' })).getAllByRole('listitem');
+        expect(steps).toHaveLength(3);
+
+        await userEvent.click(screen.getByRole('button', { name: '1. Start' }));
+        expect(screen.getByTestId('setup-step-start')).toBeInTheDocument();
+
+        // The mode radios only render on the start step, so a switch always
+        // happens with the index already at 0 — `steps[Math.min(stepIndex,
+        // steps.length - 1)]` clamps regardless, but this pins that the
+        // switch (three steps to four, and back) never leaves the wizard on
+        // a step that no longer exists.
+        await userEvent.click(screen.getByRole('radio', { name: /^Start from scratch/ }));
+        expect(screen.getByTestId('setup-step-start')).toBeInTheDocument();
+        await userEvent.click(screen.getByRole('radio', { name: /^Copy settings from a previous race/ }));
+        expect(screen.getByTestId('setup-step-start')).toBeInTheDocument();
     });
 });

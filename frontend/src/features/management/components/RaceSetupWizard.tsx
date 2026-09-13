@@ -236,22 +236,43 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
                 aria-label="Setup steps"
                 style={{ display: 'flex', gap: '0.5rem', listStyle: 'none', padding: 0, margin: '0 0 1rem', flexWrap: 'wrap' }}
             >
-                {steps.map((id, i) => (
-                    <li
-                        key={id}
-                        aria-current={id === step ? 'step' : undefined}
-                        style={{
-                            fontSize: '0.8rem',
-                            padding: '0.2rem 0.6rem',
-                            borderRadius: '999px',
-                            border: '1px solid var(--border-color)',
-                            background: id === step ? 'var(--scouting-blue)' : 'transparent',
-                            color: id === step ? 'var(--on-primary-color)' : 'var(--text-muted-color)',
-                        }}
-                    >
-                        {i + 1}. {stepLabel(id)}
-                    </li>
-                ))}
+                {steps.map((id, i) => {
+                    const isCurrent = id === step;
+                    // Backwards only (#1087): a forward jump would skip the
+                    // seeding and validation `next` does on the way through
+                    // (see its own comments), but `back` is already a bare
+                    // `goTo(stepIndex - 1)`, so a backward jump is exactly
+                    // `goTo(i)` for `i < stepIndex` and nothing more.
+                    const isVisited = i < stepIndex;
+                    const label = `${i + 1}. ${stepLabel(id)}`;
+                    const pillStyle = {
+                        fontSize: '0.8rem',
+                        padding: '0.2rem 0.6rem',
+                        borderRadius: '999px',
+                        border: '1px solid var(--border-color)',
+                        background: isCurrent ? 'var(--scouting-blue)' : 'transparent',
+                        color: isCurrent ? 'var(--on-primary-color)' : 'var(--text-muted-color)',
+                    } as const;
+                    return (
+                        <li key={id} aria-current={isCurrent ? 'step' : undefined}>
+                            {isVisited ? (
+                                <button
+                                    type="button"
+                                    className="setup-step-pill"
+                                    data-testid={`setup-step-pill-${i}`}
+                                    onClick={() => goTo(i)}
+                                    style={{ ...pillStyle, font: 'inherit', cursor: 'pointer', appearance: 'none' }}
+                                >
+                                    {label}
+                                </button>
+                            ) : (
+                                <span aria-disabled={isCurrent ? undefined : true} style={pillStyle}>
+                                    {label}
+                                </span>
+                            )}
+                        </li>
+                    );
+                })}
             </ol>
 
             {step === 'start' && (
