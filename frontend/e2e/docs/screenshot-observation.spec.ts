@@ -23,6 +23,7 @@
  */
 
 import { test, expect, screenshotLocator } from './screenshots-setup';
+import type { Locator } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -87,6 +88,64 @@ const RACERS = [
 
 /** Slower than any car above, so the record it sets is a real break. */
 const PREVIOUS_RECORD = 3.899;
+
+/**
+ * Waits for a display row's Previous/Next-award and Identify controls to
+ * read enabled and to **stay** enabled, rather than settling for the first
+ * instant they do (#1068).
+ *
+ * Why this exact wait: `AwardCeremony.tsx` mounts under
+ * `React.StrictMode` (`main.tsx`) against the docs' dev-server build
+ * (`playwright.screenshots.config.ts`'s `webServer` runs `npm run dev`, not
+ * a production build), which double-invokes its mount effect the first time
+ * the route renders — its `displayAssignment` subscription opens, closes and
+ * reopens in quick succession, each edge its own
+ * `DisplayRegistry.connect()`/`disconnect()` (`backend/services/displays.py`)
+ * and its own publish to this row. `connected = connections > 0` gates
+ * `.secondary-btn`'s disabled (grey) vs enabled (gold) styling on exactly
+ * these three buttons, so a plain `toBeEnabled()` assertion can be satisfied
+ * by the *first*, transient "connected" and move on, leaving the capture a
+ * few lines later free to land inside the disconnect that follows it.
+ * `waitForLoadState('networkidle')` was tried in this spot and removed for
+ * the same reason this file's own #843 note already gives for not trusting
+ * it after a client-side `navigate()` (which is what assigning the ceremony
+ * does): it is not a wait on the thing that is actually racing, only an
+ * incidental delay that happened to usually outlast it.
+ *
+ * So this polls the actual DOM state the screenshot depends on, and only
+ * resolves once every control has read enabled continuously for `stableMs`
+ * — any reversion (the second disable, if it is still ahead) restarts the
+ * clock, the same "assert the settled state, not a state" shape
+ * `settleTransitions` uses for a CSS transition's own `finished` promise.
+ */
+async function waitForCeremonyControlsSettled(
+    displayRow: Locator,
+    { stableMs = 500, pollMs = 50, timeoutMs = 15_000 } = {},
+): Promise<void> {
+    const buttons = [
+        displayRow.getByRole('button', { name: /Previous award/ }),
+        displayRow.getByRole('button', { name: /Next award/ }),
+        displayRow.getByRole('button', { name: /^Identify/ }),
+    ];
+    const deadline = Date.now() + timeoutMs;
+    let enabledSince: number | null = null;
+    for (;;) {
+        const disabled = await Promise.all(buttons.map((button) => button.isDisabled()));
+        const now = Date.now();
+        if (disabled.every((value) => !value)) {
+            enabledSince ??= now;
+            if (now - enabledSince >= stableMs) return;
+        } else {
+            enabledSince = null;
+        }
+        if (now > deadline) {
+            throw new Error(
+                'Ceremony controls did not settle enabled in time — still mid reconnect churn?',
+            );
+        }
+        await new Promise((resolve) => setTimeout(resolve, pollMs));
+    }
+}
 
 test('screenshot the audience displays', async ({ page, browser }) => {
     fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
@@ -302,19 +361,40 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     // it once the route lands — React's StrictMode double-invokes the mount
     // effect in this dev-server build (`main.tsx`), so the subscription that
     // registers this display opens, closes and reopens once more in quick
-    // succession, each edge its own `connections += 1`/`-= 1` on the
-    // registry and its own wake-up to the operator's `displays` list. On a
-    // quiet machine that finishes before either assertion below ever runs;
-    // under CI's load the second open can still be in flight, and the two
-    // waits then land on either side of it exactly the way this file's other
-    // reconnect gap (`page`'s own navigation past the observation page,
-    // above) does. Draining the audience tab's network activity first is the
-    // same fix picture 01 already relies on after every navigation, applied
-    // here so the row's connected state has actually settled — not merely
-    // been asserted once — before anything downstream measures it.
-    await audienceScreen.waitForLoadState('networkidle');
+    // succession, each edge its own `connections += 1`/`-= 1` on
+    // `DisplayRegistry` (`backend/services/displays.py`) and its own publish
+    // to the operator's `displays` list. `connected = connections > 0` is
+    // exactly what gates `.secondary-btn`'s disabled/enabled styling on the
+    // Previous/Next/Identify controls below — a disabled `.secondary-btn` is
+    // grey (`var(--surface-strong-color)`) and an enabled one is gold
+    // (`var(--cub-scouting-gold)`), which is the whole of what the flake in
+    // #1068 was: not a slow paint, but this screenshot genuinely catching
+    // the row disabled on one run and enabled on another.
+    //
+    // A single `toBeEnabled()` check is not enough to close this: it resolves
+    // the first instant the check reads true, which under StrictMode's
+    // double-invoke is plausibly the *first*, transient "connected" —
+    // Playwright's polling is fast enough to catch it before the follow-up
+    // disconnect/reconnect ever lands — so the assertion can pass and the
+    // capture a few lines later can still fall inside the disabled window
+    // that follows it. `waitForLoadState('networkidle')` was tried here next
+    // and removed: it follows a client-side `navigate()`
+    // (`Observation.tsx`'s `navigate('/awards/present')`), and this file's
+    // own #843 note already records that `networkidle` does not reliably
+    // track an SPA navigation, only a real document load — it happened to
+    // add enough incidental delay (the ceremony route's own award-list
+    // fetch) to usually outlast the churn, without being a wait on the thing
+    // that was actually racing.
+    //
+    // So wait on that thing directly: poll the three controls' `disabled`
+    // state until it reads enabled *and stays enabled* for a stretch longer
+    // than the double-invoke's own round trip, restarting the clock on any
+    // reversion. That is deliberately stronger than a single assertion —
+    // catching the settled state, not just a state — the same shape
+    // `settleTransitions` polls animations to their `finished` promise rather
+    // than trusting one frame.
+    await waitForCeremonyControlsSettled(displayRow);
     await expect(displayRow.getByText('Not connected')).toBeHidden();
-    await expect(displayRow.getByRole('button', { name: 'Identify Gym north' })).toBeEnabled();
     // Wait for the reconnect to settle the ordering before capturing, or the
     // row can move between a locator lookup and the screenshot.
     await expect(page.locator('[data-testid^="display-"]').first()).toContainText('Gym north');
