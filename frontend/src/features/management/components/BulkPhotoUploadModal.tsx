@@ -4,6 +4,11 @@ import Modal from '../../../components/ui/Modal';
 import { UPLOAD_IMAGE, BULK_ASSIGN_PHOTOS } from '../graphql/queries';
 import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { errorText } from '../../../utils/errors';
+import {
+    PHOTOS_REFUSED_ON_DEMO_MESSAGE,
+    useIsRefusedOnDemo,
+} from '../../core/hooks/useDemoRefusal';
 import { RacerCombobox } from './RacerCombobox';
 
 type UploadStatus = 'uploading' | 'done' | 'error';
@@ -16,6 +21,10 @@ interface PhotoEntry {
     uploadedUrl?: string;
     assignedRacerId?: number;
     photoType: 'racer' | 'car';
+    /** The server's own sentence, when `status` is `'error'` (#1095) — so a
+     * whole selection refused for the same reason (the demo, most often)
+     * can say why once rather than N identical-looking red rows. */
+    errorMessage?: string;
 }
 
 interface RacerOption {
@@ -152,6 +161,9 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
     const { vehicle } = useTerminology();
     const [photos, setPhotos] = useState<PhotoEntry[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    // Refused before the read, not after (#1095) — same reasoning as
+    // `RacerForm`'s own photo controls, from the same server-sourced list.
+    const photosRefused = useIsRefusedOnDemo('uploadImage');
 
     const [, uploadMutation] = useMutation(UPLOAD_IMAGE);
     const [, bulkAssignMutation] = useMutation(BULK_ASSIGN_PHOTOS);
@@ -169,7 +181,10 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
      * disabled with no way out but closing the modal (#116). Issuing one
      * request per distinct image means there is nothing to collide.
      */
-    const uploadEntry = async (entry: PhotoEntry, inFlight: Map<string, Promise<string>>) => {
+    const uploadEntry = async (
+        entry: PhotoEntry,
+        inFlight: Map<string, Promise<string>>,
+    ): Promise<{ localId: string; status: UploadStatus; errorMessage?: string }> => {
         try {
             const dataUrl = await readFileAsDataUrl(entry.file);
             let pending = inFlight.get(dataUrl);
@@ -186,10 +201,13 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
                     ? { ...p, status: 'done', uploadedUrl }
                     : p
             ));
-        } catch {
+            return { localId: entry.localId, status: 'done' };
+        } catch (error) {
+            const errorMessage = errorText(error, 'Upload failed.');
             setPhotos(prev => prev.map(p =>
-                p.localId === entry.localId ? { ...p, status: 'error' } : p
+                p.localId === entry.localId ? { ...p, status: 'error', errorMessage } : p
             ));
+            return { localId: entry.localId, status: 'error', errorMessage };
         }
     };
 
@@ -208,8 +226,27 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
         // is a fresh upload, which keeps the map from growing for the life of
         // the modal and matches what the operator did.
         const inFlight = new Map<string, Promise<string>>();
-        await Promise.all(entries.map(entry => uploadEntry(entry, inFlight)));
+        const results = await Promise.all(entries.map(entry => uploadEntry(entry, inFlight)));
         e.target.value = '';
+
+        // Every photo in this selection refused for the identical reason —
+        // the demo's own `uploadImage` refusal, almost always, since a real
+        // network failure would not land the same message on every entry —
+        // says so once rather than painting one red row per photo (#1095).
+        // A mixed batch (some done, some genuinely failed) keeps the
+        // per-row treatment below, since there is no single sentence that
+        // covers it.
+        const failures = results.filter(r => r.status === 'error');
+        const messages = new Set(failures.map(f => f.errorMessage));
+        if (failures.length > 0 && failures.length === results.length && messages.size === 1) {
+            const [message] = messages;
+            const failedIds = new Set(failures.map(f => f.localId));
+            entries.forEach(entry => {
+                if (failedIds.has(entry.localId)) URL.revokeObjectURL(entry.objectUrl);
+            });
+            setPhotos(prev => prev.filter(p => !failedIds.has(p.localId)));
+            showAlert(message ?? 'Failed to upload photos.', 'Error');
+        }
     };
 
     const handleRemove = (localId: string) => {
@@ -237,7 +274,7 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
             })),
         });
         if (result.error) {
-            showAlert('Failed to save photo assignments.', 'Error');
+            showAlert(errorText(result.error, 'Failed to save photo assignments.'), 'Error');
             return;
         }
         showAlert(`${result.data.bulkAssignPhotos} photo(s) assigned successfully.`, 'Success');
@@ -281,13 +318,16 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
                         type="file"
                         accept="image/*"
                         multiple
+                        disabled={photosRefused}
                         style={{ display: 'none' }}
                         onChange={handleFileSelect}
                     />
                     <button
                         className="secondary-btn"
                         onClick={() => fileInputRef.current?.click()}
-                        style={{ marginBottom: '1rem' }}
+                        disabled={photosRefused}
+                        title={photosRefused ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}
+                        style={{ marginBottom: '1rem', cursor: photosRefused ? 'not-allowed' : 'pointer' }}
                     >
                         Choose Photos
                     </button>
@@ -323,7 +363,7 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
                                 )}
                                 {entry.status === 'error' && (
                                     <div style={{ fontSize: '0.8rem', color: 'var(--danger-plain-color)', marginBottom: '6px' }}>
-                                        Upload failed.{' '}
+                                        {entry.errorMessage ?? 'Upload failed.'}{' '}
                                         <button
                                             style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', cursor: 'pointer', padding: 0, fontSize: '0.8rem', textDecoration: 'underline' }}
                                             onClick={() => {

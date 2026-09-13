@@ -11,6 +11,10 @@ import { useTerminology } from '../../../context/TerminologyContext';
 
 import { getContrastColor } from '../../../utils/colors';
 import { errorText } from '../../../utils/errors';
+import {
+  PHOTOS_REFUSED_ON_DEMO_MESSAGE,
+  useIsRefusedOnDemo,
+} from '../../core/hooks/useDemoRefusal';
 import RacerForm, { RacerData, RacingGroup } from '../components/RacerForm';
 import NoHeatsBadge from '../components/NoHeatsBadge';
 import ExcludedFromStandingsBadge from '../components/ExcludedFromStandingsBadge';
@@ -27,11 +31,12 @@ import CheckInProgress from '../components/CheckInProgress';
 import SortableHeader from '../components/SortableHeader';
 import BulkPhotoUploadModal from '../components/BulkPhotoUploadModal';
 import RacerAvatar from '../components/RacerAvatar';
+import EditRaceButton from '../components/EditRaceButton';
 import { Icon } from '@mdi/react';
 import {
   mdiMagnify, mdiNumeric,
   mdiChevronDown, mdiLightningBolt, mdiFileUpload, mdiDatabaseImport, mdiDotsHorizontal, mdiClose,
-  mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiCamera, mdiPrinter,
+  mdiCheckDecagram, mdiPlus, mdiAccountGroup, mdiCamera, mdiPrinter,
   mdiQrcodeScan, mdiTrophyBroken
 } from '@mdi/js';
 import CheckInScanner from '../../printables/components/CheckInScanner';
@@ -232,6 +237,13 @@ export default function RaceDetails() {
   const operatorRoleTitle = !isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined;
   const operatorTitle = race?.is_locked ? lockedTitle : operatorRoleTitle;
   const operatorDisabled = !!race?.is_locked || !isOperator;
+
+  // Photos are refused before the click, not after the upload fails
+  // (#1092, #1095) — read from the server's own list rather than a second
+  // hand-kept one on the client.
+  const photosRefusedOnDemo = useIsRefusedOnDemo('uploadImage');
+  const uploadPhotosTitle = photosRefusedOnDemo ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : checkinTitle;
+  const uploadPhotosDisabled = checkinDisabled || photosRefusedOnDemo;
 
   // Racer Form State
   const [showRacerForm, setShowRacerForm] = useState(false);
@@ -438,7 +450,7 @@ export default function RaceDetails() {
         window.location.href = '/';
     } catch (e: unknown) {
         console.error("Failed to delete race", e);
-        showAlert("Failed to delete race", "Error");
+        showAlert(errorText(e, "Failed to delete race"), "Error");
     }
   };
 
@@ -635,8 +647,8 @@ export default function RaceDetails() {
       // number is additive and the operator's next click should not have
       // to dismiss anything first.
       showToast(`Auto-numbered ${result.data.bulkAutoNumber} ${vehiclesLower}`, 'success');
-    } catch {
-      showToast(`Failed to auto-number ${vehiclesLower}`, 'error');
+    } catch (e) {
+      showToast(errorText(e, `Failed to auto-number ${vehiclesLower}`), 'error');
     }
   };
 
@@ -709,8 +721,8 @@ export default function RaceDetails() {
       if (result.error) throw result.error;
       refreshData();
       setSelectedRacerIds(prev => prev.filter(id => !visibleSelectedRacerIds.includes(id)));
-    } catch {
-      showAlert("Failed to clear racer numbers", "Error");
+    } catch (e) {
+      showAlert(errorText(e, "Failed to clear racer numbers"), "Error");
     }
   };
 
@@ -728,8 +740,8 @@ export default function RaceDetails() {
       if (result.error) throw result.error;
       refreshData();
       setIsMoreMenuOpen(false);
-    } catch {
-      showAlert("Failed to bulk check-in racers", "Error");
+    } catch (e) {
+      showAlert(errorText(e, "Failed to bulk check-in racers"), "Error");
     }
   };
 
@@ -747,8 +759,8 @@ export default function RaceDetails() {
       if (result.error) throw result.error;
       refreshData();
       setIsMoreMenuOpen(false);
-    } catch {
-      showAlert("Failed to update racers", "Error");
+    } catch (e) {
+      showAlert(errorText(e, "Failed to update racers"), "Error");
     }
   };
 
@@ -759,8 +771,8 @@ export default function RaceDetails() {
       refreshData();
       setIsMoveToRacingGroupOpen(false);
       setIsMoreMenuOpen(false);
-    } catch {
-      showAlert(`Failed to move racers to ${groupLower}`, "Error");
+    } catch (e) {
+      showAlert(errorText(e, `Failed to move racers to ${groupLower}`), "Error");
     }
   };
 
@@ -785,8 +797,8 @@ export default function RaceDetails() {
       if (result.error) throw result.error;
       refreshData();
       setSelectedRacerIds(prev => prev.filter(id => !visibleSelectedRacerIds.includes(id)));
-    } catch {
-      showAlert("Failed to delete racers", "Error");
+    } catch (e) {
+      showAlert(errorText(e, "Failed to delete racers"), "Error");
     }
   };
 
@@ -937,16 +949,12 @@ export default function RaceDetails() {
                   {race?.name}
                   {race?.is_locked && <LockedBadge />}
               </h1>
-              <button
+              <EditRaceButton
                   onClick={() => setIsEditingRace(true)}
-                  className="secondary-btn"
                   disabled={!isOperator}
                   title={operatorRoleTitle}
                   data-testid="edit-race-btn"
-                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.85rem' }}
-              >
-                  <Icon path={mdiPencil} size={0.6} /> Edit race
-              </button>
+              />
           </div>
           <p data-testid="race-summary-line" style={{ margin: '0.35rem 0 0', color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
               {raceSummaryLine(
@@ -1214,8 +1222,8 @@ export default function RaceDetails() {
                             </button>
                             <button
                                 onClick={() => { setShowBulkPhotoUpload(true); setIsMoreMenuOpen(false); }}
-                                disabled={checkinDisabled}
-                                title={checkinTitle}
+                                disabled={uploadPhotosDisabled}
+                                title={uploadPhotosTitle}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 <Icon path={mdiCamera} size={0.7} /> Upload Photos
@@ -1785,7 +1793,7 @@ export default function RaceDetails() {
                       id="pop-count"
                       type="number"
                       min="1"
-                      max="100"
+                      max="200"
                       value={populateCount}
                       onChange={(e) => setPopulateCount(parseInt(e.target.value) || 0)}
                       style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
@@ -1793,18 +1801,32 @@ export default function RaceDetails() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  {/* Refused on the demo regardless of the count cap
+                      (#1092) — a generated image is still a disk write with
+                      no credential, same reasoning as `uploadImage`. Shown
+                      unchecked and disabled rather than hidden, so a
+                      visitor can see photos are a thing this does, just not
+                      here. */}
+                  <label
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: photosRefusedOnDemo ? 'not-allowed' : 'pointer', opacity: photosRefusedOnDemo ? 0.5 : 1 }}
+                      title={photosRefusedOnDemo ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}
+                  >
                       <input
                           type="checkbox"
-                          checked={popAddRacerPhotos}
+                          checked={!photosRefusedOnDemo && popAddRacerPhotos}
+                          disabled={photosRefusedOnDemo}
                           onChange={(e) => setPopAddRacerPhotos(e.target.checked)}
                       />
                       Add Racer Photos
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <label
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: photosRefusedOnDemo ? 'not-allowed' : 'pointer', opacity: photosRefusedOnDemo ? 0.5 : 1 }}
+                      title={photosRefusedOnDemo ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}
+                  >
                       <input
                           type="checkbox"
-                          checked={popAddCarPhotos}
+                          checked={!photosRefusedOnDemo && popAddCarPhotos}
+                          disabled={photosRefusedOnDemo}
                           onChange={(e) => setPopAddCarPhotos(e.target.checked)}
                       />
                       Add {vehicle} Photos
@@ -1846,8 +1868,8 @@ export default function RaceDetails() {
                                 raceId: parsedRaceId,
                                 config: {
                                     count: populateCount,
-                                    addRacerPhotos: popAddRacerPhotos,
-                                    addCarPhotos: popAddCarPhotos,
+                                    addRacerPhotos: !photosRefusedOnDemo && popAddRacerPhotos,
+                                    addCarPhotos: !photosRefusedOnDemo && popAddCarPhotos,
                                     assignRacingGroups: popAssignRacingGroups,
                                     checkIn: popCheckIn
                                 }
@@ -1855,9 +1877,9 @@ export default function RaceDetails() {
                             if (result.error) throw result.error;
                             refreshData();
                             setShowPopulateModal(false);
-                        } catch {
-                            console.error("Failed to populate racers");
-                            showAlert("Failed to populate test racers", "Error");
+                        } catch (e) {
+                            console.error("Failed to populate racers", e);
+                            showAlert(errorText(e, "Failed to populate test racers"), "Error");
                         } finally {
                             if (btn) {
                                 btn.textContent = 'Generate';

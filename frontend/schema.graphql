@@ -370,6 +370,7 @@ type InitialConfigStatus {
   tracks: [Track!]!
   currentRaceId: Int
   demoMode: Boolean!
+  demoRefusedMutations: [String!]!
   pinRequired: Boolean!
   checkinPinSet: Boolean!
   isOperator: Boolean!

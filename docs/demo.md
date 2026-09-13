@@ -44,10 +44,19 @@ awards. What it will not do:
   port, which is the same door back into probing USB devices that booting the
   demo otherwise closes;
 - **accept a photograph.** Uploads are refused outright, which keeps the demo
-  from holding a picture of somebody's child;
-- **populate, import or create a practice race.** These make rows in bulk with
+  from holding a picture of somebody's child. Every photo control — the racer
+  form's file picker, camera and Rotate/Recrop, the roster's Upload Photos,
+  Populate Test Data's own photo checkboxes — shows as disabled, with a title
+  saying why, rather than letting you pick a file only to be refused
+  afterwards;
+- **import a roster, or create a practice race.** These make rows in bulk with
   no credential, on an instance other people are looking at;
 - **download or restore a backup**, or connect a timer over the browser.
+
+**Populate Test Data is allowed, capped at 40 racers a call** (and always
+without photos, for the same disk-write reason uploads are refused) — filling
+a race with test racers is the single most natural thing to try, and a
+visitor who creates their own race would otherwise have no way to fill it.
 
 Everything else works, including deleting a race — the reset undoes it. Track
 setup is the one exception beyond the PIN itself: System Settings is otherwise

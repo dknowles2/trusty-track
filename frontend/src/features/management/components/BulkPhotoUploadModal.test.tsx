@@ -103,6 +103,103 @@ describe('picking several photos at once', () => {
 });
 
 /**
+ * The demo refuses `uploadImage` with a sentence saying so (#1095). Before
+ * this, every photo in the selection painted its own silent red
+ * "Upload failed." row with nothing saying why; now a whole selection
+ * refused for the identical reason says so once.
+ */
+describe('every upload in a selection refused for the same reason (#1095)', () => {
+    function renderWithRefusal(message: string) {
+        const executeMutation = vi.fn(() =>
+            fromValue({
+                error: { graphQLErrors: [{ message }] },
+                data: undefined,
+                stale: false,
+                hasNext: false,
+            }),
+        );
+        const client = {
+            executeQuery: () => never,
+            executeMutation,
+            executeSubscription: () => never,
+        } as unknown as Parameters<typeof Provider>[0]['value'];
+
+        render(
+            <Provider value={client}>
+                <AlertProvider>
+                    <BulkPhotoUploadModal isOpen onClose={() => {}} onSuccess={() => {}} racers={RACERS} />
+                </AlertProvider>
+            </Provider>,
+        );
+
+        const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+        return { input };
+    }
+
+    it('shows one alert carrying the server\'s own message', async () => {
+        const { input } = renderWithRefusal('uploadImage is not available on the demo');
+
+        fireEvent.change(input, { target: { files: [image('a.jpg', 'AAA'), image('b.jpg', 'BBB')] } });
+
+        await waitFor(() => {
+            expect(screen.getByRole('dialog', { name: 'Error' })).toHaveTextContent(
+                'uploadImage is not available on the demo',
+            );
+        });
+    });
+
+    it('does not paint one red row per refused photo', async () => {
+        const { input } = renderWithRefusal('uploadImage is not available on the demo');
+
+        fireEvent.change(input, { target: { files: [image('a.jpg', 'AAA'), image('b.jpg', 'BBB')] } });
+
+        await waitFor(() => {
+            expect(screen.getByRole('dialog', { name: 'Error' })).toBeInTheDocument();
+        });
+        expect(screen.queryByText(/failed/i, { selector: 'div' })).not.toBeInTheDocument();
+    });
+});
+
+/**
+ * The trigger itself is refused before a file is ever read, not only after
+ * the upload comes back (#1095) — `initialConfig.demoRefusedMutations`
+ * containing `uploadImage` is the one signal every photo control in the app
+ * reads for this.
+ */
+describe('the trigger on the demo', () => {
+    it('disables Choose Photos, with a title, when uploadImage is refused', () => {
+        const executeQuery = vi.fn((op: { query: { definitions: { name?: { value: string } }[] } }) => {
+            const name = op.query.definitions[0]?.name?.value;
+            if (name === 'GetInitialConfigStatus') {
+                return fromValue({
+                    data: { initialConfig: { demoRefusedMutations: ['uploadImage'] } },
+                    stale: false,
+                    hasNext: false,
+                });
+            }
+            return never;
+        });
+        const client = {
+            executeQuery,
+            executeMutation: () => never,
+            executeSubscription: () => never,
+        } as unknown as Parameters<typeof Provider>[0]['value'];
+
+        render(
+            <Provider value={client}>
+                <AlertProvider>
+                    <BulkPhotoUploadModal isOpen onClose={() => {}} onSuccess={() => {}} racers={RACERS} />
+                </AlertProvider>
+            </Provider>,
+        );
+
+        const trigger = screen.getByText('Choose Photos');
+        expect(trigger).toBeDisabled();
+        expect(trigger).toHaveAttribute('title', "Photos can't be uploaded on the demo");
+    });
+});
+
+/**
  * The picker is the shared `RacerCombobox` (#693), not a private copy that
  * had drifted to show no portraits. This is the visible point of that
  * change, so it is asserted directly rather than trusted from the diff.

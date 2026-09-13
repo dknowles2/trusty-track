@@ -395,6 +395,71 @@ describe('RaceDetails', () => {
         expect(window.location.href).toBe('/');
     });
 
+    // #1101 — performDeleteRace used to swallow whatever the server said
+    // into a fixed "Failed to delete race", the one remaining fixed-string
+    // catch on this page after #1100's sweep. A locked race's own refusal
+    // (`RaceLockExtension`) is the natural case to reach it with: the
+    // operator needs the sentence to know the fix is "unlock the race",
+    // not "try again".
+    it('shows the server\'s own reason a delete was refused, not a fixed string', async () => {
+        mockShowConfirm.mockResolvedValue(true);
+
+        (useQuery as any).mockReturnValue([{
+            data: {
+                race: {
+                    id: 1,
+                    name: 'Test Race',
+                    dateTime: '2024-03-15T10:00:00',
+                    location: 'Test Location',
+                    schedulingStrategy: 'LANE_ROTATION',
+                    scoringStrategy: 'TIMED',
+                    carNumberingStrategy: 'PER_GROUP',
+                    racers: [],
+                    racingGroups: [],
+                    leaderboard: []
+                },
+                tracks: []
+            },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+
+        const mockDeleteRace = vi.fn().mockResolvedValue({
+            error: {
+                graphQLErrors: [
+                    { message: 'This race is locked. Unlock it from Edit race to make changes.' },
+                ],
+            },
+        });
+        mockMutations([[GQL.DELETE_RACE, mockDeleteRace]]);
+
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes>
+                    <Route path="/races/:raceId" element={<RaceDetails />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+             expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
+             expect(screen.getByText('Edit race')).toBeInTheDocument();
+        });
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+        await user.click(screen.getByText('Edit race'));
+
+        const deleteBtn = await screen.findByText('Delete Race');
+        await user.click(deleteBtn);
+
+        await waitFor(() => {
+            expect(mockShowAlert).toHaveBeenCalledWith(
+                'This race is locked. Unlock it from Edit race to make changes.',
+                'Error',
+            );
+        });
+    });
+
     it('calls reexecuteRaceDetails when raceStateChanged subscription fires', async () => {
         const mockReExecute = vi.fn();
         let capturedHandler: ((prev: any, data: any) => any) | undefined;
