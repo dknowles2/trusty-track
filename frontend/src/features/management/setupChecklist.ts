@@ -49,8 +49,10 @@
  * `skipped` muted with no tick and no strikethrough, distinct from both
  * `done` and plain outstanding. `isSettled` — `done || skipped` — is what
  * `shouldShowChecklist`, `nextStep` and `outstandingSteps` treat as "behind
- * us"; the "N of 6 done" counter deliberately counts only `done`, so it
- * never claims a completion nobody performed.
+ * us"; the "N of 4 done" counter (both the expanded header and the collapsed
+ * line count over the required four — see `requiredStepCounts` below, #1115)
+ * deliberately counts only `done`, so it never claims a completion nobody
+ * performed.
  *
  * **Printables can never be genuinely `done`.** There is no stored fact for
  * "a sheet came out of a printer" — printing is HTML the browser renders,
@@ -296,15 +298,27 @@ export function outstandingSteps(steps: readonly ChecklistStep[]): ChecklistStep
 }
 
 /**
+ * The `(done, total)` pair counted **over the required steps only** —
+ * `racingGroups`, `racers`, `checkin`, `schedule` — shared by the collapsed
+ * line and the expanded header (#1115) so the two cannot drift back apart
+ * the way they did between #1091 (which gave the collapsed line this
+ * denominator) and the expanded header, which kept counting all six until
+ * then. "N of 4" never counts an award or a print run nobody asked for as
+ * one of the obligations still owed — a pack that never sets up awards or
+ * prints anything can reach "4 of 4 done" and stay there, which is the
+ * point: those two are optional, and a checklist that cannot be completed
+ * by design should not read as though it can.
+ */
+export function requiredStepCounts(steps: readonly ChecklistStep[]): { done: number; total: number } {
+    const requiredSteps = steps.filter((step) => !step.optional);
+    return { done: requiredSteps.filter((step) => step.done).length, total: requiredSteps.length };
+}
+
+/**
  * The collapsed line's own text, after "Setting up: " (#1091) — e.g.
  * `"4 of 4 done — optional: Set up awards · Print anything you need"`.
  *
- * The count is taken **over the required steps only** — `racingGroups`,
- * `racers`, `checkin`, `schedule` — so "N of 4" never counts an award or a
- * print run nobody asked for as one of the obligations still owed. A pack
- * that never sets up awards or prints anything can reach "4 of 4 done" and
- * stay there, which is the point: those two are optional, and a checklist
- * that cannot be completed by design should not read as though it can.
+ * The count comes from `requiredStepCounts`, above.
  *
  * Outstanding optional steps are still named — an operator who has not yet
  * decided whether to set up awards should still be told that is a thing to
@@ -315,10 +329,9 @@ export function outstandingSteps(steps: readonly ChecklistStep[]): ChecklistStep
  * unrendered, once every step — required and optional alike — is settled.
  */
 export function collapsedLine(steps: readonly ChecklistStep[]): string {
-    const requiredSteps = steps.filter((step) => !step.optional);
-    const requiredDoneCount = requiredSteps.filter((step) => step.done).length;
+    const { done, total } = requiredStepCounts(steps);
 
-    const remainingRequired = requiredSteps.filter((step) => !isSettled(step));
+    const remainingRequired = steps.filter((step) => !step.optional && !isSettled(step));
     const remainingOptional = steps.filter((step) => step.optional && !isSettled(step));
 
     const segments = remainingRequired.map((step) => step.label);
@@ -326,5 +339,5 @@ export function collapsedLine(steps: readonly ChecklistStep[]): string {
         segments.push(`optional: ${remainingOptional.map((step) => step.label).join(' · ')}`);
     }
 
-    return `${requiredDoneCount} of ${requiredSteps.length} done — ${segments.join(' · ')}`;
+    return `${done} of ${total} done — ${segments.join(' · ')}`;
 }

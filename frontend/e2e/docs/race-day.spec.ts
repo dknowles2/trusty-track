@@ -291,18 +291,19 @@ test('take screenshots', async ({ page }) => {
     await expect(checkedInRows).toHaveCount(1);
 
     // The setup checklist reads the race's checked-in count, which arrives by
-    // its own refetch a beat after the roster row updates — a screenshot taken
-    // between the two shows "Check in cars" still reading "0 of 20" above a
-    // row that says Checked In, and whether it does depends on the machine's
-    // load that run. Asserted on the checkin step's own live count rather
-    // than `data-done` — #1000 made that step `done` only once *every*
-    // racer is checked in, which one of twenty never is here, so waiting
-    // on `data-done` would hang. The count is the exact condition this wait
-    // exists to settle, and reads correctly either way. (Twenty, not the
-    // nineteen an earlier comment in this file claimed — Populate Test
-    // Data's own default count is `useState(20)` in `RaceDetails.tsx`; that
-    // comment predates this wait and was never checked against reality
-    // because the old `data-done` assertion never needed the actual count.)
+    // its own refetch a beat after the roster row updates — and the first
+    // check-in is also the moment `shouldCollapseChecklist` (#949) folds the
+    // six-row panel down to one line. A screenshot taken between the row
+    // updating and the checklist catching up shows the panel still expanded,
+    // 138,765 px / 14.45% of this picture taller than the collapsed form
+    // (#1115) — every regen after that ping-pongs between the two depending
+    // on which the machine's load happened to land on that run. Wait for the
+    // collapsed line's own text (`setupChecklist.ts`'s `collapsedLine`) —
+    // racing groups and racers are already done from the setup wizard and
+    // Populate Test Data, so this is "2 of 4 done" once check-in has reached
+    // it, not the "0 of 20" the expanded panel's checkin-step hint would show
+    // mid-race.
+    await expect(page.getByText(/Setting up: 2 of 4 done/)).toBeVisible();
 
     // 04: the roster with one racer checked in.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/04-racer-list-after-check-in.png') });

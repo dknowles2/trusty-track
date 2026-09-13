@@ -21,6 +21,23 @@ import { ensureConfigured, gql } from './support';
 
 /** A race with one racer whose racer photo is already "on file". */
 async function seedRacerWithPhoto(page: Page, raceName: string): Promise<{ raceId: number }> {
+    // A retry re-seeds against the same shared backend, and `races.name` is
+    // unique — without a per-attempt suffix a retry after a flaky drag
+    // assertion died on the constraint instead of getting a clean second
+    // attempt (#1117), the same fix `seedRace`'s own comment describes for
+    // this suite's other specs. `repeatEachIndex` gets the identical
+    // treatment: `--repeat-each` runs the same test body several times in
+    // the same worker with `retry` staying 0 throughout, which collided on
+    // this constraint the same way while verifying this very fix locally.
+    const info = test.info();
+    const suffix = [
+        info.retry > 0 ? `retry ${info.retry}` : null,
+        info.repeatEachIndex > 0 ? `repeat ${info.repeatEachIndex}` : null,
+    ]
+        .filter(Boolean)
+        .join(', ');
+    if (suffix) raceName = `${raceName} (${suffix})`;
+
     await ensureConfigured(page);
 
     const config = await gql<{ organizations: { id: number }[]; tracks: { id: number }[] }>(
@@ -87,6 +104,15 @@ async function seedRacerWithPhoto(page: Page, raceName: string): Promise<{ raceI
  */
 async function openCropModal(page: Page, raceId: number): Promise<Locator> {
     await page.goto(`/race/${raceId}`);
+    // `index.css` declares both bundled faces `font-display: swap`
+    // (`.claude/rules/documentation.md`'s "The font wait"), and a swap that
+    // lands after the crop box has already settled reflows the stage a
+    // second time — an occasional few-pixel-to-tens-of-pixels shift with no
+    // pointer involved at all, which this spec's own drag assertions have no
+    // way to tell apart from a real one. Closing the swap window before the
+    // modal is even opened, the same wait the docs screenshots use, is
+    // cheaper than teaching those assertions to ignore a font-driven reflow.
+    await page.evaluate(() => document.fonts.ready);
     await page.getByRole('button', { name: /Checked In/ }).click();
 
     const form = page.getByRole('dialog', { name: 'Racer Check In' });
@@ -130,12 +156,20 @@ async function settledBoundingBox(locator: Locator): Promise<{ x: number; y: num
 async function dragBy(page: Page, fromX: number, fromY: number, dx: number, dy: number): Promise<void> {
     await page.mouse.move(fromX, fromY);
     await page.mouse.down();
-    // Several intermediate steps: a single jump from A to B is not what a
-    // real drag looks like, and is exactly the shape that would paper over a
-    // handler that only reacts to the first `pointermove`.
-    const steps = 6;
+    // A few intermediate steps, each given a moment to be handled on its
+    // own: a single jump from A to B is not what a real drag looks like,
+    // and is exactly the shape that would paper over a handler that only
+    // reacts to the first `pointermove`. Under CI load, though, `pointermove`
+    // events can coalesce — several of the six small steps this used to take
+    // arriving as one — and the modal's scale derivation can land between
+    // two of them, which is how a real fix (#1113) still measured a short
+    // drag under load (#1117). Fewer, larger steps with a short pause
+    // between reduce how much of the requested movement a single coalesced
+    // event can absorb.
+    const steps = 3;
     for (let i = 1; i <= steps; i++) {
         await page.mouse.move(fromX + (dx * i) / steps, fromY + (dy * i) / steps);
+        await page.waitForTimeout(30);
     }
     await page.mouse.up();
 }
@@ -164,13 +198,25 @@ for (const viewport of [
 
             await dragBy(page, startX, startY, 60, 0);
 
-            const after = await box.boundingBox();
-            if (!after) throw new Error('crop box has no layout after move');
-            expect(after.x - before.x, 'left should have moved right by ~60px').toBeGreaterThan(45);
-            expect(after.x - before.x, 'left should not have overshot the requested 60px').toBeLessThan(
+            // Settled, not the first read after `mouseup` (#1117): a
+            // coalesced `pointermove` can still be in flight the instant
+            // the drag ends, and reading immediately caught the box a step
+            // or two short of where it was going to land.
+            const after = await settledBoundingBox(box);
+            // Pre-fix `main` moved the box only ~10px of the 60 requested
+            // (#1113's bug), so 40px is well clear of that failure while
+            // still tolerating a coalesced step or two under load — tight
+            // enough to catch the regression, loose enough to survive it.
+            expect(after.x - before.x, 'left should have moved right by roughly 60px').toBeGreaterThanOrEqual(
+                40,
+            );
+            expect(after.x - before.x, 'left should not have overshot the requested 60px').toBeLessThanOrEqual(
                 75,
             );
-            expect(after.y, 'top should not have moved — there is no vertical slack yet').toBe(before.y);
+            expect(
+                Math.abs(after.y - before.y),
+                'top should not have moved — there is no vertical slack yet',
+            ).toBeLessThanOrEqual(2);
         });
 
         test('dragging a corner handle resizes the box, preserving aspect', async ({ page }) => {
@@ -193,10 +239,16 @@ for (const viewport of [
             // to shrink from its maximized starting size, not grow.
             await dragBy(page, startX, startY, -50, -50);
 
-            const after = await box.boundingBox();
-            if (!after) throw new Error('crop box has no layout after resize');
+            // Settled, for the same reason as the move test above — a
+            // coalesced `pointermove` can still be catching up the instant
+            // `mouseup` fires.
+            const after = await settledBoundingBox(box);
+            // Loosened from the original 30px margin the same way as the
+            // move test's threshold (#1117): a handler that never resized
+            // at all leaves `after.width` equal to `before.width`, which
+            // this still catches with plenty of room to spare.
             expect(after.width, 'dragging the SE handle inward should shrink the box').toBeLessThan(
-                before.width - 30,
+                before.width - 15,
             );
             expect(after.width / after.height).toBeCloseTo(before.width / before.height, 1);
             // The opposite (nw) corner is the resize's anchor and must not
