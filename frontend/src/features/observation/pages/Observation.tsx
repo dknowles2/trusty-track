@@ -36,13 +36,15 @@ import {
   scoreLabel as scoreLabelFor,
 } from '../../stats/scoringStrategyText';
 import IdentifyPresence from '../IdentifyPresence';
+import { useIdentifyOverlay } from '../useIdentifyOverlay';
 import IntermissionOverlay from '../components/IntermissionOverlay';
 import RaceFinishedOverlay from '../components/RaceFinishedOverlay';
 import { finalChampionshipRound, raceIsFinished } from '../raceFinished';
 import { roundLabel as championshipRoundLabel } from '../../stats/disruptedRounds';
 import { defaultEliminationRound, isEliminationOnlyRace } from '../../stats/eliminationScope';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
-import { isLiveActive, NONE as NO_INTERMISSION, type IntermissionData } from '../../racing/intermission';
+import { useLiveIntermission } from '../../core/hooks/useLiveIntermission';
+import { NONE as NO_INTERMISSION, type IntermissionData } from '../../racing/intermission';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 import { resolveDisplayTheme } from '../../../theming/applyTheme';
 import type { SurfaceThemeSetting } from '../../../theming/themes';
@@ -194,6 +196,14 @@ export default function Observation() {
   });
   const assignment = assignmentResult.data?.displayAssignment ?? null;
 
+  // Held once, here, rather than inside `IdentifyPresence` itself (#1071,
+  // #1072): this component's own function body does not unmount when its
+  // *return value* changes shape, so `seen`/`showConnectBadge`/`showFlash`
+  // survive switching between the view branches below — including into and
+  // out of the break overlay, which used to reset them by unmounting
+  // whichever `IdentifyPresence` instance the previous branch had rendered.
+  const identify = useIdentifyOverlay(assignment);
+
   const urlIntent = useMemo(() => readUrl(searchParams), [searchParams]);
   const behaviour = useMemo(
     () =>
@@ -261,12 +271,6 @@ export default function Observation() {
     setPrevTab(behaviour.tab);
     setActiveTab(behaviour.tab);
   }
-
-  // The ceremony is its own route rather than a tab here, so an assignment to
-  // it is a navigation.
-  useEffect(() => {
-    if (behaviour.redirectTo) navigate(behaviour.redirectTo, { replace: true });
-  }, [behaviour.redirectTo, navigate]);
 
   // Ensure body scroll is hidden in the full-screen views. The slideshow is
   // one of them (#175) — it fills the viewport, and a scrollbar down the side
@@ -357,18 +361,22 @@ export default function Observation() {
   });
 
   const intermission: IntermissionData = initialData?.race?.intermission ?? NO_INTERMISSION;
-
   // Ticks the overlay's countdown once a second while it is actually
-  // running — not while paused, where nothing is counting down and there
-  // is nothing to re-render for.
-  const [, setIntermissionTick] = useState(0);
-  useEffect(() => {
-    if (!intermission.active || intermission.paused) return;
-    const timer = setInterval(() => setIntermissionTick((t) => t + 1), 1000);
-    return () => clearInterval(timer);
-  }, [intermission.active, intermission.paused, intermission.endsAt]);
+  // running, and reports whether the break is live right now — shared with
+  // `AwardCeremony.tsx` rather than copied (#1072), so the two pages cannot
+  // quietly disagree about when a break has ended.
+  const intermissionActive = useLiveIntermission(intermission);
 
-  const intermissionActive = isLiveActive(intermission, new Date());
+  // The ceremony is its own route rather than a tab here, so an assignment to
+  // it is a navigation — but not while a break has this screen (#592,
+  // #1072): applying the Awards preset mid-countdown must not drop the
+  // overlay out from under the room the instant the payload arrives.
+  // `intermissionActive` is a dependency precisely so the redirect that was
+  // skipped fires the moment the break ends, rather than waiting on
+  // `behaviour.redirectTo` to change again.
+  useEffect(() => {
+    if (behaviour.redirectTo && !intermissionActive) navigate(behaviour.redirectTo, { replace: true });
+  }, [behaviour.redirectTo, intermissionActive, navigate]);
 
   // The Display surface's theme (#498) — this whole page, projector mode or
   // not, is the audience-facing surface the spec means by "Display". Every
@@ -702,12 +710,15 @@ export default function Observation() {
   // The break screen takes over the whole display, whatever view it was
   // assigned (#592) — a break is a fact about the race, not about which of
   // standings/timing/projector/slideshow/standings-only a screen happened to
-  // be showing when the operator called it. `IdentifyPresence` is skipped
-  // here: flashing a display's name over a countdown the room is trying to
-  // read is a second-order concern this issue does not cover.
+  // be showing when the operator called it. `IdentifyPresence` renders here
+  // too (#1071) — Identify is exactly the command an operator reaches for
+  // during a break, when there is time to work out which screen is which,
+  // and the flash is a brief, operator-initiated 4s overlay rather than a
+  // standing distraction from the countdown.
   if (intermissionActive) {
     return (
       <div className="container projector-mode" data-theme={displayThemeKey} style={displayThemeStyle}>
+        <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
         <IntermissionOverlay
           intermission={intermission}
           nextUpRacers={nextHeatRacers.map(({ lane, racer }) => ({
@@ -884,7 +895,7 @@ export default function Observation() {
         data-theme={displayThemeKey}
         style={{ maxWidth: '100%', padding: 0, background: 'var(--display-surface-alt-color)', ...displayThemeStyle }}
       >
-        <IdentifyPresence assignment={assignment} />
+        <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
         <PhotoSlideshow
           racers={initialData?.race?.racers ?? []}
           racingGroups={initialData?.race?.racingGroups ?? []}
@@ -914,7 +925,7 @@ export default function Observation() {
           ...displayThemeStyle,
         }}
       >
-        <IdentifyPresence assignment={assignment} />
+        <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
         <StandingsOnlyView
           standings={effectiveStandings}
           racersMap={racersMap}
@@ -948,7 +959,7 @@ export default function Observation() {
           ...displayThemeStyle,
         }}
       >
-        <IdentifyPresence assignment={assignment} />
+        <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
         <CheckInDisplayView
           racers={(initialData?.race?.racers ?? []).map((r: Racer) => ({
             id: r.id,
@@ -993,7 +1004,7 @@ export default function Observation() {
           ...displayThemeStyle,
         }}
       >
-        <IdentifyPresence assignment={assignment} />
+        <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
         <QRCodeDisplayView
           raceId={id}
           target={behaviour.qrTarget}
@@ -1036,7 +1047,7 @@ export default function Observation() {
           ...displayThemeStyle,
         }}
       >
-        <IdentifyPresence assignment={assignment} />
+        <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
         <BroadcastOverlayView
           trackId={initialData?.race?.track?.id}
           heatLabel={overlayHeatLabel}
@@ -1121,7 +1132,7 @@ export default function Observation() {
             {/* In the flow, beside the timer pill, rather than the fixed
                 corner every other caller uses — that corner is exactly
                 where Launch Projector Mode sits on this view (#954). */}
-            <IdentifyPresence assignment={assignment} inline />
+            <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} inline />
           </div>
           <button
             onClick={() => window.open(`${window.location.pathname}?projector=true`, '_blank', 'noopener')}
@@ -1443,7 +1454,7 @@ export default function Observation() {
       style={{ maxWidth: '100%', padding: '2vmin', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box', ...displayThemeStyle }}
     >
       {renderResultsOverlay()}
-      <IdentifyPresence assignment={assignment} />
+      <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
 
       <div className="projector-grid" style={{ display: 'flex', flex: '1', gap: '3vmin', height: '100%' }}>
         {/* Left Column: Active and Upcoming Heats */}

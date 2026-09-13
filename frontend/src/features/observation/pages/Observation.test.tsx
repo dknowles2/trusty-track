@@ -967,6 +967,202 @@ describe('Observation Page', () => {
             expect(screen.queryByTestId('identify-connect-badge')).not.toBeInTheDocument();
             expect(screen.queryByTestId('identify-flash')).not.toBeInTheDocument();
         });
+
+        // #1071 — the break branch used to omit `IdentifyPresence` entirely,
+        // so Identify silently did nothing while a break was up.
+        it('flashes the name during a break, with the overlay still up underneath it (#1071)', () => {
+            let displayAssignment: any = {
+                name: 'Plucky Puffin',
+                identifySeq: 3,
+                assigned: false,
+                view: 'STANDINGS',
+                cycleSeconds: 10,
+            };
+            const raceData = {
+                race: {
+                    ...mockRacersData.race,
+                    intermission: {
+                        active: true,
+                        remainingSeconds: 120,
+                        paused: false,
+                        label: 'Snack break',
+                        endsAt: new Date(Date.now() + 120_000).toISOString(),
+                    },
+                },
+            };
+            (useQuery as any).mockReturnValue([{ data: raceData, fetching: false, error: null }]);
+            (useSubscription as any).mockImplementation(({ query }: { query: any }) => {
+                if (query === LeaderboardSubscription) return [{ data: { leaderboard: [] } }];
+                if (query === OnDeckSubscription) return [{ data: { onDeck: [] } }];
+                if (query === CurrentlyRacingSubscription) return [{ data: { currentlyRacing: null } }];
+                if (query === TimingStatsSubscription) return [{ data: { timingStats: null } }];
+                if (query === ActiveFreeRaceHeatSubscription) return [{ data: { activeFreeRaceHeat: null } }];
+                if (query === TIMER_STATUS_SUBSCRIPTION) return [{ data: { timerStatus: { status: { activeHeatId: null } } } }];
+                if (query === DisplayAssignmentSubscription) return [{ data: { displayAssignment } }];
+                return [{ data: null }];
+            });
+
+            const { rerender } = render(renderTree());
+            expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+            expect(screen.getByTestId('identify-connect-badge')).toBeInTheDocument();
+            expect(screen.queryByTestId('identify-flash')).not.toBeInTheDocument();
+
+            // The operator presses Identify while the break is still
+            // counting down — exactly the moment #1071's report says this is
+            // reached for.
+            displayAssignment = { ...displayAssignment, identifySeq: 4 };
+            act(() => {
+                rerender(renderTree());
+            });
+
+            expect(screen.getByTestId('identify-flash')).toHaveTextContent('Plucky Puffin');
+            // The break is still what the room sees underneath the flash.
+            expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+        });
+
+        // The seam a unit test of `observeIdentify` alone cannot catch (#1071):
+        // the bug is in what the page does with the component's lifecycle
+        // across a break starting and ending, not in the pure rule itself.
+        it('does not read the end of a break as a fresh connection — seen survives it (#1071, #1072)', () => {
+            let displayAssignment: any = {
+                name: 'Plucky Puffin',
+                identifySeq: 3,
+                assigned: false,
+                view: 'STANDINGS',
+                cycleSeconds: 10,
+            };
+            let raceData: any = {
+                race: {
+                    ...mockRacersData.race,
+                    intermission: {
+                        active: true,
+                        remainingSeconds: 120,
+                        paused: false,
+                        label: 'Snack break',
+                        endsAt: new Date(Date.now() + 120_000).toISOString(),
+                    },
+                },
+            };
+            (useQuery as any).mockImplementation(() => [{ data: raceData, fetching: false, error: null }]);
+            (useSubscription as any).mockImplementation(({ query }: { query: any }) => {
+                if (query === LeaderboardSubscription) return [{ data: { leaderboard: [] } }];
+                if (query === OnDeckSubscription) return [{ data: { onDeck: [] } }];
+                if (query === CurrentlyRacingSubscription) return [{ data: { currentlyRacing: null } }];
+                if (query === TimingStatsSubscription) return [{ data: { timingStats: null } }];
+                if (query === ActiveFreeRaceHeatSubscription) return [{ data: { activeFreeRaceHeat: null } }];
+                if (query === TIMER_STATUS_SUBSCRIPTION) return [{ data: { timerStatus: { status: { activeHeatId: null } } } }];
+                if (query === DisplayAssignmentSubscription) return [{ data: { displayAssignment } }];
+                return [{ data: null }];
+            });
+
+            vi.useFakeTimers();
+            const { rerender } = render(renderTree());
+            expect(screen.getByTestId('identify-connect-badge')).toBeInTheDocument();
+
+            // Let the opening connect badge fade, so the only badge left to
+            // explain, if one shows up, is a genuinely new one.
+            act(() => {
+                vi.advanceTimersByTime(4000);
+            });
+            expect(screen.queryByTestId('identify-connect-badge')).not.toBeInTheDocument();
+
+            // Identify, mid-break: the flash fires.
+            displayAssignment = { ...displayAssignment, identifySeq: 4 };
+            act(() => {
+                rerender(renderTree());
+            });
+            expect(screen.getByTestId('identify-flash')).toHaveTextContent('Plucky Puffin');
+
+            // The break ends. The payload's `identifySeq` (4) has not moved —
+            // nothing new happened — so this must not be read as a fresh
+            // connection just because the view underneath changed.
+            raceData = {
+                race: {
+                    ...mockRacersData.race,
+                    intermission: { active: false, remainingSeconds: 0, paused: false, label: null, endsAt: null },
+                },
+            };
+            act(() => {
+                rerender(renderTree());
+            });
+
+            expect(screen.getByText('Now Racing')).toBeInTheDocument();
+            expect(screen.queryByTestId('identify-connect-badge')).not.toBeInTheDocument();
+
+            vi.useRealTimers();
+        });
+    });
+
+    describe('an assignment change during a break (#1072)', () => {
+        const renderTreeWithCeremony = () => (
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                    <Route path="/race/:raceId/awards/present" element={<div>ceremony route</div>} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        it('does not carry out a newly assigned view until the break ends', () => {
+            let displayAssignment: any = {
+                name: 'Plucky Puffin',
+                identifySeq: 0,
+                assigned: true,
+                view: 'STANDINGS',
+                cycleSeconds: 10,
+            };
+            let raceData: any = {
+                race: {
+                    ...mockRacersData.race,
+                    intermission: {
+                        active: true,
+                        remainingSeconds: 120,
+                        paused: false,
+                        label: 'Snack break',
+                        endsAt: new Date(Date.now() + 120_000).toISOString(),
+                    },
+                },
+            };
+            (useQuery as any).mockImplementation(() => [{ data: raceData, fetching: false, error: null }]);
+            (useSubscription as any).mockImplementation(({ query }: { query: any }) => {
+                if (query === LeaderboardSubscription) return [{ data: { leaderboard: [] } }];
+                if (query === OnDeckSubscription) return [{ data: { onDeck: [] } }];
+                if (query === CurrentlyRacingSubscription) return [{ data: { currentlyRacing: null } }];
+                if (query === TimingStatsSubscription) return [{ data: { timingStats: null } }];
+                if (query === ActiveFreeRaceHeatSubscription) return [{ data: { activeFreeRaceHeat: null } }];
+                if (query === TIMER_STATUS_SUBSCRIPTION) return [{ data: { timerStatus: { status: { activeHeatId: null } } } }];
+                if (query === DisplayAssignmentSubscription) return [{ data: { displayAssignment } }];
+                return [{ data: null }];
+            });
+
+            const { rerender } = render(renderTreeWithCeremony());
+            expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+
+            // The operator applies the Awards preset while the break is
+            // still counting down — #1072's own report.
+            displayAssignment = { ...displayAssignment, view: 'AWARDS' };
+            act(() => {
+                rerender(renderTreeWithCeremony());
+            });
+
+            // The break must still be up — a scene applied mid-break is not
+            // itself an event the break yields to (#592).
+            expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+            expect(screen.queryByText('ceremony route')).not.toBeInTheDocument();
+
+            // The break ends: only now is the assignment carried out.
+            raceData = {
+                race: {
+                    ...mockRacersData.race,
+                    intermission: { active: false, remainingSeconds: 0, paused: false, label: null, endsAt: null },
+                },
+            };
+            act(() => {
+                rerender(renderTreeWithCeremony());
+            });
+
+            expect(screen.getByText('ceremony route')).toBeInTheDocument();
+        });
     });
 
     describe('the Display theme, pushed live (#586)', () => {

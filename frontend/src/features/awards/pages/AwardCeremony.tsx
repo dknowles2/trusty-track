@@ -28,6 +28,11 @@ import { RACE_AWARDS_QUERY } from '../graphql/queries';
 import { displayId, startDeviceClaimHeartbeat } from '../../observation/displayIdentity';
 import { DisplayAssignmentSubscription } from '../../observation/graphql/queries';
 import IdentifyPresence from '../../observation/IdentifyPresence';
+import { useIdentifyOverlay } from '../../observation/useIdentifyOverlay';
+import IntermissionOverlay from '../../observation/components/IntermissionOverlay';
+import { NONE as NO_INTERMISSION, type IntermissionData } from '../../racing/intermission';
+import { useLiveIntermission } from '../../core/hooks/useLiveIntermission';
+import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { resolveDisplayTheme } from '../../../theming/applyTheme';
 import type { SurfaceThemeSetting } from '../../../theming/themes';
 import { useTerminology } from '../../../context/TerminologyContext';
@@ -48,7 +53,7 @@ export default function AwardCeremony() {
   const id = parseInt(raceId || '0');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { groupLower } = useTerminology();
+  const { groupLower, vehicle } = useTerminology();
   const [index, setIndex] = useState(0);
 
   // Stay on the operator's leash. A screen arrives here because it was
@@ -73,16 +78,14 @@ export default function AwardCeremony() {
     pause: !id,
   });
   const assignment = assignmentResult.data?.displayAssignment ?? null;
-  useEffect(() => {
-    // `assigned`, not merely a payload: every connected screen receives one
-    // carrying the default view, and acting on it would march a ceremony
-    // somebody opened by hand off to the standings.
-    if (assignment?.assigned && assignment.view !== 'AWARDS') {
-      navigate(`/race/${id}/observation`, { replace: true });
-    }
-  }, [assignment, id, navigate]);
 
-  const [result] = useQuery({
+  // Held once, here, rather than inside `IdentifyPresence` itself (#1071,
+  // #1072's shared fix) — see `useIdentifyOverlay.ts`'s own docstring for why
+  // the state has to live in a component that does not unmount when its
+  // return value's shape changes.
+  const identify = useIdentifyOverlay(assignment);
+
+  const [result, reExecute] = useQuery({
     query: RACE_AWARDS_QUERY,
     variables: { raceId: id },
     pause: !id || isNaN(id),
@@ -92,6 +95,32 @@ export default function AwardCeremony() {
   const awards: CeremonyAward[] = race?.awards ?? [];
   const rounds = race?.rounds ?? [];
   const racingGroups = race?.racingGroups ?? [];
+
+  // A break takes this screen over exactly like every other display (#592,
+  // #1072) — this route had no intermission handling at all before, so a
+  // ceremony assigned during a break never showed one, and applying the
+  // Awards scene *while* a break was already up on another screen dropped
+  // this one straight onto a trophy slide instead. Shared tick/derivation
+  // with `Observation.tsx` (`useLiveIntermission`), so the two pages cannot
+  // quietly disagree about when a break has ended.
+  useRaceStateChanged(id, () => reExecute({ requestPolicy: 'network-only' }));
+  const intermission: IntermissionData = race?.intermission ?? NO_INTERMISSION;
+  const intermissionActive = useLiveIntermission(intermission);
+
+  useEffect(() => {
+    // `assigned`, not merely a payload: every connected screen receives one
+    // carrying the default view, and acting on it would march a ceremony
+    // somebody opened by hand off to the standings.
+    //
+    // Not while a break has this screen (#1072): a scene applied mid-break
+    // reassigning this display away from the ceremony must not drop the
+    // break overlay the instant the payload arrives — it takes effect once
+    // the break ends instead, which is why `intermissionActive` is a
+    // dependency here rather than just a guard.
+    if (assignment?.assigned && assignment.view !== 'AWARDS' && !intermissionActive) {
+      navigate(`/race/${id}/observation`, { replace: true });
+    }
+  }, [assignment, id, navigate, intermissionActive]);
 
   // The Display surface's theme (#498) — same reasoning as Observation.tsx's
   // own root: this is the audience-facing surface, and the default option
@@ -207,6 +236,23 @@ export default function AwardCeremony() {
 
   if (!raceId || isNaN(id)) return <div>Invalid Race ID</div>;
 
+  // The break screen takes this route over exactly like every other display
+  // (#592, #1072) — a break is a fact about the race, not about which
+  // screen happened to be on the ceremony when the operator called it, and
+  // this route had no such handling before. No back link, no keyboard
+  // stepping surfaced here: the operator ends a break from Race Control, the
+  // same as every other screen showing it, and `identify` still renders so
+  // Identify keeps working while the room is on a break (#1071's own fix,
+  // shared rather than duplicated).
+  if (intermissionActive) {
+    return (
+      <div className="container projector-mode" data-theme={displayThemeKey} style={displayThemeStyle}>
+        <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
+        <IntermissionOverlay intermission={intermission} vehicleLabel={vehicle} />
+      </div>
+    );
+  }
+
   // Resolved server-side (#552); the ceremony is an audience surface, so the
   // winner's name and photo go through it — the operator's own award screens
   // do not.
@@ -256,7 +302,7 @@ export default function AwardCeremony() {
           for the leash), so it gets its own copy of the naming treatments
           (#495) rather than inheriting Observation.tsx's — Identify used to
           do nothing here for exactly that reason (#519). */}
-      <IdentifyPresence assignment={assignment} />
+      <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
 
       {/* The way out (#955). Stopping propagation keeps a click on the link
           from also landing on the root's own onClick, which would advance

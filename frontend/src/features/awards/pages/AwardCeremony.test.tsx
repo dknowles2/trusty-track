@@ -334,6 +334,60 @@ describe('Identify reaches this screen too (#519)', () => {
   });
 });
 
+describe('a break during the ceremony (#1071, #1072)', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  const withBreak = (active: boolean) => ({
+    ...RACE,
+    intermission: active
+      ? {
+          active: true,
+          remainingSeconds: 120,
+          paused: false,
+          label: 'Snack break',
+          endsAt: new Date(Date.now() + 120_000).toISOString(),
+        }
+      : { active: false, remainingSeconds: 0, paused: false, label: null, endsAt: null },
+  });
+
+  it('shows the break overlay instead of the ceremony, and Identify still works (#592, #1072)', () => {
+    // This route had no intermission handling at all before #1072 — a
+    // ceremony assigned during a break showed the trophy slide, not the
+    // countdown the rest of the room's screens were showing.
+    mockAssignment({ assigned: true, view: 'AWARDS', name: 'Gym Projector', identifySeq: 3 });
+    renderCeremony(withBreak(true));
+
+    expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+    expect(screen.getByTestId('intermission-label')).toHaveTextContent('Snack break');
+    expect(screen.queryByText('Fastest Wolf')).not.toBeInTheDocument();
+    // #1071's own fix, shared rather than duplicated: Identify still works
+    // on a screen that is currently showing a break.
+    expect(screen.getByTestId('identify-connect-badge')).toHaveTextContent('Gym Projector');
+  });
+
+  it('does not drop the break overlay when reassigned away from the ceremony mid-break, and carries the reassignment out once the break ends', () => {
+    // #1072's own hypothesis: a scene applied while the break is up
+    // navigated this screen off the overlay the instant the payload
+    // arrived, in either direction.
+    mockAssignment({ assigned: true, view: 'STANDINGS' });
+    const { rerender } = renderCeremonyForRerender(withBreak(true));
+
+    expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+    expect(screen.queryByText('observation page')).not.toBeInTheDocument();
+
+    // The break ends: only now should the standing reassignment away from
+    // the ceremony actually be carried out.
+    (useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue([
+      { data: { race: withBreak(false) }, fetching: false, error: undefined },
+      vi.fn(),
+    ]);
+    act(() => rerender());
+
+    expect(screen.getByText('observation page')).toBeInTheDocument();
+  });
+});
+
 describe('the Display theme, pushed live (#586)', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());

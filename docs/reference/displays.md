@@ -75,13 +75,14 @@ in System Settings, not a fixed palette.
 
 A break called from Race Control (see
 [Taking a Break](../race-day.md#taking-a-break)) takes over every screen
-showing this race, whichever of the nine views above it was on — a break is
-a fact about the race, not about which view a display happened to be
-assigned.
+showing this race, whichever of the ten views above it was on — the awards
+ceremony included — since a break is a fact about the race, not about which
+view a display happened to be assigned.
 Each screen shows a countdown, the break's name (or "Intermission" if none
-was given), and a faint preview of the next heat's line-up, so a room that
-has wandered off to the snack table still knows roughly when to come back and
-for what.
+was given), and a faint preview of the next heat's line-up (the ceremony
+screen shows the countdown alone, with no line-up to preview), so a room
+that has wandered off to the snack table still knows roughly when to come
+back and for what.
 
 The overlay clears itself the instant the countdown reaches zero, or sooner
 if the operator clicks **End now** — there is nothing to acknowledge on the
