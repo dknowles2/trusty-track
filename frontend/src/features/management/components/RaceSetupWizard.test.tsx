@@ -357,6 +357,31 @@ describe('with a previous race', () => {
         expect(screen.getByTestId('setup-step-kind')).toBeInTheDocument();
     });
 
+    it('lists previous races in the order the query returns them, newest first (#1129)', async () => {
+        // `Query.races` is itself ordered newest-first now (#1129); this
+        // dropdown used to reverse whatever order it got, which was a fix
+        // for the *old*, oldest-first server order and inverts the new one
+        // if left in place. Three distinctly-named races confirm the
+        // `<select>` renders in query order rather than un-reversing it.
+        mockQueries({
+            races: [
+                { id: 6, name: 'Newest Race' },
+                { id: 5, name: 'Middle Race' },
+                { id: 4, name: 'Last Year' },
+            ],
+        });
+        renderWizard();
+
+        await userEvent.click(screen.getByRole('radio', { name: /^Copy settings from a previous race/ }));
+        const options = within(screen.getByLabelText('Previous race')).getAllByRole('option');
+        // The first option is the placeholder; the rest must match query order.
+        expect(options.slice(1).map((o) => o.textContent)).toEqual([
+            'Newest Race',
+            'Middle Race',
+            'Last Year',
+        ]);
+    });
+
     it('copying brings the groups and the settings over, skips the questions, and submits them', async () => {
         mockQueries({ races: [{ id: 4, name: 'Last Year' }] });
         const { onSubmit } = renderWizard();
