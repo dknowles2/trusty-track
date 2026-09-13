@@ -1,3 +1,22 @@
+---
+paths:
+  - backend/domain/heat_session.py
+  - frontend/src/features/audio/**
+  - frontend/src/features/racing/raceFlow.ts
+  - frontend/src/features/racing/useRaceFlow.ts
+  - frontend/src/features/racing/roundCompletion.ts
+  - frontend/src/features/racing/raceCompletion.ts
+  - frontend/src/features/racing/shortcuts.ts
+  - frontend/src/features/racing/chime.ts
+  - frontend/src/features/racing/readiness.ts
+  - frontend/src/features/racing/roundSummaryText.ts
+  - frontend/src/features/racing/scheduleConfirm.ts
+  - frontend/src/features/racing/types.ts
+  - frontend/src/features/racing/components/RaceExecution.tsx
+  - frontend/src/features/racing/components/ReadinessStrip.tsx
+  - frontend/src/features/racing/pages/RaceControl.tsx
+---
+
 # The race-day operator screen
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching `raceFlow.ts`, `heatSession`, `RaceExecution.tsx`, `RaceControl.tsx`, shortcuts or the chime.

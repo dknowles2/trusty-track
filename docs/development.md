@@ -256,6 +256,20 @@ stripped**, so an endpoint that only exists at `/api/…` works in production an
 404s in development. Register both forms, as `/graphql` and the printables
 barcode do.
 
+## 🌐 Seeing `main` on a Real Host
+
+Every merge to `main` deploys itself to a demo of its own, separate from the
+one the front page links to — so a change can be tried on Cloud Run a few
+minutes after it lands, without building or running anything. Its `/health`
+reports `0.0.0-dev-<short sha>`, and the version in the navigation bar says
+which commit is up. It is the demo, so it refuses what the demo refuses (a
+PIN, uploads, track edits) and forgets everything when it scales to zero.
+
+The address is the `main` service's Cloud Run URL, or whatever hostname has
+been mapped to it; the **Main Demo** run in the Actions tab prints it. How it
+is built and deployed, and what differs from the stable demo, is in
+[The public demo](demo.md#tracking-main).
+
 ## ✅ Pre-commit Hooks
 
 `pre-commit` runs Ruff, pytest, ESLint, Vitest and a frontend build on every

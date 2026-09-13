@@ -1,3 +1,14 @@
+---
+paths:
+  - backend/domain/terminology.py
+  - backend/domain/name_display.py
+  - frontend/src/context/TerminologyContext.tsx
+  - frontend/src/features/core/displayName.ts
+  - frontend/src/features/settings/terminologyDefaults.ts
+  - frontend/src/terminologyGuard.test.ts
+  - frontend/src/nameDisplayGuard.test.ts
+---
+
 # Terminology and name display
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching `domain/terminology.py`, `domain/name_display.py`, `useTerminology()`, or any user-facing wording.

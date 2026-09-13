@@ -315,7 +315,9 @@ jobs:
       id-token: write
     uses: ./.github/workflows/deploy-demo.yml
     with:
+      instance: stable
       image: ghcr.io/${{ github.repository_owner }}/trusty-track:${{ needs.docker.outputs.version }}
+      expected_version: ${{ needs.docker.outputs.version }}
 
   # -------------------------------------------------------------------
   # Public site — move the `release` branch to this tag.

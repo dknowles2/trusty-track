@@ -1,29 +1,46 @@
 name: Deploy Demo
 
-# Push a published image to the public demo on Cloud Run.
+# Push a published image to a public demo on Cloud Run.
 #
-# Called by the release workflow once a stable version has been published to
-# GHCR, and runnable by hand from the Actions tab to put a specific version
-# back up. It deploys an image that already exists — it never builds one — so
-# the thing visitors click through is byte-for-byte the thing the release page
-# hands out, and this workflow needs no Cloud Build permissions at all.
+# There are two demos, and this workflow is the one deployment for both:
+#
+#   stable   demo.trusty-track.com — what the front page sends an evaluator
+#            to. The release workflow deploys every stable version here.
+#   main     tracks `main`, for developers: `main-demo.yml` deploys every push
+#            to it, so a merged change can be tried without building anything.
+#
+# `instance` picks which; everything that differs between them is decided in
+# the "Which instance" step below and nowhere else, so a caller says which
+# demo it means and never names a service. That is what stops the main
+# deployment from being pointed at the stable service by an empty variable —
+# `deploy.sh`'s own default service name *is* the stable one.
+#
+# It deploys an image that already exists — it never builds one — so the
+# thing visitors click through is byte-for-byte the thing the release page
+# (or the `:main` tag) hands out, and this workflow needs no Cloud Build
+# permissions at all. Runnable by hand from the Actions tab to put a specific
+# image on either instance.
 #
 # Everything it needs to know is a repository *variable* rather than a secret,
-# and that is deliberate on two counts: none of the four is secret (a Workload
+# and that is deliberate on two counts: none of them is secret (a Workload
 # Identity provider path and a service account email are both public-facing
 # identifiers, and keyless auth means there is no key to hide), and `secrets`
 # is not readable from a job-level `if` while `vars` is — so a fork, or this
 # repository before anybody has configured a project, skips the job cleanly
-# instead of failing a release.
+# instead of failing a release or a merge.
 #
-#   DEMO_CLOUD_RUN_PROJECT              the GCP project id. Empty disables all of this
+#   DEMO_CLOUD_RUN_PROJECT              the GCP project id. Empty disables all of this, both instances
 #   DEMO_WORKLOAD_IDENTITY_PROVIDER     projects/<n>/locations/global/workloadIdentityPools/<pool>/providers/<provider>
 #   DEMO_DEPLOY_SERVICE_ACCOUNT         the service account this workflow impersonates
-#   DEMO_ALLOWED_ORIGINS                the demo's own URL, for CORS. Empty leaves the LAN wildcard
-#   DEMO_CLOUD_RUN_SERVICE / _REGION    optional; empty takes deploy.sh's own defaults
+#   DEMO_CLOUD_RUN_REGION               optional; empty takes deploy.sh's own default. Shared by both
+#
+#   DEMO_ALLOWED_ORIGINS                stable: the demo's own URL, for CORS. Empty leaves the LAN wildcard
+#   DEMO_CLOUD_RUN_SERVICE              stable: optional; empty takes deploy.sh's own default
+#   DEMO_MAIN_ALLOWED_ORIGINS           main: as above
+#   DEMO_MAIN_CLOUD_RUN_SERVICE         main: optional; empty is `trusty-track-demo-main`
 #
 # The deployment itself is `deploy/cloudrun/deploy.sh`, called rather than
-# copied. Its flags are the documentation of what the demo is — one instance
+# copied. Its flags are the documentation of what a demo is — one instance
 # for the in-process pub/sub, zero minimum so the instance dying is the reset —
 # and a second copy of them here would be free to disagree with it.
 
@@ -34,12 +51,35 @@ on:
         description: The published image to deploy.
         required: true
         type: string
+      instance:
+        description: Which demo — `stable` or `main`.
+        required: true
+        type: string
+      expected_version:
+        description: >-
+          What /health must report once the deploy is live. Empty means only
+          that it answers — unless the image carries a plain X.Y.Z tag, which
+          is then expected.
+        required: false
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       image:
         description: "Image to deploy, e.g. ghcr.io/dknowles2/trusty-track:1.2.0"
         required: true
         type: string
+      instance:
+        description: Which demo to deploy it to.
+        required: true
+        type: choice
+        options: [stable, main]
+        default: stable
+      expected_version:
+        description: "What /health must report afterwards. Optional; a plain X.Y.Z tag is checked without it."
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -53,8 +93,46 @@ jobs:
     permissions:
       contents: read
       id-token: write # the OIDC token Workload Identity Federation exchanges
+    # One deploy per instance at a time, queued rather than cancelled — a
+    # release's deploy must never be stopped part-way, and two merges to
+    # `main` in quick succession collapse to the later one on their own, since
+    # GitHub keeps a single pending run per group.
+    concurrency:
+      group: deploy-demo-${{ inputs.instance }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
+
+      # The one place the two instances differ. An unknown instance fails
+      # here, before anything has authenticated, rather than falling through
+      # to deploy.sh's defaults — which are the stable demo's.
+      - name: Which instance
+        env:
+          INSTANCE: ${{ inputs.instance }}
+          STABLE_SERVICE: ${{ vars.DEMO_CLOUD_RUN_SERVICE }}
+          STABLE_ORIGINS: ${{ vars.DEMO_ALLOWED_ORIGINS }}
+          MAIN_SERVICE: ${{ vars.DEMO_MAIN_CLOUD_RUN_SERVICE }}
+          MAIN_ORIGINS: ${{ vars.DEMO_MAIN_ALLOWED_ORIGINS }}
+        run: |
+          case "$INSTANCE" in
+            stable)
+              SERVICE="${STABLE_SERVICE:-trusty-track-demo}"
+              ALLOWED_ORIGINS="$STABLE_ORIGINS"
+              ;;
+            main)
+              SERVICE="${MAIN_SERVICE:-trusty-track-demo-main}"
+              ALLOWED_ORIGINS="$MAIN_ORIGINS"
+              ;;
+            *)
+              echo "Unknown instance [$INSTANCE]; expected stable or main." >&2
+              exit 1
+              ;;
+          esac
+          echo "Deploying the $INSTANCE demo to Cloud Run service [$SERVICE]."
+          {
+            echo "SERVICE=$SERVICE"
+            echo "ALLOWED_ORIGINS=$ALLOWED_ORIGINS"
+          } >> "$GITHUB_ENV"
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -65,16 +143,16 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v3
 
-      # IMAGE set is deploy.sh's "deploy this, do not build" path. The empty
-      # variables fall through to the script's own defaults, which is why they
-      # are passed unconditionally rather than composed into a command line.
+      # IMAGE set is deploy.sh's "deploy this, do not build" path. SERVICE and
+      # ALLOWED_ORIGINS arrive from the step above through the job environment;
+      # an empty REGION falls through to the script's own default, which is
+      # why it is passed unconditionally rather than composed into a command
+      # line.
       - name: Deploy
         env:
           IMAGE: ${{ inputs.image }}
           PROJECT: ${{ vars.DEMO_CLOUD_RUN_PROJECT }}
-          SERVICE: ${{ vars.DEMO_CLOUD_RUN_SERVICE }}
           REGION: ${{ vars.DEMO_CLOUD_RUN_REGION }}
-          ALLOWED_ORIGINS: ${{ vars.DEMO_ALLOWED_ORIGINS }}
         run: ./deploy/cloudrun/deploy.sh
 
       # Cloud Run reports a revision healthy once the container answers on
@@ -87,27 +165,31 @@ jobs:
       # service whose traffic is pinned to an older revision answers /health
       # perfectly while ignoring everything this job just deployed, so the
       # check that only asked whether the demo was up reported success through
-      # four releases that never reached a visitor. The version is asserted
-      # only for a plain X.Y.Z tag: this workflow is also run by hand with a
-      # digest or a floating tag, where there is nothing to compare against,
-      # and it says so rather than passing quietly.
+      # four releases that never reached a visitor. The caller says what to
+      # expect: the release passes its X.Y.Z, the main deploy passes the
+      # dev-style stamp it wrote into the image. Without one, a plain X.Y.Z
+      # tag on the image is expected — the by-hand case — and anything else
+      # is checked only for answering, and says so rather than passing quietly.
       - name: Check the demo answers, on the version just deployed
         env:
           PROJECT: ${{ vars.DEMO_CLOUD_RUN_PROJECT }}
-          SERVICE: ${{ vars.DEMO_CLOUD_RUN_SERVICE }}
           REGION: ${{ vars.DEMO_CLOUD_RUN_REGION }}
           IMAGE: ${{ inputs.image }}
+          EXPECTED: ${{ inputs.expected_version }}
         run: |
-          URL=$(gcloud run services describe "${SERVICE:-trusty-track-demo}" \
+          URL=$(gcloud run services describe "$SERVICE" \
             --project="$PROJECT" \
             --region="${REGION:-us-central1}" \
             --format='value(status.url)')
           echo "Demo at $URL"
 
-          EXPECTED="${IMAGE##*:}"
-          if ! [[ "$EXPECTED" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Image [$IMAGE] carries no X.Y.Z tag; checking only that the demo answers."
-            EXPECTED=""
+          if [ -z "$EXPECTED" ]; then
+            TAG="${IMAGE##*:}"
+            if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              EXPECTED="$TAG"
+            else
+              echo "No expected version and [$IMAGE] carries no X.Y.Z tag; checking only that the demo answers."
+            fi
           fi
 
           BODY=""
@@ -135,4 +217,4 @@ jobs:
             echo "serving $SERVING"
           fi
 
-          echo "Deployed [\`$IMAGE\`]($URL)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployed [\`$IMAGE\`]($URL) to the ${{ inputs.instance }} demo" >> "$GITHUB_STEP_SUMMARY"

@@ -56,8 +56,17 @@ pre-commit install
 
 ## The rest of this guide
 
-The sections below live in `.claude/rules/`, one file per area, and are **not**
-loaded automatically — read the file that covers what you are about to change.
+The sections below live in `.claude/rules/`, one file per area. **Each file
+carries `paths:` frontmatter and loads only when a file matching one of its globs
+is read or edited** — a session that touches nothing under `services/timer/`
+never pays for `timers.md`. Without that frontmatter Claude Code loads every
+file under `.claude/rules/` unconditionally, which is what happened for the
+first three weeks after the split: fourteen files, all loaded every session,
+totalling more than the single file the split was meant to shrink. When a rule
+file gains a new subject, add the paths it covers to its frontmatter, or the
+file will not be there for the change it describes. Read a file directly when
+the "Before you touch" column names your change and the globs do not yet — a
+rule about user-facing wording, say, has no path to key on.
 Section titles are unchanged, so a code comment citing `CLAUDE.md`'s "The public
 demo" still names the section it always did; this table says which file holds it.
 

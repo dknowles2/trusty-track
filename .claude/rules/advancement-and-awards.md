@@ -1,3 +1,14 @@
+---
+paths:
+  - backend/domain/advancement.py
+  - backend/domain/awards.py
+  - backend/domain/roll_down.py
+  - backend/services/awards.py
+  - frontend/src/features/awards/**
+  - frontend/src/features/racing/components/PickFieldModal.tsx
+  - frontend/src/features/racing/components/PickFieldByHandCheckbox.tsx
+---
+
 # Championship advancement, awards, and voting
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching `domain/advancement.py`, `domain/awards.py`, `domain/roll_down.py`, `services/awards.py`, or the ceremony.

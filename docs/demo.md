@@ -111,6 +111,7 @@ Variables**:
 | `DEMO_DEPLOY_SERVICE_ACCOUNT` | The service account to impersonate |
 | `DEMO_ALLOWED_ORIGINS` | The demo's own URL, so CORS stops being the LAN wildcard |
 | `DEMO_CLOUD_RUN_SERVICE`, `DEMO_CLOUD_RUN_REGION` | Optional; empty takes the script's own defaults |
+| `DEMO_MAIN_ALLOWED_ORIGINS`, `DEMO_MAIN_CLOUD_RUN_SERVICE` | The same two for the `main` demo below. The service defaults to `trusty-track-demo-main` |
 
 Variables rather than secrets, and not by accident: none of them is a secret
 once the key is gone, and GitHub will not let a job decide whether to run based
@@ -119,6 +120,43 @@ no demo instead of failing somebody's release.
 
 The workflow calls `deploy/cloudrun/deploy.sh` rather than repeating its flags,
 so there is one description of what the demo is.
+
+### Tracking `main`
+
+There is a second demo for developers, and it follows `main` rather than
+releases: every merge builds the image at that commit, publishes it to GHCR as
+`ghcr.io/dknowles2/trusty-track:main`, and deploys it to its own Cloud Run
+service. A change is on a real host a few minutes after it lands, weeks before
+the next tag would put it on the stable demo.
+
+It is the same image, the same `deploy.sh` and the same demo mode — a second
+service that scales to zero like the first, so an idle one costs nothing. What
+differs:
+
+- **It is built for `linux/amd64` only.** Cloud Run is amd64, and the arm64
+  half of a release build is minutes of emulation nobody would pull from this
+  tag. So `:main` is not an install image: on a Raspberry Pi it does not run,
+  and the [Docker install](user/install-docker.md) should keep pulling a version.
+- **It is deployed by digest.** `:main` moves on every push; the digest names
+  the one build the merge produced, so a deploy that queued behind another
+  cannot be handed a later commit's image by a tag that moved under it.
+- **`/health` reports `0.0.0-dev-<short sha>`**, the same stamp a local
+  checkout carries, and the deploy asserts it — the version in the navigation
+  bar is which commit you are looking at.
+- **A docs-only merge skips it.** Nothing under `docs/`, `www/` or `.claude/`
+  reaches the image, so there is no cold start for a page nobody will see there.
+
+It shares the project, the identity and the region with the stable demo and
+adds two optional variables, `DEMO_MAIN_ALLOWED_ORIGINS` and
+`DEMO_MAIN_CLOUD_RUN_SERVICE`. It is switched on by the same
+`DEMO_CLOUD_RUN_PROJECT` — a repository with a demo has both.
+
+Both instances go through one workflow, `deploy-demo.yml`, which takes an
+`instance` of `stable` or `main` and decides the service and the CORS origin
+from that in one place. A caller never names a service, and that is the point:
+`deploy.sh`'s own default service *is* the stable demo, so a main deployment
+that could fall through to it on an empty variable would eventually do so.
+Running it by hand from the Actions tab offers the same choice.
 
 ### By hand
 

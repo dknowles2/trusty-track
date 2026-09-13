@@ -1,3 +1,24 @@
+---
+paths:
+  - backend/api/main.py
+  - backend/services/backup.py
+  - backend/services/discovery.py
+  - backend/services/network.py
+  - backend/tests/test_http_mode.py
+  - packaging/**
+  - scripts/**
+  - deploy/raspberry-pi/**
+  - Dockerfile
+  - .github/workflows/raspberry-pi-image.yml
+  - frontend/src/App.tsx
+  - frontend/src/features/core/shareAddress.ts
+  - frontend/src/features/settings/backupClient.ts
+  - frontend/src/features/settings/components/BackupPanel.tsx
+  - frontend/src/features/observation/components/ConnectDisplayAddress.tsx
+  - frontend/src/components/ui/CameraCapture.tsx
+  - frontend/src/features/printables/components/CheckInScanner.tsx
+---
+
 # Backup, networking, the Raspberry Pi image, and the first-run gate
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching `services/backup.py`, the backup endpoints, HTTPS/`TRUSTYTRACK_HTTP_ONLY`, `services/discovery.py`/mDNS, `deploy/raspberry-pi/`, `scripts/install-pi.sh`, or the first-run gate.
