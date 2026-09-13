@@ -495,7 +495,8 @@ After reviewing results, click **Next Heat** to advance to the next heat — or 
 ### Keyboard Shortcuts
 
 The race control operator usually has a microphone in one hand. Three keys cover
-the repetitive parts, and each is printed on the button it mirrors:
+the repetitive parts, listed here — most are also printed on the button they
+mirror, but not all; see below the table for which one isn't and why:
 
 | Key | What it does |
 |-----|--------------|

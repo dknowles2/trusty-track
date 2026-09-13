@@ -286,4 +286,48 @@ describe('RaceExecution sound effect transitions (#554)', () => {
 
         expect(finishSpy).not.toHaveBeenCalled();
     });
+
+    // The PR review's exact reproduction: turning `master` on and back off
+    // through the real panel, never touching "Heat Finish", used to leave
+    // the legacy flag `'on'` (writeSoundSettings re-synced it to `finish`,
+    // which defaults `true`, on every write — a `master`-only one included)
+    // and this component's own master-off fallback kept chiming despite the
+    // operator's explicit "turn it off". `writeSoundSettings` no longer
+    // touches the legacy flag at all, so the fallback has nothing left to
+    // misread.
+    it('stays silent after turning master on and back off through the panel, without touching Heat Finish (#871 reproduction)', () => {
+        const finishSpy = vi.spyOn(soundModule, 'playFinishSound').mockImplementation(() => {});
+
+        let currentPhase = 'WAITING';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+
+        const { rerender } = render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        fireEvent.click(screen.getByTestId('sound-effects-modal-trigger'));
+        const masterToggle = screen.getByTestId('sound-master-toggle');
+        fireEvent.click(masterToggle); // on
+        fireEvent.click(masterToggle); // back off — "Heat Finish" never touched
+        fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+        // The bug's own precondition: the legacy flag must not have been
+        // dragged along by a `master`-only write.
+        expect(window.localStorage.getItem(soundModule.FINISH_CHIME_STORAGE_KEY)).toBeNull();
+        expect(soundModule.readSoundSettings(window.localStorage).master).toBe(false);
+
+        currentPhase = 'RUNNING';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+        rerender(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        currentPhase = 'RECORDED';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+        rerender(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        expect(finishSpy).not.toHaveBeenCalled();
+    });
 });

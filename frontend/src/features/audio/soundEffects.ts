@@ -117,8 +117,22 @@ export function readSoundSettings(storage: Pick<Storage, 'getItem'> = window.loc
 }
 
 /**
- * Write sound settings to device storage, also keeping the legacy finishChime key
- * in sync so existing toggles or screens continue to function seamlessly.
+ * Write sound settings to device storage.
+ *
+ * Deliberately does **not** touch `FINISH_CHIME_STORAGE_KEY` (#1074's PR
+ * review, reproduced against this function directly). It used to re-sync
+ * that legacy key to `settings.finish` on every call, including a call that
+ * only changed `master` — so opening Sound options, turning `master` on and
+ * back off without ever touching the "Heat Finish" row left the legacy flag
+ * `'on'` (since `finish` defaults `true`), and `RaceExecution.tsx`'s
+ * `master`-off fallback read that raw flag and kept chiming despite the
+ * operator's own explicit "turn it off". That is exactly the cross-toggle
+ * coupling #871 fixed, one level removed: a control the operator believes
+ * is off (`master`) was still steering another one's storage. The legacy
+ * key is now written **nowhere** in the app — the standalone checkbox that
+ * used to own it is gone (#1074) — so it only ever holds whatever a
+ * pre-#1074 device last wrote by hand, which is exactly the continuity
+ * `RaceExecution`'s fallback exists to preserve.
  */
 export function writeSoundSettings(
     storage: Pick<Storage, 'setItem'> = window.localStorage,
@@ -126,7 +140,6 @@ export function writeSoundSettings(
 ): void {
     try {
         storage.setItem(SOUND_STORAGE_KEY, JSON.stringify(settings));
-        storage.setItem(FINISH_CHIME_STORAGE_KEY, settings.finish ? 'on' : 'off');
     } catch {
         // Ignore storage write failures
     }

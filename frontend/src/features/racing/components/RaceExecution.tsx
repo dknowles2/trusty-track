@@ -412,10 +412,15 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             // one thing that checkbox ever wrote on its own (`master` was
             // deliberately untouched, #871), so a device that had it checked
             // before this change keeps chiming without the operator needing
-            // to visit Sound options at all. Read-only from here: nothing in
-            // this component writes it any more, only the panel's own "Heat
-            // Finish" row does, keeping it in sync with `finish` exactly as
-            // before.
+            // to visit Sound options at all. Nothing writes this flag
+            // anywhere in the app any more, `writeSoundSettings` included
+            // (a PR review caught it still re-syncing this key from
+            // `settings.finish` on every panel write — a `master`-only
+            // toggle among them — which reintroduced #871's coupling one
+            // level removed: turning `master` off without touching "Heat
+            // Finish" left this flag `'on'` and kept this branch chiming
+            // regardless). It is frozen wherever a pre-#1074 device (or a
+            // manual edit) last left it.
             playFinishSound();
         }
         previousPhase.current = phase;

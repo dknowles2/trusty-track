@@ -63,28 +63,27 @@ describe('soundEffects settings storage', () => {
         writeSoundSettings(store, custom);
 
         expect(store.setItem).toHaveBeenCalledWith(SOUND_STORAGE_KEY, JSON.stringify(custom));
-        // Keeps legacy finish chime in sync
-        expect(store.setItem).toHaveBeenCalledWith(FINISH_CHIME_STORAGE_KEY, 'on');
 
         const reloaded = readSoundSettings(store);
         expect(reloaded).toEqual(custom);
     });
 
-    it('syncs legacy finish chime with finish setting regardless of master', () => {
+    // #1074's PR review: this used to be "syncs legacy finish chime with
+    // finish setting regardless of master", pinning the exact defect the
+    // review found. `writeSoundSettings` re-syncing the legacy flag on
+    // *every* write — a `master`-only change included — is what let turning
+    // `master` on and back off (never touching "Heat Finish") leave the
+    // legacy flag `'on'` and keep `RaceExecution`'s master-off fallback
+    // chiming. The legacy key is untouched by this function now; only a
+    // pre-#1074 device's own write (or a manual edit) can hold a value.
+    it('never writes the legacy finish-chime key, from any settings shape', () => {
         const store = mockStorage();
-        writeSoundSettings(store, {
-            ...DEFAULT_SOUND_SETTINGS,
-            master: true,
-            finish: false,
-        });
-        expect(store.setItem).toHaveBeenCalledWith(FINISH_CHIME_STORAGE_KEY, 'off');
+        writeSoundSettings(store, { ...DEFAULT_SOUND_SETTINGS, master: true, finish: false });
+        writeSoundSettings(store, { ...DEFAULT_SOUND_SETTINGS, master: false, finish: true });
+        writeSoundSettings(store, { ...DEFAULT_SOUND_SETTINGS, master: true, finish: true });
 
-        writeSoundSettings(store, {
-            ...DEFAULT_SOUND_SETTINGS,
-            master: false,
-            finish: true,
-        });
-        expect(store.setItem).toHaveBeenCalledWith(FINISH_CHIME_STORAGE_KEY, 'on');
+        expect(store.setItem).not.toHaveBeenCalledWith(FINISH_CHIME_STORAGE_KEY, expect.anything());
+        expect(store.getItem(FINISH_CHIME_STORAGE_KEY)).toBeNull();
     });
 
     it('safely handles corrupted json or storage errors', () => {
