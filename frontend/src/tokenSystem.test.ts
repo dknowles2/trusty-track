@@ -493,3 +493,169 @@ describe('the Display surface reads no App-only token (#527)', () => {
     });
   }
 });
+
+/**
+ * Regression guard for #1061 — `.racer-row:hover` painted `#f8f9fa` behind
+ * text that inherits the App surface's `--text-color`. Under Under the
+ * Lights that text is `#eef1f6`, so hovering a roster row put near-white
+ * text on a near-white row (~1.03:1) — the selected-row state right beside
+ * it (`RaceDetails.tsx`) already used `var(--surface-hover-color)`, which
+ * every theme defines; the hover rule was simply the one that was missed.
+ */
+describe('the roster row hover state reads the surface-hover token, not a literal (#1061)', () => {
+  it('.racer-row:hover uses var(--surface-hover-color)', () => {
+    const css = read('index.css');
+    const match = css.match(/\.racer-row:hover\s*\{([^}]*)\}/);
+    expect(match, '.racer-row:hover rule not found').not.toBeNull();
+    expect(match![1]).toMatch(/var\(--surface-hover-color\)/);
+    expect(match![1]).not.toMatch(/#f8f9fa/i);
+  });
+});
+
+/**
+ * General guard for #1061 — #504 migrated inline `style={{}}` literals in
+ * `.tsx` files, but the ordinary App-surface rules in `index.css` were
+ * never swept the same way, and nothing here asserted a rule about them.
+ * Five of the roughly thirty literal colour declarations it left behind
+ * were not harmless: a roster row that vanished on hover, a light-mode
+ * dropdown menu, a wholly unthemed phone-width roster, and two disabled
+ * buttons — all still light-mode-only regardless of the active theme.
+ *
+ * This walks every rule body in `index.css` *outside* `:root` (the pre-JS
+ * Field Uniform fallback, which is expected and pinned elsewhere to match
+ * themes.ts) and refuses a hex or rgb()/rgba()/hsl()/hsla() literal, or a
+ * bare `white`/`black` keyword, on any colour-bearing property — with an
+ * explicit, reasoned allowlist for the ones that are genuinely fine to
+ * leave, matching the issue's own list: medal borders and their shadows on
+ * the results overlay, ordinary box-shadows (which read as depth, not
+ * theme, regardless of surface colour), the settings-nav hover tint, the
+ * disabled toggle-knob's white circle, the demo-paused overlay, and
+ * `.form-control`'s border / `.theme-swatch`'s border (named explicitly in
+ * the issue as fine to leave). A future hover state — or anything else —
+ * written with a fresh literal fails this rather than waiting for somebody
+ * to switch on a dark theme and move their mouse.
+ */
+describe('index.css declares no literal colour outside :root, except an explicit allowlist (#1061)', () => {
+  const COLOR_PROPERTY_RE =
+    /^(color|background|background-color|background-image|border|border-[a-z-]+|outline|outline-color|fill|stroke|box-shadow|text-shadow)$/;
+  // A hex literal, an rgb()/rgba()/hsl()/hsla() function, or a bare
+  // `white`/`black` keyword — checked only after every `var(...)` reference
+  // in the value has been stripped, so `var(--on-primary-color,
+  // var(--white))` (a token fallback chain, not a literal) does not trip
+  // the bare-keyword half of this check.
+  const LITERAL_COLOR_RE = /#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?)\(|\bwhite\b|\bblack\b/i;
+
+  // (selector, property) — normalized to a single space between tokens —
+  // and why each is left as a literal rather than a token.
+  const ALLOWLIST: Record<string, string> = {
+    // The switch knob is a fixed white circle that has to read clearly
+    // against *two* different track colours (the neutral unchecked track
+    // and the accent-blue checked one) in every theme; a token that moves
+    // with the theme risks landing close to one of those two and nearly
+    // disappearing, which is worse than a knob that never varies.
+    '.slider:before|background-color': 'the toggle knob is a fixed white circle by design',
+
+    // Ordinary depth shadows: they read as elevation, not surface colour,
+    // and stay a translucent black in every existing theme (themes.test.ts
+    // covers the App/Display/Printables shadow tokens that do vary; these
+    // predate #498 and were never migrated because nothing about them
+    // looks wrong under a dark theme).
+    '.dropdown-content|box-shadow': 'ordinary drop shadow, reads as depth in every theme',
+    '.split-btn-main|border-right': 'a hairline separator between the two halves of a split button',
+    '.racer-card|box-shadow': 'ordinary drop shadow, reads as depth in every theme',
+    '.racer-card-photo|box-shadow': 'ordinary drop shadow, reads as depth in every theme',
+    '.projector-mode .heat-card, .projector-mode .heat-card-racer|box-shadow':
+      'ordinary drop shadow, reads as depth in every theme',
+    '.demo-paused-card|box-shadow': 'ordinary drop shadow, reads as depth in every theme',
+
+    // Medal borders/shadows and the gold accents beside them on the results
+    // overlay — the issue names these explicitly as harmless: they are the
+    // Display surface's own award colours (gold/silver/bronze), not App
+    // surface text or backgrounds that a theme is meant to repaint.
+    '.overlay-title|text-shadow': 'gold glow behind the results-overlay title, part of the award colour, not the surface',
+    '.overlay-record-banner|box-shadow': 'gold glow on the track-record banner, part of the award colour, not the surface',
+    '.overlay-result-item|border-left': 'unplaced default left-border colour, alongside the medal colours below',
+    '.overlay-result-item|box-shadow': 'ordinary drop shadow, reads as depth in every theme',
+    '.overlay-result-item.first-place|background': 'gold-tinted gradient, part of the medal colours',
+    '.overlay-result-item.second-place|border-left-color': 'silver medal colour',
+    '.overlay-result-item.third-place|border-left-color': 'bronze medal colour',
+
+    // The demo-paused overlay is its own small, self-contained card, kept
+    // deliberately light regardless of the active theme (like a browser's
+    // own fixed-appearance dialog) — out of scope for this issue's
+    // App-surface sweep. Its button text was not: `color: white` on a
+    // `var(--scouting-blue)` background is the same pattern `.primary-btn`
+    // already solves with `--on-primary-color`, so that one was converted
+    // rather than allowlisted (as was `.settings-nav
+    // button[aria-current='page']`'s identical pattern, found by this same
+    // guard).
+    '.demo-paused-card|background': 'the demo-paused card is a self-contained light card, out of scope here',
+
+    // Named explicitly in the issue as fine to leave.
+    '.settings-nav button:hover|background': 'named in the issue as harmless',
+    '.settings-nav-link:hover|background': 'named in the issue as harmless',
+    '.form-control|border': "named in the issue as fine to leave",
+    '.theme-swatch|border': "named in the issue as fine to leave",
+  };
+
+  function withoutRoot(css: string): string {
+    const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const rootStart = withoutComments.indexOf(':root');
+    const rootOpenBrace = withoutComments.indexOf('{', rootStart);
+    // :root holds only flat custom-property declarations, no nested rules,
+    // so the next closing brace is its own.
+    const rootCloseBrace = withoutComments.indexOf('}', rootOpenBrace);
+    return withoutComments.slice(0, rootStart) + withoutComments.slice(rootCloseBrace + 1);
+  }
+
+  function literalDeclarationsOutsideRoot(
+    css: string,
+  ): { selector: string; property: string; value: string }[] {
+    const body = withoutRoot(css);
+    const findings: { selector: string; property: string; value: string }[] = [];
+    const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+    let ruleMatch: RegExpExecArray | null;
+    while ((ruleMatch = ruleRe.exec(body)) !== null) {
+      const selector = ruleMatch[1].trim().replace(/\s+/g, ' ');
+      if (selector.startsWith('@keyframes') || selector.startsWith('@font-face')) continue;
+      const declarations = ruleMatch[2].split(';');
+      for (const raw of declarations) {
+        const colonIdx = raw.indexOf(':');
+        if (colonIdx === -1) continue;
+        const property = raw.slice(0, colonIdx).trim().toLowerCase();
+        if (!COLOR_PROPERTY_RE.test(property)) continue;
+        let value = raw.slice(colonIdx + 1).trim();
+        // Strip every var(...) reference (including a fallback chain like
+        // var(--on-primary-color, var(--white))) before testing for a
+        // literal — a custom-property *name* is not a literal colour.
+        let previous: string;
+        do {
+          previous = value;
+          value = value.replace(/var\([^()]*\)/g, '');
+        } while (value !== previous);
+        if (LITERAL_COLOR_RE.test(value)) {
+          findings.push({ selector, property, value: raw.trim() });
+        }
+      }
+    }
+    return findings;
+  }
+
+  it('every literal colour declaration found outside :root is on the allowlist', () => {
+    const findings = literalDeclarationsOutsideRoot(read('index.css'));
+    const unlisted = findings.filter((f) => !(`${f.selector}|${f.property}` in ALLOWLIST));
+    expect(
+      unlisted,
+      unlisted
+        .map((f) => `${f.selector} { ${f.property}: ... } — not on the allowlist (${f.value})`)
+        .join('\n'),
+    ).toEqual([]);
+  });
+
+  it('the allowlist names nothing that index.css no longer has', () => {
+    const findings = literalDeclarationsOutsideRoot(read('index.css'));
+    const found = new Set(findings.map((f) => `${f.selector}|${f.property}`));
+    const stale = Object.keys(ALLOWLIST).filter((key) => !found.has(key));
+    expect(stale, `allowlist entries with no matching rule left in index.css: ${stale.join(', ')}`).toEqual([]);
+  });
+});
