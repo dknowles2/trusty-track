@@ -237,6 +237,18 @@ that the two agree), and `[data-theme="clear-sight"]` / `[data-theme=
 at all — Clear Sight's solid border and heavier type, Newsprint's header
 rule in place of a filled bar.
 
+**`tokenSystem.test.ts` also guards every *other* rule in `index.css`, not
+just `:root`** ([#1061](https://github.com/dknowles2/trusty-track/issues/1061)):
+outside `:root`, no rule may declare a colour property with a literal hex,
+`rgb()`/`rgba()`/`hsl()`/`hsla()`, or a bare `white`/`black` keyword, against
+a reasoned allowlist (medal colours and ordinary drop shadows on the results
+overlay, the toggle knob's fixed white circle, the demo-paused card, and
+`.form-control`/`.theme-swatch`'s borders) — a hover state or a disabled
+button written with a fresh literal now fails the build instead of waiting
+for somebody to switch on a dark theme and move their mouse, which is how
+`.racer-row:hover`'s literal `#f8f9fa` sat there blanking the row under
+Under the Lights until this issue found it.
+
 **Three scoping roots, and `applyTheme` clears what it does not set.** The
 App root is `document.body` (`theming/appTheme.ts`'s `applyStoredAppTheme`,
 called first in `main.tsx` and again on a Settings save); the Display root is
