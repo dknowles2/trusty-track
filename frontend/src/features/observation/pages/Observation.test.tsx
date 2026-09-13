@@ -25,10 +25,16 @@ vi.mock('urql', async (importOriginal) => {
     };
 });
 
+const DEFAULT_JSDOM_INNER_WIDTH = window.innerWidth;
+
 // Cleanup after each test
 afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    // Restores jsdom's own default (1024) for any test that widened the
+    // window to clear `displayDensity.ts`'s on-deck-depth width threshold
+    // (#1073 part 2) — a value one test sets must not leak into the next.
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: DEFAULT_JSDOM_INNER_WIDTH });
 });
 
 describe('Observation Page', () => {
@@ -145,6 +151,16 @@ describe('Observation Page', () => {
         // The child named on screen is in the bleachers rather than watching
         // it, so a display that names only the next heat names them at the
         // moment the announcer is already calling for them.
+        //
+        // jsdom's own default viewport (1024×768) is deliberately *under*
+        // `displayDensity.ts`'s on-deck-depth width threshold (1100px, #1073
+        // part 2 — three heat cards do not fit one row until then), which
+        // is what this suite's own jsdom-default check elsewhere pins. This
+        // test is about the "After That" *rendering rule* given the data,
+        // not about density at a particular width, so it widens the window
+        // to clear that threshold rather than asserting a card away density
+        // would legitimately hide at the default width.
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1920 });
         setupMocks({
             currentlyRacing: {
                 id: 2, roundNumber: 1, heatNumber: 2,

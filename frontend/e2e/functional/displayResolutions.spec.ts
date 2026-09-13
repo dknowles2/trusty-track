@@ -446,27 +446,26 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
         return racers.map((r) => `${r.firstName} ${r.lastName}`);
     }
 
+    /** The Standings tab's own guaranteed minimum — `displayDensity.ts`'s
+     * viewport budget (the heat cards row's own ceiling, and the on-deck
+     * depth that keeps enough lanes' worth of cards under it) exists
+     * specifically so this always holds, even at the SVGA floor with this
+     * file's own busiest 6-lane seed. */
+    const MIN_GUARANTEED_STANDINGS_ROWS = 5;
+
     /**
      * The standard mode's own Standings tab used to have no row cap at all —
      * `standings-table-wrapper` grew to fit every racer, and the *page*
      * scrolled past the fold to show the rest, which nobody at the back of
      * the room was ever going to do (#1073 part 2). This checks the actual
-     * fix rather than trusting the mechanism: with 24 racers seeded, a
-     * `.standing-row` count anywhere near that would mean rows are still
-     * being pushed off-screen rather than paged away, and — since the seed
-     * is deliberately busier than any of these four viewports can show at
-     * once — a page indicator naming more than one page.
-     *
-     * Whether every rendered row is fully inside the viewport is checked
-     * only when the wrapper actually bounded itself (`overflow: hidden` —
-     * see `Observation.tsx`'s own comment on `standingsMaxHeightPx`): this
-     * seed's 6-lane heats mean "Now Racing" and "On Deck" alone can leave
-     * less than one table row's worth of room at the SVGA floor and
-     * XGA/720p above it, in which case the wrapper deliberately leaves
-     * `overflow: visible` rather than clip its own header — the same
-     * "the page may need a little scroll" fallback this view always had,
-     * for content with nowhere else to go. That is a heat-card sizing gap,
-     * not a Standings-tab paging one; see the PR body.
+     * fix rather than trusting the mechanism: at least
+     * `MIN_GUARANTEED_STANDINGS_ROWS` rows, every one of them fully inside
+     * the viewport (no row below the fold, and none clipped by the
+     * wrapper's own `overflow: hidden`); fewer than the full 24-racer
+     * roster (proof it is paging rather than dumping everyone on screen);
+     * and — since the seed is deliberately busier than any of these four
+     * viewports can show at once — a page indicator naming more than one
+     * page.
      */
     async function standingsTabPagingFailures(page: Page, viewportHeight: number): Promise<string[]> {
         const bad: string[] = [];
@@ -476,27 +475,25 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             bad.push('no .standing-row rendered at all');
             return bad;
         }
+        if (rowCount < MIN_GUARANTEED_STANDINGS_ROWS) {
+            bad.push(`only ${rowCount} of a guaranteed minimum ${MIN_GUARANTEED_STANDINGS_ROWS} standings rows rendered`);
+        }
         if (rowCount >= racers.length) {
             bad.push(`rendered every racer (${rowCount} of ${racers.length}) rather than paging`);
         }
-        const wrapperOverflowY = await page
-            .locator('.standings-table-wrapper')
-            .evaluate((el) => getComputedStyle(el).overflowY);
-        if (wrapperOverflowY === 'hidden') {
-            for (let i = 0; i < rowCount; i++) {
-                const box = await rows.nth(i).boundingBox();
-                if (!box) {
-                    bad.push(`row ${i} has no bounding box`);
-                    continue;
-                }
-                if (box.y < -1) {
-                    bad.push(`row ${i} starts above the viewport (y=${box.y})`);
-                }
-                if (box.y + box.height > viewportHeight + 1) {
-                    bad.push(
-                        `row ${i} extends below the fold: bottom=${(box.y + box.height).toFixed(1)} > viewport height ${viewportHeight}`,
-                    );
-                }
+        for (let i = 0; i < rowCount; i++) {
+            const box = await rows.nth(i).boundingBox();
+            if (!box) {
+                bad.push(`row ${i} has no bounding box`);
+                continue;
+            }
+            if (box.y < -1) {
+                bad.push(`row ${i} starts above the viewport (y=${box.y})`);
+            }
+            if (box.y + box.height > viewportHeight + 1) {
+                bad.push(
+                    `row ${i} extends below the fold: bottom=${(box.y + box.height).toFixed(1)} > viewport height ${viewportHeight}`,
+                );
             }
         }
 
