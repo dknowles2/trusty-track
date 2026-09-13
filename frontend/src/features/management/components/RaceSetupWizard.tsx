@@ -246,6 +246,7 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
                     const isVisited = i < stepIndex;
                     const label = `${i + 1}. ${stepLabel(id)}`;
                     const pillStyle = {
+                        display: 'inline-block',
                         fontSize: '0.8rem',
                         padding: '0.2rem 0.6rem',
                         borderRadius: '999px',
