@@ -25,11 +25,31 @@
  * advancement cascade renumbers a championship round's heats 1..N on every
  * rebuild, so a master number written onto one could not survive anyway.
  */
+import type { Lane } from './types';
+import { hasRun } from './lanes';
 
 export interface OrderedHeat {
   roundId: number;
   roundNumber: number;
   heatNumber: number;
+}
+
+/**
+ * Whether the race has not got to this heat yet — the client mirror of
+ * `_unfinished` in `backend/api/schema.py` (~L105), which the `onDeck` and
+ * `currentlyRacing` subscriptions filter through before slicing. "Not got to
+ * yet" is `!lanes.is_finished(...)` there; `!hasRun(heat.lanes)` here is the
+ * identical rule — a skipped heat counts as done (#1001) on both sides, since
+ * `hasRun` (`features/racing/lanes.ts`) already mirrors `is_finished`
+ * exactly (see that file's own docstring).
+ *
+ * Exists so `nextExecutionHeat` in `RaceControl.tsx` can ask "the first heat
+ * after this one that is unfinished" rather than "the next one positionally"
+ * (#1084) — re-running an earlier heat must not put an already-completed
+ * later heat On Deck.
+ */
+export function isUnfinished(heat: { readonly lanes: readonly Lane[] }): boolean {
+  return !hasRun(heat.lanes);
 }
 
 function executionSortKey(

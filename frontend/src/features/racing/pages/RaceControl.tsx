@@ -30,14 +30,15 @@ import {
 import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiPencil } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane, EliminationChart } from '../types';
-import { hasRun, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shouldDerivePlaces, skippedHeats } from '../lanes';
-import { executionComparator } from '../runningOrder';
+import { hasRun, hasTime, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shouldDerivePlaces, skippedHeats } from '../lanes';
+import { executionComparator, isUnfinished } from '../runningOrder';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
 import { hasTerminalRound, heatSetKey, observeRaceComplete, type SeenComplete } from '../raceCompletion';
 import {
   deleteRoundConfirmMessage,
   regenerateRoundConfirmMessage,
   regenerateWouldDiscardChanges,
+  reRunHeatConfirmMessage,
 } from '../scheduleConfirm';
 import { shouldShowReadiness } from '../readiness';
 import { estimatePace } from '../pace';
@@ -547,6 +548,24 @@ export default function RaceControl() {
 
   const handleRunHeat = useCallback(async (heat: Heat, shouldStart: boolean = true) => {
     if (hasRun(heat.lanes)) {
+        // #1083: the button reads "Re-Run" — rather than "Run" — exactly
+        // when there is a recorded time or place to lose (`hasTimes`, not
+        // `hasRun`: a heat that was only ever skipped has nothing on it, and
+        // asking here would be pure friction on the same click the button's
+        // own label already promises is free). Named by heat number so a
+        // dialog left open while the operator's selection moves elsewhere is
+        // visibly stale, and how many lanes hold a result so the clear's
+        // size is not a surprise.
+        if (hasTimes(heat.lanes)) {
+            const confirmed = await showConfirm(
+                reRunHeatConfirmMessage(heat.heatNumber, heat.lanes.filter(hasTime).length),
+                'Re-run Heat',
+                'Re-run',
+                'danger'
+            );
+            if (!confirmed) return;
+        }
+
         // Clear results locally first (Optimistic UI Update would be complex with urql, so we just clear on server)
         try {
             const result = await updateHeatResultMutation({
@@ -605,7 +624,7 @@ export default function RaceControl() {
         setSelectedHeatId(heat.id);
         navigate(`/race/${id}/control/race`);
     }
-  }, [heats, masterRunningOrder, updateHeatResultMutation, reExecute, handleReorderHeats, navigate, id, showToast, showAlert]);
+  }, [heats, masterRunningOrder, updateHeatResultMutation, reExecute, handleReorderHeats, navigate, id, showToast, showAlert, showConfirm]);
 
 
   // Rounds whose field comes from the bottom of the standings — a Slowest
@@ -804,8 +823,22 @@ export default function RaceControl() {
       ? sortedHeatsEx.findIndex((h: Heat) => h.id === activeExecutionHeat.id)
       : -1;
 
-  const nextExecutionHeat = currentIndex !== -1 && currentIndex + 1 < sortedHeatsEx.length
-      ? sortedHeatsEx[currentIndex + 1]
+  /**
+   * The first heat *after* the current one, in running order, that has not
+   * run — not simply the positional successor (#1084). Re-Run can bring an
+   * earlier heat back to the front of the queue while later heats still hold
+   * their results, and the positional successor in that case is one of those
+   * already-completed heats: On Deck named it, Next Heat jumped to it, and
+   * `hasNextHeat` told `raceFlow.ts` there was somewhere to advance to when
+   * there may be nothing left unfinished at all.
+   *
+   * `isUnfinished` (`runningOrder.ts`) is the client mirror of the backend's
+   * own filter — `Subscription.on_deck`'s `_unfinished(...)` — so this
+   * screen and the wall displays agree about what is next even when a heat
+   * behind the frontier has just been re-run.
+   */
+  const nextExecutionHeat = currentIndex !== -1
+      ? sortedHeatsEx.slice(currentIndex + 1).find(isUnfinished) ?? null
       : null;
 
   const completedPreviousHeats = useMemo(() => {

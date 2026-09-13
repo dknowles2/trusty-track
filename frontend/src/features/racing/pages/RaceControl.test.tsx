@@ -305,7 +305,7 @@ describe('RaceControl Page', () => {
         expect(screen.queryByTestId('active-heat-id')).not.toBeInTheDocument();
     });
 
-    it('clears previous results when re-running a completed heat', async () => {
+    it('confirms, then clears previous results when re-running a completed heat (#1083)', async () => {
         const mockUpdateHeatResultMutation = vi.fn().mockResolvedValue({ data: { updateHeatResult: true } });
         (useMutation as any).mockImplementation(() => {
              // We can check query if needed, but for now just return the mock
@@ -332,6 +332,14 @@ describe('RaceControl Page', () => {
 
         fireEvent.click(screen.getByText('Run Heat 1'));
 
+        // The heat holds a recorded result, so Re-Run asks first (#1083)
+        // rather than clearing straight away.
+        await waitFor(() => {
+            expect(screen.getByText(/Re-run Heat 1\?/)).toBeInTheDocument();
+        });
+        expect(mockUpdateHeatResultMutation).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByRole('button', { name: 'Re-run' }));
+
         await waitFor(() => {
             expect(mockUpdateHeatResultMutation).toHaveBeenCalled();
         });
@@ -343,6 +351,44 @@ describe('RaceControl Page', () => {
             lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: null, place: null, skipped: false }],
         });
     });
+
+    it('does not clear results when the re-run confirmation is declined (#1083)', async () => {
+        const mockUpdateHeatResultMutation = vi.fn().mockResolvedValue({ data: { updateHeatResult: true } });
+        (useMutation as any).mockImplementation(() => {
+             return [{ fetching: false }, mockUpdateHeatResultMutation];
+        });
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        await waitFor(() => expect(screen.getByRole('button', { name: /Schedule/i })).toBeInTheDocument());
+        fireEvent.click(screen.getByRole('button', { name: /^\s*Race\s*$/i }));
+        await waitFor(() => {
+            expect(screen.getByTestId('race-execution')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText('Run Heat 1'));
+        await waitFor(() => {
+            expect(screen.getByText(/Re-run Heat 1\?/)).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+        // The dialog resolved false, so the clear never happens.
+        expect(mockUpdateHeatResultMutation).not.toHaveBeenCalled();
+    });
+
+    // A genuinely unrun heat — no time, no place, not skipped — reaches
+    // neither `showConfirm` nor `updateHeatResult`; see
+    // `RaceControlReRunConfirm.test.tsx` for that case and the skipped-heat
+    // one alongside it, captured directly off `handleRunHeat` rather than
+    // through this file's hardcoded mock buttons.
 
     // -----------------------------------------------------------------------
     // A failed reorder must not move the operator on (#416)
