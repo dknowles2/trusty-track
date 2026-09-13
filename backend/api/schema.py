@@ -19,7 +19,7 @@ from typing import Annotated, Any, Optional
 import pillow_heif
 import strawberry
 from pydantic import ValidationError
-from sqlalchemy.orm import Session, object_session
+from sqlalchemy.orm import Session, joinedload, object_session
 from strawberry.types import Info
 
 from backend import demo_mode
@@ -41,6 +41,7 @@ from backend.domain import name_display as domain_name_display
 from backend.domain import scenes as domain_scenes
 from backend.domain import scoring as domain_scoring
 from backend.domain import terminology as domain_terminology
+from backend.domain import theme as domain_theme
 from backend.domain.scale_speed import DEFAULT_SCALE
 from backend.domain.scale_speed import scale_mph as domain_scale_mph
 from backend.services import displays as displays_service
@@ -1185,6 +1186,17 @@ class RaceUpdateInput:
     #: the same reason `clear_terminology` exists: absent already means
     #: leave alone, so nothing else can ask for null.
     clear_name_display: bool = False
+    #: A per-race override of the organization's Display/Printables themes
+    #: (#1081). Absent means leave alone; `"MATCH_APP"` here is a real
+    #: override (Field Uniform, pinned to this race), distinct from
+    #: inheriting — so, like `name_display` above, there is a `clear...`
+    #: flag to get back to null rather than `"MATCH_APP"` doubling as both.
+    display_theme: str | None = None
+    printables_theme: str | None = None
+    #: The explicit way back to "inherit the install's setting", for the
+    #: same reason `clear_name_display` exists.
+    clear_display_theme: bool = False
+    clear_printables_theme: bool = False
     #: Locking or unlocking the race (#585). Absent means leave alone, same
     #: as every other field here; `false` is an ordinary value (the unlock),
     #: not a sentinel needing its own clear flag. `api.race_lock` is what
@@ -1969,6 +1981,16 @@ class Race:
     #: organization's setting (#552) — what the race edit form reads back to
     #: populate its picker, distinct from `resolvedNameDisplay` below.
     name_display: str | None
+    #: This race's raw Display/Printables theme overrides (#1081), null
+    #: where it inherits the install's setting from System Settings — what
+    #: the race edit form's pickers read back, distinct from
+    #: `resolvedPrintablesTheme` below. There is no `resolvedDisplayTheme`
+    #: here: the one real consumer of a race's resolved *Display* theme is
+    #: the `displayAssignment` subscription, which already carries a race id
+    #: and resolves against the database row directly rather than through
+    #: this type — see `_display_theme_setting`.
+    display_theme: str | None
+    printables_theme: str | None
     #: Whether the race is locked against further edits (#585) — set from
     #: Race Control or the race edit form once an event has concluded.
     #: Enforced by `api.race_lock.RaceLockExtension`, not by anything a
@@ -2014,6 +2036,28 @@ class Race:
         return domain_name_display.resolve_name_display(
             organization=organization.name_display if organization else None,
             race=self.name_display,
+        )
+
+    @strawberry.field
+    def resolved_printables_theme(self, info: Info) -> str:
+        """Which Printables theme this race's pit passes, licences, heat
+        sheets and certificates actually print in, fully resolved (#1081).
+
+        A race override layered over the organization's install-wide
+        setting — see `domain.theme.resolve_theme_setting`. Every printed
+        page reads this (never the raw `printablesTheme` override, and
+        never `initialConfig.printablesTheme`) so the layering happens in
+        exactly one place, the same reasoning `resolvedNameDisplay` and
+        `terminology` above follow — an organization row a printable's own
+        query never otherwise touches, loaded through the same per-operation
+        loader those two already prime.
+        """
+        organization = _loaders(info).organization_by_id(self.organization_id)
+        return domain_theme.resolve_theme_setting(
+            organization_setting=organization.printables_theme
+            if organization
+            else "MATCH_APP",
+            race_override=self.printables_theme,
         )
 
     @strawberry.field
@@ -2706,16 +2750,35 @@ def _display(
     )
 
 
-def _display_theme_setting(db: Session) -> str:
-    """The organization's stored Display theme setting, or the default.
+def _display_theme_setting(db: Session, race_id: int) -> str:
+    """The Display theme this screen should actually show, resolved (#1081).
 
-    Read fresh rather than cached: `display_assignment` holds its `db` open
-    for the whole connection (#174), and a subscription that re-reads the
-    database has to see a value another request just committed, not the one
-    the session had cached from opening the socket.
+    A race's own override (`Race.display_theme`) layered over the
+    organization's install-wide setting — see
+    `domain.theme.resolve_theme_setting`. Read fresh rather than cached:
+    `display_assignment` holds its `db` open for the whole connection
+    (#174), and a subscription that re-reads the database has to see a
+    value another request just committed, not one the session had cached
+    from opening the socket.
+
+    One query joining `Race` to its `Organization`, not two separate ones —
+    adding the race layer costs this subscription nothing extra per event
+    (`test_query_counts.py`), the same one round trip `_display_theme_setting`
+    already made before this existed, reading `Race` instead of
+    `Organization` directly.
     """
-    organization = db.query(models.Organization).first()
-    return organization.display_theme if organization else "MATCH_APP"
+    race = (
+        db.query(models.Race)
+        .options(joinedload(models.Race.organization))
+        .filter(models.Race.id == race_id)
+        .first()
+    )
+    if race is None or race.organization is None:
+        return "MATCH_APP"
+    return domain_theme.resolve_theme_setting(
+        organization_setting=race.organization.display_theme,
+        race_override=race.display_theme,
+    )
 
 
 async def _publish_displays(race_id: int) -> None:
@@ -2723,18 +2786,42 @@ async def _publish_displays(race_id: int) -> None:
     await pubsub.publish(f"displays:{race_id}", None)
 
 
+async def _publish_race_display_theme_change(race_id: int) -> None:
+    """Nudge every display currently pointed at this race to re-read its
+    theme (#1081) — the race-scoped sibling of
+    `_broadcast_display_theme_change` below, for `updateRace`'s own
+    `displayTheme`/`printablesTheme` rather than `setThemes`'s
+    install-wide pair.
+
+    Only the displays `DisplayRegistry.for_race` says are pointed at this
+    race can possibly be showing its override, unlike the organization-wide
+    setting, which every display needs to hear about regardless of which
+    race it happens to be on — so this reaches for `for_race` rather than
+    `all_ids`. Same trick as `_broadcast_display_theme_change`: publishing
+    `None` on a display's own `display_assignment:{id}` channel is enough,
+    since that subscription re-reads this race's row on *every* event on
+    its channel, whatever raised it.
+    """
+    for display in displays_service.registry.for_race(race_id):
+        await pubsub.publish(f"display_assignment:{display.display_id}", None)
+
+
 async def _broadcast_display_theme_change() -> None:
     """Nudge every connected display to re-read the Display theme (#586).
 
-    `Organization.display_theme` is install-wide, not race-scoped (#498), so
-    this is not `_publish_displays`'s job — that channel is per-race and
-    tells the *operator's* list something changed, not a screen showing it.
-    A theme change has to reach every screen currently open regardless of
-    which race it happens to be pointed at, which is what
+    For `Organization.display_theme` — `setThemes`'s own field, which
+    applies to every race at once — not for a race's own override
+    (`Race.display_theme`, #1081), which is scoped to the displays already
+    pointed at that one race and reaches them through
+    `_publish_race_display_theme_change` above instead. This one is not
+    `_publish_displays`'s job either — that channel is per-race and tells
+    the *operator's* list something changed, not a screen showing it. An
+    organization-wide change has to reach every screen currently open
+    regardless of which race it happens to be pointed at, which is what
     `DisplayRegistry.all_ids` is for.
 
     Publishing `None` on each display's own `display_assignment:{id}` channel
-    is enough: `display_assignment` re-reads the organization row on *every*
+    is enough: `display_assignment` re-reads this race's row on *every*
     event on that channel, whatever raised it, so this doubles as "you have
     mail" rather than needing to carry a payload of its own.
     """
@@ -4158,6 +4245,8 @@ class Mutation:
         clear_weight_limit = data.pop("clear_weight_limit", False)
         clear_terminology = data.pop("clear_terminology", False)
         clear_name_display = data.pop("clear_name_display", False)
+        clear_display_theme = data.pop("clear_display_theme", False)
+        clear_printables_theme = data.pop("clear_printables_theme", False)
         filtered_data = {k: v for k, v in data.items() if v is not None}
         # Explicit removal beats an absent field, which means "leave alone"
         # here for every other column (#205, following #192).
@@ -4174,6 +4263,22 @@ class Mutation:
         # back to null needs its own explicit flag too.
         if clear_name_display:
             filtered_data["name_display"] = None
+        # Same trap again, for the per-race Display/Printables theme
+        # override (#1081): `"MATCH_APP"` here is a real override (Field
+        # Uniform, pinned to this race), not the inherit state, so getting
+        # back to null needs its own explicit flag too.
+        if clear_display_theme:
+            filtered_data["display_theme"] = None
+        if clear_printables_theme:
+            filtered_data["printables_theme"] = None
+        # Whether this save touches either theme at all, decided before the
+        # DB write rather than by comparing before/after: a race-scoped
+        # nudge is cheap (`DisplayRegistry.for_race`, not every display at
+        # the venue), so there is no need to detect an actual value change
+        # the way the install-wide `setThemes` does before its own broadcast.
+        theme_fields_changed = (
+            "display_theme" in filtered_data or "printables_theme" in filtered_data
+        )
         try:
             race_update = schemas.RaceUpdate(**typing.cast(Any, filtered_data))
         except ValidationError as exc:
@@ -4196,6 +4301,14 @@ class Mutation:
             # computed under the old scoring strategy until the next heat
             # result happens to fire the channel.
             await _publish_race_state(updated.id, kind=RaceChangeKind.RACE_SETTINGS)
+            if theme_fields_changed:
+                # A race's own Display/Printables theme override changed
+                # (#1081) — the race-scoped sibling of
+                # `_broadcast_display_theme_change`: only the displays
+                # already pointed at *this* race can be showing it, unlike
+                # the organization-wide setting `setThemes` writes, which
+                # every display needs to hear about regardless of race.
+                await _publish_race_display_theme_change(updated.id)
         return updated
 
     @strawberry.mutation
@@ -7422,16 +7535,19 @@ class Subscription:
         assignment made in that window reaches no one and the screen sits on
         the wrong view for the rest of the event.
 
-        **Also carries the Display surface's theme (#586).** This is the one
-        subscription a live screen holds open for the whole event — the
-        "leash" `Observation.tsx`'s own comment names — so it is also the
-        seam that lets an operator changing the theme in System Settings
-        reach a screen that is already open, with no new socket and no
-        polling. `updateInitialConfig` publishes to every connected display's
-        own channel when `display_theme` changes; on every event on this
-        channel (a real assignment or that nudge) the current organization
-        row is re-read, so a screen that was merely renamed picks up a theme
-        changed a moment earlier for free, and vice versa.
+        **Also carries the Display surface's theme (#586, #1081).** This is
+        the one subscription a live screen holds open for the whole event —
+        the "leash" `Observation.tsx`'s own comment names — so it is also
+        the seam that lets a theme change reach a screen that is already
+        open, with no new socket and no polling. `setThemes` (install-wide)
+        publishes to every connected display's own channel when either
+        theme changes; `updateRace` (this race's own override) publishes
+        only to the displays already pointed at this race
+        (`_publish_race_display_theme_change`). On every event on this
+        channel (a real assignment or either nudge) `_display_theme_setting`
+        re-reads this race's row, joined to its organization, and resolves
+        the two layers fresh — so a screen that was merely renamed picks up
+        a theme changed a moment earlier for free, and vice versa.
 
         **Being forgotten while still connected does not strand this screen
         (#758).** `forget_display` nudges this same channel, and finding the
@@ -7463,7 +7579,7 @@ class Subscription:
             display = displays_service.registry.connect(display_id, race_id, name)
             await _publish_displays(race_id)
             try:
-                yield _display(display, _display_theme_setting(db))
+                yield _display(display, _display_theme_setting(db, display.race_id))
                 async for _ in stream:
                     current = displays_service.registry.get(display_id)
                     if current is None:
@@ -7473,7 +7589,7 @@ class Subscription:
                         await _publish_displays(race_id)
                     db.expire_all()
                     _loaders(info).clear()
-                    yield _display(current, _display_theme_setting(db))
+                    yield _display(current, _display_theme_setting(db, current.race_id))
             finally:
                 # The socket closing is the only signal that a screen has gone
                 # away, so it has to be handled however the generator ends —

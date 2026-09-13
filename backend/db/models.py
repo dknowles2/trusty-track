@@ -508,6 +508,22 @@ class Race(Base):
     # as the terminology columns' `clearTerminology` — see
     # `RaceUpdateInput` in `api/schema.py`.
     name_display: Mapped[str | None] = mapped_column(String, nullable=True)
+    # A per-race override of the organization's Display/Printables themes
+    # (#1081) — the venue running a regular derby in Field Uniform and a
+    # space-themed "Rocket Derby" the same season, without re-theming the
+    # install before and after each one. Null means "inherit the install's
+    # setting", the same layering `domain/theme.py` gives terminology and
+    # name-display; *unlike* the terminology columns, `"MATCH_APP"` here is
+    # an ordinary value (Field Uniform, pinned to this race regardless of
+    # what the install picks later) rather than the inherit state — the
+    # same distinction `name_display`'s explicit `"FULL"` makes against its
+    # own null — so getting back to null needs the same `clearDisplayTheme`/
+    # `clearPrintablesTheme` escape hatch `clearNameDisplay` uses. The App
+    # theme has no race-level column at all: it lives only in each device's
+    # own `localStorage` and never reaches the server (#498's "Where a theme
+    # is picked").
+    display_theme: Mapped[str | None] = mapped_column(String, nullable=True)
+    printables_theme: Mapped[str | None] = mapped_column(String, nullable=True)
     #: One interleaved running order across the race's racing groups, rather
     #: than a block per group (#549 stage 2). Off by default — running one
     #: den at a time is how many packs deliberately structure an event, and

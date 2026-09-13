@@ -17,7 +17,7 @@ import pytest
 
 import backend.api.schema as schema_mod
 from backend.api.pubsub import MAX_QUEUE_SIZE, _PubSub
-from backend.api.schema import Mutation, Query, Subscription
+from backend.api.schema import Mutation, Query, RaceUpdateInput, Subscription
 from backend.db import crud, schemas
 from backend.domain.displays import DisplayView
 from backend.services.displays import registry
@@ -247,11 +247,40 @@ def _organization(db, display_theme="MATCH_APP"):
     return organization
 
 
+_race_count = 0
+
+
+def _race(db, organization, display_theme=None):
+    """A race under `organization` (#1081) — `_display_theme_setting` now
+    resolves against a real `Race` row (its own override, layered over the
+    organization's), not the organization alone, so a display subscription
+    needs one to be pointed at."""
+    global _race_count
+    _race_count += 1
+    track = crud.create_track(db, schemas.TrackCreate(name=f"Track {_race_count}"))
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            name=f"Race {_race_count}",
+            organization_id=organization.id,
+            track_id=track.id,
+        ),
+    )
+    if display_theme is not None:
+        race.display_theme = display_theme
+        db.commit()
+        db.refresh(race)
+    return race
+
+
 @pytest.mark.asyncio
 async def test_the_opening_payload_carries_the_organizations_display_theme(db):
-    _organization(db, display_theme="old-glory")
+    organization = _organization(db, display_theme="old-glory")
+    race = _race(db, organization)
 
-    stream = Subscription().display_assignment(_info(db), display_id="abc", race_id=1)
+    stream = Subscription().display_assignment(
+        _info(db), display_id="abc", race_id=race.id
+    )
 
     first = await _first(stream)
 
@@ -269,9 +298,12 @@ async def test_changing_the_theme_pushes_to_a_display_already_connected(db):
     assignment travels over, so a screen that never touches its own list still
     hears about a theme change made from across the room.
     """
-    _organization(db, display_theme="MATCH_APP")
+    organization = _organization(db, display_theme="MATCH_APP")
+    race = _race(db, organization)
 
-    stream = Subscription().display_assignment(_info(db), display_id="abc", race_id=1)
+    stream = Subscription().display_assignment(
+        _info(db), display_id="abc", race_id=race.id
+    )
     opening = await _first(stream)
     assert opening.display_theme_setting == "MATCH_APP"
 
@@ -291,9 +323,12 @@ async def test_changing_the_theme_pushes_to_a_display_already_connected(db):
 async def test_a_display_on_a_different_race_still_hears_the_theme_change(db):
     """The setting is install-wide, not race-scoped (#498) — every connected
     screen has to hear it, whichever race it happens to be pointed at."""
-    _organization(db, display_theme="MATCH_APP")
+    organization = _organization(db, display_theme="MATCH_APP")
+    race = _race(db, organization)
 
-    stream = Subscription().display_assignment(_info(db), display_id="xyz", race_id=2)
+    stream = Subscription().display_assignment(
+        _info(db), display_id="xyz", race_id=race.id
+    )
     await _first(stream)
 
     following = asyncio.create_task(stream.__anext__())
@@ -313,9 +348,12 @@ async def test_a_theme_unchanged_by_the_save_does_not_nudge_a_connected_display(
     """A save that leaves `display_theme` alone must not wake every screen for
     nothing — the flood the registry's `all_ids` walk would otherwise cause on
     an ordinary Appearance save that only changes the Printables theme."""
-    _organization(db, display_theme="old-glory")
+    organization = _organization(db, display_theme="old-glory")
+    race = _race(db, organization)
 
-    stream = Subscription().display_assignment(_info(db), display_id="abc", race_id=1)
+    stream = Subscription().display_assignment(
+        _info(db), display_id="abc", race_id=race.id
+    )
     await _first(stream)
 
     following = asyncio.create_task(stream.__anext__())
@@ -329,6 +367,86 @@ async def test_a_theme_unchanged_by_the_save_does_not_nudge_a_connected_display(
     following.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await following
+
+
+# -- a race's own Display theme override (#1081) ---------------------------
+
+
+@pytest.mark.asyncio
+async def test_the_opening_payload_prefers_a_races_own_override(db):
+    organization = _organization(db, display_theme="old-glory")
+    race = _race(db, organization, display_theme="newsprint")
+
+    stream = Subscription().display_assignment(
+        _info(db), display_id="abc", race_id=race.id
+    )
+
+    first = await _first(stream)
+
+    assert first.display_theme_setting == "newsprint"
+    await stream.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_races_override_reaches_only_a_display_pointed_at_that_race(db):
+    """`updateRace` writing a race's own theme is not `setThemes` — only the
+    screens already on *this* race should hear about it (#1081), unlike the
+    organization-wide setting every screen has to hear regardless of race."""
+    organization = _organization(db, display_theme="MATCH_APP")
+    race = _race(db, organization)
+    other_race = _race(db, organization)
+
+    on_race = Subscription().display_assignment(
+        _info(db), display_id="abc", race_id=race.id
+    )
+    await _first(on_race)
+    on_other_race = Subscription().display_assignment(
+        _info(db), display_id="xyz", race_id=other_race.id
+    )
+    await _first(on_other_race)
+
+    following = asyncio.create_task(on_race.__anext__())
+    following_other = asyncio.create_task(on_other_race.__anext__())
+    await asyncio.sleep(0.05)
+
+    await Mutation().update_race(
+        _info(db), id=race.id, race=RaceUpdateInput(display_theme="under-the-lights")
+    )
+
+    payload = await asyncio.wait_for(following, timeout=TIMEOUT)
+    assert payload.display_theme_setting == "under-the-lights"
+
+    # The other race's screen was never nudged at all.
+    assert not following_other.done()
+    following_other.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await following_other
+
+    await on_race.aclose()
+    await on_other_race.aclose()
+
+
+@pytest.mark.asyncio
+async def test_clearing_a_races_override_reverts_to_the_installs_setting(db):
+    organization = _organization(db, display_theme="old-glory")
+    race = _race(db, organization, display_theme="newsprint")
+
+    stream = Subscription().display_assignment(
+        _info(db), display_id="abc", race_id=race.id
+    )
+    opening = await _first(stream)
+    assert opening.display_theme_setting == "newsprint"
+
+    following = asyncio.create_task(stream.__anext__())
+    await asyncio.sleep(0.05)
+
+    await Mutation().update_race(
+        _info(db), id=race.id, race=RaceUpdateInput(clear_display_theme=True)
+    )
+
+    payload = await asyncio.wait_for(following, timeout=TIMEOUT)
+    assert payload.display_theme_setting == "old-glory"
+    await stream.aclose()
 
 
 # --------------------------------------------------------------------------- #

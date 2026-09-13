@@ -101,7 +101,7 @@ export default function HeatSheet() {
     const laneColumns = sections[0]?.rows[0]?.cells ?? [];
 
     return (
-        <div className="printables-page" {...printablesThemeRootProps(data?.initialConfig?.printablesTheme)}>
+        <div className="printables-page" {...printablesThemeRootProps(data?.race?.resolvedPrintablesTheme)}>
             <div className="printables-controls no-print">
                 <div>
                     <Link

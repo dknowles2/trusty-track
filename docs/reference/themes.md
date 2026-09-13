@@ -19,13 +19,27 @@ saved on this laptop or tablet only — it never touches another screen, and
 it never touches a printed page. Two people running the same race can each
 have their own laptop looking different.
 
-**Display and Printables are per install**, the same as the rest of
-System Settings. That is deliberate: the Displays panel already sends every
-wall screen what to show from the operator's own list, and walking to each
-screen to set a theme on it individually would defeat the point of that.
-Every printer at the event prints the same look for the same reason — a
-pack's check-in desk is often more than one laptop, and every pit pass
+**Display and Printables are per install by default**, the same as the rest
+of System Settings. That is deliberate: the Displays panel already sends
+every wall screen what to show from the operator's own list, and walking to
+each screen to set a theme on it individually would defeat the point of
+that. Every printer at the event prints the same look for the same reason —
+a pack's check-in desk is often more than one laptop, and every pit pass
 should look like the same event no matter which one printed it.
+
+**A race can override either one for itself.** A pack that runs an ordinary
+derby in Field Uniform one weekend and a space-themed "Rocket Derby" the
+next does not have to re-theme the install before and after — open that
+race's own **Edit race → Appearance** section and pick a theme there
+instead. "Use the install's setting" (the default for a race with no
+opinion of its own) keeps following whatever System Settings is set to,
+including a later change; picking one of the seven themes, including
+"Field Uniform (default)," pins that race to it regardless of what the
+install does afterwards. Every display pointed at that race, and every pit
+pass or certificate printed for it, shows the race's own choice — a display
+on a *different* race, or the install's own preview in System Settings, is
+unaffected. The App theme has no per-race equivalent at all: it stays
+per-device, exactly as above.
 
 **"Field Uniform (default)."** The Display and Printables pickers offer this
 first, selected by default. It is not a fourth look of its own — it is Field
@@ -38,12 +52,15 @@ there is no App picker for either of them to follow, and the option is named
 for what it actually shows now.
 
 **Changing Display repaints a wall display or projector that is already
-open, live** — no reload needed. It reaches the screen over the same
+open, live** — no reload needed, whether the change is the install's own
+setting or one race's override. It reaches the screen over the same
 connection that already tells it what to show, so a theme picked mid-event
-takes effect on every open screen within a moment. **Printables is
-different**: a printed page is not a live connection, so a theme change
-there only affects the next thing you print — nothing to "repaint" on paper
-already handed out.
+takes effect on every open screen within a moment — an install-wide change
+reaches every screen at the venue; a race's own override reaches only the
+screens currently pointed at that race. **Printables is different**: a
+printed page is not a live connection, so a theme change there only affects
+the next thing you print — nothing to "repaint" on paper already handed
+out.
 
 ## The seven themes
 

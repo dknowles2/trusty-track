@@ -61,7 +61,7 @@ export default function Certificate() {
     if (!race) return <p style={{ padding: '2rem' }}>Race not found.</p>;
 
     return (
-        <div className="printables-page" {...printablesThemeRootProps(data?.initialConfig?.printablesTheme)}>
+        <div className="printables-page" {...printablesThemeRootProps(data?.race?.resolvedPrintablesTheme)}>
             <div className="printables-controls no-print">
                 <div>
                     <Link

@@ -7,15 +7,19 @@ import { gql } from 'urql';
  */
 export const GET_PRINTABLES = gql`
   query GetPrintables($raceId: Int!) {
-    initialConfig {
-      printablesTheme
-    }
     race(raceId: $raceId) {
       id
       name
       dateTime
       location
       resolvedNameDisplay
+      # A race's Printables theme, fully resolved — its own override if it
+      # has one, else whatever System Settings has chosen (#1081). Reading
+      # this off race rather than initialConfig.printablesTheme (the old,
+      # install-only source) is the whole of what makes this page respect
+      # a race's own override; domain.theme.resolve_theme_setting is where
+      # the layering actually happens.
+      resolvedPrintablesTheme
       racingGroups {
         id
         name
@@ -48,9 +52,6 @@ export const GET_PRINTABLES = gql`
  */
 export const GET_HEAT_SHEET = gql`
   query GetHeatSheet($raceId: Int!) {
-    initialConfig {
-      printablesTheme
-    }
     race(raceId: $raceId) {
       id
       name
@@ -58,6 +59,13 @@ export const GET_HEAT_SHEET = gql`
       location
       trackId
       resolvedNameDisplay
+      # A race's Printables theme, fully resolved — its own override if it
+      # has one, else whatever System Settings has chosen (#1081). Reading
+      # this off race rather than initialConfig.printablesTheme (the old,
+      # install-only source) is the whole of what makes this page respect
+      # a race's own override; domain.theme.resolve_theme_setting is where
+      # the layering actually happens.
+      resolvedPrintablesTheme
       masterRunningOrder
       rounds {
         id
@@ -117,9 +125,6 @@ export const GET_HEAT_SHEET = gql`
  */
 export const GET_RESULTS_SHEET = gql`
   query GetResultsSheet($raceId: Int!) {
-    initialConfig {
-      printablesTheme
-    }
     race(raceId: $raceId) {
       id
       name
@@ -127,6 +132,13 @@ export const GET_RESULTS_SHEET = gql`
       location
       scoringStrategy
       resolvedNameDisplay
+      # A race's Printables theme, fully resolved — its own override if it
+      # has one, else whatever System Settings has chosen (#1081). Reading
+      # this off race rather than initialConfig.printablesTheme (the old,
+      # install-only source) is the whole of what makes this page respect
+      # a race's own override; domain.theme.resolve_theme_setting is where
+      # the layering actually happens.
+      resolvedPrintablesTheme
       rounds {
         id
         name
@@ -208,15 +220,19 @@ export function championshipResultsQuery(roundIds: readonly number[]): string {
  */
 export const GET_CERTIFICATES = gql`
   query GetCertificates($raceId: Int!) {
-    initialConfig {
-      printablesTheme
-    }
     race(raceId: $raceId) {
       id
       name
       dateTime
       location
       resolvedNameDisplay
+      # A race's Printables theme, fully resolved — its own override if it
+      # has one, else whatever System Settings has chosen (#1081). Reading
+      # this off race rather than initialConfig.printablesTheme (the old,
+      # install-only source) is the whole of what makes this page respect
+      # a race's own override; domain.theme.resolve_theme_setting is where
+      # the layering actually happens.
+      resolvedPrintablesTheme
       awards {
         id
         name

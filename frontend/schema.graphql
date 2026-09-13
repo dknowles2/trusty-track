@@ -611,12 +611,15 @@ type Race {
   dropWorstRuns: Int!
   excludeRoundWinnersFromQualifyingStandings: Boolean!
   nameDisplay: String
+  displayTheme: String
+  printablesTheme: String
   isLocked: Boolean!
   oneTrophyPerRacer: Boolean!
   qrHeadline: String
   qrWifiNote: String
   intermission: Intermission!
   resolvedNameDisplay: String!
+  resolvedPrintablesTheme: String!
   terminology: Terminology!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
   awards: [Award!]!
@@ -722,6 +725,10 @@ input RaceUpdateInput {
   excludeRoundWinnersFromQualifyingStandings: Boolean = null
   nameDisplay: String = null
   clearNameDisplay: Boolean! = false
+  displayTheme: String = null
+  printablesTheme: String = null
+  clearDisplayTheme: Boolean! = false
+  clearPrintablesTheme: Boolean! = false
   isLocked: Boolean = null
   oneTrophyPerRacer: Boolean = null
   qrHeadline: String = null

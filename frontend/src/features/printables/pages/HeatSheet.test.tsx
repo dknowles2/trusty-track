@@ -44,6 +44,7 @@ interface RaceFixture {
     location: string;
     trackId: number;
     resolvedNameDisplay: string;
+    resolvedPrintablesTheme: string;
     masterRunningOrder: boolean;
     rounds: RaceFixtureRound[];
     heats: RaceFixtureHeat[];
@@ -58,6 +59,7 @@ const RACE: RaceFixture = {
     location: 'St Anne’s Hall',
     trackId: 5,
     resolvedNameDisplay: 'FULL',
+    resolvedPrintablesTheme: 'MATCH_APP',
     masterRunningOrder: false,
     rounds: [{ id: 1, name: null, roundNumber: 1, advancementSource: null }],
     heats: [
@@ -87,7 +89,6 @@ function mockData(
             data: {
                 race: { ...RACE, ...raceOverrides },
                 tracks: [track],
-                initialConfig: { printablesTheme: null },
             },
             fetching: false,
             error: undefined,

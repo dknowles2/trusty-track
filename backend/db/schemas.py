@@ -504,6 +504,16 @@ class RaceUpdate(BaseModel):
     #: because `"FULL"` here is a real value distinct from "inherit", the
     #: same reason `clearTerminology` exists.
     name_display: str | None = None
+    #: A per-race override of the organization's Display/Printables themes
+    #: (#1081). Absent means leave alone; `schema.update_race` pops
+    #: `clearDisplayTheme`/`clearPrintablesTheme` off the input before
+    #: constructing this and, when set, fills these back in as explicit
+    #: `None` — unlike `weight_limit_oz`, because `"MATCH_APP"` here is a
+    #: real value distinct from "inherit", the same reason `name_display`
+    #: above needs its own clear flag rather than reusing `"FULL"`/its own
+    #: non-null default as the off state.
+    display_theme: str | None = None
+    printables_theme: str | None = None
     #: Whether the race is locked against further edits (#585). Absent means
     #: leave alone, same as everything else on this update; `false` is an
     #: ordinary value (the unlock), not a sentinel needing its own clear
