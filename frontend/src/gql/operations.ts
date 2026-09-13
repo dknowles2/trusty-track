@@ -311,7 +311,7 @@ export type RaceAwardsQueryVariables = Exact<{
 }>;
 
 
-export type RaceAwardsQuery = { race: { id: number, name: string, votingOpen: boolean, isLocked: boolean, resolvedNameDisplay: string, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null }, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, source: string | null, place: number | null, fromBottom: boolean, racingGroupId: number | null, artworkKey: string | null, votable: boolean, placeContested: boolean, position: number | null, racingGroup: { id: number, name: string } | null, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null } | null, voteTally: Array<{ racerId: number, voteCount: number, racer: { id: number, carNumber: number | null, carName: string | null } | null }>, passedOver: Array<{ racerId: number, awardId: number, racer: { id: number, firstName: string, lastName: string, carNumber: number | null } | null, award: { id: number, name: string } | null }>, duplicateOf: { id: number, name: string } | null }>, rounds: Array<{ id: number, name: string | null, roundNumber: number, advancementSource: string | null }>, racingGroups: Array<{ id: number, name: string, color: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, carImageUrl: string | null }> } | null };
+export type RaceAwardsQuery = { race: { id: number, name: string, votingOpen: boolean, isLocked: boolean, championshipTrophies: number, resolvedNameDisplay: string, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null }, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, source: string | null, place: number | null, fromBottom: boolean, racingGroupId: number | null, artworkKey: string | null, votable: boolean, placeContested: boolean, position: number | null, racingGroup: { id: number, name: string } | null, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null } | null, voteTally: Array<{ racerId: number, voteCount: number, racer: { id: number, carNumber: number | null, carName: string | null } | null }>, passedOver: Array<{ racerId: number, awardId: number, racer: { id: number, firstName: string, lastName: string, carNumber: number | null } | null, award: { id: number, name: string } | null }>, duplicateOf: { id: number, name: string } | null }>, rounds: Array<{ id: number, name: string | null, roundNumber: number, advancementSource: string | null }>, racingGroups: Array<{ id: number, name: string, color: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, carImageUrl: string | null }> } | null };
 
 export type CreateAwardMutationVariables = Exact<{
   raceId: number;
@@ -343,6 +343,13 @@ export type ReorderAwardsMutationVariables = Exact<{
 
 
 export type ReorderAwardsMutation = { reorderAwards: Array<{ id: number, sortOrder: number }> };
+
+export type SeedChampionshipAwardsMutationVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type SeedChampionshipAwardsMutation = { seedChampionshipAwards: Array<{ id: number }> };
 
 export type UpdateRaceVotingMutationVariables = Exact<{
   id: number;

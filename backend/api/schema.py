@@ -4896,6 +4896,26 @@ class Mutation:
         return reordered
 
     @strawberry.mutation
+    async def seed_championship_awards(self, info: Info, race_id: int) -> list[Award]:
+        """The Awards page's empty-state **Add the N championship trophies**
+        button (#1082) — the same seeding `createRoundWizard` and
+        `createRound` already do the moment a final round is created, for a
+        race whose wizard was skipped or whose seeded set was deleted.
+
+        `crud.seed_championship_awards_for_race` finds the race's own final
+        for itself and raises if there is none — the button is shown only
+        once a championship round exists, so this is a defensive check
+        against a stale client, not the ordinary path. Idempotent the same
+        way the round-creation seeding is: a race that already carries a
+        `SPEED` award gets an empty list back, never a second set.
+        """
+        db = info.context["db"]
+        created = typing.cast(Any, crud.seed_championship_awards_for_race(db, race_id))
+        if created:
+            await _publish_race_state(race_id)
+        return created
+
+    @strawberry.mutation
     def cast_vote(
         self, info: Info, award_id: int, racer_id: int, ballot_key: str
     ) -> str | None:
@@ -5241,6 +5261,16 @@ class Mutation:
                     runs=champ_cfg.runs_per_lane,
                 )
                 current_round_number += 1
+
+            # Championship trophies (#1082): the moment a final exists to
+            # point them at, seed one SPEED award per place. Presence —
+            # `seed_championship_awards`' own guard — is what keeps this from
+            # ever adding a second set, not whether the wizard has run
+            # before; `created_rounds[-1]` is the last championship round
+            # just built above, matching #862's "the last championship
+            # round" convention rather than `ALL`.
+            if config.championship_rounds:
+                crud.seed_championship_awards(db, created_rounds[-1])
         except ValueError as e:
             # Reverse creation order: the general round cannot be deleted
             # while championship rounds still exist, so a forward rollback
@@ -6811,6 +6841,15 @@ class Mutation:
                 # A final added after its source finished has no completion
                 # event left to fill it (#248) — ask now rather than wait.
                 crud.populate_round_if_decided(db, round_obj)
+                # Championship trophies (#1082): a championship round added
+                # through this door — the Add Round dialog, after the wizard
+                # already ran or was skipped entirely — is exactly as much
+                # "a final exists to point trophies at" as the wizard's own.
+                # `seed_championship_awards` is the one guard against
+                # seeding a race that already has a SPEED award, so this is
+                # unconditional rather than checked here too (CLAUDE.md's
+                # #48: one rule, not a second copy of when it applies).
+                crud.seed_championship_awards(db, round_obj)
                 await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
                 return [typing.cast(Any, round_obj)]
         except ValueError:

@@ -980,8 +980,13 @@ class Award(Base):
     The rules are in :mod:`backend.domain.awards`; this is where they are
     stored, and ``services/awards.py`` is what loads standings for them.
 
-    ``championship_trophies`` on `Race` is *not* this. It means how many cars
-    advance to the final, which is a scheduling input; an award is an outcome.
+    ``championship_trophies`` on `Race` seeds a set of these (#1082):
+    `crud.seed_championship_awards` writes one `SPEED` award per place
+    ``1..championship_trophies`` the moment a final round exists, sourced
+    from it. It is also that seeding's floor — a final with fewer seats than
+    `championship_trophies` cannot fill every place — which is the sense it
+    always carried as the wizard's minimum pick count for the final's own
+    field; it now means both at once rather than only the scheduling half.
     """
 
     __tablename__ = "awards"

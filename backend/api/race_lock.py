@@ -289,6 +289,9 @@ LOCKED_MUTATION_RESOLVERS: dict[str, Callable[[Session, dict[str, Any]], bool]] 
     "createRacingGroup": _direct_locked,
     "createAward": _direct_locked,
     "reorderAwards": _direct_locked,
+    # The empty-state button's own mutation (#1082) — writes SPEED awards
+    # the same way `createAward` does, just several at once.
+    "seedChampionshipAwards": _direct_locked,
     "createRunOffHeat": _direct_locked,
     "advanceRound": _direct_locked,
     "pinRoundField": _direct_locked,

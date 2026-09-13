@@ -279,7 +279,11 @@ they are *right now*, so correcting a time moves the trophy with it, right
 up until you announce it. Judged awards like Best Paint are chosen by
 people and never move on their own.
 
-One number that trips people up: **Championship Trophies** on the race
-settings decides how many cars go into the final — it is about the racing,
-not about how many physical trophies you hand out. The trophies themselves
-are whatever you create on the Awards page.
+One number that used to trip people up: **Championship Trophies** on the
+race settings decides how many cars go into the final, and it is also how
+many trophies get created for you — the moment that final exists, Trusty
+Track seeds 1st, 2nd, 3rd (and so on) onto the Awards page automatically, so
+there is nothing to add by hand for the trophies every pack gives out. It
+only seeds once; adding Best Paint or any other trophy of your own afterward
+is exactly the same as always. See [The Championship Trophies
+number](reference/championship-rounds.md#the-championship-trophies-number).

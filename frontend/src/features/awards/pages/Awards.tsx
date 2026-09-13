@@ -35,6 +35,7 @@ import {
   DELETE_AWARD_MUTATION,
   RACE_AWARDS_QUERY,
   REORDER_AWARDS_MUTATION,
+  SEED_CHAMPIONSHIP_AWARDS_MUTATION,
   UPDATE_AWARD_MUTATION,
   UPDATE_RACE_VOTING_MUTATION,
 } from '../graphql/queries';
@@ -108,6 +109,7 @@ export default function Awards() {
   const [, deleteAward] = useMutation(DELETE_AWARD_MUTATION);
   const [, reorderAwards] = useMutation(REORDER_AWARDS_MUTATION);
   const [, updateRaceVoting] = useMutation(UPDATE_RACE_VOTING_MUTATION);
+  const [, seedChampionshipAwards] = useMutation(SEED_CHAMPIONSHIP_AWARDS_MUTATION);
 
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<AwardRow | null>(null);
@@ -119,6 +121,17 @@ export default function Awards() {
   const racers = race?.racers ?? [];
   const votingOpen = race?.votingOpen ?? false;
   const raceLocked = race?.isLocked ?? false;
+  // The empty-state seeding button (#1082): shown once a championship round
+  // exists to seed from and the race has no SPEED award yet — the same
+  // guard `seed_championship_awards` itself checks, so a judged-only race
+  // (Best Paint added before the wizard ran) still offers it, not only a
+  // race with no awards at all.
+  const hasSpeedAward = awards.some((award) => award.kind === 'SPEED');
+  const hasChampionshipRound = rounds.some((round: { advancementSource?: string | null }) =>
+    Boolean(round.advancementSource),
+  );
+  const canSeedChampionshipAwards = !hasSpeedAward && hasChampionshipRound;
+  const championshipTrophies = race?.championshipTrophies ?? 0;
   const lockedTitle = RACE_LOCKED_MESSAGE;
   // #892: every mutation this page runs — createAward, updateAward,
   // deleteAward, reorderAwards, updateRaceVoting (via updateRace) — is
@@ -192,6 +205,16 @@ export default function Awards() {
         },
       },
       'The winner could not be set.',
+    );
+    if (!response) return;
+    refetch({ requestPolicy: 'network-only' });
+  };
+
+  const handleSeedChampionshipAwards = async () => {
+    const response = await runMutation(
+      seedChampionshipAwards,
+      { raceId: id },
+      'The championship trophies could not be added.',
     );
     if (!response) return;
     refetch({ requestPolicy: 'network-only' });
@@ -335,6 +358,22 @@ export default function Awards() {
       {raceLocked && (
         <StatusBanner tone="neutral" style={{ marginBottom: '1.5rem' }}>
           {lockedTitle}
+        </StatusBanner>
+      )}
+
+      {canSeedChampionshipAwards && (
+        <StatusBanner tone="neutral" style={{ marginBottom: '1.5rem' }}>
+          <span>This race has a championship round, but no speed award yet.</span>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={handleSeedChampionshipAwards}
+            disabled={operatorDisabled}
+            title={operatorTitle}
+          >
+            Add the {championshipTrophies} championship{' '}
+            {championshipTrophies === 1 ? 'trophy' : 'trophies'}
+          </button>
         </StatusBanner>
       )}
 

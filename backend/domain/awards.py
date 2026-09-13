@@ -31,6 +31,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from backend.domain.advancement import (
     ALL,
@@ -48,10 +49,13 @@ __all__ = [
     "SPEED",
     "TORTOISE",
     "TROPHY",
+    "AwardSeed",
     "SpeedRule",
     "can_be_voted_on",
+    "championship_award_seed",
     "default_artwork_key",
     "eligible_standings",
+    "ordinal",
     "place_is_contested",
     "rank_tally",
     "recipient_of",
@@ -261,3 +265,109 @@ def sources_for(round_ids: Sequence[int]) -> list[str]:
     rebuilding the `ROUND:<id>` spelling.
     """
     return [ALL] + [f"{ROUND_PREFIX}{round_id}" for round_id in round_ids]
+
+
+def ordinal(place: int) -> str:
+    """``1st``, ``2nd``, ``3rd``, ``4th``… — the backend's own copy of
+    ``awardText.ordinal`` (#1082). The frontend's version turns a stored rule
+    into a sentence at render time; this one is needed a step earlier, to
+    give a *seeded* award a stored ``name`` before anything renders it. Kept
+    as two copies rather than one shared vocabulary crossing the API boundary
+    for the same reason the rest of this app's enum-ish strings do — there is
+    nothing to keep in sync, since both sides only ever compute it from a
+    plain integer.
+    """
+    remainder = place % 100
+    if 11 <= remainder <= 13:
+        return f"{place}th"
+    return {1: f"{place}st", 2: f"{place}nd", 3: f"{place}rd"}.get(
+        place % 10, f"{place}th"
+    )
+
+
+@dataclass(frozen=True)
+class AwardSeed:
+    """One `SPEED` award :func:`championship_award_seed` says to create.
+
+    Not yet an :class:`~backend.db.schemas.AwardCreate` — this module knows
+    nothing of Pydantic or SQLAlchemy — but the same fields, so
+    `crud.seed_championship_awards` only has to attach `race_id` and
+    `source`.
+    """
+
+    name: str
+    place: int
+    racing_group_id: int | None
+    sort_order: int
+
+
+def championship_award_seed(
+    trophies: int,
+    field_size: int,
+    racing_group_ids: Sequence[int],
+    *,
+    is_each_group: bool,
+    existing_awards: Sequence[Any],
+    sort_order_start: int = 0,
+) -> list[AwardSeed]:
+    """The championship trophies a fresh final earns (#1082).
+
+    ``Race.championship_trophies`` used to mean nothing to the backend at
+    all — see this module's own note, corrected below, and
+    ``.claude/rules/advancement-and-awards.md``. This is the rule that makes
+    it true: one `SPEED` award per place ``1..trophies``, or one set per
+    racing group when the final draws its field from each group separately
+    (``advancement_source == EACH_GROUP`` — see `AwardForm`'s "one departure
+    from advancement's vocabulary" for why a racing-group award is an
+    ordinary source narrowed by ``racing_group_id`` rather than a fourth
+    source of its own).
+
+    **Never seeds twice, never overwrites.** ``existing_awards`` is the whole
+    guard, checked for *any* award whose ``kind`` is `SPEED` — presence, not
+    a flag, exactly as the issue asks: a race that already carries one,
+    however it got there (a round created before, or a set copied by the
+    race setup wizard's "copy awards from a previous race" step), gets
+    nothing added here, and an operator who deletes every seeded award and
+    reruns the wizard gets nothing back either. A `SPECIAL` award (Best
+    Paint, judged before any final exists) does not block seeding — only a
+    `SPEED` award means "the trophies already exist." Read structurally
+    (``getattr(award, "kind", None)``) rather than typed against an ORM row
+    or a Strawberry input, the same shape `domain.audit._fields_of` uses, so
+    this module stays importable with no database and a caller can pass
+    plain objects in a test. Trophies is `Race.championship_trophies`; a
+    race asking for none (or a stray non-positive value) seeds nothing.
+
+    **`place` never exceeds the final's own field** — the floor relationship
+    in the other direction. `RoundConfigModal` enforces
+    ``advancement_num_racers >= championship_trophies`` for an ordinary
+    final, so in the common case ``field_size`` never binds; it exists for
+    the round that can disagree — a hand-built request, or a *Slowest Race*
+    bracket, whose "how many to pick" floor is 1 rather than the trophy
+    count. ``field_size <= 0`` means "not known" (a request the caller could
+    not size, rather than a field of zero) and is not treated as a bound.
+    """
+    if trophies < 1:
+        return []
+    if any(getattr(award, "kind", None) == SPEED for award in existing_awards):
+        return []
+
+    effective_trophies = trophies if field_size <= 0 else min(trophies, field_size)
+    if effective_trophies < 1:
+        return []
+
+    group_ids: Sequence[int | None] = racing_group_ids if is_each_group else (None,)
+
+    seeds: list[AwardSeed] = []
+    sort_order = sort_order_start
+    for group_id in group_ids:
+        for place in range(1, effective_trophies + 1):
+            seeds.append(
+                AwardSeed(
+                    name=f"{ordinal(place)} Place",
+                    place=place,
+                    racing_group_id=group_id,
+                    sort_order=sort_order,
+                )
+            )
+            sort_order += 1
+    return seeds

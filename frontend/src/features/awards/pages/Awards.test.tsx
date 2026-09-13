@@ -97,7 +97,10 @@ const RACE = {
       duplicateOf: null as DuplicateOfFixture,
     },
   ],
-  rounds: [{ id: 4, name: 'Finals', roundNumber: 2 }],
+  rounds: [
+    { id: 4, name: 'Finals', roundNumber: 2, advancementSource: null as string | null },
+  ],
+  championshipTrophies: 3,
   racingGroups: [{ id: 5, name: 'Wolves', color: '#888' }],
   racers: [
     { id: 100, firstName: 'Ada', lastName: 'Lovelace', carNumber: 42, carImageUrl: null },
@@ -114,7 +117,7 @@ const RACE = {
 const mutations: Record<string, ReturnType<typeof vi.fn>> = {};
 
 function mockMutations() {
-  for (const key of ['create', 'update', 'delete', 'reorder', 'voting']) {
+  for (const key of ['create', 'update', 'delete', 'reorder', 'voting', 'seed']) {
     mutations[key] = vi.fn().mockResolvedValue({ error: undefined });
   }
   (useMutation as unknown as ReturnType<typeof vi.fn>).mockImplementation(
@@ -124,6 +127,7 @@ function mockMutations() {
       if (text.includes('UpdateAward')) return [{ fetching: false }, mutations.update];
       if (text.includes('DeleteAward')) return [{ fetching: false }, mutations.delete];
       if (text.includes('UpdateRaceVoting')) return [{ fetching: false }, mutations.voting];
+      if (text.includes('SeedChampionshipAwards')) return [{ fetching: false }, mutations.seed];
       return [{ fetching: false }, mutations.reorder];
     },
   );
@@ -171,6 +175,7 @@ describe('the awards page', () => {
       'position',
       'passedOver',
       'duplicateOf',
+      'championshipTrophies',
     ]) {
       expect(document).toContain(field);
     }
@@ -580,6 +585,69 @@ describe('the awards page', () => {
       // The corner "Add an award" button still exists; the empty state gets
       // its own so the reader is not sent hunting for the only other one.
       expect(screen.getAllByRole('button', { name: 'Add an award' }).length).toBeGreaterThan(1);
+    });
+  });
+
+  describe('the empty-state championship trophies button (#1082)', () => {
+    it('offers to seed once a championship round exists and no speed award does', () => {
+      renderPage({
+        ...RACE,
+        championshipTrophies: 3,
+        awards: RACE.awards.filter((award) => award.kind !== 'SPEED'),
+        rounds: [{ id: 4, name: 'Finals', roundNumber: 2, advancementSource: 'ALL' }],
+      });
+      expect(
+        screen.getByRole('button', { name: 'Add the 3 championship trophies' }),
+      ).toBeInTheDocument();
+    });
+
+    it('says "trophy", singular, for one', () => {
+      renderPage({
+        ...RACE,
+        championshipTrophies: 1,
+        awards: RACE.awards.filter((award) => award.kind !== 'SPEED'),
+        rounds: [{ id: 4, name: 'Finals', roundNumber: 2, advancementSource: 'ALL' }],
+      });
+      expect(
+        screen.getByRole('button', { name: 'Add the 1 championship trophy' }),
+      ).toBeInTheDocument();
+    });
+
+    it('stays hidden once a speed award already exists', () => {
+      // The default fixture has both a SPEED award and a championship-
+      // shaped round — the ordinary state once seeding has already run.
+      renderPage({
+        ...RACE,
+        rounds: [{ id: 4, name: 'Finals', roundNumber: 2, advancementSource: 'ALL' }],
+      });
+      expect(
+        screen.queryByRole('button', { name: /championship trophies/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('stays hidden with no championship round, even with no speed award', () => {
+      renderPage({
+        ...RACE,
+        awards: RACE.awards.filter((award) => award.kind !== 'SPEED'),
+      });
+      expect(
+        screen.queryByRole('button', { name: /championship trophies/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('calls the mutation and refetches on click', async () => {
+      renderPage({
+        ...RACE,
+        championshipTrophies: 3,
+        awards: RACE.awards.filter((award) => award.kind !== 'SPEED'),
+        rounds: [{ id: 4, name: 'Finals', roundNumber: 2, advancementSource: 'ALL' }],
+      });
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Add the 3 championship trophies' }),
+      );
+
+      await waitFor(() => expect(mutations.seed).toHaveBeenCalledWith({ raceId: 1 }));
     });
   });
 });

@@ -16,6 +16,10 @@ export const RACE_AWARDS_QUERY = gql`
       # Whether the race is locked against further edits (#585) — disables
       # the award editor.
       isLocked
+      # How many championship trophies the empty-state button offers to
+      # seed (#1082) — read here rather than assumed, since it is the same
+      # number seedChampionshipAwards itself reads server-side.
+      championshipTrophies
       resolvedNameDisplay
       # A break takes this screen over exactly like every other display
       # (#592, #1072's fix for a route that previously had no intermission
@@ -135,6 +139,19 @@ export const REORDER_AWARDS_MUTATION = gql`
     reorderAwards(raceId: $raceId, awardIds: $awardIds) {
       id
       sortOrder
+    }
+  }
+`;
+
+/**
+ * The Awards page's empty-state "Add the N championship trophies" button
+ * (#1082) — the same seeding a final round's creation already does, run by
+ * hand for a race whose wizard was skipped or whose seeded set was deleted.
+ */
+export const SEED_CHAMPIONSHIP_AWARDS_MUTATION = gql`
+  mutation SeedChampionshipAwards($raceId: Int!) {
+    seedChampionshipAwards(raceId: $raceId) {
+      id
     }
   }
 `;

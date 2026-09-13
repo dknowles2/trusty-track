@@ -511,6 +511,7 @@ export type Mutation = {
   reorderHeats: HeatReorderResponse;
   resetTimer: Scalars['Boolean']['output'];
   resumeIntermission: Race;
+  seedChampionshipAwards: Array<Award>;
   setDebugMode: InitialConfigStatus;
   setLaneOutages: Array<Scalars['Int']['output']>;
   setThemes: InitialConfigStatus;
@@ -900,6 +901,11 @@ export type MutationResetTimerArgs = {
 
 
 export type MutationResumeIntermissionArgs = {
+  raceId: Scalars['Int']['input'];
+};
+
+
+export type MutationSeedChampionshipAwardsArgs = {
   raceId: Scalars['Int']['input'];
 };
 
