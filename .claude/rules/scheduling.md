@@ -1,3 +1,28 @@
+---
+paths:
+  - backend/db/crud.py
+  - backend/domain/scheduling.py
+  - backend/domain/heat_chunks.py
+  - backend/domain/latecomers.py
+  - backend/domain/elimination.py
+  - backend/domain/balanced.py
+  - backend/domain/running_order.py
+  - frontend/src/utils/constants.ts
+  - frontend/src/features/racing/pace.ts
+  - frontend/src/features/racing/growingRounds.ts
+  - frontend/src/features/racing/runningOrder.ts
+  - frontend/src/features/racing/eliminationChart.ts
+  - frontend/src/features/racing/components/ScheduleManagement.tsx
+  - frontend/src/features/racing/components/RoundWizard.tsx
+  - frontend/src/features/racing/components/RoundConfigModal.tsx
+  - frontend/src/features/racing/components/FormatFields.tsx
+  - frontend/src/features/racing/components/HowItsRacedFields.tsx
+  - frontend/src/features/racing/components/WhichCarsRaceFields.tsx
+  - frontend/src/features/racing/components/EliminationChartView.tsx
+  - frontend/src/features/settings/laneOutages.ts
+  - frontend/src/features/settings/components/TrackLanes.tsx
+---
+
 # Scheduling, lanes in service, and the running order
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching `domain/scheduling.py`, `crud.generate_heats_for_round`, lane outages, latecomers, elimination or balanced rounds, or `heat_number`.

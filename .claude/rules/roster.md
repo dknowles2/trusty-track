@@ -1,3 +1,18 @@
+---
+paths:
+  - backend/db/crud.py
+  - backend/db/populate.py
+  - backend/domain/roster_import.py
+  - backend/domain/gprm.py
+  - backend/domain/derbynet.py
+  - backend/domain/car_numbering.py
+  - backend/domain/practice.py
+  - backend/domain/race_status.py
+  - backend/domain/photos.py
+  - backend/services/importers/**
+  - frontend/src/features/management/**
+---
+
 # Setting a race up: numbering, imports, the wizard, the weight limit
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching car numbering, `domain/roster_import.py`, `crud.create_practice_race`, `raceSetup.ts` or `weight_limit_oz`.

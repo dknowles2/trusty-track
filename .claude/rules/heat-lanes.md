@@ -1,3 +1,13 @@
+---
+paths:
+  - backend/db/crud.py
+  - backend/db/lane_sync.py
+  - backend/db/models.py
+  - backend/domain/lanes.py
+  - frontend/src/features/racing/lanes.ts
+  - frontend/src/features/racing/testFixtures.ts
+---
+
 # Heat lanes, and free race heats
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching `heat_lanes`, `crud.set_heat_lanes`, `domain/lanes.py`, a delete path, or a heat's `kind`.

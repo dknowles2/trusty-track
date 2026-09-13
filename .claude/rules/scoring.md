@@ -1,3 +1,23 @@
+---
+paths:
+  - backend/domain/scoring.py
+  - backend/domain/tiebreak.py
+  - backend/domain/scale_speed.py
+  - backend/domain/lane_colors.py
+  - backend/services/scoring.py
+  - backend/services/records.py
+  - backend/services/stats.py
+  - frontend/src/features/stats/**
+  - frontend/src/features/racing/runOff.ts
+  - frontend/src/features/racing/components/RunOffControl.tsx
+  - frontend/src/features/observation/scaleSpeed.ts
+  - frontend/src/features/observation/recordBreak.ts
+  - frontend/src/features/observation/resultsOverlay.ts
+  - frontend/src/features/settings/laneColors.ts
+  - frontend/src/features/settings/components/TrackRecords.tsx
+  - frontend/src/components/ui/LaneBadge.tsx
+---
+
 # Scoring, track records, scale speed, and lane colours
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching `domain/scoring.py`, `services/scoring.py`, ties, run-off heats, `services/records.py`, `domain/scale_speed.py` or `domain/lane_colors.py`.

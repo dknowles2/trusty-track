@@ -1,3 +1,28 @@
+---
+paths:
+  - backend/api/auth.py
+  - backend/api/demo_policy.py
+  - backend/api/race_lock.py
+  - backend/api/schema.py
+  - backend/api/main.py
+  - backend/domain/audit.py
+  - backend/demo_mode.py
+  - backend/demo_content.py
+  - backend/services/image_processing.py
+  - frontend/src/api/pin.ts
+  - frontend/src/api/verifyPin.ts
+  - frontend/src/api/demoSession.ts
+  - frontend/src/features/core/components/UnlockButton.tsx
+  - frontend/src/features/core/components/DemoSessionGate.tsx
+  - frontend/src/features/settings/activityLog.ts
+  - frontend/src/features/settings/pages/ActivityLog.tsx
+  - frontend/src/features/management/deleteConfirmation.ts
+  - frontend/src/features/management/components/DeleteLockedRaceModal.tsx
+  - deploy/cloudrun/**
+  - Dockerfile
+  - .github/workflows/deploy-demo.yml
+---
+
 # Roles, the public demo, the activity log, locking a race
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching `api/auth.py`, `api/demo_policy.py`, `domain/audit.py`, `api/race_lock.py`, or a schema extension.
