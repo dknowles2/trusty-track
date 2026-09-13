@@ -564,7 +564,7 @@ type Query {
   scenePresets: [ScenePresetInfo!]!
   suggestDisplayName(displayId: String!, avoid: String = null): String!
   auditLog(raceId: Int = null, limit: Int! = 200, beforeId: Int = null): [AuditLogEntry!]!
-  races(skip: Int! = 0, limit: Int! = 100): [Race!]!
+  races(skip: Int! = 0, limit: Int! = 1000): [Race!]!
   practiceRace: Race
   timerModels: [TimerModel!]!
   version: String!

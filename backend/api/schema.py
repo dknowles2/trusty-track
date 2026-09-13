@@ -3425,8 +3425,18 @@ class Query:
         )
 
     @strawberry.field
-    def races(self, info: Info, skip: int = 0, limit: int = 100) -> list[Race]:
-        """Get a list of races with pagination.
+    def races(
+        self, info: Info, skip: int = 0, limit: int = crud.NO_PRACTICAL_LIMIT
+    ) -> list[Race]:
+        """Get a list of races, newest first (#1129), with pagination.
+
+        Ordering — `crud.get_races`'s `date_time` desc, `id` desc — is what
+        actually fixes #1129: Home lists races with no `skip`/`limit` of its
+        own, so before this a race past the hundredth ever created was
+        simply never on the page. `limit`'s default matches
+        `crud.NO_PRACTICAL_LIMIT` for the same reason — raised past anything
+        a real install reaches, rather than giving Home paging furniture it
+        does not have.
 
         Primes `registered_count`/`checked_in_count` and `status` for the
         whole page in a fixed number of grouped queries (#749, #847), rather

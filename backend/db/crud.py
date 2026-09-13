@@ -6,7 +6,7 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -359,15 +359,58 @@ def update_racing_group(
     return db_racing_group
 
 
-def get_races(db: Session, skip: int = 0, limit: int = 100) -> list[models.Race]:
-    """Get all races.
+#: No install-visible list of races should ever be paged in practice — see
+#: `get_races`'s docstring (#1129) — so `limit` only needs to be large enough
+#: that a real pack, in a real season, never reaches it. 1000 races is a
+#: derby every week for two decades on one install.
+NO_PRACTICAL_LIMIT = 1000
+
+
+def get_races(
+    db: Session, skip: int = 0, limit: int = NO_PRACTICAL_LIMIT
+) -> list[models.Race]:
+    """Get all races, newest first (#1129).
+
+    Ordered by `date_time` descending, then `id` descending as the
+    tiebreak — the same order Home renders in without re-sorting
+    client-side, so a limit, when it ever bites, drops the *oldest* races
+    rather than an arbitrary insertion-order tail. `date_time` is a nullable
+    free-text column (an ISO `datetime-local` string, never validated as a
+    real date) rather than a `DateTime`, so a race with no date needs to
+    land at the end on purpose rather than by trusting the backend's own
+    default null-ordering — SQLite's own is actually already "last" on a
+    plain `DESC` (nulls sort as less than every other value, so reversing
+    ascending order puts them at the end), which is easy to assume holds
+    everywhere and easy to get backwards from memory. The `case` sorts on an
+    explicit 0/1 "has a date" flag ahead of the date itself instead of
+    leaning on that default, which also sidesteps `nullslast()` — that
+    compiles to literal `NULLS LAST` SQL, support for which SQLite only
+    gained in 3.30 (2019), an assumption not worth making about whatever
+    SQLite ships baked into a Pi image's Python.
+
+    `limit`'s default is raised well past anything a real install reaches
+    (`NO_PRACTICAL_LIMIT`) rather than adding paging furniture to Home,
+    which has none today and reads this query with no `skip`/`limit` at
+    all — see "The Home page race list" in `.claude/rules/roster.md`.
+    Ordering is what actually fixes #1129; the limit is only ever a safety
+    valve past that.
 
     Registered/checked-in counts are not computed here (#749) — `Race` has
     no such mapped columns, so setting them on these rows was dead work the
     GraphQL `registered_count`/`checked_in_count` field resolvers always
     re-queried past. See `api.loaders.RequestLoaders.prime_racer_counts`.
     """
-    return db.query(models.Race).offset(skip).limit(limit).all()
+    return (
+        db.query(models.Race)
+        .order_by(
+            case((models.Race.date_time.is_(None), 1), else_=0),
+            models.Race.date_time.desc(),
+            models.Race.id.desc(),
+        )
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 
 def _raise_race_name_conflict(name: str, exc: IntegrityError) -> None:
