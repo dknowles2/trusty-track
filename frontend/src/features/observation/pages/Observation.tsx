@@ -717,7 +717,21 @@ export default function Observation() {
   // standing distraction from the countdown.
   if (intermissionActive) {
     return (
-      <div className="container projector-mode" data-theme={displayThemeKey} style={displayThemeStyle}>
+      // `padding: 0` (#1073) — every sibling full-screen branch below either
+      // sets its own padding explicitly or has `boxSizing: 'border-box'`
+      // somewhere in the chain; this one had neither, so the *generic*
+      // `.container` class's own `padding: 20px` (`index.css`) applied
+      // unopposed — `.projector-mode .container`'s override only matches a
+      // `.container` *nested inside* a `.projector-mode` ancestor, never an
+      // element carrying both classes at once, which is what this div does.
+      // With `min-height: 100vh` and the default `box-sizing: content-box`,
+      // that 20px top and bottom padding added a full 40px past the
+      // viewport's own height — invisible on an ordinary monitor with room
+      // to spare, and exactly what pushed this page into needing to scroll
+      // at 800×600. `IntermissionOverlay` and `RaceFinishedOverlay` below
+      // both paint themselves full-bleed (`position: fixed; inset: 0`), so
+      // this wrapper needs no padding of its own at all.
+      <div className="container projector-mode" data-theme={displayThemeKey} style={{ padding: 0, ...displayThemeStyle }}>
         <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
         <IntermissionOverlay
           intermission={intermission}
@@ -751,24 +765,28 @@ export default function Observation() {
       }}>
         <h2 className="heat-card-title" style={{
           marginTop: 0,
-          fontSize: '1.5rem',
+          // `vmin`, not `rem` (#1073) — this is the Display surface, read
+          // from across a room at every viewport from an 800×600 projector
+          // up; a fixed `rem` looks fine at the one size it was tuned at and
+          // falls under the legibility floor everywhere taller.
+          fontSize: '3.2vmin',
           color: isNext ? 'var(--display-text-muted-color)' : 'var(--display-text-color)',
           display: 'flex',
           alignItems: 'center',
-          gap: '10px',
+          gap: '1vmin',
           justifyContent: isEmpty ? 'center' : 'flex-start'
         }}>
-          {iconPath && <Icon path={iconPath} size={1} color={isNext ? 'var(--display-text-muted-color)' : 'var(--error)'} />}
+          {iconPath && <Icon path={iconPath} size="3.2vmin" color={isNext ? 'var(--display-text-muted-color)' : 'var(--error)'} />}
           <span>{title}</span>
           {exhibition && (
             <span style={{
               background: 'var(--display-accent-color)',
               color: 'var(--display-on-accent-color)',
-              fontSize: '0.75rem',
+              fontSize: '1.8vmin',
               fontWeight: 'bold',
-              padding: '2px 8px',
+              padding: '0.4vmin 1vmin',
               borderRadius: '12px',
-              marginLeft: '10px',
+              marginLeft: '1vmin',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
             }}>
@@ -776,7 +794,7 @@ export default function Observation() {
             </span>
           )}
           {heatInfo && (
-            <span style={{ fontSize: '1rem', fontWeight: 'normal', color: 'var(--display-text-muted-color)', marginLeft: 'auto' }}>({heatInfo})</span>
+            <span style={{ fontSize: '2vmin', fontWeight: 'normal', color: 'var(--display-text-muted-color)', marginLeft: 'auto' }}>({heatInfo})</span>
           )}
         </h2>
 
@@ -789,7 +807,7 @@ export default function Observation() {
                 <LaneBadge
                   color={colorForLane(laneColors, lane)}
                   className="heat-card-lane"
-                  style={{ justifyContent: 'center', fontWeight: 'bold', marginBottom: '5px', color: 'var(--display-text-subtle-color)' }}
+                  style={{ justifyContent: 'center', fontWeight: 'bold', marginBottom: '5px', fontSize: '1.8vmin', color: 'var(--display-text-subtle-color)' }}
                 >
                   Lane {lane}
                 </LaneBadge>
@@ -800,15 +818,15 @@ export default function Observation() {
                     last_name: racer.lastName,
                     racer_image_url: shouldShowRacerPhoto(nameDisplay) ? racer.racerImageUrl : null
                   }}
-                  size="80px"
+                  size="9vmin"
                   style={{ margin: '0 auto 5px', border: '2px solid var(--display-border-color)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                 />
-                <div className="heat-card-racer-name" style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
+                <div className="heat-card-racer-name" style={{ fontWeight: 'bold', fontSize: '2.6vmin' }}>
                   {formatDisplayName(nameDisplay, racer.firstName, racer.lastName)}
                 </div>
-                {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: '0.8rem', color: 'var(--display-text-muted-color)' }}>{vehicle} #{racer.carNumber}</div>}
+                {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: '2.3vmin', color: 'var(--display-text-muted-color)' }}>{vehicle} #{racer.carNumber}</div>}
                 {racingGroupDivisionFor(racer) && (
-                  <div className="heat-card-racing-group-division" style={{ fontSize: '0.75rem', color: 'var(--display-text-subtle-color)' }}>
+                  <div className="heat-card-racing-group-division" style={{ fontSize: '2vmin', color: 'var(--display-text-subtle-color)' }}>
                     {racingGroupDivisionFor(racer)}
                   </div>
                 )}
@@ -830,7 +848,7 @@ export default function Observation() {
         {overlayData.recordBreak && (
           <div className="overlay-record-banner" data-testid="record-banner">
             <div className="overlay-record-headline">
-              <Icon path={mdiTrophy} size={2} color="var(--display-bg-color, #0A0A0A)" /> New track record!
+              <Icon path={mdiTrophy} size="4vmin" color="var(--display-bg-color, #0A0A0A)" /> New track record!
             </div>
             <div className="overlay-record-detail">
               {recordBreakDetail(overlayData.recordBreak)}
@@ -845,11 +863,17 @@ export default function Observation() {
               className={`overlay-result-item ${lane.place === 1 ? 'first-place' : lane.place === 2 ? 'second-place' : lane.place === 3 ? 'third-place' : ''}`}
               style={{ animationDelay: `${idx * 0.1}s` }}
             >
-              <div className="overlay-rank" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '20px', minWidth: '300px', width: 'auto' }}>
-                {lane.place === 1 && <Icon path={mdiTrophy} size={6} color="#FFD700" />}
-                {lane.place === 2 && <Icon path={mdiTrophy} size={5} color="#C0C0C0" />}
-                {lane.place === 3 && <Icon path={mdiTrophy} size={4} color="#CD7F32" />}
-                <span style={{ fontSize: '5rem', lineHeight: 1 }}>
+              {/* `vmin`, not `px`/`rem` (#1073) — this row used to be a fixed
+                  300px wide with a 5rem numeral regardless of viewport, which
+                  is what made the results overlay crop at 800×600 rather
+                  than merely look small; the numeral now inherits
+                  `.overlay-rank`'s own `5.5vmin` (index.css) instead of
+                  overriding it. */}
+              <div className="overlay-rank" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '2vmin', minWidth: '18vmin', width: 'auto' }}>
+                {lane.place === 1 && <Icon path={mdiTrophy} size="7vmin" color="#FFD700" />}
+                {lane.place === 2 && <Icon path={mdiTrophy} size="6vmin" color="#C0C0C0" />}
+                {lane.place === 3 && <Icon path={mdiTrophy} size="5vmin" color="#CD7F32" />}
+                <span style={{ lineHeight: 1 }}>
                   {lane.place === 1 ? '1st' : lane.place === 2 ? '2nd' : lane.place === 3 ? '3rd' : (lane.place || '-')}
                 </span>
               </div>
@@ -864,8 +888,8 @@ export default function Observation() {
                   // only the photo needs gating here.
                   racer_image_url: shouldShowRacerPhoto(nameDisplay) ? lane.racerImageUrl : undefined
                 }}
-                size="120px"
-                style={{ margin: '0 40px', border: '4px solid var(--display-text-color)', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}
+                size="14vmin"
+                style={{ margin: '0 3vmin', border: '0.4vmin solid var(--display-text-color)', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}
               />
               <div className="overlay-racer-info">
                 <div className="overlay-racer-name">{lane.racerName}</div>
@@ -1078,7 +1102,7 @@ export default function Observation() {
   // shows the panels this replaces.
   if (finished) {
     return (
-      <div className="container projector-mode" data-theme={displayThemeKey} style={displayThemeStyle}>
+      <div className="container projector-mode" data-theme={displayThemeKey} style={{ padding: 0, ...displayThemeStyle }}>
         <RaceFinishedOverlay
           roundLabel={finishedRoundLabel}
           standings={finishedStandings}
@@ -1240,10 +1264,10 @@ export default function Observation() {
             <table className="standings-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead style={{ backgroundColor: 'var(--display-accent-color)', color: 'var(--display-on-accent-color)' }}>
                 <tr>
-                  <th style={{ padding: '15px' }}>Rank</th>
-                  <th style={{ padding: '15px' }}>Racer</th>
-                  <th style={{ padding: '15px', textAlign: 'right' }}>{effectiveScoreLabel}</th>
-                  <th style={{ padding: '15px', textAlign: 'right' }}>Runs</th>
+                  <th style={{ padding: '15px', fontSize: '2vmin' }}>Rank</th>
+                  <th style={{ padding: '15px', fontSize: '2vmin' }}>Racer</th>
+                  <th style={{ padding: '15px', textAlign: 'right', fontSize: '2vmin' }}>{effectiveScoreLabel}</th>
+                  <th style={{ padding: '15px', textAlign: 'right', fontSize: '2vmin' }}>Runs</th>
                 </tr>
               </thead>
               <tbody>
@@ -1251,7 +1275,12 @@ export default function Observation() {
                   const racer = racersMap[s.racerId];
                   return (
                     <tr key={s.racerId} className="standing-row" style={{ borderBottom: '1px solid var(--display-border-subtle-color)' }}>
-                      <td className="standing-rank" style={{ padding: '15px', fontSize: '1.5rem', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : 'var(--display-text-color)' }}>
+                      {/* `vmin`, not `rem` (#1073) — see `renderHeatCard`'s
+                          own comment; every size in this table used to be a
+                          fixed `rem`, which reads fine at the one viewport it
+                          was tuned at and falls under the legibility floor on
+                          any taller one. */}
+                      <td className="standing-rank" style={{ padding: '15px', fontSize: '3vmin', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : 'var(--display-text-color)' }}>
                         {s.rank}
                       </td>
                       <td className="standing-racer" style={{ padding: '15px' }}>
@@ -1263,31 +1292,31 @@ export default function Observation() {
                               last_name: racer?.lastName || '',
                               racer_image_url: shouldShowRacerPhoto(nameDisplay) ? racer?.racerImageUrl : null
                             }}
-                            size="100px"
+                            size="9vmin"
                             style={{ border: '3px solid var(--display-border-color)', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
                           />
                           <div>
-                            <div className="standing-racer-name" style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                            <div className="standing-racer-name" style={{ fontWeight: 'bold', fontSize: '2.6vmin' }}>
                               {racer ? formatDisplayName(nameDisplay, racer.firstName, racer.lastName) : `Racer #${s.racerId}`}
                             </div>
                             {racer?.carNumber && (
-                              <div className="standing-car-number" style={{ color: 'var(--display-text-muted-color)', fontSize: '0.9rem' }}>{vehicle} #{racer.carNumber}</div>
+                              <div className="standing-car-number" style={{ color: 'var(--display-text-muted-color)', fontSize: '2.3vmin' }}>{vehicle} #{racer.carNumber}</div>
                             )}
                             {s.racingGroupDivision && (
-                              <div className="standing-racing-group-division" style={{ color: 'var(--display-text-subtle-color)', fontSize: '0.85rem' }}>{s.racingGroupDivision}</div>
+                              <div className="standing-racing-group-division" style={{ color: 'var(--display-text-subtle-color)', fontSize: '2vmin' }}>{s.racingGroupDivision}</div>
                             )}
                           </div>
                         </div>
                       </td>
-                      <td className="standing-time" style={{ padding: '15px', textAlign: 'right', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontSize: '1.4rem', fontWeight: 'bold' }}>
+                      <td className="standing-time" style={{ padding: '15px', textAlign: 'right', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontSize: '3vmin', fontWeight: 'bold' }}>
                         {effectiveFormatScore(s.score)}
                         {dnfAnnotation(s.dnfCount ?? 0) && (
-                          <div className="standing-dnf-note" style={{ fontSize: '0.7rem', fontWeight: 'normal', fontFamily: 'var(--font-body)', color: 'var(--display-text-muted-color)' }}>
+                          <div className="standing-dnf-note" style={{ fontSize: '1.6vmin', fontWeight: 'normal', fontFamily: 'var(--font-body)', color: 'var(--display-text-muted-color)' }}>
                             {dnfAnnotation(s.dnfCount ?? 0)}
                           </div>
                         )}
                       </td>
-                      <td className="standing-runs" style={{ padding: '15px', textAlign: 'right', fontSize: '1.1rem' }}>{s.heatsCompleted}</td>
+                      <td className="standing-runs" style={{ padding: '15px', textAlign: 'right', fontSize: '2.4vmin' }}>{s.heatsCompleted}</td>
                     </tr>
                   );
                 })}
@@ -1301,7 +1330,7 @@ export default function Observation() {
           <div className="timing-list-wrapper" style={{ background: 'var(--display-surface-color)', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
             {lastHeatResults ? (
               <div>
-                <h2 className="timing-header" style={{ textAlign: 'center', marginBottom: '30px', color: 'var(--display-text-color)' }}>
+                <h2 className="timing-header" style={{ textAlign: 'center', marginBottom: '30px', fontSize: '3.2vmin', color: 'var(--display-text-color)' }}>
                   Last Completed: {lastHeatResults.roundName} / Heat {lastHeatResults.globalHeatNumber ?? lastHeatResults.heatNumber}
                 </h2>
                 {lastHeatResults.recordBreak && (
@@ -1324,11 +1353,13 @@ export default function Observation() {
                       // on the display accent fill" check.
                       color: 'var(--display-bg-color, #0A0A0A)',
                       fontWeight: 'bold',
-                      fontSize: '1.3rem',
+                      // `vmin`, not `rem` (#1073) — see `renderHeatCard`'s
+                      // own comment.
+                      fontSize: '2.4vmin',
                       textAlign: 'center',
                     }}
                   >
-                    <Icon path={mdiTrophy} size={1.4} color="var(--display-bg-color, #0A0A0A)" />
+                    <Icon path={mdiTrophy} size="2.6vmin" color="var(--display-bg-color, #0A0A0A)" />
                     <span>
                       New track record! {recordBreakDetail(lastHeatResults.recordBreak)}
                     </span>
@@ -1350,19 +1381,19 @@ export default function Observation() {
                         borderLeft: `10px solid ${lane.place === 1 ? '#d4af37' : 'var(--display-border-color)'}`
                       }}
                     >
-                      <div className="timing-rank" style={{ fontSize: '2rem', fontWeight: 'bold', width: '60px', textAlign: 'center' }}>
+                      <div className="timing-rank" style={{ fontSize: '4vmin', fontWeight: 'bold', width: '10vmin', textAlign: 'center' }}>
                         {lane.place}
                       </div>
                       <div className="timing-racer-info" style={{ flex: 1 }}>
-                        <div className="timing-racer-name" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{lane.racerName}</div>
-                        <div className="timing-car-name" style={{ color: 'var(--display-text-muted-color)' }}>{lane.carName || `Lane ${lane.laneNumber}`}</div>
+                        <div className="timing-racer-name" style={{ fontSize: '3vmin', fontWeight: 'bold' }}>{lane.racerName}</div>
+                        <div className="timing-car-name" style={{ fontSize: '2vmin', color: 'var(--display-text-muted-color)' }}>{lane.carName || `Lane ${lane.laneNumber}`}</div>
                       </div>
-                      <div className="timing-time" style={{ fontSize: '2.5rem', fontWeight: 'bold', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>
+                      <div className="timing-time" style={{ fontSize: '4.5vmin', fontWeight: 'bold', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>
                         {formatLaneTime(lane.time)}
                         {formatScaleMph(lane.scaleMph) && (
                           <span
                             className="timing-scale-mph"
-                            style={{ fontSize: '1.2rem', fontWeight: 'normal', color: 'var(--display-text-muted-color)' }}
+                            style={{ fontSize: '2vmin', fontWeight: 'normal', color: 'var(--display-text-muted-color)' }}
                           >
                             {' '}
                             · {formatScaleMph(lane.scaleMph)}
@@ -1375,8 +1406,8 @@ export default function Observation() {
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '50px', color: 'var(--display-text-muted-color)' }}>
-                <Icon path={mdiTimerOutline} size={3} color="var(--display-border-subtle-color)" />
-                <h3 style={{ color: 'var(--display-text-muted-color)' }}>Waiting for the first heat to complete...</h3>
+                <Icon path={mdiTimerOutline} size="6vmin" color="var(--display-border-subtle-color)" />
+                <h3 style={{ fontSize: '2.4vmin', color: 'var(--display-text-muted-color)' }}>Waiting for the first heat to complete...</h3>
               </div>
             )}
           </div>
@@ -1396,11 +1427,16 @@ export default function Observation() {
     }
 
     return (
-      <div style={{ display: 'flex', height: '100%', gap: '2vmin' }}>
+      <div style={{ display: 'flex', height: '100%', minHeight: 0, gap: '2vmin' }}>
         {entries.map(({ lane, racer }: LaneEntry) => (
-          <div key={lane} className="projector-racer-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--display-card-bg-color)', borderRadius: '1.5vmin', padding: '2vmin', textAlign: 'center' }}>
-            {/* Priority 1: Racer Name */}
-            <div className="projector-racer-name" style={{ fontWeight: 'bold', fontSize: isNowRacing ? '4.5vmin' : '3.5vmin', color: 'var(--display-text-color)', marginBottom: '1.5vmin', lineHeight: 1.1 }}>
+          <div key={lane} className="projector-racer-card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--display-card-bg-color)', borderRadius: '1.5vmin', padding: isNowRacing ? '1.6vmin' : '0.8vmin', textAlign: 'center', overflow: 'hidden' }}>
+            {/* Priority 1: Racer Name.
+                On Deck's own coefficients are deliberately smaller than Now
+                Racing's, not just for visual hierarchy — six lanes'
+                worth of these cards, side by side, is the busiest case
+                `.projector-heat-panel`'s own `flex: 2` share of an 800×600
+                screen has to hold without growing past it (#1073). */}
+            <div className="projector-racer-name" style={{ fontWeight: 'bold', fontSize: isNowRacing ? '4.5vmin' : '2.8vmin', color: 'var(--display-text-color)', marginBottom: isNowRacing ? '1.5vmin' : '0.5vmin', lineHeight: 1.1 }}>
               {formatDisplayName(nameDisplay, racer.firstName, racer.lastName)}
             </div>
 
@@ -1412,25 +1448,37 @@ export default function Observation() {
                 last_name: racer.lastName,
                 racer_image_url: shouldShowRacerPhoto(nameDisplay) ? racer.racerImageUrl : null
               }}
-              size={isNowRacing ? "16vmin" : "12vmin"}
-              style={{ margin: '0 auto', border: '0.4vmin solid var(--display-text-color)', boxShadow: '0 0.5vmin 1vmin rgba(0,0,0,0.3)' }}
+              size={isNowRacing ? "14.5vmin" : "8vmin"}
+              style={{ margin: '0 auto', border: '0.4vmin solid var(--display-text-color)', boxShadow: '0 0.5vmin 1vmin rgba(0,0,0,0.3)', flexShrink: 0 }}
             />
 
             {/* Priority 3: Lane Number (Only prominent for Now Racing, very small or omitted for On Deck) */}
-            <div className="projector-racer-lane-car" style={{ marginTop: '1.5vmin', display: 'flex', flexDirection: 'column', gap: '0.5vmin' }}>
+            <div className="projector-racer-lane-car" style={{ marginTop: isNowRacing ? '1.5vmin' : '0.8vmin', display: 'flex', flexDirection: 'column', gap: '0.5vmin' }}>
               <LaneBadge
                 color={colorForLane(laneColors, lane)}
-                style={{ justifyContent: 'center', color: isNowRacing ? 'var(--display-text-dim-color)' : 'var(--display-placeholder-color)', fontSize: isNowRacing ? '2.5vmin' : '1.8vmin', fontWeight: isNowRacing ? 'bold' : 'normal' }}
+                // `lineHeight` pinned rather than left to the browser
+                // default (#1073): at these small sizes the default line
+                // box is a couple of pixels taller than the flex layout
+                // reserves for it, which read as this badge silently
+                // clipping its own text at 800×600 with a busy (six-lane)
+                // heat, even though nothing was visibly cut off.
+                style={{ justifyContent: 'center', lineHeight: 1.3, color: isNowRacing ? 'var(--display-text-dim-color)' : 'var(--display-placeholder-color)', fontSize: isNowRacing ? '2.5vmin' : '1.6vmin', fontWeight: isNowRacing ? 'bold' : 'normal' }}
               >
                 Lane {lane}
               </LaneBadge>
               {racer.carNumber && (
-                <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
+                // Never below 2vmin (#1073's own legibility floor is exactly
+                // 2% of viewport height, which every one of this file's four
+                // supported viewports is landscape enough for `vmin` to
+                // equal — see `renderHeatCard`'s comment): a car number is
+                // one of the things this floor exists to protect, even in
+                // On Deck's smaller secondary card.
+                <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2.2vmin' : '2vmin' }}>
                   {vehicle} #{racer.carNumber}
                 </div>
               )}
               {racingGroupDivisionFor(racer) && (
-                <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
+                <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2vmin' : '1.4vmin' }}>
                   {racingGroupDivisionFor(racer)}
                 </div>
               )}
@@ -1456,12 +1504,21 @@ export default function Observation() {
       {renderResultsOverlay()}
       <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
 
-      <div className="projector-grid" style={{ display: 'flex', flex: '1', gap: '3vmin', height: '100%' }}>
-        {/* Left Column: Active and Upcoming Heats */}
-        <div className="projector-left-col" style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', gap: '3vmin', boxSizing: 'border-box' }}>
+      <div className="projector-grid" style={{ display: 'flex', flex: '1', gap: '3vmin', height: '100%', minHeight: 0 }}>
+        {/* Left Column: Active and Upcoming Heats.
+            `minHeight: 0` down this whole chain (#1073) — a flex item's
+            automatic minimum size defaults to its *content's* size, so
+            without it a busy heat (six lanes, long names) refuses to shrink
+            to its allotted share and inflates every flex ancestor above it,
+            including the full-screen root that is supposed to hold this to
+            exactly the viewport's height. That is what let the page need to
+            scroll at 800×600 even though `.projector-mode` is `height:
+            100vh; overflow: hidden`: the overflow was real, just invisible
+            until the root itself was measured. */}
+        <div className="projector-left-col" style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', gap: '2vmin', boxSizing: 'border-box', minHeight: 0 }}>
 
           {/* Now Racing */}
-          <div className="projector-heat-panel" style={{ flex: '3', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid var(--error)', boxSizing: 'border-box' }}>
+          <div className="projector-heat-panel" style={{ flex: '3', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2vmin', borderTop: '1vmin solid var(--error)', boxSizing: 'border-box', minHeight: 0 }}>
             <h2 style={{ fontSize: '4vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', gap: '1.5vmin', borderBottom: '2px solid var(--display-border-color)', marginBottom: '2vmin' }}>
               <Icon path={mdiFire} size="4vmin" color="var(--error)" />
               Now Racing
@@ -1471,18 +1528,18 @@ export default function Observation() {
                 <TimerStatusBadge trackId={initialData.race.track.id} />
               )}
             </h2>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minHeight: 0 }}>
               {renderProjectorRacers(currentHeatRacers, true)}
             </div>
           </div>
 
           {/* On Deck */}
-          <div className="projector-heat-panel" style={{ flex: '2', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid var(--display-accent-muted-color)', opacity: nextHeatRacers.length === 0 ? 0.7 : 1, boxSizing: 'border-box' }}>
+          <div className="projector-heat-panel" style={{ flex: '2', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2vmin', borderTop: '1vmin solid var(--display-accent-muted-color)', opacity: nextHeatRacers.length === 0 ? 0.7 : 1, boxSizing: 'border-box', minHeight: 0 }}>
             <h2 style={{ fontSize: '3.5vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', gap: '1.5vmin', borderBottom: '2px solid var(--display-border-color)', marginBottom: '2vmin', color: 'var(--display-text-muted-color)' }}>
               <Icon path={mdiChevronDoubleRight} size="3.5vmin" color="var(--display-text-muted-color)" />
               On Deck
             </h2>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minHeight: 0 }}>
               {renderProjectorRacers(nextHeatRacers, false)}
             </div>
           </div>

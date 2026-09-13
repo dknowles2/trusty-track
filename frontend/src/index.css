@@ -1076,7 +1076,16 @@ input:checked + .slider:before {
   }
 }
 
-@media screen and (max-width: 800px) {
+/* Stack the two-column projector layout into one scrolling column on a
+   genuinely narrow screen (a phone held up to preview the projector view,
+   say). The threshold used to be 800px, which collided directly with the
+   800×600 SVGA projector #1073 asks this view to support cleanly — at
+   exactly that width the layout fell back to this stacked, scrolling
+   treatment instead of the fixed-height, no-scroll kiosk layout the issue
+   requires. 700px is comfortably below every SVGA/XGA/720p viewport this
+   view has to hold up at while still catching an actual phone (390–430px
+   wide is typical), which is the case this fallback exists for. */
+@media screen and (max-width: 700px) {
   .projector-grid {
     flex-direction: column !important;
     overflow-y: auto !important;

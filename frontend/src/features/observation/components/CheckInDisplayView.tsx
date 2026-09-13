@@ -238,7 +238,15 @@ export default function CheckInDisplayView({
                                     <div
                                         key={racer.id}
                                         style={{
-                                            fontSize: compact ? '1.6vmin' : '2vmin',
+                                            // Never below 2vmin (#1073's own
+                                            // legibility floor is exactly 2%
+                                            // of viewport height, which every
+                                            // supported viewport is landscape
+                                            // enough for `vmin` to equal) —
+                                            // a car number and a racer's own
+                                            // name are both things that floor
+                                            // exists to protect.
+                                            fontSize: compact ? '2vmin' : '2.2vmin',
                                             color: 'var(--display-text-color)',
                                         }}
                                     >
@@ -260,7 +268,7 @@ export default function CheckInDisplayView({
                                         <div
                                             key={racer.id}
                                             style={{
-                                                fontSize: compact ? '1.6vmin' : '2vmin',
+                                                fontSize: compact ? '2vmin' : '2.2vmin',
                                                 color: 'var(--display-text-faint-color)',
                                             }}
                                         >
