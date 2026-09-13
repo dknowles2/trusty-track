@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useMutation } from 'urql';
-import RosterImportModal, { RosterImportSource } from './RosterImportModal';
+import RosterImportModal, { IMPORT_OTHER_SOFTWARE_LABEL, RosterImportSource } from './RosterImportModal';
 import {
     PREVIEW_GPRM_IMPORT,
     PREVIEW_DERBYNET_IMPORT,
@@ -107,6 +107,17 @@ const open = (source: RosterImportSource, onImportSuccess = vi.fn()) =>
     render(
         <RosterImportModal
             source={source}
+            isOpen
+            onClose={vi.fn()}
+            raceId={1}
+            onImportSuccess={onImportSuccess}
+        />,
+    );
+
+/** No `source` -- the modal opens on its own chooser step. */
+const openChooser = (onImportSuccess = vi.fn()) =>
+    render(
+        <RosterImportModal
             isOpen
             onClose={vi.fn()}
             raceId={1}
@@ -249,5 +260,69 @@ describe.each(Object.keys(SOURCES) as RosterImportSource[])('RosterImportModal (
         // paragraph names the same program too, so a plain text match would
         // find both and throw on the ambiguity.
         expect(screen.getByRole('heading')).toHaveTextContent(SOURCES[source].titleFragment);
+    });
+});
+
+// #1086: one menu entry opens this modal with no `source`, and it asks
+// which program on its own chooser step rather than the roster offering
+// two near-identical menu entries with the same icon.
+describe('RosterImportModal (chooser)', () => {
+    it('renders one option per source, and nothing further, when no source is pinned', () => {
+        mockMutations('gprm');
+        openChooser();
+
+        expect(screen.getByRole('heading')).toHaveTextContent(IMPORT_OTHER_SOFTWARE_LABEL);
+        // One radio per `SOURCE_CONFIG` key -- adding a third source should
+        // mean adding a config entry, not touching this chooser's JSX.
+        expect(screen.getAllByRole('radio')).toHaveLength(2);
+        expect(screen.getByText('GrandPrix Race Manager')).toBeInTheDocument();
+        expect(screen.getByText('DerbyNet')).toBeInTheDocument();
+        // Nothing from the file step has appeared yet.
+        expect(screen.queryByRole('button', { name: /Select .* Database/ })).not.toBeInTheDocument();
+    });
+
+    it('continues to the file step for the picked source', async () => {
+        mockMutations('derbynet');
+        openChooser();
+
+        await userEvent.click(screen.getByRole('radio', { name: /DerbyNet/ }));
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+        expect(screen.getByRole('heading')).toHaveTextContent('DerbyNet');
+        expect(screen.getByText('Select DerbyNet Database')).toBeInTheDocument();
+
+        await selectFile('derbynet', 'roster.sqlite');
+        await waitFor(() => expect(screen.getByText('Alex Rivera')).toBeInTheDocument());
+    });
+
+    it('Back clears the file and returns to the chooser', async () => {
+        mockMutations('derbynet');
+        openChooser();
+
+        await userEvent.click(screen.getByRole('radio', { name: /DerbyNet/ }));
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+        await selectFile('derbynet', 'roster.sqlite');
+        await waitFor(() => expect(screen.getByText('Alex Rivera')).toBeInTheDocument());
+
+        await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+        expect(screen.getByRole('heading')).toHaveTextContent(IMPORT_OTHER_SOFTWARE_LABEL);
+
+        // Continuing again on the same source shows an empty file step --
+        // the file picked before Back is gone, not carried over.
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+        expect(screen.getByText('Select DerbyNet Database')).toBeInTheDocument();
+        expect(screen.queryByText('Alex Rivera')).not.toBeInTheDocument();
+    });
+
+    it('skips the chooser when a source is pinned', () => {
+        mockMutations('gprm');
+        open('gprm');
+
+        expect(screen.getByRole('heading')).toHaveTextContent('GrandPrix Race Manager');
+        expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
+        // No chooser to go back to.
+        expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
     });
 });

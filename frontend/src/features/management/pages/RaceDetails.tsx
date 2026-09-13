@@ -25,7 +25,7 @@ import { isRaceSectionId, type RaceSectionId } from '../raceSettingsSections';
 import DeleteLockedRaceModal from '../components/DeleteLockedRaceModal';
 import LockedBadge from '../../core/components/LockedBadge';
 import ImportRacersModal from '../components/ImportRacersModal';
-import RosterImportModal from '../components/RosterImportModal';
+import RosterImportModal, { IMPORT_OTHER_SOFTWARE_LABEL } from '../components/RosterImportModal';
 import SetupChecklist from '../components/SetupChecklist';
 import CheckInProgress from '../components/CheckInProgress';
 import SortableHeader from '../components/SortableHeader';
@@ -248,8 +248,10 @@ export default function RaceDetails() {
   // Racer Form State
   const [showRacerForm, setShowRacerForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showGprmImportModal, setShowGprmImportModal] = useState(false);
-  const [showDerbynetImportModal, setShowDerbynetImportModal] = useState(false);
+  // One modal for every "not CSV" program, not one flag per program (#1086)
+  // — RosterImportModal opens on its own chooser step when `source` is left
+  // unset.
+  const [showOtherImportModal, setShowOtherImportModal] = useState(false);
   const [showRacingGroupManager, setShowRacingGroupManager] = useState(false);
   const [editingRacer, setEditingRacer] = useState<Racer | undefined>(undefined);
   const [racerFormTitle, setRacerFormTitle] = useState('Add New Racer');
@@ -1165,25 +1167,14 @@ export default function RaceDetails() {
                             </button>
                             <button
                                 onClick={() => {
-                                    setShowGprmImportModal(true);
+                                    setShowOtherImportModal(true);
                                     setIsAddRacerDropdownOpen(false);
                                 }}
                                 disabled={!canCheckIn}
                                 title={checkinRoleTitle}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
-                                <Icon path={mdiDatabaseImport} size={0.7} /> Import from GrandPrix Race Manager
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setShowDerbynetImportModal(true);
-                                    setIsAddRacerDropdownOpen(false);
-                                }}
-                                disabled={!canCheckIn}
-                                title={checkinRoleTitle}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                            >
-                                <Icon path={mdiDatabaseImport} size={0.7} /> Import from DerbyNet
+                                <Icon path={mdiDatabaseImport} size={0.7} /> {IMPORT_OTHER_SOFTWARE_LABEL}
                             </button>
                         </div>
                     )}
@@ -1743,23 +1734,14 @@ export default function RaceDetails() {
           />
       )}
 
-      {/* GrandPrix Race Manager Import Modal (#618) */}
+      {/* Import from another racing program (#618 GPRM, #661 DerbyNet).
+          One mount, no `source` -- the modal opens on its own chooser step
+          and asks which program (#1086), rather than one menu entry and one
+          mount per program. */}
       {race && (
           <RosterImportModal
-            source="gprm"
-            isOpen={showGprmImportModal}
-            onClose={() => setShowGprmImportModal(false)}
-            raceId={race.id}
-            onImportSuccess={refreshData}
-          />
-      )}
-
-      {/* DerbyNet Import Modal (#661) */}
-      {race && (
-          <RosterImportModal
-            source="derbynet"
-            isOpen={showDerbynetImportModal}
-            onClose={() => setShowDerbynetImportModal(false)}
+            isOpen={showOtherImportModal}
+            onClose={() => setShowOtherImportModal(false)}
             raceId={race.id}
             onImportSuccess={refreshData}
           />

@@ -19,8 +19,18 @@ interface RosterImportModalProps {
     onClose: () => void;
     raceId: number;
     onImportSuccess: () => void;
-    source: RosterImportSource;
+    // Optional: when passed, the source chooser below is skipped entirely
+    // (a deep link, or a test that only cares about one source's own
+    // behaviour). Left unset, the modal opens on the chooser step and
+    // `source` is decided by which option the operator picks.
+    source?: RosterImportSource;
 }
+
+/** The menu label, and the chooser step's own title — chosen so the menu
+ * lists one entry for "not CSV, not this app's own format" rather than
+ * naming both programs (and growing a third label whenever a third program
+ * is added — see the chooser below, which is built the same way). */
+export const IMPORT_OTHER_SOFTWARE_LABEL = 'Import from other racing software';
 
 /**
  * The shape both `previewGprmImport` and `previewDerbynetImport` return —
@@ -48,6 +58,12 @@ interface RosterImportPreview {
 
 interface SourceConfig {
     title: string;
+    // The chooser step's own one-liner for this program — where its file
+    // usually lives, short enough to sit under a radio option. `help` below
+    // is the longer version, kept for the file step, where there is room
+    // for it and a reason to read it (the file picker is right there).
+    programName: string;
+    fileLocationHint: ReactNode;
     help: ReactNode;
     fileInputId: string;
     fileButtonLabel: string;
@@ -78,6 +94,13 @@ interface SourceConfig {
 const SOURCE_CONFIG: Record<RosterImportSource, SourceConfig> = {
     gprm: {
         title: 'Import from GrandPrix Race Manager',
+        programName: 'GrandPrix Race Manager',
+        fileLocationHint: (
+            <>
+                A single SQLite file, usually under Documents &gt; Lisano Enterprises &gt;
+                GrandPrix Race Manager &gt; Data.
+            </>
+        ),
         help: (
             <>
                 GrandPrix Race Manager (version 18 or later) keeps its data as a single
@@ -97,6 +120,13 @@ const SOURCE_CONFIG: Record<RosterImportSource, SourceConfig> = {
     },
     derbynet: {
         title: 'Import from DerbyNet',
+        programName: 'DerbyNet',
+        fileLocationHint: (
+            <>
+                A single SQLite file — from its Administer Race page&apos;s Backup Database
+                link, or the file in its own data directory.
+            </>
+        ),
         help: (
             <>
                 DerbyNet keeps its data as a single SQLite file — from its Administer
@@ -118,8 +148,22 @@ const SOURCE_CONFIG: Record<RosterImportSource, SourceConfig> = {
 
 const PREVIEW_ROWS = 5;
 
+const SOURCE_KEYS = Object.keys(SOURCE_CONFIG) as RosterImportSource[];
+
 export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuccess, source }: RosterImportModalProps) {
-    const config = SOURCE_CONFIG[source];
+    // `pickedSource` is null exactly while the chooser step is showing. When
+    // `source` is passed, it is never null and the chooser never renders.
+    const [pickedSource, setPickedSource] = useState<RosterImportSource | null>(source ?? null);
+    // The radio selection on the chooser step, kept separate from
+    // `pickedSource` so "Continue" is a deliberate second click rather than
+    // picking an option jumping straight to the file step.
+    const [chooserSelection, setChooserSelection] = useState<RosterImportSource | null>(null);
+    const choosing = pickedSource === null;
+    // A config is needed unconditionally below so every hook this component
+    // calls sees a stable argument shape on the chooser step too — nothing
+    // here fires a network request until a file is actually chosen, so
+    // which entry stands in while `choosing` is true does not matter.
+    const config = SOURCE_CONFIG[pickedSource ?? SOURCE_KEYS[0]];
     const { group, vehicle, groupLower, groupsLower } = useTerminology();
     const [fileName, setFileName] = useState<string | null>(null);
     const [fileData, setFileData] = useState<string | null>(null);
@@ -216,10 +260,84 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
 
     const handleClose = () => {
         reset();
+        // Closing without a fixed `source` prop goes back to a fresh
+        // chooser next time this modal opens, rather than reopening on
+        // whatever program was picked last time.
+        if (!source) {
+            setPickedSource(null);
+            setChooserSelection(null);
+        }
         onClose();
     };
 
+    // Returning to the chooser clears the file the same way choosing a new
+    // one already does (`reset`) — the file just picked belonged to the
+    // program being left, and carrying it over to a different program's
+    // preview mutation would send a database to the wrong parser.
+    const handleBack = () => {
+        reset();
+        setChooserSelection(pickedSource);
+        setPickedSource(null);
+    };
+
+    const handleContinue = () => {
+        if (chooserSelection) setPickedSource(chooserSelection);
+    };
+
     if (!isOpen) return null;
+
+    if (choosing) {
+        return (
+            <Modal isOpen={isOpen} onClose={handleClose} title={IMPORT_OTHER_SOFTWARE_LABEL} maxWidth="720px">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <p style={{ color: 'var(--text-muted-color)', lineHeight: '1.5', margin: 0 }}>
+                        Which program is the roster coming from?
+                    </p>
+                    {SOURCE_KEYS.map((key) => {
+                        const cfg = SOURCE_CONFIG[key];
+                        return (
+                            <label
+                                key={key}
+                                style={{
+                                    display: 'flex',
+                                    gap: '10px',
+                                    alignItems: 'flex-start',
+                                    padding: '10px',
+                                    border: '1px solid var(--input-border-color)',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                <input
+                                    type="radio"
+                                    name="roster-import-source"
+                                    value={key}
+                                    checked={chooserSelection === key}
+                                    onChange={() => setChooserSelection(key)}
+                                    style={{ marginTop: '3px' }}
+                                />
+                                <span>
+                                    <strong>{cfg.programName}</strong>
+                                    <br />
+                                    <span style={{ color: 'var(--text-muted-color)', fontSize: '0.85rem' }}>
+                                        {cfg.fileLocationHint}
+                                    </span>
+                                </span>
+                            </label>
+                        );
+                    })}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+                        <button onClick={handleClose} className="secondary-btn">
+                            Close
+                        </button>
+                        <button onClick={handleContinue} className="primary-btn" disabled={!chooserSelection}>
+                            Continue
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+        );
+    }
 
     const previewing = previewResult.fetching;
     const ready = preview !== null && preview.canImport && !previewing;
@@ -335,7 +453,18 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
                     </div>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', marginTop: '0.5rem' }}>
+                    {/* Only reachable through the chooser -- a caller that
+                        pinned `source` skipped it, so there is nowhere for
+                        Back to return to. */}
+                    {!source ? (
+                        <button onClick={handleBack} className="secondary-btn" disabled={confirming}>
+                            Back
+                        </button>
+                    ) : (
+                        <span />
+                    )}
+                    <div style={{ display: 'flex', gap: '10px' }}>
                     <button onClick={handleClose} className="secondary-btn" disabled={confirming}>
                         Close
                     </button>
@@ -356,6 +485,7 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
                                   : 'Import'}
                         </button>
                     )}
+                    </div>
                 </div>
             </div>
         </Modal>
