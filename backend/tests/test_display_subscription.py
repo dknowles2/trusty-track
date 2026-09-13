@@ -449,6 +449,56 @@ async def test_clearing_a_races_override_reverts_to_the_installs_setting(db):
     await stream.aclose()
 
 
+@pytest.mark.asyncio
+async def test_a_full_resend_with_no_theme_change_does_not_nudge_a_connected_display(
+    db,
+):
+    """`RaceForm` resends the whole race on every save, not a diff —
+    `RaceDetails.handleUpdateRace` builds `clearDisplayTheme`/
+    `clearPrintablesTheme` as an ordinary `updateInput.display_theme ==
+    null` on *every* save, not only when the operator actually opens
+    Appearance. A race with no override already sends both clear flags as
+    `true` on a save that only renames the race — `updateRace` has to tell
+    that resend apart from an actual theme change (comparing the race's own
+    stored value before and after, the same way `setThemes` already does
+    for its install-wide broadcast) or it nudges every display on the race
+    for an edit that never touched its theme at all."""
+    organization = _organization(db, display_theme="old-glory")
+    race = _race(db, organization)  # no override: theme columns stay null.
+
+    stream = Subscription().display_assignment(
+        _info(db), display_id="abc", race_id=race.id
+    )
+    await _first(stream)
+
+    # Inspecting the queue directly, rather than racing a `following =
+    # asyncio.create_task(stream.__anext__())` against scheduling (the shape
+    # every other "must not nudge" test above uses): those tests never
+    # publish at all in the buggy-vs-fixed case they guard, so there is
+    # nothing for the awaiting task to be scheduled *onto* either way and
+    # the race is invisible. Here a publish is exactly the failure mode
+    # under test, and `pubsub.publish`'s `put_nowait` needs no scheduler
+    # tick to land in the queue — checking `qsize()` catches it the instant
+    # it happens, where checking `following.done()` right after `await
+    # update_race(...)` would pass whether or not anything was enqueued,
+    # since the awaiting generator has not yet been given a turn to notice.
+    queue = displays_service_queue(schema_mod.pubsub, "abc")
+    assert queue.qsize() == 0
+
+    await Mutation().update_race(
+        _info(db),
+        id=race.id,
+        race=RaceUpdateInput(
+            name="A Renamed Race",
+            clear_display_theme=True,
+            clear_printables_theme=True,
+        ),
+    )
+
+    assert queue.qsize() == 0
+    await stream.aclose()
+
+
 # --------------------------------------------------------------------------- #
 # #881 — a backed-up queue must not collapse two ceremony steps into one      #
 # --------------------------------------------------------------------------- #

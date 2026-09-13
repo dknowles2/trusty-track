@@ -48,7 +48,7 @@ describe('editing a race with no override', () => {
                 onCancel={vi.fn()}
                 submitLabel="Save Changes"
                 isEditing
-                initialData={{ name: 'Pack 42 Derby' }}
+                initialData={{ name: 'Pack 42 Derby', display_theme: null, printables_theme: null }}
             />,
         );
         await openAppearance();
@@ -75,7 +75,7 @@ describe('editing a race with no override', () => {
                 onCancel={vi.fn()}
                 submitLabel="Save Changes"
                 isEditing
-                initialData={{ name: 'Pack 42 Derby' }}
+                initialData={{ name: 'Pack 42 Derby', display_theme: null, printables_theme: null }}
             />,
         );
         await openAppearance();
@@ -90,11 +90,20 @@ describe('editing a race with no override', () => {
 
         const payload = onSubmit.mock.calls[0][0];
         expect(payload.display_theme).toBe('under-the-lights');
-        // Printables was never touched, so it is never sent at all — the
-        // same "leave alone" shape every other untouched override field on
-        // this form has (RaceDetails.tsx maps a fetched null onto it;
-        // nothing here seeds one for a field nobody clicked).
-        expect(payload.printables_theme).toBeUndefined();
+        // Printables was never touched, so it stays exactly what
+        // `RaceDetails.tsx` seeded it with — `null`, not absent. Unlike the
+        // terminology/name-display overrides, `RaceDetails` always maps
+        // both theme fields to `null`-or-string (never leaves them
+        // `undefined`, see its own `display_theme`/`printables_theme`
+        // mapping), so `RaceDetails.handleUpdateRace` sends
+        // `clearPrintablesTheme: true` on *every* save of a race with no
+        // override, whether or not Appearance was touched. That is not a
+        // bug this test can catch: it is the backend's job
+        // (`updateRace` comparing the race's stored value before and after,
+        // not the presence of a clear flag) to tell a harmless resend apart
+        // from a real change — see `test_display_subscription.py`'s
+        // `test_a_full_resend_with_no_theme_change_does_not_nudge_a_connected_display`.
+        expect(payload.printables_theme).toBeNull();
     });
 
     it('picking "Field Uniform (default)" sends the real MATCH_APP value, not null', async () => {
@@ -105,7 +114,7 @@ describe('editing a race with no override', () => {
                 onCancel={vi.fn()}
                 submitLabel="Save Changes"
                 isEditing
-                initialData={{ name: 'Pack 42 Derby' }}
+                initialData={{ name: 'Pack 42 Derby', display_theme: null, printables_theme: null }}
             />,
         );
         await openAppearance();
@@ -126,7 +135,7 @@ describe('editing a race with an override already set', () => {
                 onCancel={vi.fn()}
                 submitLabel="Save Changes"
                 isEditing
-                initialData={{ name: 'Pack 42 Derby', display_theme: 'newsprint' }}
+                initialData={{ name: 'Pack 42 Derby', display_theme: 'newsprint', printables_theme: null }}
             />,
         );
         await openAppearance();
@@ -149,7 +158,7 @@ describe('editing a race with an override already set', () => {
                 onCancel={vi.fn()}
                 submitLabel="Save Changes"
                 isEditing
-                initialData={{ name: 'Pack 42 Derby', display_theme: 'newsprint' }}
+                initialData={{ name: 'Pack 42 Derby', display_theme: 'newsprint', printables_theme: null }}
             />,
         );
         await openAppearance();

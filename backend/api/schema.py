@@ -4271,18 +4271,28 @@ class Mutation:
             filtered_data["display_theme"] = None
         if clear_printables_theme:
             filtered_data["printables_theme"] = None
-        # Whether this save touches either theme at all, decided before the
-        # DB write rather than by comparing before/after: a race-scoped
-        # nudge is cheap (`DisplayRegistry.for_race`, not every display at
-        # the venue), so there is no need to detect an actual value change
-        # the way the install-wide `setThemes` does before its own broadcast.
-        theme_fields_changed = (
-            "display_theme" in filtered_data or "printables_theme" in filtered_data
-        )
         try:
             race_update = schemas.RaceUpdate(**typing.cast(Any, filtered_data))
         except ValidationError as exc:
             raise ValueError(_validation_sentence(exc)) from exc
+        # Captured before the write, for the theme-change check below.
+        # `RaceForm` resends the whole race on every save — `clearDisplayTheme`/
+        # `clearPrintablesTheme` arrive as an ordinary `True`/`False` on
+        # every request, following the same "resend everything" shape
+        # `is_lock_only_update`'s own docstring describes, not only when the
+        # operator actually touched Appearance. Checking "is display_theme
+        # in filtered_data" was wrong for exactly that reason: a race with
+        # no override already sends `clearDisplayTheme: true` on *every*
+        # save (`updateInput.display_theme == null` is true whether or not
+        # anything changed), which put `display_theme` in `filtered_data`
+        # — as `None`, the value it already was — and nudged every display
+        # on the race for an unrelated field's edit. Comparing the race's
+        # actual stored value before and after is the only check that
+        # answers the real question, the same reasoning `setThemes` already
+        # uses for its own install-wide broadcast.
+        existing = db.query(models.Race).filter(models.Race.id == id).first()
+        previous_display_theme = existing.display_theme if existing else None
+        previous_printables_theme = existing.printables_theme if existing else None
         updated = typing.cast(
             Any, crud.update_race(db, race_id=id, race_update=race_update)
         )
@@ -4301,6 +4311,10 @@ class Mutation:
             # computed under the old scoring strategy until the next heat
             # result happens to fire the channel.
             await _publish_race_state(updated.id, kind=RaceChangeKind.RACE_SETTINGS)
+            theme_fields_changed = (
+                updated.display_theme != previous_display_theme
+                or updated.printables_theme != previous_printables_theme
+            )
             if theme_fields_changed:
                 # A race's own Display/Printables theme override changed
                 # (#1081) — the race-scoped sibling of
