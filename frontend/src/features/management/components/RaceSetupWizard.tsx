@@ -578,7 +578,7 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
                             </label>
                             <p style={{ ...helpStyle, marginBottom: 0 }} data-testid="setup-round-plan-summary">
                                 {copyRounds
-                                    ? roundPlanSummary(sourceRace.roundPlan, sourceRaceName ?? 'the previous race')
+                                    ? roundPlanSummary(sourceRace.roundPlan, sourceRaceName ?? 'the previous race', groupWords.groupLower)
                                     : 'Not copying the rounds — build the schedule with the round wizard once this race is set up.'}
                             </p>
                         </fieldset>

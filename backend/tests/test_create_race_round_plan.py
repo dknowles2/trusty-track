@@ -30,6 +30,20 @@ mutation Wizard($raceId: Int!, $config: WizardConfigurationInput!) {
 }
 """
 
+REGENERATE = """
+mutation Regenerate($roundId: Int!) {
+    regenerateRound(roundId: $roundId) { id }
+}
+"""
+
+RACE_HEATS = """
+query RaceHeats($raceId: Int!) {
+    race(raceId: $raceId) {
+        heats { id roundId }
+    }
+}
+"""
+
 ROUND_PLAN = """
 query Plan($raceId: Int!) {
     race(raceId: $raceId) {
@@ -205,6 +219,81 @@ def test_round_plan_creates_rounds_and_remaps_the_copied_award(db, client):
     award = created["awards"][0]
     assert award["name"] == "Pack Champion"
     assert award["source"] == f"ROUND:{finals['id']}"
+
+
+def test_regenerating_the_copied_general_round_honours_its_runs_per_lane(db, client):
+    """The bug the #1119-style review found in this PR: a general round
+    copied at race-creation time has no roster yet (`tolerate_empty_
+    roster`), so it starts with zero heats — and `generate_heats_for_
+    round`'s own "derive `runs` from the heats about to be cleared" rule
+    (`regenerateRound`'s own default) had nothing to derive from and
+    silently fell back to 1, dropping the copied plan's own `runsPerLane`
+    the moment the operator did exactly what this feature tells them to
+    do (add a roster, then Regenerate).
+
+    `_make_source_race` already builds its general round at 2 runs per
+    lane — every *other* test in this file only inspects the immediate
+    `createRace` response, which never reaches `generate_heats_for_round`'s
+    derivation at all (there are no heats yet either way). This one goes
+    one step further: add a roster to the *new* race and regenerate, the
+    same two steps `.claude/rules/roster.md`'s "A general round copied
+    into a brand-new race" describes, and count what comes out.
+    """
+    source_race_id, _finals_id = _make_source_race(db, client)
+    plan = _round_plan(client, source_race_id)
+    assert plan["generalRound"]["runsPerLane"] == 2
+
+    organization_id, track_id = _context(db, label="RoundPlanRunsPerLane")
+    response = client.post(
+        "/graphql",
+        json={
+            "query": CREATE,
+            "variables": {
+                "race": {
+                    "name": "This Year (Runs Per Lane)",
+                    "organizationId": organization_id,
+                    "trackId": track_id,
+                    "carNumberingStrategy": "MANUAL",
+                    "roundPlan": plan,
+                }
+            },
+        },
+    )
+    body = response.json()
+    assert "errors" not in body, body
+    created = body["data"]["createRace"]
+    general = next(r for r in created["rounds"] if r["advancementSource"] is None)
+
+    racer_count = 6
+    for i in range(racer_count):
+        racer = crud.create_racer(
+            db,
+            schemas.RacerCreate(
+                first_name="Newcomer",
+                last_name=str(i),
+                race_id=created["id"],
+                car_passed_inspection=True,
+            ),
+        )
+        assert racer.id is not None
+
+    regen_response = client.post(
+        "/graphql",
+        json={"query": REGENERATE, "variables": {"roundId": general["id"]}},
+    )
+    regen_body = regen_response.json()
+    assert "errors" not in regen_body, regen_body
+
+    heats_response = client.post(
+        "/graphql", json={"query": RACE_HEATS, "variables": {"raceId": created["id"]}}
+    )
+    heats_body = heats_response.json()
+    assert "errors" not in heats_body, heats_body
+    general_heats = [
+        h for h in heats_body["data"]["race"]["heats"] if h["roundId"] == general["id"]
+    ]
+    # 2 runs per lane, copied from the source race: 12 heats, not 6.
+    assert len(general_heats) == racer_count * 2, general_heats
 
 
 def test_a_plan_with_no_round_awards_still_seeds_the_default_trophies(db, client):

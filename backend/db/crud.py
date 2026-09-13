@@ -2330,7 +2330,14 @@ def generate_heats_for_round(
     used to live in exactly one of them (``regenerateRound``, from #143) while
     ``invalidate_future_rounds`` and ``populate_round_field`` had nothing —
     so a two-run final quietly became a one-run final the moment any prelim
-    result was recorded. A fresh round derives 1.
+    result was recorded. A round with no heats to derive from — a fresh
+    round, or one copied at race-creation time with no roster yet
+    (``create_rounds_from_plan``'s ``tolerate_empty_roster``, #1088) —
+    falls back to ``Round.runs_per_lane``, the wizard's own stored answer,
+    rather than hardcoding 1: that column exists precisely so this
+    derivation has something to read once there is nothing scheduled yet.
+    Only a legacy round created before that column existed (null) actually
+    lands on the bare `1` default.
     """
     round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
     if not round_obj:
@@ -2372,7 +2379,7 @@ def generate_heats_for_round(
         if clear_existing and existing_heats and participants > 0:
             runs = max(1, len(existing_heats) // participants)
         else:
-            runs = 1
+            runs = round_obj.runs_per_lane or 1
     cleared = False
     if existing_heats and clear_existing:
         if not advancement.may_rebuild(lanes_for_heats(db, existing_heats)):
@@ -4865,6 +4872,15 @@ def seed_championship_awards(
     race already had — or an empty list when the rule seeds nothing: no
     trophies configured, no seats in the field, or (the ordinary case, after
     the first final) a `SPEED` award already exists.
+
+    That last case is deliberate past the obvious "don't seed twice": once
+    a `SPEED` award exists, a *second* final added later through **Add
+    Round** does not re-point it, even though `resolve_championship_source`
+    would chain the new final to the standings the first one already
+    settled. A seeded (or copied, #1088) award keeps naming the round it
+    was seeded from — "awards are the operator's list once they exist," not
+    a live view of whichever round is currently last (#1119's review;
+    `.claude/rules/advancement-and-awards.md` has the full reasoning).
     """
     race = db.query(models.Race).filter(models.Race.id == round_obj.race_id).first()
     if race is None:

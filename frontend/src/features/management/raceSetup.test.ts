@@ -430,11 +430,20 @@ describe('roundPlanSummary', () => {
         );
     });
 
-    it('says "by group" for an EACH_GROUP general round', () => {
+    it('defaults the group word to "den" for an EACH_GROUP general round', () => {
         const plan = sourceRoundPlan({
             generalRound: { type: 'EACH_GROUP', schedulingStrategy: 'PPC', runsPerLane: 1 },
         });
-        expect(roundPlanSummary(plan, 'Last Year')).toContain('Qualifying by group');
+        expect(roundPlanSummary(plan, 'Last Year')).toContain('Qualifying by den');
+    });
+
+    it('says "by rank" for a district derby copying an EACH_GROUP race, not the literal "group" (terminology)', () => {
+        const plan = sourceRoundPlan({
+            generalRound: { type: 'EACH_GROUP', schedulingStrategy: 'PPC', runsPerLane: 1 },
+        });
+        const summary = roundPlanSummary(plan, 'Last Year', 'rank');
+        expect(summary).toContain('Qualifying by rank');
+        expect(summary).not.toContain('group');
     });
 
     it('names an Elimination or Balanced general round with no championship round', () => {

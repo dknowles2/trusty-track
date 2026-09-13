@@ -36,6 +36,11 @@ const progress = (over: Partial<SetupProgress> = {}): SetupProgress => ({
     racerCount: 0,
     checkedInCount: 0,
     roundCount: 0,
+    // Every existing case in this file means "a round with a real schedule"
+    // by `roundCount: 1` — defaulting this to true keeps them saying that
+    // rather than having to add it everywhere. The dedicated `hasScheduledHeats:
+    // false` cases below are what a round with no heats yet (#1088) actually needs.
+    hasScheduledHeats: true,
     awardCount: 0,
     isLocked: false,
     ...over,
@@ -188,6 +193,40 @@ describe('checklistFor', () => {
 
     it('needs a round for the schedule step, not merely racers', () => {
         expect(doneKeys(progress({ racerCount: 20, checkedInCount: 20 }))).not.toContain('schedule');
+    });
+
+    it('is not done for a round with no heats yet — a plan copied at race-creation time (#1088)', () => {
+        const p = progress({ racerCount: 20, checkedInCount: 20, roundCount: 1, hasScheduledHeats: false });
+        expect(doneKeys(p)).not.toContain('schedule');
+        expect(skippedKeys(p)).not.toContain('schedule');
+    });
+
+    it('tells the operator to regenerate, not to generate, once a heatless round already exists', () => {
+        const [, , , schedule] = checklistFor(
+            progress({ racerCount: 20, checkedInCount: 20, roundCount: 1, hasScheduledHeats: false }),
+        );
+        expect(schedule.hint).toContain('regenerate');
+        expect(schedule.hint).not.toBe('Race Control builds the heats and runs them.');
+    });
+
+    it('names the checked-in vehicle word in the heatless-round hint (#551)', () => {
+        const rocketWords: TerminologyWords = {
+            ...WORDS,
+            vehicle: 'Rocket',
+            vehicles: 'Rockets',
+            vehicleLower: 'rocket',
+            vehiclesLower: 'rockets',
+        };
+        const [, , , schedule] = checklistForWords(
+            progress({ racerCount: 20, checkedInCount: 20, roundCount: 1, hasScheduledHeats: false }),
+            rocketWords,
+        );
+        expect(schedule.hint).toContain('rockets');
+    });
+
+    it('is done once that same round actually has heats', () => {
+        const p = progress({ racerCount: 20, checkedInCount: 20, roundCount: 1, hasScheduledHeats: true });
+        expect(doneKeys(p)).toContain('schedule');
     });
 
     it('names the check-in step for the resolved vehicle word (#551)', () => {

@@ -464,17 +464,25 @@ const GENERAL_STYLE_LABEL: Record<string, string> = {
  * The one-line summary the Details step shows beside the "Copy the rounds
  * too" checkbox (#1088) — "Rounds: 1 qualifying (PPC, 2 runs per lane) →
  * Championship (top 3) — from *Pack 12 Derby 2025*", the shape the issue
- * asked for. Pure text, no terminology lookup: "qualifying" and
- * "Championship" are round-wizard vocabulary, not a racing-group or
- * vehicle word this file would otherwise route through `useTerminology()`.
+ * asked for. "Qualifying" and "Championship" are round-wizard vocabulary,
+ * not a racing-group word — but an `EACH_GROUP` general round's "by
+ * {group}" phrasing names the concept `useTerminology()` exists to
+ * translate (a den, a rank, a group — whatever this install or race calls
+ * it), so that one word is a parameter, the same shape `awardText.
+ * describeSpeedAward` takes `groupWord` in. Defaults to the built-in
+ * Scouting word, matching that function's own default.
  */
-export function roundPlanSummary(plan: SourceRoundPlan, sourceRaceName: string): string {
+export function roundPlanSummary(
+    plan: SourceRoundPlan,
+    sourceRaceName: string,
+    groupWordLower = 'den',
+): string {
     const { generalRound, championshipRounds } = plan;
     const style = GENERAL_STYLE_LABEL[generalRound.schedulingStrategy] ?? generalRound.schedulingStrategy;
     const runsWord = generalRound.runsPerLane === 1 ? 'run' : 'runs';
     const qualifying =
         generalRound.type === 'EACH_GROUP'
-            ? `Qualifying by group (${style}, ${generalRound.runsPerLane} ${runsWord} per lane)`
+            ? `Qualifying by ${groupWordLower} (${style}, ${generalRound.runsPerLane} ${runsWord} per lane)`
             : `1 qualifying (${style}, ${generalRound.runsPerLane} ${runsWord} per lane)`;
     const chain = championshipRounds
         .map((c) => `${c.name} (top ${c.numTopRacers}${c.advancementFromBottom ? ', slowest' : ''})`)

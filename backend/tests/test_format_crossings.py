@@ -197,10 +197,20 @@ def _setup_race(db, label: str) -> tuple[models.Race, list[int]]:
     return race, ids
 
 
-def _create_general_round(client, race_id: int, style: str) -> int:
+def _create_general_round(
+    client, race_id: int, style: str, runs_per_lane: int = 1
+) -> int:
     """Build the general round through the wizard, alone — the same door
-    `test_wizard_round_styles.py` drives. Returns its id."""
-    general_round: dict = {"type": "ALL", "runsPerLane": 1}
+    `test_wizard_round_styles.py` drives. Returns its id.
+
+    ``runs_per_lane`` defaults to 1, matching every cell of the 24-cell
+    sweep above — the copy sweep below is what exercises a value other
+    than the default, since #1119's review found that every existing test
+    here (and in `test_create_race_round_plan.py`) used 1, which is
+    exactly why `Round.runs_per_lane` being silently discarded on
+    regeneration went uncaught.
+    """
+    general_round: dict = {"type": "ALL", "runsPerLane": runs_per_lane}
     if style != "PPC":
         general_round["schedulingStrategy"] = style
     body = client.post(
@@ -649,7 +659,17 @@ def test_copied_round_plan_races_to_finished(
     label = f"CopySource {general_style} {championship_shape}"
     race, ids = _setup_race(db, label)
 
-    general_round_id = _create_general_round(client, race.id, general_style)
+    # 2 runs per lane for the PPC cells — every other test in this file and
+    # in `test_create_race_round_plan.py` used 1 (the wizard's own default),
+    # which is exactly how `Round.runs_per_lane` being silently discarded on
+    # `regenerateRound` (#1119's review) went uncaught: PPC is the only
+    # general style `generate_heats_for_round`'s `runs` parameter actually
+    # multiplies the heat count by (elimination/balanced schedule one
+    # wave/phase regardless of it), so only those two cells can prove it.
+    source_runs_per_lane = 2 if general_style == "PPC" else 1
+    general_round_id = _create_general_round(
+        client, race.id, general_style, runs_per_lane=source_runs_per_lane
+    )
 
     if championship_shape in ("ALL", "EACH_GROUP"):
         _champ_round_id, errors = _create_championship_round(
@@ -663,9 +683,25 @@ def test_copied_round_plan_races_to_finished(
         assert not errors, errors
 
     copy_label = f"Copy {general_style} {championship_shape}"
-    new_race_id, new_ids, _new_general_id, new_champ_id = _copy_race_via_round_plan(
+    new_race_id, new_ids, new_general_id, new_champ_id = _copy_race_via_round_plan(
         client, db, race.id, copy_label
     )
+
+    if general_style == "PPC":
+        # The bug #1119's review found: `regenerateRound` on the copied
+        # general round (built with zero heats, `tolerate_empty_roster`)
+        # used to fall back to 1 run per lane regardless of what the plan
+        # asked for, since there were no existing heats to derive the count
+        # from. `_copy_race_via_round_plan` has already called
+        # `regenerateRound` once a roster exists; RACER_COUNT * 2 heats
+        # proves the copied `runs_per_lane` survived that round trip.
+        general_heats = (
+            db.query(models.Heat).filter(models.Heat.round_id == new_general_id).all()
+        )
+        assert len(general_heats) == RACER_COUNT * 2, (
+            f"expected {RACER_COUNT * 2} heats (2 runs per lane, copied from "
+            f"the source), got {len(general_heats)}"
+        )
 
     _race_everything(db, new_race_id, new_ids)
 
