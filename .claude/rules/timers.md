@@ -1,3 +1,23 @@
+---
+paths:
+  - backend/api/main.py
+  - backend/services/timer/**
+  - backend/tests/conftest.py
+  - backend/tests/data_dir.py
+  - backend/tests/timer_recordings/**
+  - frontend/src/context/SerialProxyContext.tsx
+  - frontend/src/features/racing/serialLog.ts
+  - frontend/src/features/racing/components/HardwareTimerMole.tsx
+  - frontend/src/features/racing/components/FakeTimerMole.tsx
+  - frontend/src/features/racing/components/SerialProxyConnector.tsx
+  - frontend/src/features/racing/components/TimerStatusBadge.tsx
+  - frontend/src/features/settings/timerCapabilities.ts
+  - frontend/src/features/settings/timerTest.ts
+  - frontend/src/features/settings/timerTypeText.ts
+  - frontend/src/features/settings/pages/TimerDiagnostics.tsx
+  - frontend/e2e/environment.ts
+---
+
 # Timers
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching `services/timer/`, a `TimerProfile`, the proxy WebSocket, or `TimerManager`.

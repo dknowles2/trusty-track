@@ -1,3 +1,22 @@
+---
+paths:
+  - docs/**
+  - www/**
+  - mkdocs.yml
+  - README.md
+  - scripts/build_site.sh
+  - deploy/cloudflare/**
+  - deploy/ghpages-redirect/**
+  - frontend/e2e/docs/**
+  - frontend/playwright.screenshots.config.ts
+  - backend/demo_seed.py
+  - backend/tests/test_docs_stay_current.py
+  - backend/tests/test_landing_page_links.py
+  - backend/tests/test_comparison_page.py
+  - .github/workflows/docs.yml
+  - .github/workflows/regenerate-doc-screenshots.yml
+---
+
 # Documentation, the landing page, and the screenshots
 
 Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE.md). Read this before touching anything under `docs/` or `www/`, or a screenshot spec in `frontend/e2e/docs/`.
