@@ -50,6 +50,7 @@ import {
     checklistFor,
     collapsedLine,
     nextStep,
+    requiredStepCounts,
     shouldCollapseChecklist,
     shouldShowChecklist,
     type SetupProgress,
@@ -84,7 +85,9 @@ export default function SetupChecklist({ progress, onAction }: Props) {
     if (!shouldShowChecklist(steps)) return null;
 
     const next = nextStep(steps);
-    const doneCount = steps.filter((step) => step.done).length;
+    // Counted over the required four, same as the collapsed line just below
+    // — the two used to disagree (6 here, 4 there) until #1115.
+    const { done: doneCount, total: totalCount } = requiredStepCounts(steps);
 
     return (
         <details
@@ -127,7 +130,7 @@ export default function SetupChecklist({ progress, onAction }: Props) {
                     <>
                         <span style={{ fontSize: '1.05rem', fontWeight: 'bold' }}>▾ Setting up this race</span>
                         <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)', whiteSpace: 'nowrap' }}>
-                            {doneCount} of {steps.length} done
+                            {doneCount} of {totalCount} done
                         </span>
                     </>
                 ) : (

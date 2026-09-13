@@ -165,4 +165,20 @@ describe('SetupChecklist', () => {
             '4 of 4 done — optional: Set up awards',
         );
     });
+
+    it('agrees with the collapsed line on the denominator, expanded or collapsed (#1115)', () => {
+        // Before #1115 the expanded header counted all six steps ("2 of 6
+        // done") while the collapsed line counted only the required four
+        // ("2 of 4 done") — same moment, two different denominators. Render
+        // the same progress both expanded (checkedInCount: 0) and collapsed
+        // (checkedInCount > 0) and check both summaries say "of 4".
+        const expandedProgress = progress({ racingGroupCount: 1, racerCount: 5, checkedInCount: 0 });
+        const { unmount } = render(<SetupChecklist progress={expandedProgress} onAction={{}} />);
+        expect(screen.getByTestId('setup-checklist-summary')).toHaveTextContent(/of 4 done/);
+        unmount();
+
+        const collapsedProgress = progress({ racingGroupCount: 1, racerCount: 5, checkedInCount: 5, roundCount: 1 });
+        render(<SetupChecklist progress={collapsedProgress} onAction={{}} />);
+        expect(screen.getByTestId('setup-checklist-summary')).toHaveTextContent(/4 of 4 done/);
+    });
 });

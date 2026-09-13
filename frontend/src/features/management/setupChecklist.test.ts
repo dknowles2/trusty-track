@@ -5,6 +5,7 @@ import {
     isSettled,
     nextStep,
     outstandingSteps,
+    requiredStepCounts,
     shouldCollapseChecklist,
     shouldShowChecklist,
     type SetupProgress,
@@ -384,5 +385,27 @@ describe('collapsedLine (#1091)', () => {
         const beforeOptional = line.split('optional:')[0];
         expect(beforeOptional).not.toContain('Print anything you need');
         expect(beforeOptional).not.toContain('Set up awards');
+    });
+});
+
+describe('requiredStepCounts (#1115)', () => {
+    it('matches the leading "N of 4" that collapsedLine prints, for any progress', () => {
+        // The expanded header (`SetupChecklist.tsx`) and the collapsed line
+        // used to disagree on the denominator (6 vs 4) at the exact same
+        // moment. Both now read off this function, so pin that its answer
+        // is always the number `collapsedLine` leads with.
+        const cases = [
+            progress(),
+            progress({ racingGroupCount: 1, racerCount: 5, checkedInCount: 0 }),
+            progress({ racingGroupCount: 1, racerCount: 5, checkedInCount: 5, roundCount: 1 }),
+            progress({ racerCount: 20, checkedInCount: 1, roundCount: 1, awardCount: 1 }),
+        ];
+
+        for (const p of cases) {
+            const steps = checklistFor(p);
+            const { done, total } = requiredStepCounts(steps);
+            expect(total).toBe(4);
+            expect(collapsedLine(steps).startsWith(`${done} of ${total} done`)).toBe(true);
+        }
     });
 });
