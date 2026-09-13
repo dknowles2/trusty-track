@@ -3,6 +3,7 @@ import {
     rotateQuarter,
     rotatedSize,
     clampCrop,
+    deriveScale,
     fitInitialCrop,
     outputSize,
     PORTRAIT_ASPECT,
@@ -156,5 +157,47 @@ describe('outputSize', () => {
         const size = outputSize(crop, 100);
         expect(Number.isInteger(size.width)).toBe(true);
         expect(Number.isInteger(size.height)).toBe(true);
+    });
+});
+
+describe('deriveScale', () => {
+    const rotated = { width: 900, height: 600 };
+
+    it('is 1 when there is no image yet', () => {
+        expect(deriveScale(null, 420, 420)).toBe(1);
+        expect(deriveScale(null, null, 420)).toBe(1);
+    });
+
+    it('falls back to intendedMaxEdge over the longest edge before a measurement exists', () => {
+        expect(deriveScale(rotated, null, 420)).toBeCloseTo(420 / 900, 10);
+        // A portrait image: the longest edge is still the divisor.
+        expect(deriveScale({ width: 600, height: 900 }, null, 420)).toBeCloseTo(420 / 900, 10);
+    });
+
+    it('falls back the same way when the measurement is exactly zero', () => {
+        // A container that hasn't been laid out yet (`getBoundingClientRect()`
+        // before mount, or jsdom, which always reports 0) reads the same as
+        // "no measurement" rather than producing a scale of zero.
+        expect(deriveScale(rotated, 0, 420)).toBeCloseTo(420 / 900, 10);
+    });
+
+    it('prefers the measured width once one exists, even when it disagrees with intendedMaxEdge', () => {
+        // The case this function exists for (#1094): a modal narrower than
+        // the stage's intended width clamps the container's *rendered*
+        // width below `intendedMaxEdge`, and the measured value — not the
+        // constant — is what every on-screen/natural-pixel conversion has
+        // to agree with.
+        expect(deriveScale(rotated, 300, 420)).toBeCloseTo(300 / 900, 10);
+    });
+
+    it('matches the unmeasured fallback when the container is not actually clamped', () => {
+        // The ordinary desktop case: the container rendered at exactly the
+        // width the fallback formula would have guessed, so a caller cannot
+        // tell measured and unmeasured apart.
+        const measured = 420 / Math.max(rotated.width, rotated.height) * rotated.width;
+        expect(deriveScale(rotated, measured, 420)).toBeCloseTo(
+            deriveScale(rotated, null, 420),
+            10,
+        );
     });
 });
