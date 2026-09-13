@@ -292,7 +292,7 @@ Defined entirely in `backend/api/schema.py`.
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 - Run-off: `createRunOffHeat`, `deleteRunOffHeat`
 - Intermission: `startIntermission`, `extendIntermission`, `pauseIntermission`, `resumeIntermission`, `endIntermission`
-- System/data: `createInitialConfig`, `updateInitialConfig`, `importRacers`, `previewGprmImport`, `confirmGprmImport` (GrandPrix Race Manager import, #618), `previewDerbynetImport`, `confirmDerbynetImport` (DerbyNet import, #661), `uploadImage`, `populateRace`, `createPracticeRace`
+- System/data: `createInitialConfig`, `updateInitialConfig`, `setDebugMode`, `setThemes` (Debugging Mode and the Display/Printables themes, split out of `updateInitialConfig`'s bundle so the demo can offer them — #1079, #1080), `importRacers`, `previewGprmImport`, `confirmGprmImport` (GrandPrix Race Manager import, #618), `previewDerbynetImport`, `confirmDerbynetImport` (DerbyNet import, #661), `uploadImage`, `populateRace`, `createPracticeRace`
 
 **Subscriptions:** `raceStateChanged`, `racesChanged`, `timerStatus`, `heatSession`, `leaderboard`, `heats`, `onDeck`, `currentlyRacing`, `timingStats`, `freeRaceHeat`, `activeFreeRaceHeat`, `displayAssignment`, `displays`
 

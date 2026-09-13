@@ -4,6 +4,7 @@ import { useSubscription, useMutation } from 'urql';
 import Modal from '../../../components/ui/Modal';
 import { FakeTimerMole } from './FakeTimerMole';
 import { HardwareTimerMole } from './HardwareTimerMole';
+import { TimerTransitionsPanel } from './TimerTransitionsPanel';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import './TimerStatusBadge.css';
 import { SerialProxyConnector } from './SerialProxyConnector';
@@ -681,6 +682,11 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const showFakeControls = timerType === 'FAKE';
     const showProxyControls = timerType === 'AUTO_DETECT_PROXY';
     const showHardwareMole = timerType != null && timerType !== 'FAKE' && hasTimer && debugMode;
+    // The state-machine transitions panel, unlike the byte mole above, is
+    // useful for every timer type — including FAKE, which has no wire for
+    // the mole to tail (#1079). This is what makes Debugging Mode show
+    // something on the public demo, whose track is always FAKE.
+    const showTransitionsPanel = hasTimer && debugMode;
 
     return (
         <>
@@ -1311,6 +1317,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     )}
                     {showHardwareMole && trackId != null && (
                         <HardwareTimerMole trackId={trackId} timerType={timerType} docked={true} />
+                    )}
+                    {showTransitionsPanel && trackId != null && (
+                        <TimerTransitionsPanel trackId={trackId} docked={true} />
                     )}
                 </div>
             </div>

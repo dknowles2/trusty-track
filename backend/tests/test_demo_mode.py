@@ -310,6 +310,62 @@ class TestBulkGenerators:
         assert db.query(models.Race).count() == before
 
 
+class TestDebugModeAndThemesAreAllowedOnTheDemo:
+    """The opposite shape from every other class in this file (#1079, #1080).
+
+    `setDebugMode` and `setThemes` were split out of `updateInitialConfig`'s
+    bundle specifically so the demo could offer them while still refusing
+    the rest of that form — neither is on `demo_policy.REFUSED_MUTATIONS`,
+    and this is the regression test for that split staying in place.
+    """
+
+    def test_debug_mode_can_be_turned_on(self, client, db, group, demo):  # noqa: ARG002
+        response = client.post(
+            "/graphql",
+            json={"query": "mutation { setDebugMode(enabled: true) { debugMode } }"},
+        )
+        body = response.json()
+        assert "errors" not in body, body
+
+        db.expire_all()
+        assert db.get(models.Organization, group.id).debug_mode is True
+
+    def test_themes_can_be_changed(self, client, db, group, demo):  # noqa: ARG002
+        response = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                  setThemes(displayTheme: "old-glory", printablesTheme: "newsprint") {
+                    displayTheme
+                  }
+                }
+                """
+            },
+        )
+        body = response.json()
+        assert "errors" not in body, body
+
+        db.expire_all()
+        organization = db.get(models.Organization, group.id)
+        assert organization.display_theme == "old-glory"
+        assert organization.printables_theme == "newsprint"
+
+    def test_updateInitialConfig_is_still_refused_alongside_them(  # noqa: N802
+        self,
+        client,
+        db,
+        group,
+        demo,  # noqa: ARG002
+    ):
+        """The point of splitting these two out — the rest of the bundle,
+        the PINs and the tracks, stays refused."""
+        client.post("/graphql", json={"query": CONFIG_MUTATION})
+
+        db.expire_all()
+        assert db.get(models.Organization, group.id).operator_pin_hash is None
+
+
 def _populate_mutation(race_id: int, count: int, *, photos: bool = False) -> str:
     return f"""
         mutation {{

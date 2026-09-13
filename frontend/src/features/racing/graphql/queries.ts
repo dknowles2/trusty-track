@@ -62,6 +62,11 @@ export const TIMER_STATUS_SUBSCRIPTION = gql`
           data
           timestamp
         }
+        transitions {
+          at
+          fromState
+          toState
+        }
         racerByLane
       }
     }

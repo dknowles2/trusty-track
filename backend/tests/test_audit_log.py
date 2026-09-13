@@ -118,6 +118,41 @@ class TestTheMutationSeam:
         assert "8531" not in written
 
 
+class TestTheSettingsMutationsSplitOffOfUpdateInitialConfig:
+    """`setDebugMode`/`setThemes` (#1079, #1080) go through the same
+    `AuditExtension` seam as any other mutation — nothing about splitting a
+    field out of `updateInitialConfig`'s bundle should cost it its own audit
+    trail."""
+
+    def test_set_debug_mode_is_recorded_once(self, client, db, race):  # noqa: ARG002
+        client.post(
+            "/graphql",
+            json={"query": "mutation { setDebugMode(enabled: true) { debugMode } }"},
+        )
+
+        recorded = entries(db, "setDebugMode")
+        assert len(recorded) == 1
+        assert recorded[0].outcome == audit.Outcome.OK.value
+
+    def test_set_themes_is_recorded_once(self, client, db, race):  # noqa: ARG002
+        client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    setThemes(displayTheme: "old-glory", printablesTheme: "newsprint") {
+                        displayTheme
+                    }
+                }
+                """
+            },
+        )
+
+        recorded = entries(db, "setThemes")
+        assert len(recorded) == 1
+        assert recorded[0].outcome == audit.Outcome.OK.value
+
+
 @pytest.fixture
 def locked_install(client, db):
     """An install with both PINs set, which is what turns enforcement on."""

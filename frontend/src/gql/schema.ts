@@ -355,14 +355,11 @@ export type HistoricalTrackRecordInput = {
 export type InitialConfigInput = {
   checkinPin?: InputMaybe<Scalars['String']['input']>;
   clearTerminology?: Scalars['Boolean']['input'];
-  debugMode?: Scalars['Boolean']['input'];
-  displayTheme?: InputMaybe<Scalars['String']['input']>;
   nameDisplay?: InputMaybe<Scalars['String']['input']>;
   operatorPin?: InputMaybe<Scalars['String']['input']>;
   organizationName: Scalars['String']['input'];
   organizationPlural?: InputMaybe<Scalars['String']['input']>;
   organizationSingular?: InputMaybe<Scalars['String']['input']>;
-  printablesTheme?: InputMaybe<Scalars['String']['input']>;
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
   racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
   tracks: Array<TrackInput>;
@@ -514,7 +511,9 @@ export type Mutation = {
   reorderHeats: HeatReorderResponse;
   resetTimer: Scalars['Boolean']['output'];
   resumeIntermission: Race;
+  setDebugMode: InitialConfigStatus;
   setLaneOutages: Array<Scalars['Int']['output']>;
+  setThemes: InitialConfigStatus;
   startFreeRaceHeat: FreeRaceHeat;
   startIntermission: Race;
   startTimerTest: Scalars['Boolean']['output'];
@@ -905,9 +904,20 @@ export type MutationResumeIntermissionArgs = {
 };
 
 
+export type MutationSetDebugModeArgs = {
+  enabled: Scalars['Boolean']['input'];
+};
+
+
 export type MutationSetLaneOutagesArgs = {
   lanes: Array<Scalars['Int']['input']>;
   trackId: Scalars['Int']['input'];
+};
+
+
+export type MutationSetThemesArgs = {
+  displayTheme: Scalars['String']['input'];
+  printablesTheme: Scalars['String']['input'];
 };
 
 
@@ -1593,6 +1603,13 @@ export type TimerStatus = {
   serialLog: Array<SerialLogEntry>;
   state: Scalars['String']['output'];
   testRun: Scalars['Boolean']['output'];
+  transitions: Array<TimerTransitionEntry>;
+};
+
+export type TimerTransitionEntry = {
+  at: Scalars['String']['output'];
+  fromState: Scalars['String']['output'];
+  toState: Scalars['String']['output'];
 };
 
 export type TimesPerLane = {

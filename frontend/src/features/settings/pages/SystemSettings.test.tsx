@@ -172,13 +172,11 @@ describe('SystemSettings', () => {
         expect(mockCreateMutation).toHaveBeenCalledWith({
             config: {
                 organizationName: 'Test Pack',
-                debugMode: false,
-                // Every picker's own default (#498) — Field Uniform never
-                // needing to be picked, and Display/Printables their own
-                // "Field Uniform (default)" option, still stored as
-                // 'MATCH_APP' (#528).
-                displayTheme: 'MATCH_APP',
-                printablesTheme: 'MATCH_APP',
+                // `debugMode` and the two theme fields are no longer part of
+                // this payload at all (#1079, #1080) — `setDebugMode`/
+                // `setThemes` are their own mutations now; see the test
+                // below for those.
+                //
                 // The name-display picker's own default (#552) — full names,
                 // sent as an ordinary explicit value the same way the themes
                 // above are.
@@ -253,6 +251,58 @@ describe('SystemSettings', () => {
         // floating promise) is what keeps that later `navigate('/')` call
         // from firing during whichever test happens to run next.
         await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
+    });
+
+    it('writes a freshly-set operator PIN before setDebugMode/setThemes fire, so neither is refused (#1079, #1080)', async () => {
+        // Reproduces a real CI break: `setDebugMode`/`setThemes` fired with
+        // whatever PIN this device was using *before* the save — blank, on
+        // an unsecured first-run install — and the moment `createInitialConfig`
+        // sets a real operator PIN, `resolve_role` stops treating an
+        // unauthenticated caller as OPERATOR. Both mutations were refused
+        // with "needs the operator PIN" on the very call that had just set
+        // it, which `screenshot-first-run.spec.ts` caught downstream as a
+        // refused `createRace` once the wizard never actually finished.
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: { initialized: false, organizationName: '', tracks: [] } },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+
+        const mockCreateMutation = vi.fn().mockResolvedValue({ data: { createInitialConfig: { initialized: true } } });
+        const pinAtCallTime: (string | null)[] = [];
+        const recordPin = () => {
+            pinAtCallTime.push(window.localStorage.getItem('trustytrack.pin'));
+            return Promise.resolve({ data: {} });
+        };
+        const mockSetDebugMode = vi.fn().mockImplementation(recordPin);
+        const mockSetThemes = vi.fn().mockImplementation(recordPin);
+        (useMutation as any).mockImplementation((query: any) => {
+            const text = documentText(query);
+            if (text.includes('mutation CreateInitialConfig')) return [{ fetching: false }, mockCreateMutation];
+            if (text.includes('mutation SetDebugMode')) return [{ fetching: false }, mockSetDebugMode];
+            if (text.includes('mutation SetThemes')) return [{ fetching: false }, mockSetThemes];
+            return [{ fetching: false }, vi.fn()];
+        });
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>
+        );
+
+        await user.type(await screen.findByLabelText('Organization Name'), 'Test Pack');
+        await user.type(screen.getByLabelText('Operator PIN'), '1234');
+
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockSetDebugMode).toHaveBeenCalled());
+        await waitFor(() => expect(mockSetThemes).toHaveBeenCalled());
+        // Neither call happened before the PIN this save just set was
+        // already in this device's own storage.
+        expect(pinAtCallTime).toEqual(['1234', '1234']);
     });
 });
 
@@ -798,6 +848,94 @@ describe('the settings sections', () => {
         expect(screen.queryByTestId('general-panel')).toBeNull();
     });
 
+    it('the Advanced checkbox saves through setDebugMode, and the save payload carries none of the three split-out fields (#1079, #1080)', async () => {
+        const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
+        const mockSetDebugMode = vi.fn().mockResolvedValue({ data: {} });
+        const mockSetThemes = vi.fn().mockResolvedValue({ data: {} });
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: configured },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) => {
+            const text = documentText(query);
+            if (text.includes('mutation UpdateInitialConfig')) return [{ fetching: false }, mockUpdate];
+            if (text.includes('mutation SetDebugMode')) return [{ fetching: false }, mockSetDebugMode];
+            if (text.includes('mutation SetThemes')) return [{ fetching: false }, mockSetThemes];
+            return [{ fetching: false }, vi.fn()];
+        });
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('advanced');
+        await user.click(screen.getByLabelText('Debugging Mode'));
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockSetDebugMode).toHaveBeenCalledWith({ enabled: true }));
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+
+        const sent = mockUpdate.mock.calls[0][0].config;
+        expect(sent.debugMode).toBeUndefined();
+        expect(sent.displayTheme).toBeUndefined();
+        expect(sent.printablesTheme).toBeUndefined();
+    });
+
+    it('on an already-configured install, setting a fresh operator PIN sequences setDebugMode/setThemes after it is written, not concurrently (#1079, #1080)', async () => {
+        // The identical hazard the wizard test above pins, reached from an
+        // ordinary Settings save instead: this install had no PIN yet (every
+        // caller was OPERATOR), the operator sets one here alongside
+        // Debugging Mode, and `updateInitialConfig`'s own success is what
+        // makes the new PIN real. Racing `setDebugMode`/`setThemes` against
+        // it — the shape used when no PIN is changing — would send them
+        // with this device's still-blank header.
+        const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
+        const pinAtCallTime: (string | null)[] = [];
+        const recordPin = () => {
+            pinAtCallTime.push(window.localStorage.getItem('trustytrack.pin'));
+            return Promise.resolve({ data: {} });
+        };
+        const mockSetDebugMode = vi.fn().mockImplementation(recordPin);
+        const mockSetThemes = vi.fn().mockImplementation(recordPin);
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: configured },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) => {
+            const text = documentText(query);
+            if (text.includes('mutation UpdateInitialConfig')) return [{ fetching: false }, mockUpdate];
+            if (text.includes('mutation SetDebugMode')) return [{ fetching: false }, mockSetDebugMode];
+            if (text.includes('mutation SetThemes')) return [{ fetching: false }, mockSetThemes];
+            return [{ fetching: false }, vi.fn()];
+        });
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('access');
+        await user.type(screen.getByLabelText('Operator PIN'), '5678');
+        await openSection('advanced');
+        await user.click(screen.getByLabelText('Debugging Mode'));
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockSetDebugMode).toHaveBeenCalled());
+        await waitFor(() => expect(mockSetThemes).toHaveBeenCalled());
+        expect(pinAtCallTime).toEqual(['5678', '5678']);
+    });
+
     it('keeps an edit made in a section that is no longer on screen', async () => {
         // The fields live on the page, not in the section, so switching is not
         // a discard — and one Save covers all three form sections.
@@ -941,13 +1079,19 @@ describe('the Appearance section (#498)', () => {
         expect(screen.getByTestId('printables-theme-option-newsprint')).toHaveAttribute('aria-pressed', 'true');
     });
 
-    it('sends the chosen Display/Printables theme on save, and stores the App theme only in localStorage', async () => {
+    it('sends the chosen Display/Printables theme through setThemes, never through updateInitialConfig, and stores the App theme only in localStorage', async () => {
+        // `setThemes`, not `updateInitialConfig`, carries the two install-wide
+        // theme fields now (#1080) — one writer per field, split out so the
+        // demo can offer this control while refusing the rest of the form.
         const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
+        const mockSetThemes = vi.fn().mockResolvedValue({ data: {} });
         (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
         (useMutation as any).mockImplementation((query: any) =>
             documentText(query).includes('mutation UpdateInitialConfig')
                 ? [{ fetching: false }, mockUpdate]
-                : [{ fetching: false }, vi.fn()],
+                : documentText(query).includes('mutation SetThemes')
+                    ? [{ fetching: false }, mockSetThemes]
+                    : [{ fetching: false }, vi.fn()],
         );
         const user = (await import('@testing-library/user-event')).default.setup();
         render(
@@ -965,17 +1109,63 @@ describe('the Appearance section (#498)', () => {
 
         await user.click(screen.getByText('Save Settings'));
 
+        await waitFor(() => expect(mockSetThemes).toHaveBeenCalled());
+        expect(mockSetThemes).toHaveBeenCalledWith({
+            displayTheme: 'under-the-lights',
+            printablesTheme: 'clear-sight',
+        });
+
+        // The rest of the form's save no longer carries either field at all.
         await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
         const sent = mockUpdate.mock.calls[0][0].config;
-        expect(sent.displayTheme).toBe('under-the-lights');
-        expect(sent.printablesTheme).toBe('clear-sight');
+        expect(sent.displayTheme).toBeUndefined();
+        expect(sent.printablesTheme).toBeUndefined();
         // Never sent — the App theme lives only on this device.
         expect(sent.appTheme).toBeUndefined();
-        // Written after the mutation settles (there's a brief post-mutation
-        // wait in handleSubmit before it), so this has to wait too.
+        // Written before either mutation is even asked (#1080) — see the
+        // demo-refusal test below for why that ordering is the point.
         await waitFor(() =>
             expect(window.localStorage.getItem('trustytrack.appTheme')).toBe('old-glory'),
         );
+    });
+
+    it('applies the App theme even when the save mutation is refused', async () => {
+        // The demo refuses `updateInitialConfig` whole, but the App theme
+        // needs no server round trip at all (#1080) — this is what proves
+        // it no longer sits behind that mutation's own success.
+        const mockUpdate = vi.fn().mockResolvedValue({
+            error: {
+                graphQLErrors: [{ message: 'updateInitialConfig is not available on the demo' }],
+            },
+        });
+        const mockSetThemes = vi.fn().mockResolvedValue({ data: {} });
+        (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : documentText(query).includes('mutation SetThemes')
+                    ? [{ fetching: false }, mockSetThemes]
+                    : [{ fetching: false }, vi.fn()],
+        );
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('appearance');
+        await user.click(screen.getByTestId('app-theme-option-old-glory'));
+
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+        // The refusal still surfaces to the operator.
+        await screen.findByText('updateInitialConfig is not available on the demo');
+        // But the App theme took effect anyway.
+        expect(window.localStorage.getItem('trustytrack.appTheme')).toBe('old-glory');
     });
 
     it('offers per-device sound effects controls (#554)', async () => {

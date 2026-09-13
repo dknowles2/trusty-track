@@ -340,25 +340,26 @@ operator a look they would not get was worse than showing them the truth.
 
 **Per-device App theme, per-install Display and Printables.** `Organization.
 display_theme` / `Organization.printables_theme` are `varchar` columns, server
-default `'MATCH_APP'`, exposed on `initialConfig` and set through
-`updateInitialConfig` alongside the org name and PINs — the same reasoning as
-the Displays system already pushing view state from the operator's own list
-(see "Telling an audience display what to show" in
+default `'MATCH_APP'`, exposed on `initialConfig` and set through their own
+`setThemes` mutation ([#1080](https://github.com/dknowles2/trusty-track/issues/1080)
+— it used to travel inside `updateInitialConfig` alongside the org name and
+PINs, until the demo needed to offer it without the rest of that bundle) — the
+same reasoning as the Displays system already pushing view state from the
+operator's own list (see "Telling an audience display what to show" in
 [`displays.md`](displays.md)): walking to every wall
 display to set the same theme on each defeats the point. The App theme is
 `localStorage` only (`trustytrack.appTheme`, same shape as the PIN and the
 finish chime) and is never sent to the server.
 
 **No clear flag, unlike the PIN or the weight limit — because there is no
-bare-null state to disambiguate.** `InitialConfigInput.display_theme` /
-`.printables_theme` are `str | None = None`: absent means leave alone, same
-as every other optional field here. What makes this *unlike* the PIN
-(`""` clears it) and the weight limit (`clearWeightLimit` exists because
-`null` is both "no limit" and "not supplied") is that this column's own "off"
-state is the non-null string `"MATCH_APP"` — an operator resetting to the
-default sends that value explicitly, which the absent-means-leave-alone rule
-already handles with nothing extra. `_apply_themes` in `api/schema.py`
-mirrors `_apply_pins`'s shape for exactly this reason.
+bare-null state to disambiguate.** `setThemes(displayTheme, printablesTheme)`
+takes both as required, non-null arguments: unlike the PIN (`""` clears it)
+and the weight limit (`clearWeightLimit` exists because `null` is both "no
+limit" and "not supplied"), this column's own "off" state is the non-null
+string `"MATCH_APP"` — an operator resetting to the default sends that value
+explicitly, the same ordinary value the picker always sends. `_apply_themes`
+in `api/schema.py` now takes the two values directly rather than reading them
+off `InitialConfigInput`, which no longer carries either field at all.
 
 **Plain `String`, not `SAEnum`, on the backend.** Unlike `TimerType` or
 `ScoringStrategy`, nothing server-side branches on a theme key — the frontend
@@ -381,16 +382,25 @@ because no theme data existed yet to decide with). `resolvePalette` in
 rather than always forcing white — needed because `--display-text-color` is
 not pure white under Sawdust & Pine or Trail Colors.
 
-**The demo denylist leaves `updateInitialConfig` refused, whole.** Themes are
-cosmetic and harmless to try, but the mutation that carries them also sets
-PINs and reconfigures tracks — real ways to break the demo for everyone else
-— and it is one mutation, not one per field. Splitting Display/Printables
-into their own mutation just to carve a demo exception was considered and
-rejected as disproportionate complexity for a demo-only nicety. A demo
-visitor still gets the real experience: the App theme is client-only and
-always available, and the settings page's three-panel live preview needs no
-mutation at all, so every theme's full App/Display/Printables rendering is
-visible without persisting anything.
+**The demo denylist leaves `updateInitialConfig` refused, whole, but Display and
+Printables now have their own door** ([#1080](https://github.com/dknowles2/trusty-track/issues/1080)).
+Themes are cosmetic and harmless to try, but the mutation they used to travel
+in also sets both PINs and reconfigures tracks — real ways to break the demo
+for everyone else — so a demo visitor could preview every theme's full
+App/Display/Printables rendering (the settings page's three-panel live
+preview needs no mutation at all) but never actually save one. Splitting
+Display/Printables into their own mutation just to carve a demo exception was
+first considered and rejected as disproportionate complexity for a demo-only
+nicety — and then done anyway once #1080 made the cost concrete: `setThemes`
+(`displayTheme`, `printablesTheme`) is not on `demo_policy.REFUSED_MUTATIONS`,
+calls the same `_apply_themes`/`_broadcast_display_theme_change` pair
+`updateInitialConfig` already used for this field, and `updateInitialConfig`
+no longer carries either theme field at all — one writer per field, the same
+shape `setDebugMode` takes for Debugging Mode
+([#1079](https://github.com/dknowles2/trusty-track/issues/1079)). The App
+theme needed no equivalent: it is client-only and was already available on
+the demo before either mutation existed, since `SystemSettings.tsx` now
+writes and applies it independently of whether the save mutation succeeds.
 
 **The contrast suite checks a text token by role, not by prefix, and flags one a mechanical migration copied unchanged into every theme** ([#1060](https://github.com/dknowles2/trusty-track/issues/1060)). `#504`'s literal-to-token sweep carried each literal's light-mode value into all seven theme records — the right move for a mechanical migration — but nobody then gave `--wizard-*`, `--warning-notice-*` or `--caution-*` their own value under Under the Lights, the one dark App surface, and `themes.test.ts`'s own contrast suite filtered on `name.startsWith('--text-')`, which none of those three families match. The filter is `name.includes('text')` now, with a `TEXT_ON` map for the two families that pair with their own themed background rather than `--surface-color` (`--caution-text-color` against `--caution-bg-color`, `--warning-notice-text-color` against `--warning-bg-color`) — a prefix guards a naming convention, a role guards what the token actually is. A second test asks the inverse question: for every text-role App token, do all seven themes hold the identical value? A `true` answer is indistinguishable from a deliberate decision until somebody switches on the dark theme, which is exactly what let the three families above ship invisible to a green suite; the only escape is an explicit allowlist entry naming the reason, so a token that genuinely wants one value everywhere says so rather than going unnoticed.
 
