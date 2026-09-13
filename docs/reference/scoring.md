@@ -161,29 +161,33 @@ standings shows it that way. What happens beyond that is up to the race's
 should be settled is the pack's call, not one Trusty Track can guess.
 
 The default, **Leave it shared**, is today's behaviour and nothing more:
-a tied slot in a final or a tied trophy stays a judgment call, settled with
-a [race-off](#settling-a-tie-with-a-race-off) or by correcting a time that
-was recorded wrong. Choose one of the other four and Trusty Track settles
-it for you, wherever a tie actually decides something — the last qualifying
-slot in a final, or who gets a speed trophy:
+tied cars share the place — two 1sts, then 3rd — and you settle it yourself
+with a **Run-off** from the standings, or by
+[correcting a time](#settling-a-tie-with-a-race-off). Choose one of the
+other four and Trusty Track settles it for you, wherever a tie actually
+decides something — the last qualifying slot in a final, or who gets a
+speed trophy — but each one only helps under some scoring methods, not all
+of them:
 
-| Choice | Wins the tie |
-| --- | --- |
-| **Fastest single heat** | Whoever's best recorded heat time is lowest |
-| **Lowest total time** | Whoever's heats add up to the least total time |
-| **Countback** | Most 1st-place finishes; a tie on that goes to most 2nds, and so on |
-| **Head-to-head** | Among the tied cars, whoever won more of the heats they actually shared |
+| Choice | What it looks at | Who wins | When it can't help |
+| --- | --- | --- | --- |
+| **Fastest single heat** | Each tied car's single fastest heat | The lowest of those | Under Fastest single run scoring, where that's already what's being compared |
+| **Lowest total time** | Each tied car's heat times, added up | The lowest total | Under Timed (average) or Cumulative time, where tied cars already have the same total |
+| **Countback** | Finishing places, not times: how many 1st-place heats, then 2nds, and so on | The most 1sts, then the most 2nds, and so on | Nothing about the race's settings stops it — works with no timer at all |
+| **Head-to-head** | Only the heats where the tied cars raced each other | Whoever won more of those | If the tied cars never shared a heat — the tie then stays shared |
 
-None of the four invents an answer the data does not support. Identical
-times, a race with no timer to compare, two cars that never actually raced
-each other — every one of those leaves the tie **unresolved**, exactly as
-if **Leave it shared** had been chosen. A row the chosen method did settle
-says so on the standings — "2nd, on fastest single heat" — so the tie is
-still visible even once it is decided. Where a tie decides who advances or
-who wins a trophy and the chosen method could not settle it, the schedule
-shows a **Tie unresolved** badge and the Awards page marks the recipient as
-provisional — the round stays runnable and the trophy stays assignable
-either way; both are just asking you to make the final call.
+None of the four invents an answer the data does not support. A method the
+race's own scoring and timer rule out gets a warning right there in the
+Ties fieldset on the race form, before you even save it. Beyond that,
+identical times and two cars that never actually raced each other still
+leave a tie **unresolved**, exactly as if **Leave it shared** had been
+chosen. A row the chosen method did settle says so on the standings —
+"2nd, on fastest single heat" — so the tie is still visible even once it is
+decided. Where a tie decides who advances or who wins a trophy and the
+chosen method could not settle it, the schedule shows a **Tie unresolved**
+badge and the Awards page marks the recipient as provisional — the round
+stays runnable and the trophy stays assignable either way; both are just
+asking you to make the final call.
 
 Cars that have not raced yet do not tie with each other; they are listed
 below every car that has, in a stable order.

@@ -127,14 +127,26 @@ is a judgment call left to you, same as always: settle it with a
 correcting a time if one was recorded wrong.
 
 If you'd rather Trusty Track settle it automatically, which of the other
-four to pick depends on how the race is scored:
+four to pick depends on how the race is scored — and one of the two
+time-reading methods is always tautological against whichever strategy it
+mirrors, so it is never the useful choice under that one strategy:
 
-- **Timed, Cumulative time, and Fastest single run races** usually want
-  **Fastest single heat** — the traditional pinewood answer, and what most
-  packs mean by "fastest run wins" — or **Lowest total time** if
-  consistency across every heat should count for more than one great run.
-- **Points races with a timer running** can use either of those too, since
-  a time is still being recorded even though it is not the score.
+- **Timed (average) races** want **Fastest single heat** — the traditional
+  pinewood answer, and what most packs mean by "fastest run wins". **Lowest
+  total time** does nothing here: with every tied car on the same number of
+  heats, a tie on the average is already a tie on the total behind it.
+- **Cumulative time races** want **Fastest single heat** for the same
+  reason. **Lowest total time** does nothing here either, for the opposite
+  reason: it is exactly what Cumulative time already scores by, so a tie
+  under it is already a tie on the value the method would compare.
+- **Fastest single run races** want **Lowest total time**, if consistency
+  across every heat should count for more than the one great run the
+  scoring itself already ranks by. **Fastest single heat** does nothing
+  here — that comparison is exactly what produced the tie in the first
+  place.
+- **Points races with a timer running** can use either **Fastest single
+  heat** or **Lowest total time**, since a time is still being recorded
+  even though it is not the score.
 - **Points races on a track with no timer** — see
   [No timer](reference/race-settings.md#no-timer) — have no time to compare,
   so **Fastest single heat** and **Lowest total time** will never fire.
@@ -145,6 +157,10 @@ four to pick depends on how the race is scored:
   tied cars are likely to have actually raced each other more than once.
   In a large field it resolves less often, since two tied cars may never
   have shared a heat.
+
+Choosing one of the tautological pairs above is not blocked — Trusty Track
+warns rather than refuses, right in the race form's Ties fieldset, naming
+the reason it won't fire for that race.
 
 Whichever is picked, a tie the method cannot settle — identical times, cars
 that never met, no data at all — is reported rather than guessed at. The

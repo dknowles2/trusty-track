@@ -11,9 +11,17 @@
  * Pure, the same reasoning `awardText.ts` gives for its own vocabulary: it is
  * a rule about words, not about rendering, and the awards screen wants the
  * same phrase the standings page already uses (#540 part c).
+ *
+ * Each description (#1089) says three things, in order: what the method
+ * looks at, who wins, and — as a second sentence — when it can't help for
+ * the scoring strategy chosen above it on the form. That third part is also
+ * `tiebreakerWontFire`'s job: a live note under the option, computed from
+ * this race's actual scoring and timer rather than left for the operator to
+ * infer from the static text.
  */
 
 import { ordinal } from '../awards/awardText';
+import { CUMULATIVE_TIME, FASTEST_TIME, POINTS, TIMED } from './scoringStrategyText';
 
 export const SHARED = 'SHARED';
 export const BEST_TIME = 'BEST_TIME';
@@ -42,31 +50,33 @@ export const TIEBREAKER_OPTIONS: readonly TiebreakerOption[] = [
     value: SHARED,
     label: 'Leave it shared',
     description:
-      "Ties keep a shared rank on the standings. You settle it yourself — a race-off, a corrected time — and nothing here decides for you.",
+      'Tied cars share the place — two 1sts, then 3rd. Settle it yourself with a Run-off from the standings, or by correcting a time.',
   },
   {
     value: BEST_TIME,
     label: 'Fastest single heat',
-    description: "Whoever's best recorded heat time is lowest wins the tie.",
+    description:
+      "The tied car with the single fastest heat wins. Doesn't apply under Fastest single run scoring, where that's already what's being compared.",
     needsTime: true,
   },
   {
     value: TOTAL_TIME,
     label: 'Lowest total time',
-    description: "Whoever's heats add up to the least total time wins the tie.",
+    description:
+      'The tied car whose heat times add up to less wins. Only helps under Points or Fastest single run — under Timed (average) or Cumulative time, tied cars have the same total.',
     needsTime: true,
   },
   {
     value: COUNTBACK,
     label: 'Countback',
     description:
-      'Most 1st-place finishes wins; a tie on that goes to most 2nd-place finishes, and so on.',
+      'Compares finishing places, not times: most 1st-place heats wins, then most 2nds, and so on. Works with no timer at all.',
   },
   {
     value: HEAD_TO_HEAD,
     label: 'Head-to-head',
     description:
-      'Among the tied cars, whoever won more of the heats they actually shared wins the tie.',
+      'Looks only at heats where the tied cars raced each other; whoever won more of those wins. If they never shared a heat, the tie stays shared.',
   },
 ] as const;
 
@@ -101,19 +111,55 @@ export function resolutionNote(
   return phrase ? `${ordinal(rank)}, on ${phrase}` : null;
 }
 
-/** Whether `value` can ever fire for a race with no timer at all under
- * `POINTS` scoring — the one gap the issue names by example, not a general
- * "does this race have enough data" engine. `BEST_TIME` and `TOTAL_TIME`
- * both read recorded heat times, and a `POINTS` race on a `NONE` timer never
- * records one: the hand-entry modal shows a place column only (#490), so
- * every lane's time is permanently absent. `TIMED` races always type a time
- * by hand even with no timer, so this is specifically the `POINTS` + `NONE`
- * combination, nothing broader. */
+/** Why `value` can never settle a tie for this race, or `null` if it might —
+ * a table over `(method, scoringStrategy, trackTimerType)`, generalised from
+ * the single Points-and-no-timer case the issue first named (#1089). Three
+ * independent reasons, checked in order:
+ *
+ * 1. **Tautological under the scoring strategy it mirrors.** `BEST_TIME`
+ *    ("fastest single heat") is exactly what `FASTEST_TIME` scoring already
+ *    ranks by, and `TOTAL_TIME` ("lowest total time") is exactly what
+ *    `CUMULATIVE_TIME` scoring already ranks by — a tie under either
+ *    strategy is already a tie on the value the method would compare, so it
+ *    can never separate the tied cars.
+ * 2. **`TOTAL_TIME` under `TIMED`.** `TIMED` averages each racer's heat
+ *    times over the same heat count for everyone in a tied cluster (a
+ *    disrupted round is dropped from standings entirely — see
+ *    `.claude/rules/scoring.md` — so a counted racer's heat count always
+ *    matches), and dividing every side of a tied average by the same number
+ *    cannot un-tie the totals behind it.
+ * 3. **No time was ever recorded.** `BEST_TIME` and `TOTAL_TIME` both read
+ *    recorded heat times, and a `POINTS` race on a `NONE` timer never
+ *    records one — the hand-entry modal shows a place column only (#490),
+ *    so every lane's time is permanently absent. The other three scoring
+ *    strategies always type a time by hand even with no physical timer, so
+ *    this is specifically the `POINTS` + `NONE` combination.
+ *
+ * `COUNTBACK` reads finishing places, which every scoring strategy produces
+ * regardless of a timer, so it is never flagged here. `HEAD_TO_HEAD`'s gap —
+ * the tied cars may never have shared a heat under PPC — depends on the
+ * heats actually raced, not on the race's settings, so it is a caveat in the
+ * option's own text rather than something this function can predict; it is
+ * never flagged here either. */
 export function tiebreakerWontFire(
   value: string,
   scoringStrategy: string,
   trackTimerType: string | null | undefined,
-): boolean {
+): string | null {
   const option = TIEBREAKER_OPTIONS.find((o) => o.value === value);
-  return Boolean(option?.needsTime) && scoringStrategy === 'POINTS' && trackTimerType === 'NONE';
+  if (!option) return null;
+
+  if (value === BEST_TIME && scoringStrategy === FASTEST_TIME) {
+    return "Fastest single run scoring already ranks cars by their best heat time — this can't break a tie it created.";
+  }
+  if (value === TOTAL_TIME && scoringStrategy === CUMULATIVE_TIME) {
+    return "Cumulative time scoring already ranks cars by their total time — this can't break a tie it created.";
+  }
+  if (value === TOTAL_TIME && scoringStrategy === TIMED) {
+    return "Timed (average) divides every tied car's total by the same heat count, so a tie on the average is a tie on the total too.";
+  }
+  if (option.needsTime && scoringStrategy === POINTS && trackTimerType === 'NONE') {
+    return 'Points scoring on a track with no timer never records a time to compare.';
+  }
+  return null;
 }

@@ -171,20 +171,31 @@ Set once, when the race is created, and editable afterwards from the
 Scoring — every option shows its one-line description underneath it, not
 only the one currently picked:
 
-| Choice | How it settles a tie |
-| --- | --- |
-| **Leave it shared** | Not settled. The default: cars keep the shared rank, and a cut takes a provisional pick that stays yours to decide |
-| **Fastest single heat** | Whoever's best recorded heat time is lowest |
-| **Lowest total time** | Whoever's heats add up to the least total time |
-| **Countback** | Most 1st-place finishes; a tie on that goes to most 2nds, and so on |
-| **Head-to-head** | Among the tied cars, whoever won more of the heats they actually shared |
+| Choice | What it looks at | Who wins |
+| --- | --- | --- |
+| **Leave it shared** | Nothing — this is the default | Nobody: tied cars share the place, and a cut takes a provisional pick that stays yours to decide |
+| **Fastest single heat** | Each tied car's single fastest heat | The lowest of those |
+| **Lowest total time** | Each tied car's heat times, added up | The lowest total |
+| **Countback** | Finishing places, not times: how many 1st-place heats, then 2nds, and so on | The most 1sts, then the most 2nds, and so on |
+| **Head-to-head** | Only the heats where the tied cars raced each other | Whoever won more of those |
 
-Picking a method that needs a recorded time — **Fastest single heat** or
-**Lowest total time** — on a Points race running with [no timer](#no-timer)
-gets a warning right there in the fieldset: that combination never records a
-time to compare, so the method will never fire. Nothing stops you choosing
-it anyway; the warning is there so you find out on the form rather than on
-race day.
+Each of the last four only helps under some scoring methods, not all of
+them, and picking one that cannot help *this* race gets a warning right
+there in the fieldset — naming the reason, not just that it won't fire:
+
+- **Fastest single heat** does nothing under **Fastest single run**
+  scoring, where that is already what is being compared.
+- **Lowest total time** does nothing under **Timed (average)** or
+  **Cumulative time** scoring, where tied cars already have the same total.
+- **Fastest single heat** or **Lowest total time** on a **Points** race
+  running with [no timer](#no-timer): that combination never records a time
+  to compare.
+
+Nothing stops you choosing a method that won't help anyway; the warning is
+there so you find out on the form rather than on race day. **Head-to-head**
+has no such warning — whether the tied cars ever raced each other depends on
+the heats actually run, not on a setting — but if they never shared one, the
+tie simply stays shared.
 
 Whichever method is chosen, it settles a tie only where a tie actually
 decides something — the last qualifying slot in a championship round, or a

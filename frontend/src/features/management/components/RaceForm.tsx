@@ -613,7 +613,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                 <legend style={legendStyle}>Ties</legend>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                                     {TIEBREAKER_OPTIONS.map(option => {
-                                        const wontFire = tiebreakerWontFire(
+                                        const wontFireReason = tiebreakerWontFire(
                                             option.value,
                                             formData.scoring_strategy,
                                             trackTimerType,
@@ -630,12 +630,11 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                                 <small style={optionDescriptionStyle}>
                                                     {option.description}
                                                 </small>
-                                                {wontFire && (
+                                                {wontFireReason && (
                                                     <small
                                                         style={{ color: 'var(--warning-soft-color)', display: 'block', marginTop: '0.15rem', marginLeft: '1.4rem' }}
                                                     >
-                                                        Won&apos;t fire for this race — Points scoring on a track with no
-                                                        timer never records a time to compare.
+                                                        Won&apos;t fire for this race — {wontFireReason}
                                                     </small>
                                                 )}
                                             </label>

@@ -11,6 +11,7 @@ import {
   resolutionNote,
   tiebreakerWontFire,
 } from './tiebreakText';
+import { CUMULATIVE_TIME, FASTEST_TIME, POINTS, TIMED } from './scoringStrategyText';
 
 describe('TIEBREAKER_OPTIONS', () => {
   it('offers all five methods, SHARED first', () => {
@@ -77,28 +78,87 @@ describe('resolutionNote', () => {
 });
 
 describe('tiebreakerWontFire', () => {
-  it('flags BEST_TIME and TOTAL_TIME on a POINTS race with no timer', () => {
-    expect(tiebreakerWontFire(BEST_TIME, 'POINTS', 'NONE')).toBe(true);
-    expect(tiebreakerWontFire(TOTAL_TIME, 'POINTS', 'NONE')).toBe(true);
+  const NO_TIMER_REASON = 'Points scoring on a track with no timer never records a time to compare.';
+  const BEST_TIME_TAUTOLOGY =
+    "Fastest single run scoring already ranks cars by their best heat time — this can't break a tie it created.";
+  const TOTAL_TIME_CUMULATIVE_TAUTOLOGY =
+    "Cumulative time scoring already ranks cars by their total time — this can't break a tie it created.";
+  const TOTAL_TIME_UNDER_TIMED =
+    "Timed (average) divides every tied car's total by the same heat count, so a tie on the average is a tie on the total too.";
+
+  // The full table (#1089): 5 methods x 4 scoring strategies x timer/no-timer
+  // -> the exact reason, or null when the method might still fire. `'FAKE'`
+  // stands in for "has a real timer" throughout; `tiebreakerWontFire` never
+  // reads anything about a timer beyond whether it is `'NONE'`.
+  const CASES: Array<[string, string, string | null, string | null]> = [
+    // SHARED never resolves anything, so it is never flagged.
+    [SHARED, TIMED, 'NONE', null],
+    [SHARED, TIMED, 'FAKE', null],
+    [SHARED, POINTS, 'NONE', null],
+    [SHARED, POINTS, 'FAKE', null],
+    [SHARED, CUMULATIVE_TIME, 'NONE', null],
+    [SHARED, CUMULATIVE_TIME, 'FAKE', null],
+    [SHARED, FASTEST_TIME, 'NONE', null],
+    [SHARED, FASTEST_TIME, 'FAKE', null],
+
+    // BEST_TIME ("fastest single heat"): tautological under FASTEST_TIME
+    // scoring regardless of timer; needs a recorded time otherwise, so it
+    // is flagged only for POINTS + NONE.
+    [BEST_TIME, TIMED, 'NONE', null],
+    [BEST_TIME, TIMED, 'FAKE', null],
+    [BEST_TIME, POINTS, 'NONE', NO_TIMER_REASON],
+    [BEST_TIME, POINTS, 'FAKE', null],
+    [BEST_TIME, CUMULATIVE_TIME, 'NONE', null],
+    [BEST_TIME, CUMULATIVE_TIME, 'FAKE', null],
+    [BEST_TIME, FASTEST_TIME, 'NONE', BEST_TIME_TAUTOLOGY],
+    [BEST_TIME, FASTEST_TIME, 'FAKE', BEST_TIME_TAUTOLOGY],
+
+    // TOTAL_TIME ("lowest total time"): tautological under CUMULATIVE_TIME
+    // scoring, and can never separate a tied average under TIMED — both
+    // regardless of timer; needs a recorded time under POINTS + NONE.
+    [TOTAL_TIME, TIMED, 'NONE', TOTAL_TIME_UNDER_TIMED],
+    [TOTAL_TIME, TIMED, 'FAKE', TOTAL_TIME_UNDER_TIMED],
+    [TOTAL_TIME, POINTS, 'NONE', NO_TIMER_REASON],
+    [TOTAL_TIME, POINTS, 'FAKE', null],
+    [TOTAL_TIME, CUMULATIVE_TIME, 'NONE', TOTAL_TIME_CUMULATIVE_TAUTOLOGY],
+    [TOTAL_TIME, CUMULATIVE_TIME, 'FAKE', TOTAL_TIME_CUMULATIVE_TAUTOLOGY],
+    [TOTAL_TIME, FASTEST_TIME, 'NONE', null],
+    [TOTAL_TIME, FASTEST_TIME, 'FAKE', null],
+
+    // COUNTBACK reads finishing places, which every scoring strategy
+    // produces with or without a timer — never flagged.
+    [COUNTBACK, TIMED, 'NONE', null],
+    [COUNTBACK, TIMED, 'FAKE', null],
+    [COUNTBACK, POINTS, 'NONE', null],
+    [COUNTBACK, POINTS, 'FAKE', null],
+    [COUNTBACK, CUMULATIVE_TIME, 'NONE', null],
+    [COUNTBACK, CUMULATIVE_TIME, 'FAKE', null],
+    [COUNTBACK, FASTEST_TIME, 'NONE', null],
+    [COUNTBACK, FASTEST_TIME, 'FAKE', null],
+
+    // HEAD_TO_HEAD's gap (the tied cars may never have shared a heat) is
+    // data-dependent, not settings-dependent — a caveat in its own text,
+    // never a won't-fire flag here.
+    [HEAD_TO_HEAD, TIMED, 'NONE', null],
+    [HEAD_TO_HEAD, TIMED, 'FAKE', null],
+    [HEAD_TO_HEAD, POINTS, 'NONE', null],
+    [HEAD_TO_HEAD, POINTS, 'FAKE', null],
+    [HEAD_TO_HEAD, CUMULATIVE_TIME, 'NONE', null],
+    [HEAD_TO_HEAD, CUMULATIVE_TIME, 'FAKE', null],
+    [HEAD_TO_HEAD, FASTEST_TIME, 'NONE', null],
+    [HEAD_TO_HEAD, FASTEST_TIME, 'FAKE', null],
+  ];
+
+  it.each(CASES)('%s under %s scoring with timer %s', (method, scoring, timer, expected) => {
+    expect(tiebreakerWontFire(method, scoring, timer)).toBe(expected);
   });
 
-  it('does not flag them under TIMED, which always types a time by hand', () => {
-    expect(tiebreakerWontFire(BEST_TIME, 'TIMED', 'NONE')).toBe(false);
-  });
-
-  it('does not flag them with a real timer', () => {
-    expect(tiebreakerWontFire(BEST_TIME, 'POINTS', 'FAKE')).toBe(false);
-    expect(tiebreakerWontFire(BEST_TIME, 'POINTS', 'AUTO_DETECT_BACKEND')).toBe(false);
-  });
-
-  it('never flags methods that do not read times', () => {
-    expect(tiebreakerWontFire(COUNTBACK, 'POINTS', 'NONE')).toBe(false);
-    expect(tiebreakerWontFire(HEAD_TO_HEAD, 'POINTS', 'NONE')).toBe(false);
-    expect(tiebreakerWontFire(SHARED, 'POINTS', 'NONE')).toBe(false);
+  it('never flags a method it does not recognise', () => {
+    expect(tiebreakerWontFire('COIN_FLIP', POINTS, 'NONE')).toBeNull();
   });
 
   it('treats a missing track as no timer information, not a pass', () => {
-    expect(tiebreakerWontFire(BEST_TIME, 'POINTS', null)).toBe(false);
-    expect(tiebreakerWontFire(BEST_TIME, 'POINTS', undefined)).toBe(false);
+    expect(tiebreakerWontFire(BEST_TIME, POINTS, null)).toBeNull();
+    expect(tiebreakerWontFire(BEST_TIME, POINTS, undefined)).toBeNull();
   });
 });

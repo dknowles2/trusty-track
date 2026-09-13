@@ -1,5 +1,6 @@
 /**
- * What a new operator has to do next (#199, extended by #847, #949 and #1000).
+ * What a new operator has to do next (#199, extended by #847, #949, #1000
+ * and #1091).
  *
  * The operator is a parent volunteer who uses this app once a year. After the
  * first-run settings page they land on an empty roster, and the rest of the
@@ -56,6 +57,21 @@
  * never a server round trip (see the Printables docs) — so unlike every
  * other step here, this one has no completion signal at all, only the
  * overtaken one. It is either outstanding or `skipped`.
+ *
+ * **The optionality above lived only in this docstring until #1091 —
+ * nothing on screen said so.** `ChecklistStep.optional` carries the same
+ * fact `done`/`skipped` already reason about, alongside them rather than
+ * re-derived by the rendering layer: `true` for exactly `awards` and
+ * `printables`, `false` for the first four, which are ordinary race-day
+ * mechanics nobody skips on purpose. `SetupChecklist.tsx` renders a small
+ * "optional" tag beside a step's label when it is set, the same 0.8rem
+ * italic treatment `skipped`'s own "no longer needed" note already uses,
+ * and the collapsed one-line summary counts only the required four against
+ * the total so "6" stops reading as six obligations — the two optional
+ * steps are named after a separator instead of folded into the same count.
+ * Also renamed the printables step's own label and hint: "Print pit passes"
+ * named one of the six documents Printables actually offers, which read as
+ * "not my step" to a pack whose paper is driver's licences instead.
  */
 
 import type { TerminologyWords } from '../../context/TerminologyContext';
@@ -81,6 +97,17 @@ export interface ChecklistStep {
     hint: string;
     /** Genuinely finished. Never true at the same time as `skipped`. */
     done: boolean;
+    /**
+     * A pack can genuinely finish the race without ever doing this — a pack
+     * that hands out no trophies, or prints nothing because check-in is
+     * done by typing a car number (see the module docstring's "Awards and
+     * printables" section). `true` for exactly `awards` and `printables`;
+     * the other four are ordinary race-day mechanics nobody skips on
+     * purpose. Rendered as a small "optional" tag beside the label
+     * (`SetupChecklist.tsx`), and read by the collapsed line so six rows
+     * stops reading as six obligations.
+     */
+    optional: boolean;
     /**
      * A later fact made this step no longer worth doing — check-in starting,
      * or the race being locked — as opposed to `done`, which means the step
@@ -139,6 +166,7 @@ export function checklistFor(progress: SetupProgress, words: TerminologyWords): 
             hint: `Group racers into ${groupsLower} so they can be scored and awarded separately.`,
             done: racingGroupCount > 0 || racerCount > 0,
             skipped: false,
+            optional: false,
             action: `Set up ${groupsLower}`,
         },
         {
@@ -147,6 +175,7 @@ export function checklistFor(progress: SetupProgress, words: TerminologyWords): 
             hint: 'Enter them by hand, or import a spreadsheet you already have.',
             done: racerCount > 0,
             skipped: false,
+            optional: false,
             action: 'Add your first racer',
         },
         {
@@ -158,6 +187,7 @@ export function checklistFor(progress: SetupProgress, words: TerminologyWords): 
                     : `Only checked-in ${vehiclesLower} are put into heats.`,
             done: checkinDone,
             skipped: false,
+            optional: false,
             // This step stays "next" for as long as anybody is outstanding,
             // so "select" always means the whole remaining roster rather than
             // a per-racer dialog — the button selects everyone and reveals
@@ -172,6 +202,7 @@ export function checklistFor(progress: SetupProgress, words: TerminologyWords): 
             hint: 'Race Control builds the heats and runs them.',
             done: roundCount > 0,
             skipped: false,
+            optional: false,
             action: 'Go to Race Control',
         },
         {
@@ -186,12 +217,13 @@ export function checklistFor(progress: SetupProgress, words: TerminologyWords): 
             // argue with a choice already made.
             done: awardsDone,
             skipped: !awardsDone && isLocked,
+            optional: true,
             action: 'Set up awards',
         },
         {
             key: 'printables',
-            label: 'Print pit passes',
-            hint: 'Pit passes and check-in codes are usually printed the night before check-in opens.',
+            label: 'Print anything you need',
+            hint: "Pit passes, driver's licences and check-in codes are usually printed the night before check-in opens; heat sheets once the schedule exists.",
             // There is no stored fact for "a sheet came out of a printer" —
             // printing is HTML the browser renders, never a server round
             // trip (see the Printables docs) — so this can never be `done`
@@ -202,6 +234,7 @@ export function checklistFor(progress: SetupProgress, words: TerminologyWords): 
             // here claims a pass was actually printed.
             done: false,
             skipped: printablesSkipped,
+            optional: true,
             action: 'Go to Printables',
         },
     ];
@@ -260,4 +293,38 @@ export function shouldCollapseChecklist(progress: SetupProgress): boolean {
 /** The steps still outstanding, in order — what a collapsed line names. */
 export function outstandingSteps(steps: readonly ChecklistStep[]): ChecklistStep[] {
     return steps.filter((step) => !isSettled(step));
+}
+
+/**
+ * The collapsed line's own text, after "Setting up: " (#1091) — e.g.
+ * `"4 of 4 done — optional: Set up awards · Print anything you need"`.
+ *
+ * The count is taken **over the required steps only** — `racingGroups`,
+ * `racers`, `checkin`, `schedule` — so "N of 4" never counts an award or a
+ * print run nobody asked for as one of the obligations still owed. A pack
+ * that never sets up awards or prints anything can reach "4 of 4 done" and
+ * stay there, which is the point: those two are optional, and a checklist
+ * that cannot be completed by design should not read as though it can.
+ *
+ * Outstanding optional steps are still named — an operator who has not yet
+ * decided whether to set up awards should still be told that is a thing to
+ * decide — but after every outstanding required step, and under their own
+ * `optional:` label so the two groups cannot be mistaken for one list of
+ * obligations. Nothing is impossible to reach here: `shouldShowChecklist`
+ * (the panel's own reason for existing) is already false, and this line
+ * unrendered, once every step — required and optional alike — is settled.
+ */
+export function collapsedLine(steps: readonly ChecklistStep[]): string {
+    const requiredSteps = steps.filter((step) => !step.optional);
+    const requiredDoneCount = requiredSteps.filter((step) => step.done).length;
+
+    const remainingRequired = requiredSteps.filter((step) => !isSettled(step));
+    const remainingOptional = steps.filter((step) => step.optional && !isSettled(step));
+
+    const segments = remainingRequired.map((step) => step.label);
+    if (remainingOptional.length > 0) {
+        segments.push(`optional: ${remainingOptional.map((step) => step.label).join(' · ')}`);
+    }
+
+    return `${requiredDoneCount} of ${requiredSteps.length} done — ${segments.join(' · ')}`;
 }
