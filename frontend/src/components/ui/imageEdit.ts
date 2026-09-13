@@ -104,6 +104,38 @@ export function fitInitialCrop(imageSize: ImageSize, aspect: number): CropRect {
  * exists to prevent. Never upscales: a crop already smaller than `maxEdge`
  * comes back unchanged (rounded to whole pixels).
  */
+/**
+ * The scale factor between an image's natural pixels and the crop stage's
+ * on-screen pixels.
+ *
+ * The stage's container carries both an explicit intended width and
+ * `maxWidth: '100%'`, so inside a narrow modal (a phone, or any viewport
+ * narrower than the modal's own max width) the container renders smaller
+ * than the intended size while a scale derived from that constant does not
+ * shrink with it. Every conversion between on-screen and natural pixels —
+ * where a pointer landed, where the crop box should be drawn — is wrong by
+ * that ratio once that happens, which is what made a drag in
+ * `ImageCropModal` pull the crop straight back where it started (#1094):
+ * `clampCrop` was being asked to place a box using a natural-pixel position
+ * computed with the wrong scale.
+ *
+ * `measuredWidth` is the container's actual rendered width, read off its
+ * `getBoundingClientRect()` (or a `ResizeObserver`) once it exists. Before
+ * that first measurement — the very first paint — this falls back to the
+ * same constant-over-longest-edge formula the container's own unmeasured
+ * inline width is computed with, so the two agree until a real measurement
+ * is available to correct them together.
+ */
+export function deriveScale(
+    rotated: ImageSize | null,
+    measuredWidth: number | null,
+    intendedMaxEdge: number,
+): number {
+    if (!rotated) return 1;
+    if (measuredWidth && measuredWidth > 0) return measuredWidth / rotated.width;
+    return intendedMaxEdge / Math.max(rotated.width, rotated.height);
+}
+
 export function outputSize(crop: CropRect, maxEdge: number): ImageSize {
     const longest = Math.max(crop.width, crop.height);
     const scale = longest > maxEdge ? maxEdge / longest : 1;

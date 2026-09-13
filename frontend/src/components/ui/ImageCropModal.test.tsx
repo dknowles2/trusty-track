@@ -137,6 +137,42 @@ describe('ImageCropModal', () => {
         expect(onConfirm).not.toHaveBeenCalled();
     });
 
+    it('a pointercancel ends a drag the same way a pointerup does (#1094)', () => {
+        // jsdom has no layout, so this can't prove the box moved *correctly*
+        // (`photoCrop.spec.ts` does that, in a real browser) — it proves the
+        // window-level `pointermove` listener a drag registers is actually
+        // torn down when the gesture is cancelled rather than completed, which
+        // jsdom can check perfectly well. Before this fix there was no
+        // `pointercancel` listener at all: a cancelled gesture (a touch the
+        // browser decides mid-drag is a scroll instead, say) left the
+        // listener attached and `dragRef` pointing at a pointer that would
+        // never send another event.
+        render(
+            <ImageCropModal
+                open
+                src={DATA_URL}
+                aspect={PORTRAIT_ASPECT}
+                onCancel={vi.fn()}
+                onConfirm={vi.fn()}
+            />,
+        );
+        loadImage(800, 600);
+        const cropBox = screen.getByRole('group', { name: /crop area/i });
+        const styleBeforeDrag = cropBox.getAttribute('style');
+
+        fireEvent.pointerDown(cropBox, { pointerId: 1, clientX: 10, clientY: 10 });
+        // The drag is live: a move changes the box's own inline style.
+        fireEvent.pointerMove(window, { pointerId: 1, clientX: 40, clientY: 30 });
+        const styleMidDrag = cropBox.getAttribute('style');
+        expect(styleMidDrag).not.toBe(styleBeforeDrag);
+
+        fireEvent.pointerCancel(window, { pointerId: 1 });
+        // A move after the cancel must be a no-op — the listener that would
+        // have reacted to it is gone.
+        fireEvent.pointerMove(window, { pointerId: 1, clientX: 999, clientY: 999 });
+        expect(cropBox.getAttribute('style')).toBe(styleMidDrag);
+    });
+
     it('renders nothing when closed', () => {
         const { container } = render(
             <ImageCropModal
