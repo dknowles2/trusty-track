@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '../../../setupTests';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { useClient, useQuery, useSubscription } from 'urql';
 import ActivityLog from './ActivityLog';
@@ -216,6 +216,46 @@ describe('a race_state event while Live is on', () => {
         expect(screen.getByTestId('activity-entry-2')).toBeInTheDocument();
         expect(screen.getByTestId('activity-entry-1')).toBeInTheDocument();
         expect(screen.queryByTestId('activity-new-entries')).toBeNull();
+    });
+
+    it('drops a live poll’s answer if Live was switched off before it resolved', async () => {
+        // A reviewer's finding on #1078's PR: `handleLiveEvent`'s in-flight
+        // `client.query` was not guarded against Live being toggled off
+        // mid-flight, so its `.then` could still call `setPending` after
+        // `handleToggleLive(false)` had already cleared it — flashing the
+        // chip back onto a page that toggling off is supposed to leave
+        // exactly as it was.
+        window.localStorage.setItem(STORAGE_KEY, 'on');
+        let resolveQuery: ((result: { data: { auditLog: ReturnType<typeof entry>[] } }) => void) | undefined;
+        clientQuery.mockReturnValue({
+            toPromise: () =>
+                new Promise((resolve) => {
+                    resolveQuery = resolve;
+                }),
+        });
+        renderPage();
+
+        const call = subscriptionCallFor(1);
+        const handler = call![1] as (previous: unknown, data: unknown) => unknown;
+        handler(undefined, { raceStateChanged: { raceId: 1, kind: 'OTHER' } });
+
+        // Live goes off before the poll this event started has answered.
+        fireEvent.click(screen.getByTestId('live-activity'));
+        expect(screen.getByTestId('live-activity')).not.toBeChecked();
+
+        // Resolve, and flush both the promise's own microtask queue and the
+        // state update it may (wrongly) trigger, inside `act` — otherwise a
+        // `setPending` this test means to catch could land after the
+        // assertions below run rather than before, and "nothing appeared
+        // yet" would pass for the wrong reason on a guard that does nothing.
+        await act(async () => {
+            resolveQuery!({ data: { auditLog: [entry(3), entry(2), entry(1)] } });
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        expect(screen.queryByTestId('activity-new-entries')).toBeNull();
+        expect(screen.queryByTestId('activity-entry-3')).toBeNull();
     });
 });
 

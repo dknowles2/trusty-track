@@ -10,7 +10,7 @@
  * underneath it.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useClient, useQuery } from 'urql';
 import { Icon } from '@mdi/react';
@@ -34,15 +34,19 @@ import {
 const PAGE_SIZE = 200;
 
 /**
- * One race's own live socket, for the "all races" view (#1078).
+ * One race's own live subscription, for the "all races" view (#1078).
  *
  * `useRaceStateChanged` is one hook per race — there is no argument-free
  * "every race" channel (`.claude/rules/frontend-screens.md`'s "The race list
  * survives a second tab" explains why `racesChanged` itself stays a bare
  * signal rather than growing this kind of per-race payload). With no race
- * filter, Live opens one socket per race in the list instead: cheap on a
- * single-operator LAN, and the only way to cover the unfiltered view without
- * a second backend channel.
+ * filter, Live opens one subscription per race in the list instead — all of
+ * them multiplexed over the single shared `graphql-ws` socket
+ * (`api/graphqlClient.ts`), not a socket each, and bounded by `GET_RACES_NAV`
+ * itself (the backend's `Query.races` defaults to `limit=100`) rather than
+ * literally every race an install has ever run. Cheap on a single-operator
+ * LAN either way, and the only way to cover the unfiltered view without a
+ * second backend channel.
  */
 function RaceLiveWatcher({ raceId, onEvent }: { raceId: number; onEvent: () => void }) {
     useRaceStateChanged(raceId, onEvent, { alwaysRefetch: true });
@@ -125,7 +129,20 @@ export default function ActivityLog() {
         if (last) setBeforeId(last.id);
     };
 
+    // Bumped on every toggle, and read back by an in-flight live poll's own
+    // `.then` (below) before it acts on what it fetched — a reviewer's own
+    // finding on #1078's PR. A `race_state` event can start a poll and Live
+    // be switched off before that poll's response lands; without this, the
+    // stale `.then` still calls `setPending`, flashing the "N new entries"
+    // chip back onto a page that toggling off was supposed to leave exactly
+    // as it was. Read and written only from event handlers and promise
+    // callbacks, never from the render body itself, so it carries none of
+    // the "ref touched during render" trap `loaded` is deliberately closed
+    // over by value for elsewhere in this file.
+    const liveEpochRef = useRef(0);
+
     const handleToggleLive = (enabled: boolean) => {
+        liveEpochRef.current += 1;
         setLive(enabled);
         writeLiveSetting(enabled);
         // Off is meant to read as "exactly today's behaviour" — a chip left
@@ -150,6 +167,7 @@ export default function ActivityLog() {
     // written during render.
     const client = useClient();
     const handleLiveEvent = () => {
+        const epoch = liveEpochRef.current;
         client
             .query(
                 ACTIVITY_LOG_LIVE_QUERY,
@@ -158,6 +176,11 @@ export default function ActivityLog() {
             )
             .toPromise()
             .then((result) => {
+                // Live may have been switched off (or the race filter
+                // changed and switched back on) while this was in flight —
+                // `handleToggleLive` bumped the epoch, so a stale response
+                // here is dropped rather than resurrecting the chip.
+                if (epoch !== liveEpochRef.current) return;
                 const fresh: LogEntry[] = result.data?.auditLog ?? [];
                 setPending(pendingSince(loaded, fresh));
             })
@@ -167,9 +190,10 @@ export default function ActivityLog() {
             });
     };
 
-    // Filtered to one race: a single socket on that race. Filtered to "all
-    // races": no bare "every race" channel exists (see `RaceLiveWatcher`
-    // above), so the race list is fetched only to open one socket per race.
+    // Filtered to one race: a single subscription on that race. Filtered to
+    // "all races": no bare "every race" channel exists (see `RaceLiveWatcher`
+    // above), so the race list is fetched only to open one subscription per
+    // race — see that component's own comment for why that is still cheap.
     const filteredToRace = raceId != null;
     const [{ data: racesForLiveData }] = useQuery({
         query: GET_RACES_NAV,
