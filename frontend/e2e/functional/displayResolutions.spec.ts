@@ -446,6 +446,102 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
         return racers.map((r) => `${r.firstName} ${r.lastName}`);
     }
 
+    /**
+     * The standard mode's own Standings tab used to have no row cap at all —
+     * `standings-table-wrapper` grew to fit every racer, and the *page*
+     * scrolled past the fold to show the rest, which nobody at the back of
+     * the room was ever going to do (#1073 part 2). This checks the actual
+     * fix rather than trusting the mechanism: with 24 racers seeded, a
+     * `.standing-row` count anywhere near that would mean rows are still
+     * being pushed off-screen rather than paged away, and — since the seed
+     * is deliberately busier than any of these four viewports can show at
+     * once — a page indicator naming more than one page.
+     *
+     * Whether every rendered row is fully inside the viewport is checked
+     * only when the wrapper actually bounded itself (`overflow: hidden` —
+     * see `Observation.tsx`'s own comment on `standingsMaxHeightPx`): this
+     * seed's 6-lane heats mean "Now Racing" and "On Deck" alone can leave
+     * less than one table row's worth of room at the SVGA floor and
+     * XGA/720p above it, in which case the wrapper deliberately leaves
+     * `overflow: visible` rather than clip its own header — the same
+     * "the page may need a little scroll" fallback this view always had,
+     * for content with nowhere else to go. That is a heat-card sizing gap,
+     * not a Standings-tab paging one; see the PR body.
+     */
+    async function standingsTabPagingFailures(page: Page, viewportHeight: number): Promise<string[]> {
+        const bad: string[] = [];
+        const rows = page.locator('.standing-row');
+        const rowCount = await rows.count();
+        if (rowCount === 0) {
+            bad.push('no .standing-row rendered at all');
+            return bad;
+        }
+        if (rowCount >= racers.length) {
+            bad.push(`rendered every racer (${rowCount} of ${racers.length}) rather than paging`);
+        }
+        const wrapperOverflowY = await page
+            .locator('.standings-table-wrapper')
+            .evaluate((el) => getComputedStyle(el).overflowY);
+        if (wrapperOverflowY === 'hidden') {
+            for (let i = 0; i < rowCount; i++) {
+                const box = await rows.nth(i).boundingBox();
+                if (!box) {
+                    bad.push(`row ${i} has no bounding box`);
+                    continue;
+                }
+                if (box.y < -1) {
+                    bad.push(`row ${i} starts above the viewport (y=${box.y})`);
+                }
+                if (box.y + box.height > viewportHeight + 1) {
+                    bad.push(
+                        `row ${i} extends below the fold: bottom=${(box.y + box.height).toFixed(1)} > viewport height ${viewportHeight}`,
+                    );
+                }
+            }
+        }
+
+        const indicator = page.getByTestId('standings-tab-page-indicator');
+        if ((await indicator.count()) === 0) {
+            bad.push('no standings-tab-page-indicator rendered, even though the roster should overflow one page');
+            return bad;
+        }
+        const text = await indicator.textContent();
+        const match = text?.match(/Page \d+ of (\d+)/);
+        if (!match) {
+            bad.push(`page indicator text did not match "Page N of M": "${text}"`);
+        } else if (Number(match[1]) <= 1) {
+            bad.push(`page indicator reports only ${match[1]} page(s) for a 24-racer roster`);
+        }
+        return bad;
+    }
+
+    /**
+     * The three secondary-text elements `displayDensity.ts` drops below its
+     * 1024px width threshold (#1073 part 2) — present at and above it,
+     * absent below it. Which of the three are on screen at all depends on
+     * the view (`.standing-racing-group-division` is the Standings tab's
+     * own table; the Timing tab renders no such table), so each call site
+     * names only the ones its own view actually renders.
+     */
+    async function secondaryTextFailures(
+        page: Page,
+        vp: (typeof VIEWPORTS)[number],
+        selectors: readonly string[],
+    ): Promise<string[]> {
+        const bad: string[] = [];
+        for (const selector of selectors) {
+            const count = await page.locator(selector).count();
+            const showsAt1024 = vp.width >= 1024;
+            if (showsAt1024 && count === 0) {
+                bad.push(`${selector}: expected at least one at ${vp.name} (>= 1024px wide), found none`);
+            }
+            if (!showsAt1024 && count > 0) {
+                bad.push(`${selector}: expected none below 1024px wide at ${vp.name}, found ${count}`);
+            }
+        }
+        return bad;
+    }
+
     async function forEachViewport(page: Page, run: (vp: (typeof VIEWPORTS)[number]) => Promise<void>): Promise<void> {
         for (const vp of VIEWPORTS) {
             await page.setViewportSize(vp);
@@ -454,20 +550,46 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
     }
 
     test('Standings (the standard Live view)', async ({ page }) => {
-        await forEachViewport(page, async () => {
+        await forEachViewport(page, async (vp) => {
             await page.goto(`/race/${raceId}/observation`);
             await page.waitForLoadState('networkidle');
             await expect(page.locator('.standings-table')).toBeVisible();
             await assertCleanRender(page, { fullScreen: false, overlapSelectors: ['.heat-card', '.standing-row'] });
+
+            // Every row on screen fits the fold, and the roster (24 racers,
+            // busier than any of these four viewports can show at once)
+            // pages rather than growing the page underneath it (#1073 part
+            // 2).
+            const pagingFailures = await standingsTabPagingFailures(page, vp.height);
+            expect(pagingFailures, `at ${vp.name}:\n${pagingFailures.join('\n')}`).toEqual([]);
+
+            // The racing-group division under a name, and (on the heat
+            // cards above the table) under a staged racer, drop below the
+            // 1024px width threshold.
+            const densityFailures = await secondaryTextFailures(page, vp, [
+                '.standing-racing-group-division',
+                '.heat-card-racing-group-division',
+            ]);
+            expect(densityFailures, `at ${vp.name}:\n${densityFailures.join('\n')}`).toEqual([]);
         });
     });
 
     test("Last heat's times", async ({ page }) => {
-        await forEachViewport(page, async () => {
+        await forEachViewport(page, async (vp) => {
             await page.goto(`/race/${raceId}/observation?view=timing`);
             await page.waitForLoadState('networkidle');
             await expect(page.locator('.timing-list-item').first()).toBeVisible();
             await assertCleanRender(page, { fullScreen: false, overlapSelectors: ['.timing-list-item'] });
+
+            // The car's own name under a racer's name on this tab, and (on
+            // the heat cards above it) the racing-group division under a
+            // staged racer, are the other two secondary lines
+            // `displayDensity.ts` drops (#1073 part 2).
+            const densityFailures = await secondaryTextFailures(page, vp, [
+                '.timing-car-name',
+                '.heat-card-racing-group-division',
+            ]);
+            expect(densityFailures, `at ${vp.name}:\n${densityFailures.join('\n')}`).toEqual([]);
         });
     });
 

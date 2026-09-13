@@ -67,7 +67,7 @@ _Mid-round: the heat on the track, the one on deck, and the one after that. Each
 
 ### Live Leaderboard
 
-The **Standings** tab shows the current leaderboard for all racers, updated after each completed heat. It is deliberately narrow for reading at a distance — rank, racer, average time or points (whichever the race scores by), and runs. A racer's den category shows beneath their name when their den has one. The fuller table, with car number and den, is on the Standings page — the **Standings** tab in the race navigation bar.
+The **Standings** tab shows the current leaderboard, updated after each completed heat, and shows as many rows as the screen has room for — the rest page automatically, a few seconds at a time, rather than needing anyone to scroll. It is deliberately narrow for reading at a distance — rank, racer, average time or points (whichever the race scores by), and runs — and those four never disappear, however small the screen. A racer's den category shows beneath their name, but only on a screen wide enough to spare the line; a narrow projector drops it and keeps the four columns above. The fuller table, with car number and den, is on the Standings page — the **Standings** tab in the race navigation bar.
 
 Switch to the **Timing Stats** tab to see the results of the most recently recorded heat: every car that ran it, in finishing order, with its place and its time — plus a rough real-world scale speed beside it, on a track that has [scale speed](reference/race-settings.md#scale-speed) turned on.
 

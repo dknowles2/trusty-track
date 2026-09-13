@@ -10,10 +10,10 @@
  * render what it returns.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { formatDisplayName, shouldShowRacerPhoto, type NameDisplay } from '../../core/displayName';
-import { pageCount, pageForElapsed, pageSlice, scrollOffset } from '../standingsScroll';
+import { useMeasuredPages } from '../useMeasuredPages';
 import type { ScrollBehavior } from '../displayView';
 
 export interface StandingsOnlyRacer {
@@ -50,14 +50,6 @@ interface Props {
     cycleMs: number;
 }
 
-/**
- * How tall one standings row renders, in pixels — the portrait, its padding,
- * and the cell's own padding. Used only to guess how many rows fit before
- * anything has actually been measured; a fixed guess here is better than
- * showing every racer at once for a frame while `ResizeObserver` catches up.
- */
-const APPROX_ROW_HEIGHT_PX = 88;
-
 export default function StandingsOnlyView({
     standings,
     racersMap,
@@ -71,71 +63,16 @@ export default function StandingsOnlyView({
 }: Props) {
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
-    // A lazy `useState` initializer, not `useRef(Date.now())` — a ref's
-    // initial-value expression runs on every render even though React
-    // discards the result after the first, so it is still an impure call
-    // during render; `useState`'s function form is the one React actually
-    // guarantees to call once. Kept as state (never written to again) rather
-    // than read from `now` at mount, so `elapsedMs` below does not depend on
-    // a ref access during render either.
-    const [start] = useState(() => Date.now());
-    const [now, setNow] = useState(() => Date.now());
-    const [pageSize, setPageSize] = useState(() =>
-        Math.max(1, Math.floor((typeof window !== 'undefined' ? window.innerHeight : 800) / APPROX_ROW_HEIGHT_PX)),
-    );
-    const [scrollableHeight, setScrollableHeight] = useState(0);
-
-    // How much room this screen actually has, re-measured whenever the list
-    // or the window changes. A `ResizeObserver` on the container (rather than
-    // just a `resize` listener) is what catches the very first layout too, so
-    // a screen never sits on the fallback guess longer than one paint.
-    useEffect(() => {
-        const measure = () => {
-            const container = containerRef.current;
-            const content = contentRef.current;
-            // A height of zero means "not laid out yet" (the very first
-            // paint, or a test environment with no real layout engine), not
-            // "there is room for one row" — keep whatever page size is
-            // already in play rather than collapsing to the degenerate
-            // fallback of one, which would page through a two-line list one
-            // racer at a time.
-            if (container && container.clientHeight > 0) {
-                setPageSize(Math.max(1, Math.floor(container.clientHeight / APPROX_ROW_HEIGHT_PX)));
-            }
-            if (container && content && container.clientHeight > 0) {
-                setScrollableHeight(Math.max(0, content.scrollHeight - container.clientHeight));
-            }
-        };
-        measure();
-        if (typeof ResizeObserver === 'undefined') {
-            window.addEventListener('resize', measure);
-            return () => window.removeEventListener('resize', measure);
-        }
-        const observer = new ResizeObserver(measure);
-        if (containerRef.current) observer.observe(containerRef.current);
-        return () => observer.disconnect();
-        // Re-measure whenever the rendered content changes shape — a longer or
-        // shorter list, or a switch between paging (a page's worth of rows)
-        // and smooth scrolling (every row).
-    }, [standings.length, scrollBehavior]);
-
-    // One tick drives both behaviours, computed fresh each time from elapsed
-    // wall-clock time rather than accumulated in a counter — see
-    // `standingsScroll.ts` for why that is what keeps a screen left running
-    // for an hour from drifting. Smooth scrolling wants a finer tick than
-    // paging does; either way the interval is only ever a suggestion to
-    // `pageForElapsed`/`scrollOffset`, never the source of truth.
-    useEffect(() => {
-        const tickMs = scrollBehavior === 'SMOOTH' ? 50 : 1000;
-        const timer = setInterval(() => setNow(Date.now()), tickMs);
-        return () => clearInterval(timer);
-    }, [scrollBehavior]);
-
-    const elapsedMs = now - start;
-    const rowCount = pageCount(standings.length, pageSize);
-    const page = pageForElapsed(elapsedMs, cycleMs, rowCount);
-    const visible = scrollBehavior === 'PAGING' ? pageSlice(standings, page, pageSize) : standings;
-    const offset = scrollBehavior === 'SMOOTH' ? scrollOffset(elapsedMs, scrollableHeight, cycleMs) : 0;
+    // The measuring-and-paging arithmetic itself lives in `useMeasuredPages`
+    // (#1073 part 2) — pulled out of this component so the standard mode's
+    // own Standings tab can page the same way rather than growing the page
+    // underneath it. See that module's own comment for the mechanism.
+    const {
+        visible,
+        pageCount: rowCount,
+        page,
+        offset,
+    } = useMeasuredPages(containerRef, contentRef, standings, { behavior: scrollBehavior, cycleMs });
 
     return (
         <div

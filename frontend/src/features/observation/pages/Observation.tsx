@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useSubscription, useQuery } from 'urql';
 import { Icon } from '@mdi/react';
@@ -13,6 +13,8 @@ import CheckInDisplayView from '../components/CheckInDisplayView';
 import QRCodeDisplayView from '../components/QRCodeDisplayView';
 import BroadcastOverlayView from '../components/BroadcastOverlayView';
 import { displayId, startDeviceClaimHeartbeat } from '../displayIdentity';
+import { useMeasuredPages, DEFAULT_APPROX_ROW_HEIGHT_PX } from '../useMeasuredPages';
+import { useDisplayDensity } from '../useDisplayDensity';
 import { useChrome } from '../../../context/ChromeContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { formatDisplayName, shouldShowRacerPhoto } from '../../core/displayName';
@@ -203,6 +205,12 @@ export default function Observation() {
   // out of the break overlay, which used to reset them by unmounting
   // whichever `IdentifyPresence` instance the previous branch had rendered.
   const identify = useIdentifyOverlay(assignment);
+
+  // What a screen this size can afford to show (#1073 part 2) — read once
+  // here and passed down to every render below that has a secondary line to
+  // drop, the same "resolve once, pass down" shape `nameDisplay` and
+  // `laneColors` already use on this page.
+  const density = useDisplayDensity();
 
   const urlIntent = useMemo(() => readUrl(searchParams), [searchParams]);
   const behaviour = useMemo(
@@ -638,6 +646,133 @@ export default function Observation() {
   const effectiveFormatScore = eliminationOnlyRace
     ? (score: number) => `${Math.round(score)}`
     : formatScore;
+
+  // The Standings tab pages through the leaderboard rather than growing the
+  // page underneath it (#1073 part 2) — nobody scrolls an audience display,
+  // so a roster that does not fit one screen used to mean rank 9 onward was
+  // simply never seen at a small viewport. `useMeasuredPages` is the same
+  // mechanism `StandingsOnlyView` already uses for the full-screen
+  // `STANDINGS_ONLY` view, reused here for the tab; the operator's existing
+  // per-display "seconds" and paging/auto-scroll settings (`behaviour.
+  // cycleMs`/`behaviour.scrollBehavior`) are the cadence, unchanged and with
+  // no new control to learn — see `displays.md`'s "What a small screen
+  // drops". Declared here, ahead of every early `return` below (the
+  // slideshow, `STANDINGS_ONLY`, check-in, QR code, overlay, projector and
+  // race-finished branches all return before "STANDARD MODE RENDER"), so
+  // these hooks still run on every render regardless of which view is
+  // showing — conditionally calling a hook is what the standard-mode-only
+  // shape below would otherwise be.
+  const standingsChromeRef = useRef<HTMLDivElement>(null);
+  const standingsWrapperRef = useRef<HTMLDivElement>(null);
+  const standingsTableRef = useRef<HTMLTableElement>(null);
+  const standingsHeadRef = useRef<HTMLTableSectionElement>(null);
+  const standingsRowRef = useRef<HTMLTableRowElement>(null);
+  const [standingsMaxHeightPx, setStandingsMaxHeightPx] = useState<number | undefined>(undefined);
+  const [standingsHeadHeightPx, setStandingsHeadHeightPx] = useState(0);
+  // Mirrors of the two state values below, read inside `measure()` instead
+  // of the state itself — a `useEffect` that reads state it also sets needs
+  // that state in its own dependency array, which would re-run this effect
+  // (and re-attach its `ResizeObserver`) on every measurement rather than
+  // only when the things that can actually change the measurement do.
+  const standingsHeadHeightRef = useRef(0);
+  const standingsRowHeightRef = useRef<number | undefined>(undefined);
+  // A measured row height, once one has actually rendered, in place of
+  // `useMeasuredPages`'s own default guess (#1073 part 2) — that default is
+  // tuned to `StandingsOnlyView`'s more compact row (a smaller avatar, one
+  // fewer text line), and reusing it here systematically under-counted this
+  // table's own taller row, letting the wrapper bound itself a few pixels
+  // short of what its own single page actually needed.
+  const [standingsRowHeightPx, setStandingsRowHeightPx] = useState<number | undefined>(undefined);
+
+  // How tall the table's own wrapper may render, in pixels — independent of
+  // how many rows end up inside it, which is the point: a box whose height
+  // is derived from its *own* content just grows to fit every row, the
+  // exact bug this issue exists to fix. Measured off the wrapper's position
+  // (set by the heat cards and tab buttons above it, which wrap differently
+  // at 800px wide than at 1920) rather than a fixed guess.
+  //
+  // Watched with a `ResizeObserver` on `standingsChromeRef` — the wrapping
+  // element around everything above the table — rather than only on window
+  // resize or this effect's own dependencies. A racer's avatar image
+  // finishing its load, or the On Deck/After That cards arriving over their
+  // subscription a beat after first paint, both change that chrome's height
+  // well after this effect would otherwise have already run and settled;
+  // measuring only once per dependency change caught a stale, too-small
+  // `top` from before either had happened, and the wrapper below then
+  // genuinely overflowed rather than merely appearing to (caught by
+  // `displayResolutions.spec.ts`'s existing, view-agnostic overflow check).
+  // A no-op whenever the standard-mode Standings tab is not actually on
+  // screen — `activeTab` covers "not on the Standings tab", and
+  // `standingsChromeRef.current` being `null` covers every other view
+  // entirely, since only the standard mode's own JSX attaches this ref.
+  //
+  // The `<thead>`'s own height is measured the same way and fed to
+  // `useMeasuredPages` as `reservePx` — the wrapper bounds the *whole*
+  // `<table>`, header included, so without this the row-fitting arithmetic
+  // assumed every pixel of the bounded box was available for data rows and
+  // rendered one more than actually fit.
+  useEffect(() => {
+    if (activeTab !== 'standings') return;
+    const measure = () => {
+      const el = standingsWrapperRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      // Leaves room for the page indicator below the table and the page's
+      // own bottom padding.
+      const available = window.innerHeight - top - 48;
+      const head = standingsHeadRef.current;
+      const measuredHeadHeight = head ? head.getBoundingClientRect().height : standingsHeadHeightRef.current;
+      standingsHeadHeightRef.current = measuredHeadHeight;
+      if (head) setStandingsHeadHeightPx(measuredHeadHeight);
+      const row = standingsRowRef.current;
+      const measuredRowHeight = row ? row.getBoundingClientRect().height : standingsRowHeightRef.current;
+      standingsRowHeightRef.current = measuredRowHeight;
+      if (row) setStandingsRowHeightPx(measuredRowHeight);
+      // Only bound the wrapper when there is enough room to make bounding it
+      // useful — the header plus one real row, not a guessed constant: a
+      // fixed number here disagreed with the actual header/row heights by
+      // enough to bound the wrapper a few pixels short of what it needed
+      // (caught by `displayResolutions.spec.ts`'s existing, view-agnostic
+      // overflow check) once a racing-group division line was on screen to
+      // make both taller than the guess assumed. A heat with enough lanes
+      // that "Now Racing" and "On Deck" alone leave less than this can still
+      // happen (a busy schedule at the SVGA floor); clamping to a too-small
+      // `maxHeight` there would set `overflow: hidden` on a box shorter than
+      // even its own header, clipping the table entirely rather than paging
+      // it — worse than doing nothing. Leaving `maxHeight` unset in that
+      // case is not a silent failure: it is the same "the page may need a
+      // little scroll" fallback this view already had before this feature,
+      // for content that has nowhere else to go.
+      const minViableHeightPx = measuredHeadHeight + (measuredRowHeight ?? DEFAULT_APPROX_ROW_HEIGHT_PX);
+      setStandingsMaxHeightPx(available >= minViableHeightPx ? available : undefined);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    if (typeof ResizeObserver === 'undefined' || !standingsChromeRef.current) {
+      return () => window.removeEventListener('resize', measure);
+    }
+    // Two things are watched, not just the chrome above the table: the
+    // wrapper itself is what makes a freshly-rendered first row (`.standing-
+    // row`, ref'd for the measurement above) observable at all — the chrome
+    // observer alone only ever fires for changes *above* the table.
+    const observer = new ResizeObserver(measure);
+    observer.observe(standingsChromeRef.current);
+    if (standingsWrapperRef.current) observer.observe(standingsWrapperRef.current);
+    return () => {
+      window.removeEventListener('resize', measure);
+      observer.disconnect();
+    };
+  }, [activeTab]);
+
+  const standingsPages = useMeasuredPages(standingsWrapperRef, standingsTableRef, effectiveStandings, {
+    behavior: behaviour.scrollBehavior,
+    cycleMs: behaviour.cycleMs,
+    reservePx: standingsHeadHeightPx,
+    // Falls back to the hook's own default guess until a real row has
+    // rendered and been measured — same "guess, then measure" shape as
+    // `standingsHeadHeightPx` and `standingsMaxHeightPx` above.
+    ...(standingsRowHeightPx !== undefined ? { approxRowHeightPx: standingsRowHeightPx } : {}),
+  });
   // The projector layout's own "Current Standings" panel (below) prints the
   // bare number with no unit, same reasoning as `formatProjectorScore`
   // above — an elimination round's own loss count needs the identical
@@ -825,7 +960,12 @@ export default function Observation() {
                   {formatDisplayName(nameDisplay, racer.firstName, racer.lastName)}
                 </div>
                 {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: '2.3vmin', color: 'var(--display-text-muted-color)' }}>{vehicle} #{racer.carNumber}</div>}
-                {racingGroupDivisionFor(racer) && (
+                {/* Dropped below the legibility threshold (#1073 part 2) —
+                    `displayDensity.ts`: on a narrow projector this second
+                    line costs a row the audience would rather have, and the
+                    racer's name and car number (kept unconditionally above)
+                    are what the room actually reads a heat card for. */}
+                {density.showSecondaryText && racingGroupDivisionFor(racer) && (
                   <div className="heat-card-racing-group-division" style={{ fontSize: '2vmin', color: 'var(--display-text-subtle-color)' }}>
                     {racingGroupDivisionFor(racer)}
                   </div>
@@ -1139,6 +1279,16 @@ export default function Observation() {
         }}
       >
         {renderResultsOverlay()}
+        {/* Everything above the Standings tab's own table — the top bar,
+            the heat cards, and the tab buttons — wrapped in one element so
+            its total rendered height can be observed as a whole (#1073 part
+            2). A racer's avatar loading in, or the On Deck/After That cards
+            arriving over their subscription a beat after first paint, both
+            change this wrapper's height well after the effect below first
+            ran; `standingsChromeRef`'s own `ResizeObserver` is what catches
+            that rather than measuring the Standings table's position once
+            and never again. */}
+        <div ref={standingsChromeRef}>
         <div
           style={{
             marginBottom: '20px',
@@ -1208,8 +1358,13 @@ export default function Observation() {
           {/* "After That" rather than the derby term "in the hole", which is
               vocabulary a first-time announcer reading this screen aloud does
               not have. It is only rendered when there *is* one, so the last
-              two heats of a race do not leave an empty card on the wall. */}
-          {afterThatHeat && renderHeatCard(
+              two heats of a race do not leave an empty card on the wall — and
+              (#1073 part 2) only when the row still has room for three cards
+              side by side: below `displayDensity.ts`'s threshold, three
+              300px-floor cards wrap onto their own lines and, at the SVGA
+              floor with a six-lane heat, ran taller than the viewport itself
+              before the Standings table below them had drawn a single row. */}
+          {density.onDeckDepth > 1 && afterThatHeat && renderHeatCard(
             "After That",
             afterThatRacers,
             true,
@@ -1258,11 +1413,46 @@ export default function Observation() {
             Timing Stats
           </button>
         </div>
+        </div>
 
         {activeTab === 'standings' ? (
-          <div className="standings-table-wrapper" style={{ background: 'var(--display-surface-color)', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-            <table className="standings-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ backgroundColor: 'var(--display-accent-color)', color: 'var(--display-on-accent-color)' }}>
+          <div
+            ref={standingsWrapperRef}
+            className="standings-table-wrapper"
+            style={{
+              background: 'var(--display-surface-color)',
+              borderRadius: '8px',
+              // `hidden` only once there is a real bound to enforce
+              // (#1073 part 2) — `standingsMaxHeightPx` is `undefined` both
+              // before the first measurement and whenever the heat cards
+              // above leave too little room to bound usefully (see that
+              // effect's own comment); clipping with nothing sensible to
+              // clip to would hide the table's one row entirely rather than
+              // letting the page do what it always did and scroll a little.
+              overflow: standingsMaxHeightPx !== undefined ? 'hidden' : 'visible',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+              // Bounded to whatever room is left below the heat cards and
+              // tab buttons — an unbounded box just grows to fit every row,
+              // which is what let rank 9 onward scroll off an audience
+              // display nobody was ever going to scroll.
+              maxHeight: standingsMaxHeightPx,
+            }}
+          >
+            <table
+              ref={standingsTableRef}
+              className="standings-table"
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                transform:
+                  behaviour.scrollBehavior === 'SMOOTH' ? `translateY(-${standingsPages.offset}px)` : undefined,
+                // Matches `StandingsOnlyView`'s own transition length — short
+                // enough that discrete jumps every 50ms read as continuous
+                // motion rather than a stutter.
+                transition: behaviour.scrollBehavior === 'SMOOTH' ? 'transform 60ms linear' : undefined,
+              }}
+            >
+              <thead ref={standingsHeadRef} style={{ backgroundColor: 'var(--display-accent-color)', color: 'var(--display-on-accent-color)' }}>
                 <tr>
                   <th style={{ padding: '15px', fontSize: '2vmin' }}>Rank</th>
                   <th style={{ padding: '15px', fontSize: '2vmin' }}>Racer</th>
@@ -1271,10 +1461,15 @@ export default function Observation() {
                 </tr>
               </thead>
               <tbody>
-                {effectiveStandings.map((s: Standing) => {
+                {standingsPages.visible.map((s: Standing, idx: number) => {
                   const racer = racersMap[s.racerId];
                   return (
-                    <tr key={s.racerId} className="standing-row" style={{ borderBottom: '1px solid var(--display-border-subtle-color)' }}>
+                    <tr
+                      key={s.racerId}
+                      ref={idx === 0 ? standingsRowRef : undefined}
+                      className="standing-row"
+                      style={{ borderBottom: '1px solid var(--display-border-subtle-color)' }}
+                    >
                       {/* `vmin`, not `rem` (#1073) — see `renderHeatCard`'s
                           own comment; every size in this table used to be a
                           fixed `rem`, which reads fine at the one viewport it
@@ -1302,7 +1497,13 @@ export default function Observation() {
                             {racer?.carNumber && (
                               <div className="standing-car-number" style={{ color: 'var(--display-text-muted-color)', fontSize: '2.3vmin' }}>{vehicle} #{racer.carNumber}</div>
                             )}
-                            {s.racingGroupDivision && (
+                            {/* Dropped below the legibility threshold
+                                (#1073 part 2, `displayDensity.ts`) — the
+                                rank, racer, score and runs columns this tab
+                                is deliberately narrow to (see
+                                `docs/observation-displays.md`) stay; this
+                                second line does not. */}
+                            {density.showSecondaryText && s.racingGroupDivision && (
                               <div className="standing-racing-group-division" style={{ color: 'var(--display-text-subtle-color)', fontSize: '2vmin' }}>{s.racingGroupDivision}</div>
                             )}
                           </div>
@@ -1326,7 +1527,28 @@ export default function Observation() {
               </tbody>
             </table>
           </div>
-        ) : (
+        ) : null}
+        {/* The tab's own page indicator — same shape as
+            `StandingsOnlyView`'s `standings-only-page-indicator`, a
+            different name because it is a different element on a different
+            view, not because the rule differs (#1073 part 2). Rendered
+            outside the bounded, `overflow: hidden` wrapper above (the
+            `maxHeight` calculation reserves room for exactly this), so it is
+            never itself a row the wrapper could clip. */}
+        {activeTab === 'standings' && behaviour.scrollBehavior === 'PAGING' && standingsPages.pageCount > 1 && (
+          <div
+            data-testid="standings-tab-page-indicator"
+            style={{
+              textAlign: 'center',
+              marginTop: '10px',
+              color: 'var(--display-text-faint-color)',
+              fontSize: '1.8vmin',
+            }}
+          >
+            Page {standingsPages.page + 1} of {standingsPages.pageCount}
+          </div>
+        )}
+        {activeTab === 'timing' && (
           <div className="timing-list-wrapper" style={{ background: 'var(--display-surface-color)', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
             {lastHeatResults ? (
               <div>
@@ -1386,7 +1608,16 @@ export default function Observation() {
                       </div>
                       <div className="timing-racer-info" style={{ flex: 1 }}>
                         <div className="timing-racer-name" style={{ fontSize: '3vmin', fontWeight: 'bold' }}>{lane.racerName}</div>
-                        <div className="timing-car-name" style={{ fontSize: '2vmin', color: 'var(--display-text-muted-color)' }}>{lane.carName || `Lane ${lane.laneNumber}`}</div>
+                        {/* Dropped below the legibility threshold (#1073
+                            part 2, `displayDensity.ts`) — the issue's own
+                            framing of this view calls the car's name a
+                            secondary column next to place, name and time.
+                            The lane-number fallback rides on the same line
+                            and goes with it; place and name are already on
+                            screen without it. */}
+                        {density.showSecondaryText && (
+                          <div className="timing-car-name" style={{ fontSize: '2vmin', color: 'var(--display-text-muted-color)' }}>{lane.carName || `Lane ${lane.laneNumber}`}</div>
+                        )}
                       </div>
                       <div className="timing-time" style={{ fontSize: '4.5vmin', fontWeight: 'bold', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>
                         {formatLaneTime(lane.time)}
