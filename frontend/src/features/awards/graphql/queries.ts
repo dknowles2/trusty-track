@@ -17,6 +17,17 @@ export const RACE_AWARDS_QUERY = gql`
       # the award editor.
       isLocked
       resolvedNameDisplay
+      # A break takes this screen over exactly like every other display
+      # (#592, #1072's fix for a route that previously had no intermission
+      # handling at all) — same shape Observation.tsx's own
+      # GET_INITIAL_DATA query already carries.
+      intermission {
+        active
+        remainingSeconds
+        paused
+        label
+        endsAt
+      }
       awards {
         id
         name

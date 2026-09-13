@@ -2,89 +2,53 @@
  * The two treatments a display gives its own name (#495), rendered once so
  * every screen a display can end up on gets both (#519).
  *
- * `identifyOverlay.ts` holds the rule; this is the rendering plus the two
- * `useState`/`setTimeout` pairs that used to be a private copy inside
- * `Observation.tsx` alone. `AwardCeremony.tsx` is its own route — a screen
- * assigned the ceremony navigates away from Observation and holds its own
- * `displayAssignment` subscription to keep its presence (#174) — so without a
- * shared place for this, Identify could only ever reach one of the two pages
- * a display shows. #48's standing lesson: a rule that depends on each page
- * remembering reaches only some of them.
+ * Purely presentational — `useIdentifyOverlay` (in `useIdentifyOverlay.ts`)
+ * holds the `seen`/`showConnectBadge`/`showFlash` state and is called exactly
+ * once, at the top of whichever page renders this, so the state survives
+ * that page switching between its own `if`-branch returns (a view change, or
+ * a break starting or ending — #1071, #1072). This component can then be
+ * placed at more than one of those branches — inline in one, a fixed overlay
+ * in the rest — with no risk of losing history to a remount, since it holds
+ * none of its own.
  */
 
-import { useEffect, useState } from 'react';
-import { observeIdentify, type SeenIdentifySeq } from './identifyOverlay';
 import { useChrome } from '../../context/ChromeContext';
 
-export interface IdentifyAssignment {
-  readonly name?: string | null;
-  readonly identifySeq?: number | null;
-}
-
 interface Props {
-  /** The same `displayAssignment` payload both pages already subscribe to. */
-  assignment: IdentifyAssignment | null;
+  /** This display's own name, or nullish before it has one. */
+  name?: string | null;
+  /** True for a few seconds right after this display's first payload. */
+  showConnectBadge: boolean;
+  /** True for a few seconds after an Identify command. */
+  showFlash: boolean;
   /**
    * True when the caller has a spot for this badge in its own layout flow
    * (#954) — the standard, non-projector Live view, which keeps a status row
    * (the timer pill, then **Launch Projector Mode**) the badge can join on
-   * the left rather than float over. Every other caller — the five
-   * chrome-hidden views this page also renders, and `AwardCeremony`, which
-   * paints itself above the navigation at its own z-index rather than
-   * hiding it via `ChromeContext` — is a genuinely full-screen surface with
-   * no row to join and nothing in that corner to collide with, so those
-   * keep the fixed-corner treatment untouched.
+   * the left rather than float over. Every other caller — the six
+   * chrome-hidden views this page also renders, the break overlay, and
+   * `AwardCeremony`, which paints itself above the navigation at its own
+   * z-index rather than hiding it via `ChromeContext` — is a genuinely
+   * full-screen surface with no row to join and nothing in that corner to
+   * collide with, so those keep the fixed-corner treatment untouched.
    */
   inline?: boolean;
 }
 
 /**
- * Renders nothing until this display has a name to show. Place it once, near
- * the root of whatever full-screen surface the page renders — the flash is
- * always `position: fixed`, and so is the connect badge unless the caller
- * passes `inline`.
+ * Renders nothing until this display has a name to show. Place it once per
+ * branch, near the root of whatever full-screen surface that branch renders —
+ * the flash is always `position: fixed`, and so is the connect badge unless
+ * the caller passes `inline`.
  */
-export default function IdentifyPresence({ assignment, inline = false }: Props) {
+export default function IdentifyPresence({ name, showConnectBadge, showFlash, inline = false }: Props) {
   // Whether the app's own header is on screen (#175). A projector has none —
   // `chromeHidden` is true — so the badge is free to sit at the very corner.
   // Everywhere else `Navigation`'s bar occupies that corner already
   // (`zIndex: 1000` against the badge's own `4900`), so it has to sit below
   // it rather than on top of it (#790).
   const { hidden: chromeHidden } = useChrome();
-  const [seen, setSeen] = useState<SeenIdentifySeq>(null);
-  const [showFlash, setShowFlash] = useState(false);
-  const [showConnectBadge, setShowConnectBadge] = useState(false);
 
-  // Sync during render, the same shape `Observation.tsx` used for the results
-  // overlay: the subscription's payload is the input, and `observeIdentify`
-  // decides which of the two treatments (if either) it deserves.
-  const current = assignment?.identifySeq ?? null;
-  if (current !== null) {
-    const observation = observeIdentify(seen, current);
-    if (observation.seen !== seen) {
-      setSeen(observation.seen);
-      if (observation.showConnectBadge) setShowConnectBadge(true);
-      if (observation.showFlash) setShowFlash(true);
-    }
-  }
-
-  useEffect(() => {
-    if (!showFlash) return;
-    // A few seconds is enough to look up and read a name across a room; any
-    // longer and it stops being a flash and starts being a mode.
-    const timer = setTimeout(() => setShowFlash(false), 4000);
-    return () => clearTimeout(timer);
-  }, [showFlash, seen]);
-
-  useEffect(() => {
-    if (!showConnectBadge) return;
-    // Must fade — a permanent badge is chrome on a projector, which is the
-    // whole reason `ChromeContext` exists (#175).
-    const timer = setTimeout(() => setShowConnectBadge(false), 4000);
-    return () => clearTimeout(timer);
-  }, [showConnectBadge]);
-
-  const name = assignment?.name;
   if (!name) return null;
 
   return (

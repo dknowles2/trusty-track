@@ -3,6 +3,7 @@ import '../../setupTests';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { cleanup, render, screen, act } from '@testing-library/react';
 import IdentifyPresence from './IdentifyPresence';
+import { useIdentifyOverlay, type IdentifyAssignment } from './useIdentifyOverlay';
 
 /**
  * #790, defect 1 — the connect badge is `position: fixed; top: 16px; right:
@@ -16,6 +17,11 @@ import IdentifyPresence from './IdentifyPresence';
  * with) but must clear the header when the chrome is on screen. This pins
  * that the badge's own top offset differs between the two `ChromeContext`
  * states, rather than being a fixed `16px` regardless.
+ *
+ * `IdentifyPresence` is purely presentational since #1071/#1072 — the state
+ * (`seen`/`showConnectBadge`/`showFlash`) lives in `useIdentifyOverlay`, so
+ * these tests drive it through a small harness combining the two, the same
+ * shape `Observation.tsx`/`AwardCeremony.tsx` use in production.
  */
 
 const useChromeMock = vi.fn();
@@ -28,10 +34,22 @@ afterEach(() => {
   useChromeMock.mockReset();
 });
 
+function Harness({ assignment, inline }: { assignment: IdentifyAssignment | null; inline?: boolean }) {
+  const identify = useIdentifyOverlay(assignment);
+  return (
+    <IdentifyPresence
+      name={identify.name}
+      showConnectBadge={identify.showConnectBadge}
+      showFlash={identify.showFlash}
+      inline={inline}
+    />
+  );
+}
+
 describe('IdentifyPresence connect badge', () => {
   it('sits clear of the header when the chrome is on screen', () => {
     useChromeMock.mockReturnValue({ hidden: false, setHidden: () => {} });
-    render(<IdentifyPresence assignment={{ name: 'Playful Panther', identifySeq: 1 }} />);
+    render(<Harness assignment={{ name: 'Playful Panther', identifySeq: 1 }} />);
     const badge = screen.getByTestId('identify-connect-badge');
     const top = parseInt(badge.style.top, 10);
     // Navigation's own bar is `position: relative`, not fixed, but it still
@@ -42,7 +60,7 @@ describe('IdentifyPresence connect badge', () => {
 
   it('floats at the corner when there is no chrome to clash with', () => {
     useChromeMock.mockReturnValue({ hidden: true, setHidden: () => {} });
-    render(<IdentifyPresence assignment={{ name: 'Playful Panther', identifySeq: 1 }} />);
+    render(<Harness assignment={{ name: 'Playful Panther', identifySeq: 1 }} />);
     const badge = screen.getByTestId('identify-connect-badge');
     const top = parseInt(badge.style.top, 10);
     expect(top).toBe(16);
@@ -54,7 +72,7 @@ describe('IdentifyPresence connect badge', () => {
   // caller mounts it in, with no `position` for a button to disappear under.
   it('joins the flow with no fixed position when the caller has a row for it', () => {
     useChromeMock.mockReturnValue({ hidden: false, setHidden: () => {} });
-    render(<IdentifyPresence assignment={{ name: 'Playful Panther', identifySeq: 1 }} inline />);
+    render(<Harness assignment={{ name: 'Playful Panther', identifySeq: 1 }} inline />);
     const badge = screen.getByTestId('identify-connect-badge');
     expect(badge.style.position).toBe('');
     expect(badge.style.top).toBe('');
@@ -71,13 +89,13 @@ describe('IdentifyPresence flash', () => {
   it('still covers the screen when the caller is inline', () => {
     useChromeMock.mockReturnValue({ hidden: false, setHidden: () => {} });
     const { rerender } = render(
-      <IdentifyPresence assignment={{ name: 'Playful Panther', identifySeq: 1 }} inline />,
+      <Harness assignment={{ name: 'Playful Panther', identifySeq: 1 }} inline />,
     );
     // The first payload is a connect (`seen === null`), never a flash — the
     // command has to arrive as a rise over a `seen` this instance already
     // holds, so rerender with a higher `identifySeq` to raise one.
     act(() => {
-      rerender(<IdentifyPresence assignment={{ name: 'Playful Panther', identifySeq: 2 }} inline />);
+      rerender(<Harness assignment={{ name: 'Playful Panther', identifySeq: 2 }} inline />);
     });
     const flash = screen.getByTestId('identify-flash');
     expect(flash.style.position).toBe('fixed');
