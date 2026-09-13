@@ -99,7 +99,10 @@ Once your system settings are configured, you're ready to create a race event.
 
 1. From the Home page, click the **+ Create New Race** button.
 2. The **Create New Race Event** dialog walks you through a few short steps.
-   Each one has **Next** and **Back**, so nothing is final until the last.
+   Each one has **Next** and **Back**, so nothing is final until the last. The
+   list of steps at the top doubles as navigation: click an earlier one to
+   jump straight back to it, rather than clicking Back over and over — the
+   current step and any you have not reached yet are not clickable.
    - **Start** — only shown once you already have a race. Choose **Start from
      scratch**, or **Copy settings from a previous race** to reuse last year's
      dens, scoring, numbering, words and awards. What is copied, and what is

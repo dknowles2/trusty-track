@@ -524,6 +524,17 @@ input:checked + .slider:before {
   padding-right: 10px;
 }
 
+/* Race setup wizard step pills (#1087): a previously-visited step is a real
+   button now. Its background and text colour are set inline per step
+   (current/visited/future), and an inline style always wins over a class
+   selector — see `button:disabled` above for the same reason applying to a
+   different property — so the hover affordance is `text-decoration`, the
+   one property nothing here sets inline. Focus already gets the app-wide
+   `:focus-visible` outline above. */
+.setup-step-pill:hover {
+    text-decoration: underline;
+}
+
 /* Racer Roster Table Styles */
 .racer-row:hover {
     background-color: var(--surface-hover-color);

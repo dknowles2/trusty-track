@@ -93,7 +93,7 @@ Four rules, each of which is a way of ending up back there:
 
 ### What the functional e2e specs are for
 
-`frontend/e2e/functional/` holds two files and one shared `support.ts`: `roster.spec.ts` for the management side, `raceDay.spec.ts` for what happens once racing starts. Between them they cover generating a schedule, running a heat on the fake timer, standings arriving over the subscription, a championship field filling from the cascade, overriding a recorded time, skipping a heat, and reordering one.
+`frontend/e2e/functional/` holds a shared `support.ts` and one spec per behaviour that needs the served page, the GraphQL round trip and the normalized cache together to prove — see the directory listing for the current set rather than a count kept here, since it only grows. Between them they cover things like generating a schedule, running a heat on the fake timer, standings arriving over the subscription, a championship field filling from the cascade, overriding a recorded time, skipping a heat, and reordering one — the *kind* of thing a functional spec proves, not an inventory of which file proves which.
 
 They exist because every *rule* in those paths is already unit-tested and none of that says the answer survives the GraphQL round trip and the normalized cache. That gap is not hypothetical: writing `raceDay.spec.ts` found the subscription snapshot race below.
 
