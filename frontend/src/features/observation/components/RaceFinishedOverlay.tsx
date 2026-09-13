@@ -130,7 +130,11 @@ export default function RaceFinishedOverlay({
                                     {formatDisplayName(nameDisplay, standing.firstName, standing.lastName)}
                                 </div>
                                 {standing.carNumber != null && (
-                                    <div style={{ fontSize: '1.8vmin', color: 'var(--display-text-muted-color)' }}>
+                                    // Never below 2vmin (#1073's own legibility
+                                    // floor is exactly 2% of viewport height,
+                                    // which every supported viewport is
+                                    // landscape enough for `vmin` to equal).
+                                    <div style={{ fontSize: '2vmin', color: 'var(--display-text-muted-color)' }}>
                                         {vehicle} #{standing.carNumber}
                                     </div>
                                 )}

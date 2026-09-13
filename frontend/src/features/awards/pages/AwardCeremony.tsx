@@ -36,6 +36,7 @@ import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { resolveDisplayTheme } from '../../../theming/applyTheme';
 import type { SurfaceThemeSetting } from '../../../theming/themes';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { useChrome } from '../../../context/ChromeContext';
 import {
   isSoundEffectEnabled,
   playAwardFanfareSound,
@@ -212,6 +213,20 @@ export default function AwardCeremony() {
       document.body.style.overflow = '';
     };
   }, []);
+
+  // The navigation bar was never actually removed from the page here — this
+  // route's own `zIndex: 3000` merely painted over it, so `Navigation`
+  // stayed in the document and its own (unrelated, pre-existing) inability
+  // to fit its links at a narrow width still inflated this page's overall
+  // scrollable area, well past the 800px an SVGA projector actually has
+  // (#1073). `Observation.tsx` already tells `ChromeContext` to hide the
+  // chrome on every path onto that page; this route is exactly as much of a
+  // display and had simply never been wired to it.
+  const { setHidden: setChromeHidden } = useChrome();
+  useEffect(() => {
+    setChromeHidden(true);
+    return () => setChromeHidden(false);
+  }, [setChromeHidden]);
 
   // The back link (#955): up on load, and again whenever the pointer moves —
   // then gone after a few seconds of neither, the way a video player's own
@@ -406,11 +421,21 @@ export default function AwardCeremony() {
       <div
         style={{
           position: 'absolute',
+          // Bounded on both sides (#1073) — this row used to have only
+          // `bottom` set, so its width was sized to its own content with
+          // nothing stopping "Click or press → for the next award" plus the
+          // fanfare toggle from running past the right edge of an 800px-wide
+          // screen. `flexWrap` is the fallback once even a centered, bounded
+          // row is still too narrow for all three pieces on one line.
+          left: '4vw',
+          right: '4vw',
           bottom: '3vh',
           fontSize: '2vh',
           opacity: 0.5,
           display: 'flex',
-          gap: '1.5rem',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          gap: '1.2vh 1.5rem',
           alignItems: 'center',
         }}
       >

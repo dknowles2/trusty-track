@@ -240,7 +240,13 @@ export default function StandingsOnlyView({
                                                         <div
                                                             style={{
                                                                 color: 'var(--display-text-muted-color)',
-                                                                fontSize: '1.7vmin',
+                                                                // Never below 2vmin (#1073's legibility floor is
+                                                                // exactly 2% of viewport height, which every
+                                                                // supported viewport is landscape enough for
+                                                                // `vmin` to equal — see `Observation.tsx`'s
+                                                                // `renderHeatCard` comment) — a car number is
+                                                                // one of the things that floor exists to protect.
+                                                                fontSize: '2vmin',
                                                             }}
                                                         >
                                                             {vehicle} #{racer.carNumber}

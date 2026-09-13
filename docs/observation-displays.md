@@ -320,6 +320,28 @@ banner tops the overlay with the new time and the record it beat.
 4. Press **F11** (or use your browser's full-screen mode) to hide the browser toolbar.
 5. Place the display where the entire audience can see it — at the end of the track, along the side, or on a dedicated screen.
 
+### Setting up a projector or TV
+
+Every audience view is built to hold up on the projector a pack actually
+owns, not just a modern monitor. 800×600 (SVGA — the resolution of the
+oldest projectors still turning up in a church basement) is the floor;
+1024×768 (XGA, the commonest old-projector native resolution) and 1280×720
+(a 720p TV on a cart) are both comfortably supported too, right up through a
+1920×1080 monitor. Nothing needs to be configured for any of this — the same
+page that looks right on a laptop looks right at each of these, with names,
+car numbers, places and times sized to stay legible even at the smallest.
+
+Both aspect ratios in that list — 4:3 (SVGA, XGA) and 16:9 (720p, 1080p) —
+are fine. Nothing here assumes a widescreen TV over a squarer projector.
+
+If the device you are actually using has a smaller screen still, or you
+would simply rather the text read larger from further back than even the
+800×600 floor allows, your browser's own zoom (Ctrl/Cmd and +/-, or the
+browser's menu) is the tool to reach for — every display view here is an
+ordinary web page and zooms the same way any other page does. That is a
+better lever than hunting for a lower resolution the device may not
+actually support.
+
 ### Tablet at the Track
 
 The standard Observation page (not Projector Mode) works well on a tablet placed near the starting gate. The race operator can glance at "On Deck" and "After That" to confirm who needs to stage their cars next. It shows with none of the operator's own navigation around it — a stray tap cannot bump it off to another page, and there is nothing to walk it back from but reopening it from **Displays**.
