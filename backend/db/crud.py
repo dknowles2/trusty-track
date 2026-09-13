@@ -720,10 +720,16 @@ def create_initial_config(
 
 
 def update_organization(
-    db: Session, organization: models.Organization, name: str, debug_mode: bool = False
+    db: Session, organization: models.Organization, name: str
 ) -> models.Organization:
+    """Rename the organization.
+
+    `debug_mode` used to be a second parameter here, written alongside the
+    name by `updateInitialConfig` — it now has its own mutation and its own
+    writer, `set_debug_mode` in `api/schema.py` (#1079), so this function
+    touches nothing but the name.
+    """
     organization.name = name
-    organization.debug_mode = debug_mode
     db.commit()
     db.refresh(organization)
     return organization

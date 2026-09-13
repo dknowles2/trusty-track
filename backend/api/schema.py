@@ -916,7 +916,6 @@ class InitialConfigInput:
     """
 
     organization_name: str
-    debug_mode: bool = False
     tracks: list["TrackInput"]
     #: Four digits, or empty/None to leave unchanged. Setting the operator PIN
     #: is what turns enforcement on; clearing it turns it off again, which is
@@ -924,14 +923,6 @@ class InitialConfigInput:
     #: reach the machine (#15).
     operator_pin: str | None = None
     checkin_pin: str | None = None
-    #: Absent leaves the current Display/Printables theme alone; any other
-    #: value — including `"MATCH_APP"` — is the new setting (#498). Unlike
-    #: the PINs and the weight limit, there is no clear flag here: the
-    #: column's own "off" state is the non-null string `"MATCH_APP"`, so it
-    #: is already reachable as an ordinary value rather than needing a
-    #: bare-null sentinel disambiguated by a boolean.
-    display_theme: str | None = None
-    printables_theme: str | None = None
     #: The install-wide default words for a racing group and for the
     #: organization itself (#496 stage 3). Absent means leave alone, the same
     #: shape as the PINs above — but unlike them (and unlike the themes,
@@ -2450,6 +2441,20 @@ class SerialLogEntry:
 
 
 @strawberry.type
+class TimerTransitionEntry:
+    """One state-machine transition, for the debug panel (#1079).
+
+    Populated for every timer type, fake included — unlike `SerialLogEntry`
+    above, which only a real device's wire produces, so it is the one debug
+    view the demo's `FAKE` track can show anything on.
+    """
+
+    at: str
+    from_state: str
+    to_state: str
+
+
+@strawberry.type
 class TimerStatus:
     """Current state of the timer for a track."""
 
@@ -2482,6 +2487,10 @@ class TimerStatus:
     has_photo_finish_trigger: bool = False
     pending_results: list[LaneResult] = strawberry.field(default_factory=list)
     serial_log: list[SerialLogEntry] = strawberry.field(default_factory=list)
+    #: The state machine's own recent history (#1079) — shown under the same
+    #: `debugMode` gate as `serial_log`, but for every timer type, since a
+    #: `FAKE` track (the demo's own) has no bytes to tail.
+    transitions: list[TimerTransitionEntry] = strawberry.field(default_factory=list)
     racer_by_lane: str | None = None  # JSON mapping of lane -> racer_id
     #: The armed (or just-finished) run is a bench exercise, not a heat
     #: (#235) — the diagnostics page shows its results as a test's.
@@ -3100,6 +3109,14 @@ def _timer_status(s) -> TimerStatus:
             )
             for e in s.serial_log
         ],
+        transitions=[
+            TimerTransitionEntry(
+                at=t.at,
+                from_state=t.from_state,
+                to_state=t.to_state,
+            )
+            for t in s.transitions
+        ],
         racer_by_lane=json.dumps(s.racer_by_lane) if s.racer_by_lane else None,
         test_run=s.test_run,
     )
@@ -3699,20 +3716,18 @@ def _apply_pins(organization: Any, config: "InitialConfigInput") -> None:
         setattr(organization, column, auth.hash_pin(value) if value else None)
 
 
-def _apply_themes(organization: Any, config: "InitialConfigInput") -> None:
-    """Store whichever Display/Printables theme the settings page sent (#498).
+def _apply_themes(organization: Any, display_theme: str, printables_theme: str) -> None:
+    """Store the Display/Printables theme (#498), written by `setThemes` (#1080).
 
-    Absent means *leave alone*, same shape as `_apply_pins` — but unlike a
-    PIN or the weight limit, there is no bare-null "leave alone versus clear"
-    ambiguity to resolve here: the column's own "off" state is the literal
-    string `"MATCH_APP"`, not `None`, so an explicit `"MATCH_APP"` already
-    means *reset to the default* and needs no companion clear flag.
+    Used to be one of `updateInitialConfig`'s many fields, absent-means-leave-
+    alone like `_apply_pins`; `setThemes` is a dedicated mutation with no
+    other field to leave alone, so both arguments are always the caller's
+    explicit choice — there is no bare-null "leave alone versus clear"
+    ambiguity to resolve here either way, since the column's own "off" state
+    is the literal string `"MATCH_APP"`, not `None`.
     """
-    for field in ("display_theme", "printables_theme"):
-        value = getattr(config, field, None)
-        if value is None:
-            continue
-        setattr(organization, field, value)
+    organization.display_theme = display_theme
+    organization.printables_theme = printables_theme
 
 
 def _apply_name_display(organization: Any, config: "InitialConfigInput") -> None:
@@ -5952,28 +5967,35 @@ class Mutation:
         It also gets `crud.guard_against_stranding_a_round` (#877) — but
         checked once, over every track in the submission, *before* the
         organization name or any track is written. This form carries the
-        organization name, both PINs, the theme fields and every track at
-        once, so a refusal reached partway through (as `updateTrack`'s own
-        ahead-of-write check would be if simply copied into this function's
-        per-track loop) would still leave earlier tracks and the
-        organization update committed. Checking every shrink first is what
-        keeps a refusal here total rather than partial.
+        organization name, both PINs and every track at once, so a refusal
+        reached partway through (as `updateTrack`'s own ahead-of-write check
+        would be if simply copied into this function's per-track loop) would
+        still leave earlier tracks and the organization update committed.
+        Checking every shrink first is what keeps a refusal here total
+        rather than partial.
+
+        Debugging Mode and the Display/Printables themes are **not** carried
+        here (#1079, #1080) — `setDebugMode` and `setThemes` write those
+        columns on their own, one mutation per field, so the demo can refuse
+        this whole form (it also carries the PINs and reconfigures tracks —
+        real ways to end the demo for everyone else) while still letting a
+        visitor flip the one harmless checkbox and try the harmless colour
+        pickers.
 
         A blank terminology word gets the same ahead-of-write treatment
-        (#905): `crud.update_organization` commits the organization name
-        and `debugMode` on its own, independently of the terminology, theme,
-        PIN, name-display and track writes still to come, so a rename
-        submitted alongside a whitespace-only word used to stick while
-        everything else in the same submission — including every track —
-        was silently discarded when `_apply_terminology` refused it
-        afterwards. Every other field this mutation writes is validated by
-        the settings page itself before it ever submits (`sections.ts`'s
-        `firstProblem` for the organization name and each track's lane
-        count; `SystemSettings.tsx` coerces a non-positive scale ratio
-        before sending it; a lane colour can only come from a native
-        `<input type="color">`); the terminology words are the one
-        exception, since HTML's `required` accepts a single space and
-        `firstProblem` never looks at them.
+        (#905): `crud.update_organization` commits the organization name on
+        its own, independently of the terminology, PIN, name-display and
+        track writes still to come, so a rename submitted alongside a
+        whitespace-only word used to stick while everything else in the same
+        submission — including every track — was silently discarded when
+        `_apply_terminology` refused it afterwards. Every other field this
+        mutation writes is validated by the settings page itself before it
+        ever submits (`sections.ts`'s `firstProblem` for the organization
+        name and each track's lane count; `SystemSettings.tsx` coerces a
+        non-positive scale ratio before sending it; a lane colour can only
+        come from a native `<input type="color">`); the terminology words
+        are the one exception, since HTML's `required` accepts a single
+        space and `firstProblem` never looks at them.
 
         A track's own Pydantic validators (`lane_count`, `scale_ratio`, a
         lane colour) get the same ahead-of-write treatment, for the
@@ -6034,30 +6056,20 @@ class Mutation:
                 )
 
         organization = db.query(models.Organization).first()
-        if organization and (
-            organization.name != config.organization_name
-            or organization.debug_mode != config.debug_mode
-        ):
-            if organization.name != config.organization_name:
-                existing = crud.get_organization_by_name(db, config.organization_name)
-                if existing:
-                    raise ValueError(
-                        f"Organization '{config.organization_name}' already exists"
-                    )
-            crud.update_organization(
-                db, organization, config.organization_name, config.debug_mode
-            )
+        if organization and organization.name != config.organization_name:
+            existing = crud.get_organization_by_name(db, config.organization_name)
+            if existing:
+                raise ValueError(
+                    f"Organization '{config.organization_name}' already exists"
+                )
+            crud.update_organization(db, organization, config.organization_name)
             db.refresh(organization)
 
         if organization:
-            previous_display_theme = organization.display_theme
             _apply_pins(organization, config)
-            _apply_themes(organization, config)
             _apply_terminology(organization, config)
             _apply_name_display(organization, config)
             db.commit()
-            if organization.display_theme != previous_display_theme:
-                await _broadcast_display_theme_change()
 
         # Tracks are matched to database rows by id, not by list position
         # (#318): the form can reorder or remove a track from the middle of
@@ -6206,6 +6218,92 @@ class Mutation:
             printables_theme=organization.printables_theme
             if organization
             else "MATCH_APP",
+            **_terminology_status_kwargs(organization),
+            **_name_display_status_kwargs(organization),
+        )
+
+    @strawberry.mutation
+    def set_debug_mode(self, info: Info, enabled: bool) -> InitialConfigStatus:
+        """Turn Debugging Mode on or off (#1079).
+
+        A dedicated mutation rather than a demo exemption carved out of
+        `updateInitialConfig`'s refusal — that mutation also sets both PINs
+        and reconfigures tracks, real ways to end the public demo for
+        everyone else, and this flag is an ordinary boolean with no such
+        hazard. Not on `demo_policy.REFUSED_MUTATIONS`, so a demo visitor can
+        turn it on and see the timer's own state-machine transitions
+        (`TimerStatus.transitions`) the same as any real install's operator.
+
+        The organization already exists by the time Settings can render this
+        checkbox — there is no create-time equivalent the way
+        `createInitialConfig` briefly had one, since that mutation's own
+        `InitialConfigInput` never carried this field either.
+        """
+        db = info.context["db"]
+        organization = db.query(models.Organization).first()
+        if organization is None:
+            raise ValueError("System is not yet configured")
+        organization.debug_mode = enabled
+        db.commit()
+        db.refresh(organization)
+
+        from backend.version import __version__ as _version
+
+        return InitialConfigStatus(
+            initialized=True,
+            version=_version,
+            organization_name=organization.name,
+            debug_mode=organization.debug_mode,
+            is_operator=True,
+            role=auth.Role.OPERATOR,
+            display_theme=organization.display_theme,
+            printables_theme=organization.printables_theme,
+            **_terminology_status_kwargs(organization),
+            **_name_display_status_kwargs(organization),
+        )
+
+    @strawberry.mutation
+    async def set_themes(
+        self, info: Info, display_theme: str, printables_theme: str
+    ) -> InitialConfigStatus:
+        """Write the Display and Printables themes on their own (#1080).
+
+        Same shape and the same reason as `setDebugMode` just above: these
+        two columns used to travel inside `updateInitialConfig`'s bundle,
+        which the demo refuses whole because the rest of that form can set
+        the PINs and reconfigure tracks. A colour scheme cannot do either, so
+        it gets its own door — not on `demo_policy.REFUSED_MUTATIONS` — and
+        calls the same `_apply_themes`/`_broadcast_display_theme_change` pair
+        `updateInitialConfig` already used for this field, so an already-open
+        Observation page re-themes without a reload exactly as it did before
+        (#586) whichever mutation changed the setting.
+
+        There is no clear flag or absent-means-leave-alone here, unlike the
+        old bundled field: both arguments are required, and `"MATCH_APP"` is
+        itself the reachable "off" state a caller sends explicitly to reset.
+        """
+        db = info.context["db"]
+        organization = db.query(models.Organization).first()
+        if organization is None:
+            raise ValueError("System is not yet configured")
+        previous_display_theme = organization.display_theme
+        _apply_themes(organization, display_theme, printables_theme)
+        db.commit()
+        db.refresh(organization)
+        if organization.display_theme != previous_display_theme:
+            await _broadcast_display_theme_change()
+
+        from backend.version import __version__ as _version
+
+        return InitialConfigStatus(
+            initialized=True,
+            version=_version,
+            organization_name=organization.name,
+            debug_mode=organization.debug_mode,
+            is_operator=True,
+            role=auth.Role.OPERATOR,
+            display_theme=organization.display_theme,
+            printables_theme=organization.printables_theme,
             **_terminology_status_kwargs(organization),
             **_name_display_status_kwargs(organization),
         )

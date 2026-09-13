@@ -111,6 +111,7 @@ export const EMBEDDED_TYPES = [
   'TimerModel',
   'TimerStateChangedEvent',
   'TimerStatus',
+  'TimerTransitionEntry',
   'TimesPerLane',
   'TimingStats',
   'TimingStatsLane',
@@ -233,6 +234,11 @@ export const CACHE_CONFIG = {
     Mutation: {
       createInitialConfig: forgetInitialConfigAndTerminology,
       updateInitialConfig: forgetInitialConfigAndTerminology,
+      // Both write a field of `InitialConfigStatus` on their own (#1079,
+      // #1080) — the same embedded-type cache problem `forgetInitialConfig`
+      // exists for, just for one field instead of the whole form.
+      setDebugMode: forgetInitialConfig,
+      setThemes: forgetInitialConfig,
       createRace: forgetRaceList,
       createPracticeRace: forgetRaceList,
       deleteRace: forgetRaceList,

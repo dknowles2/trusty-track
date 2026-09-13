@@ -415,6 +415,27 @@ def test_a_viewer_still_cannot_run_any_other_mutation(client, db, secured):
     assert "check-in PIN" in body["errors"][0]["message"]
 
 
+def test_a_viewer_cannot_set_debug_mode_or_themes(client, db, secured):  # noqa: ARG001
+    """`setDebugMode`/`setThemes` are operator-only (#1079, #1080) — the
+    same bucket as the `updateInitialConfig` bundle they were split out of,
+    even though the demo now offers them to an unauthenticated visitor
+    (`test_demo_mode.py`). Off the demo, an install with a PIN set still
+    keeps them behind it."""
+    debug_body = _post(
+        client, "mutation { setDebugMode(enabled: true) { debugMode } }"
+    ).json()
+    assert debug_body.get("errors")
+    assert "operator PIN" in debug_body["errors"][0]["message"]
+
+    themes_body = _post(
+        client,
+        'mutation { setThemes(displayTheme: "old-glory", '
+        'printablesTheme: "newsprint") { displayTheme } }',
+    ).json()
+    assert themes_body.get("errors")
+    assert "operator PIN" in themes_body["errors"][0]["message"]
+
+
 def test_the_operator_can_delete_a_race(client, db, secured):
     body = _post(client, DELETE_RACE, {"id": secured.id}, pin="1111").json()
 
@@ -492,9 +513,10 @@ CONFIG_STATUS = "query { initialConfig { pinRequired checkinPinSet isOperator } 
 
 
 def _config(name="Pack", **extra):
+    # `debugMode` used to be sent here too, before `InitialConfigInput` lost
+    # it (#1079) — `setDebugMode` is its own mutation now.
     return {
         "organizationName": name,
-        "debugMode": False,
         "tracks": [{"name": "Track", "laneCount": 4, "timerType": "FAKE"}],
         **extra,
     }

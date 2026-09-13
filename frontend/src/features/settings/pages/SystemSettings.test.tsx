@@ -172,13 +172,11 @@ describe('SystemSettings', () => {
         expect(mockCreateMutation).toHaveBeenCalledWith({
             config: {
                 organizationName: 'Test Pack',
-                debugMode: false,
-                // Every picker's own default (#498) — Field Uniform never
-                // needing to be picked, and Display/Printables their own
-                // "Field Uniform (default)" option, still stored as
-                // 'MATCH_APP' (#528).
-                displayTheme: 'MATCH_APP',
-                printablesTheme: 'MATCH_APP',
+                // `debugMode` and the two theme fields are no longer part of
+                // this payload at all (#1079, #1080) — `setDebugMode`/
+                // `setThemes` are their own mutations now; see the test
+                // below for those.
+                //
                 // The name-display picker's own default (#552) — full names,
                 // sent as an ordinary explicit value the same way the themes
                 // above are.
@@ -798,6 +796,45 @@ describe('the settings sections', () => {
         expect(screen.queryByTestId('general-panel')).toBeNull();
     });
 
+    it('the Advanced checkbox saves through setDebugMode, and the save payload carries none of the three split-out fields (#1079, #1080)', async () => {
+        const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
+        const mockSetDebugMode = vi.fn().mockResolvedValue({ data: {} });
+        const mockSetThemes = vi.fn().mockResolvedValue({ data: {} });
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: configured },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) => {
+            const text = documentText(query);
+            if (text.includes('mutation UpdateInitialConfig')) return [{ fetching: false }, mockUpdate];
+            if (text.includes('mutation SetDebugMode')) return [{ fetching: false }, mockSetDebugMode];
+            if (text.includes('mutation SetThemes')) return [{ fetching: false }, mockSetThemes];
+            return [{ fetching: false }, vi.fn()];
+        });
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('advanced');
+        await user.click(screen.getByLabelText('Debugging Mode'));
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockSetDebugMode).toHaveBeenCalledWith({ enabled: true }));
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+
+        const sent = mockUpdate.mock.calls[0][0].config;
+        expect(sent.debugMode).toBeUndefined();
+        expect(sent.displayTheme).toBeUndefined();
+        expect(sent.printablesTheme).toBeUndefined();
+    });
+
     it('keeps an edit made in a section that is no longer on screen', async () => {
         // The fields live on the page, not in the section, so switching is not
         // a discard — and one Save covers all three form sections.
@@ -941,13 +978,19 @@ describe('the Appearance section (#498)', () => {
         expect(screen.getByTestId('printables-theme-option-newsprint')).toHaveAttribute('aria-pressed', 'true');
     });
 
-    it('sends the chosen Display/Printables theme on save, and stores the App theme only in localStorage', async () => {
+    it('sends the chosen Display/Printables theme through setThemes, never through updateInitialConfig, and stores the App theme only in localStorage', async () => {
+        // `setThemes`, not `updateInitialConfig`, carries the two install-wide
+        // theme fields now (#1080) — one writer per field, split out so the
+        // demo can offer this control while refusing the rest of the form.
         const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
+        const mockSetThemes = vi.fn().mockResolvedValue({ data: {} });
         (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
         (useMutation as any).mockImplementation((query: any) =>
             documentText(query).includes('mutation UpdateInitialConfig')
                 ? [{ fetching: false }, mockUpdate]
-                : [{ fetching: false }, vi.fn()],
+                : documentText(query).includes('mutation SetThemes')
+                    ? [{ fetching: false }, mockSetThemes]
+                    : [{ fetching: false }, vi.fn()],
         );
         const user = (await import('@testing-library/user-event')).default.setup();
         render(
@@ -965,17 +1008,63 @@ describe('the Appearance section (#498)', () => {
 
         await user.click(screen.getByText('Save Settings'));
 
+        await waitFor(() => expect(mockSetThemes).toHaveBeenCalled());
+        expect(mockSetThemes).toHaveBeenCalledWith({
+            displayTheme: 'under-the-lights',
+            printablesTheme: 'clear-sight',
+        });
+
+        // The rest of the form's save no longer carries either field at all.
         await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
         const sent = mockUpdate.mock.calls[0][0].config;
-        expect(sent.displayTheme).toBe('under-the-lights');
-        expect(sent.printablesTheme).toBe('clear-sight');
+        expect(sent.displayTheme).toBeUndefined();
+        expect(sent.printablesTheme).toBeUndefined();
         // Never sent — the App theme lives only on this device.
         expect(sent.appTheme).toBeUndefined();
-        // Written after the mutation settles (there's a brief post-mutation
-        // wait in handleSubmit before it), so this has to wait too.
+        // Written before either mutation is even asked (#1080) — see the
+        // demo-refusal test below for why that ordering is the point.
         await waitFor(() =>
             expect(window.localStorage.getItem('trustytrack.appTheme')).toBe('old-glory'),
         );
+    });
+
+    it('applies the App theme even when the save mutation is refused', async () => {
+        // The demo refuses `updateInitialConfig` whole, but the App theme
+        // needs no server round trip at all (#1080) — this is what proves
+        // it no longer sits behind that mutation's own success.
+        const mockUpdate = vi.fn().mockResolvedValue({
+            error: {
+                graphQLErrors: [{ message: 'updateInitialConfig is not available on the demo' }],
+            },
+        });
+        const mockSetThemes = vi.fn().mockResolvedValue({ data: {} });
+        (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : documentText(query).includes('mutation SetThemes')
+                    ? [{ fetching: false }, mockSetThemes]
+                    : [{ fetching: false }, vi.fn()],
+        );
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('appearance');
+        await user.click(screen.getByTestId('app-theme-option-old-glory'));
+
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+        // The refusal still surfaces to the operator.
+        await screen.findByText('updateInitialConfig is not available on the demo');
+        // But the App theme took effect anyway.
+        expect(window.localStorage.getItem('trustytrack.appTheme')).toBe('old-glory');
     });
 
     it('offers per-device sound effects controls (#554)', async () => {

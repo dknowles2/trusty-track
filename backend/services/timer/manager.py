@@ -48,6 +48,11 @@ logger = logging.getLogger(__name__)
 
 MAX_SERIAL_LOG = 100
 
+#: Same bound, same reasoning, for the state-machine history (#1079) — a
+#: ring bounded independently of `MAX_SERIAL_LOG` since the two logs record
+#: at very different rates (every byte versus every state change).
+MAX_TRANSITIONS_LOG = 50
+
 #: How often to ask a connected-but-unidentified device who it is. Slow enough
 #: not to chatter at a device that is simply not a timer, quick enough that an
 #: operator watching the badge sees it settle.
@@ -127,6 +132,22 @@ class SerialLogEntry:
 
 
 @dataclass
+class TimerTransitionEntry:
+    """One state-machine transition, for the debug panel (#1079).
+
+    The hardware mole (`serial_log` above) tails raw bytes, which a fake
+    timer never produces — there is no wire for it to be on. This is the
+    diagnostic every timer, fake or real, can show: a stuck `WAITING` is the
+    most common real-venue fault, and the state history is half of
+    diagnosing it, the raw bytes only the other half.
+    """
+
+    at: str
+    from_state: str
+    to_state: str
+
+
+@dataclass
 class TimerStatus:
     state: str
     device_name: str | None
@@ -156,6 +177,11 @@ class TimerStatus:
     has_photo_finish_trigger: bool = False
     pending_results: list[dict[str, Any]] = field(default_factory=list)
     serial_log: list[SerialLogEntry] = field(default_factory=list)
+    #: The state machine's own recent history (#1079), bounded the same way
+    #: `serial_log` is — a ring, not a growing log, since a manager lives for
+    #: the life of the process. Populated for every timer type, unlike
+    #: `serial_log`, which only a real device's wire produces.
+    transitions: list[TimerTransitionEntry] = field(default_factory=list)
     racer_by_lane: dict[int, int | None] = field(default_factory=dict)
     #: The armed (or just-finished) run is a bench exercise, not a heat (#235).
     test_run: bool = False
@@ -226,6 +252,7 @@ class TimerManager:
         self._running_since: float | None = None
         self._event_lock = asyncio.Lock()
         self._serial_log: deque = deque(maxlen=MAX_SERIAL_LOG)
+        self._transitions: deque = deque(maxlen=MAX_TRANSITIONS_LOG)
         # Queue of (command, expected_response_pattern) for commands that have
         # been sent but whose acknowledgment has not yet been received.
         self._pending_acks: deque[tuple[bytes, re.Pattern[bytes]]] = deque()
@@ -387,6 +414,7 @@ class TimerManager:
             last_error=self._last_error,
             pending_results=pending,
             serial_log=list(self._serial_log),
+            transitions=list(self._transitions),
             racer_by_lane=self._racer_by_lane,
             test_run=self._test_run,
         )
@@ -1186,6 +1214,13 @@ class TimerManager:
             return
         logger.debug(
             "Timer %d: %s → %s", self._track_id, self._state.value, new_state.value
+        )
+        self._transitions.append(
+            TimerTransitionEntry(
+                at=datetime.now(timezone.utc).isoformat(),
+                from_state=self._state.value,
+                to_state=new_state.value,
+            )
         )
         self._state = new_state
         await pubsub.publish(f"timer_state:{self._track_id}", self.status())

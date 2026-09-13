@@ -73,14 +73,11 @@ export type HistoricalTrackRecordInput = {
 export type InitialConfigInput = {
   checkinPin?: string | null | undefined;
   clearTerminology?: boolean;
-  debugMode?: boolean;
-  displayTheme?: string | null | undefined;
   nameDisplay?: string | null | undefined;
   operatorPin?: string | null | undefined;
   organizationName: string;
   organizationPlural?: string | null | undefined;
   organizationSingular?: string | null | undefined;
-  printablesTheme?: string | null | undefined;
   racingGroupPlural?: string | null | undefined;
   racingGroupSingular?: string | null | undefined;
   tracks: Array<TrackInput>;
@@ -883,7 +880,7 @@ export type TimerStatusSubscriptionVariables = Exact<{
 }>;
 
 
-export type TimerStatusSubscription = { timerStatus: { status: { state: string, deviceName: string | null, canRemoteStart: boolean, laneCount: number | null, activeHeatId: number | null, lastError: string | null, racerByLane: string | null, pendingResults: Array<{ lane: number, time: number | null, place: number | null, racerId: number | null }>, serialLog: Array<{ direction: string, data: string, timestamp: string }> } } };
+export type TimerStatusSubscription = { timerStatus: { status: { state: string, deviceName: string | null, canRemoteStart: boolean, laneCount: number | null, activeHeatId: number | null, lastError: string | null, racerByLane: string | null, pendingResults: Array<{ lane: number, time: number | null, place: number | null, racerId: number | null }>, serialLog: Array<{ direction: string, data: string, timestamp: string }>, transitions: Array<{ at: string, fromState: string, toState: string }> } } };
 
 export type HeatSessionSubscriptionVariables = Exact<{
   trackId: number;

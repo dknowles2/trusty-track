@@ -345,12 +345,9 @@ input HistoricalTrackRecordInput {
 
 input InitialConfigInput {
   organizationName: String!
-  debugMode: Boolean! = false
   tracks: [TrackInput!]!
   operatorPin: String = null
   checkinPin: String = null
-  displayTheme: String = null
-  printablesTheme: String = null
   racingGroupSingular: String = null
   racingGroupPlural: String = null
   organizationSingular: String = null
@@ -507,6 +504,8 @@ type Mutation {
   createInitialConfig(config: InitialConfigInput!): InitialConfigStatus!
   resetTimer(trackId: Int!): Boolean!
   updateInitialConfig(config: InitialConfigInput!): InitialConfigStatus!
+  setDebugMode(enabled: Boolean!): InitialConfigStatus!
+  setThemes(displayTheme: String!, printablesTheme: String!): InitialConfigStatus!
   populateRace(raceId: Int!, config: PopulateTestDataInput!): String!
   createPracticeRace(startNew: Boolean! = false): Race!
   importRacers(raceId: Int!, csvData: String!): Int!
@@ -959,8 +958,15 @@ type TimerStatus {
   hasPhotoFinishTrigger: Boolean!
   pendingResults: [LaneResult!]!
   serialLog: [SerialLogEntry!]!
+  transitions: [TimerTransitionEntry!]!
   racerByLane: String
   testRun: Boolean!
+}
+
+type TimerTransitionEntry {
+  at: String!
+  fromState: String!
+  toState: String!
 }
 
 type TimesPerLane {

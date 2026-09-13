@@ -209,6 +209,14 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         # System
         "createInitialConfig",
         "updateInitialConfig",
+        # One writer per field, split out of `updateInitialConfig`'s bundle
+        # so the public demo can refuse the rest of that form while still
+        # allowing these two (#1079, #1080) — operator-only for the same
+        # reason the bundle they came from is: an install with a PIN set
+        # should not let a `CHECKIN` device flip Debugging Mode or repaint
+        # every wall display.
+        "setDebugMode",
+        "setThemes",
         "populateRace",
         "createPracticeRace",
     }

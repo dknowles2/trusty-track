@@ -263,7 +263,8 @@ async def test_the_opening_payload_carries_the_organizations_display_theme(db):
 async def test_changing_the_theme_pushes_to_a_display_already_connected(db):
     """The whole point of #586: no reload, and no re-subscribing.
 
-    `updateInitialConfig` is the settings-page mutation, and this is the leash
+    `setThemes` is the settings-page mutation for this field now (#1080,
+    split out of `updateInitialConfig`'s bundle), and this is the leash
     every open display already holds — the same channel an ordinary
     assignment travels over, so a screen that never touches its own list still
     hears about a theme change made from across the room.
@@ -277,11 +278,8 @@ async def test_changing_the_theme_pushes_to_a_display_already_connected(db):
     following = asyncio.create_task(stream.__anext__())
     await asyncio.sleep(0.05)
 
-    await Mutation().update_initial_config(
-        _info(db),
-        config=schema_mod.InitialConfigInput(
-            organization_name="Pack 1", tracks=[], display_theme="newsprint"
-        ),
+    await Mutation().set_themes(
+        _info(db), display_theme="newsprint", printables_theme="MATCH_APP"
     )
 
     payload = await asyncio.wait_for(following, timeout=TIMEOUT)
@@ -301,11 +299,8 @@ async def test_a_display_on_a_different_race_still_hears_the_theme_change(db):
     following = asyncio.create_task(stream.__anext__())
     await asyncio.sleep(0.05)
 
-    await Mutation().update_initial_config(
-        _info(db),
-        config=schema_mod.InitialConfigInput(
-            organization_name="Pack 1", tracks=[], display_theme="trail-colors"
-        ),
+    await Mutation().set_themes(
+        _info(db), display_theme="trail-colors", printables_theme="MATCH_APP"
     )
 
     payload = await asyncio.wait_for(following, timeout=TIMEOUT)
@@ -317,7 +312,7 @@ async def test_a_display_on_a_different_race_still_hears_the_theme_change(db):
 async def test_a_theme_unchanged_by_the_save_does_not_nudge_a_connected_display(db):
     """A save that leaves `display_theme` alone must not wake every screen for
     nothing — the flood the registry's `all_ids` walk would otherwise cause on
-    an ordinary System Settings save that touches unrelated fields."""
+    an ordinary Appearance save that only changes the Printables theme."""
     _organization(db, display_theme="old-glory")
 
     stream = Subscription().display_assignment(_info(db), display_id="abc", race_id=1)
@@ -326,11 +321,8 @@ async def test_a_theme_unchanged_by_the_save_does_not_nudge_a_connected_display(
     following = asyncio.create_task(stream.__anext__())
     await asyncio.sleep(0.05)
 
-    await Mutation().update_initial_config(
-        _info(db),
-        config=schema_mod.InitialConfigInput(
-            organization_name="Pack 1 Renamed", tracks=[]
-        ),
+    await Mutation().set_themes(
+        _info(db), display_theme="old-glory", printables_theme="newsprint"
     )
 
     assert not following.done()

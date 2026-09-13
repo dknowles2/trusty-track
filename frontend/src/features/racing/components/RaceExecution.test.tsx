@@ -1986,5 +1986,66 @@ describe('RaceExecution', () => {
             expect(mockGetRacerName).toHaveBeenCalledWith(-2, undefined);
         });
     });
+
+    describe('the debug panel (#1079)', () => {
+        // The hardware mole (`showHardwareMole`) stays gated to a real
+        // device — a `FAKE` track (the public demo's own) has no bytes for
+        // it to tail. The transitions panel is the debug view every timer
+        // type can show, so its gate is `hasTimer && debugMode` alone.
+
+        it('renders the timer state-machine transitions panel for a FAKE timer under Debugging Mode', () => {
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    timerType="FAKE"
+                    debugMode
+                />
+            );
+
+            expect(screen.getByTestId('timer-transitions-panel')).toBeInTheDocument();
+            // The byte mole stays off for FAKE regardless of Debugging Mode —
+            // it has nothing to show for a device with no wire.
+            expect(screen.queryByTestId('hardware-timer-mole')).not.toBeInTheDocument();
+        });
+
+        it('shows nothing debug-related when Debugging Mode is off', () => {
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    timerType="FAKE"
+                    debugMode={false}
+                />
+            );
+
+            expect(screen.queryByTestId('timer-transitions-panel')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('hardware-timer-mole')).not.toBeInTheDocument();
+        });
+
+        it('shows both panels for a real timer type under Debugging Mode', () => {
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    timerType="AUTO_DETECT_BACKEND"
+                    debugMode
+                />
+            );
+
+            expect(screen.getByTestId('timer-transitions-panel')).toBeInTheDocument();
+            expect(screen.getByTestId('hardware-timer-mole')).toBeInTheDocument();
+        });
+
+        it('renders neither panel for a track with no timer at all', () => {
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    timerType="NONE"
+                    debugMode
+                />
+            );
+
+            expect(screen.queryByTestId('timer-transitions-panel')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('hardware-timer-mole')).not.toBeInTheDocument();
+        });
+    });
 });
 

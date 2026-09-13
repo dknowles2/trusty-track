@@ -61,6 +61,19 @@ def test_the_track_is_a_fake_timer(db, seeded):  # noqa: ARG001 - seeds
     assert [t.timer_type for t in tracks] == [models.TimerType.FAKE]
 
 
+def test_debug_mode_and_themes_start_at_the_column_defaults(db, seeded):  # noqa: ARG001 - seeds
+    """A visitor can turn on Debugging Mode (#1079) or repaint the Display/
+    Printables themes (#1080), and the reset undoes it — on the deploy
+    target the instance is ephemeral, so the *reset* is a fresh process
+    seeding a fresh database from scratch, exactly what this fixture does.
+    `demo_content.seed` never sets any of the three explicitly, so they
+    start at their ordinary column defaults."""
+    organization = db.query(models.Organization).first()
+    assert organization.debug_mode is False
+    assert organization.display_theme == "MATCH_APP"
+    assert organization.printables_theme == "MATCH_APP"
+
+
 def test_the_roster_is_checked_in(db, seeded):
     """`generate_heats_for_round` fields only racers that passed inspection, so
     an uninspected roster produces an empty schedule rather than an error."""

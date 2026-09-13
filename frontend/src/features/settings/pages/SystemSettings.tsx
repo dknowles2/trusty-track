@@ -145,6 +145,30 @@ const UPDATE_INITIAL_CONFIG = `
   }
 `;
 
+// One writer per field (#1079, #1080) — split out of `updateInitialConfig`'s
+// bundle so the public demo can refuse the rest of this form (it also sets
+// both PINs and reconfigures tracks) while still letting a visitor flip
+// Debugging Mode and try the theme pickers, neither of which can harm the
+// demo. `config` above no longer carries `debugMode`/`displayTheme`/
+// `printablesTheme` at all — see the removed fields in the variables built
+// below.
+const SET_DEBUG_MODE = `
+  mutation SetDebugMode($enabled: Boolean!) {
+    setDebugMode(enabled: $enabled) {
+      debugMode
+    }
+  }
+`;
+
+const SET_THEMES = `
+  mutation SetThemes($displayTheme: String!, $printablesTheme: String!) {
+    setThemes(displayTheme: $displayTheme, printablesTheme: $printablesTheme) {
+      displayTheme
+      printablesTheme
+    }
+  }
+`;
+
 // The length a track gets when nothing says otherwise. `lengthFeet` is
 // nullable on the server and the submit handler already falls back to this,
 // so the form has to show it rather than an empty required field — see where
@@ -320,6 +344,8 @@ export default function SystemConfig() {
 
   const [, createInitialConfig] = useMutation(CREATE_INITIAL_CONFIG);
   const [, updateInitialConfig] = useMutation(UPDATE_INITIAL_CONFIG);
+  const [, setDebugModeMutation] = useMutation(SET_DEBUG_MODE);
+  const [, setThemesMutation] = useMutation(SET_THEMES);
 
   // Seeded from the saved configuration during render rather than in an
   // effect, so the form never paints empty and then fills in. `seededFrom`
@@ -456,20 +482,18 @@ export default function SystemConfig() {
       const variables = {
         config: {
           organizationName: organizationName,
-          debugMode: debugMode,
+          // Debugging Mode and the Display/Printables themes are no longer
+          // sent here (#1079, #1080) — `setDebugMode`/`setThemes` below are
+          // their own writers now, called independently of whether this
+          // mutation succeeds, which is what lets a demo visitor change
+          // either one even though the rest of this form stays refused.
+          //
           // Absent, a value, or an explicit empty string to clear — the rule
           // is in `pinFields.ts`, because getting it wrong in either direction
           // is serious: an unconditional send unlocks the install whenever
           // anyone renames a track, and no way to send `''` locks an operator
           // out of their own event with no recovery.
           ...pinInput(operatorPin, checkinPin),
-          // Unlike the PIN, there is no bare-null "leave alone versus clear"
-          // ambiguity for these (#498) — `MATCH_APP` is itself the "reset to
-          // default" value, so it is always sent as an ordinary explicit
-          // string, never omitted. The App theme is not sent at all: it
-          // lives only in this device's own localStorage.
-          displayTheme,
-          printablesTheme,
           // Same shape as the themes above (#552): `'FULL'` is itself the
           // non-null "off" state, so it is always sent as an ordinary
           // explicit value, never omitted and never needing a clear flag.
@@ -521,9 +545,33 @@ export default function SystemConfig() {
         }
       };
 
+      // This device's own App theme (#498) — never sent to the server at
+      // all, so it is written and applied unconditionally, before either
+      // mutation below is even asked, rather than only after a save
+      // succeeds. Before this it sat behind `updateInitialConfig`'s own
+      // success, so a demo's refusal of the rest of the form silently kept
+      // the App picker from ever taking effect even though nothing about it
+      // needs the network (#1080).
+      writeAppTheme(appTheme);
+      applyStoredAppTheme();
+
       let result;
+      let sideEffectError: unknown = null;
       if (isEditing) {
-        result = await updateInitialConfig(variables);
+        // Debugging Mode and the Display/Printables themes are written by
+        // their own mutations, run *alongside* — not after — the rest of
+        // this form's save (#1079, #1080). The organization already exists
+        // once we are editing, so there is no ordering dependency the way
+        // there is on first run below, and running them in parallel is what
+        // lets a demo's refusal of the bundled fields below leave these two
+        // harmless ones unaffected.
+        const [debugResult, themesResult, updateResult] = await Promise.all([
+          setDebugModeMutation({ enabled: debugMode }),
+          setThemesMutation({ displayTheme, printablesTheme }),
+          updateInitialConfig(variables),
+        ]);
+        sideEffectError = debugResult?.error ?? themesResult?.error ?? null;
+        result = updateResult;
       } else {
         result = await createInitialConfig(variables);
       }
@@ -532,17 +580,27 @@ export default function SystemConfig() {
         throw result.error;
       }
 
+      if (!isEditing) {
+        // The organization did not exist until the call just above created
+        // it, so on first run these can only happen afterward — there is no
+        // demo-refusal concern here the way there is for `isEditing`, since
+        // `createInitialConfig` is refused wholesale on the demo and the
+        // wizard is never reached there in the first place.
+        const [debugResult, themesResult] = await Promise.all([
+          setDebugModeMutation({ enabled: debugMode }),
+          setThemesMutation({ displayTheme, printablesTheme }),
+        ]);
+        sideEffectError = debugResult?.error ?? themesResult?.error ?? null;
+      }
+
+      if (sideEffectError) {
+        throw sideEffectError;
+      }
 
       // We can't easily use useClient() here unless we change the component to use it,
       // but we can trust that the mutation result being successful means the backend is ready.
       // To be absolutely safe against race conditions, we'll wait a brief moment.
       await new Promise(resolve => setTimeout(resolve, 100));
-
-      // This device's own App theme (#498) — never sent to the server, and
-      // applied immediately rather than waiting for a reload: nothing about
-      // it needs a fresh socket the way a changed PIN does.
-      writeAppTheme(appTheme);
-      applyStoredAppTheme();
 
       // The device that set the operator PIN keeps it. Otherwise setting one
       // demotes the operator on their own laptop the instant they save, which
