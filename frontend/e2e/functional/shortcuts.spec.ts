@@ -78,20 +78,58 @@ test('typing an e into the editor does not reopen it', async ({ page }) => {
     await expect(heading).toHaveText('Heat 1');
 });
 
-test('the finish sound is offered and remembered', async ({ page }) => {
+test('the finish sound is offered, through Sound options, and remembered', async ({ page }) => {
+    // The standalone "Finish sound" checkbox this spec used to check is gone
+    // (#1074) — Sound options is the one control now, and the panel's own
+    // "Heat Finish" row is what this test drives instead. The behaviour is
+    // unchanged: off until somebody asks, and remembered on this device.
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Shortcut Chime Race');
     await createSchedule(page, raceId);
 
     await page.goto(`/race/${raceId}/control/race`);
-    const toggle = page.getByTestId('finish-chime-toggle');
-    await expect(toggle).toBeVisible({ timeout: 30000 });
+    const soundOptions = page.getByTestId('sound-effects-modal-trigger');
+    await expect(soundOptions).toBeVisible({ timeout: 30000 });
+    await soundOptions.click();
+
+    const masterToggle = page.getByTestId('sound-master-toggle');
     // Off until somebody asks: a laptop that beeps unbidden in front of sixty
     // families is a worse first impression than silence.
-    await expect(toggle).not.toBeChecked();
+    await expect(masterToggle).not.toBeChecked();
 
-    await toggle.check();
+    await masterToggle.check();
+    const finishToggle = page.getByTestId('sound-effect-finish');
+    await expect(finishToggle).toBeChecked(); // On by default once master is.
+
+    await page.getByRole('button', { name: 'Done' }).click();
     await page.reload();
 
-    await expect(page.getByTestId('finish-chime-toggle')).toBeChecked({ timeout: 30000 });
+    await page.getByTestId('sound-effects-modal-trigger').click();
+    await expect(page.getByTestId('sound-master-toggle')).toBeChecked({ timeout: 30000 });
+    await expect(page.getByTestId('sound-effect-finish')).toBeChecked();
+});
+
+test('the car-or-face photo preference is remembered on this device (#1075)', async ({ page }) => {
+    // Per-device, the same shape as the sound settings above — this is the
+    // one behaviour a unit test can't see: that the choice survives a
+    // reload of this browser.
+    await ensureConfigured(page);
+    const { raceId } = await seedRace(page, 'Shortcut Photo Race');
+    await createSchedule(page, raceId);
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+
+    // The checkbox is visually hidden behind the pill, same as
+    // `auto-advance-toggle` — click what the operator clicks.
+    const photoToggle = page.getByTestId('lane-photo-toggle');
+    // Car is the default (#1075) — the operator staging heats compares a
+    // car in hand against a picture of a car, not a face.
+    await expect(photoToggle).toBeChecked();
+
+    await page.locator('label').filter({ has: photoToggle }).click();
+    await expect(photoToggle).not.toBeChecked();
+    await page.reload();
+
+    await expect(page.getByTestId('lane-photo-toggle')).not.toBeChecked({ timeout: 30000 });
 });

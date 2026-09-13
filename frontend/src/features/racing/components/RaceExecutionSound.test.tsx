@@ -175,57 +175,128 @@ describe('RaceExecution sound effect transitions (#554)', () => {
         expect(stagingSpy).not.toHaveBeenCalled();
     });
 
-    it('ticking finish sound only toggles finish and does not switch master sound on (#871)', () => {
+    // #1074: the standalone "Finish sound" checkbox is gone, and Sound
+    // options — via `master` — is the one gate left for everything it used
+    // to bypass. The three tests this replaced (#871) each protected the
+    // checkbox's own independence from `master`; that guarantee now lives
+    // entirely in `SoundSettingsSection`'s own suite, since the panel is the
+    // only place left that can touch either flag.
+    it('plays the finish sound on the RECORDED edge once master and finish are both on', () => {
+        const finishSpy = vi.spyOn(soundModule, 'playFinishSound').mockImplementation(() => {});
         soundModule.writeSoundSettings(window.localStorage, {
             ...soundModule.DEFAULT_SOUND_SETTINGS,
-            master: false,
-            finish: false,
-            gateRelease: true,
+            master: true,
+            finish: true,
         });
 
-        render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+        let currentPhase = 'RUNNING';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
 
-        const toggle = screen.getByTestId('finish-chime-toggle');
-        expect(toggle).not.toBeChecked();
+        const { rerender } = render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+        expect(finishSpy).not.toHaveBeenCalled();
 
-        fireEvent.click(toggle);
-        expect(toggle).toBeChecked();
+        currentPhase = 'RECORDED';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
 
-        const stored = soundModule.readSoundSettings(window.localStorage);
-        expect(stored.finish).toBe(true);
-        expect(stored.master).toBe(false);
-        expect(window.localStorage.getItem(soundModule.FINISH_CHIME_STORAGE_KEY)).toBe('on');
+        rerender(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+        expect(finishSpy).toHaveBeenCalled();
     });
 
-    it('unticking finish sound does not leave master on (#871)', () => {
+    it('there is no standalone finish-sound checkbox left in the header (#1074)', () => {
         soundModule.writeSoundSettings(window.localStorage, {
             ...soundModule.DEFAULT_SOUND_SETTINGS,
-            master: false,
+            master: true,
             finish: true,
         });
 
         render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
 
-        const toggle = screen.getByTestId('finish-chime-toggle');
-        expect(toggle).toBeChecked();
-
-        fireEvent.click(toggle);
-        expect(toggle).not.toBeChecked();
-
-        const stored = soundModule.readSoundSettings(window.localStorage);
-        expect(stored.finish).toBe(false);
-        expect(stored.master).toBe(false);
-        expect(window.localStorage.getItem(soundModule.FINISH_CHIME_STORAGE_KEY)).toBe('off');
+        expect(screen.queryByTestId('finish-chime-toggle')).not.toBeInTheDocument();
     });
 
-    it('ticking finish sound does not silently enable gate release horn (#871)', () => {
-        const startSpy = vi.spyOn(soundModule, 'playGateReleaseSound').mockImplementation(() => {});
+    it('opening Sound options reaches the same Heat Finish row the removed checkbox duplicated', () => {
+        render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        fireEvent.click(screen.getByTestId('sound-effects-modal-trigger'));
+        fireEvent.click(screen.getByTestId('sound-master-toggle'));
+
+        expect(screen.getByTestId('sound-effect-finish')).toBeChecked();
+    });
+
+    // The migration decision (#1074): rather than a one-time promotion of
+    // stored settings — which cannot be told apart from an operator who
+    // deliberately turned `master` off after trying it, since both leave
+    // identical values behind — `RaceExecution` keeps reading the legacy
+    // `trustytrack.finishChime` flag as a fallback exactly as it did before
+    // this change (`.claude/rules/race-day-ui.md`'s "the two systems are
+    // deliberately independent"). Nothing in this component writes that flag
+    // any more; it is preserved read-only so a device that had the removed
+    // checkbox on keeps chiming without the operator visiting Sound options.
+    it('keeps chiming through the legacy flag on a device that had the removed checkbox on, with master off', () => {
+        window.localStorage.setItem(soundModule.FINISH_CHIME_STORAGE_KEY, 'on');
         soundModule.writeSoundSettings(window.localStorage, {
             ...soundModule.DEFAULT_SOUND_SETTINGS,
             master: false,
-            finish: false,
-            gateRelease: true,
         });
+
+        const finishSpy = vi.spyOn(soundModule, 'playFinishSound').mockImplementation(() => {});
+        let currentPhase = 'RUNNING';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+
+        const { rerender } = render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        currentPhase = 'RECORDED';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+        rerender(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        expect(finishSpy).toHaveBeenCalled();
+        // Read-only: this component must not have touched `master`.
+        expect(soundModule.readSoundSettings(window.localStorage).master).toBe(false);
+    });
+
+    it('a device that never had the legacy flag on stays silent with master off', () => {
+        // A fresh device: nothing written to either the legacy flag or the
+        // effects settings at all, which is the state `beforeEach`'s
+        // `localStorage.clear()` already leaves — spelled out here rather
+        // than relying on that alone, since the point of this test is what
+        // is *absent*, not what was set.
+        expect(window.localStorage.getItem(soundModule.FINISH_CHIME_STORAGE_KEY)).toBeNull();
+
+        const finishSpy = vi.spyOn(soundModule, 'playFinishSound').mockImplementation(() => {});
+        let currentPhase = 'RUNNING';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+
+        const { rerender } = render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        currentPhase = 'RECORDED';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+        rerender(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        expect(finishSpy).not.toHaveBeenCalled();
+    });
+
+    // The PR review's exact reproduction: turning `master` on and back off
+    // through the real panel, never touching "Heat Finish", used to leave
+    // the legacy flag `'on'` (writeSoundSettings re-synced it to `finish`,
+    // which defaults `true`, on every write — a `master`-only one included)
+    // and this component's own master-off fallback kept chiming despite the
+    // operator's explicit "turn it off". `writeSoundSettings` no longer
+    // touches the legacy flag at all, so the fallback has nothing left to
+    // misread.
+    it('stays silent after turning master on and back off through the panel, without touching Heat Finish (#871 reproduction)', () => {
+        const finishSpy = vi.spyOn(soundModule, 'playFinishSound').mockImplementation(() => {});
 
         let currentPhase = 'WAITING';
         (useSubscription as any).mockImplementation(() => [{
@@ -234,18 +305,29 @@ describe('RaceExecution sound effect transitions (#554)', () => {
 
         const { rerender } = render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
 
-        // Operator ticks finish sound
-        fireEvent.click(screen.getByTestId('finish-chime-toggle'));
+        fireEvent.click(screen.getByTestId('sound-effects-modal-trigger'));
+        const masterToggle = screen.getByTestId('sound-master-toggle');
+        fireEvent.click(masterToggle); // on
+        fireEvent.click(masterToggle); // back off — "Heat Finish" never touched
+        fireEvent.click(screen.getByRole('button', { name: 'Done' }));
 
-        // Gate drops: WAITING -> RUNNING
+        // The bug's own precondition: the legacy flag must not have been
+        // dragged along by a `master`-only write.
+        expect(window.localStorage.getItem(soundModule.FINISH_CHIME_STORAGE_KEY)).toBeNull();
+        expect(soundModule.readSoundSettings(window.localStorage).master).toBe(false);
+
         currentPhase = 'RUNNING';
         (useSubscription as any).mockImplementation(() => [{
             data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
         }]);
-
         rerender(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
 
-        // Gate release horn must NOT have sounded
-        expect(startSpy).not.toHaveBeenCalled();
+        currentPhase = 'RECORDED';
+        (useSubscription as any).mockImplementation(() => [{
+            data: { heatSession: { trackId: 1, heatId: 1, phase: currentPhase, lanes: [] } },
+        }]);
+        rerender(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
+
+        expect(finishSpy).not.toHaveBeenCalled();
     });
 });

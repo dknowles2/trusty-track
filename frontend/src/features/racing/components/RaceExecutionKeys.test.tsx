@@ -136,23 +136,10 @@ describe('race day keys and sound', () => {
         expect(screen.getByRole('button', { name: /Edit/ })).toHaveTextContent('E');
     });
 
-    it('offers the finish sound, off by default', () => {
-        // A laptop that starts beeping unbidden in front of sixty families is
-        // a worse first impression than silence.
-        render(<AlertProvider><RaceExecution {...props()} /></AlertProvider>);
-
-        expect(screen.getByTestId('finish-chime-toggle')).not.toBeChecked();
-    });
-
-    it('remembers the finish sound on this device', () => {
-        const { unmount } = render(<AlertProvider><RaceExecution {...props()} /></AlertProvider>);
-        fireEvent.click(screen.getByTestId('finish-chime-toggle'));
-        unmount();
-
-        render(<AlertProvider><RaceExecution {...props()} /></AlertProvider>);
-
-        expect(screen.getByTestId('finish-chime-toggle')).toBeChecked();
-    });
+    // #1074: the standalone "Finish sound" checkbox this pair of tests used
+    // to cover is gone — Sound options is the one control now, and its own
+    // suite (`RaceExecutionSound.test.tsx`, `SoundSettingsSection.test.tsx`)
+    // covers "off by default" and "remembered on this device" for it.
 
     it('offers sound options button to configure race sound effects (#554)', () => {
         render(<AlertProvider><RaceExecution {...props()} /></AlertProvider>);

@@ -107,6 +107,10 @@ describe('RaceExecution', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        // The lane-photo preference and the sound settings both persist per
+        // device (#1074, #1075) — clear so one test's toggle click cannot
+        // leak into the next test's default-value assertion.
+        window.localStorage.clear();
 
         mockShowConfirm.mockResolvedValue(true);
         mockMutationFn.mockResolvedValue({ data: { prepareHeat: true } });
@@ -653,6 +657,59 @@ describe('RaceExecution', () => {
             expect(screen.getByTestId('mock-modal')).toBeInTheDocument();
             expect(screen.getByText('Edit Results - Heat 1')).toBeInTheDocument();
         });
+
+        // #1074: Enter Results is this track's only route to a result, used
+        // every heat, so it keeps the weight and the keyboard hint Next Heat
+        // gets — the common action, worth teaching.
+        it('keeps its primary weight and its keyboard hint', () => {
+            const untimed = { ...mockHeat, lanes: mockHeat.lanes.map((l) => ({ ...l, time: null, place: null, skipped: false })) };
+            render(<RaceExecution {...defaultProps} activeExecutionHeat={untimed} timerType="NONE" />);
+
+            const button = screen.getByRole('button', { name: /Enter Results/ });
+            expect(button).toHaveClass('primary-btn');
+            expect(button.querySelector('kbd')).not.toBeNull();
+        });
+    });
+
+    // #1074: Override is the exception path (a false trip, a lane mix-up),
+    // not the ordinary way a heat gets a result, so it is demoted off the
+    // button weights every other header control carries and loses the
+    // inline keyboard hint — the shortcut still works, named in its `title`
+    // instead. Edit (the post-heat correction button) is untouched.
+    describe('Override reads as the exception it is (#1074)', () => {
+        it('carries no inline keyboard hint and no primary/secondary button weight', () => {
+            const untimed = { ...mockHeat, lanes: mockHeat.lanes.map((l) => ({ ...l, time: null, place: null, skipped: false })) };
+            render(<RaceExecution {...defaultProps} activeExecutionHeat={untimed} timerType="FAKE" />);
+
+            const button = screen.getByRole('button', { name: 'Override' });
+            expect(button.querySelector('kbd')).toBeNull();
+            expect(button).not.toHaveClass('primary-btn');
+            expect(button).not.toHaveClass('secondary-btn');
+        });
+
+        it('still opens the result editor, and still responds to the shortcut named in its title', () => {
+            const untimed = { ...mockHeat, lanes: mockHeat.lanes.map((l) => ({ ...l, time: null, place: null, skipped: false })) };
+            render(<RaceExecution {...defaultProps} activeExecutionHeat={untimed} timerType="FAKE" />);
+
+            const button = screen.getByRole('button', { name: 'Override' });
+            expect(button.title).toMatch(/press e/i);
+
+            fireEvent.click(button);
+            expect(screen.getByTestId('mock-modal')).toBeInTheDocument();
+        });
+
+        it('leaves the post-heat Edit button unchanged', () => {
+            // `mockHeat`'s default lanes already carry recorded times, so
+            // this is the post-heat card. Edit has never carried a
+            // `primary-btn`/`secondary-btn` class — it is styled inline —
+            // and #1074 does not touch it; it keeps its keyboard hint.
+            render(<RaceExecution {...defaultProps} timerType="FAKE" />);
+
+            const editButton = screen.getByRole('button', { name: /Edit/ });
+            expect(editButton).not.toHaveClass('primary-btn');
+            expect(editButton).not.toHaveClass('secondary-btn');
+            expect(editButton.querySelector('kbd')).not.toBeNull();
+        });
     });
 
     it('renders "Racing..." when timer state is RUNNING', () => {
@@ -1196,38 +1253,95 @@ describe('RaceExecution', () => {
         expect(screen.getAllByText('Jane Smith')).toHaveLength(2);
     });
 
-    it('shows racer portraits in On Deck, not car photos (#608)', () => {
-        // The current heat's lanes have always shown the racer's own
-        // portrait (falling back to initials); On Deck used to show the
-        // car photo instead (falling back to a car-number roundel), so the
-        // same heat read as a column of faces beside a column of cars. A
-        // racer with a car photo but no racer photo is the sharpest case:
-        // the old On Deck would have shown the car photo it did have, and
-        // the fixed version must show the initials fallback instead.
-        const racersWithCarPhotoOnly = {
-            ...mockRacers,
-            103: { id: 103, firstName: 'Amy', lastName: 'Lee', carNumber: 3, racerImageUrl: null, carImageUrl: 'http://example.com/car103.jpg', carPassedInspection: true },
+    // #608 established that the current heat and On Deck show the same kind
+    // of picture. #1075 gave the operator a toggle for what that kind is —
+    // car by default now, since staging heats from parc fermé is a job done
+    // by comparing cars, not faces — but the two panels still never
+    // disagree with each other; only the shared answer moved.
+    describe('the current heat and On Deck show the same kind of picture (#608, #1075)', () => {
+        const racerWithBothPhotos: {
+            id: number;
+            firstName: string;
+            lastName: string;
+            carNumber: number;
+            racerImageUrl: string | null;
+            carImageUrl: string | null;
+            carPassedInspection: boolean;
+        } = {
+            id: 103,
+            firstName: 'Amy',
+            lastName: 'Lee',
+            carNumber: 3,
+            racerImageUrl: 'http://example.com/portrait103.jpg',
+            carImageUrl: 'http://example.com/car103.jpg',
+            carPassedInspection: true,
         };
-        render(
-            <RaceExecution
-                {...defaultProps}
-                racers={racersWithCarPhotoOnly}
-                activeExecutionHeat={{ ...mockHeat, roundId: 1 }}
-                nextExecutionHeat={{
-                    ...mockHeat,
-                    id: 2,
-                    heatNumber: 2,
-                    roundId: 1,
-                    lanes: [lane({ lane: 1, racerId: 103 })],
-                }}
-            />
-        );
 
-        // No car photo anywhere in On Deck, and no roundel — the initials
-        // fallback (RacerAvatar's own empty state) stands in for it.
-        expect(screen.queryByAltText(/Amy Lee|#3/)).not.toBeInTheDocument();
-        expect(document.querySelector('img[src="http://example.com/car103.jpg"]')).not.toBeInTheDocument();
-        expect(screen.getByTitle('Amy Lee')).toHaveTextContent('AL');
+        function renderBothPanels(racer: typeof racerWithBothPhotos) {
+            const racers = { ...mockRacers, 103: racer };
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    racers={racers}
+                    activeExecutionHeat={{ ...mockHeat, roundId: 1, lanes: [lane({ lane: 1, racerId: 103 })] }}
+                    nextExecutionHeat={{
+                        ...mockHeat,
+                        id: 2,
+                        heatNumber: 2,
+                        roundId: 1,
+                        lanes: [lane({ lane: 1, racerId: 103 })],
+                    }}
+                />
+            );
+        }
+
+        it('shows the car photo in both panels by default', () => {
+            renderBothPanels(racerWithBothPhotos);
+
+            const carImages = document.querySelectorAll('img[src="http://example.com/car103.jpg"]');
+            expect(carImages).toHaveLength(2); // Current heat, then On Deck.
+            expect(document.querySelector('img[src="http://example.com/portrait103.jpg"]')).toBeNull();
+        });
+
+        it('falls back to the portrait when there is no car photo, in both panels', () => {
+            renderBothPanels({ ...racerWithBothPhotos, carImageUrl: null });
+
+            const portraits = document.querySelectorAll('img[src="http://example.com/portrait103.jpg"]');
+            expect(portraits).toHaveLength(2);
+        });
+
+        it('falls back to initials, never the old gold roundel, when there is no photo of either kind', () => {
+            renderBothPanels({ ...racerWithBothPhotos, racerImageUrl: null, carImageUrl: null });
+
+            expect(document.querySelector('img')).toBeNull();
+            expect(screen.getAllByTitle('Amy Lee')).toHaveLength(2);
+            for (const el of screen.getAllByTitle('Amy Lee')) {
+                expect(el).toHaveTextContent('AL');
+            }
+        });
+
+        it('switches both panels to the portrait together once the operator prefers faces', () => {
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    racers={{ ...mockRacers, 103: racerWithBothPhotos }}
+                    activeExecutionHeat={{ ...mockHeat, roundId: 1, lanes: [lane({ lane: 1, racerId: 103 })] }}
+                    nextExecutionHeat={{
+                        ...mockHeat,
+                        id: 2,
+                        heatNumber: 2,
+                        roundId: 1,
+                        lanes: [lane({ lane: 1, racerId: 103 })],
+                    }}
+                />
+            );
+
+            fireEvent.click(screen.getByText(/Show .* photos/));
+
+            const portraits = document.querySelectorAll('img[src="http://example.com/portrait103.jpg"]');
+            expect(portraits).toHaveLength(2);
+            expect(document.querySelector('img[src="http://example.com/car103.jpg"]')).toBeNull();
+        });
     });
 
     it('renders "Round Not Ready" when heat has placeholders', () => {
@@ -1735,14 +1849,13 @@ describe('RaceExecution', () => {
         expect(queryByTestId('fake-timer-mole')).not.toBeInTheDocument();
     });
 
-    describe('the Auto-advance and Finish sound labels toggle their controls (#998)', () => {
+    describe('the Auto-advance and lane-photo labels toggle their controls (#998)', () => {
         // Both used to be a `<span>` beside a `<label>` wrapping only the
-        // 44px pill/checkbox itself, so clicking the *word* did nothing —
-        // only the small control did. The fix wraps the whole row in one
-        // `<label>` (Auto-advance) or was already correct (Finish sound,
-        // whose checkbox was already inside its own `<label>`); both are
-        // pinned here so a future edit cannot separate the text from its
-        // control again.
+        // 44px pill itself, so clicking the *word* did nothing — only the
+        // small control did. The fix wraps the whole row in one `<label>`;
+        // the lane-photo toggle (#1075) is built the same way from the
+        // start, and is pinned here alongside Auto-advance so a future edit
+        // cannot separate either one's text from its control.
 
         it('clicking the word "Auto-advance" toggles the switch', () => {
             const onToggle = vi.fn();
@@ -1762,7 +1875,7 @@ describe('RaceExecution', () => {
             expect(onToggle).toHaveBeenCalledWith(true);
         });
 
-        it('clicking the word "Finish sound" toggles its own checkbox', () => {
+        it('clicking the words "Show Cars photos" toggles the lane-photo preference', () => {
             render(
                 <RaceExecution
                     {...defaultProps}
@@ -1770,12 +1883,12 @@ describe('RaceExecution', () => {
                 />
             );
 
-            const checkbox = screen.getByTestId('finish-chime-toggle') as HTMLInputElement;
-            expect(checkbox.checked).toBe(false);
+            const toggle = screen.getByTestId('lane-photo-toggle') as HTMLInputElement;
+            expect(toggle.checked).toBe(true); // Car by default (#1075).
 
-            fireEvent.click(screen.getByText('Finish sound'));
+            fireEvent.click(screen.getByText(/Show .* photos/));
 
-            expect(checkbox.checked).toBe(true);
+            expect(toggle.checked).toBe(false);
         });
     });
 
