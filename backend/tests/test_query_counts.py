@@ -60,6 +60,18 @@ RACE_CONTROL_LANES_QUERY = RACE_CONTROL_QUERY.replace(
     "lanes { lane racerId placeholderSlot time place skipped } }",
 )
 
+# The same page also asking for the round plan (#1088). `roundPlan` derives
+# its answer from the same `_loaders(info).rounds_for_race` batch `rounds`
+# above already reads, so asking for it too must not cost an extra query.
+RACE_CONTROL_WITH_ROUND_PLAN_QUERY = RACE_CONTROL_QUERY.replace(
+    "    rounds {",
+    "    roundPlan {\n"
+    "      generalRound { type schedulingStrategy runsPerLane }\n"
+    "      championshipRounds { name source numTopRacers sourceRoundId }\n"
+    "    }\n"
+    "    rounds {",
+)
+
 OBSERVATION_QUERY = """
 query($id: Int!) {
   race(raceId: $id) {
@@ -202,6 +214,23 @@ def test_heat_lanes_cost_one_query_for_the_whole_race(client, populated_race):
         f"Selecting every lane field cost {every_field.count} queries against "
         f"{fewer_fields.count} for four of them; the per-race batch is not "
         f"batching."
+    )
+
+
+def test_round_plan_costs_no_extra_query(client, populated_race):
+    """`Race.roundPlan` (#1088) reads off the same per-race `rounds` batch
+    the `rounds` field already loads — asking for both must cost the same
+    as asking for `rounds` alone."""
+    with _QueryCounter() as without_plan:
+        _run(client, RACE_CONTROL_QUERY, populated_race.id)
+    with _QueryCounter() as with_plan:
+        body = _run(client, RACE_CONTROL_WITH_ROUND_PLAN_QUERY, populated_race.id)
+
+    assert body["data"]["race"]["roundPlan"] is not None
+    assert with_plan.count <= without_plan.count + 1, (
+        f"Asking for roundPlan cost {with_plan.count} queries against "
+        f"{without_plan.count} without it; it should read off the same "
+        f"per-race rounds batch rather than issuing its own query."
     )
 
 

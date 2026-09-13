@@ -333,14 +333,25 @@ class AwardCopyCreate(BaseModel):
     it is never stored here either; what is copied is the definition only.
 
     `source` and `racing_group_id` still name the *previous* race's round and
-    group. `crud.create_race` drops any award whose `source` is
-    round-scoped — the new race has no rounds yet, and none of last year's
-    survive the trip — and remaps `racing_group_id` from the old race's
+    group. `crud.create_race` remaps `racing_group_id` from the old race's
     group id to the new one using the `copied_from_id` on the racing groups
     created alongside it, dropping the award if that group was not carried
-    over either. The frontend performs the identical filtering before
-    submitting (`raceSetup.copyableAwards`), so what the operator is shown in
-    the wizard's preview is exactly what survives; this is a second,
+    over either.
+
+    A `source` naming a specific round is handled the same way, one field
+    over (#1088): `copied_from_round_id` names the *previous* race's round
+    (not the resolved `source` string, which already reads `ROUND:<old
+    id>` and is useless once that round no longer exists) and `create_race`
+    remaps it through the `round_map` a copied `round_plan` produces — see
+    `WizardConfigurationCreate`. An award naming a round the plan does not
+    reproduce (a general round, a run-off, one dropped along with a group
+    that was not carried over, or simply no `round_plan` at all) is
+    dropped, the same way an award naming a group not carried over already
+    is — there is no round for it to survive the trip pointing at.
+
+    The frontend performs the identical filtering before submitting
+    (`raceSetup.copyableAwards`), so what the operator is shown in the
+    wizard's preview is exactly what survives; this is a second,
     independent gate against a stale or hand-built request.
     """
 
@@ -353,6 +364,11 @@ class AwardCopyCreate(BaseModel):
     artwork_key: str | None = None
     sort_order: int | None = None
     votable: bool = False
+    #: The previous race's round id this award's `source` named, before it
+    #: was excluded from the plain `source` string above (#1088). Null for
+    #: an award that never named a round (`SPECIAL`, `BEST_IN_SHOW`, an
+    #: award naming `"ALL"`/`"EACH_GROUP"`) — see the class docstring.
+    copied_from_round_id: int | None = None
 
     @field_validator("place")
     @classmethod
@@ -360,6 +376,41 @@ class AwardCopyCreate(BaseModel):
         if value is not None and value < 1:
             raise ValueError("place is 1-based; the winner is 1")
         return value
+
+
+class WizardGeneralRoundCreate(BaseModel):
+    """Mirrors `api.schema.WizardGeneralRoundInput` — see
+    `crud.create_rounds_from_plan`, which both `createRoundWizard` and
+    `createRace`'s copy step (#1088) build rounds through."""
+
+    type: str = "ALL"
+    runs_per_lane: int = 1
+    scheduling_strategy: str | None = None
+    elimination_losses: int | None = None
+    balanced_phases: int | None = None
+
+
+class WizardChampionshipRoundCreate(BaseModel):
+    """Mirrors `api.schema.WizardChampionshipRoundInput`, plus
+    `source_round_id` — see `domain.round_plan.ChampionshipRoundPlan` for
+    what that field is for and who reads it."""
+
+    name: str = "Championship Round"
+    source: str = "ALL"
+    num_top_racers: int = 3
+    runs_per_lane: int = 1
+    advancement_from_bottom: bool = False
+    source_round_id: int | None = None
+
+
+class WizardConfigurationCreate(BaseModel):
+    """Mirrors `api.schema.WizardConfigurationInput` — the round wizard's
+    full answer, and what `RaceCreate.round_plan` carries (#1088)."""
+
+    general_round: WizardGeneralRoundCreate
+    championship_rounds: list[WizardChampionshipRoundCreate] = Field(
+        default_factory=list
+    )
 
 
 class RaceBase(BaseModel):
@@ -416,6 +467,15 @@ class RaceCreate(RaceBase):
     #: racing groups above have their new ids. Never a recipient — see
     #: `AwardCopyCreate`.
     awards: list[AwardCopyCreate] = Field(default_factory=list)
+    #: The round wizard's answer, created in the same transaction once the
+    #: race and its racing groups exist (#1088) — the setup wizard's copy
+    #: step, carrying a previous race's round structure over. Null (the
+    #: default) creates no rounds, exactly what every caller before this
+    #: field existed got. `crud.create_race` builds the rounds through
+    #: `crud.create_rounds_from_plan`, the same helper `createRoundWizard`
+    #: uses, and then remaps any copied `ROUND:<id>` award in `awards`
+    #: above to point at its own new round — see `AwardCopyCreate`.
+    round_plan: WizardConfigurationCreate | None = None
     #: A per-race terminology override set at creation (#662), null meaning
     #: inherit — the same seven columns `RaceUpdate` below accepts.
     racing_group_singular: str | None = None

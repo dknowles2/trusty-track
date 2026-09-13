@@ -76,6 +76,7 @@ export type Award = {
 
 export type AwardCopyInput = {
   artworkKey?: InputMaybe<Scalars['String']['input']>;
+  copiedFromRoundId?: InputMaybe<Scalars['Int']['input']>;
   fromBottom?: Scalars['Boolean']['input'];
   kind?: Scalars['String']['input'];
   name: Scalars['String']['input'];
@@ -1203,6 +1204,7 @@ export type Race = {
   registeredCount: Scalars['Int']['output'];
   resolvedNameDisplay: Scalars['String']['output'];
   resolvedPrintablesTheme: Scalars['String']['output'];
+  roundPlan?: Maybe<WizardConfiguration>;
   rounds: Array<Round>;
   runOffHeats: Array<RunOffHeat>;
   scheduledRacerIds: Array<Scalars['Int']['output']>;
@@ -1251,6 +1253,7 @@ export type RaceInput = {
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
   racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
   racingGroups?: Array<RacingGroupInput>;
+  roundPlan?: InputMaybe<WizardConfigurationInput>;
   scoringStrategy?: Scalars['String']['input'];
   tiebreaker?: Scalars['String']['input'];
   trackId: Scalars['Int']['input'];
@@ -1424,6 +1427,7 @@ export type Round = {
   raceId: Scalars['Int']['output'];
   racingGroupId?: Maybe<Scalars['Int']['output']>;
   roundNumber: Scalars['Int']['output'];
+  runsPerLane?: Maybe<Scalars['Int']['output']>;
   schedulingStrategy: Scalars['String']['output'];
 };
 
@@ -1700,17 +1704,40 @@ export type TrackRecordBreak = {
   previousSeconds: Scalars['Float']['output'];
 };
 
+export type WizardChampionshipRound = {
+  advancementFromBottom: Scalars['Boolean']['output'];
+  name: Scalars['String']['output'];
+  numTopRacers: Scalars['Int']['output'];
+  runsPerLane: Scalars['Int']['output'];
+  source: Scalars['String']['output'];
+  sourceRoundId: Scalars['Int']['output'];
+};
+
 export type WizardChampionshipRoundInput = {
   advancementFromBottom?: Scalars['Boolean']['input'];
   name?: Scalars['String']['input'];
   numTopRacers?: Scalars['Int']['input'];
   runsPerLane?: Scalars['Int']['input'];
   source?: Scalars['String']['input'];
+  sourceRoundId?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type WizardConfiguration = {
+  championshipRounds: Array<WizardChampionshipRound>;
+  generalRound: WizardGeneralRound;
 };
 
 export type WizardConfigurationInput = {
   championshipRounds: Array<WizardChampionshipRoundInput>;
   generalRound: WizardGeneralRoundInput;
+};
+
+export type WizardGeneralRound = {
+  balancedPhases?: Maybe<Scalars['Int']['output']>;
+  eliminationLosses?: Maybe<Scalars['Int']['output']>;
+  runsPerLane: Scalars['Int']['output'];
+  schedulingStrategy: Scalars['String']['output'];
+  type: Scalars['String']['output'];
 };
 
 export type WizardGeneralRoundInput = {

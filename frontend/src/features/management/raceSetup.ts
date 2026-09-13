@@ -223,6 +223,37 @@ export interface SourceAward {
     votable: boolean;
 }
 
+/** The general round half of a copied round plan — mirrors `Race.roundPlan.
+ * generalRound` (#1088). */
+export interface SourceGeneralRoundPlan {
+    type: string;
+    schedulingStrategy: string;
+    runsPerLane: number;
+    eliminationLosses?: number | null;
+    balancedPhases?: number | null;
+}
+
+/** One championship round of a copied round plan. `sourceRoundId` is the
+ * *previous* race's own round id — not copied onto the new round, only
+ * carried along so `copyableAwards` can tell whether an award naming that
+ * round will have somewhere to point once the plan is applied, and so the
+ * server can re-point it there (#1088). */
+export interface SourceChampionshipRoundPlan {
+    name: string;
+    source: string;
+    numTopRacers: number;
+    runsPerLane: number;
+    advancementFromBottom: boolean;
+    sourceRoundId: number;
+}
+
+/** `Race.roundPlan` (#1088) — the round wizard's own answer, derived back
+ * out of a race's existing rounds. Null for a race with no rounds. */
+export interface SourceRoundPlan {
+    generalRound: SourceGeneralRoundPlan;
+    championshipRounds: readonly SourceChampionshipRoundPlan[];
+}
+
 /** The previous race's settings the wizard copies — what that query returns. */
 export interface SourceRace {
     id: number;
@@ -243,6 +274,7 @@ export interface SourceRace {
     vehicleArtworkKey?: string | null;
     racingGroups: readonly SourceRacingGroup[];
     awards: readonly SourceAward[];
+    roundPlan?: SourceRoundPlan | null;
 }
 
 /** Last year's groups, exactly as they were — names, colours, categories
@@ -262,9 +294,10 @@ export function copiedGroups(source: readonly SourceRacingGroup[]): RacingGroupD
 }
 
 /** One award definition ready for `createRace`'s `awards` list — still
- * naming the *previous* race's racing group, where it is scoped to one; the
- * server remaps that id using each racing group's own `copied_from_id`
- * (`crud.create_race`). */
+ * naming the *previous* race's racing group and round, where scoped to
+ * either; the server remaps a group id using each racing group's own
+ * `copied_from_id`, and a round id using `copied_from_round_id` against the
+ * round plan's own remap (#1088) — both in `crud.create_race`. */
 export interface AwardCopyDraft {
     name: string;
     kind: string;
@@ -275,6 +308,9 @@ export interface AwardCopyDraft {
     artwork_key: string | null;
     sort_order: number;
     votable: boolean;
+    /** The previous race's round id this award's `source` names, when it
+     * names one at all — see `AwardCopyDraft`'s own doc and #1088. */
+    copied_from_round_id: number | null;
 }
 
 export interface ExcludedAward {
@@ -288,40 +324,68 @@ export interface AwardCopyPlan {
     excluded: ExcludedAward[];
 }
 
-/** A `SPEED` award naming one round's results — the new race has no rounds
- * at all when the wizard runs, so this can never survive the trip. */
+/** A `SPEED` award naming one round's results. */
 const ROUND_SOURCE_PREFIX = 'ROUND:';
+
+function roundIdIn(source: string): number | null {
+    if (!source.startsWith(ROUND_SOURCE_PREFIX)) return null;
+    const id = Number(source.slice(ROUND_SOURCE_PREFIX.length));
+    return Number.isFinite(id) ? id : null;
+}
 
 /**
  * Which of the previous race's awards can be copied into this one, and why
- * the rest cannot (#722) — computed against the groups list *as the
- * operator is currently editing it*, so the answer stays right whether they
- * remove a group afterwards or never touch it.
+ * the rest cannot (#722, re-pointed rather than only excluded since #1088)
+ * — computed against the groups list *as the operator is currently editing
+ * it* and against whether the round plan is being copied, so the answer
+ * stays right whether either changes.
  *
- * Two things never survive the trip, and both are excluded rather than
- * copied half-broken: an award naming a specific round (`"ROUND:<id>"`) —
- * the new race has none yet — and an award scoped to a racing group that was
- * not carried over (removed, on the groups step). Everything else — an
- * unscoped `SPEED` award, one scoped to a group that *is* still in the
- * list, and every `SPECIAL` award — copies as a plain definition, with
- * `racer_id` never even a field to carry (see `AwardCopyDraft`): a `SPECIAL`
- * award's recipient was somebody's choice for last year's roster, not this
- * one's, and it arrives with nobody assigned, its ordinary state until
- * somebody decides again.
+ * An award naming a specific round (`"ROUND:<id>"`) is copyable, re-pointed
+ * at the new race's own round, exactly when `roundPlan` is being copied
+ * (`copyRounds`) *and* one of its championship rounds carries that same old
+ * id as its own `sourceRoundId` — i.e. the plan actually reproduces the
+ * round this award names. Otherwise it is excluded: naming the qualifying
+ * round or a round no longer part of the plan when the plan itself is
+ * being copied, or "the rounds are not being copied" outright when
+ * `copyRounds` is false or there is no plan to copy at all (a race with no
+ * rounds of its own). An award scoped to a racing group that was not
+ * carried over (removed, on the groups step) is excluded the same way it
+ * always was. Everything else — an unscoped `SPEED` award, one scoped to a
+ * group that *is* still in the list, and every `SPECIAL` award — copies as
+ * a plain definition, with `racer_id` never even a field to carry (see
+ * `AwardCopyDraft`): a `SPECIAL` award's recipient was somebody's choice
+ * for last year's roster, not this one's, and it arrives with nobody
+ * assigned, its ordinary state until somebody decides again.
  */
 export function copyableAwards(
     awards: readonly SourceAward[],
     groups: readonly RacingGroupDraft[],
+    roundPlan: SourceRoundPlan | null,
+    copyRounds: boolean,
 ): AwardCopyPlan {
     const toCopy: AwardCopyDraft[] = [];
     const excluded: ExcludedAward[] = [];
+    const reproducedRoundIds = new Set(
+        copyRounds ? (roundPlan?.championshipRounds.map((c) => c.sourceRoundId) ?? []) : [],
+    );
     for (const award of awards) {
-        if (award.source && award.source.startsWith(ROUND_SOURCE_PREFIX)) {
-            excluded.push({
-                award,
-                reason: 'names one round’s results, and this race has none yet',
-            });
-            continue;
+        let copiedFromRoundId: number | null = null;
+        if (award.source) {
+            const oldRoundId = roundIdIn(award.source);
+            if (oldRoundId !== null) {
+                if (!copyRounds) {
+                    excluded.push({ award, reason: 'names a round, and the rounds are not being copied' });
+                    continue;
+                }
+                if (!reproducedRoundIds.has(oldRoundId)) {
+                    excluded.push({
+                        award,
+                        reason: 'names a round this copy does not reproduce (the qualifying round, a run-off, or one no longer part of the plan)',
+                    });
+                    continue;
+                }
+                copiedFromRoundId = oldRoundId;
+            }
         }
         if (
             award.racingGroupId != null &&
@@ -343,6 +407,7 @@ export function copyableAwards(
             artwork_key: award.artworkKey ?? null,
             sort_order: award.sortOrder,
             votable: award.votable,
+            copied_from_round_id: copiedFromRoundId,
         });
     }
     return { toCopy, excluded };
@@ -360,7 +425,62 @@ export function toAwardCopyInput(draft: AwardCopyDraft) {
         artworkKey: draft.artwork_key,
         sortOrder: draft.sort_order,
         votable: draft.votable,
+        copiedFromRoundId: draft.copied_from_round_id,
     };
+}
+
+/** A copied round plan as `createRace`'s `roundPlan` input takes it —
+ * `sourceRoundId` rides along on each championship round so the server can
+ * build its old-round-id-to-new-round-id remap (#1088); `createRoundWizard`
+ * ignores the identical field when it arrives from a hand-run wizard,
+ * where it is always absent. */
+export function toWizardConfigurationInput(plan: SourceRoundPlan) {
+    return {
+        generalRound: {
+            type: plan.generalRound.type,
+            schedulingStrategy: plan.generalRound.schedulingStrategy,
+            runsPerLane: plan.generalRound.runsPerLane,
+            eliminationLosses: plan.generalRound.eliminationLosses ?? null,
+            balancedPhases: plan.generalRound.balancedPhases ?? null,
+        },
+        championshipRounds: plan.championshipRounds.map((c) => ({
+            name: c.name,
+            source: c.source,
+            numTopRacers: c.numTopRacers,
+            runsPerLane: c.runsPerLane,
+            advancementFromBottom: c.advancementFromBottom,
+            sourceRoundId: c.sourceRoundId,
+        })),
+    };
+}
+
+const GENERAL_STYLE_LABEL: Record<string, string> = {
+    PPC: 'PPC',
+    ELIMINATION: 'Elimination',
+    BALANCED: 'Balanced',
+};
+
+/**
+ * The one-line summary the Details step shows beside the "Copy the rounds
+ * too" checkbox (#1088) — "Rounds: 1 qualifying (PPC, 2 runs per lane) →
+ * Championship (top 3) — from *Pack 12 Derby 2025*", the shape the issue
+ * asked for. Pure text, no terminology lookup: "qualifying" and
+ * "Championship" are round-wizard vocabulary, not a racing-group or
+ * vehicle word this file would otherwise route through `useTerminology()`.
+ */
+export function roundPlanSummary(plan: SourceRoundPlan, sourceRaceName: string): string {
+    const { generalRound, championshipRounds } = plan;
+    const style = GENERAL_STYLE_LABEL[generalRound.schedulingStrategy] ?? generalRound.schedulingStrategy;
+    const runsWord = generalRound.runsPerLane === 1 ? 'run' : 'runs';
+    const qualifying =
+        generalRound.type === 'EACH_GROUP'
+            ? `Qualifying by group (${style}, ${generalRound.runsPerLane} ${runsWord} per lane)`
+            : `1 qualifying (${style}, ${generalRound.runsPerLane} ${runsWord} per lane)`;
+    const chain = championshipRounds
+        .map((c) => `${c.name} (top ${c.numTopRacers}${c.advancementFromBottom ? ', slowest' : ''})`)
+        .join(' → ');
+    const rounds = chain ? `${qualifying} → ${chain}` : qualifying;
+    return `Rounds: ${rounds} — from *${sourceRaceName}*`;
 }
 
 /**

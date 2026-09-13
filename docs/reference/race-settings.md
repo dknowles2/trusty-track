@@ -75,21 +75,34 @@ settings filled in on the form.
 the scoring method, **Drop worst run(s)**, **Ties** and **Championship
 Trophies**; the car numbering strategy and start number; the weight limit (or
 no weight check, if it had none); the race's own words, if it had any; the
-location; and every award's definition — its name, kind and rule — with
-nobody assigned to any of them yet. A copied den-scoped speed award follows
-its den across.
+location; **the round plan** — how the qualifying round was run (PPC,
+Elimination or Balanced, and how many runs per lane) and each championship
+round that followed it (its name, how many advance, and whether it draws
+from everyone or from each den) — and every award's definition — its name,
+kind and rule — with nobody assigned to any of them yet. A copied den-scoped
+speed award follows its den across, and a copied award tied to one specific
+round follows that round across too, provided the round plan is being copied
+and still reproduces it.
 
-The **Dens** step lists exactly which awards are coming across before you
-create the race, and names the ones that are not: an award tied to one
-specific round can never come across, since the new race has no rounds yet,
-and an award scoped to a den you remove on that same step goes with it.
-Nothing here is a surprise you discover afterwards — add either kind again
-from the Awards tab once the race is set up, if you still want it.
+The **Details** step shows a one-line summary of the round plan that will be
+built — "Rounds: 1 qualifying (PPC, 2 runs per lane) → Championship (top 3)
+— from *last year's race*" — beside a **Copy the rounds too** checkbox, on by
+default. Unticking it leaves the new race with no rounds at all, exactly as
+if it had been built from scratch; the round wizard builds them from
+scratch once the race exists. The **Dens** step, one screen earlier, lists
+exactly which awards are coming across before you create the race, and names
+the ones that are not: an award tied to a round the plan does not reproduce
+(the qualifying round itself, a run-off, or one that no longer exists),
+scoped to a den you remove on that same step, or naming any round at all
+while **Copy the rounds too** ends up unticked. Nothing here is a surprise
+you discover afterwards — add either kind again once the race is set up, the
+rounds through the round wizard and an award from the Awards tab, if you
+still want it.
 
 **Not copied:** the name and date, which are what make it a new race; the
-roster, check-in, photos, rounds, heats, results and votes; who was assigned
-to a copied award — last year's Best Paint winner is not this year's, and a
-speed award's winner is always worked out fresh from this year's own results,
+roster, check-in, photos, heats, results and votes; who was assigned to a
+copied award — last year's Best Paint winner is not this year's, and a speed
+award's winner is always worked out fresh from this year's own results,
 never carried over; the QR code display text; the running-order, trophy and
 name-display settings the edit form offers only after a race exists; and the
 lock. A race that inherited the install's words stays inheriting when copied,

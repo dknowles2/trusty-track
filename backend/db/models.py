@@ -743,6 +743,15 @@ class Round(Base):
     #: once per phase. Null for every other strategy, same reasoning as
     #: `elimination_losses`. GPRM recommends at least one phase per lane.
     balanced_phases: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: How many heats a car races per lane, the round wizard's own
+    #: "runs per lane" answer (#1088). Not derivable from the heat count
+    #: after the fact without also knowing the field size, so it is stored
+    #: rather than recomputed — the one column `domain.round_plan.
+    #: plan_from_rounds` needed that the wizard's answer did not already
+    #: leave somewhere on the row. Nullable: every round created before this
+    #: column existed reads back `None`, and a copied plan treats that the
+    #: same as `1` (the wizard's own default) rather than refusing to copy.
+    runs_per_lane: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     race: Mapped["Race"] = relationship("Race", back_populates="rounds")
     heats: Mapped[list["Heat"]] = relationship(

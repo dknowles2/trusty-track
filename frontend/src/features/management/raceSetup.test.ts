@@ -9,13 +9,16 @@ import {
     firstGroupProblem,
     prefillFromRace,
     raceOverrideFor,
+    roundPlanSummary,
     scaffoldGroups,
     stepsFor,
     toAwardCopyInput,
     toRacingGroupInput,
+    toWizardConfigurationInput,
     type RacingGroupDraft,
     type SourceAward,
     type SourceRace,
+    type SourceRoundPlan,
 } from './raceSetup';
 
 const words = { groupLower: 'den', groupsLower: 'dens' };
@@ -226,6 +229,26 @@ function sourceAward(overrides: Partial<SourceAward>): SourceAward {
     };
 }
 
+/** A round plan as `GET_RACE_SETUP_SOURCE` would return it — one PPC
+ * qualifying round and one `ALL` top-3 final whose id is 9, the same id
+ * `sourceAward`'s `ROUND:9` awards below name. */
+function sourceRoundPlan(overrides: Partial<SourceRoundPlan> = {}): SourceRoundPlan {
+    return {
+        generalRound: { type: 'ALL', schedulingStrategy: 'PPC', runsPerLane: 2 },
+        championshipRounds: [
+            {
+                name: 'Finals',
+                source: 'ALL',
+                numTopRacers: 3,
+                runsPerLane: 1,
+                advancementFromBottom: false,
+                sourceRoundId: 9,
+            },
+        ],
+        ...overrides,
+    };
+}
+
 describe('copyableAwards', () => {
     const copiedWolves: RacingGroupDraft = { name: 'Wolves', color: '#AAB7B8', division: 'Wolf', copied_from_id: 10 };
 
@@ -239,7 +262,7 @@ describe('copyableAwards', () => {
             artworkKey: null,
             votable: true,
         });
-        const plan = copyableAwards([sourceAward({}), bestPaint], []);
+        const plan = copyableAwards([sourceAward({}), bestPaint], [], null, true);
         expect(plan.excluded).toEqual([]);
         expect(plan.toCopy).toEqual([
             {
@@ -252,6 +275,7 @@ describe('copyableAwards', () => {
                 artwork_key: 'trophy',
                 sort_order: 0,
                 votable: false,
+                copied_from_round_id: null,
             },
             {
                 name: 'Best Paint',
@@ -263,6 +287,7 @@ describe('copyableAwards', () => {
                 artwork_key: null,
                 sort_order: 0,
                 votable: true,
+                copied_from_round_id: null,
             },
         ]);
     });
@@ -271,6 +296,8 @@ describe('copyableAwards', () => {
         const plan = copyableAwards(
             [sourceAward({ id: 2, name: 'Best Paint', kind: 'SPECIAL', source: null, place: null })],
             [],
+            null,
+            true,
         );
         expect(plan.toCopy[0]).not.toHaveProperty('racer_id');
         expect(plan.toCopy[0]).not.toHaveProperty('racerId');
@@ -278,23 +305,50 @@ describe('copyableAwards', () => {
 
     it('follows a racing-group-scoped award to the new race’s equivalent group', () => {
         const fastestWolf = sourceAward({ id: 3, name: 'Fastest Wolf', racingGroupId: 10 });
-        const plan = copyableAwards([fastestWolf], [copiedWolves]);
+        const plan = copyableAwards([fastestWolf], [copiedWolves], null, true);
         expect(plan.excluded).toEqual([]);
         expect(plan.toCopy[0].racing_group_id).toBe(10);
     });
 
     it('excludes an award scoped to a group the operator removed', () => {
         const fastestWolf = sourceAward({ id: 3, name: 'Fastest Wolf', racingGroupId: 10 });
-        const plan = copyableAwards([fastestWolf], []);
+        const plan = copyableAwards([fastestWolf], [], null, true);
         expect(plan.toCopy).toEqual([]);
         expect(plan.excluded).toEqual([{ award: fastestWolf, reason: expect.stringContaining('not carried over') }]);
     });
 
-    it('excludes an award tied to a specific round — the new race has none yet', () => {
-        const finalsWinner = sourceAward({ id: 4, name: 'Finals Champion', source: 'ROUND:9' });
-        const plan = copyableAwards([finalsWinner], []);
+    it('re-points a round-scoped award at the new race’s own round when the plan reproduces it (#1088)', () => {
+        const finalsWinner = sourceAward({ id: 4, name: 'Pack Champion', source: 'ROUND:9' });
+        const plan = copyableAwards([finalsWinner], [], sourceRoundPlan(), true);
+        expect(plan.excluded).toEqual([]);
+        expect(plan.toCopy[0]).toMatchObject({ source: 'ROUND:9', copied_from_round_id: 9 });
+    });
+
+    it('excludes a round-scoped award naming a round the plan does not reproduce', () => {
+        // id 42 is not any championship round's `sourceRoundId` in the plan
+        // — a general round, a run-off, or one no longer part of it.
+        const stale = sourceAward({ id: 4, name: 'Stale Champion', source: 'ROUND:42' });
+        const plan = copyableAwards([stale], [], sourceRoundPlan(), true);
         expect(plan.toCopy).toEqual([]);
-        expect(plan.excluded).toEqual([{ award: finalsWinner, reason: expect.stringContaining('this race has none yet') }]);
+        expect(plan.excluded).toEqual([
+            { award: stale, reason: expect.stringContaining('does not reproduce') },
+        ]);
+    });
+
+    it('excludes every round-scoped award when the rounds are not being copied', () => {
+        const finalsWinner = sourceAward({ id: 4, name: 'Pack Champion', source: 'ROUND:9' });
+        const plan = copyableAwards([finalsWinner], [], sourceRoundPlan(), false);
+        expect(plan.toCopy).toEqual([]);
+        expect(plan.excluded).toEqual([
+            { award: finalsWinner, reason: expect.stringContaining('not being copied') },
+        ]);
+    });
+
+    it('excludes a round-scoped award when there is no round plan to copy at all', () => {
+        const finalsWinner = sourceAward({ id: 4, name: 'Pack Champion', source: 'ROUND:9' });
+        const plan = copyableAwards([finalsWinner], [], null, true);
+        expect(plan.toCopy).toEqual([]);
+        expect(plan.excluded[0].reason).toMatch(/not being copied|does not reproduce/);
     });
 });
 
@@ -311,6 +365,7 @@ describe('toAwardCopyInput', () => {
                 artwork_key: 'trophy',
                 sort_order: 0,
                 votable: false,
+                copied_from_round_id: null,
             }),
         ).toEqual({
             name: 'Fastest Overall',
@@ -322,6 +377,73 @@ describe('toAwardCopyInput', () => {
             artworkKey: 'trophy',
             sortOrder: 0,
             votable: false,
+            copiedFromRoundId: null,
         });
+    });
+
+    it('carries a re-pointed round id along', () => {
+        expect(
+            toAwardCopyInput({
+                name: 'Pack Champion',
+                kind: 'SPEED',
+                source: 'ROUND:9',
+                place: 1,
+                from_bottom: false,
+                racing_group_id: null,
+                artwork_key: 'trophy',
+                sort_order: 0,
+                votable: false,
+                copied_from_round_id: 9,
+            }),
+        ).toMatchObject({ copiedFromRoundId: 9 });
+    });
+});
+
+describe('toWizardConfigurationInput', () => {
+    it('maps a copied round plan to the camelCase createRace input, carrying sourceRoundId along', () => {
+        expect(toWizardConfigurationInput(sourceRoundPlan())).toEqual({
+            generalRound: {
+                type: 'ALL',
+                schedulingStrategy: 'PPC',
+                runsPerLane: 2,
+                eliminationLosses: null,
+                balancedPhases: null,
+            },
+            championshipRounds: [
+                {
+                    name: 'Finals',
+                    source: 'ALL',
+                    numTopRacers: 3,
+                    runsPerLane: 1,
+                    advancementFromBottom: false,
+                    sourceRoundId: 9,
+                },
+            ],
+        });
+    });
+});
+
+describe('roundPlanSummary', () => {
+    it('reads the shape the issue asked for', () => {
+        expect(roundPlanSummary(sourceRoundPlan(), 'Pack 12 Derby 2025')).toBe(
+            'Rounds: 1 qualifying (PPC, 2 runs per lane) → Finals (top 3) — from *Pack 12 Derby 2025*',
+        );
+    });
+
+    it('says "by group" for an EACH_GROUP general round', () => {
+        const plan = sourceRoundPlan({
+            generalRound: { type: 'EACH_GROUP', schedulingStrategy: 'PPC', runsPerLane: 1 },
+        });
+        expect(roundPlanSummary(plan, 'Last Year')).toContain('Qualifying by group');
+    });
+
+    it('names an Elimination or Balanced general round with no championship round', () => {
+        const plan = sourceRoundPlan({
+            generalRound: { type: 'ALL', schedulingStrategy: 'ELIMINATION', runsPerLane: 1 },
+            championshipRounds: [],
+        });
+        expect(roundPlanSummary(plan, 'Last Year')).toBe(
+            'Rounds: 1 qualifying (Elimination, 1 run per lane) — from *Last Year*',
+        );
     });
 });

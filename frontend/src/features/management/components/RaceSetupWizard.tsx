@@ -23,6 +23,7 @@ import {
     numberingStrategyFor,
     prefillFromRace,
     raceOverrideFor,
+    roundPlanSummary,
     scaffoldGroups,
     stepsFor,
     type GroupProblem,
@@ -105,6 +106,10 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
     const [stepIndex, setStepIndex] = useState(0);
     const [problem, setProblem] = useState<GroupProblem | null>(null);
     const [detailsReached, setDetailsReached] = useState(false);
+    // "Copy the rounds too" (#1088) — on by default, since a copied plan an
+    // operator does not want is one Delete round away, where a plan they
+    // wanted and did not get is the round wizard from memory.
+    const [copyRounds, setCopyRounds] = useState(true);
 
     const [source] = useQuery({
         query: GET_RACE_SETUP_SOURCE,
@@ -159,9 +164,9 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
     const awardPlan = useMemo(
         () =>
             mode === 'copy' && sourceRace
-                ? copyableAwards(sourceRace.awards, groups)
+                ? copyableAwards(sourceRace.awards, groups, sourceRace.roundPlan ?? null, copyRounds)
                 : { toCopy: [], excluded: [] },
-        [mode, sourceRace, groups],
+        [mode, sourceRace, groups, copyRounds],
     );
 
     const categoryPresets =
@@ -217,8 +222,18 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
         setProblem(null);
     };
 
+    const sourceRaceName = previousRaces.find((r) => r.id === sourceRaceId)?.name;
+
+    const copiedRoundPlan =
+        mode === 'copy' && sourceRace && copyRounds && sourceRace.roundPlan ? sourceRace.roundPlan : null;
+
     const handleDetails = async (data: RaceFormData) => {
-        await onSubmit({ ...data, racing_groups: groups, awards: awardPlan.toCopy });
+        await onSubmit({
+            ...data,
+            racing_groups: groups,
+            awards: awardPlan.toCopy,
+            round_plan: copiedRoundPlan,
+        });
     };
 
     const stepLabel = (id: StepId) => (id === 'groups' ? chosenWords.racingGroupPlural : STEP_LABELS[id]);
@@ -550,6 +565,24 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
 
             {detailsReached && (
                 <div hidden={step !== 'details'} data-testid="setup-step-details">
+                    {mode === 'copy' && sourceRace && sourceRace.roundPlan && (
+                        <fieldset style={fieldsetStyle} data-testid="setup-round-plan">
+                            <legend style={legendStyle}>Rounds</legend>
+                            <label style={optionStyle}>
+                                <input
+                                    type="checkbox"
+                                    checked={copyRounds}
+                                    onChange={(e) => setCopyRounds(e.target.checked)}
+                                />{' '}
+                                Copy the rounds too
+                            </label>
+                            <p style={{ ...helpStyle, marginBottom: 0 }} data-testid="setup-round-plan-summary">
+                                {copyRounds
+                                    ? roundPlanSummary(sourceRace.roundPlan, sourceRaceName ?? 'the previous race')
+                                    : 'Not copying the rounds — build the schedule with the round wizard once this race is set up.'}
+                            </p>
+                        </fieldset>
+                    )}
                     <RaceForm
                         key={prefillKey}
                         initialData={prefill}

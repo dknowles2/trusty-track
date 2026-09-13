@@ -400,11 +400,28 @@ def create_race(db: Session, race: schemas.RaceCreate) -> models.Race:
     ids — a copied `SPEED` award's `racing_group_id` still names a group in
     the *previous* race, and `copied_from_id` on each incoming racing group
     is what maps that old id to the new one. An award that cannot survive
-    the trip is dropped rather than written half-broken: one whose `source`
-    names a specific round (the new race has none yet), or one scoped to a
-    racing group that was not carried over. `schemas.AwardCopyCreate` carries
-    no `racer_id` at all, so a `SPECIAL` award's chosen winner cannot reach
-    this path even by mistake — see #170.
+    the trip is dropped rather than written half-broken: one scoped to a
+    racing group that was not carried over, or one whose `source` names a
+    specific round the `round_plan` below did not reproduce (or there is no
+    `round_plan` at all — the new race has no rounds). `schemas.
+    AwardCopyCreate` carries no `racer_id` at all, so a `SPECIAL` award's
+    chosen winner cannot reach this path even by mistake — see #170.
+
+    The round plan itself, if one was sent, is built in the same
+    transaction too — after the racing groups (an `EACH_GROUP` general
+    round is built per the *new* race's own groups) and before the awards
+    (a copied `ROUND:<id>` award needs the plan's own old-round-id-to-new-
+    round-id map to be re-pointed at its own round rather than dropped).
+    `crud.create_rounds_from_plan` is the same all-or-nothing helper
+    `createRoundWizard` uses; a plan that fails validation raises before
+    this function's own `db.commit()`, so nothing this call has flushed —
+    race, groups, or (had they been written first) awards — survives past
+    the request. Championship trophies are seeded *after* the copied
+    awards, not as part of `create_rounds_from_plan` itself, so a copy
+    bringing its own `ROUND:` awards is seen by `seed_championship_
+    awards`'s presence guard before it ever runs — see that function's
+    docstring for why a second, default set alongside a copied one would be
+    wrong.
 
     A duplicate `name` is refused with a readable sentence rather than a raw
     `IntegrityError` (#748) — caught at this first `flush()`, before any
@@ -427,9 +444,11 @@ def create_race(db: Session, race: schemas.RaceCreate) -> models.Race:
     if db.query(models.Track).filter(models.Track.id == race.track_id).first() is None:
         raise ValueError(f"Cannot create a race: track {race.track_id} does not exist.")
 
+    round_plan = race.round_plan
     race_data = race.model_dump()
     racing_groups = race_data.pop("racing_groups", [])
     award_copies = race_data.pop("awards", [])
+    race_data.pop("round_plan", None)
     _refuse_bad_racing_group_ranges(racing_groups)
     db_race = models.Race(**race_data)
     db.add(db_race)
@@ -451,8 +470,41 @@ def create_race(db: Session, race: schemas.RaceCreate) -> models.Race:
         for copied_from_id, db_group in new_groups:
             if copied_from_id is not None:
                 group_id_map[copied_from_id] = db_group.id
+
+    round_map: dict[int, int] = {}
+    if round_plan is not None:
+        try:
+            _, round_map = create_rounds_from_plan(
+                db, db_race, round_plan, tolerate_empty_roster=True
+            )
+        except ValueError:
+            # `create_rounds_from_plan` rolls back whatever rounds *it*
+            # created on its own failure, but the race and racing groups
+            # flushed above are still pending in this same session — and
+            # `api.auth`'s audit wrapper commits an audit entry the moment
+            # this exception reaches it, which would otherwise commit them
+            # too. Rolled back here, the same "refuse before anything
+            # downstream is begun" shape the duplicate-name conflict above
+            # already follows.
+            db.rollback()
+            raise
+
     for award_copy in award_copies:
-        _create_copied_award(db, db_race.id, dict(award_copy), group_id_map)
+        _create_copied_award(db, db_race.id, dict(award_copy), group_id_map, round_map)
+
+    # Championship trophies (#1082): seeded from the plan's own last
+    # championship round, after the copied awards above so the presence
+    # guard sees a copied `ROUND:` award if the copy brought one. Mirrors
+    # `createRoundWizard`'s own seeding call, one door later. The session
+    # is `autoflush=False` (`database.SessionLocal`), so the guard's own
+    # query would not see an award only `db.add`ed above without this —
+    # `seed_championship_awards` reads presence through an ordinary query,
+    # not the pending session state.
+    if round_plan is not None and round_plan.championship_rounds:
+        if award_copies:
+            db.flush()
+        seed_championship_awards_for_race(db, db_race.id)
+
     db.commit()
     db.refresh(db_race)
     return db_race
@@ -463,18 +515,36 @@ def _create_copied_award(
     race_id: int,
     award_data: dict[str, Any],
     group_id_map: dict[int, int],
+    round_map: dict[int, int],
 ) -> None:
     """One award of `create_race`'s copy step — see its docstring.
 
     Defence in depth, not the primary gate: the wizard (`raceSetup.
-    copyableAwards`) filters the identical two cases before ever sending the
+    copyableAwards`) filters the identical cases before ever sending the
     request, so what reaches here should already be copyable. This still
     checks, for a hand-built request or a future caller of `create_race`
     that skips the wizard.
+
+    A round-scoped award (`source` is `ROUND:<old id>`) is re-pointed at
+    its own new round when `copied_from_round_id` — the same old id,
+    carried separately since `source` itself is useless once the old round
+    is gone — is a key in `round_map` (#1088), and dropped otherwise: the
+    plan did not reproduce that round (a general round, a run-off, a round
+    scoped to a group that was not carried over) or there was no
+    `round_plan` at all, so `round_map` is empty and every round-scoped
+    award is dropped, the original (#722) behaviour.
     """
     source = award_data.get("source")
+    copied_from_round_id = award_data.pop("copied_from_round_id", None)
     if source and advancement.is_round_scoped(source):
-        return
+        new_round_id = (
+            round_map.get(copied_from_round_id)
+            if copied_from_round_id is not None
+            else None
+        )
+        if new_round_id is None:
+            return
+        award_data["source"] = f"{advancement.ROUND_PREFIX}{new_round_id}"
     racing_group_id = award_data.get("racing_group_id")
     if racing_group_id is not None:
         new_group_id = group_id_map.get(racing_group_id)
@@ -1401,8 +1471,17 @@ def create_round(
     advancement_from_bottom: bool = False,
     elimination_losses: int | None = None,
     balanced_phases: int | None = None,
+    runs_per_lane: int | None = 1,
 ) -> models.Round:
-    """Create a new round for a race."""
+    """Create a new round for a race.
+
+    ``runs_per_lane`` is stored on the row (#1088) so a round plan copied
+    from this race later can answer "how many runs" without also knowing
+    the field size the heat count was generated against. It has no effect
+    on heat generation itself — the caller still passes its own ``runs`` to
+    `generate_heats_for_round` — this is a record of the answer, not a
+    second source of truth for it.
+    """
     validate_advancement_source(db, race_id, advancement_source)
     round_obj = models.Round(
         race_id=race_id,
@@ -1415,6 +1494,7 @@ def create_round(
         advancement_from_bottom=advancement_from_bottom,
         elimination_losses=elimination_losses,
         balanced_phases=balanced_phases,
+        runs_per_lane=runs_per_lane,
     )
     db.add(round_obj)
     db.commit()
@@ -1503,6 +1583,7 @@ def create_general_round(
                     racing_group_id=racing_group.id,
                     elimination_losses=elimination_losses,
                     balanced_phases=balanced_phases,
+                    runs_per_lane=runs_per_lane,
                 )
                 rounds.append(round_obj)
                 generate_heats_for_round(
@@ -1523,6 +1604,7 @@ def create_general_round(
             name or default_general_round_name(db, race),
             elimination_losses=elimination_losses,
             balanced_phases=balanced_phases,
+            runs_per_lane=runs_per_lane,
         )
         rounds.append(round_obj)
         generate_heats_for_round(
@@ -1536,6 +1618,259 @@ def create_general_round(
         for r in reversed(rounds):
             delete_round(db, r.id)
         raise
+
+
+def create_rounds_from_plan(
+    db: Session,
+    race: models.Race,
+    plan: schemas.WizardConfigurationCreate,
+    *,
+    tolerate_empty_roster: bool = False,
+) -> tuple[list[models.Round], dict[int, int]]:
+    """Build a race's rounds from a round wizard's answer (#1088).
+
+    This is `createRoundWizard`'s own body, factored out so `create_race`'s
+    copy step (`RaceCreate.round_plan`) can build a copied plan's rounds in
+    the same transaction as the race and its racing groups, rather than
+    this rule reaching only the mutation it was first written for
+    (CLAUDE.md's #48). `create_round_wizard` is now a thin wrapper: fetch
+    the race, refuse if rounds already exist, call this (with
+    `tolerate_empty_roster` left at its default `False`), then seed
+    championship awards for its own last round — its behaviour is
+    unchanged, and its own tests (`test_wizard_errors.py`'s among them,
+    which pins the exact "Not enough racers" refusal for a general round
+    with too few checked-in racers) are the proof.
+
+    `tolerate_empty_roster` is `create_race`'s own opt-in: a plan copied at
+    race-creation time has no roster yet at all, and *should not* be
+    refused for that — see the general-round branch below for what changes
+    when it is set.
+
+    Validated up front, before anything is created — the same reasoning
+    `createRoundWizard` always gave this: a bad value partway through would
+    need the same rollback as a scheduling failure, for a check that costs
+    nothing to do first (#321). Past that, this rolls itself back on its
+    own failure, the same shape `create_general_round` documents on
+    itself: on any `ValueError` it deletes every round *it* created, in
+    reverse order (#249), and re-raises, so a caller either gets the whole
+    batch or none of it.
+
+    Deliberately does not seed championship awards and does not commit
+    anything beyond what `create_round`/`create_general_round` already do
+    internally — a caller building a race in the same transaction decides
+    when its own awards and seeding happen. `create_race` seeds only
+    *after* its own copied awards are written, so `seed_championship_
+    awards`'s presence guard sees them first and skips — see that
+    function's docstring for why a copy bringing its own `ROUND:` awards
+    must never end up with a second, default set alongside them.
+
+    Returns the created rounds, and a ``{old round id: new round id}`` map
+    built from whichever championship rounds in ``plan`` carry a
+    ``source_round_id`` — `create_race`'s way of re-pointing a copied
+    ``ROUND:<id>`` award at its own round (see `domain.round_plan.
+    ChampionshipRoundPlan`). Empty for a plan with no such ids, which is
+    every plan `create_round_wizard` itself ever builds — the wizard has no
+    previous race to remap awards from.
+    """
+    race_id = race.id
+    general_cfg = plan.general_round
+    champ_cfgs = plan.championship_rounds
+
+    if general_cfg.runs_per_lane < 1:
+        raise ValueError("A round needs at least one run per lane.")
+    for champ_cfg in champ_cfgs:
+        if champ_cfg.runs_per_lane < 1:
+            raise ValueError("A round needs at least one run per lane.")
+        if champ_cfg.num_top_racers < 1:
+            raise ValueError("num_top_racers must be at least 1.")
+        if champ_cfg.source != "PREVIOUS":
+            validate_advancement_source(db, race_id, champ_cfg.source)
+
+    gen_strategy = general_cfg.scheduling_strategy
+    is_gen_elimination = gen_strategy in (
+        models.SchedulingStrategy.ELIMINATION,
+        "ELIMINATION",
+    )
+    is_gen_balanced = gen_strategy in (models.SchedulingStrategy.BALANCED, "BALANCED")
+    if (is_gen_elimination or is_gen_balanced) and len(
+        usable_lanes_for_race(db, race_id)
+    ) < 2:
+        raise ValueError(
+            "An elimination or balanced round requires at least two usable lanes."
+        )
+    if (
+        is_gen_elimination
+        and general_cfg.elimination_losses is not None
+        and general_cfg.elimination_losses < 1
+    ):
+        raise ValueError("A car must be allowed at least one loss.")
+    if (
+        is_gen_balanced
+        and general_cfg.balanced_phases is not None
+        and general_cfg.balanced_phases < 1
+    ):
+        raise ValueError("A round needs at least one phase.")
+
+    created_rounds: list[models.Round] = []
+    round_map: dict[int, int] = {}
+    current_round_number = 1
+
+    try:
+        gen_strat = (
+            models.SchedulingStrategy(general_cfg.scheduling_strategy)
+            if general_cfg.scheduling_strategy
+            else models.SchedulingStrategy.PPC
+        )
+        gen_losses = general_cfg.elimination_losses or 3 if is_gen_elimination else None
+        gen_phases = (
+            general_cfg.balanced_phases or lane_count_for_race(db, race_id)
+            if is_gen_balanced
+            else None
+        )
+        general_round_name = (
+            "Elimination Round"
+            if is_gen_elimination
+            else "Balanced Round"
+            if is_gen_balanced
+            else default_general_round_name(db, race)
+        )
+        is_ppc = gen_strat == models.SchedulingStrategy.PPC
+        general_round_type = general_cfg.type if is_ppc else "ALL"
+
+        # A plan copied at race-creation time (#1088, `tolerate_empty_
+        # roster`) has no roster yet — `create_general_round`'s "ALL" path
+        # calls `generate_heats_for_round` with neither placeholders nor an
+        # explicit racer list, so it reads the checked-in roster directly
+        # and refuses below two, the same "at least two" rule `createRound`
+        # enforces for an ordinary race with nobody registered.
+        # `createRoundWizard` keeps that refusal exactly — it is run by
+        # hand once there is a roster to schedule, and `test_wizard_errors.
+        # py` pins the message — but it is wrong for a copy, where the
+        # round's own settings (style, runs per lane, losses/phases) are
+        # the entire point. There, the round is created anyway, with no
+        # heats yet; the operator's ordinary "Regenerate" action
+        # (`regenerateRound`) builds them the moment the roster does exist
+        # — the same button that already recovers a round from a lane
+        # outage or an edited field, so nothing new is asked of the
+        # operator, only that this one round starts empty rather than
+        # never existing. (`"EACH_GROUP"` needs no equivalent either way:
+        # `create_general_round`'s own loop already skips a group with no
+        # checked-in racer, silently building whichever groups do have
+        # one.)
+        build_general_round_without_heats = (
+            tolerate_empty_roster
+            and general_round_type == "ALL"
+            and (
+                db.query(models.Racer)
+                .filter(
+                    models.Racer.race_id == race_id,
+                    models.Racer.car_passed_inspection,
+                )
+                .count()
+                < 2
+            )
+        )
+        if build_general_round_without_heats:
+            general_rounds = [
+                create_round(
+                    db,
+                    race_id,
+                    current_round_number,
+                    gen_strat,
+                    general_round_name,
+                    elimination_losses=gen_losses,
+                    balanced_phases=gen_phases,
+                    runs_per_lane=general_cfg.runs_per_lane,
+                )
+            ]
+        else:
+            general_rounds = create_general_round(
+                db,
+                race,
+                current_round_number,
+                gen_strat,
+                general_round_type,
+                name=general_round_name,
+                runs_per_lane=general_cfg.runs_per_lane,
+                elimination_losses=gen_losses,
+                balanced_phases=gen_phases,
+            )
+        created_rounds.extend(general_rounds)
+        current_round_number += len(general_rounds)
+
+        # Elimination heats never feed the aggregate standings
+        # (CLAUDE.md's "Ladderless elimination"), so a championship round
+        # whose source is "ALL" or "EACH_GROUP" would draw from an empty
+        # field forever when the qualifier was elimination (#1012).
+        # `general_round_type` is forced to "ALL" for any non-PPC style
+        # above, so this is exactly one round when it applies.
+        elimination_round_id = (
+            general_rounds[0].id if is_gen_elimination and general_rounds else None
+        )
+
+        previous_champ_round_id = None
+        for champ_cfg in champ_cfgs:
+            adv_source = champ_cfg.source
+            if adv_source == "PREVIOUS":
+                if previous_champ_round_id:
+                    adv_source = f"ROUND:{previous_champ_round_id}"
+                elif elimination_round_id is not None:
+                    adv_source = f"ROUND:{elimination_round_id}"
+                else:
+                    # Fallback to ALL if no previous championship round exists.
+                    adv_source = "ALL"
+            else:
+                # A championship round chains to the elimination round's own
+                # survival ranking, or to an earlier championship round
+                # already chained to it, rather than to a standings view
+                # elimination heats never feed (#1012, #1054) — the same
+                # rule `createRound`'s own championship branch shares
+                # through `resolve_championship_source_for_race` rather
+                # than a second, unwired copy of it (CLAUDE.md's #48).
+                adv_source = advancement.resolve_championship_source(
+                    adv_source,
+                    elimination_round_id=elimination_round_id,
+                    previous_championship_round_id=previous_champ_round_id,
+                )
+
+            round_obj = create_round(
+                db,
+                race_id,
+                current_round_number,
+                models.SchedulingStrategy.PPC,
+                champ_cfg.name,
+                advancement_source=adv_source,
+                advancement_num_racers=champ_cfg.num_top_racers,
+                advancement_from_bottom=champ_cfg.advancement_from_bottom,
+                runs_per_lane=champ_cfg.runs_per_lane,
+            )
+            db.flush()  # Ensure the round ID is generated.
+            if champ_cfg.source_round_id is not None:
+                round_map[champ_cfg.source_round_id] = round_obj.id
+            previous_champ_round_id = round_obj.id
+            created_rounds.append(round_obj)
+
+            # As many runs as asked for, exactly as the general round above
+            # does (#143). One call: `runs` is a parameter now, and the
+            # rebuild paths preserve it from the heats (#230).
+            generate_heats_for_round(
+                db,
+                round_obj.id,
+                num_placeholders=round_field_size(db, round_obj),
+                clear_existing=True,
+                runs=champ_cfg.runs_per_lane,
+            )
+            current_round_number += 1
+    except ValueError:
+        # Reverse creation order: the general round cannot be deleted while
+        # championship rounds still exist, so a forward rollback raised out
+        # of the rollback and left the half-made rounds committed — and
+        # every later wizard run refused (#249).
+        for r in reversed(created_rounds):
+            delete_round(db, r.id)
+        raise
+
+    return created_rounds, round_map
 
 
 def delete_round(db: Session, round_id: int) -> bool:

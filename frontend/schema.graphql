@@ -73,6 +73,7 @@ input AwardCopyInput {
   artworkKey: String = null
   sortOrder: Int = null
   votable: Boolean! = false
+  copiedFromRoundId: Int = null
 }
 
 input AwardInput {
@@ -631,6 +632,7 @@ type Race {
   scheduledRacerIds: [Int!]!
   organization: Organization!
   rounds: [Round!]!
+  roundPlan: WizardConfiguration
   heats: [Heat!]!
   runOffHeats: [RunOffHeat!]!
   track: Track
@@ -663,6 +665,7 @@ input RaceInput {
   qrWifiNote: String = null
   racingGroups: [RacingGroupInput!]! = []
   awards: [AwardCopyInput!]! = []
+  roundPlan: WizardConfigurationInput = null
   racingGroupSingular: String = null
   racingGroupPlural: String = null
   organizationSingular: String = null
@@ -835,6 +838,7 @@ type Round {
   balancedPhases: Int
   disrupted: Boolean!
   racingGroupId: Int
+  runsPerLane: Int
   heats: [Heat!]!
   advancementStatus: AdvancementStatus!
   eliminationChart: EliminationChart
@@ -1052,17 +1056,40 @@ type TrackRecordBreak {
   previousRaceName: String
 }
 
+type WizardChampionshipRound {
+  name: String!
+  source: String!
+  numTopRacers: Int!
+  runsPerLane: Int!
+  advancementFromBottom: Boolean!
+  sourceRoundId: Int!
+}
+
 input WizardChampionshipRoundInput {
   name: String! = "Championship Round"
   source: String! = "ALL"
   numTopRacers: Int! = 3
   runsPerLane: Int! = 1
   advancementFromBottom: Boolean! = false
+  sourceRoundId: Int = null
+}
+
+type WizardConfiguration {
+  generalRound: WizardGeneralRound!
+  championshipRounds: [WizardChampionshipRound!]!
 }
 
 input WizardConfigurationInput {
   generalRound: WizardGeneralRoundInput!
   championshipRounds: [WizardChampionshipRoundInput!]!
+}
+
+type WizardGeneralRound {
+  type: String!
+  schedulingStrategy: String!
+  runsPerLane: Int!
+  eliminationLosses: Int
+  balancedPhases: Int
 }
 
 input WizardGeneralRoundInput {
