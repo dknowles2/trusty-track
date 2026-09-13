@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     checklistFor as checklistForWords,
+    collapsedLine,
     isSettled,
     nextStep,
     outstandingSteps,
@@ -49,10 +50,37 @@ const skippedKeys = (p: SetupProgress): StepKey[] =>
         .filter((step) => step.skipped)
         .map((step) => step.key);
 
+const optionalKeys = (p: SetupProgress): StepKey[] =>
+    checklistFor(p)
+        .filter((step) => step.optional)
+        .map((step) => step.key);
+
 describe('checklistFor', () => {
     it('has nothing done on a race that was just created', () => {
         expect(doneKeys(progress())).toEqual([]);
         expect(skippedKeys(progress())).toEqual([]);
+    });
+
+    it('marks exactly awards and printables optional (#1091), regardless of progress', () => {
+        // A pack that hands out no trophies, or prints nothing because
+        // check-in is done by typing a car number, is making a decision —
+        // not leaving four ordinary steps outstanding. `optional` is a
+        // static fact about the step itself, not derived from `progress`.
+        expect(optionalKeys(progress())).toEqual(['awards', 'printables']);
+        expect(
+            optionalKeys(
+                progress({ racingGroupCount: 3, racerCount: 20, checkedInCount: 20, roundCount: 1, awardCount: 2 }),
+            ),
+        ).toEqual(['awards', 'printables']);
+    });
+
+    it('renames the printables step generically, naming the choices in its hint (#1091)', () => {
+        const [, , , , , printables] = checklistFor(progress());
+        expect(printables.label).toBe('Print anything you need');
+        expect(printables.hint).toBe(
+            "Pit passes, driver's licences and check-in codes are usually printed the night before check-in opens; heat sheets once the schedule exists.",
+        );
+        expect(printables.action).toBe('Go to Printables');
     });
 
     it('ticks every genuine completion once the race is fully set up, and never ticks printables', () => {
@@ -318,5 +346,43 @@ describe('outstandingSteps', () => {
             progress({ racingGroupCount: 1, racerCount: 1, checkedInCount: 1, roundCount: 1, awardCount: 1 }),
         );
         expect(outstandingSteps(steps)).toEqual([]);
+    });
+});
+
+describe('collapsedLine (#1091)', () => {
+    it('counts over the required four, not the optional two, with both optional steps outstanding', () => {
+        // Nobody has checked in yet, so printables is not yet skipped either
+        // — both optional steps are genuinely outstanding, and the required
+        // count still reads "3 of 4" rather than counting them as two more
+        // obligations.
+        const steps = checklistFor(
+            progress({ racingGroupCount: 1, racerCount: 5, checkedInCount: 0, roundCount: 1 }),
+        );
+        expect(collapsedLine(steps)).toBe(
+            '3 of 4 done — Check in cars · optional: Set up awards · Print anything you need',
+        );
+    });
+
+    it('reaches "4 of 4" once every required step is done, naming only what optional work remains', () => {
+        // Check-in finishing is also what skips printables (both read
+        // `checkedInCount`), so the only optional step still worth naming
+        // here is awards.
+        const steps = checklistFor(
+            progress({ racingGroupCount: 1, racerCount: 5, checkedInCount: 5, roundCount: 1 }),
+        );
+        expect(collapsedLine(steps)).toBe('4 of 4 done — optional: Set up awards');
+    });
+
+    it('names only the required steps once every optional one is settled', () => {
+        const steps = checklistFor(progress({ racerCount: 20, checkedInCount: 1, roundCount: 1, awardCount: 1 }));
+        expect(collapsedLine(steps)).toBe('3 of 4 done — Check in cars');
+    });
+
+    it('never puts printables or awards in the leading, unlabelled part of the line', () => {
+        const steps = checklistFor(progress({ racerCount: 20 }));
+        const line = collapsedLine(steps);
+        const beforeOptional = line.split('optional:')[0];
+        expect(beforeOptional).not.toContain('Print anything you need');
+        expect(beforeOptional).not.toContain('Set up awards');
     });
 });

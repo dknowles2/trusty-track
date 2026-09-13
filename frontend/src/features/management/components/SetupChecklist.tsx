@@ -31,6 +31,15 @@
  * ever set up) must not read as one that was. `data-done` still means
  * "genuinely finished" for `race-day.spec.ts`'s own wait on it; `data-skipped`
  * is the new attribute for the other settled state.
+ *
+ * **`step.optional` gets its own muted tag beside the label (#1091),** the
+ * same 0.8rem italic treatment `skipped`'s "no longer needed" note already
+ * uses, on exactly the two steps `setupChecklist.ts` marks optional (awards,
+ * printables) — so a first-time operator can tell those two apart from the
+ * four ordinary obligations around them without reading this file. The
+ * collapsed line's own wording is `setupChecklist.ts`'s `collapsedLine`,
+ * pure, for the same reason every other rule here lives there rather than
+ * in this component's JSX.
  */
 
 import { useState } from 'react';
@@ -39,8 +48,8 @@ import { mdiCheckCircle, mdiCircleOutline, mdiMinusCircleOutline } from '@mdi/js
 
 import {
     checklistFor,
+    collapsedLine,
     nextStep,
-    outstandingSteps,
     shouldCollapseChecklist,
     shouldShowChecklist,
     type SetupProgress,
@@ -76,7 +85,6 @@ export default function SetupChecklist({ progress, onAction }: Props) {
 
     const next = nextStep(steps);
     const doneCount = steps.filter((step) => step.done).length;
-    const remaining = outstandingSteps(steps);
 
     return (
         <details
@@ -124,7 +132,7 @@ export default function SetupChecklist({ progress, onAction }: Props) {
                     </>
                 ) : (
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        ▸ Setting up: {doneCount} of {steps.length} done — {remaining.map((step) => step.label).join(' · ')}
+                        ▸ Setting up: {collapsedLine(steps)}
                     </span>
                 )}
             </summary>
@@ -167,6 +175,11 @@ export default function SetupChecklist({ progress, onAction }: Props) {
                             >
                                 {step.label}
                             </span>
+                            {step.optional && (
+                                <span style={{ fontSize: '0.8rem', fontStyle: 'italic', color: 'var(--text-placeholder-color)' }}>
+                                    optional
+                                </span>
+                            )}
                             {step.skipped && (
                                 <span style={{ fontSize: '0.8rem', fontStyle: 'italic', color: 'var(--text-placeholder-color)' }}>
                                     no longer needed
