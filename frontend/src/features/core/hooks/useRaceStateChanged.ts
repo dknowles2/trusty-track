@@ -56,18 +56,35 @@ export interface RaceStateChangedData {
  *
  * A payload has to actually be present to be merged: bulk mutations report
  * `RACER` without one, since they change many racers at once. Those refetch.
+ *
+ * `options.alwaysRefetch` skips that gate and calls `refetch` on every event
+ * regardless of kind or payload — for a caller whose query is not the `race`
+ * entity graphcache merges into, so nothing about a "mergeable" kind applies
+ * to it. The activity log (#1078) is the one user of this so far: a
+ * `HEAT_RESULT` event that merges cleanly into `race.heats` elsewhere still
+ * means a fresh audit entry exists that only a refetch of `auditLog` reveals.
  */
 export function useRaceStateChanged(
   raceId: number | undefined,
   refetch: () => void,
-  options: { pause?: boolean } = {}
+  options: { pause?: boolean; alwaysRefetch?: boolean } = {}
 ) {
   const paused = options.pause ?? (!raceId || Number.isNaN(raceId));
+  const alwaysRefetch = options.alwaysRefetch ?? false;
 
   return useSubscription<RaceStateChangedData, RaceStateChangedData>(
     { query: RACE_STATE_CHANGED_SUBSCRIPTION, variables: { raceId }, pause: paused },
     (_previous, data) => {
-      if (shouldRefetch(data?.raceStateChanged)) refetch();
+      // `shouldRefetch` is about whether the *normalized cache* can merge an
+      // event's payload on its own (#12) — right for a page reading `race {
+      // ... }`, wrong for a caller whose query is not that entity at all.
+      // The activity log (#1078) is exactly that: a `HEAT_RESULT` event
+      // merges a heat into the cache just fine, but it also means a new
+      // audit entry was written that this hook's own gate would otherwise
+      // swallow. `alwaysRefetch` opts out of the gate entirely for callers
+      // like that one.
+      const shouldCall = alwaysRefetch ? !!data?.raceStateChanged : shouldRefetch(data?.raceStateChanged);
+      if (shouldCall) refetch();
       return data;
     }
   );

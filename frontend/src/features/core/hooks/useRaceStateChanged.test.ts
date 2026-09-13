@@ -1,5 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { shouldRefetch, type RaceStateChangedEvent } from './useRaceStateChanged';
+import { describe, it, expect, vi } from 'vitest';
+import { renderHook } from '@testing-library/react';
+import { useSubscription } from 'urql';
+import { shouldRefetch, useRaceStateChanged, type RaceStateChangedEvent } from './useRaceStateChanged';
+
+vi.mock('urql', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('urql')>();
+  return { ...actual, useSubscription: vi.fn() };
+});
 
 /**
  * Issue #12. Before this, every race event triggered a full page re-query —
@@ -54,5 +61,63 @@ describe('shouldRefetch', () => {
   it('does nothing when there is no event', () => {
     expect(shouldRefetch(undefined)).toBe(false);
     expect(shouldRefetch(null)).toBe(false);
+  });
+});
+
+/**
+ * `alwaysRefetch` (#1078): a caller whose own query is not the `race` entity
+ * graphcache merges into (the activity log) needs every event, including the
+ * ones `shouldRefetch` above deliberately swallows because *another* screen
+ * can merge them for free.
+ */
+describe('useRaceStateChanged with alwaysRefetch', () => {
+  const mockUseSubscription = vi.mocked(useSubscription);
+
+  function fireEvent(raceStateChanged: RaceStateChangedEvent | undefined) {
+    const call = mockUseSubscription.mock.calls[mockUseSubscription.mock.calls.length - 1];
+    const handler = call[1] as (
+      previous: unknown,
+      data: { raceStateChanged: RaceStateChangedEvent } | undefined
+    ) => unknown;
+    handler(undefined, raceStateChanged ? { raceStateChanged } : undefined);
+  }
+
+  it('refetches on a mergeable event with a payload, unlike the default gate', () => {
+    mockUseSubscription.mockReturnValue([{ fetching: false, data: undefined, error: undefined } as never, vi.fn()]);
+    const refetch = vi.fn();
+    renderHook(() => useRaceStateChanged(1, refetch, { alwaysRefetch: true }));
+
+    fireEvent(event({ kind: 'HEAT_RESULT', heat: { id: 7 } }));
+
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not refetch when there is no event at all', () => {
+    mockUseSubscription.mockReturnValue([{ fetching: false, data: undefined, error: undefined } as never, vi.fn()]);
+    const refetch = vi.fn();
+    renderHook(() => useRaceStateChanged(1, refetch, { alwaysRefetch: true }));
+
+    fireEvent(undefined);
+
+    expect(refetch).not.toHaveBeenCalled();
+  });
+
+  it('leaves the default gate in place when alwaysRefetch is not set', () => {
+    mockUseSubscription.mockReturnValue([{ fetching: false, data: undefined, error: undefined } as never, vi.fn()]);
+    const refetch = vi.fn();
+    renderHook(() => useRaceStateChanged(1, refetch));
+
+    fireEvent(event({ kind: 'HEAT_RESULT', heat: { id: 7 } }));
+
+    expect(refetch).not.toHaveBeenCalled();
+  });
+
+  it('passes the pause flag through unchanged', () => {
+    mockUseSubscription.mockReturnValue([{ fetching: false, data: undefined, error: undefined } as never, vi.fn()]);
+    const refetch = vi.fn();
+    renderHook(() => useRaceStateChanged(1, refetch, { alwaysRefetch: true, pause: true }));
+
+    const call = mockUseSubscription.mock.calls[mockUseSubscription.mock.calls.length - 1];
+    expect((call[0] as { pause: boolean }).pause).toBe(true);
   });
 });
