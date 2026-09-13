@@ -63,7 +63,7 @@ HTTPS is forced on purpose (#593), not a default that happened to stick. `compon
 
 **The rule — given the flag, which scheme and which uvicorn kwargs — is one pure function, tested with no server, no certificate and no environment at all** (`backend/tests/test_http_mode.py`, loading `packaging/http_mode.py` the same way `test_view_logs_command.py` loads `log_viewer.py`: by file path, not `import`, because `packaging/` has no `__init__.py` — PyPI's own `packaging` library is a common transitive dependency, and a real package here would shadow or collide with it — and because importing `run_server.py` itself runs real side effects, generating a certificate and importing the whole backend, at module scope).
 
-**The shell half of the parsing is `case`, never bash 4's `${var,,}`** ([#891](https://github.com/dknowles2/trusty-track/issues/891)). macOS ships bash 3.2 at `/bin/bash`, which `#!/usr/bin/env bash` resolves to on a Mac with no Homebrew bash installed over it, and 3.2 rejects `${var,,}` with "bad substitution" — a line that ran unconditionally, not only when the flag was set, so `./scripts/serve.sh` (the documented "Full stack" command) and the pre-commit hook (which runs `pytest`, and `test_install_pi_sourceable.py` invokes `bash` as a subprocess — resolving to `/bin/bash` on exactly that machine) both died before doing anything. `scripts/serve.sh`, `scripts/run_dev.sh`, `scripts/pi-start.sh` and `scripts/install-pi.sh` (twice — the flag itself, and its own unrelated Wi-Fi-hotspot `y/N` prompt) all lower-case with `printf '%s' "$var" | tr '[:upper:]' '[:lower:]'` and branch with `case`, not `[[ =~ ]]` — the point is not just avoiding one bash 4 operator, it is not needing to reason about whether an unquoted, parenthesized alternation after `=~` is safe on every 3.2 patch level too. Each of the four scripts repeats this rather than sourcing a shared helper: `install-pi.sh` is also run via `curl -fsSL ... | bash`, where there is no file on disk for a sourced sibling to resolve against, and a rule split "three scripts source a lib, one inlines it" is two copies to keep in sync rather than one. `backend/tests/test_shell_scripts_bash3_compat.py` is a static guard (bash 3.2 is not on any CI runner, so it is the check that actually runs on a pull request) plus functional tests that run the real, unmodified scripts — `pi-start.sh` whole, by shadowing `exec` with a shell function so its own final `exec "$UVICORN" "${ARGS[@]}"` calls the shadow instead of replacing the process; the other three by extracting the exact `case` block out of the file's own text (locating its start marker and the matching `esac`), since their surrounding code activates a venv, spawns background servers, or calls `apt-get install`, none of which a unit test should do. Both kinds were additionally run against a real bash-3.2.0 build (fetched and compiled by hand while fixing this issue, not something the suite depends on) with `bash` put first on `$PATH` — all pass against the fix and the functional/case-extraction tests fail against the pre-fix scripts under that binary, confirming the guard actually catches the regression it names.
+**The shell half of the parsing is `case`, never bash 4's `${var,,}`** ([#891](https://github.com/dknowles2/trusty-track/issues/891)). macOS ships bash 3.2 at `/bin/bash`, which `#!/usr/bin/env bash` resolves to on a Mac with no Homebrew bash, and 3.2 rejects `${var,,}` with "bad substitution" on a line that ran unconditionally — so `./scripts/serve.sh` and the pre-commit hook (through `test_install_pi_sourceable.py`'s `bash` subprocess) both died before doing anything. `scripts/serve.sh`, `scripts/run_dev.sh`, `scripts/pi-start.sh` and `scripts/install-pi.sh` (twice — the flag, and its Wi-Fi-hotspot `y/N` prompt) all lower-case with `printf '%s' "$var" | tr '[:upper:]' '[:lower:]'` and branch with `case`, not `[[ =~ ]]` — not needing to reason about whether an unquoted alternation after `=~` is safe on every 3.2 patch level is the point. Each script repeats the block rather than sourcing a helper: `install-pi.sh` also runs via `curl ... | bash`, where there is no file on disk to source beside. `backend/tests/test_shell_scripts_bash3_compat.py` is a static guard (no CI runner has bash 3.2) plus functional tests that run the real scripts — `pi-start.sh` whole, by shadowing `exec` with a shell function; the other three by extracting their exact `case` block, since their surrounding code activates venvs, spawns servers or runs `apt-get`. Both were also run against a hand-built bash 3.2.0 while fixing this, and the functional tests fail against the pre-fix scripts under it.
 
 **The frontend says what it is giving up, rather than failing silently or blaming permissions.** Both `CameraCapture.tsx` and `CheckInScanner.tsx` already caught the error `getUserMedia` throws outside a secure context — `navigator.mediaDevices` does not exist there at all — but the message ("Could not access camera. Please ensure permissions are granted.") sent a volunteer to check browser permissions for a problem that is actually about the connection. Both now check `window.isSecureContext === false` (never plain `!window.isSecureContext` — a real browser always reports a boolean, so this only fires on a genuine insecure origin, never on a test environment that has not implemented the property) before ever calling `getUserMedia`, and show a one-line explanation instead: open the site on the computer running the server, or switch HTTPS back on.
 
@@ -82,38 +82,27 @@ and Docker, where there is no avahi to lean on, by registering
 
 **Not fighting avahi on Linux.** The Pi install already runs avahi, which
 already answers for `trustytrack.local` from the hostname alone — a second
-responder bound over the top of it is at best redundant probing and
-announcement traffic, at worst a genuine RFC 6762 conflict. `discovery.avahi_already_running()`
-stands down rather than risk either: it reads `/run/avahi-daemon/pid`, the
-file avahi's own Debian packaging writes on start (inspected from the `.deb`
-with `dpkg-deb`, not run — there was neither root nor systemd available to
-start it under, and the issue is explicit that this wants measuring on a
-real Bookworm Pi rather than reasoning about, so the option chosen is the
-one that needed no such measurement). A missing file, a stale one naming a
-dead PID, and avahi never having been installed at all all mean the same
-thing — nothing is answering for the name — which is also what a bare CI
-runner reports. The two other options the issue named were rejected for
-concrete reasons rather than by default: registering through avahi's D-Bus
-API needs a dependency this project carries nowhere else, and accepting
-`python-zeroconf`'s `SO_REUSEADDR` coexistence needs the same hardware
-measurement this environment could not do.
+responder over the top of it is at best redundant traffic, at worst a genuine
+RFC 6762 conflict. `discovery.avahi_already_running()` stands down instead:
+it reads `/run/avahi-daemon/pid`, the file avahi's Debian packaging writes
+on start. A missing file, a stale one naming a dead PID, and avahi never
+installed all mean the same thing — nothing is answering for the name —
+which is also what a bare CI runner reports. Registering through avahi's
+D-Bus API (a dependency carried nowhere else) and trusting
+`python-zeroconf`'s `SO_REUSEADDR` coexistence (needs measuring on a real
+Bookworm Pi, which nobody has done) were both rejected for those reasons.
 
-**`python-zeroconf` has no API to publish a bare hostname.** Read directly
-from the library's source (0.151.3), not assumed: `ServiceInfo.server` — the
-field that becomes the address record a person actually types — is set
-once, before any conflict probe runs, and the library's own collision
-handling (`register_service(..., allow_name_change=True)`) only ever renames
-the *service instance* name, never `server`. Home Assistant, wanting the
-same "publish my hostname" behaviour, sidesteps this by using a random UUID
-as its `server` value — collision-proof, but not a name a person would type,
-which is the opposite of the point here. `discovery.start()` instead drives
-its own retry: every attempt gets an *identical* fixed service type/name
-(`_tt-host._tcp.local.` — 15-byte RFC 6763 label limit, one byte under
-`_trustytrack-mdns`), so two Trusty Track instances that both want
+**`python-zeroconf` has no API to publish a bare hostname** (read from the
+library's source, 0.151.3): `ServiceInfo.server` — the field that becomes
+the address record a person types — is set once, before any conflict probe,
+and `allow_name_change=True` only ever renames the *service instance*, never
+`server`. So `discovery.start()` drives its own retry: every attempt
+registers an *identical* fixed service type/name (`_tt-host._tcp.local.`,
+inside RFC 6763's 15-byte label limit), so two instances that both want
 `HOSTNAME` collide on that name for the same reason they collide on the
-hostname itself, and `server` moves in lock-step with whichever numbered
-attempt (`trustytrack`, `trustytrack-2`, ...) actually wins the library's
-real probe-and-announce cycle. This is a private vehicle, not the browsable
+hostname, and `server` moves in lock-step with whichever numbered attempt
+(`trustytrack`, `trustytrack-2`, ...) wins the library's real
+probe-and-announce cycle. This is a private vehicle, not the browsable
 service record — that is stage 2's job, immediately below.
 
 **Stage 2 rides on the hostname stage 1 already won, rather than negotiating
@@ -277,7 +266,7 @@ no new wiring.
 
 **What layer C does not, and cannot, prove.** A generic QEMU `virt` machine shares no silicon with a real Pi: boot firmware, GPIO, USB serial timers, the touchscreen and SD card behaviour are all completely untested. The image ships smoke-tested, not hardware-tested — the same footing this project already states plainly for the DerbyNet timer profiles rather than implying support, and every place that describes this image to a reader should say so too.
 
-**Neither PR that wrote the paragraphs above could run any of it for real** — no privileged Docker, no `qemu-system-aarch64`, no root, in the sandboxes both were written in — so both the pi-gen build and the QEMU boot test were reasoned from pi-gen's and the Raspberry Pi kernel's documented behaviour rather than a green run, right up until they merged. The de-risking follow-up split the build and boot test out of `release.yml` into their own callable workflow, **`.github/workflows/raspberry-pi-image.yml`**, which `release.yml`'s `raspberry-pi` job now calls via `workflow_call` instead of duplicating the steps — and which also carries a `workflow_dispatch` trigger, so the identical build can be run from the Actions tab with no tag and no release involved at all. Trigger it there (leave both inputs blank) to build the current `main` and boot-test it under QEMU; leave `tag` blank and the image comes back as a downloadable workflow artifact rather than a release asset, which is also the only route to actually trying a build on real hardware. **Running that workflow once is what finally establishes the facts asserted in the two paragraphs above** — the same "a performance number belongs to the machine it was measured on" caution `ci.md` already states for CI timings, extended here to correctness rather than speed. Until somebody has actually clicked Run workflow (or pushed a tag) since this was written, treat those two paragraphs as reasoned-but-unconfirmed still; a workflow existing to run something is not the same as it having run.
+**None of the above has been run for real yet, and the workflow that would prove it exists but has never been triggered.** Both PRs were written in sandboxes with no privileged Docker, no `qemu-system-aarch64` and no root, so the pi-gen build and the QEMU boot test were reasoned from documented behaviour, not a green run. `.github/workflows/raspberry-pi-image.yml` (called by `release.yml`'s `raspberry-pi` job via `workflow_call`, and carrying a `workflow_dispatch` trigger) is the way to find out: run it from the Actions tab with both inputs blank to build the current `main`, boot-test it under QEMU and get the image back as a workflow artifact — also the only route to trying a build on real hardware. Until somebody has done that, treat this section as reasoned-but-unconfirmed; a workflow existing is not the same as it having run.
 
 **Later stages** (unstarted): the first-boot role chooser and kiosk mode the top-level issue describes, and the user-facing docs for the image (deliberately not written yet — see [#473](https://github.com/dknowles2/trusty-track/issues/473)). The asset is uploaded as a fixed `TrustyTrack-raspberry-pi.img.xz` — no version in the name, unlike the macOS/Windows installers — precisely so a docs page can link `releases/latest/download/TrustyTrack-raspberry-pi.img.xz` (#474's pattern) without this workflow changing again; that name exists now even though nothing links to it yet.
 
