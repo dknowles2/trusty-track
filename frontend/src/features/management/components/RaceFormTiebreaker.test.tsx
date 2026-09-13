@@ -54,14 +54,17 @@ describe('the tiebreaker control', () => {
         expect(screen.getByLabelText(/^Leave it shared/)).toBeChecked();
         // #304: not hidden until an option is selected.
         expect(
-            screen.getByText(/Whoever's best recorded heat time is lowest wins the tie\./),
+            screen.getByText(/Tied cars share the place — two 1sts, then 3rd\./),
         ).toBeInTheDocument();
         expect(
-            screen.getByText(/Whoever's heats add up to the least total time wins the tie\./),
+            screen.getByText(/The tied car with the single fastest heat wins\./),
         ).toBeInTheDocument();
-        expect(screen.getByText(/Most 1st-place finishes wins/)).toBeInTheDocument();
         expect(
-            screen.getByText(/whoever won more of the heats they actually shared wins the tie\./),
+            screen.getByText(/The tied car whose heat times add up to less wins\./),
+        ).toBeInTheDocument();
+        expect(screen.getByText(/Compares finishing places, not times/)).toBeInTheDocument();
+        expect(
+            screen.getByText(/Looks only at heats where the tied cars raced each other/),
         ).toBeInTheDocument();
     });
 
@@ -101,12 +104,47 @@ describe('the tiebreaker control', () => {
         expect(countbackRow).not.toHaveTextContent(/won.t fire/i);
     });
 
-    it('gives no warning under Timed scoring, which always types a time by hand', async () => {
+    it('gives no warning for Fastest single heat under Timed scoring, which always types a time by hand', async () => {
         tracksQuery([{ id: 1, name: 'No-Timer Track', timerType: 'NONE' }]);
         form(submitSpy());
 
         const fastestRow = screen.getByLabelText(/^Fastest single heat/).closest('label')!;
         expect(fastestRow).not.toHaveTextContent(/won.t fire/i);
+    });
+
+    it('gives no warning for Lowest total time under Timed (average) scoring — a disrupted round can leave it useful (#1089 review)', () => {
+        // A first version of this rule claimed Timed (average) makes
+        // Lowest total time a no-op, on the premise that a disrupted round
+        // is dropped from standings. That premise is backwards — a
+        // disrupted round (a lane outage, #171; a latecomer, #172) is
+        // *kept* under Timed, so two tied racers can have run a different
+        // number of heats and still average the same, while their raw
+        // totals differ. Never flagged, regardless of timer.
+        tracksQuery([{ id: 1, name: 'Fake Timer Track', timerType: 'FAKE' }]);
+        form(submitSpy());
+
+        const totalRow = screen.getByLabelText(/^Lowest total time/).closest('label')!;
+        expect(totalRow).not.toHaveTextContent(/won.t fire/i);
+    });
+
+    it('warns that Lowest total time cannot fire under Cumulative time scoring, only while nothing is being dropped', async () => {
+        // Cumulative time sums every counted time, which is exactly what
+        // Lowest total time compares — but only when drop_worst_runs is
+        // off. With a drop active, Cumulative time scores the *post-drop*
+        // sum while Lowest total time still sums the raw, undropped list,
+        // so the two can disagree (#1089 review).
+        tracksQuery([{ id: 1, name: 'Fake Timer Track', timerType: 'FAKE' }]);
+        form(submitSpy());
+
+        await userEvent.click(screen.getByLabelText(/^Cumulative time \(total\)/));
+
+        const totalRow = screen.getByLabelText(/^Lowest total time/).closest('label')!;
+        expect(totalRow).toHaveTextContent(/won.t fire for this race/i);
+
+        await userEvent.clear(screen.getByLabelText('Drop worst run(s)'));
+        await userEvent.type(screen.getByLabelText('Drop worst run(s)'), '1');
+
+        expect(totalRow).not.toHaveTextContent(/won.t fire/i);
     });
 
     it('gives no warning once a track with a real timer is selected', async () => {

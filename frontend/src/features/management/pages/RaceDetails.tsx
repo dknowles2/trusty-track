@@ -987,9 +987,9 @@ export default function RaceDetails() {
 
       {/* What to do next, while anything is still outstanding (#199). It
           removes itself once the race is set up, and collapses to one line
-          once check-in starts (#949) — the two steps most packs never tick
-          off, Set up awards and Print pit passes, would otherwise sit atop
-          the roster for the rest of the day. */}
+          once check-in starts (#949) — the two optional steps most packs
+          never tick off, Set up awards and Print anything you need, would
+          otherwise sit atop the roster for the rest of the day. */}
       <SetupChecklist
           progress={setupProgress}
           onAction={{

@@ -133,4 +133,36 @@ describe('SetupChecklist', () => {
         expect(screen.getByTestId('setup-step-racingGroups')).toHaveAttribute('data-done', 'true');
         expect(screen.getByTestId('setup-step-schedule')).toHaveAttribute('data-done', 'false');
     });
+
+    it('tags awards and printables optional, and not the other four (#1091)', () => {
+        render(<SetupChecklist progress={progress({ racingGroupCount: 2, racerCount: 9 })} onAction={{}} />);
+
+        expect(screen.getByTestId('setup-step-awards')).toHaveTextContent('optional');
+        expect(screen.getByTestId('setup-step-printables')).toHaveTextContent('optional');
+        expect(screen.getByTestId('setup-step-racingGroups')).not.toHaveTextContent('optional');
+        expect(screen.getByTestId('setup-step-racers')).not.toHaveTextContent('optional');
+        expect(screen.getByTestId('setup-step-checkin')).not.toHaveTextContent('optional');
+        expect(screen.getByTestId('setup-step-schedule')).not.toHaveTextContent('optional');
+    });
+
+    it('names the printables step generically in its row (#1091)', () => {
+        render(<SetupChecklist progress={progress({ racingGroupCount: 2, racerCount: 9 })} onAction={{}} />);
+
+        expect(screen.getByTestId('setup-step-printables')).toHaveTextContent('Print anything you need');
+    });
+
+    it('counts the collapsed line over the required four, listing outstanding optional work after it (#1091)', async () => {
+        // Check-in has started, so the panel defaults to its collapsed
+        // one-line form (#949) — the summary line is what this test reads.
+        render(
+            <SetupChecklist
+                progress={progress({ racingGroupCount: 1, racerCount: 5, checkedInCount: 5, roundCount: 1 })}
+                onAction={{}}
+            />,
+        );
+
+        expect(screen.getByTestId('setup-checklist-summary')).toHaveTextContent(
+            '4 of 4 done — optional: Set up awards',
+        );
+    });
 });

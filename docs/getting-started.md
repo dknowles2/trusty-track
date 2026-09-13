@@ -146,18 +146,18 @@ Once your system settings are configured, you're ready to create a race event.
 
 ## 6. Following the Setup Checklist
 
-A new race opens with a **Setting up this race** panel at the top of the Roster page, listing the four things that have to happen before you can run a heat, plus two more worth doing before the trophies are handed out:
+A new race opens with a **Setting up this race** panel at the top of the Roster page, listing the four things that have to happen before you can run a heat, plus two more — marked **optional** — worth doing before the trophies are handed out:
 
 1. **Set up dens**
 2. **Add racers**
 3. **Check in cars**
 4. **Generate a schedule**
-5. **Set up awards**
-6. **Print pit passes**
+5. **Set up awards** *(optional)*
+6. **Print anything you need** *(optional)*
 
-Most items tick themselves off as you do them — there is nothing to mark complete by hand — and the panel shows a button for whichever step you are on. **Check in cars** stays open, with a live count, until every racer on the roster is checked in; it does not tick at the first one, since check-in usually runs all morning. **Print pit passes** never ticks at all — nothing tells the app a sheet actually came out of a printer — but it fades to a muted "no longer needed" line, with no tick, once check-in starts or the race is locked, since whatever printing would have helped with already has. **Set up awards** fades the same muted way, with no tick, once the race is locked with none defined — a pack that hands out no trophies has made that choice, and locking the race is how it says so. The panel disappears once every step is either done or faded that way, so a locked race with no awards does not get lectured about them.
+Most items tick themselves off as you do them — there is nothing to mark complete by hand — and the panel shows a button for whichever step you are on. **Check in cars** stays open, with a live count, until every racer on the roster is checked in; it does not tick at the first one, since check-in usually runs all morning. **Print anything you need** covers whichever of the Printables page's documents your pack actually prints — pit passes, driver's licences, check-in codes, a heat sheet — and it never ticks at all, since nothing tells the app a sheet actually came out of a printer; it fades to a muted "no longer needed" line, with no tick, once check-in starts or the race is locked, since whatever printing would have helped with already has. **Set up awards** fades the same muted way, with no tick, once the race is locked with none defined — a pack that hands out no trophies has made that choice, and locking the race is how it says so. The panel disappears once every step is either done or faded that way, so a locked race with no awards does not get lectured about them.
 
-Once you start checking racers in, the panel collapses to one line naming whatever is still outstanding — "Setting up: 2 of 6 done — Check in cars · Generate a schedule · Set up awards", say — so it stops sitting above the roster table for the rest of the day. Click it to open it back up. "Print pit passes" drops off that line as soon as check-in starts, whether or not anything was printed; "Check in cars" stays on it, counting, until the last racer arrives.
+Once you start checking racers in, the panel collapses to one line naming whatever is still outstanding — "Setting up: 2 of 4 done — Check in cars · Generate a schedule · optional: Set up awards", say — so it stops sitting above the roster table for the rest of the day. Click it to open it back up. The count is over the four required steps only, so finishing them reads as "4 of 4 done" even with awards or printing still to decide; anything optional still outstanding is named afterward, under its own "optional:" label, rather than counted as a fifth or sixth obligation. "Print anything you need" drops off that line as soon as check-in starts, whether or not anything was printed; "Check in cars" stays on it, counting, until the last racer arrives.
 
 If you set the race up with the wizard, the first step is already done — the dens it made are
 there. If your pack does not use dens, skip that step: it counts as done as soon as you have racers.
