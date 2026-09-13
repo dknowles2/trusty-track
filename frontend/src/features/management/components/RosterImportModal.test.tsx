@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import '../../../setupTests';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useMutation } from 'urql';
-import RosterImportModal, { RosterImportSource } from './RosterImportModal';
+import RosterImportModal, { IMPORT_OTHER_SOFTWARE_LABEL, RosterImportSource } from './RosterImportModal';
 import {
     PREVIEW_GPRM_IMPORT,
     PREVIEW_DERBYNET_IMPORT,
@@ -107,6 +107,17 @@ const open = (source: RosterImportSource, onImportSuccess = vi.fn()) =>
     render(
         <RosterImportModal
             source={source}
+            isOpen
+            onClose={vi.fn()}
+            raceId={1}
+            onImportSuccess={onImportSuccess}
+        />,
+    );
+
+/** No `source` -- the modal opens on its own chooser step. */
+const openChooser = (onImportSuccess = vi.fn()) =>
+    render(
+        <RosterImportModal
             isOpen
             onClose={vi.fn()}
             raceId={1}
@@ -249,5 +260,125 @@ describe.each(Object.keys(SOURCES) as RosterImportSource[])('RosterImportModal (
         // paragraph names the same program too, so a plain text match would
         // find both and throw on the ambiguity.
         expect(screen.getByRole('heading')).toHaveTextContent(SOURCES[source].titleFragment);
+    });
+});
+
+// #1086: one menu entry opens this modal with no `source`, and it asks
+// which program on its own chooser step rather than the roster offering
+// two near-identical menu entries with the same icon.
+describe('RosterImportModal (chooser)', () => {
+    it('renders one option per source, and nothing further, when no source is pinned', () => {
+        mockMutations('gprm');
+        openChooser();
+
+        expect(screen.getByRole('heading')).toHaveTextContent(IMPORT_OTHER_SOFTWARE_LABEL);
+        // One radio per `SOURCE_CONFIG` key -- adding a third source should
+        // mean adding a config entry, not touching this chooser's JSX.
+        expect(screen.getAllByRole('radio')).toHaveLength(2);
+        expect(screen.getByText('GrandPrix Race Manager')).toBeInTheDocument();
+        expect(screen.getByText('DerbyNet')).toBeInTheDocument();
+        // Nothing from the file step has appeared yet.
+        expect(screen.queryByRole('button', { name: /Select .* Database/ })).not.toBeInTheDocument();
+    });
+
+    it('disables Continue until a source is picked', () => {
+        mockMutations('gprm');
+        openChooser();
+
+        expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    });
+
+    it('continues to the file step for the picked source', async () => {
+        mockMutations('derbynet');
+        openChooser();
+
+        await userEvent.click(screen.getByRole('radio', { name: /DerbyNet/ }));
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+        expect(screen.getByRole('heading')).toHaveTextContent('DerbyNet');
+        expect(screen.getByText('Select DerbyNet Database')).toBeInTheDocument();
+
+        await selectFile('derbynet', 'roster.sqlite');
+        await waitFor(() => expect(screen.getByText('Alex Rivera')).toBeInTheDocument());
+    });
+
+    it('Back clears the file and returns to the chooser', async () => {
+        mockMutations('derbynet');
+        openChooser();
+
+        await userEvent.click(screen.getByRole('radio', { name: /DerbyNet/ }));
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+        await selectFile('derbynet', 'roster.sqlite');
+        await waitFor(() => expect(screen.getByText('Alex Rivera')).toBeInTheDocument());
+
+        await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+        expect(screen.getByRole('heading')).toHaveTextContent(IMPORT_OTHER_SOFTWARE_LABEL);
+
+        // Continuing again on the same source shows an empty file step --
+        // the file picked before Back is gone, not carried over.
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+        expect(screen.getByText('Select DerbyNet Database')).toBeInTheDocument();
+        expect(screen.queryByText('Alex Rivera')).not.toBeInTheDocument();
+    });
+
+    // The reviewer on #1086 flagged this as a follow-up, not a blocker: the
+    // component instance now persists across a source switch (it used to be
+    // a fresh mount per source), so `runPreview`'s async completion needs
+    // its own guard against a stale response landing under the wrong
+    // program's file step.
+    it('does not show a stale preview after backing out mid-preview and switching source', async () => {
+        let resolveGprmPreview!: (value: { data: Record<string, unknown> }) => void;
+        const gprmPreviewPromise = new Promise<{ data: Record<string, unknown> }>((resolve) => {
+            resolveGprmPreview = resolve;
+        });
+        const gprmPreview = vi.fn().mockReturnValue(gprmPreviewPromise);
+        const derbynetPreview = vi.fn().mockResolvedValue({
+            data: { previewDerbynetImport: PREVIEW_RESULT },
+        });
+        (useMutation as unknown as ReturnType<typeof vi.fn>).mockImplementation((doc: unknown) => {
+            if (doc === PREVIEW_GPRM_IMPORT) return [{ fetching: false }, gprmPreview];
+            if (doc === PREVIEW_DERBYNET_IMPORT) return [{ fetching: false }, derbynetPreview];
+            return [{}, vi.fn()];
+        });
+
+        openChooser();
+
+        // Start a GPRM preview and leave it unresolved.
+        await userEvent.click(screen.getByRole('radio', { name: /GrandPrix Race Manager/ }));
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+        await selectFile('gprm', 'roster.sqlite');
+        expect(gprmPreview).toHaveBeenCalled();
+
+        // Back out, without waiting for that preview, and switch to DerbyNet.
+        await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+        await userEvent.click(screen.getByRole('radio', { name: /DerbyNet/ }));
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+        expect(screen.getByText('Select DerbyNet Database')).toBeInTheDocument();
+
+        // The abandoned GPRM preview settles only now. Flushed inside
+        // `act()` so its `.then` genuinely runs (and its `setPreview` would
+        // genuinely land) before the assertion below -- otherwise this test
+        // passes for the wrong reason, whether or not the guard exists.
+        await act(async () => {
+            resolveGprmPreview({ data: { previewGprmImport: PREVIEW_RESULT } });
+            await gprmPreviewPromise;
+        });
+
+        // Still on DerbyNet's own, file-less step -- the stale GPRM result
+        // must not have populated `preview`.
+        expect(screen.getByText('Select DerbyNet Database')).toBeInTheDocument();
+        expect(screen.queryByText('Alex Rivera')).not.toBeInTheDocument();
+    });
+
+    it('skips the chooser when a source is pinned', () => {
+        mockMutations('gprm');
+        open('gprm');
+
+        expect(screen.getByRole('heading')).toHaveTextContent('GrandPrix Race Manager');
+        expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
+        // No chooser to go back to.
+        expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
     });
 });

@@ -513,6 +513,71 @@ describe('RaceDetails', () => {
     });
 });
 
+describe('the Add Racer menu (#1086)', () => {
+    // #1086 collapsed the GPRM and DerbyNet entries, each opening its own
+    // mount of `RosterImportModal`, into one entry that opens the modal
+    // without a `source` -- the modal asks which program on its own chooser
+    // step. This pins the menu itself: exactly three entries, not four, and
+    // no more "GrandPrix Race Manager" / "DerbyNet" split in the menu text.
+    function mockRaceQuery() {
+        (useQuery as any).mockReturnValue([{
+            data: {
+                race: {
+                    id: 1,
+                    name: 'Test Race',
+                    dateTime: '2024-03-15T10:00:00',
+                    location: 'Test Location',
+                    schedulingStrategy: 'LANE_ROTATION',
+                    scoringStrategy: 'TIMED',
+                    carNumberingStrategy: 'PER_GROUP',
+                    trackId: 1,
+                    organizationId: 1,
+                    globalStartNumber: 1,
+                    championshipTrophies: 3,
+                    track: { name: 'Main Track' },
+                    racers: [],
+                    racingGroups: [],
+                    leaderboard: []
+                },
+                tracks: [{ id: 1, name: 'Main Track' }]
+            },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+        mockMutations();
+    }
+
+    it('lists CSV, other racing software, and Populate Test Data -- nothing else', async () => {
+        mockRaceQuery();
+
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes>
+                    <Route path="/races/:raceId" element={<RaceDetails />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('race-summary-line')).toBeInTheDocument();
+        });
+
+        await userEvent.click(screen.getByRole('button', { name: 'More ways to add racers' }));
+
+        const menu = screen.getByText('Import from CSV').closest('.dropdown-content') as HTMLElement;
+        expect(menu).not.toBeNull();
+        const entries = Array.from(menu.querySelectorAll('button')).map((button) => button.textContent?.trim());
+
+        expect(entries).toEqual([
+            'Populate Test Data',
+            'Import from CSV',
+            'Import from other racing software',
+        ]);
+        expect(screen.queryByText(/Import from GrandPrix Race Manager/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Import from DerbyNet/)).not.toBeInTheDocument();
+    });
+});
+
 describe('the fields GetRaceDetails actually asks for', () => {
     /**
      * Field names selected directly on `race` — not inside a nested selection.

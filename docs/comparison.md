@@ -147,10 +147,10 @@ and organization can be renamed alongside the vehicle.
 
 If your pack is moving from GrandPrix Race Manager or DerbyNet, its database
 can be read directly — dens, car numbers and passed-inspection status all
-come across in one import from the roster's **Import from GrandPrix Race
-Manager** or **Import from DerbyNet** button, rather than exporting to CSV
-and remapping columns by hand. Both programs keep photographs as separate
-files outside the database, so those still need adding again afterwards. See
+come across in one import from the roster's **Import from other racing
+software** button, rather than exporting to CSV and remapping columns by
+hand. Both programs keep photographs as separate files outside the
+database, so those still need adding again afterwards. See
 [Adding racers](race-setup.md#adding-racers).
 
 ## Sources
