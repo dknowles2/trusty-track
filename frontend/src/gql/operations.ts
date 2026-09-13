@@ -1117,6 +1117,15 @@ export type ActivityLogQueryVariables = Exact<{
 
 export type ActivityLogQuery = { auditLog: Array<{ id: number, at: string, action: string, role: string, outcome: string, summary: string, noteworthy: boolean, raceId: number | null, sourceIp: string | null, details: string | null }> };
 
+export type ActivityLogLiveQueryVariables = Exact<{
+  raceId?: number | null | undefined;
+  limit: number;
+  beforeId?: number | null | undefined;
+}>;
+
+
+export type ActivityLogLiveQuery = { auditLog: Array<{ id: number, at: string, action: string, role: string, outcome: string, summary: string, noteworthy: boolean, raceId: number | null, sourceIp: string | null, details: string | null }> };
+
 export type DiagnosticTracksQueryVariables = Exact<{ [key: string]: never; }>;
 
 

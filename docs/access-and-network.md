@@ -237,7 +237,7 @@ in another tab.
 ![The activity log](assets/screenshots/settings/04-activity-log.png)
 _The timeline, newest first. Each line carries the time, what was done, and which role did it; the details beneath name what it was done to._
 
-Three things worth knowing:
+Four things worth knowing:
 
 - **Heat results say how they arrived** — *recorded by the timer*, or
   *entered by hand*. That is the distinction a disputed time turns on.
@@ -247,6 +247,15 @@ Three things worth knowing:
 - **No PIN is ever written down.**
 - **Load older entries** at the foot of the page reaches further back than
   what is shown at first.
+
+**Live** keeps the page current on its own, for watching a race in progress
+on a second screen. It is off by default and remembered on this device — flip
+it on and new entries appear as a **N new entries** chip rather than the page
+jumping while you are reading, so scrolling down or loading older entries is
+never disturbed; click the chip to bring them in. Filtered to one race, Live
+watches that race; with no race filter it watches every race on the install.
+Off, the page is exactly what it always was — click **Refresh** for anything
+that happened since you opened it.
 
 The log is operator-only. The rest of the rules — how long it keeps, what
 survives a race deletion — are in

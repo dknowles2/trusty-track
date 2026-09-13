@@ -15,7 +15,9 @@ paths:
   - frontend/src/features/core/components/UnlockButton.tsx
   - frontend/src/features/core/components/DemoSessionGate.tsx
   - frontend/src/features/settings/activityLog.ts
+  - frontend/src/features/settings/activityLive.ts
   - frontend/src/features/settings/pages/ActivityLog.tsx
+  - frontend/src/features/core/hooks/useRaceStateChanged.ts
   - frontend/src/features/management/deleteConfirmation.ts
   - frontend/src/features/management/components/DeleteLockedRaceModal.tsx
   - deploy/cloudrun/**
@@ -159,7 +161,7 @@ The version it stamps is `0.0.0-dev-<short sha>` — `backend/version.py`'s own 
 
 **`race_id` is a plain integer, not a foreign key.** The one place the schema declines a cascade (#125): deleting a race must not take the record of what was done to it.
 
-**A query, not a subscription.** Half the entries are written from `crud`, and publishing from there would mean `db` importing the api layer's pub/sub. The page refetches instead.
+**A query, not a subscription.** Half the entries are written from `crud`, and publishing from there would mean `db` importing the api layer's pub/sub. The page refetches instead — by hand, with the **Refresh** button, or on its own once **Live** ([#1078](https://github.com/dknowles2/trusty-track/issues/1078)) is switched on. Live adds no channel of its own: it rides `race_state:{race_id}`, the one every mutation and the timer's own result path already publish on, through the existing `useRaceStateChanged` hook (`Observation.tsx` uses it the same way for intermissions) — and refetches on every event rather than applying that hook's usual cache-merge gate (`alwaysRefetch`, in `useRaceStateChanged.ts`), since `auditLog` is not the `race` entity graphcache merges into and a `HEAT_RESULT` event that merges cleanly elsewhere still means a fresh audit entry exists here. Off by default, remembered per device (`features/settings/activityLive.ts`, the same `localStorage` shape as the chime), and filtered to one race subscribes to that race alone; with no race filter it opens one socket per race in the list, since there is no argument-free "every race" channel. New entries wait as a "N new entries" chip rather than landing on screen outright, so an operator who has scrolled down or loaded older pages never has the page move under them. `frontend/e2e/functional/activityLog.spec.ts`'s own Live test is the one place the timer's result path and the socket are proven to reach a second, unrefreshed tab together.
 
 **The query guards itself.** `RolePolicyExtension` covers mutations only, so `auditLog` calls `_require_operator_role` — the same gap `/api/backup` and `/ws/timer/{track_id}` each close for themselves. `sourceIp` is a separate field so a screen can decline to ask, and the page does not show it by default.
 

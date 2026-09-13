@@ -111,6 +111,45 @@ test('a result typed in by hand is told apart from the timer’s', async ({ page
     });
 });
 
+test('Live brings in a heat result the timer just recorded, with no Refresh click', async ({
+    page,
+    context,
+}) => {
+    // The one scenario that exercises both audit seams *and* the socket
+    // together (#1078): a query refetching itself off `race_state:{raceId}`
+    // rather than a subscription is why the log stays a query at all
+    // (`.claude/rules/auth-and-demo.md`'s "A query, not a subscription"), and
+    // nothing short of a real backend and a real browser proves the wiring
+    // between the timer's own result path and that channel actually reaches
+    // a second, unrefreshed tab.
+    await ensureConfigured(page);
+    const { raceId } = await seedRace(page, 'Activity Live Race');
+    await createSchedule(page, raceId);
+
+    // The operator's second screen: Activity, filtered to this race, Live on.
+    await page.goto(`/activity?race=${raceId}`);
+    await page.getByTestId('live-activity').click();
+    await expect(page.getByTestId('live-activity')).toBeChecked();
+    await expect(page.getByText('Heat result recorded by the timer')).toHaveCount(0);
+
+    // A second tab runs the race — the same fake-timer seam the earlier test
+    // in this file drives, just from a tab that never touches Activity.
+    const control = await context.newPage();
+    await control.goto(`/race/${raceId}/control/race`);
+    await expect(control.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+    await control.getByRole('button', { name: 'Start Timer' }).click();
+    await control.getByRole('button', { name: 'Finish Heat' }).click();
+    await expect(control.getByRole('button', { name: /^Next Heat/ })).toBeVisible({
+        timeout: 30000,
+    });
+
+    // No `refresh-activity` click on `page` anywhere above — Live is what is
+    // supposed to bring this entry in on its own.
+    await expect(page.getByText('Heat result recorded by the timer').first()).toBeVisible({
+        timeout: 15000,
+    });
+});
+
 // The remaining two claims — that a device without the operator PIN is refused
 // the log, and that a PIN never reaches a column — are backend tests
 // (`test_audit_log.py`). Setting a PIN here would lock this shared backend for

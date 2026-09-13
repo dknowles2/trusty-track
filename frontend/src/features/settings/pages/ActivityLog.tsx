@@ -12,12 +12,15 @@
 
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from 'urql';
+import { useClient, useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import { mdiAlertCircleOutline, mdiRefresh } from '@mdi/js';
 
 import BackLink from '../../core/components/BackLink';
-import { ACTIVITY_LOG_QUERY } from '../graphql/queries';
+import { GET_RACES_NAV } from '../../core/graphql/queries';
+import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
+import { ACTIVITY_LOG_LIVE_QUERY, ACTIVITY_LOG_QUERY } from '../graphql/queries';
+import { applyPendingEntries, pendingSince, readLiveSetting, writeLiveSetting } from '../activityLive';
 import {
     appendPage,
     byDay,
@@ -29,6 +32,22 @@ import {
 } from '../activityLog';
 
 const PAGE_SIZE = 200;
+
+/**
+ * One race's own live socket, for the "all races" view (#1078).
+ *
+ * `useRaceStateChanged` is one hook per race — there is no argument-free
+ * "every race" channel (`.claude/rules/frontend-screens.md`'s "The race list
+ * survives a second tab" explains why `racesChanged` itself stays a bare
+ * signal rather than growing this kind of per-race payload). With no race
+ * filter, Live opens one socket per race in the list instead: cheap on a
+ * single-operator LAN, and the only way to cover the unfiltered view without
+ * a second backend channel.
+ */
+function RaceLiveWatcher({ raceId, onEvent }: { raceId: number; onEvent: () => void }) {
+    useRaceStateChanged(raceId, onEvent, { alwaysRefetch: true });
+    return null;
+}
 
 export default function ActivityLog() {
     const [params, setParams] = useSearchParams();
@@ -50,9 +69,19 @@ export default function ActivityLog() {
     const [beforeId, setBeforeId] = useState<number | null>(null);
     const [loaded, setLoaded] = useState<LogEntry[]>([]);
     const [previousRaceId, setPreviousRaceId] = useState(raceId);
+
+    // Live (#1078): off by default, remembered per device, the same shape as
+    // the finish chime. New entries wait in `pending` — a chip below the
+    // filter line — rather than landing straight in `loaded`, so an operator
+    // who has scrolled down or loaded older pages does not have the page grow
+    // out from under them.
+    const [live, setLive] = useState(() => readLiveSetting());
+    const [pending, setPending] = useState<LogEntry[]>([]);
+
     if (previousRaceId !== raceId) {
         setPreviousRaceId(raceId);
         if (beforeId !== null) setBeforeId(null);
+        if (pending.length !== 0) setPending([]);
     }
 
     const [{ data, fetching, error }, refetch] = useQuery({
@@ -83,6 +112,7 @@ export default function ActivityLog() {
     const canLoadMore = hasAnotherPage(page, PAGE_SIZE);
 
     const handleRefresh = () => {
+        if (pending.length !== 0) setPending([]);
         if (beforeId === null) {
             refetch({ requestPolicy: 'network-only' });
         } else {
@@ -94,6 +124,65 @@ export default function ActivityLog() {
         const last = loaded[loaded.length - 1];
         if (last) setBeforeId(last.id);
     };
+
+    const handleToggleLive = (enabled: boolean) => {
+        setLive(enabled);
+        writeLiveSetting(enabled);
+        // Off is meant to read as "exactly today's behaviour" — a chip left
+        // over from a moment ago would say otherwise.
+        if (!enabled && pending.length !== 0) setPending([]);
+    };
+
+    const handleShowPending = () => {
+        setLoaded((prev) => applyPendingEntries(prev, pending));
+        setPending([]);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Live's own poll: always the newest page for the current filter,
+    // through `ACTIVITY_LOG_LIVE_QUERY` rather than the visible query above —
+    // see that document's own comment for why a shared key would matter here.
+    // A plain function, recreated each render so it always closes over the
+    // current `loaded` — `useSubscription` (inside `useRaceStateChanged` and
+    // `RaceLiveWatcher`) keeps its own ref to the latest handler and does not
+    // resubscribe when it changes identity, so there is nothing to memoize
+    // here, and memoizing it would mean either a stale `loaded` or a ref
+    // written during render.
+    const client = useClient();
+    const handleLiveEvent = () => {
+        client
+            .query(
+                ACTIVITY_LOG_LIVE_QUERY,
+                { raceId, limit: PAGE_SIZE, beforeId: null },
+                { requestPolicy: 'network-only' },
+            )
+            .toPromise()
+            .then((result) => {
+                const fresh: LogEntry[] = result.data?.auditLog ?? [];
+                setPending(pendingSince(loaded, fresh));
+            })
+            .catch(() => {
+                // Best-effort: a failed live refresh leaves the operator no
+                // worse off than before Live existed — Refresh still works.
+            });
+    };
+
+    // Filtered to one race: a single socket on that race. Filtered to "all
+    // races": no bare "every race" channel exists (see `RaceLiveWatcher`
+    // above), so the race list is fetched only to open one socket per race.
+    const filteredToRace = raceId != null;
+    const [{ data: racesForLiveData }] = useQuery({
+        query: GET_RACES_NAV,
+        pause: !live || filteredToRace,
+    });
+    const racesForLive: { id: number }[] = racesForLiveData?.races ?? [];
+    const liveRaceIds: number[] =
+        live && !filteredToRace ? racesForLive.map((race) => race.id) : [];
+
+    useRaceStateChanged(live && filteredToRace ? (raceId ?? undefined) : undefined, handleLiveEvent, {
+        pause: !live || !filteredToRace,
+        alwaysRefetch: true,
+    });
 
     // `new Date()` at render rather than in the rules, which stay pure and let
     // a test pin what "Today" means.
@@ -129,6 +218,24 @@ export default function ActivityLog() {
             >
                 <h2 style={{ margin: 0 }}>Activity log</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <label
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.85rem',
+                            color: 'var(--text-strong-muted-color)',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <input
+                            type="checkbox"
+                            data-testid="live-activity"
+                            checked={live}
+                            onChange={(e) => handleToggleLive(e.target.checked)}
+                        />
+                        Live
+                    </label>
                     <label
                         style={{
                             display: 'flex',
@@ -185,6 +292,19 @@ export default function ActivityLog() {
                     </>
                 )}
             </p>
+
+            {pending.length > 0 && (
+                <p style={{ marginTop: '0.5rem' }}>
+                    <button
+                        className="secondary-btn"
+                        data-testid="activity-new-entries"
+                        onClick={handleShowPending}
+                        style={{ fontSize: '0.85rem', padding: '4px 12px' }}
+                    >
+                        {pending.length} new {pending.length === 1 ? 'entry' : 'entries'} — show
+                    </button>
+                </p>
+            )}
 
             {fetching && loaded.length === 0 && <p>Loading…</p>}
 
@@ -286,6 +406,10 @@ export default function ActivityLog() {
                     </button>
                 </p>
             )}
+
+            {liveRaceIds.map((watchedRaceId: number) => (
+                <RaceLiveWatcher key={watchedRaceId} raceId={watchedRaceId} onEvent={handleLiveEvent} />
+            ))}
         </div>
     );
 }
