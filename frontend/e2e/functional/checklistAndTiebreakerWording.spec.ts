@@ -14,12 +14,17 @@
 import { test, expect } from '@playwright/test';
 import { seedRace } from './support';
 
-test('Ties: the Lowest-total-time note fires under Timed scoring, and Countback never does (#1089)', async ({
+test('Ties: the Lowest-total-time note fires under Cumulative time scoring, and Countback never does (#1089)', async ({
     page,
 }) => {
-    // `seedRace` creates a TIMED race on a track with a real (fake) timer —
-    // exactly the combination under which Lowest total time can never break
-    // a tie (a tie on the average is a tie on the total behind it), and
+    // `seedRace` creates a TIMED race, which is deliberately *not* the case
+    // this asserts: a review of the first version of this rule found that
+    // Timed (average) does not make Lowest total time a no-op — a
+    // disrupted round (a lane outage, a latecomer) is kept under Timed, so
+    // two tied racers can average the same on a different number of heats
+    // while their raw totals differ. Cumulative time is the genuine
+    // tautology instead (with drop_worst_runs at its default of 0, where
+    // Cumulative time's sum and Lowest total time's sum are the same sum).
     // Countback is never flagged under any combination.
     const { raceId } = await seedRace(page, 'Tiebreaker Wording Race');
 
@@ -28,6 +33,11 @@ test('Ties: the Lowest-total-time note fires under Timed scoring, and Countback 
 
     const form = page.locator('form');
     await form.getByTestId('race-settings-nav-scoring').click();
+    await form
+        .locator('label')
+        .filter({ hasText: 'Cumulative time (total)' })
+        .locator('input[type="radio"]')
+        .click();
 
     const ties = form.getByRole('group', { name: 'Ties' });
     const totalTimeRow = ties.locator('label').filter({ hasText: 'Lowest total time' });

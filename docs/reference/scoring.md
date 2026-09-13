@@ -172,7 +172,7 @@ of them:
 | Choice | What it looks at | Who wins | When it can't help |
 | --- | --- | --- | --- |
 | **Fastest single heat** | Each tied car's single fastest heat | The lowest of those | Under Fastest single run scoring, where that's already what's being compared |
-| **Lowest total time** | Each tied car's heat times, added up | The lowest total | Under Timed (average) or Cumulative time, where tied cars already have the same total |
+| **Lowest total time** | Each tied car's heat times, added up | The lowest total | Under Timed (average), only when every tied car ran the same number of heats — a disrupted round can leave them uneven, and then the totals differ even though the average doesn't. Under Cumulative time, it's the score itself, unless worst runs are being dropped |
 | **Countback** | Finishing places, not times: how many 1st-place heats, then 2nds, and so on | The most 1sts, then the most 2nds, and so on | Nothing about the race's settings stops it — works with no timer at all |
 | **Head-to-head** | Only the heats where the tied cars raced each other | Whoever won more of those | If the tied cars never shared a heat — the tie then stays shared |
 

@@ -127,23 +127,30 @@ is a judgment call left to you, same as always: settle it with a
 correcting a time if one was recorded wrong.
 
 If you'd rather Trusty Track settle it automatically, which of the other
-four to pick depends on how the race is scored — and one of the two
-time-reading methods is always tautological against whichever strategy it
-mirrors, so it is never the useful choice under that one strategy:
+four to pick depends on how the race is scored. **Fastest single heat** is
+tautological under **Fastest single run** scoring — that comparison is
+exactly what produced the tie in the first place — and nowhere else.
+**Lowest total time** is tautological under **Cumulative time** scoring
+*only* while nothing is being dropped; it is never ruled out under
+**Timed (average)**, for a reason worth stating plainly since it is easy to
+assume otherwise:
 
 - **Timed (average) races** want **Fastest single heat** — the traditional
   pinewood answer, and what most packs mean by "fastest run wins". **Lowest
-  total time** does nothing here: with every tied car on the same number of
-  heats, a tie on the average is already a tie on the total behind it.
-- **Cumulative time races** want **Fastest single heat** for the same
-  reason. **Lowest total time** does nothing here either, for the opposite
-  reason: it is exactly what Cumulative time already scores by, so a tie
-  under it is already a tie on the value the method would compare.
+  total time** can help too, and often does: Timed keeps a round a lane
+  outage or a latecomer disrupted rather than dropping it, so two tied cars
+  can average the same time on a *different* number of counted heats, and
+  their raw totals then differ even though their averages don't.
+- **Cumulative time races** want **Fastest single heat**. **Lowest total
+  time** does nothing here *if* worst runs aren't being dropped — it is
+  exactly what Cumulative time already scores by — but once a drop is
+  active, Cumulative time scores the total *after* dropping while this
+  method still compares the raw, undropped total, and the two can disagree.
 - **Fastest single run races** want **Lowest total time**, if consistency
   across every heat should count for more than the one great run the
   scoring itself already ranks by. **Fastest single heat** does nothing
-  here — that comparison is exactly what produced the tie in the first
-  place.
+  here, with or without a drop — dropping the worst (highest) values can
+  never remove the best one.
 - **Points races with a timer running** can use either **Fastest single
   heat** or **Lowest total time**, since a time is still being recorded
   even though it is not the score.
@@ -158,9 +165,9 @@ mirrors, so it is never the useful choice under that one strategy:
   In a large field it resolves less often, since two tied cars may never
   have shared a heat.
 
-Choosing one of the tautological pairs above is not blocked — Trusty Track
-warns rather than refuses, right in the race form's Ties fieldset, naming
-the reason it won't fire for that race.
+Choosing a method that cannot help is not blocked — Trusty Track warns
+rather than refuses, right in the race form's Ties fieldset, naming the
+reason it won't fire for that race.
 
 Whichever is picked, a tie the method cannot settle — identical times, cars
 that never met, no data at all — is reported rather than guessed at. The

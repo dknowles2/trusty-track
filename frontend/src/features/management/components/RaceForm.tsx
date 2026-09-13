@@ -617,6 +617,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                             option.value,
                                             formData.scoring_strategy,
                                             trackTimerType,
+                                            formData.drop_worst_runs,
                                         );
                                         return (
                                             <label key={option.value} style={{ display: 'block', cursor: 'pointer' }}>

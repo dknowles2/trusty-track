@@ -21,7 +21,7 @@
  */
 
 import { ordinal } from '../awards/awardText';
-import { CUMULATIVE_TIME, FASTEST_TIME, POINTS, TIMED } from './scoringStrategyText';
+import { CUMULATIVE_TIME, FASTEST_TIME, POINTS } from './scoringStrategyText';
 
 export const SHARED = 'SHARED';
 export const BEST_TIME = 'BEST_TIME';
@@ -63,7 +63,7 @@ export const TIEBREAKER_OPTIONS: readonly TiebreakerOption[] = [
     value: TOTAL_TIME,
     label: 'Lowest total time',
     description:
-      'The tied car whose heat times add up to less wins. Only helps under Points or Fastest single run — under Timed (average) or Cumulative time, tied cars have the same total.',
+      "The tied car whose heat times add up to less wins. Under Timed (average) it only helps when the tied cars ran a different number of heats; under Cumulative time it's the score itself unless worst runs are dropped.",
     needsTime: true,
   },
   {
@@ -112,28 +112,51 @@ export function resolutionNote(
 }
 
 /** Why `value` can never settle a tie for this race, or `null` if it might —
- * a table over `(method, scoringStrategy, trackTimerType)`, generalised from
- * the single Points-and-no-timer case the issue first named (#1089). Three
- * independent reasons, checked in order:
+ * a table over `(method, scoringStrategy, trackTimerType, dropWorstRuns)`,
+ * generalised from the single Points-and-no-timer case the issue first named
+ * (#1089). A review of the first version of this table found two of its four
+ * cases overclaimed a tautology the backend's own rules do not support —
+ * both corrected below, and pinned by counterexample in
+ * `tiebreakText.test.ts` so neither regresses:
  *
- * 1. **Tautological under the scoring strategy it mirrors.** `BEST_TIME`
- *    ("fastest single heat") is exactly what `FASTEST_TIME` scoring already
- *    ranks by, and `TOTAL_TIME` ("lowest total time") is exactly what
- *    `CUMULATIVE_TIME` scoring already ranks by — a tie under either
- *    strategy is already a tie on the value the method would compare, so it
- *    can never separate the tied cars.
- * 2. **`TOTAL_TIME` under `TIMED`.** `TIMED` averages each racer's heat
- *    times over the same heat count for everyone in a tied cluster (a
- *    disrupted round is dropped from standings entirely — see
- *    `.claude/rules/scoring.md` — so a counted racer's heat count always
- *    matches), and dividing every side of a tied average by the same number
- *    cannot un-tie the totals behind it.
- * 3. **No time was ever recorded.** `BEST_TIME` and `TOTAL_TIME` both read
+ * 1. **`BEST_TIME` under `FASTEST_TIME` is genuinely tautological, with or
+ *    without a drop.** `FASTEST_TIME` scoring already ranks by each racer's
+ *    single best heat time, which is exactly what `BEST_TIME` compares — a
+ *    tie under it is already a tie on that value. `drop_worst_runs` removes
+ *    each racer's *highest*-valued counted results before aggregating
+ *    (`backend/domain/scoring.py`'s module docstring), which can never
+ *    remove a *minimum* — so this holds regardless of the drop setting.
+ * 2. **`TOTAL_TIME` under `TIMED` is *not* tautological, and is never
+ *    flagged.** `TIMED` is scale-free, so unlike the two summing strategies
+ *    a round a lane outage or a latecomer disrupted is *kept* rather than
+ *    dropped from standings (`domain.scoring.counts_a_disrupted_round`,
+ *    `.claude/rules/scoring.md`'s #171/#172 entries) — so two tied racers
+ *    can have run a different number of counted heats and still average the
+ *    same. `TOTAL_TIME` sums the raw recorded times regardless
+ *    (`domain.tiebreak._by_total_time`), and a different heat count behind
+ *    an equal average sums to a different total: `[4, 6]` and
+ *    `[5, 5, 5]` both average 5.0 but total 10 and 15. `TIMED` never drops a
+ *    disrupted round in the first place, so `dropWorstRuns` does not change
+ *    this conclusion either — it stays unconditionally `null`.
+ * 3. **`TOTAL_TIME` under `CUMULATIVE_TIME` is tautological only when
+ *    nothing is being dropped.** `CUMULATIVE_TIME` sums every *counted*
+ *    time, but `drop_worst_runs > 0` drops each racer's highest values
+ *    first (once every ranked racer has enough to drop evenly —
+ *    `domain.scoring.drop_worst_status`); `TOTAL_TIME` sums the *raw*,
+ *    undropped list regardless. Two racers can reach an identical
+ *    post-drop `CUMULATIVE_TIME` score from different raw sums —
+ *    `[2, 3, 100]` and `[1, 4, 50]` both score 5.0 once the highest is
+ *    dropped, but total 105 and 55 — so `TOTAL_TIME` can still separate
+ *    them. Flagged only when `dropWorstRuns === 0`, where nothing is
+ *    dropped and the two totals are the same total by construction.
+ * 4. **No time was ever recorded.** `BEST_TIME` and `TOTAL_TIME` both read
  *    recorded heat times, and a `POINTS` race on a `NONE` timer never
  *    records one — the hand-entry modal shows a place column only (#490),
  *    so every lane's time is permanently absent. The other three scoring
  *    strategies always type a time by hand even with no physical timer, so
- *    this is specifically the `POINTS` + `NONE` combination.
+ *    this is specifically the `POINTS` + `NONE` combination, and dropping
+ *    runs changes nothing about whether a time was recorded in the first
+ *    place.
  *
  * `COUNTBACK` reads finishing places, which every scoring strategy produces
  * regardless of a timer, so it is never flagged here. `HEAD_TO_HEAD`'s gap —
@@ -145,6 +168,7 @@ export function tiebreakerWontFire(
   value: string,
   scoringStrategy: string,
   trackTimerType: string | null | undefined,
+  dropWorstRuns = 0,
 ): string | null {
   const option = TIEBREAKER_OPTIONS.find((o) => o.value === value);
   if (!option) return null;
@@ -152,11 +176,8 @@ export function tiebreakerWontFire(
   if (value === BEST_TIME && scoringStrategy === FASTEST_TIME) {
     return "Fastest single run scoring already ranks cars by their best heat time — this can't break a tie it created.";
   }
-  if (value === TOTAL_TIME && scoringStrategy === CUMULATIVE_TIME) {
-    return "Cumulative time scoring already ranks cars by their total time — this can't break a tie it created.";
-  }
-  if (value === TOTAL_TIME && scoringStrategy === TIMED) {
-    return "Timed (average) divides every tied car's total by the same heat count, so a tie on the average is a tie on the total too.";
+  if (value === TOTAL_TIME && scoringStrategy === CUMULATIVE_TIME && dropWorstRuns === 0) {
+    return "Cumulative time scoring already adds up the same heats this does — this can't break a tie it created.";
   }
   if (option.needsTime && scoringStrategy === POINTS && trackTimerType === 'NONE') {
     return 'Points scoring on a track with no timer never records a time to compare.';

@@ -112,19 +112,39 @@ describe('the tiebreaker control', () => {
         expect(fastestRow).not.toHaveTextContent(/won.t fire/i);
     });
 
-    it('warns that Lowest total time cannot fire under Timed (average) scoring', () => {
-        // #1089: a tie on the average is a tie on the total when every tied
-        // racer has run the same number of heats, which Timed (average)
-        // guarantees — regardless of whether a physical timer exists.
+    it('gives no warning for Lowest total time under Timed (average) scoring — a disrupted round can leave it useful (#1089 review)', () => {
+        // A first version of this rule claimed Timed (average) makes
+        // Lowest total time a no-op, on the premise that a disrupted round
+        // is dropped from standings. That premise is backwards — a
+        // disrupted round (a lane outage, #171; a latecomer, #172) is
+        // *kept* under Timed, so two tied racers can have run a different
+        // number of heats and still average the same, while their raw
+        // totals differ. Never flagged, regardless of timer.
         tracksQuery([{ id: 1, name: 'Fake Timer Track', timerType: 'FAKE' }]);
         form(submitSpy());
 
         const totalRow = screen.getByLabelText(/^Lowest total time/).closest('label')!;
+        expect(totalRow).not.toHaveTextContent(/won.t fire/i);
+    });
+
+    it('warns that Lowest total time cannot fire under Cumulative time scoring, only while nothing is being dropped', async () => {
+        // Cumulative time sums every counted time, which is exactly what
+        // Lowest total time compares — but only when drop_worst_runs is
+        // off. With a drop active, Cumulative time scores the *post-drop*
+        // sum while Lowest total time still sums the raw, undropped list,
+        // so the two can disagree (#1089 review).
+        tracksQuery([{ id: 1, name: 'Fake Timer Track', timerType: 'FAKE' }]);
+        form(submitSpy());
+
+        await userEvent.click(screen.getByLabelText(/^Cumulative time \(total\)/));
+
+        const totalRow = screen.getByLabelText(/^Lowest total time/).closest('label')!;
         expect(totalRow).toHaveTextContent(/won.t fire for this race/i);
 
-        // Countback and Head-to-head are unaffected by the scoring strategy.
-        const countbackRow = screen.getByLabelText(/^Countback/).closest('label')!;
-        expect(countbackRow).not.toHaveTextContent(/won.t fire/i);
+        await userEvent.clear(screen.getByLabelText('Drop worst run(s)'));
+        await userEvent.type(screen.getByLabelText('Drop worst run(s)'), '1');
+
+        expect(totalRow).not.toHaveTextContent(/won.t fire/i);
     });
 
     it('gives no warning once a track with a real timer is selected', async () => {

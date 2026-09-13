@@ -184,9 +184,16 @@ them, and picking one that cannot help *this* race gets a warning right
 there in the fieldset — naming the reason, not just that it won't fire:
 
 - **Fastest single heat** does nothing under **Fastest single run**
-  scoring, where that is already what is being compared.
-- **Lowest total time** does nothing under **Timed (average)** or
-  **Cumulative time** scoring, where tied cars already have the same total.
+  scoring, where that is already what is being compared — with or without
+  worst runs dropped, since dropping the worst can never remove the best.
+- **Lowest total time** does nothing under **Cumulative time** scoring,
+  where it's the score itself — *unless* worst runs are being dropped,
+  since Cumulative time then scores the total *after* dropping while this
+  still compares the raw total, and the two can disagree. It is **not**
+  ruled out under **Timed (average)**: a disrupted round is kept under
+  Timed rather than dropped from standings, so two tied cars can average
+  the same on a different number of heats while their raw totals differ —
+  Lowest total time can still separate them there.
 - **Fastest single heat** or **Lowest total time** on a **Points** race
   running with [no timer](#no-timer): that combination never records a time
   to compare.
