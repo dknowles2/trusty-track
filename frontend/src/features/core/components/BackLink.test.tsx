@@ -118,4 +118,38 @@ describe('BackLink', () => {
         expect(link).toHaveTextContent('Back to settings');
         expect(link).toHaveAttribute('href', '/system-settings');
     });
+
+    it('ignores a protocol-relative state.from (second review finding on #1107)', () => {
+        // `"//evil.example.com".startsWith('/')` is true — it is
+        // protocol-relative, not path-relative — and `<Link to="//...">`
+        // renders an `href` a browser reads as cross-origin. This must fall
+        // through to the destination exactly like an `https://` URL does.
+        render(
+            <MemoryRouter initialEntries={[{ pathname: '/timer-check', state: { from: '//evil.example.com' } }]}>
+                <BackLink destination={SETTINGS_DESTINATION} />
+            </MemoryRouter>,
+        );
+
+        const link = screen.getByTestId('back-link');
+        expect(link).toHaveTextContent('Back to settings');
+        expect(link).toHaveAttribute('href', '/system-settings');
+    });
+
+    it('matches the remembered race through a query string in state.from', () => {
+        // `raceIdFromPath` has to stop at `/`, `?` or `#`, not just `/` — a
+        // path like an edit-race deep link (`/race/12?edit=true`) still
+        // names race 12. `from` is always `location.pathname` today (no
+        // query string reaches it), but the parser should not depend on
+        // that happening to be true.
+        writeLastRace({ id: 12, name: 'Pack 12 Derby' });
+
+        render(
+            <MemoryRouter initialEntries={[{ pathname: '/timer-check', state: { from: '/race/12?edit=true' } }]}>
+                <BackLink destination={SETTINGS_DESTINATION} />
+            </MemoryRouter>,
+        );
+
+        const link = screen.getByTestId('back-link');
+        expect(link).toHaveTextContent('Back to Pack 12 Derby');
+    });
 });

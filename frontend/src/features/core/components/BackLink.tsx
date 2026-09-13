@@ -13,10 +13,14 @@
  *   This has to outrank everything below it: it is the one signal that says
  *   where the operator's browser actually came from, rather than a guess
  *   built from a stored device-wide preference. Anything that is not a
- *   string starting with `/` is ignored rather than trusted — `state` is
- *   whatever the router history entry happens to carry, not something this
- *   component controls, and a bad value must fall through rather than be
- *   handed to `<Link to>`. The *name* in that label still comes from
+ *   same-app absolute path — a string starting with `/` and *not* `//` — is
+ *   ignored rather than trusted: `state` is whatever the router history
+ *   entry happens to carry, not something this component controls, and a
+ *   bad value must fall through rather than be handed to `<Link to>`.
+ *   `//evil.example.com` passes a bare `startsWith('/')` check (it is
+ *   protocol-relative, not path-relative) and `<Link to="//...">` renders
+ *   an `href` the browser reads as cross-origin — caught in review on
+ *   #1107 before it shipped. The *name* in that label still comes from
  *   `readLastRace()` (`lastRace.ts`), which is per-*device* storage rather
  *   than per-tab, and is only trusted when its remembered race id actually
  *   matches the one in `from` — a second tab open on a *different* race
@@ -80,7 +84,7 @@ const linkStyle = {
  *  `readLastRace()`'s remembered race is actually the one `from` points at
  *  before borrowing its name for the label. */
 function raceIdFromPath(path: string): number | null {
-  const match = /^\/race\/(\d+)(?:\/|$)/.exec(path);
+  const match = /^\/race\/(\d+)(?:[/?#]|$)/.exec(path);
   return match ? Number(match[1]) : null;
 }
 
@@ -88,7 +92,10 @@ export default function BackLink({ destination }: { destination?: BackLinkDestin
   const location = useLocation();
   const [remembered] = useState(() => readLastRace());
   const state = location.state as BackLinkLocationState | null;
-  const from = typeof state?.from === 'string' && state.from.startsWith('/') ? state.from : undefined;
+  const from =
+    typeof state?.from === 'string' && state.from.startsWith('/') && !state.from.startsWith('//')
+      ? state.from
+      : undefined;
 
   if (from) {
     const label = remembered && remembered.id === raceIdFromPath(from) ? remembered.name : 'the race';

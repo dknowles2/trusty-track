@@ -249,12 +249,17 @@ still read once at mount (`useState(() => readLastRace())`), not subscribed
 to storage — each of the three is a fresh page on every navigation, so a
 value read as the page loads is already the right one.
 
-**Two things a reviewer of #1107 caught before merge, both about `state.from`
+**Three things a reviewer of #1107 caught before merge, all about `state.from`
 not being fully trustworthy.** `location.state` is history, not a value this
 component controls, so it is validated rather than assumed: `from` is used
-only when it is a string starting with `/`, and anything else — absent, the
-wrong type, an off-app URL — is treated as no `from` at all and falls
-through to `destination`. And the *label* shown alongside it still comes
+only when it is a same-app absolute path (leading `/`, not `//`), and
+anything else — absent, the wrong type, an off-app URL — is treated as no
+`from` at all and falls through to `destination`. **A bare `startsWith('/')`
+is not that check** — `"//evil.example.com".startsWith('/')` is `true`, a
+protocol-relative URL, and `<Link to="//...">` renders an `href` a browser
+reads as cross-origin; a second review pass on the same PR caught this
+before it shipped, and the guard is `from.startsWith('/') &&
+!from.startsWith('//')`. And the *label* shown alongside it still comes
 from `readLastRace()`, which is per-*device* storage rather than per-tab —
 `from` might name a race a **different** tab last visited, so the remembered
 race's name is only used when its id matches the one embedded in `from`
