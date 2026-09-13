@@ -420,3 +420,28 @@ test('importing the same CSV twice is refused, not duplicated (#1021)', async ({
 
     await expect(page.getByRole('row').filter({ hasText: 'Gamma' })).toHaveCount(1);
 });
+
+test('the Edit race button is the same size on Roster and on Control (#1085)', async ({ page }) => {
+    // Two hand-styled copies of this button drifted apart in padding, icon
+    // size and gap (#949 wrote Roster's, #589 wrote Control's, six weeks
+    // apart), so switching tabs made the header visibly jump. Both pages now
+    // render one shared `EditRaceButton` component — a vitest render test
+    // proves the component itself, but only a real page pair proves the two
+    // *call sites* actually agree, since nothing stops a caller passing a
+    // conflicting inline style back in.
+    const raceId = await seed(page, 'Edit Race Button Size');
+
+    await page.goto(`/race/${raceId}`);
+    const rosterButton = page.getByTestId('edit-race-btn');
+    await expect(rosterButton).toBeVisible();
+    const rosterBox = await rosterButton.boundingBox();
+
+    await page.goto(`/race/${raceId}/control`);
+    const controlButton = page.getByTestId('race-control-edit-race');
+    await expect(controlButton).toBeVisible();
+    const controlBox = await controlButton.boundingBox();
+
+    expect(rosterBox).not.toBeNull();
+    expect(controlBox).not.toBeNull();
+    expect(rosterBox!.height).toBe(controlBox!.height);
+});
