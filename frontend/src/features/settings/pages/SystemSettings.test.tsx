@@ -252,6 +252,58 @@ describe('SystemSettings', () => {
         // from firing during whichever test happens to run next.
         await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
     });
+
+    it('writes a freshly-set operator PIN before setDebugMode/setThemes fire, so neither is refused (#1079, #1080)', async () => {
+        // Reproduces a real CI break: `setDebugMode`/`setThemes` fired with
+        // whatever PIN this device was using *before* the save — blank, on
+        // an unsecured first-run install — and the moment `createInitialConfig`
+        // sets a real operator PIN, `resolve_role` stops treating an
+        // unauthenticated caller as OPERATOR. Both mutations were refused
+        // with "needs the operator PIN" on the very call that had just set
+        // it, which `screenshot-first-run.spec.ts` caught downstream as a
+        // refused `createRace` once the wizard never actually finished.
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: { initialized: false, organizationName: '', tracks: [] } },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+
+        const mockCreateMutation = vi.fn().mockResolvedValue({ data: { createInitialConfig: { initialized: true } } });
+        const pinAtCallTime: (string | null)[] = [];
+        const recordPin = () => {
+            pinAtCallTime.push(window.localStorage.getItem('trustytrack.pin'));
+            return Promise.resolve({ data: {} });
+        };
+        const mockSetDebugMode = vi.fn().mockImplementation(recordPin);
+        const mockSetThemes = vi.fn().mockImplementation(recordPin);
+        (useMutation as any).mockImplementation((query: any) => {
+            const text = documentText(query);
+            if (text.includes('mutation CreateInitialConfig')) return [{ fetching: false }, mockCreateMutation];
+            if (text.includes('mutation SetDebugMode')) return [{ fetching: false }, mockSetDebugMode];
+            if (text.includes('mutation SetThemes')) return [{ fetching: false }, mockSetThemes];
+            return [{ fetching: false }, vi.fn()];
+        });
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>
+        );
+
+        await user.type(await screen.findByLabelText('Organization Name'), 'Test Pack');
+        await user.type(screen.getByLabelText('Operator PIN'), '1234');
+
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockSetDebugMode).toHaveBeenCalled());
+        await waitFor(() => expect(mockSetThemes).toHaveBeenCalled());
+        // Neither call happened before the PIN this save just set was
+        // already in this device's own storage.
+        expect(pinAtCallTime).toEqual(['1234', '1234']);
+    });
 });
 
 describe('the mutation matcher beside a gql-tagged mutation', () => {
@@ -833,6 +885,55 @@ describe('the settings sections', () => {
         expect(sent.debugMode).toBeUndefined();
         expect(sent.displayTheme).toBeUndefined();
         expect(sent.printablesTheme).toBeUndefined();
+    });
+
+    it('on an already-configured install, setting a fresh operator PIN sequences setDebugMode/setThemes after it is written, not concurrently (#1079, #1080)', async () => {
+        // The identical hazard the wizard test above pins, reached from an
+        // ordinary Settings save instead: this install had no PIN yet (every
+        // caller was OPERATOR), the operator sets one here alongside
+        // Debugging Mode, and `updateInitialConfig`'s own success is what
+        // makes the new PIN real. Racing `setDebugMode`/`setThemes` against
+        // it — the shape used when no PIN is changing — would send them
+        // with this device's still-blank header.
+        const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
+        const pinAtCallTime: (string | null)[] = [];
+        const recordPin = () => {
+            pinAtCallTime.push(window.localStorage.getItem('trustytrack.pin'));
+            return Promise.resolve({ data: {} });
+        };
+        const mockSetDebugMode = vi.fn().mockImplementation(recordPin);
+        const mockSetThemes = vi.fn().mockImplementation(recordPin);
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: configured },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) => {
+            const text = documentText(query);
+            if (text.includes('mutation UpdateInitialConfig')) return [{ fetching: false }, mockUpdate];
+            if (text.includes('mutation SetDebugMode')) return [{ fetching: false }, mockSetDebugMode];
+            if (text.includes('mutation SetThemes')) return [{ fetching: false }, mockSetThemes];
+            return [{ fetching: false }, vi.fn()];
+        });
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('access');
+        await user.type(screen.getByLabelText('Operator PIN'), '5678');
+        await openSection('advanced');
+        await user.click(screen.getByLabelText('Debugging Mode'));
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockSetDebugMode).toHaveBeenCalled());
+        await waitFor(() => expect(mockSetThemes).toHaveBeenCalled());
+        expect(pinAtCallTime).toEqual(['5678', '5678']);
     });
 
     it('keeps an edit made in a section that is no longer on screen', async () => {

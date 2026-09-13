@@ -555,23 +555,57 @@ export default function SystemConfig() {
       writeAppTheme(appTheme);
       applyStoredAppTheme();
 
+      // Computed up front: whether *this* save is setting a fresh operator
+      // PIN decides how `setDebugMode`/`setThemes` below may safely be
+      // sequenced against the rest of the form. urql's fetch exchange reads
+      // this device's stored PIN fresh on every request (`pinHeaders()`),
+      // so the instant a new hash lands server-side, a request still
+      // carrying the *old* header (blank, on a install that had none) stops
+      // resolving as OPERATOR — see the ordering note below.
+      const operatorPinSent = pinToSend(operatorPin);
+
       let result;
       let sideEffectError: unknown = null;
       if (isEditing) {
-        // Debugging Mode and the Display/Printables themes are written by
-        // their own mutations, run *alongside* — not after — the rest of
-        // this form's save (#1079, #1080). The organization already exists
-        // once we are editing, so there is no ordering dependency the way
-        // there is on first run below, and running them in parallel is what
-        // lets a demo's refusal of the bundled fields below leave these two
-        // harmless ones unaffected.
-        const [debugResult, themesResult, updateResult] = await Promise.all([
-          setDebugModeMutation({ enabled: debugMode }),
-          setThemesMutation({ displayTheme, printablesTheme }),
-          updateInitialConfig(variables),
-        ]);
-        sideEffectError = debugResult?.error ?? themesResult?.error ?? null;
-        result = updateResult;
+        if (operatorPinSent) {
+          // A fresh PIN is part of this very save. Firing `setDebugMode`/
+          // `setThemes` at the same time as `updateInitialConfig` would send
+          // them with whatever PIN this device is using *now* — which a
+          // moment later is no longer the operator PIN, refusing both with
+          // "needs the operator PIN" even on the device that just set it
+          // (reachable on `screenshot-first-run.spec.ts`'s create-mode
+          // twin, and here too on an already-configured install setting one
+          // for the first time through Settings). Sequenced instead:
+          // `updateInitialConfig`'s own success is what makes the new PIN
+          // real, so it runs first, and the PIN is written to this device's
+          // storage before the two split-out mutations use it. The
+          // concurrency below only exists to survive `updateInitialConfig`
+          // being refused for an unrelated reason (the demo) — setting a
+          // PIN is *itself* refused there, so there is nothing to race.
+          result = await updateInitialConfig(variables);
+          if (result.error) {
+            throw result.error;
+          }
+          writePin(operatorPinSent);
+          const [debugResult, themesResult] = await Promise.all([
+            setDebugModeMutation({ enabled: debugMode }),
+            setThemesMutation({ displayTheme, printablesTheme }),
+          ]);
+          sideEffectError = debugResult?.error ?? themesResult?.error ?? null;
+        } else {
+          // No new PIN in this save, so this device's current header (a
+          // real PIN, or none on an unsecured install) stays valid
+          // throughout — safe to run alongside the rest of the form, which
+          // is what lets a demo's refusal of the bundle below leave these
+          // two harmless mutations unaffected.
+          const [debugResult, themesResult, updateResult] = await Promise.all([
+            setDebugModeMutation({ enabled: debugMode }),
+            setThemesMutation({ displayTheme, printablesTheme }),
+            updateInitialConfig(variables),
+          ]);
+          sideEffectError = debugResult?.error ?? themesResult?.error ?? null;
+          result = updateResult;
+        }
       } else {
         result = await createInitialConfig(variables);
       }
@@ -582,10 +616,13 @@ export default function SystemConfig() {
 
       if (!isEditing) {
         // The organization did not exist until the call just above created
-        // it, so on first run these can only happen afterward — there is no
-        // demo-refusal concern here the way there is for `isEditing`, since
-        // `createInitialConfig` is refused wholesale on the demo and the
-        // wizard is never reached there in the first place.
+        // it. A PIN set for the first time by the wizard has the identical
+        // hazard the `isEditing` branch above guards against — the two
+        // split-out mutations must not fire until this device's own stored
+        // PIN matches what the server just started requiring.
+        if (operatorPinSent) {
+          writePin(operatorPinSent);
+        }
         const [debugResult, themesResult] = await Promise.all([
           setDebugModeMutation({ enabled: debugMode }),
           setThemesMutation({ displayTheme, printablesTheme }),
@@ -605,8 +642,9 @@ export default function SystemConfig() {
       // The device that set the operator PIN keeps it. Otherwise setting one
       // demotes the operator on their own laptop the instant they save, which
       // is the same lockout #192 was about approached from the other side.
-      // Removing it drops the stored copy for the same reason.
-      const operatorPinSent = pinToSend(operatorPin);
+      // Removing it drops the stored copy for the same reason. A fresh PIN
+      // was already written above, before the two split-out mutations used
+      // it; this call is then a harmless repeat of the same value.
       if (operatorPinSent) {
         writePin(operatorPinSent);
       } else if (operatorPinSent === '') {
