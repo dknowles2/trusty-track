@@ -80,7 +80,7 @@ and a stopwatch it is a perfectly good answer.
 | **Other screens** | Any browser on the network | Single machine | Any browser on the network | Single machine | Single machine | Any browser with internet |
 | **Telling screens apart** | Names itself on connect, rename any time | — | Named by hand, one at a time | — | — | — |
 | **Timer models listed** | 13 | 6, plus custom in Pro | 8 | Their own | By hand or timer | Not a timer program |
-| **Race formats** | Perfect-N, championship, elimination, balanced, slowest | Several, more in Pro | Several | Several | Elimination only | Doesn't run races |
+| **Race formats** | Partial Perfect Chart, championship, elimination, balanced, slowest | Several, more in Pro | Several | Several | Elimination only | Doesn't run races |
 | **Racer limit** | None | None | None | None | 15 | — |
 | **Racer and car photos** | Yes | Pro only | Yes | — | — | Premium only |
 | **Words on screen** | Free text — group, organization and vehicle, plus a vehicle picture | Built-in presets for Pinewood, Awana Grand Prix, Space Derby and Raingutter Regatta, with their own vehicle names | — | — | — | — |

@@ -54,7 +54,9 @@ def test_advancement_restricted_to_round(db: Session):
     racers.sort(key=lambda x: x.id)
 
     # 3. Setup Rounds
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Qualifying")
+    r1 = crud.create_round(
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "Qualifying"
+    )
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
 
@@ -62,7 +64,7 @@ def test_advancement_restricted_to_round(db: Session):
         db,
         race.id,
         2,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Champ A",
         advancement_source="ALL",
         advancement_num_racers=4,
@@ -74,7 +76,7 @@ def test_advancement_restricted_to_round(db: Session):
         db,
         race.id,
         3,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Champ B",
         advancement_source=f"ROUND:{r2.id}",
         advancement_num_racers=2,

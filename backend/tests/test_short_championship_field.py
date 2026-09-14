@@ -83,7 +83,7 @@ def _champ_round(db: Session, race_id: int, slots: int):
         db,
         race_id,
         2,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Finals",
         advancement_source="ALL",
         advancement_num_racers=slots,
@@ -97,7 +97,7 @@ def _champ_round(db: Session, race_id: int, slots: int):
 def test_a_short_field_leaves_no_undecided_slot(db: Session, racer_count: int):
     """The bug itself: slot -4 was never filled, in every heat, forever."""
     race, _ = _race(db, f"short{racer_count}", racer_count)
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     r2 = _champ_round(db, race.id, slots=4)
@@ -113,7 +113,7 @@ def test_a_short_field_leaves_no_undecided_slot(db: Session, racer_count: int):
 def test_a_short_field_leaves_the_round_runnable(db: Session):
     """What the operator actually cares about: the screen has controls."""
     race, _ = _race(db, "runnable", 3)
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     r2 = _champ_round(db, race.id, slots=4)
@@ -130,7 +130,7 @@ def test_a_short_field_leaves_the_round_runnable(db: Session):
 def test_the_round_is_rebuilt_for_the_field_that_qualified(db: Session):
     """Three racers get a three-racer schedule, not a four-racer one with a hole."""
     race, racers = _race(db, "rebuilt", 3)
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     r2 = _champ_round(db, race.id, slots=4)
@@ -165,7 +165,7 @@ def test_an_exact_field_is_filled_without_regenerating(db: Session, monkeypatch)
     at all.
     """
     race, _ = _race(db, "exact", 6)
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     r2 = _champ_round(db, race.id, slots=4)
@@ -199,7 +199,7 @@ def test_a_rebuilt_round_numbers_its_heats_from_one(db: Session):
     just removed — leaving a gap in the race's numbering too.
     """
     race, _ = _race(db, "numbering", 6)
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     r2 = _champ_round(db, race.id, slots=4)
@@ -223,7 +223,7 @@ def test_a_rebuilt_round_numbers_its_heats_from_one(db: Session):
 def test_stacking_onto_a_round_still_continues_its_numbering(db: Session):
     """The case `start_heat_num` exists for: adding heats without clearing."""
     race, _ = _race(db, "stacking", 4)
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     first = [h.heat_number for h in crud.get_heats(db, race.id, round_id=r1.id)]
@@ -243,7 +243,7 @@ def test_a_raced_round_is_filled_in_place_even_when_short(db: Session):
     do it, but `updateHeatResult` does not ask about phase.
     """
     race, _ = _race(db, "raced", 3)
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     r2 = _champ_round(db, race.id, slots=4)
@@ -275,7 +275,7 @@ def test_manual_advance_also_handles_a_short_field(client, db: Session):
     helper passes whatever the resolver does.
     """
     race, _ = _race(db, "manual", 3)
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
 
@@ -308,7 +308,7 @@ def test_manual_advance_also_handles_a_short_field(client, db: Session):
 
 def test_populating_with_nobody_changes_nothing(db: Session):
     race, _ = _race(db, "nobody", 3)
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     r2 = _champ_round(db, race.id, slots=4)

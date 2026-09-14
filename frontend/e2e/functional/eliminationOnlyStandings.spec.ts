@@ -8,7 +8,7 @@
  * The bug sat at the seam between two individually-tested features: the
  * elimination scheduler (unit-tested for its own wave-by-wave mechanics)
  * and the Standings/Observation screens (unit-tested against races that
- * always had a PPC/BALANCED round to fall back to). Nothing exercised the
+ * always had a GENERAL/BALANCED round to fall back to). Nothing exercised the
  * combination — an elimination round with nothing else — end to end.
  *
  * Run with:

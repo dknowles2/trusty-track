@@ -455,14 +455,14 @@ export function toWizardConfigurationInput(plan: SourceRoundPlan) {
 }
 
 const GENERAL_STYLE_LABEL: Record<string, string> = {
-    PPC: 'PPC',
+    GENERAL: 'General',
     ELIMINATION: 'Elimination',
     BALANCED: 'Balanced',
 };
 
 /**
  * The one-line summary the Details step shows beside the "Copy the rounds
- * too" checkbox (#1088) — "Rounds: 1 qualifying (PPC, 2 runs per lane) →
+ * too" checkbox (#1088) — "Rounds: 1 qualifying (General, 2 runs per lane) →
  * Championship (top 3) — from *Pack 12 Derby 2025*", the shape the issue
  * asked for. "Qualifying" and "Championship" are round-wizard vocabulary,
  * not a racing-group word — but an `EACH_GROUP` general round's "by

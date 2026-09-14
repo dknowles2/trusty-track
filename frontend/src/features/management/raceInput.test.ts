@@ -126,7 +126,7 @@ describe('buildCreateRaceInput', () => {
             ...baseFormData,
             racing_groups: [],
             round_plan: {
-                generalRound: { type: 'ALL', schedulingStrategy: 'PPC', runsPerLane: 2 },
+                generalRound: { type: 'ALL', schedulingStrategy: 'GENERAL', runsPerLane: 2 },
                 championshipRounds: [
                     {
                         name: 'Finals',
@@ -143,7 +143,7 @@ describe('buildCreateRaceInput', () => {
         expect(input.roundPlan).toEqual({
             generalRound: {
                 type: 'ALL',
-                schedulingStrategy: 'PPC',
+                schedulingStrategy: 'GENERAL',
                 runsPerLane: 2,
                 eliminationLosses: null,
                 balancedPhases: null,

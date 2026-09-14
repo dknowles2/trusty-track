@@ -69,7 +69,7 @@ describe('RoundWizard Component', () => {
 
         // 10 racers, 4 lanes, the default 3-loss threshold:
         // ceil((10 - 1) * 3 / 3) = 9. Plus the Grand Finals default (3
-        // trophies, PPC, exact) = 3. Total 12, worded "at least" throughout
+        // trophies, GENERAL, exact) = 3. Total 12, worded "at least" throughout
         // because the general round's own number is a floor.
         expect(screen.getByText('Total Heats: at least 12')).toBeInTheDocument();
         expect(screen.getByText(/at least 9 heats/)).toBeInTheDocument();
@@ -101,7 +101,7 @@ describe('RoundWizard Component', () => {
         // it in the act: the wizard promised "Total Heats: 8" for a race that
         // then ran 23 (#140).
         //
-        // More lanes must not mean fewer heats — that was the tell. Under PPC a
+        // More lanes must not mean fewer heats — that was the tell. Under GENERAL a
         // wider track means each racer meets more opponents per heat, not that
         // fewer heats are needed.
         const user = userEvent.setup();
@@ -144,7 +144,7 @@ describe('RoundWizard Component', () => {
         await user.click(screen.getByText('Next')); // Step 2
         await user.click(screen.getByText('Next')); // Step 3
 
-        // PPC makes one heat per racer, per run — lane 1 is seeded with every
+        // GENERAL makes one heat per racer, per run — lane 1 is seeded with every
         // racer, and that fixes the count. The lane count does not divide it.
         //
         //   General:      10 racers x 1 run  = 10 heats
@@ -350,7 +350,7 @@ describe('RoundWizard Component', () => {
         });
 
         // The Format picker ("All Pack" / "By Den") only makes sense
-        // alongside PPC — RoundConfigModal hides it for the other two
+        // alongside GENERAL — RoundConfigModal hides it for the other two
         // styles, and the wizard now matches.
         expect(screen.queryByText('All Pack')).not.toBeInTheDocument();
         expect(screen.queryByText('By Den')).not.toBeInTheDocument();

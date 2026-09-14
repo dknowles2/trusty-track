@@ -15,7 +15,7 @@ The fix chains the first championship round to the elimination round's own
 survival ranking instead — `ROUND:<elimination round id>`, the same
 `"the top finishers of another round"` source `RoundConfigModal`'s Add Round
 dialog already offers by hand (`lastChampionshipRound`). Nothing in the suite
-had driven the wizard with a non-PPC general round *and* a championship round
+had driven the wizard with a non-General general round *and* a championship round
 together before this — the gap #1025 calls out.
 """
 

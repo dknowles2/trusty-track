@@ -46,7 +46,7 @@ interface GeneralConfig {
   type: 'ALL' | 'EACH_GROUP';
   runsPerLane: number;
   /** "How it's raced" (#943) — the same choice `RoundConfigModal` offers a
-   * general round. A championship round is always PPC (CLAUDE.md's
+   * general round. A championship round is always GENERAL (CLAUDE.md's
    * "Ladderless elimination": an elimination round cannot also be a
    * championship round), so this lives only on the general round's own
    * config, never per championship round below. */
@@ -70,7 +70,7 @@ interface ChampionshipConfig {
 /** The general round's name a fresh wizard session would produce, absent an
  * operator's own choice — there is no Name field for it in step 1, so this
  * mirrors what `create_round_wizard` itself now names it (`crud.
- * default_general_round_name` for PPC, "Elimination Round"/"Balanced Round"
+ * default_general_round_name` for GENERAL, "Elimination Round"/"Balanced Round"
  * otherwise) closely enough for the step 3 preview. */
 function generalRoundName(style: RaceStyle, type: 'ALL' | 'EACH_GROUP', org: string, group: string): string {
   if (style === 'ELIMINATION') return 'Elimination Round';
@@ -108,7 +108,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   const [generalConfig, setGeneralConfig] = useState<GeneralConfig>({
     type: 'ALL',
     runsPerLane: 1,
-    raceStyle: 'PPC',
+    raceStyle: 'GENERAL',
     eliminationLosses: 3,
     balancedPhases: Math.max(1, laneCount),
   });
@@ -140,23 +140,23 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   // GraphQL Mutation
   const [, createRoundWizardMutation] = useMutation(CREATE_ROUND_WIZARD);
 
-  /** Heats a PPC round of this many racers produces, per run.
+  /** Heats a GENERAL round of this many racers produces, per run.
    *
    * One heat per racer, not per lane-full of them — `generate_ppc` seeds lane 1
    * with every racer, and that is what fixes the count. Dividing by the lane
    * count is the arithmetic for a scheduler that packs racers into heats, which
-   * PPC deliberately is not: every racer runs in every lane, so a 19-racer
+   * GENERAL deliberately is not: every racer runs in every lane, so a 19-racer
    * round on a 3-lane track is 19 heats, not 7 (#140).
    *
    * This preview is where an operator decides whether their evening fits, and
    * it feeds the run-time estimate too, so being out by a factor of the lane
    * count is out by a factor of the lane count on both numbers.
    *
-   * Only PPC's heat count is exact. Balanced and elimination heats grow
+   * Only GENERAL's heat count is exact. Balanced and elimination heats grow
    * from results as the round is raced (`reference/round-styles.md`'s
    * "Schedule: Grows as results come in") — a championship round is always
-   * PPC (see `ChampionshipConfig`'s own comment), so this only ever applies
-   * to the general round when it is not `PPC`. `growingRounds.ts`'s
+   * GENERAL (see `ChampionshipConfig`'s own comment), so this only ever applies
+   * to the general round when it is not `GENERAL`. `growingRounds.ts`'s
    * `expectedHeatCount` estimates that round's own eventual size instead
    * (#1022): before this, the general round's heats were left out of the
    * total and its duration shown as "Varies", which undersold the evening
@@ -170,7 +170,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
 
     // General Round
     const generalHeats =
-      generalConfig.raceStyle === 'PPC'
+      generalConfig.raceStyle === 'GENERAL'
         ? heatsFor(racerCount, generalConfig.runsPerLane)
         : expectedHeatCount(
             {
@@ -192,7 +192,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       isEstimate: generalConfig.raceStyle === 'ELIMINATION',
     });
 
-    // Championship Rounds — always PPC, so their heat count is always known.
+    // Championship Rounds — always GENERAL, so their heat count is always known.
     for (const round of championshipRounds) {
       let participatingRacers;
       if (round.source === 'ALL' || round.source === 'PREVIOUS') {
@@ -234,8 +234,8 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
    * the step 3 preview calls it.
    *
    * Also resets the first championship round off "Each {group}" when
-   * leaving PPC: that option is hidden the moment the qualifier is not PPC
-   * (#1012), and a round left holding it from an earlier PPC choice would
+   * leaving GENERAL: that option is hidden the moment the qualifier is not GENERAL
+   * (#1012), and a round left holding it from an earlier GENERAL choice would
    * make the step 3 preview multiply by the racing group count for a field
    * the server is about to chain to the elimination round's own survival
    * ranking instead. The server already forces this the same way
@@ -243,7 +243,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
    * the *preview* honest before that request is ever sent. */
   const chooseGeneralStyle = (style: RaceStyle) => {
     setGeneralConfig((prev) => ({ ...prev, raceStyle: style }));
-    if (style !== 'PPC') {
+    if (style !== 'GENERAL') {
       setChampionshipRounds((prev) =>
         prev.map((r, idx) => (idx === 0 && r.source === 'EACH_GROUP' ? { ...r, source: 'ALL' } : r))
       );
@@ -302,7 +302,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
           // the other two styles, so nothing on screen can set `type` to
           // anything but "ALL" while a style is chosen; sent explicitly all
           // the same, matching the backend's own belt-and-braces rule.
-          type: generalConfig.raceStyle === 'PPC' ? generalConfig.type : 'ALL',
+          type: generalConfig.raceStyle === 'GENERAL' ? generalConfig.type : 'ALL',
           runsPerLane: generalConfig.runsPerLane,
           schedulingStrategy: generalConfig.raceStyle,
           eliminationLosses: isElimination ? generalConfig.eliminationLosses : undefined,
@@ -450,7 +450,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                   every lane" — an elimination or balanced round is always
                   the whole {org}, the same rule `RoundConfigModal` follows
                   by hiding its own Format picker for the other two styles. */}
-              {generalConfig.raceStyle === 'PPC' && (
+              {generalConfig.raceStyle === 'GENERAL' && (
                 <>
                   <FormatFields
                     type={generalConfig.type}
@@ -540,14 +540,14 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                           {/* "Each {group}" splits the standings a qualifying
                               round drew from by racing group — meaningless
                               once that round is Elimination or Balanced,
-                              since a non-PPC general round is always one
+                              since a non-GENERAL general round is always one
                               round for the whole {org} rather than one per
                               group (#943, #1012). The server chains an
                               elimination qualifier's final to that round's
                               own survival ranking regardless of what this
                               select sends, so "Overall" alone is offered
                               here. */}
-                          {generalConfig.raceStyle === 'PPC' && (
+                          {generalConfig.raceStyle === 'GENERAL' && (
                             <option value="EACH_GROUP">Each {group}</option>
                           )}
                         </select>

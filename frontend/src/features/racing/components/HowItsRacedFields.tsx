@@ -4,11 +4,11 @@ import { useTerminology } from '../../../context/TerminologyContext';
 /** The three ways a general round can be raced (`domain/scheduling.py`,
  * `domain/elimination.py`, `domain/balanced.py`; `reference/round-styles.md`
  * has the full rules). Mirrors `models.SchedulingStrategy`'s three values
- * that a *general* round may hold — a championship round is always PPC
+ * that a *general* round may hold — a championship round is always GENERAL
  * (CLAUDE.md's "Ladderless elimination": "An elimination round cannot be a
  * championship round"), so this type, and the fieldset below, only ever
  * appears once per dialog, for the qualifying round. */
-export type RaceStyle = 'PPC' | 'ELIMINATION' | 'BALANCED';
+export type RaceStyle = 'GENERAL' | 'ELIMINATION' | 'BALANCED';
 
 interface HowItsRacedFieldsProps {
   raceStyle: RaceStyle;
@@ -60,8 +60,8 @@ export const HowItsRacedFields: React.FC<HowItsRacedFieldsProps> = ({
         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
           <input
             type="radio"
-            checked={raceStyle === 'PPC'}
-            onChange={() => onChooseStyle('PPC')}
+            checked={raceStyle === 'GENERAL'}
+            onChange={() => onChooseStyle('GENERAL')}
             disabled={loading}
           />
           <span>Everyone races in every lane</span>

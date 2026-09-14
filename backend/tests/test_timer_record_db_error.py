@@ -89,7 +89,7 @@ def _setup(db: Session, label: str):
         )
     db.commit()
 
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     return race, r1

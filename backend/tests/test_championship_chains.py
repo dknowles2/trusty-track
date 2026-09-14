@@ -185,7 +185,7 @@ class TestTheResolverPaths:
                 mutation($raceId: Int!) {
                   createRound(raceId: $raceId, roundData: {
                     name: "Finals",
-                    schedulingStrategy: "PPC",
+                    schedulingStrategy: "GENERAL",
                     advancementSource: "ALL",
                     advancementNumRacers: 3,
                     runsPerLane: 1
@@ -216,7 +216,7 @@ class TestTheResolverPaths:
                     mutation($raceId: Int!, $name: String!) {
                       createRound(raceId: $raceId, roundData: {
                         name: $name,
-                        schedulingStrategy: "PPC",
+                        schedulingStrategy: "GENERAL",
                         advancementSource: "ALL",
                         advancementNumRacers: 3,
                         runsPerLane: 1

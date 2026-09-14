@@ -38,7 +38,9 @@ def _seed(
 
 
 def _round(db: Session, race: models.Race) -> models.Round:
-    return crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    return crud.create_round(
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim"
+    )
 
 
 def _racer(db: Session, race: models.Race, name: str) -> models.Racer:
@@ -323,7 +325,7 @@ class TestContestedCut:
             db,
             race.id,
             round_number=2,
-            scheduling_strategy=models.SchedulingStrategy.PPC,
+            scheduling_strategy=models.SchedulingStrategy.GENERAL,
             name="Final",
             advancement_source="ALL",
             advancement_num_racers=1,

@@ -29,7 +29,7 @@ def test_generate_schedule_not_enough_racers(client, db):
     mutation {{
         createRound(raceId: {race_id}, roundData: {{
             name: "R1",
-            schedulingStrategy: "PPC",
+            schedulingStrategy: "GENERAL",
             runsPerLane: 1,
             generalType: "ALL"
         }}) {{
@@ -62,7 +62,7 @@ def test_generate_schedule_success_with_min_racers(client, db):
     mutation {{
         createRound(raceId: {race_id}, roundData: {{
             name: "R1",
-            schedulingStrategy: "PPC",
+            schedulingStrategy: "GENERAL",
             runsPerLane: 1,
             generalType: "ALL"
         }}) {{
@@ -101,7 +101,7 @@ def test_generate_ppc_schedule(client, db):
     mutation {{
         createRound(raceId: {race_id}, roundData: {{
             name: "PPC Round",
-            schedulingStrategy: "PPC",
+            schedulingStrategy: "GENERAL",
             runsPerLane: 1,
             generalType: "ALL"
         }}) {{

@@ -121,7 +121,7 @@ def _round_plan(client, race_id):
 
 
 def _make_source_race(db, client, *, championship_trophies=3):
-    """A wizard-built race: one PPC general round (2 runs per lane), one
+    """A wizard-built race: one General round (2 runs per lane), one
     `ALL` top-3 final, and a "Pack Champion" SPEED award on that final."""
     organization_id, track_id = _context(db)
     race = _create_race(client, organization_id, track_id, "Last Year's Derby")

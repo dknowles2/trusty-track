@@ -41,7 +41,7 @@ interface RoundConfigModalProps {
    * the same reason `createRoundWizard` chains its own first championship
    * round to the elimination round rather than offering a source that can
    * never fill. Null for every other race shape (no general round yet, a
-   * PPC or Balanced qualifier, or a mixed race), where those two options
+   * General or Balanced qualifier, or a mixed race), where those two options
    * work exactly as they always have. */
   eliminationRoundId?: number | null;
 }
@@ -62,7 +62,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   const { group, vehiclesLower } = useTerminology();
   const [type, setType] = useState<'GENERAL' | 'CHAMPIONSHIP'>('GENERAL');
   const [generalType, setGeneralType] = useState<'ALL' | 'EACH_GROUP'>('ALL');
-  const [raceStyle, setRaceStyle] = useState<RaceStyle>('PPC');
+  const [raceStyle, setRaceStyle] = useState<RaceStyle>('GENERAL');
   const [eliminationLosses, setEliminationLosses] = useState(3);
   const [balancedPhases, setBalancedPhases] = useState(Math.max(1, laneCount));
   const [name, setName] = useState('');
@@ -145,7 +145,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   // "Will create N rounds" note shown right above the Format picker.
   // Everything else, including every championship round, is exactly one.
   const roundsToCreate =
-    effectiveType === 'GENERAL' && raceStyle === 'PPC' && generalType === 'EACH_GROUP'
+    effectiveType === 'GENERAL' && raceStyle === 'GENERAL' && generalType === 'EACH_GROUP'
       ? racingGroupCount
       : 1;
 
@@ -157,7 +157,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
       const isBalanced = effectiveType === 'GENERAL' && raceStyle === 'BALANCED';
       await onSubmit({
         name,
-        schedulingStrategy: isElimination ? 'ELIMINATION' : isBalanced ? 'BALANCED' : 'PPC',
+        schedulingStrategy: isElimination ? 'ELIMINATION' : isBalanced ? 'BALANCED' : 'GENERAL',
         advancementSource:
           effectiveType === 'CHAMPIONSHIP'
             ? source === 'PREVIOUS' && lastChampionshipRound
@@ -284,7 +284,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                 mutedColor="var(--text-muted-color)"
               />
 
-              {raceStyle !== 'PPC' ? null : (
+              {raceStyle !== 'GENERAL' ? null : (
                 <FormatFields
                   type={generalType}
                   onChooseType={setGeneralType}
@@ -385,9 +385,9 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
             </>
           )}
 
-          {/* Runs per lane — only for PPC. The growing styles have their own
+          {/* Runs per lane — only for General. The growing styles have their own
               count: losses for elimination, phases for balanced. */}
-          {!(effectiveType === 'GENERAL' && raceStyle !== 'PPC') && (
+          {!(effectiveType === 'GENERAL' && raceStyle !== 'GENERAL') && (
           <div style={{ width: '50%' }}>
             <label style={labelStyle}>Runs per lane</label>
             <input

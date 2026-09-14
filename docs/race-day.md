@@ -213,7 +213,7 @@ Choose **How it's raced**:
 - **Elimination** — lose too many heats and you're out. See [Elimination Racing](#elimination-racing) below.
 - **Balanced** — each round of heats matches cars doing about as well. See [Balanced Racing](#balanced-racing) below.
 
-Set **Runs per lane** (default: 1, PPC only). Increasing this number means each racer runs in every lane more than once, which produces fairer averages but takes more time. Elimination and balanced rounds have their own count instead — losses before a car is out, or how many times each car races.
+Set **Runs per lane** (default: 1, "Everyone races in every lane" only). Increasing this number means each racer runs in every lane more than once, which produces fairer averages but takes more time. Elimination and balanced rounds have their own count instead — losses before a car is out, or how many times each car races.
 
 ![Round Wizard — Step 1](assets/screenshots/race-day/07-round-wizard-step1.png)
 _Step 1: "Everyone races in every lane" is the most common choice, and the most common format under it is "All Pack"._

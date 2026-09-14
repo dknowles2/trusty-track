@@ -50,7 +50,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
     # Round 3: Finals (Top 4)
 
     r1 = crud.create_round(
-        db, race.id, 1, models.SchedulingStrategy.PPC, "General Round"
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "General Round"
     )
     crud.generate_heats_for_round(db, r1.id)
 
@@ -59,7 +59,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
         db,
         race.id,
         2,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Semifinals",
         advancement_source="ALL",
         advancement_num_racers=8,
@@ -72,7 +72,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
         db,
         race.id,
         3,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Finals",
         advancement_source="ALL",
         advancement_num_racers=4,

@@ -43,7 +43,9 @@ def _seed(
 
 
 def _round(db: Session, race: models.Race) -> models.Round:
-    return crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    return crud.create_round(
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim"
+    )
 
 
 def _racer(db: Session, race: models.Race, name: str) -> models.Racer:
@@ -320,7 +322,7 @@ class TestDropWorstRunsAndADisruptedRound:
         db.commit()
 
         clean_round = crud.create_round(
-            db, race.id, 2, models.SchedulingStrategy.PPC, "Clean"
+            db, race.id, 2, models.SchedulingStrategy.GENERAL, "Clean"
         )
         _heat(
             db,

@@ -73,13 +73,13 @@ const lastYear = {
     } | null,
 };
 
-/** A round plan as `GET_RACE_SETUP_SOURCE` would return it (#1088): one PPC
+/** A round plan as `GET_RACE_SETUP_SOURCE` would return it (#1088): one GENERAL
  * qualifying round (2 runs per lane) and one `ALL` top-3 final whose id is
  * 9 — the same id a `ROUND:9` award names below. */
 const roundPlanFixture = {
     generalRound: {
         type: 'ALL',
-        schedulingStrategy: 'PPC',
+        schedulingStrategy: 'GENERAL',
         runsPerLane: 2,
         eliminationLosses: null,
         balancedPhases: null,
@@ -548,7 +548,7 @@ describe('copying the round plan (#1088)', () => {
 
         await next();
         expect(screen.getByTestId('setup-round-plan-summary')).toHaveTextContent(
-            'Rounds: 1 qualifying (PPC, 2 runs per lane) → Finals (top 3) — from *Last Year*',
+            'Rounds: 1 qualifying (General, 2 runs per lane) → Finals (top 3) — from *Last Year*',
         );
         const checkbox = screen.getByRole('checkbox', { name: 'Copy the rounds too' });
         expect(checkbox).toBeChecked();

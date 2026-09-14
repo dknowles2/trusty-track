@@ -11,7 +11,7 @@ from backend.domain.round_plan import RoundFact, plan_from_rounds
 def general(
     id: int,
     round_number: int = 1,
-    scheduling_strategy: str = "PPC",
+    scheduling_strategy: str = "GENERAL",
     elimination_losses: int | None = None,
     balanced_phases: int | None = None,
     runs_per_lane: int | None = 1,
@@ -43,7 +43,7 @@ def championship(
         id=id,
         round_number=round_number,
         name=name,
-        scheduling_strategy="PPC",
+        scheduling_strategy="GENERAL",
         advancement_source=advancement_source,
         advancement_num_racers=advancement_num_racers,
         advancement_from_bottom=advancement_from_bottom,
@@ -62,7 +62,7 @@ def test_championship_rounds_with_no_general_round_is_no_plan() -> None:
     assert plan_from_rounds([championship(1, 1, "ALL")]) is None
 
 
-def test_ppc_general_with_one_all_top_three_final() -> None:
+def test_general_round_with_one_all_top_three_final() -> None:
     rounds = [
         general(1, runs_per_lane=2),
         championship(2, 2, "ALL", name="Finals", advancement_num_racers=3),
@@ -70,7 +70,7 @@ def test_ppc_general_with_one_all_top_three_final() -> None:
     plan = plan_from_rounds(rounds)
     assert plan is not None
     assert plan.general_round.type == "ALL"
-    assert plan.general_round.scheduling_strategy == "PPC"
+    assert plan.general_round.scheduling_strategy == "GENERAL"
     assert plan.general_round.runs_per_lane == 2
     assert len(plan.championship_rounds) == 1
     finals = plan.championship_rounds[0]

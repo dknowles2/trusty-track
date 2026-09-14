@@ -636,7 +636,7 @@ class Round:
     def elimination_chart(self, info: Info) -> EliminationChart | None:
         """The round's record so far, wave by wave — elimination rounds only.
 
-        Null for every other scheduling strategy: PPC and balanced rounds
+        Null for every other scheduling strategy: general and balanced rounds
         have no bracket-shaped truth to draw (#710). Reads the heats and lanes
         off the loaders' per-race batch, so asking for it costs the schedule
         screen nothing per heat.
@@ -1690,7 +1690,7 @@ class PhotoAssignmentInput:
 class RoundCreateInput:
     """Input for creating a new race round."""
 
-    scheduling_strategy: str = "PPC"
+    scheduling_strategy: str = "GENERAL"
     name: str | None = None
     advancement_source: str | None = None
     advancement_num_racers: int | None = None
@@ -6832,12 +6832,12 @@ class Mutation:
                         raise ValueError("A round needs at least one phase.")
                 # "By {group}" is offered only alongside "Everyone races in
                 # every lane" (`RoundConfigModal` hides the Format picker for
-                # the other two styles) — so a non-PPC general round is
+                # the other two styles) — so a non-`GENERAL` general round is
                 # always "ALL", whatever the caller sent, matching the
                 # wizard's own belt-and-braces rule.
                 general_type = (
                     round_data.general_type
-                    if strategy == models.SchedulingStrategy.PPC
+                    if strategy == models.SchedulingStrategy.GENERAL
                     else "ALL"
                 )
                 # Only reached for a general round with no name typed —

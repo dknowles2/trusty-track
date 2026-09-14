@@ -242,7 +242,7 @@ def test_confirm_refuses_and_writes_nothing_when_the_roster_already_has_the_race
 
 def test_confirm_admits_a_checked_in_racer(client, db, race, tmp_path):
     round_obj = crud.create_round(
-        db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim"
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim"
     )
     seed = crud.create_racer(
         db,

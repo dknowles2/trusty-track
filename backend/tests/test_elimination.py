@@ -920,7 +920,7 @@ class TestTheChartResolver:
         round_obj = crud.create_round(db, race_id=race.id, round_number=1)
         crud.generate_heats_for_round(db, round_obj.id)
         round_data = self._chart(client, race.id)
-        assert round_data["schedulingStrategy"] == "PPC"
+        assert round_data["schedulingStrategy"] == "GENERAL"
         assert round_data["eliminationChart"] is None
 
     def test_the_first_wave_is_drawn_pending(self, db, client):

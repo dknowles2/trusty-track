@@ -31,7 +31,7 @@ export interface GrowingRoundShape {
  * The expected heat count for a round of this shape, or `null` when there
  * is nothing to estimate beyond the schedule itself.
  *
- * `PPC` ("Everyone races in every lane") always returns `null` — its whole
+ * `GENERAL` ("Everyone races in every lane") always returns `null` — its whole
  * schedule is built up front, so the rows *are* the truth and an estimate
  * would only be a second, potentially disagreeing answer next to the first.
  *

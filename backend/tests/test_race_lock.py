@@ -175,7 +175,7 @@ def second_racer(db, race):
 @pytest.fixture
 def round_(db, race, racer, second_racer):
     round_obj = crud.create_round(
-        db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim"
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim"
     )
     crud.generate_heats_for_round(
         db, round_obj.id, racer_ids=[racer.id, second_racer.id]

@@ -365,7 +365,7 @@ def test_existing_racer_names_is_keyed_on_the_normalized_name(db, race):
 
 def test_confirm_admits_a_checked_in_racer(client, db, race, tmp_path):
     round_obj = crud.create_round(
-        db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim"
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim"
     )
     seed = crud.create_racer(
         db,
@@ -399,7 +399,7 @@ def test_confirm_admits_a_checked_in_racer(client, db, race, tmp_path):
 
 def test_confirm_leaves_an_uninspected_import_unscheduled(client, db, race, tmp_path):
     round_obj = crud.create_round(
-        db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim"
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim"
     )
     seed = crud.create_racer(
         db,

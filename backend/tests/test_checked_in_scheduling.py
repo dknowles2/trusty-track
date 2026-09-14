@@ -60,7 +60,7 @@ def test_generate_schedule_only_checked_in(client, db):
     mutation {{
         createRound(raceId: {race_id}, roundData: {{
             name: "R1",
-            schedulingStrategy: "PPC",
+            schedulingStrategy: "GENERAL",
             runsPerLane: 1,
             generalType: "ALL"
         }}) {{
@@ -133,7 +133,7 @@ def test_generate_schedule_multiple_checked_in(client, db):
     mutation {{
         createRound(raceId: {race_id}, roundData: {{
             name: "R1",
-            schedulingStrategy: "PPC",
+            schedulingStrategy: "GENERAL",
             runsPerLane: 1,
             generalType: "ALL"
         }}) {{

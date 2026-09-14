@@ -92,7 +92,7 @@ function mockRaceData(heats: typeof untouchedHeats, roundOverrides: Record<strin
           advancementSource: null,
           advancementFromBottom: false,
           fieldPinned: false,
-          schedulingStrategy: 'PPC',
+          schedulingStrategy: 'GENERAL',
           racingGroupId: null,
           eliminationChart: null,
           advancementStatus: {

@@ -14,8 +14,8 @@ function round(
 }
 
 describe('expectedHeatCount', () => {
-    it('is null for PPC — the schedule is built up front and the rows are the truth', () => {
-        expect(expectedHeatCount(round('PPC'), 12, 4)).toBeNull();
+    it('is null for GENERAL — the schedule is built up front and the rows are the truth', () => {
+        expect(expectedHeatCount(round('GENERAL'), 12, 4)).toBeNull();
     });
 
     it('is null with fewer than two racers or lanes — nothing to estimate', () => {

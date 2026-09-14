@@ -220,7 +220,7 @@ def _setup_race_with_heat(db, lane_count=4):
     )
 
     round_ = models.Round(
-        race_id=race.id, round_number=1, name="Round 1", scheduling_strategy="PPC"
+        race_id=race.id, round_number=1, name="Round 1", scheduling_strategy="GENERAL"
     )
     db.add(round_)
     db.flush()

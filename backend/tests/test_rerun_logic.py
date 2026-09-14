@@ -62,7 +62,7 @@ def test_rerun_last_heat_clears_next_round(client, db):
                 "raceId": race_id,
                 "roundData": {
                     "name": "General",
-                    "schedulingStrategy": "PPC",
+                    "schedulingStrategy": "GENERAL",
                     "runsPerLane": 1,
                     "generalType": "ALL",
                 },
@@ -82,7 +82,7 @@ def test_rerun_last_heat_clears_next_round(client, db):
                 "raceId": race_id,
                 "roundData": {
                     "name": "Championship",
-                    "schedulingStrategy": "PPC",
+                    "schedulingStrategy": "GENERAL",
                     "runsPerLane": 1,
                     "advancementSource": "ALL",
                     "advancementNumRacers": 2,

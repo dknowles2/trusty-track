@@ -70,14 +70,14 @@ def _setup(db: Session, label: str, extra_round: bool, racer_count: int = 6):
         )
     db.commit()
 
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     r2 = crud.create_round(
         db,
         race.id,
         2,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Finals",
         advancement_source="ALL",
         advancement_num_racers=4,
@@ -92,7 +92,7 @@ def _setup(db: Session, label: str, extra_round: bool, racer_count: int = 6):
             db,
             race.id,
             3,
-            models.SchedulingStrategy.PPC,
+            models.SchedulingStrategy.GENERAL,
             "Super",
             advancement_source=f"ROUND:{r2.id}",
             advancement_num_racers=2,
