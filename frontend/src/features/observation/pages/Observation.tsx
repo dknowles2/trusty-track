@@ -82,11 +82,11 @@ const GET_INITIAL_DATA = `
         # track's card.
         laneColors
         # How dense a heat card's own grid and the on-deck depth budget need
-        # to be (issue 1073 part 2, displayDensity.ts) — an 8-lane track
+        # to be (#1073 part 2, displayDensity.ts) — an 8-lane track
         # needs a smaller tier than a 6-lane one at the identical viewport.
         laneCount
       }
-      # Whether the race is finished (issue 869) — every officially scheduled
+      # Whether the race is finished (#869) — every officially scheduled
       # heat recorded, with nothing next — is decided from these two
       # fields by raceFinished.ts's raceIsFinished/finalChampionshipRound,
       # not asked of the server directly: it is a plain fact about data this

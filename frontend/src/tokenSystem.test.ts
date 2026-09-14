@@ -388,15 +388,39 @@ const MIGRATED_FILES = [
   'features/stats/pages/RaceStats.tsx',
 ];
 
+/** Strips a GraphQL `#` line comment to end-of-line. Only ever applied to a
+ * template-literal body already known to be a GraphQL document — a bare `#`
+ * elsewhere (JS/TS prose, JSX) is still a candidate colour literal. */
+function stripGraphQLLineComments(body: string): string {
+  return body.replace(/#[^\n]*/g, '');
+}
+
+/** True for a template-literal body that reads as a GraphQL document: the
+ * first non-whitespace token is `query`/`mutation`/`subscription`/`fragment`.
+ * Not every document here is wrapped in the `gql` tag — some (`Observation.tsx`'s
+ * `championshipResultQuery`) are plain strings because they interpolate
+ * runtime values codegen can't type — so this is checked whether or not a
+ * `gql`/`graphql` tag precedes the backtick. */
+function looksLikeGraphQLDocument(body: string): boolean {
+  return /^\s*(?:query|mutation|subscription|fragment)\b/.test(body);
+}
+
 /** Strips comments and var() fallback arguments, so neither an issue
  * reference in prose ("#439") nor a token's own documented default
  * ("var(--print-primary-color, #003F87)") is mistaken for a literal that
- * bypasses the token system. */
+ * bypasses the token system. Also strips GraphQL `#` line comments inside a
+ * `gql`/`graphql`-tagged (or otherwise recognisable) template literal, so an
+ * issue reference in a query document's own comment ("# ... (#1073)") is not
+ * mistaken for the hex colour `#1073` (#1131). */
 function stripNoise(content: string): string {
   return content
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/[^\n]*/g, '')
-    .replace(/var\((--[\w-]+),\s*[^()]*\)/g, 'var($1)');
+    .replace(/var\((--[\w-]+),\s*[^()]*\)/g, 'var($1)')
+    .replace(/(\b(?:gql|graphql)\s*)?`([^`]*)`/g, (match, tag: string | undefined, body: string) => {
+      if (!tag && !looksLikeGraphQLDocument(body)) return match;
+      return `${tag ?? ''}\`${stripGraphQLLineComments(body)}\``;
+    });
 }
 
 function hexAndRgbaLiterals(content: string): string[] {
@@ -410,6 +434,51 @@ function namedColorLiterals(content: string): string[] {
     /'(white|black|red|orange|gold|silver|blue|green|purple|pink|yellow|gray|grey)'|:\s*(white|black|red|orange|gold|silver|blue|green|purple|pink|yellow|gray|grey)\s*;/g;
   return [...cleaned.matchAll(pattern)].map((m) => m[1] ?? m[2]);
 }
+
+describe('stripNoise / hexAndRgbaLiterals: GraphQL comments inside a gql document (#1131)', () => {
+  it('does not read an issue reference in a gql-tagged document comment as a colour', () => {
+    const src = "const Q = gql`\n  query Foo {\n    # see #1073\n    bar\n  }\n`;";
+    expect(hexAndRgbaLiterals(src)).toEqual([]);
+  });
+
+  it('does not read an issue reference in an untagged GraphQL document comment as a colour', () => {
+    // Observation.tsx's own queries are plain strings, not `gql`-tagged,
+    // because they interpolate a runtime id codegen can't type.
+    const src = 'const Q = `\n  query Foo {\n    # see #1073\n    bar\n  }\n`;';
+    expect(hexAndRgbaLiterals(src)).toEqual([]);
+  });
+
+  it('still reads a real hex literal outside any comment', () => {
+    const src = "const c = '#1073ab';";
+    expect(hexAndRgbaLiterals(src)).toEqual(['#1073ab']);
+  });
+
+  it('still reads a real hex literal that sits right next to a gql document, unaffected by it', () => {
+    const src = "const Q = gql`query Foo { bar }`;\nconst c = '#1073ab';";
+    expect(hexAndRgbaLiterals(src)).toEqual(['#1073ab']);
+  });
+
+  it('does not eat the closing backtick when the document body ends in a comment', () => {
+    // If stripping "#...to end of line" ever ran past the body's own
+    // closing backtick, the outer content would be malformed and swallow
+    // whatever follows — assert that a real literal right after the
+    // document is still seen.
+    const src = "const Q = gql`\n  query Foo {\n    bar\n  }\n  # trailing comment, no newline after\n`;\nconst c = '#003F87';";
+    expect(hexAndRgbaLiterals(src)).toEqual(['#003F87']);
+  });
+
+  it('does not mistake a hash inside a non-comment string argument for a comment start', () => {
+    // Not a case that matters for colours (there's no hex-looking run right
+    // after it), but confirm it doesn't corrupt the rest of the document.
+    const src = 'const Q = gql`\n  query Foo {\n    bar(name: "#1")\n    baz\n  }\n`;\nconst c = \'#003F87\';';
+    expect(hexAndRgbaLiterals(src)).toEqual(['#003F87']);
+  });
+
+  it('a plain backtick string that is not a GraphQL document is untouched — a "#" in it still counts', () => {
+    const src = 'const c = `#1073ab`;';
+    expect(hexAndRgbaLiterals(src)).toEqual(['#1073ab']);
+  });
+});
 
 const ALLOWED_HEX_OR_RGBA =
   /^(?:rgba\(0,\s*0,\s*0,\s*0\.\d+\)|#(?:d4af37|c0c0c0|cd7f32|ffd700)|#eee|#ffffff|#8a5a2b|#(?:d32f2f|2e7d32|003F87|FCD116|0A0A0A)|rgba\(255,\s*255,\s*255,\s*0\.\d+\)|rgba\(0,\s*63,\s*135,\s*0\.0(?:5|55)\)|rgba\(252,\s*209,\s*22,\s*0\.09\)|#000|#ef9a9a|#f2f2f2|#1e1e1e|#dcdcdc|#6fbcff|#a6e22e)$/i;
