@@ -636,7 +636,7 @@ export default function Navigation() {
           padding: '0.75rem 0',
           display: 'flex',
           justifyContent: 'center',
-          gap: '2.5rem',
+          gap: 'clamp(0.75rem, 3vw, 2.5rem)',
           boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
           position: 'relative',
           zIndex: 999

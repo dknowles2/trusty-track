@@ -62,8 +62,8 @@ export default function ConnectDisplayAddress({ raceId }: { raceId: number }) {
                 gap: '0.75rem',
             }}
         >
-            <span style={{ color: 'var(--text-muted-color)', wordBreak: 'break-all' }}>
-                Open this address on a screen anywhere on this network to connect it: {url}
+            <span style={{ color: 'var(--text-muted-color)' }}>
+                Open this address on a screen anywhere on this network to connect it: <code style={{ overflowWrap: 'anywhere' }}>{url}</code>
             </span>
             <button
                 type="button"

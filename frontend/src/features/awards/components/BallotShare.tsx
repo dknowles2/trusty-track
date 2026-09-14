@@ -55,8 +55,8 @@ export default function BallotShare({ raceId }: BallotShareProps) {
         gap: '0.75rem',
       }}
     >
-      <span style={{ color: 'var(--text-muted-color)', wordBreak: 'break-all' }}>
-        Share this address for people to vote from their phones: {url}
+      <span style={{ color: 'var(--text-muted-color)' }}>
+        Share this address for people to vote from their phones: <code style={{ overflowWrap: 'anywhere' }}>{url}</code>
       </span>
       <button
         type="button"

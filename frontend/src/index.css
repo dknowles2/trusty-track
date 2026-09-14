@@ -307,6 +307,7 @@ button {
 input,
 select,
 textarea {
+  box-sizing: border-box;
   font-family: var(--font-body);
 }
 

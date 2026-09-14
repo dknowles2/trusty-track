@@ -225,7 +225,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '10px' }}>
           <div>
             <label htmlFor="racer-first-name" style={{ display: 'block', marginBottom: '5px' }}>First Name</label>
             <input
@@ -253,7 +253,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '10px' }}>
             <div>
                  <label htmlFor="racer-car-number" style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Number</label>
                  <input
@@ -375,7 +375,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
             </p>
         </div>
 
-        <div style={{ marginBottom: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        <div style={{ marginBottom: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
             {/* Racer Image Upload */}
             <div>
                 <label style={{ display: 'block', marginBottom: '5px' }}>Racer Photo</label>
