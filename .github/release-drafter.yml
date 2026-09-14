@@ -6,11 +6,15 @@
 # below are the existing repository labels, so a note lands in a section
 # because somebody labelled the PR, not because of anything it says.
 #
-# Two workflows read this file. `release-drafter.yml` keeps a rolling draft up
-# to date on every push to main — so the notes for the next release are always
-# visible and correctable — and `release.yml` runs the same drafter at tag time
-# to fill in that draft's final tag before publishing it with the installers
-# attached.
+# `release-drafter.yml` keeps a rolling draft up to date on every push to main,
+# so the pull requests the next release will carry are always visible. That
+# list is the starting point for the notes, not the notes: the body is
+# re-rendered from this template on every run, so write the real notes into
+# the draft on GitHub once the last change has merged, and then tag.
+# `release.yml` adopts the draft as it stands — it does not run the drafter
+# again, precisely so those notes survive — sets its tag and title, attaches
+# the installers, and publishes it. The drafter only runs at tag time when
+# there is no draft to adopt.
 
 name-template: "Trusty Track v$RESOLVED_VERSION"
 tag-template: "v$RESOLVED_VERSION"

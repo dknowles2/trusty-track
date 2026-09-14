@@ -1,8 +1,10 @@
 name: Release Drafter
 
 on:
-  # Every merge to main updates the draft, so the notes for the next release
-  # are written as the work lands rather than reconstructed at tag time.
+  # Every merge to main updates the draft, so the pull requests the next
+  # release will carry are listed as the work lands. The list is overwritten
+  # on every run — write the real notes into the draft after the last merge,
+  # and `release.yml` publishes the draft as it stands.
   push:
     branches:
       - main
