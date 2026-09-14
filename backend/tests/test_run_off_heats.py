@@ -44,7 +44,9 @@ def _seed(
 
 
 def _round(db: Session, race: models.Race) -> models.Round:
-    return crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    return crud.create_round(
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim"
+    )
 
 
 def _racer(db: Session, race: models.Race, name: str) -> models.Racer:
@@ -302,7 +304,7 @@ class TestAdvancementCascade:
             db,
             race.id,
             2,
-            models.SchedulingStrategy.PPC,
+            models.SchedulingStrategy.GENERAL,
             "Final",
             advancement_source="ALL",
             advancement_num_racers=2,
@@ -443,7 +445,7 @@ class TestCreateValidation:
             ),
         )
         other_round = crud.create_round(
-            db, other_race.id, 1, models.SchedulingStrategy.PPC, "Prelim"
+            db, other_race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim"
         )
         with pytest.raises(ValueError, match="does not belong to this race"):
             crud.create_run_off_heat(db, race.id, other_round.id, [a.id, b.id])
@@ -471,7 +473,7 @@ def _final_round(db: Session, race: "models.Race", *, num_placeholders: int = 2)
         db,
         race.id,
         2,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Final",
         advancement_source="ALL",
         advancement_num_racers=num_placeholders,

@@ -356,7 +356,7 @@ export default function RaceControl() {
       const result = await createRoundMutation({
         raceId: id,
         roundData: {
-          schedulingStrategy: config.schedulingStrategy || 'PPC',
+          schedulingStrategy: config.schedulingStrategy || 'GENERAL',
           name: config.name,
           advancementSource: config.advancementSource,
           advancementNumRacers: config.advancementNumRacers,
@@ -887,7 +887,7 @@ export default function RaceControl() {
    * A growing round has no pending heats at all until the recorded-result
    * cascade appends the next wave or phase (#1022) — `currentRoundHeats`
    * only ever holds what has been generated *so far*, not the schedule's
-   * eventual size the way a PPC round's rows already are. `expectedHeatCount`
+   * eventual size the way a General round's rows already are. `expectedHeatCount`
    * estimates that eventual size from the round's own format and the field
    * it has already fielded (the distinct real racer ids across its own
    * heats — every eligible racer appears from the first wave/phase on, so

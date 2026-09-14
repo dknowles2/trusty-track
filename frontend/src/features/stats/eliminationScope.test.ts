@@ -4,7 +4,7 @@ import type { RoundSummary } from './disruptedRounds';
 
 const round = (overrides: Partial<RoundSummary> & Pick<RoundSummary, 'id' | 'roundNumber'>): RoundSummary => ({
   advancementSource: null,
-  schedulingStrategy: 'PPC',
+  schedulingStrategy: 'GENERAL',
   ...overrides,
 });
 
@@ -13,14 +13,14 @@ describe('isEliminationOnlyRace', () => {
     expect(isEliminationOnlyRace([])).toBe(false);
   });
 
-  it('is false for an ordinary PPC preliminary round', () => {
+  it('is false for an ordinary GENERAL preliminary round', () => {
     expect(isEliminationOnlyRace([round({ id: 1, roundNumber: 1 })])).toBe(false);
   });
 
-  it('is false when a PPC general round exists alongside an elimination one', () => {
+  it('is false when a GENERAL general round exists alongside an elimination one', () => {
     expect(
       isEliminationOnlyRace([
-        round({ id: 1, roundNumber: 1, schedulingStrategy: 'PPC' }),
+        round({ id: 1, roundNumber: 1, schedulingStrategy: 'GENERAL' }),
         round({ id: 2, roundNumber: 2, schedulingStrategy: 'ELIMINATION' }),
       ]),
     ).toBe(false);
@@ -50,7 +50,7 @@ describe('isEliminationOnlyRace', () => {
     // Degenerate, but the predicate should not claim "elimination-only" for
     // a race with no elimination round at all.
     expect(
-      isEliminationOnlyRace([round({ id: 1, roundNumber: 1, advancementSource: 'ALL', schedulingStrategy: 'PPC' })]),
+      isEliminationOnlyRace([round({ id: 1, roundNumber: 1, advancementSource: 'ALL', schedulingStrategy: 'GENERAL' })]),
     ).toBe(false);
   });
 });

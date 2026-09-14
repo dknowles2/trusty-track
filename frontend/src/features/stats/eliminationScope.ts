@@ -19,7 +19,7 @@
 import type { RoundSummary } from './disruptedRounds';
 
 /**
- * True when the race has no PPC/BALANCED *general* round — every round is
+ * True when the race has no GENERAL/BALANCED *general* round — every round is
  * either a championship round (drawing its field from another round's
  * standings, whatever its own scheduling strategy) or scheduled as
  * `ELIMINATION` — and at least one of those is an elimination round. A race

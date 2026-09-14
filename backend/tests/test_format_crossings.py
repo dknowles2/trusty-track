@@ -4,7 +4,7 @@ raced to the end (#1052, item 3).
 
 The per-bug seam tests elsewhere in this suite each cross exactly two
 features together, one bug at a time — `test_wizard_elimination_championship.py`
-for PPC-vs-elimination chaining, `test_master_running_order_repair.py` for
+for GENERAL-vs-elimination chaining, `test_master_running_order_repair.py` for
 wave growth vs the interleave, and so on. None of them tries every
 combination at once, so a bug at a *third* seam — a general round style, a
 championship shape, and the master running order all interacting — has
@@ -27,7 +27,7 @@ easily.
 Two doors, matching how an operator actually reaches each shape:
 
 - The **general round** is always built through `createRoundWizard` — the
-  same wizard `test_wizard_round_styles.py` drives, offering PPC,
+  same wizard `test_wizard_round_styles.py` drives, offering GENERAL,
   Elimination or Balanced from its own "How it's raced" step.
 - A **championship round**, when the cell wants one, is added afterwards
   through `createRound` — the "Add Round" dialog's own mutation, not a
@@ -211,7 +211,7 @@ def _create_general_round(
     regeneration went uncaught.
     """
     general_round: dict = {"type": "ALL", "runsPerLane": runs_per_lane}
-    if style != "PPC":
+    if style != "GENERAL":
         general_round["schedulingStrategy"] = style
     body = client.post(
         "/graphql",
@@ -463,14 +463,14 @@ def _assert_seeded_awards_resolve(db, race_id: int, round_id: int) -> None:
 
 
 CELLS = [
-    ("PPC", "none", "off"),
-    ("PPC", "none", "on"),
-    ("PPC", "ALL", "off"),
-    ("PPC", "ALL", "on"),
-    ("PPC", "EACH_GROUP", "off"),
-    ("PPC", "EACH_GROUP", "on"),
-    ("PPC", "ROUND", "off"),
-    ("PPC", "ROUND", "on"),
+    ("GENERAL", "none", "off"),
+    ("GENERAL", "none", "on"),
+    ("GENERAL", "ALL", "off"),
+    ("GENERAL", "ALL", "on"),
+    ("GENERAL", "EACH_GROUP", "off"),
+    ("GENERAL", "EACH_GROUP", "on"),
+    ("GENERAL", "ROUND", "off"),
+    ("GENERAL", "ROUND", "on"),
     ("ELIMINATION", "none", "off"),
     ("ELIMINATION", "none", "on"),
     # createRound's championship branch used to treat "ALL"/"EACH_GROUP" the
@@ -637,8 +637,8 @@ def _copy_race_via_round_plan(
 # round_plan.plan_from_rounds` — see its docstring for what "recovered"
 # means when the original round was elimination-chained).
 COPY_CELLS = [
-    ("PPC", "none"),
-    ("PPC", "ALL"),
+    ("GENERAL", "none"),
+    ("GENERAL", "ALL"),
     ("ELIMINATION", "ALL"),
     ("ELIMINATION", "ROUND"),
     ("BALANCED", "EACH_GROUP"),
@@ -659,14 +659,14 @@ def test_copied_round_plan_races_to_finished(
     label = f"CopySource {general_style} {championship_shape}"
     race, ids = _setup_race(db, label)
 
-    # 2 runs per lane for the PPC cells — every other test in this file and
+    # 2 runs per lane for the GENERAL cells — every other test in this file and
     # in `test_create_race_round_plan.py` used 1 (the wizard's own default),
     # which is exactly how `Round.runs_per_lane` being silently discarded on
-    # `regenerateRound` (#1119's review) went uncaught: PPC is the only
+    # `regenerateRound` (#1119's review) went uncaught: GENERAL is the only
     # general style `generate_heats_for_round`'s `runs` parameter actually
     # multiplies the heat count by (elimination/balanced schedule one
     # wave/phase regardless of it), so only those two cells can prove it.
-    source_runs_per_lane = 2 if general_style == "PPC" else 1
+    source_runs_per_lane = 2 if general_style == "GENERAL" else 1
     general_round_id = _create_general_round(
         client, race.id, general_style, runs_per_lane=source_runs_per_lane
     )
@@ -687,7 +687,7 @@ def test_copied_round_plan_races_to_finished(
         client, db, race.id, copy_label
     )
 
-    if general_style == "PPC":
+    if general_style == "GENERAL":
         # The bug #1119's review found: `regenerateRound` on the copied
         # general round (built with zero heats, `tolerate_empty_roster`)
         # used to fall back to 1 run per lane regardless of what the plan

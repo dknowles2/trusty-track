@@ -184,7 +184,7 @@ describe('RoundConfigModal', () => {
     expect(onSubmit.mock.calls[0][0].eliminationLosses).toBeUndefined();
   });
 
-  it('an ordinary general round still submits PPC', async () => {
+  it('an ordinary general round still submits GENERAL', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} />);
 
@@ -192,7 +192,7 @@ describe('RoundConfigModal', () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
-      schedulingStrategy: 'PPC',
+      schedulingStrategy: 'GENERAL',
       generalType: 'ALL',
     });
     expect(onSubmit.mock.calls[0][0].eliminationLosses).toBeUndefined();
@@ -212,7 +212,7 @@ describe('RoundConfigModal', () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
-      schedulingStrategy: 'PPC',
+      schedulingStrategy: 'GENERAL',
       generalType: 'EACH_GROUP',
     });
   });
@@ -258,7 +258,7 @@ describe('RoundConfigModal', () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
-      schedulingStrategy: 'PPC',
+      schedulingStrategy: 'GENERAL',
       generalType: 'ALL',
       advancementSource: undefined,
     });

@@ -103,7 +103,17 @@ class AwardKind(str, enum.Enum):
 
 
 class SchedulingStrategy(str, enum.Enum):
-    PPC = "PPC"
+    """A round's *format* — how it is raced.
+
+    `GENERAL` is the ordinary qualifying round: everyone races the same
+    number of heats. It says nothing about the *algorithm* that builds its
+    schedule — today that is always the Partial Perfect Chart in
+    `domain/scheduling.py` — because #1090 splits that seam into its own
+    `SchedulingAlgorithm` enum. Renamed from `PPC` there so a round's format
+    and its scheduling algorithm are not the same word for two things.
+    """
+
+    GENERAL = "GENERAL"
     #: Ladderless elimination: lose `Round.elimination_losses` heats and you
     #: are out; the schedule grows a wave at a time as results land, and the
     #: last car standing wins. See `domain/elimination.py`.
@@ -690,7 +700,7 @@ class Round(Base):
     round_number: Mapped[int] = mapped_column(Integer)
     name: Mapped[str | None] = mapped_column(String, nullable=True)
     scheduling_strategy: Mapped[SchedulingStrategy] = mapped_column(
-        SAEnum(SchedulingStrategy), default=SchedulingStrategy.PPC
+        SAEnum(SchedulingStrategy), default=SchedulingStrategy.GENERAL
     )
     advancement_source: Mapped[str | None] = mapped_column(String, nullable=True)
     advancement_num_racers: Mapped[int | None] = mapped_column(Integer, nullable=True)

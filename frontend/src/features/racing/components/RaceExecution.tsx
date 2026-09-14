@@ -211,7 +211,7 @@ interface RaceExecutionProps {
      * least" rather than a bare figure for that reason. Deliberately not
      * set for Balanced: its own count from the same function is exact —
      * phases times cars-per-lane, nobody added or removed mid-round — so
-     * a Balanced round's total is worded plainly, the same as PPC's.
+     * a Balanced round's total is worded plainly, the same as General's.
      */
     isUncertainEstimate?: boolean;
     /**

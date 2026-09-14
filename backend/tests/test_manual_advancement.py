@@ -54,7 +54,7 @@ def _build_race(db: Session, *, racer_count: int = 6) -> tuple[models.Race, list
     db.commit()
     racer_ids.sort()
 
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelims")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelims")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
 
@@ -62,7 +62,7 @@ def _build_race(db: Session, *, racer_count: int = 6) -> tuple[models.Race, list
         db,
         race.id,
         2,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Finals",
         advancement_source="ALL",
         advancement_num_racers=2,

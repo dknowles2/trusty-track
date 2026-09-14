@@ -169,7 +169,7 @@ interface ScheduleManagementProps {
   /**
    * An elimination round's record so far, wave by wave (#710), by round id.
    * Present only for `ELIMINATION` rounds — `Round.eliminationChart` is null
-   * for every other scheduling strategy, since PPC and balanced rounds have
+   * for every other scheduling strategy, since General and balanced rounds have
    * no bracket-shaped truth to draw. A round with an entry here offers a
    * Table/Chart toggle; one without renders exactly as it always has.
    */
@@ -897,7 +897,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
               // at all until the recorded-result cascade appends the next
               // wave or phase (#1022) — `totalHeats` above is only what has
               // been generated so far, not the schedule's eventual size the
-              // way a PPC round's rows already are. `expectedHeatCount`
+              // way a General round's rows already are. `expectedHeatCount`
               // estimates that eventual size from the round's own format
               // and the racers it has already fielded (every eligible
               // racer appears from the first wave/phase on, so the distinct

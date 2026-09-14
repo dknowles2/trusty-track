@@ -75,14 +75,14 @@ def _race(
 
 
 def _rounds(db: Session, race, source: str, num_racers: int, slots: int):
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     r2 = crud.create_round(
         db,
         race.id,
         2,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Finals",
         advancement_source=source,
         advancement_num_racers=num_racers,
@@ -153,14 +153,14 @@ def test_a_pack_round_is_not_multiplied(db: Session):
 
 def test_a_round_scoped_round_is_not_multiplied(db: Session):
     race, _ = _race(db, "scoped")
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     r2 = crud.create_round(
         db,
         race.id,
         2,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Finals",
         advancement_source=f"ROUND:{r1.id}",
         advancement_num_racers=3,
@@ -200,7 +200,7 @@ def test_creating_a_den_round_sizes_it_correctly(client, db: Session):
     the first version of this test could not tell the fix from the bug.)
     """
     race, _ = _race(db, "created")
-    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "Prelim")
+    r1 = crud.create_round(db, race.id, 1, models.SchedulingStrategy.GENERAL, "Prelim")
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     db.commit()
@@ -282,7 +282,7 @@ def test_total_participants_uses_the_same_rule(db: Session):
         db,
         race.id,
         2,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Finals",
         advancement_source="EACH_GROUP",
         advancement_num_racers=PER_DEN,
@@ -294,7 +294,7 @@ def test_total_participants_uses_the_same_rule(db: Session):
         db,
         race.id,
         3,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Pack Finals",
         advancement_source="ALL",
         advancement_num_racers=PER_DEN,

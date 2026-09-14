@@ -346,7 +346,7 @@ test('finishing a round built via Add Round, with no championship yet, offers to
         }`,
         {
             raceId,
-            roundData: { schedulingStrategy: 'PPC', name: 'Round 1', generalType: 'ALL', runsPerLane: 1 },
+            roundData: { schedulingStrategy: 'GENERAL', name: 'Round 1', generalType: 'ALL', runsPerLane: 1 },
         },
     );
 
@@ -386,7 +386,7 @@ test('finishing a round built via Add Round, with no championship yet, offers to
         {
             raceId,
             roundData: {
-                schedulingStrategy: 'PPC',
+                schedulingStrategy: 'GENERAL',
                 name: 'Pack Final',
                 advancementSource: 'ALL',
                 advancementNumRacers: laneCount,

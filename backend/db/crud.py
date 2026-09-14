@@ -1475,8 +1475,8 @@ def resolve_championship_source_for_race(
     rounds and work out the same two ids the wizard already has to hand.
 
     "The" elimination round is only named when it is the race's *only*
-    general round — a second, non-elimination general round (a PPC round
-    added alongside one built for an elimination format, say) already feeds
+    general round — a second, non-elimination general round (a `GENERAL`
+    round added alongside one built for an elimination format, say) already feeds
     the aggregate standings, so `"ALL"`/`"EACH_GROUP"` has real candidates
     and nothing here should rewrite it.
     """
@@ -1506,7 +1506,7 @@ def create_round(
     db: Session,
     race_id: int,
     round_number: int,
-    scheduling_strategy: models.SchedulingStrategy = models.SchedulingStrategy.PPC,
+    scheduling_strategy: models.SchedulingStrategy = models.SchedulingStrategy.GENERAL,
     name: str | None = None,
     advancement_source: str | None = None,
     advancement_num_racers: int | None = None,
@@ -1762,7 +1762,7 @@ def create_rounds_from_plan(
         gen_strat = (
             models.SchedulingStrategy(general_cfg.scheduling_strategy)
             if general_cfg.scheduling_strategy
-            else models.SchedulingStrategy.PPC
+            else models.SchedulingStrategy.GENERAL
         )
         gen_losses = general_cfg.elimination_losses or 3 if is_gen_elimination else None
         gen_phases = (
@@ -1777,8 +1777,8 @@ def create_rounds_from_plan(
             if is_gen_balanced
             else default_general_round_name(db, race)
         )
-        is_ppc = gen_strat == models.SchedulingStrategy.PPC
-        general_round_type = general_cfg.type if is_ppc else "ALL"
+        is_general = gen_strat == models.SchedulingStrategy.GENERAL
+        general_round_type = general_cfg.type if is_general else "ALL"
 
         # A plan copied at race-creation time (#1088, `tolerate_empty_
         # roster`) has no roster yet — `create_general_round`'s "ALL" path
@@ -1845,7 +1845,7 @@ def create_rounds_from_plan(
         # (CLAUDE.md's "Ladderless elimination"), so a championship round
         # whose source is "ALL" or "EACH_GROUP" would draw from an empty
         # field forever when the qualifier was elimination (#1012).
-        # `general_round_type` is forced to "ALL" for any non-PPC style
+        # `general_round_type` is forced to "ALL" for any non-`GENERAL` style
         # above, so this is exactly one round when it applies.
         elimination_round_id = (
             general_rounds[0].id if is_gen_elimination and general_rounds else None
@@ -1880,7 +1880,7 @@ def create_rounds_from_plan(
                 db,
                 race_id,
                 current_round_number,
-                models.SchedulingStrategy.PPC,
+                models.SchedulingStrategy.GENERAL,
                 champ_cfg.name,
                 advancement_source=adv_source,
                 advancement_num_racers=champ_cfg.num_top_racers,
@@ -5329,7 +5329,7 @@ def create_practice_race(db: Session) -> models.Race:
         db,
         race.id,
         1,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         default_general_round_name(db, race),
     )
     generate_heats_for_round(db, prelim.id, clear_existing=True)
@@ -5338,7 +5338,7 @@ def create_practice_race(db: Session) -> models.Race:
         db,
         race.id,
         2,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Final",
         advancement_source="ALL",
         advancement_num_racers=PRACTICE_FINALISTS,

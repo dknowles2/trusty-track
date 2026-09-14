@@ -37,13 +37,13 @@ def _setup_race_with_heats(db, num_racers=3):
 
     # Create regular round (unstarted)
     round_unstarted = crud.create_round(
-        db, race.id, 1, models.SchedulingStrategy.PPC, "Unstarted Round"
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "Unstarted Round"
     )
     crud.generate_heats_for_round(db, round_unstarted.id)
 
     # Create regular round (started)
     round_started = crud.create_round(
-        db, race.id, 2, models.SchedulingStrategy.PPC, "Started Round"
+        db, race.id, 2, models.SchedulingStrategy.GENERAL, "Started Round"
     )
     crud.generate_heats_for_round(db, round_started.id)
     heat_started = (
@@ -207,7 +207,7 @@ def _setup_unraced_round(db, num_racers=3, lane_count=4):
         racers.append(r)
 
     round_obj = crud.create_round(
-        db, race.id, 1, models.SchedulingStrategy.PPC, "Round"
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "Round"
     )
     crud.generate_heats_for_round(db, round_obj.id)
     db.commit()

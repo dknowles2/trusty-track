@@ -18,8 +18,8 @@ describe('soleEliminationRoundId', () => {
     expect(soleEliminationRoundId([])).toBeNull();
   });
 
-  it('returns null for an ordinary PPC general round', () => {
-    const rounds = [round({ id: 1, schedulingStrategy: 'PPC' })];
+  it('returns null for an ordinary GENERAL general round', () => {
+    const rounds = [round({ id: 1, schedulingStrategy: 'GENERAL' })];
     expect(soleEliminationRoundId(rounds)).toBeNull();
   });
 
@@ -36,14 +36,14 @@ describe('soleEliminationRoundId', () => {
   it('ignores championship rounds — only advancementSource == null counts as general', () => {
     const rounds = [
       round({ id: 5, schedulingStrategy: 'ELIMINATION' }),
-      round({ id: 6, schedulingStrategy: 'PPC', advancementSource: 'ROUND:5' }),
+      round({ id: 6, schedulingStrategy: 'GENERAL', advancementSource: 'ROUND:5' }),
     ];
     expect(soleEliminationRoundId(rounds)).toBe(5);
   });
 
-  it('returns null for a mixed race — a PPC round alongside an Elimination one', () => {
+  it('returns null for a mixed race — a GENERAL round alongside an Elimination one', () => {
     const rounds = [
-      round({ id: 1, schedulingStrategy: 'PPC' }),
+      round({ id: 1, schedulingStrategy: 'GENERAL' }),
       round({ id: 2, schedulingStrategy: 'ELIMINATION' }),
     ];
     expect(soleEliminationRoundId(rounds)).toBeNull();

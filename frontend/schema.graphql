@@ -845,7 +845,7 @@ type Round {
 }
 
 input RoundCreateInput {
-  schedulingStrategy: String! = "PPC"
+  schedulingStrategy: String! = "GENERAL"
   name: String = null
   advancementSource: String = null
   advancementNumRacers: Int = null

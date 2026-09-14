@@ -23,7 +23,7 @@ test('copying a race carries its round plan and re-points a round-scoped award',
     const sourceName = `Round Plan Source ${stamp}`;
     const copyName = `Round Plan Copy ${stamp}`;
 
-    // Seed the source race through GraphQL — a PPC qualifying round and a
+    // Seed the source race through GraphQL — a GENERAL qualifying round and a
     // top-3 "Finals" championship round, the same door `test_wizard_
     // round_styles.py`'s backend counterpart drives.
     const { raceId: sourceId } = await seedRace(page, sourceName);
@@ -69,7 +69,7 @@ test('copying a race carries its round plan and re-points a round-scoped award',
     await page.getByTestId('setup-next').click();
     await expect(page.getByLabel('Event Name')).toBeVisible();
     // The round summary and its checkbox, on by default (#1088).
-    await expect(page.getByTestId('setup-round-plan-summary')).toContainText('1 qualifying (PPC');
+    await expect(page.getByTestId('setup-round-plan-summary')).toContainText('1 qualifying (General');
     await expect(page.getByTestId('setup-round-plan-summary')).toContainText('Finals (top 3)');
     await expect(page.getByRole('checkbox', { name: 'Copy the rounds too' })).toBeChecked();
 

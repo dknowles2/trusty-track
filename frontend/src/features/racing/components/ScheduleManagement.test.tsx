@@ -350,7 +350,7 @@ describe('ScheduleManagement', () => {
 
         expect(mockOnAddRound).toHaveBeenCalledWith({
             name: 'Semi-Finals',
-            schedulingStrategy: 'PPC',
+            schedulingStrategy: 'GENERAL',
             advancementSource: undefined,
             advancementNumRacers: undefined,
             runsPerLane: 1,
@@ -1312,7 +1312,7 @@ describe('ScheduleManagement', () => {
   });
 
   describe('the elimination chart toggle (#710)', () => {
-    // Round 1 is an ordinary PPC round (no chart); round 2 is elimination
+    // Round 1 is an ordinary GENERAL round (no chart); round 2 is elimination
     // and has one, which is what `eliminationCharts` being keyed by round id
     // — rather than a flag on every heat — models: only a round with an
     // entry offers the toggle at all.
@@ -1424,7 +1424,7 @@ describe('ScheduleManagement', () => {
       advancementSource: 'ALL',
       advancementFromBottom: false,
       fieldPinned: false,
-      schedulingStrategy: 'PPC',
+      schedulingStrategy: 'GENERAL',
       eliminationLosses: null,
       balancedPhases: null,
       racingGroupId: null,
@@ -1440,7 +1440,7 @@ describe('ScheduleManagement', () => {
       advancementSource: null,
       advancementFromBottom: false,
       fieldPinned: false,
-      schedulingStrategy: 'PPC',
+      schedulingStrategy: 'GENERAL',
       eliminationLosses: null,
       balancedPhases: null,
       racingGroupId: null,

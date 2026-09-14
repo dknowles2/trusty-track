@@ -20,10 +20,10 @@ type RoundShape = Pick<Round, 'id' | 'advancementSource' | 'schedulingStrategy'>
  * an Elimination round and no other general round exists to feed the
  * aggregate standings instead.
  *
- * `null` covers every other shape: no general round yet, a PPC or Balanced
+ * `null` covers every other shape: no general round yet, a General or Balanced
  * general round (both feed the aggregate standings — Balanced deliberately,
  * see `.claude/rules/scheduling.md`'s "Balanced racing"), or a mixed race (a
- * PPC round alongside an Elimination one, say) — in every one of those,
+ * General round alongside an Elimination one, say) — in every one of those,
  * "Overall"/"Each <group>" already has real candidates and the picker
  * offers them unchanged. This mirrors the backend's own "leave ALL alone
  * for a mixed race" decision exactly, so the two never disagree about when

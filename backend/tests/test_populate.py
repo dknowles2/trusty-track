@@ -36,7 +36,7 @@ def _race(db, **overrides) -> models.Race:
             date_time="2024-01-01T10:00:00",
             location="Test Location",
             track_id=track.id,
-            scheduling_strategy=models.SchedulingStrategy.PPC,
+            scheduling_strategy=models.SchedulingStrategy.GENERAL,
             scoring_strategy=models.ScoringStrategy.TIMED,
             **overrides,
         ),

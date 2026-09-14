@@ -75,7 +75,7 @@ settings filled in on the form.
 the scoring method, **Drop worst run(s)**, **Ties** and **Championship
 Trophies**; the car numbering strategy and start number; the weight limit (or
 no weight check, if it had none); the race's own words, if it had any; the
-location; **the round plan** — how the qualifying round was run (PPC,
+location; **the round plan** — how the qualifying round was run (General,
 Elimination or Balanced, and how many runs per lane) and each championship
 round that followed it (its name, how many advance, and whether it draws
 from everyone or from each den) — and every award's definition — its name,
@@ -85,7 +85,7 @@ round follows that round across too, provided the round plan is being copied
 and still reproduces it.
 
 The **Details** step shows a one-line summary of the round plan that will be
-built — "Rounds: 1 qualifying (PPC, 2 runs per lane) → Championship (top 3)
+built — "Rounds: 1 qualifying (General, 2 runs per lane) → Championship (top 3)
 — from *last year's race*" — beside a **Copy the rounds too** checkbox, on by
 default. Unticking it leaves the new race with no rounds at all, exactly as
 if it had been built from scratch; the round wizard builds them from

@@ -59,7 +59,7 @@ def _first_heat(db, race_id) -> models.Heat:
         db,
         race_id=race_id,
         round_number=1,
-        scheduling_strategy=models.SchedulingStrategy.PPC,
+        scheduling_strategy=models.SchedulingStrategy.GENERAL,
         name="Qualifying",
     )
     crud.generate_heats_for_round(db, round_obj.id)
@@ -122,7 +122,7 @@ class TestTheRecordList:
             db,
             race_id=race.id,
             round_number=1,
-            scheduling_strategy=models.SchedulingStrategy.PPC,
+            scheduling_strategy=models.SchedulingStrategy.GENERAL,
             name="Qualifying",
         )
         crud.generate_heats_for_round(db, round_obj.id)

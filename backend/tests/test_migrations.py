@@ -471,6 +471,83 @@ def test_a_downgrade_past_the_folded_heats_keeps_the_data(tmp_path):
         engine.dispose()
 
 
+def test_the_general_format_rename_survives_a_round_trip(tmp_path):
+    """``SchedulingStrategy.PPC`` (#1090, part A) is the third data-carrying
+    migration, alongside `0003`'s `heat_lanes` projection and `0006`'s free
+    heat fold — a row stored as ``'PPC'`` before `0053` reads back as
+    ``'GENERAL'`` once it is applied, and as ``'PPC'`` again once it is
+    undone, in the same shape
+    `test_a_downgrade_past_the_folded_heats_keeps_the_data` already proves for
+    those two.
+
+    Stopped at `0052`, one revision short of head, rather than the baseline
+    those two migrations use: this one carries no table reshaping of its own
+    to exercise, only the rewrite, so there is nothing gained by walking
+    further back first.
+    """
+    assert run_alembic(tmp_path, "upgrade", "0052_round_runs_per_lane").returncode == 0
+    db = tmp_path / "trusty-track.db"
+
+    engine = create_engine(f"sqlite:///{db}")
+    try:
+        with engine.begin() as conn:
+            _seed_a_general_round(conn)
+    finally:
+        engine.dispose()
+
+    assert run_alembic(tmp_path, "upgrade", "head").returncode == 0
+    engine = create_engine(f"sqlite:///{db}")
+    try:
+        with engine.connect() as conn:
+            after_upgrade = conn.execute(
+                text("select scheduling_strategy from rounds where id = 1")
+            ).scalar()
+    finally:
+        engine.dispose()
+    assert after_upgrade == "GENERAL"
+
+    assert (
+        run_alembic(tmp_path, "downgrade", "0052_round_runs_per_lane").returncode == 0
+    )
+    engine = create_engine(f"sqlite:///{db}")
+    try:
+        with engine.connect() as conn:
+            after_downgrade = conn.execute(
+                text("select scheduling_strategy from rounds where id = 1")
+            ).scalar()
+    finally:
+        engine.dispose()
+    assert after_downgrade == "PPC"
+
+
+def _seed_a_general_round(conn) -> None:
+    """One race with one general (``PPC``, pre-rename) round — the minimal
+    row `0053`'s data step has to rewrite, with nothing else in the way.
+    """
+    conn.execute(text("INSERT INTO organizations (id, name) VALUES (1, 'Pack 42')"))
+    conn.execute(
+        text(
+            "INSERT INTO tracks (id, name, lane_count, timer_type,"
+            " remote_start_installed) VALUES (1, 'Main', 2, 'FAKE', 0)"
+        )
+    )
+    conn.execute(
+        text(
+            "INSERT INTO races"
+            " (id, organization_id, track_id, name, car_numbering_strategy,"
+            " global_start_number, championship_trophies, scoring_strategy,"
+            " auto_advance_heat)"
+            " VALUES (1, 1, 1, 'Derby', 'MANUAL', 1, 3, 'TIMED', 0)"
+        )
+    )
+    conn.execute(
+        text(
+            "INSERT INTO rounds (id, race_id, round_number, name,"
+            " scheduling_strategy) VALUES (1, 1, 1, 'Prelim', 'PPC')"
+        )
+    )
+
+
 def _seed_a_small_race(conn) -> None:
     """One race with a run heat, a skipped heat and an unfilled championship.
 
@@ -505,7 +582,7 @@ def _seed_a_small_race(conn) -> None:
     conn.execute(
         text(
             "INSERT INTO rounds (id, race_id, round_number, name,"
-            " scheduling_strategy) VALUES (1, 1, 1, 'Prelim', 'PPC')"
+            " scheduling_strategy) VALUES (1, 1, 1, 'Prelim', 'GENERAL')"
         )
     )
 

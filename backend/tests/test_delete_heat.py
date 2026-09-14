@@ -41,7 +41,7 @@ def _setup_race(
         db.commit()
         db.refresh(race)
     round_obj = crud.create_round(
-        db, race.id, 1, models.SchedulingStrategy.PPC, "Round 1"
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "Round 1"
     )
     racers = [
         crud.create_racer(

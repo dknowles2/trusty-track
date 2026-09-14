@@ -123,7 +123,7 @@ def test_create_round_regular(client, db):
     mutation_round = f"""
     mutation {{
         createRound(raceId: {race_id}, roundData: {{
-            schedulingStrategy: "PPC",
+            schedulingStrategy: "GENERAL",
             name: "Qualifying",
             runsPerLane: 1,
             generalType: "ALL"

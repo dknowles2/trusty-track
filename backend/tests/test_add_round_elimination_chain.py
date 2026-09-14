@@ -136,7 +136,7 @@ def _no_unresolved_placeholders(db, round_id: int) -> set[int]:
 
 
 def test_all_and_each_group_pass_through_with_no_elimination_round():
-    # No elimination round at all — an ordinary PPC race. Nothing to fix.
+    # No elimination round at all — an ordinary General race. Nothing to fix.
     assert (
         advancement.resolve_championship_source(
             "ALL", elimination_round_id=None, previous_championship_round_id=None
@@ -183,7 +183,7 @@ def test_an_existing_championship_round_wins_over_the_elimination_round():
 
 
 def test_an_existing_championship_round_is_irrelevant_with_no_elimination_round():
-    # An ordinary PPC race with an earlier den final must not have a later
+    # An ordinary General race with an earlier den final must not have a later
     # "ALL" round-robin final silently rerouted to it — "ALL" there
     # correctly means the whole preliminary field.
     assert (
@@ -264,8 +264,8 @@ def test_crud_wrapper_balanced_only_race_is_unchanged(db):
 
 
 def test_crud_wrapper_mixed_ppc_and_elimination_general_rounds_leaves_all_alone(db):
-    """A race with *both* a PPC general round and an Elimination one (built
-    through two separate `createRound` calls, say) still has a PPC round
+    """A race with *both* a General round and an Elimination one (built
+    through two separate `createRound` calls, say) still has a General round
     feeding the aggregate standings — "ALL" is left exactly as requested
     rather than being rerouted to the elimination round's own narrower
     field. This is the documented decision for the mixed case: honest
@@ -274,7 +274,7 @@ def test_crud_wrapper_mixed_ppc_and_elimination_general_rounds_leaves_all_alone(
     race = _race(db, "CrudWrapperMixed")
     _racers(db, race.id, 4)
     ppc_round = crud.create_round(
-        db, race.id, 1, models.SchedulingStrategy.PPC, "All Pack"
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "All Pack"
     )
     crud.generate_heats_for_round(
         db, ppc_round.id, num_placeholders=crud.round_field_size(db, ppc_round)
@@ -316,7 +316,7 @@ def test_crud_wrapper_chains_to_the_latest_existing_championship_round(db):
         db,
         race.id,
         2,
-        models.SchedulingStrategy.PPC,
+        models.SchedulingStrategy.GENERAL,
         "Semifinal",
         advancement_source=f"ROUND:{elim_round.id}",
         advancement_num_racers=4,
@@ -434,15 +434,15 @@ def test_add_round_second_championship_round_chains_to_the_first(db, client):
 
 
 def test_add_round_all_is_unchanged_for_a_mixed_ppc_and_elimination_race(db, client):
-    """A race with a PPC general round *and* a separate Elimination general
-    round (two `createRound` calls, not the wizard) still has the PPC round
+    """A race with a General round *and* a separate Elimination general
+    round (two `createRound` calls, not the wizard) still has the General round
     feeding the aggregate standings, so "ALL" is left alone — the documented
-    mixed-race decision — and the resulting final fills from the PPC
+    mixed-race decision — and the resulting final fills from the General
     round's own preliminary standings, excluding the elimination heats."""
     race = _race(db, "AddRoundMixed")
     ids = _racers(db, race.id, 4)
     ppc_round = crud.create_round(
-        db, race.id, 1, models.SchedulingStrategy.PPC, "All Pack"
+        db, race.id, 1, models.SchedulingStrategy.GENERAL, "All Pack"
     )
     crud.generate_heats_for_round(
         db, ppc_round.id, num_placeholders=crud.round_field_size(db, ppc_round)
@@ -477,7 +477,7 @@ def test_add_round_all_is_unchanged_for_a_mixed_ppc_and_elimination_race(db, cli
 
     db.expire_all()
     real_racer_ids = _no_unresolved_placeholders(db, final["id"])
-    # The field came from the PPC round's own standings, not the
+    # The field came from the General round's own standings, not the
     # elimination round's (raced with the opposite favourite order above) —
     # confirming "ALL" was genuinely left alone rather than silently
     # rerouted to the elimination round.

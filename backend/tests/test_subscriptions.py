@@ -95,7 +95,7 @@ def _seed_race(db_session: Any) -> tuple[int, int]:
     round_obj = Round(
         race_id=race.id,
         round_number=1,
-        scheduling_strategy=SchedulingStrategy.PPC,
+        scheduling_strategy=SchedulingStrategy.GENERAL,
         name="Round 1",
     )
     db_session.add(round_obj)

@@ -993,7 +993,7 @@ class TestDefaultGeneralRoundName:
                 "query": f"""
                 mutation {{
                     createRound(raceId: {race.id}, roundData: {{
-                        schedulingStrategy: "PPC", runsPerLane: 1
+                        schedulingStrategy: "GENERAL", runsPerLane: 1
                     }}) {{ name }}
                 }}
                 """

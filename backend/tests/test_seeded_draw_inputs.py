@@ -50,7 +50,7 @@ def _race(db, name="Ordered Draws Derby") -> models.Race:
             name=name,
             date_time="2024-01-01T10:00:00",
             track_id=track.id,
-            scheduling_strategy=models.SchedulingStrategy.PPC,
+            scheduling_strategy=models.SchedulingStrategy.GENERAL,
             scoring_strategy=models.ScoringStrategy.TIMED,
         ),
     )

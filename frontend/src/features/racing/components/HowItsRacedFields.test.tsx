@@ -5,7 +5,7 @@ import { HowItsRacedFields } from './HowItsRacedFields';
 
 describe('HowItsRacedFields', () => {
   const defaultProps = {
-    raceStyle: 'PPC' as const,
+    raceStyle: 'GENERAL' as const,
     onChooseStyle: vi.fn(),
     laneCount: 4,
     balancedPhases: 4,

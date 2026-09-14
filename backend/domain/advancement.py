@@ -88,13 +88,14 @@ def resolve_championship_source(
 
     ``elimination_round_id`` names that one elimination general round, or is
     ``None`` when there is nothing to rewrite for: no general round exists
-    yet, the general round is PPC or Balanced (both feed the aggregate
-    standings — Balanced *deliberately*, since its heats are ordinary
-    scored heats, see "Balanced racing"), or the race mixes an elimination
-    general round with a second, non-elimination one — a PPC round still
-    feeds the aggregate in that case, so ``"ALL"`` already has real
-    candidates and is left alone. Callers decide what counts as "the" one
-    elimination round; this function only asks whether one was named.
+    yet, the general round's format is General or Balanced (both feed the
+    aggregate standings — Balanced *deliberately*, since its heats are
+    ordinary scored heats, see "Balanced racing"), or the race mixes an
+    elimination general round with a second, non-elimination one — a
+    General-format round still feeds the aggregate in that case, so
+    ``"ALL"`` already has real candidates and is left alone. Callers decide
+    what counts as "the" one elimination round; this function only asks
+    whether one was named.
 
     ``previous_championship_round_id`` is the most recently created
     championship round in the race, if any, and wins over
@@ -102,7 +103,7 @@ def resolve_championship_source(
     chained off a first should draw from the first's own, more refined
     field rather than re-picking the same survivors the first final did.
     It is only consulted once ``elimination_round_id`` is set: an ordinary
-    PPC race routinely has an earlier championship round (a den final, say)
+    General-format race routinely has an earlier championship round (a den final, say)
     that a later ``"ALL"`` round-robin final is *not* meant to chain to —
     "ALL" there correctly means the whole preliminary field, and rewriting
     it because some other championship round happens to exist would break

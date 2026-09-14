@@ -229,12 +229,12 @@ function sourceAward(overrides: Partial<SourceAward>): SourceAward {
     };
 }
 
-/** A round plan as `GET_RACE_SETUP_SOURCE` would return it — one PPC
+/** A round plan as `GET_RACE_SETUP_SOURCE` would return it — one GENERAL
  * qualifying round and one `ALL` top-3 final whose id is 9, the same id
  * `sourceAward`'s `ROUND:9` awards below name. */
 function sourceRoundPlan(overrides: Partial<SourceRoundPlan> = {}): SourceRoundPlan {
     return {
-        generalRound: { type: 'ALL', schedulingStrategy: 'PPC', runsPerLane: 2 },
+        generalRound: { type: 'ALL', schedulingStrategy: 'GENERAL', runsPerLane: 2 },
         championshipRounds: [
             {
                 name: 'Finals',
@@ -404,7 +404,7 @@ describe('toWizardConfigurationInput', () => {
         expect(toWizardConfigurationInput(sourceRoundPlan())).toEqual({
             generalRound: {
                 type: 'ALL',
-                schedulingStrategy: 'PPC',
+                schedulingStrategy: 'GENERAL',
                 runsPerLane: 2,
                 eliminationLosses: null,
                 balancedPhases: null,
@@ -426,20 +426,20 @@ describe('toWizardConfigurationInput', () => {
 describe('roundPlanSummary', () => {
     it('reads the shape the issue asked for', () => {
         expect(roundPlanSummary(sourceRoundPlan(), 'Pack 12 Derby 2025')).toBe(
-            'Rounds: 1 qualifying (PPC, 2 runs per lane) → Finals (top 3) — from *Pack 12 Derby 2025*',
+            'Rounds: 1 qualifying (General, 2 runs per lane) → Finals (top 3) — from *Pack 12 Derby 2025*',
         );
     });
 
     it('defaults the group word to "den" for an EACH_GROUP general round', () => {
         const plan = sourceRoundPlan({
-            generalRound: { type: 'EACH_GROUP', schedulingStrategy: 'PPC', runsPerLane: 1 },
+            generalRound: { type: 'EACH_GROUP', schedulingStrategy: 'GENERAL', runsPerLane: 1 },
         });
         expect(roundPlanSummary(plan, 'Last Year')).toContain('Qualifying by den');
     });
 
     it('says "by rank" for a district derby copying an EACH_GROUP race, not the literal "group" (terminology)', () => {
         const plan = sourceRoundPlan({
-            generalRound: { type: 'EACH_GROUP', schedulingStrategy: 'PPC', runsPerLane: 1 },
+            generalRound: { type: 'EACH_GROUP', schedulingStrategy: 'GENERAL', runsPerLane: 1 },
         });
         const summary = roundPlanSummary(plan, 'Last Year', 'rank');
         expect(summary).toContain('Qualifying by rank');

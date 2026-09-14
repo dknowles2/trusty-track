@@ -176,7 +176,7 @@ def test_the_wizard_defaults_balanced_phases_to_the_lane_count(db, client):
 
 def test_an_elimination_general_round_is_never_split_by_racing_group(db, client):
     # `RoundConfigModal` hides the "By {group}" format picker once a style
-    # other than PPC is chosen (#943) — a championship round drawn from an
+    # other than General is chosen (#943) — a championship round drawn from an
     # elimination or balanced round's standings would be nonsense split
     # across dens the same way an elimination round cannot itself be a
     # championship round. The wizard now enforces the same rule server-side
