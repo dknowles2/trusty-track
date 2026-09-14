@@ -21,6 +21,7 @@ import { ensureConfigured, seedRace } from './support';
 
 const PHONE_VIEWPORT = { width: 390, height: 844 };
 const BOUNDARY_VIEWPORT = { width: 768, height: 1024 };
+const TABLET_PORTRAIT_VIEWPORT = { width: 820, height: 1180 };
 
 for (const viewport of [PHONE_VIEWPORT, BOUNDARY_VIEWPORT]) {
     test(`the race name is in the header and the six tabs work at ${viewport.width}px (#952)`, async ({ page }) => {
@@ -102,6 +103,40 @@ test('the document does not overflow its own viewport at exactly 768px (#958)', 
     await assertNoOverflow(`/race/${raceId}/standings`);
     await assertNoOverflow(`/race/${raceId}/displays`);
     await assertNoOverflow('/system-settings');
+});
+
+test('the race navigation row holds one line at 820px tablet-portrait, with the last link fully on screen (#1149)', async ({
+    page,
+}) => {
+    // #1149: six links at a flat `gap: 2.5rem` measured 825px wide at an
+    // 820px viewport — "DISPLAYS" clipped at the right edge and every race
+    // page scrolled 5px sideways. `Navigation.tsx`'s `race-nav` row is
+    // desktop-only (`!isMobile`, `MOBILE_BREAKPOINT = 768`), so 820px is the
+    // narrowest real width this row is ever laid out at.
+    await page.setViewportSize(TABLET_PORTRAIT_VIEWPORT);
+    const { raceId } = await seedRace(page, `Tablet Nav Overflow ${Date.now()}`);
+    await ensureConfigured(page);
+
+    await page.goto(`/race/${raceId}`);
+    await page.waitForLoadState('networkidle');
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(scrollWidth).toBe(TABLET_PORTRAIT_VIEWPORT.width);
+
+    const nav = page.getByTestId('race-nav');
+    await expect(nav).toBeVisible();
+    const links = nav.getByRole('link');
+    await expect(links).toHaveCount(6);
+
+    // Every link sits on the same line (the row's own height, not six times
+    // it) and the last one — "Displays", the one the report named as
+    // clipped — is fully inside the viewport.
+    const navBox = await nav.boundingBox();
+    const lastLinkBox = await links.last().boundingBox();
+    expect(navBox).not.toBeNull();
+    expect(lastLinkBox).not.toBeNull();
+    expect(lastLinkBox!.height).toBeLessThanOrEqual(navBox!.height);
+    expect(lastLinkBox!.x + lastLinkBox!.width).toBeLessThanOrEqual(TABLET_PORTRAIT_VIEWPORT.width);
 });
 
 test('the tab bar is absent in projector mode, exactly as the header is (#952)', async ({ page }) => {
