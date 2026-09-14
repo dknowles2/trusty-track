@@ -7,10 +7,12 @@
 # because somebody labelled the PR, not because of anything it says.
 #
 # Two workflows read this file. `release-drafter.yml` keeps a rolling draft up
-# to date on every push to main — so the notes for the next release are always
-# visible and correctable — and `release.yml` runs the same drafter at tag time
-# to fill in that draft's final tag before publishing it with the installers
-# attached.
+# to date on every push to main — so the pull requests the next release will
+# carry are always visible — and `release.yml` runs the same drafter at tag
+# time to fill in that draft's final tag before publishing it with the
+# installers attached. The draft's body is regenerated from the template on
+# every run, so it is not correctable in place: notes written by hand go in
+# `.github/release-notes/<tag>.md`, which `release.yml` prefers when it exists.
 
 name-template: "Trusty Track v$RESOLVED_VERSION"
 tag-template: "v$RESOLVED_VERSION"

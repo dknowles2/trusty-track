@@ -390,12 +390,10 @@ jobs:
           cp release-artifacts/windows-exe/TrustyTrack-*-setup.exe \
              release-artifacts/windows-exe/TrustyTrack-setup.exe
 
-      # The notes come from the draft Release Drafter has been maintaining on
-      # every merge to main (`.github/workflows/release-drafter.yml`), which is
-      # what makes them correctable before the tag rather than after it. Run
+      # The notes start from the draft Release Drafter has been maintaining on
+      # every merge to main (`.github/workflows/release-drafter.yml`). Run
       # again here with the concrete tag, it rewrites that draft's name and
-      # version and picks up anything merged since the last push — so what is
-      # published is the draft the maintainer has already been reading.
+      # version and picks up anything merged since the last push.
       #
       # `publish: false` deliberately: the draft is filled in first, the
       # installers are attached to it while it is still a draft, and only then
@@ -411,6 +409,26 @@ jobs:
           publish: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The drafter's list is raw material, not the notes. It regenerates the
+      # draft's whole body from its template on every run — so an edit made to
+      # the draft on GitHub lasts until the next merge to main, and would be
+      # overwritten again by the step above. Notes written by hand therefore
+      # live in the tree, one file per tag, and replace the body here when the
+      # tag has one; a tag without a file ships the drafter's list as before.
+      # Still before the installers attach and before publication, so the
+      # ordering the comment above describes is unchanged.
+      - name: Prefer hand-written notes when the tag has them
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NOTES=".github/release-notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$NOTES" ]; then
+            echo "Replacing the drafted notes with $NOTES"
+            gh release edit "$GITHUB_REF_NAME" --notes-file "$NOTES"
+          else
+            echo "No $NOTES; keeping the drafted notes"
+          fi
 
       - name: Attach the installers
         env:
