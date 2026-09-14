@@ -359,8 +359,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      # Read by Release Drafter below, which builds the notes out of the pull
-      # requests merged since the last published release.
+      # Read by Release Drafter, which builds a draft out of the pull requests
+      # merged since the last published release when there is none to adopt.
       pull-requests: read
     steps:
       - uses: actions/checkout@v7
@@ -390,18 +390,47 @@ jobs:
           cp release-artifacts/windows-exe/TrustyTrack-*-setup.exe \
              release-artifacts/windows-exe/TrustyTrack-setup.exe
 
-      # The notes come from the draft Release Drafter has been maintaining on
-      # every merge to main (`.github/workflows/release-drafter.yml`), which is
-      # what makes them correctable before the tag rather than after it. Run
-      # again here with the concrete tag, it rewrites that draft's name and
-      # version and picks up anything merged since the last push — so what is
-      # published is the draft the maintainer has already been reading.
+      # The notes are the draft Release Drafter has been maintaining on every
+      # merge to main (`.github/workflows/release-drafter.yml`), as edited by
+      # whoever wrote the real notes into it before tagging. It is adopted as
+      # it stands: only its tag and title are set to the concrete version.
       #
-      # `publish: false` deliberately: the draft is filled in first, the
-      # installers are attached to it while it is still a draft, and only then
-      # is it made public. A release page that appears with no assets on it is
-      # the thing every install guide's download link points at.
+      # The drafter is deliberately *not* run again here. It re-renders the
+      # body from the pull-request list on every run (there is no "keep what is
+      # there" path in it), so running it at tag time — as this step used to —
+      # threw away anything typed into the draft on GitHub. The draft is the
+      # one place the notes are written, and the tag publishes what it holds.
+      #
+      # The most recent draft is taken, the same choice the drafter itself
+      # makes. A repository with no draft at all (a fresh fork, or a draft
+      # somebody deleted) falls through to the drafter below, which builds one
+      # from the pull requests exactly as before.
+      - name: Adopt the draft release
+        id: draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ID=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+                 --jq '[.[] | select(.draft)][0].id // empty')
+          if [ -z "$ID" ]; then
+            echo "No draft release to adopt; one will be drafted from the pull requests."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${ID}" \
+            -f tag_name="$GITHUB_REF_NAME" \
+            -f name="Trusty Track v${{ steps.version.outputs.version }}" \
+            -f target_commitish="$GITHUB_SHA" \
+            --jq '"Adopted draft \(.id): \(.name) (\(.tag_name)), \(.body | length) characters of notes"'
+          echo "found=true" >> "$GITHUB_OUTPUT"
+
+      # Fallback only — see above. `publish: false` deliberately, and it
+      # matters for both paths: the draft is filled in first, the installers
+      # are attached to it while it is still a draft, and only then is it made
+      # public. A release page that appears with no assets on it is the thing
+      # every install guide's download link points at.
       - name: Draft the release notes
+        if: steps.draft.outputs.found != 'true'
         uses: release-drafter/release-drafter@v7
         with:
           config-name: release-drafter.yml
