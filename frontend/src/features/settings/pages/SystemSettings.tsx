@@ -793,7 +793,11 @@ export default function SystemConfig() {
           <small style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: '0.75rem' }}>
             A starting point for the words below — answer nothing and this install stays Den/Pack/Car, exactly as it always has.
           </small>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          {/* `auto-fit`/`minmax` rather than a fixed `1fr 1fr` (#1150): a
+              phone-width column wraps every radio's helper text at under
+              150px, so this collapses to one column below ~536px and stays
+              two on a tablet or wider. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
             <div>
               <p style={{ fontWeight: 'bold', fontSize: '0.85rem', margin: '0 0 0.4rem' }}>What is being raced?</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -877,7 +881,7 @@ export default function SystemConfig() {
             For a school, a club, a Space Derby, or anyone racing the same format under different words. A race can override this on its own settings too.
           </small>
           {customTerminology && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
               <div>
                 <label htmlFor="racing_group_singular" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>One racing group (was &ldquo;Den&rdquo;)</label>
                 <input

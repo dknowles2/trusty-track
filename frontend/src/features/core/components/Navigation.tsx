@@ -628,7 +628,14 @@ export default function Navigation() {
         )}
       </nav>
 
-      {/* Secondary Header: Race Navigation (Hidden on Mobile) */}
+      {/* Secondary Header: Race Navigation (Hidden on Mobile). The gap is
+          `clamp`ed rather than a flat `2.5rem` (#1149): six links at that
+          gap measure 825px wide at an 820px tablet-portrait viewport, 5px
+          past the edge on every race page and every modal it renders. The
+          gap alone (`3vw` scales from 12px at 400px up to the original
+          40px past ~1333px) buys back enough width to hold the row on one
+          line through the whole 769–880px band without shrinking a wider
+          screen's spacing at all. */}
       {raceId && !isMobile && (
         <div data-testid="race-nav" style={{
           backgroundColor: 'var(--surface-color)',
@@ -636,7 +643,7 @@ export default function Navigation() {
           padding: '0.75rem 0',
           display: 'flex',
           justifyContent: 'center',
-          gap: '2.5rem',
+          gap: 'clamp(0.75rem, 3vw, 2.5rem)',
           boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
           position: 'relative',
           zIndex: 999

@@ -282,6 +282,17 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* A browser's default box-sizing for a form control is `content-box`, so an
+ * inline `width: 100%` plus this codebase's own padding renders wider than
+ * its container — a two-column grid cell overruns into its neighbour, and a
+ * single-column field runs past the page edge (#1150). `.form-control`
+ * already opted itself into `border-box`; this makes every input, select,
+ * textarea and button the same by default, so a plain inline-styled field
+ * (most of them, outside `.form-control`) fits its container too. */
+input, select, textarea, button {
+  box-sizing: border-box;
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-header);
   color: var(--scouting-blue);
@@ -1229,6 +1240,23 @@ input:checked + .slider:before {
   border: 1px solid #ccc;
   border-radius: 8px;
   font-size: 1rem;
+}
+
+/* `RacerForm.tsx`'s three side-by-side field pairs (#1150) — First/Last
+ * name, Number/Weight, the two photo pickers. Two 1fr columns is fine down
+ * to about 480px; below that (a 390px phone, portrait) each column is
+ * narrower than the field's own padding and a neighbouring lane's label
+ * leaves no room to read either one, so the pair stacks instead. */
+.racer-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media screen and (max-width: 480px) {
+  .racer-form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media screen and (max-width: 768px) {
