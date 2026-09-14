@@ -70,7 +70,7 @@ Two things worth knowing:
 | --- | --- |
 | `needs-triage` | Applied automatically; nobody has classified this yet |
 | `bug`, `documentation` | Applied automatically from a `fix:`/`docs:` title prefix; also fine to apply by hand |
-| `enhancement`, `question`, `good first issue`, `help wanted`, `tech-debt`, `architecture`, `performance`, `security` | Ordinary human triage — pick the one that actually describes the issue, never guessed by the workflow |
+| `enhancement`, `question`, `help wanted`, `tech-debt`, `architecture`, `performance`, `security` | Ordinary human triage — pick the one that actually describes the issue, never guessed by the workflow. `good first issue` is deliberately absent and deleted from the repo: it draws automated bots that open unwanted pull requests (2026-09-13) |
 | `icebox` | Parked by a human judgment call — blocked on hardware nobody has, a purchased certificate, or a real data file. The workflow never applies this; see `auth-and-demo.md`'s note on the public demo for the kind of thing that ends up here |
 | `duplicate`, `invalid`, `wontfix` | Triage outcomes, applied by a human closing the loop |
 
