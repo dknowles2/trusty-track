@@ -252,6 +252,14 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
             >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     {title && <h2 style={{ margin: 0 }}>{title}</h2>}
+                    {/* #1146: a 21×28 hit area on a 44×44 touch-target floor.
+                        `minWidth`/`minHeight` grow the button's box around
+                        the glyph rather than the glyph itself — `display:
+                        flex` centring keeps the × visually in about the same
+                        spot it always was, moving it a couple of px on
+                        desktop rather than the ~20px a bigger font or
+                        padding alone would. Every modal shares this one
+                        button, so the fix reaches all of them at once. */}
                     <button
                         onClick={onClose}
                         style={{
@@ -260,7 +268,12 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
                             fontSize: '1.5rem',
                             cursor: 'pointer',
                             color: 'var(--text-faint-color)',
-                            padding: '0 5px'
+                            padding: 0,
+                            minWidth: '44px',
+                            minHeight: '44px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                         }}
                     >
                         ×
