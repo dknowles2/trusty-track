@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, within, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import type { DragEndEvent } from '@dnd-kit/core';
@@ -1666,5 +1666,129 @@ describe('lane columns follow a since-shrunk track (#994)', () => {
     expect(screen.getByText('Lane 1')).toBeInTheDocument();
     expect(screen.getByText('Lane 4')).toBeInTheDocument();
     expect(screen.queryByText('not on this track')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Issue #1139. Under 600px each round renders one card per heat instead of
+ * the Heat · Lane 1…N · Actions table above — the table ran 553px wide on a
+ * 390px phone for a 4-lane track, clipping lanes 3-4 and the whole Actions
+ * column with no scroll cue. `resizeTo` mirrors
+ * `useNarrowViewport.test.ts`'s own helper: the hook reads `window.innerWidth`
+ * inside a `resize` listener, so a test has to fire the event a real browser
+ * would rather than just assigning the property.
+ */
+describe('heats render as cards under 600px (#1139)', () => {
+  function resizeTo(width: number) {
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width });
+    window.dispatchEvent(new Event('resize'));
+  }
+
+  afterEach(() => {
+    resizeTo(1024);
+  });
+
+  const fourLaneHeat = heat({
+    id: 1,
+    roundNumber: 1,
+    roundId: 1,
+    heatNumber: 1,
+    roundName: 'Round 1',
+    lanes: [
+      lane({ lane: 1, racerId: 1, time: 3.1, place: 1 }),
+      lane({ lane: 2, racerId: 2, time: 3.4, place: 2 }),
+      lane({ lane: 3, racerId: 3, time: 3.8, place: 3 }),
+      lane({ lane: 4, racerId: 4, time: 4.1, place: 4 }),
+    ],
+  });
+
+  // Not yet run — unlike `fourLaneHeat` above, this keeps the drag handle
+  // enabled ("Cannot reorder completed heats" would otherwise replace the
+  // "Drag to reorder" title) and the button reading "Run" rather than
+  // "Re-Run", which is what the two tests below are actually about.
+  const pendingHeat = heat({
+    id: 2,
+    roundNumber: 1,
+    roundId: 1,
+    heatNumber: 2,
+    roundName: 'Round 1',
+    lanes: [
+      lane({ lane: 1, racerId: 1 }),
+      lane({ lane: 2, racerId: 2 }),
+      lane({ lane: 3, racerId: 3 }),
+      lane({ lane: 4, racerId: 4 }),
+    ],
+  });
+
+  const renderNarrow = (heats: Heat[] = [fourLaneHeat], onRunHeat = vi.fn()) =>
+    render(
+      <MemoryRouter>
+        <AlertProvider>
+          <ScheduleManagement
+            raceId={1}
+            heats={heats}
+            generating={false}
+            activeHeatId={null}
+            onAddRound={vi.fn()}
+            onRegenerateRound={vi.fn()}
+            onDeleteRound={vi.fn()}
+            onDeleteHeat={vi.fn()}
+            onRunHeat={onRunHeat}
+            onReorderHeats={vi.fn()}
+            getRacerName={(id) => `Racer ${id}`}
+            onRefetchHeats={vi.fn()}
+            laneCount={4}
+            racerCount={10}
+            racingGroupCount={3}
+            championshipTrophies={3}
+          />
+        </AlertProvider>
+      </MemoryRouter>
+    );
+
+  it('renders a card, not a table, once the viewport is narrow', () => {
+    resizeTo(390);
+    renderNarrow();
+
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.getByTestId('schedule-heat-card-1')).toBeInTheDocument();
+    expect(screen.getByText('Heat 1')).toBeInTheDocument();
+    // One line per lane, all four present — the table's own lanes 3/4 were
+    // the ones running off a 390px screen.
+    for (const racerId of [1, 2, 3, 4]) {
+      expect(screen.getByText(`Racer ${racerId}`)).toBeInTheDocument();
+    }
+    expect(screen.getByText('3.100s')).toBeInTheDocument();
+    expect(screen.getByText('4.100s')).toBeInTheDocument();
+  });
+
+  it('renders the table, not a card, at an ordinary width', () => {
+    resizeTo(1024);
+    renderNarrow();
+
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(screen.queryByTestId('schedule-heat-card-1')).not.toBeInTheDocument();
+  });
+
+  it('the card carries a sortable drag handle wired to the same reorder logic as the row', () => {
+    resizeTo(390);
+    renderNarrow([pendingHeat]);
+
+    // `useSortable` is mocked module-wide (top of this file) to return a
+    // static, non-null `attributes`/`listeners` pair regardless of which
+    // component calls it — so the assertion available here is that the
+    // card actually calls it (the handle renders and is not disabled),
+    // not the pointer/keyboard mechanics jsdom can't run.
+    const handle = screen.getByTitle('Drag to reorder');
+    expect(handle).toBeInTheDocument();
+  });
+
+  it("the card's Run button reaches the same handler the table's does", () => {
+    resizeTo(390);
+    const onRunHeat = vi.fn();
+    renderNarrow([pendingHeat], onRunHeat);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+    expect(onRunHeat).toHaveBeenCalledWith(pendingHeat, true);
   });
 });

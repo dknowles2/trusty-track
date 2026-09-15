@@ -1,5 +1,5 @@
 /**
- * Race Control on a phone (#782).
+ * Race Control on a phone (#782, #1139).
  *
  * The Roster, Standings and System Settings pages all collapse cleanly at a
  * 390 px (iPhone-class) viewport. Race Control's Schedule and Race tabs did
@@ -14,6 +14,16 @@
  * element looks right — a single wide element anywhere on the page inflates
  * the whole document's width and re-triggers the shrink-to-fit, so the
  * end-to-end check is the one that matters.
+ *
+ * The Schedule tab's own check used to assert the *table*'s own horizontal
+ * scroll container reached lane 4 — the fix #782 shipped for a heat table
+ * that is always wider than a phone. #1139 replaced that table with one
+ * card per heat under 600px (`ScheduleManagement.tsx`'s `isNarrow` branch),
+ * which needs no scroll container at all: every lane is directly on
+ * screen. `mobileSchedule.spec.ts` is the fuller regression test for that
+ * fix; this spec's own job is narrower — the whole-document layout #782 was
+ * about — so it now checks lane 4 is simply visible rather than checking
+ * for a scroll container that no longer exists.
  */
 
 import { expect, test } from '@playwright/test';
@@ -22,7 +32,7 @@ import { createSchedule, ensureConfigured, seedRace } from './support';
 
 const PHONE_VIEWPORT = { width: 390, height: 844 };
 
-test('the Schedule tab lays out to a 390px viewport, with Add Round reachable and lane columns scrollable (#782)', async ({
+test('the Schedule tab lays out to a 390px viewport, with Add Round and every lane reachable (#782, #1139)', async ({
     page,
 }) => {
     await page.setViewportSize(PHONE_VIEWPORT);
@@ -47,28 +57,16 @@ test('the Schedule tab lays out to a 390px viewport, with Add Round reachable an
     expect(addRoundBox).not.toBeNull();
     expect(addRoundBox!.x + addRoundBox!.width).toBeLessThanOrEqual(PHONE_VIEWPORT.width);
 
-    // The heat table is wider than a phone screen — laned tables always will
-    // be — so it must carry its own horizontal scroll container rather than
-    // forcing the page itself to overflow, and the lane 4 column must be
-    // reachable through it.
-    const lane4Header = page.getByRole('columnheader', { name: 'Lane 4' }).first();
-    await expect(lane4Header).toBeAttached();
-    const scrollInfo = await lane4Header.evaluate((el) => {
-        let node: HTMLElement | null = el as HTMLElement;
-        while (node) {
-            const cs = getComputedStyle(node);
-            if (cs.overflowX === 'auto' || cs.overflowX === 'scroll') {
-                return { found: true, scrollWidth: node.scrollWidth, clientWidth: node.clientWidth };
-            }
-            node = node.parentElement;
-        }
-        return { found: false, scrollWidth: 0, clientWidth: 0 };
-    });
-    expect(scrollInfo.found).toBe(true);
-    expect(scrollInfo.clientWidth).toBeLessThanOrEqual(PHONE_VIEWPORT.width);
-    expect(scrollInfo.scrollWidth).toBeGreaterThan(scrollInfo.clientWidth);
-    await lane4Header.scrollIntoViewIfNeeded();
-    await expect(lane4Header).toBeInViewport();
+    // Under 600px each round renders as one card per heat rather than a
+    // table (#1139) — no table at all, and lane 4 sits directly on screen
+    // with nothing to scroll to reach it.
+    await expect(page.getByRole('table')).toHaveCount(0);
+    const lane4Line = page.getByText('L4', { exact: true }).first();
+    await expect(lane4Line).toBeVisible();
+    const lane4Box = await lane4Line.boundingBox();
+    expect(lane4Box).not.toBeNull();
+    expect(lane4Box!.x).toBeGreaterThanOrEqual(0);
+    expect(lane4Box!.x + lane4Box!.width).toBeLessThanOrEqual(PHONE_VIEWPORT.width);
 });
 
 test('the Race tab lays out to a 390px viewport (#782)', async ({ page }) => {
