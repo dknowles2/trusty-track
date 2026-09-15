@@ -73,10 +73,18 @@ vi.mock('react-router-dom', async (importOriginal) => {
     };
 });
 
+/** Sets `window.innerWidth` and fires the `resize` event a real browser
+ * would — `useNarrowViewport` only reads the width inside its listener. */
+function resizeTo(width: number) {
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width });
+    window.dispatchEvent(new Event('resize'));
+}
+
 // Cleanup after each test
 afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    resizeTo(1024);
 });
 
 describe('Home Page', () => {
@@ -347,6 +355,22 @@ describe('Home Page', () => {
                 expect(mockNavigate).toHaveBeenCalledWith('/race/7?edit=true');
             });
         });
+    });
+
+    // jsdom's default `innerWidth` (1024) keeps every test above on the
+    // table path — this is the one unit test that mounts the card branch
+    // (#1137), a faster signal than a full `homeRaceCards.spec.ts` run for
+    // a regression that removes the card rendering entirely.
+    it('renders a card per race, not the table, below the 900px breakpoint (#1137)', async () => {
+        resizeTo(390);
+        renderHome({
+            races: [{ id: 7, name: 'Annual Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0 }],
+        });
+
+        await screen.findByText('Annual Derby');
+        expect(screen.getByTestId('race-cards')).toBeInTheDocument();
+        expect(screen.getByTestId('race-card-7')).toBeInTheDocument();
+        expect(screen.queryByRole('table')).not.toBeInTheDocument();
     });
 
     describe('guarding against duplicate clicks (#588)', () => {
