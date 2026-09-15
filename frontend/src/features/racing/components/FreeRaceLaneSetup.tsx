@@ -96,9 +96,9 @@ const laneNumber = {
 const AnonymousLaneItem: React.FC<{ lane: number }> = ({ lane }) => {
   const { vehicleLower } = useTerminology();
   return (
-    <div style={{ ...laneCard, background: 'var(--surface-tint-color)', padding: '14px 15px' }}>
-      <div style={laneNumber}>Lane {lane}</div>
-      <div style={{ flex: 1, color: 'var(--text-quiet-color)' }}>Any {vehicleLower}</div>
+    <div className="free-race-lane-row" style={{ ...laneCard, background: 'var(--surface-tint-color)', padding: '14px 15px' }}>
+      <div className="free-race-lane-number" style={laneNumber}>Lane {lane}</div>
+      <div className="free-race-lane-info" style={{ flex: 1, color: 'var(--text-quiet-color)' }}>Any {vehicleLower}</div>
     </div>
   );
 };
@@ -150,6 +150,7 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
   return (
     <div
       ref={setNodeRef}
+      className="free-race-lane-row"
       style={style}
       onFocus={() => setIsFocused(true)}
       onBlur={(e) => {
@@ -161,6 +162,7 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
       <div
         {...attributes}
         {...listeners}
+        className="free-race-lane-drag"
         style={{
           cursor: 'grab',
           paddingRight: '15px',
@@ -170,14 +172,14 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
           opacity: 0.6,
         }}
       >
-        <Icon path={mdiDragVertical} size={1} />
+        <Icon path={mdiDragVertical} size={1} className="free-race-lane-drag-icon" />
       </div>
 
-      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: 'var(--text-muted-color)' }}>
+      <div className="free-race-lane-number" style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: 'var(--text-muted-color)' }}>
         Lane {assignment.lane}
       </div>
 
-      <div style={{
+      <div className="free-race-lane-avatar" style={{
         width: '80px',
         height: '80px',
         borderRadius: '50%',
@@ -186,7 +188,8 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
         background: 'transparent',
         display: 'flex',
         justifyContent: 'center',
-        alignItems: 'center'
+        alignItems: 'center',
+        flexShrink: 0,
       }}>
         {assignment.racerId ? (
           <RacerAvatar
@@ -214,7 +217,7 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
         )}
       </div>
 
-      <div style={{ flex: 1 }}>
+      <div className="free-race-lane-info" style={{ flex: 1, minWidth: 0 }}>
         {mode === 'manual' ? (
           <RacerCombobox
             racers={allRacersList.filter((r) => {
@@ -226,6 +229,7 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
             value={assignment.racerId ?? undefined}
             onChange={(racerId) => onManualChange(assignment.lane, racerId ?? null)}
             placeholder="— Select racer —"
+            className="free-race-lane-combobox"
             style={{ minWidth: '350px' }}
           />
         ) : (
@@ -233,11 +237,11 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
             <em style={{ color: 'var(--text-faint-color)', fontSize: '1.2rem' }}>(empty)</em>
           ) : (
             <>
-              <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+              <div className="free-race-lane-name" style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
                 {racer?.firstName} {racer?.lastName}
               </div>
               {racer?.carNumber != null && (
-                <div style={{ fontSize: '1rem', color: 'var(--text-muted-color)' }}>
+                <div className="free-race-lane-car" style={{ fontSize: '1rem', color: 'var(--text-muted-color)' }}>
                   {vehicle} #{racer.carNumber}
                 </div>
               )}
@@ -421,7 +425,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-      <div style={{ background: 'var(--surface-color)', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--scouting-blue)' }}>
+      <div className="free-race-panel" style={{ background: 'var(--surface-color)', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--scouting-blue)' }}>
         {showProxyControls && trackId != null && (
           <SerialProxyConnector trackId={trackId} />
         )}
@@ -442,13 +446,32 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
           {trackId != null && <TimerStatusBadge trackId={trackId} />}
         </div>
 
-        {/* Mode tabs */}
-        <div style={{ display: 'flex', background: 'var(--surface-strong-color)', padding: '4px', borderRadius: '20px', marginBottom: '20px', width: 'fit-content', gap: '4px' }}>
+        {/* Mode tabs (#1141). Desktop keeps each tab sized to its own label
+            ("Anonymous" wider than "Random") exactly as before — that is
+            `.free-race-mode-btn`'s only rule outside the 600px media query
+            below, and it stays that way deliberately: an earlier draft put
+            `flex: 1 1 0; min-width: 0` here unconditionally on the theory
+            that a `fit-content` container gives it nothing to grow into, but
+            a flex container's *layout* pass (as opposed to its intrinsic-
+            size pass) redistributes space per `flex-grow` regardless of how
+            the container itself was sized — three unequal tabs came out
+            equal-width even at 1280px, caught only by the docs screenshot
+            diff (`free-race/01-lane-setup-random.png` and its two
+            siblings). Both the even-width split and the icon-only collapse
+            now live in the 599px block instead, so nothing above that width
+            changes. Under ~420px the label itself is dropped for
+            `aria-label`/`title` rather than wrapped onto a second line — a
+            second line would still leave an icon-sized tab to aim at, where
+            dropping the label keeps three full-width tabs. */}
+        <div className="free-race-mode-control" style={{ display: 'flex', background: 'var(--surface-strong-color)', padding: '4px', borderRadius: '20px', marginBottom: '20px', width: 'fit-content', gap: '4px' }}>
           {MODES.map(({ key, label, icon }) => (
             <button
               key={key}
               onClick={() => onModeChange(key)}
               aria-pressed={mode === key}
+              aria-label={label}
+              title={label}
+              className="free-race-mode-btn"
               style={{
                 padding: '8px 20px',
                 borderRadius: '16px',
@@ -459,10 +482,12 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '6px',
               }}
             >
-              <Icon path={icon} size={0.8} /> {label}
+              <Icon path={icon} size={0.8} className="free-race-mode-icon" />
+              <span className="free-race-mode-label">{label}</span>
             </button>
           ))}
         </div>
@@ -567,11 +592,19 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: '12px' }}>
+        {/* Re-shuffle/Clear All sit beside Start at desktop, and above it —
+            full-width, one control per line — under 600px (#1141): a phone
+            reads this row top to bottom, so the secondary action belongs
+            above the primary one it leads into rather than squeezed next to
+            it. `.free-race-actions`'s own `flex-direction: column` is enough
+            to reorder them, since the secondary group is already the first
+            DOM child. */}
+        <div className="free-race-actions" style={{ display: 'flex', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="free-race-actions-secondary" style={{ display: 'flex', gap: '12px' }}>
             {mode === 'random' && (
               <button
                 onClick={handleReshuffle}
+                className="free-race-secondary-btn"
                 style={{
                   padding: '10px 20px',
                   border: '1px solid var(--input-border-color)',
@@ -580,7 +613,9 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: '8px',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 <Icon path={mdiShuffle} size={0.8} /> Re-shuffle
@@ -589,6 +624,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
             {mode === 'manual' && (
               <button
                 onClick={() => setManualAssignments((prev) => prev.map((a) => ({ ...a, racerId: null })))}
+                className="free-race-secondary-btn"
                 style={{
                   padding: '10px 20px',
                   border: '1px solid var(--input-border-color)',
@@ -597,7 +633,9 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: '8px',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 <Icon path={mdiCloseOctagon || mdiPencil} size={0.8} /> Clear All
@@ -610,7 +648,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
               enabledLanes.length === 0 ||
               (mode === 'random' && randomResult.fetching && randomAssignments.length === 0)
             }
-            className="primary-btn"
+            className="primary-btn free-race-start-btn"
             style={{
               padding: '10px 20px',
               border: 'none',
@@ -621,7 +659,9 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
               fontWeight: 'bold',
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: '8px',
+              whiteSpace: 'nowrap',
             }}
           >
             <Icon path={mdiFlagCheckered} size={0.8} />{' '}

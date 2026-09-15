@@ -80,6 +80,25 @@ describe('FreeRaceLaneSetup', () => {
     expect(screen.getByRole('button', { name: /Anonymous/i })).toBeInTheDocument();
   });
 
+  it('a mode tab keeps its accessible name once its label is hidden under ~420px (#1141)', () => {
+    // jsdom applies no layout, so `.free-race-mode-label { display: none }`
+    // (index.css, under the 420px media query) is never actually in effect
+    // here — what this pins is that the name survives *regardless*: each
+    // button carries its own `aria-label`/`title` rather than depending on
+    // the visible span, so a screen reader (or a long-press tooltip) still
+    // says "Random" once CSS has hidden the text beside the icon.
+    render(<StatefulWrapper {...defaultProps} />);
+    for (const label of ['Random', 'Manual', 'Anonymous']) {
+      const btn = screen.getByRole('button', { name: label });
+      expect(btn).toHaveAttribute('aria-label', label);
+      expect(btn).toHaveAttribute('title', label);
+      // The label text is still in the DOM (CSS hides it, not React) so a
+      // sighted user with a magnifier or a browser-level font override
+      // still finds real text, not an icon standing in for it.
+      expect(within(btn).getByText(label)).toBeInTheDocument();
+    }
+  });
+
   it('displays lane assignments returned by the randomFreeRaceLanes query', async () => {
     render(<StatefulWrapper {...defaultProps} />);
     await waitFor(() => {

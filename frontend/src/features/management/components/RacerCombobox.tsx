@@ -15,13 +15,14 @@ interface ComboboxProps {
   onChange: (racerId: number | undefined) => void;
   placeholder?: string;
   style?: React.CSSProperties;
+  className?: string;
 }
 
 function racerLabel(r: RacerOption) {
   return r.carNumber != null ? `#${r.carNumber} ${r.firstName} ${r.lastName}` : `${r.firstName} ${r.lastName}`;
 }
 
-export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange, placeholder, style }) => {
+export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange, placeholder, style, className }) => {
   const assigned = racers.find((r) => r.id === value);
   const [inputValue, setInputValue] = useState(assigned ? racerLabel(assigned) : '');
   const [isOpen, setIsOpen] = useState(false);
@@ -111,7 +112,7 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
   }, [activeIndex]);
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', zIndex: isOpen ? 100 : 1, ...style }}>
+    <div ref={containerRef} className={className} style={{ position: 'relative', zIndex: isOpen ? 100 : 1, ...style }}>
       <input
         ref={inputRef}
         type="text"
