@@ -37,6 +37,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
 import { errorText } from '../../../utils/errors';
 import { heatsEstimate } from '../../../utils/duration';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
@@ -226,6 +227,137 @@ const getDisplayName = (lane: Lane, getRacerName: (id: number) => string) => {
   return getRacerName(lane.racerId);
 };
 
+/**
+ * Everything about a heat's own state that the desktop row and the phone
+ * card both have to agree on — whether it can be dragged, whether Run is
+ * disabled and why, and whether the button reads "Run" or "Re-Run" (#1139).
+ * Computed once so the two renderings cannot silently drift the way the
+ * lane cell wrapping already had: a card built by copying this logic by eye
+ * is exactly the kind of second copy this file's own README warns about.
+ */
+interface HeatRowState {
+  lanes: readonly Lane[];
+  hasRecordedTimes: boolean;
+  isSkipped: boolean;
+  isCompleted: boolean;
+  hasPlaceholders: boolean;
+  isDraggingDisabled: boolean;
+  isRunDisabled: boolean;
+  runBtnTitle: string;
+  runLabel: string;
+}
+
+function computeHeatRowState(
+  heat: Heat,
+  isRunning: boolean,
+  isReordering: boolean,
+  isUpcoming: boolean,
+  masterRunningOrder: boolean,
+  raceLocked: boolean,
+  isOperator: boolean,
+): HeatRowState {
+  const lanes = heat.lanes;
+  const hasRecordedTimes = hasTimes(lanes);
+  const isSkipped = lanes.some((l) => l.skipped);
+  const isCompleted = hasRun(lanes);
+  const hasPlaceholders = lanes.some((l) => l.placeholderSlot !== null);
+
+  // Disable dragging if heat is running, reordering is in progress, or heat
+  // has results — or the race runs a master running order, where a drag's
+  // 1..N renumbering would silently pull this round out of the interleave —
+  // or the race is locked (#585) or this device is not the operator (#892):
+  // reordering writes heat_number through the same door prepareHeat needs.
+  const isDraggingDisabled =
+    isRunning || isReordering || hasRecordedTimes || masterRunningOrder || raceLocked || !isOperator;
+
+  const isRunDisabled = isRunning || hasPlaceholders || isUpcoming || raceLocked || !isOperator;
+  const runBtnTitle = raceLocked
+    ? RACE_LOCKED_MESSAGE
+    : hasPlaceholders
+      ? "Racers not yet determined for this round"
+      : isUpcoming
+        ? "Complete previous rounds first"
+        : !isOperator
+          ? NEEDS_OPERATOR_PIN_MESSAGE
+          : "";
+  const runLabel = isRunning ? '...' : (isSkipped && !hasRecordedTimes) ? 'Run' : isCompleted ? 'Re-Run' : 'Run';
+
+  return {
+    lanes,
+    hasRecordedTimes,
+    isSkipped,
+    isCompleted,
+    hasPlaceholders,
+    isDraggingDisabled,
+    isRunDisabled,
+    runBtnTitle,
+    runLabel,
+  };
+}
+
+interface HeatActionsProps {
+  heat: Heat;
+  state: HeatRowState;
+  isRunning: boolean;
+  raceLocked: boolean;
+  isOperator: boolean;
+  onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
+  onDeleteHeat: (heatId: number) => Promise<void>;
+  /** The delete button's own class, so the table row can keep its
+   * hover/focus-only reveal (`.heat-row-delete-btn` in `index.css`) while
+   * the card — which has no hover on a touch screen — shows it plainly. */
+  deleteButtonClassName?: string;
+  runButtonStyle?: React.CSSProperties;
+}
+
+/**
+ * Delete (when it applies) and Run/Re-Run — the two controls a heat row's
+ * Actions column has always offered. Shared by the table row and the phone
+ * card so neither can offer a control, or a label, the other doesn't
+ * (#1139) — the underlying decision is {@link computeHeatRowState}'s.
+ */
+const HeatActions: React.FC<HeatActionsProps> = ({
+  heat,
+  state,
+  isRunning,
+  raceLocked,
+  isOperator,
+  onRunHeat,
+  onDeleteHeat,
+  deleteButtonClassName,
+  runButtonStyle,
+}) => (
+  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+    {!state.isCompleted && !isRunning && !raceLocked && isOperator && (
+      <button
+        onClick={() => onDeleteHeat(heat.id)}
+        className={`icon-btn-delete${deleteButtonClassName ? ` ${deleteButtonClassName}` : ''}`}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: 'var(--error)',
+          cursor: 'pointer',
+          padding: '4px',
+          display: 'flex',
+          alignItems: 'center',
+        }}
+        title="Delete Heat"
+      >
+        <Icon path={mdiDelete} size={0.7} />
+      </button>
+    )}
+    <button
+      className="primary-btn"
+      onClick={() => onRunHeat(heat, !state.isCompleted)}
+      disabled={state.isRunDisabled}
+      title={state.runBtnTitle}
+      style={{ padding: '4px 12px', fontSize: '0.8rem', minWidth: '70px', ...runButtonStyle }}
+    >
+      {state.runLabel}
+    </button>
+  </div>
+);
+
 const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   heat,
   isRunning,
@@ -239,18 +371,16 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   onDeleteHeat,
   laneCount
 }) => {
-  const lanes = heat.lanes;
-  const hasRecordedTimes = hasTimes(lanes);
-  const isSkipped = lanes.some((l) => l.skipped);
-  const isCompleted = hasRun(lanes);
-  const hasPlaceholders = lanes.some((l) => l.placeholderSlot !== null);
-
-  // Disable dragging if heat is running, reordering is in progress, or heat
-  // has results — or the race runs a master running order, where a drag's
-  // 1..N renumbering would silently pull this round out of the interleave —
-  // or the race is locked (#585) or this device is not the operator (#892):
-  // reordering writes heat_number through the same door prepareHeat needs.
-  const isDraggingDisabled = isRunning || isReordering || hasRecordedTimes || masterRunningOrder || raceLocked || !isOperator;
+  const state = computeHeatRowState(
+    heat,
+    isRunning,
+    isReordering,
+    isUpcoming,
+    masterRunningOrder,
+    raceLocked,
+    isOperator,
+  );
+  const { lanes, hasRecordedTimes, isSkipped, isCompleted } = state;
 
   const {
     attributes,
@@ -261,7 +391,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
     isDragging,
   } = useSortable({
     id: heat.id,
-    disabled: isDraggingDisabled
+    disabled: state.isDraggingDisabled
   });
 
   const style = {
@@ -271,17 +401,6 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
     background: isDragging ? 'var(--background-color)' : 'var(--surface-color)',
     borderLeft: isRunning ? '5px solid orange' : (isSkipped && !hasRecordedTimes) ? '5px solid var(--danger-accent-color)' : isCompleted ? '5px solid green' : '5px solid transparent',
   };
-
-  const isRunDisabled = isRunning || hasPlaceholders || isUpcoming || raceLocked || !isOperator;
-  const runBtnTitle = raceLocked
-    ? RACE_LOCKED_MESSAGE
-    : hasPlaceholders
-      ? "Racers not yet determined for this round"
-      : isUpcoming
-        ? "Complete previous rounds first"
-        : !isOperator
-          ? NEEDS_OPERATOR_PIN_MESSAGE
-          : "";
 
   return (
     <tr
@@ -300,11 +419,11 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
         {...attributes}
         {...listeners}
         style={{
-          cursor: isDraggingDisabled ? 'not-allowed' : 'grab',
+          cursor: state.isDraggingDisabled ? 'not-allowed' : 'grab',
           padding: '12px 8px',
           textAlign: 'center',
           width: '40px',
-          opacity: isDraggingDisabled ? 0.4 : 1,
+          opacity: state.isDraggingDisabled ? 0.4 : 1,
         }}
         title={masterRunningOrder ? "Heats follow the master running order" : hasRecordedTimes ? "Cannot reorder completed heats" : isRunning ? "Cannot reorder running heat" : "Drag to reorder"}
       >
@@ -337,37 +456,185 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
         );
       })}
       <td style={{ padding: '12px', textAlign: 'right', width: '120px' }}>
-        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
-          {!isCompleted && !isRunning && !raceLocked && isOperator && (
-            <button
-              onClick={() => onDeleteHeat(heat.id)}
-              className="icon-btn-delete heat-row-delete-btn"
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--error)',
-                cursor: 'pointer',
-                padding: '4px',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-              title="Delete Heat"
-            >
-              <Icon path={mdiDelete} size={0.7} />
-            </button>
-          )}
-          <button
-            className="primary-btn"
-            onClick={() => onRunHeat(heat, !isCompleted)}
-            disabled={isRunDisabled}
-            title={runBtnTitle}
-            style={{ padding: '4px 12px', fontSize: '0.8rem', minWidth: '70px' }}
-          >
-            {isRunning ? '...' : (isSkipped && !hasRecordedTimes) ? 'Run' : isCompleted ? 'Re-Run' : 'Run'}
-          </button>
-        </div>
+        <HeatActions
+          heat={heat}
+          state={state}
+          isRunning={isRunning}
+          raceLocked={raceLocked}
+          isOperator={isOperator}
+          onRunHeat={onRunHeat}
+          onDeleteHeat={onDeleteHeat}
+          deleteButtonClassName="heat-row-delete-btn"
+        />
       </td>
     </tr>
+  );
+};
+
+interface SortableHeatCardProps extends SortableHeatRowProps {
+  /** This track's configured lane colours (#611) — see `laneColors` on
+   * {@link ScheduleManagementProps}. */
+  laneColors: readonly string[];
+}
+
+/**
+ * A heat as a card rather than a table row — under 600px, one per heat,
+ * standing in for the row `SortableHeatRow` renders at ordinary widths
+ * (issue #1139). The table's own Heat · Lane 1…N · Actions columns put
+ * three of a 4-lane track's lanes and the whole Actions column off-screen
+ * at 390px with no scroll cue, and each visible lane cell wrapped to three
+ * lines — a 12-heat round ran to roughly 1,300px tall showing half its
+ * lanes. This renders the identical decisions ({@link computeHeatRowState},
+ * {@link HeatActions}) as one line per lane instead of one column per lane,
+ * so nothing about *what* Run does, or when it's disabled, or which racer
+ * is named, can drift from the table's own answer — only the layout
+ * changes.
+ *
+ * Drag-to-reorder works exactly as it does on the row: `useSortable` is
+ * called here too, with the handle now in the card's header rather than a
+ * leading table cell.
+ */
+const SortableHeatCard: React.FC<SortableHeatCardProps> = ({
+  heat,
+  isRunning,
+  isReordering,
+  isUpcoming,
+  masterRunningOrder,
+  raceLocked,
+  isOperator,
+  getRacerName,
+  onRunHeat,
+  onDeleteHeat,
+  laneCount,
+  laneColors,
+}) => {
+  const state = computeHeatRowState(
+    heat,
+    isRunning,
+    isReordering,
+    isUpcoming,
+    masterRunningOrder,
+    raceLocked,
+    isOperator,
+  );
+  const { lanes, hasRecordedTimes, isSkipped, isCompleted } = state;
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: heat.id,
+    disabled: state.isDraggingDisabled,
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    background: isDragging ? 'var(--background-color)' : 'var(--surface-color)',
+    borderLeft: isRunning ? '5px solid orange' : (isSkipped && !hasRecordedTimes) ? '5px solid var(--danger-accent-color)' : isCompleted ? '5px solid green' : '5px solid transparent',
+    border: '1px solid var(--divider-color)',
+    borderRadius: '8px',
+    padding: '8px 10px',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="schedule-heat-card"
+      data-testid={`schedule-heat-card-${heat.id}`}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+          <span
+            {...attributes}
+            {...listeners}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              cursor: state.isDraggingDisabled ? 'not-allowed' : 'grab',
+              opacity: state.isDraggingDisabled ? 0.4 : 1,
+              padding: '4px',
+              marginLeft: '-4px',
+            }}
+            title={masterRunningOrder ? "Heats follow the master running order" : hasRecordedTimes ? "Cannot reorder completed heats" : isRunning ? "Cannot reorder running heat" : "Drag to reorder"}
+          >
+            <Icon path={mdiDragVertical} size={0.8} color="var(--text-faint-color)" />
+          </span>
+          <span style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
+            Heat {heat.heatNumber}
+            {isSkipped && !hasRecordedTimes && (
+              <span style={{ marginLeft: '6px', color: 'var(--danger-strong-color)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold' }}>Skipped</span>
+            )}
+          </span>
+        </div>
+        <HeatActions
+          heat={heat}
+          state={state}
+          isRunning={isRunning}
+          raceLocked={raceLocked}
+          isOperator={isOperator}
+          onRunHeat={onRunHeat}
+          onDeleteHeat={onDeleteHeat}
+          runButtonStyle={{ padding: '4px 10px', minWidth: '56px' }}
+        />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', marginTop: '6px' }}>
+        {Array.from({ length: laneCount }).map((_, i) => {
+          const laneNum = i + 1;
+          const result = lanes.find((l) => l.lane === laneNum);
+          return (
+            <div
+              key={laneNum}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '3px 0',
+                borderTop: i > 0 ? '1px solid var(--surface-soft-color)' : undefined,
+                fontSize: '0.8rem',
+                minWidth: 0,
+              }}
+            >
+              <LaneBadge
+                color={colorForLane(laneColors, laneNum)}
+                style={{ flexShrink: 0, width: '2.2em', color: 'var(--text-muted-color)', fontSize: '0.72rem', textTransform: 'uppercase' }}
+              >
+                L{laneNum}
+              </LaneBadge>
+              {result ? (
+                <>
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {getDisplayName(result, getRacerName)}
+                  </span>
+                  {result.time != null && (
+                    <span style={{ flexShrink: 0, color: 'var(--scouting-blue)', fontVariantNumeric: 'tabular-nums' }}>
+                      {formatLaneTime(result.time)}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span style={{ color: 'var(--input-border-color)' }}>-</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 };
 
@@ -409,6 +676,15 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   onUnpinRoundField,
 }) => {
   const { group, groupLower, orgLower } = useTerminology();
+  // Under 600px, each round's heats render as cards instead of a table
+  // (#1139) — the table's Lane 3+/Actions columns run off a phone's width
+  // with no scroll cue, and a lane cell's three-line wrap made a 12-heat
+  // round roughly 1,300px tall. `useNarrowViewport` is the same JS-width
+  // check `RaceStats.tsx` already uses for its own chart labels, at the
+  // same 600px breakpoint `RaceStats.css`'s media queries key on — only
+  // one of the table/card renderings is ever mounted, so a `data-testid`
+  // never appears twice.
+  const isNarrow = useNarrowViewport(600);
   // #892: adding, regenerating and deleting a round all reach operator-only
   // mutations (createRound/createRoundWizard, regenerateRound, deleteRound,
   // deleteHeat) — a check-in tablet used to see these fully enabled and
@@ -1188,6 +1464,46 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
 
                   {showingChart && chart ? (
                     <EliminationChartView chart={chart} getRacerName={getRacerName} />
+                  ) : isNarrow ? (
+                    // Under 600px: one card per heat instead of the table
+                    // below (#1139) — see `SortableHeatCard`'s own comment
+                    // for why. Only this branch or the table branch is ever
+                    // mounted, never both, so a `data-testid` keyed on a
+                    // heat id can't appear twice on the page.
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragOver={handleDragOver}
+                      onDragEnd={(event) => handleDragEnd(event, roundId)}
+                    >
+                      <SortableContext
+                        items={roundHeats.map(h => h.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div
+                          data-testid={`schedule-heat-cards-${roundId}`}
+                          style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+                        >
+                          {roundHeats.map(heat => (
+                            <SortableHeatCard
+                              key={heat.id}
+                              heat={heat}
+                              isRunning={activeHeatId === heat.id}
+                              isReordering={reordering}
+                              isUpcoming={masterRunningOrder ? false : roundNum > firstUncompletedRoundNumber}
+                              masterRunningOrder={masterRunningOrder}
+                              raceLocked={raceLocked}
+                              isOperator={isOperator}
+                              getRacerName={getRacerName}
+                              onRunHeat={onRunHeat}
+                              onDeleteHeat={onDeleteHeat}
+                              laneCount={displayLaneCount}
+                              laneColors={laneColors}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
                   ) : (
                   <div style={{ overflowX: 'auto' }}>
                     <DndContext
