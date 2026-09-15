@@ -1486,16 +1486,23 @@ input:checked + .slider:before {
   }
 
   /* The segmented control's own width becomes 100% of its (now full-width)
-     container so `flex: 1 1 0` on each button (set unconditionally in
-     FreeRaceLaneSetup.tsx, harmless at desktop's `fit-content` sizing) has
-     space to actually divide evenly, rather than the row staying sized to
-     its `nowrap` content and overflowing regardless of what the buttons
-     inside it do. */
+     container, and each button gets `flex: 1 1 0; min-width: 0` so that
+     space divides evenly among the three tabs instead of the row staying
+     sized to its `nowrap` content and overflowing regardless of what the
+     buttons do. Scoped to this block deliberately, not set unconditionally
+     in FreeRaceLaneSetup.tsx: a flex container's *layout* pass redistributes
+     space by `flex-grow` regardless of how the container's own width was
+     resolved, so applying this above 599px turned three unequal tabs
+     ("Anonymous" wider than "Random") into three equal ones even at
+     1280px — caught by the docs screenshot diff on
+     `free-race/01-lane-setup-random.png` and its two siblings. */
   .free-race-mode-control {
     width: 100%;
   }
 
   .free-race-mode-btn {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
     padding: 8px 10px !important;
   }
 

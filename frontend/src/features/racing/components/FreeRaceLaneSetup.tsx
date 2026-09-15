@@ -446,19 +446,23 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
           {trackId != null && <TimerStatusBadge trackId={trackId} />}
         </div>
 
-        {/* Mode tabs (#1141). `flex: 1 1 0; min-width: 0` on every segment is
-            unconditional, not gated behind a media query: with the
-            container's own width staying `fit-content` at desktop there is
-            no spare space to grow into, so it is a no-op above 600px and is
-            what lets `.free-race-mode-control`'s own `width: 100%` (below
-            600px, where three `nowrap` tabs measured 431px against a 390px
-            viewport) divide the row evenly instead of the buttons
-            overflowing it in original-content order. Under ~420px the label
-            itself is dropped for `aria-label`/`title` rather than wrapped
-            the control onto a second line — a second line would still leave
-            an icon-sized tab a thumb has to aim at, where dropping the
-            label keeps three full-width tabs exactly like the row above
-            it. */}
+        {/* Mode tabs (#1141). Desktop keeps each tab sized to its own label
+            ("Anonymous" wider than "Random") exactly as before — that is
+            `.free-race-mode-btn`'s only rule outside the 600px media query
+            below, and it stays that way deliberately: an earlier draft put
+            `flex: 1 1 0; min-width: 0` here unconditionally on the theory
+            that a `fit-content` container gives it nothing to grow into, but
+            a flex container's *layout* pass (as opposed to its intrinsic-
+            size pass) redistributes space per `flex-grow` regardless of how
+            the container itself was sized — three unequal tabs came out
+            equal-width even at 1280px, caught only by the docs screenshot
+            diff (`free-race/01-lane-setup-random.png` and its two
+            siblings). Both the even-width split and the icon-only collapse
+            now live in the 599px block instead, so nothing above that width
+            changes. Under ~420px the label itself is dropped for
+            `aria-label`/`title` rather than wrapped onto a second line — a
+            second line would still leave an icon-sized tab to aim at, where
+            dropping the label keeps three full-width tabs. */}
         <div className="free-race-mode-control" style={{ display: 'flex', background: 'var(--surface-strong-color)', padding: '4px', borderRadius: '20px', marginBottom: '20px', width: 'fit-content', gap: '4px' }}>
           {MODES.map(({ key, label, icon }) => (
             <button
@@ -469,8 +473,6 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
               title={label}
               className="free-race-mode-btn"
               style={{
-                flex: '1 1 0',
-                minWidth: 0,
                 padding: '8px 20px',
                 borderRadius: '16px',
                 border: 'none',
