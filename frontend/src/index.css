@@ -397,6 +397,64 @@ button:disabled {
 }
 
 /*
+ * Touch targets (#1146). `pointer: coarse` is true on a phone or tablet's
+ * touchscreen and false for a mouse/trackpad, so this changes nothing for
+ * the desktop layouts the docs screenshots (Desktop Chrome, `pointer:
+ * fine`) run against — see `frontend/e2e/functional/touchTargets.spec.ts`,
+ * which asserts both halves: every size below on a touch viewport, and the
+ * *un*-enlarged desktop size on Desktop Chrome.
+ *
+ * `button`, `.secondary-btn` and `a.secondary-btn` cover every measured row
+ * in the issue except two that carry neither element nor class: the plain,
+ * unclassed `<a>` race-navigation links in the tablet secondary header
+ * (`Navigation.tsx`'s `[data-testid="race-nav"]` row — targeted directly
+ * below, since there is no shared class to hang a selector off), and the
+ * Modal close button (`Modal.tsx`'s `.modal-close-btn`, below) — a blanket
+ * `min-height` on `button` would not also fix an icon-only button's
+ * *width*, so it needs `min-width` too, kept with its own class rather than
+ * added to the `button` selector above so it does not widen every other
+ * button in the app. Manage Dens' Edit/Delete icons get a genuine
+ * per-component fix instead (`RacingGroupManager.tsx`) — spacing and a
+ * label, not a size, so there is nothing for this block to give them.
+ *
+ * `min-height` rather than `height`: it only ever grows a control past 44px
+ * (a Race Control button already taller than that, e.g., is untouched) and
+ * — because `min-height` clamps the *used* height regardless of which rule
+ * has higher specificity or an inline `height` wins the cascade — it still
+ * applies over a call site's own inline `height: '28px'` (the Roster
+ * selection bar) without needing `!important`.
+ *
+ * Placed *before* `.toggle-switch` below, not after: `.toggle-switch input`
+ * (same specificity, `.class` + `element`) sets its checkbox to
+ * `width: 0; height: 0` so only the painted `.slider` shows, and CSS breaks
+ * a specificity tie in favour of whichever rule is later in the
+ * stylesheet — so this has to come first, or a coarse pointer would widen
+ * that unstyled input back out from under its slider.
+ */
+@media (pointer: coarse) {
+  button,
+  .secondary-btn,
+  a.secondary-btn {
+    min-height: 44px;
+  }
+
+  input[type='checkbox'],
+  input[type='radio'] {
+    width: 20px;
+    height: 20px;
+  }
+
+  [data-testid='race-nav'] a {
+    min-height: 44px;
+  }
+
+  .modal-close-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/*
  * Keyboard focus (#498). Nothing visibly marked a focused control before
  * this — a theming pass is the natural moment to add one, since Clear Sight
  * exists partly for someone who benefits from seeing it. `:focus-visible`
@@ -639,6 +697,9 @@ input:checked + .slider:before {
       align-items: center;
       gap: 1rem;
       margin-bottom: 0.75rem;
+      /* #1146: now a <label> for the row's own checkbox, so the whole
+         header — not just the 16px box — is the tap target. */
+      cursor: pointer;
   }
 
   .racer-card-photo {
