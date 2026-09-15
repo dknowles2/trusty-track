@@ -253,24 +253,30 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     {title && <h2 style={{ margin: 0 }}>{title}</h2>}
                     {/* #1146: a 21×28 hit area on a 44×44 touch-target floor.
-                        `minWidth`/`minHeight` grow the button's box around
-                        the glyph rather than the glyph itself — `display:
-                        flex` centring keeps the × visually in about the same
-                        spot it always was, moving it a couple of px on
-                        desktop rather than the ~20px a bigger font or
-                        padding alone would. Every modal shares this one
-                        button, so the fix reaches all of them at once. */}
+                        `.modal-close-btn`'s `min-width`/`min-height` (in
+                        `index.css`, under `@media (pointer: coarse)`) grow
+                        the button's box around the glyph rather than the
+                        glyph itself, and only on a touch viewport — the
+                        first version of this fix set the same sizes inline,
+                        unconditionally, and grew every modal's header row by
+                        ~16px on *every* pointer type, pushing each dialog's
+                        entire content down and moving nearly every doc
+                        screenshot (visible as a uniform vertical shift, not
+                        "the × moved a couple of px" — see PR #1168). Gating
+                        it the same way the shared button/checkbox rule is
+                        gated leaves a desktop click on the original ~21×28
+                        box, unchanged. Every modal shares this one button,
+                        so the fix reaches all of them at once. */}
                     <button
                         onClick={onClose}
+                        className="modal-close-btn"
                         style={{
                             background: 'none',
                             border: 'none',
                             fontSize: '1.5rem',
                             cursor: 'pointer',
                             color: 'var(--text-faint-color)',
-                            padding: 0,
-                            minWidth: '44px',
-                            minHeight: '44px',
+                            padding: '0 5px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',

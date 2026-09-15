@@ -405,14 +405,17 @@ button:disabled {
  * *un*-enlarged desktop size on Desktop Chrome.
  *
  * `button`, `.secondary-btn` and `a.secondary-btn` cover every measured row
- * in the issue except three that carry neither element nor class: the
- * plain, unclassed `<a>` race-navigation links in the tablet secondary
- * header (`Navigation.tsx`'s `[data-testid="race-nav"]` row — targeted
- * directly below, since there is no shared class to hang a selector off),
- * and the Modal close button and Manage Dens' Edit/Delete icons, which get
- * their own per-component fixes (`Modal.tsx`, `RacingGroupManager.tsx`)
- * because a blanket `min-height` alone would not fix an icon-only button's
- * *width*, and the Manage Dens fix is about spacing and a label, not size.
+ * in the issue except two that carry neither element nor class: the plain,
+ * unclassed `<a>` race-navigation links in the tablet secondary header
+ * (`Navigation.tsx`'s `[data-testid="race-nav"]` row — targeted directly
+ * below, since there is no shared class to hang a selector off), and the
+ * Modal close button (`Modal.tsx`'s `.modal-close-btn`, below) — a blanket
+ * `min-height` on `button` would not also fix an icon-only button's
+ * *width*, so it needs `min-width` too, kept with its own class rather than
+ * added to the `button` selector above so it does not widen every other
+ * button in the app. Manage Dens' Edit/Delete icons get a genuine
+ * per-component fix instead (`RacingGroupManager.tsx`) — spacing and a
+ * label, not a size, so there is nothing for this block to give them.
  *
  * `min-height` rather than `height`: it only ever grows a control past 44px
  * (a Race Control button already taller than that, e.g., is untouched) and
@@ -442,6 +445,11 @@ button:disabled {
   }
 
   [data-testid='race-nav'] a {
+    min-height: 44px;
+  }
+
+  .modal-close-btn {
+    min-width: 44px;
     min-height: 44px;
   }
 }
