@@ -1465,6 +1465,147 @@ input:checked + .slider:before {
 }
 
 /*
+ * Free Race's setup screen on a phone (#1141). The Random/Manual/Anonymous
+ * segmented control was a `nowrap` flex row that measured 431px against a
+ * 390px viewport, so `document.scrollWidth` came out 431 and every panel on
+ * the page scrolled sideways with it; each lane card was a two-line, 80px-
+ * avatar block, which pushed "Start Free Race Heat" about 1,100px down a
+ * four-lane setup and wrapped "Re-shuffle" to two lines beside it.
+ *
+ * 600px, not the Race tab's own 900px: `.race-execution-lane-row` (above)
+ * already reads as a compact single-line row above 600px on a laptop or an
+ * iPad, because the Race tab has result and timer columns competing for the
+ * same space at every width. This component has neither — an 80px avatar
+ * and a two-line name comfortably fit a tablet — so only a phone-width
+ * viewport is the actual problem, and only a phone-width viewport is
+ * touched.
+ */
+@media screen and (max-width: 599px) {
+  .free-race-panel {
+    padding: 16px !important;
+  }
+
+  /* The segmented control's own width becomes 100% of its (now full-width)
+     container so `flex: 1 1 0` on each button (set unconditionally in
+     FreeRaceLaneSetup.tsx, harmless at desktop's `fit-content` sizing) has
+     space to actually divide evenly, rather than the row staying sized to
+     its `nowrap` content and overflowing regardless of what the buttons
+     inside it do. */
+  .free-race-mode-control {
+    width: 100%;
+  }
+
+  .free-race-mode-btn {
+    padding: 8px 10px !important;
+  }
+
+  .free-race-mode-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* One-line lane rows, the Race tab's own shape: a smaller lane badge, a
+     40px avatar rather than 80px, and the name/car text (two stacked divs
+     at every wider width, unchanged there) laid out as one row instead. */
+  .free-race-lane-row {
+    padding: 8px 10px !important;
+  }
+
+  .free-race-lane-drag {
+    padding-right: 6px !important;
+  }
+
+  .free-race-lane-drag-icon {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .free-race-lane-number {
+    width: 40px !important;
+    font-size: 0.85rem !important;
+  }
+
+  .free-race-lane-avatar {
+    width: 40px !important;
+    height: 40px !important;
+    margin-right: 10px !important;
+  }
+
+  .free-race-lane-avatar img,
+  .free-race-lane-avatar > div {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 16px !important;
+  }
+
+  .free-race-lane-info {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 6px !important;
+    overflow: hidden !important;
+  }
+
+  .free-race-lane-name {
+    font-size: 0.95rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .free-race-lane-car {
+    font-size: 0.8rem !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* The manual-mode picker fills the row instead of forcing its desktop
+     350px minimum, which is what was actually widening the page a second
+     way. */
+  .free-race-lane-combobox {
+    min-width: 0 !important;
+    width: 100% !important;
+    flex: 1 1 auto !important;
+  }
+
+  /* Re-shuffle/Clear All above Start, each full width, rather than beside
+     it — the DOM order already puts the secondary group first, so a plain
+     column direction is enough to read top-to-bottom as secondary-then-
+     primary. */
+  .free-race-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .free-race-actions-secondary {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .free-race-secondary-btn,
+  .free-race-start-btn {
+    width: 100% !important;
+  }
+}
+
+/* Icon-only mode tabs under ~420px (#1141) — narrower than the 600px block
+   above because "Random"/"Manual"/"Anonymous" fit comfortably once the
+   segmented control itself is full width and evenly divided; it is only
+   once a button's own share of 390px gets tight that the label needs to go
+   rather than wrap or truncate to nothing readable. `aria-label`/`title`
+   (set unconditionally in FreeRaceLaneSetup.tsx) carry the name for a
+   screen reader and a long-press tooltip once the text itself is hidden. */
+@media screen and (max-width: 420px) {
+  .free-race-mode-label {
+    display: none;
+  }
+
+  .free-race-mode-btn {
+    padding: 8px 6px !important;
+  }
+}
+
+/*
  * Home's race list header on a phone or portrait tablet (#1137). Below the
  * same 900px this issue switches the race list itself from a table to a
  * card per race — see `Home.tsx`'s `CARD_BREAKPOINT` for why 900 rather
