@@ -1488,6 +1488,7 @@ input:checked + .slider:before {
   .home-races-header-actions .secondary-btn,
   .home-races-header-actions .primary-btn {
     width: 100%;
+    justify-content: center;
   }
 }
 

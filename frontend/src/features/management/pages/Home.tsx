@@ -319,8 +319,8 @@ export default function Home() {
                  <p>Select a race to manage or create a new one.</p>
             </div>
 
-            <div className="home-races-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-                <h2 style={{ margin: 0 }}>Your Races</h2>
+            <div className="home-races-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h2>Your Races</h2>
                 <div className="home-races-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     {/* Rehearsal, beside the real thing rather than hidden
                         away. The night before an event is when a volunteer
@@ -333,7 +333,7 @@ export default function Home() {
                         className="secondary-btn"
                         data-testid="practice-race"
                         disabled={practiceResult.fetching}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
                         <Icon path={mdiSchool} size={0.8} />
                         {practiceResult.fetching
@@ -360,7 +360,7 @@ export default function Home() {
                             Start new
                         </button>
                     )}
-                    <button onClick={() => setShowCreate(true)} className="primary-btn" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    <button onClick={() => setShowCreate(true)} className="primary-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Icon path={mdiPlus} size={0.8} /> Create New Race
                     </button>
                 </div>
