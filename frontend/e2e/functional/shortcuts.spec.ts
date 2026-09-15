@@ -18,12 +18,18 @@ import { createSchedule, ensureConfigured, seedRace } from './support';
  * the page loads is one the page never selects. Running it here leaves the
  * screen pinned to the heat that just finished (#130), which is the state
  * these keys are for.
+ *
+ * Waits for Next Heat to be *enabled*, not merely visible (#1157) — the
+ * button is always in the DOM now, disabled until the heat has a result
+ * rather than absent before one, so `toBeVisible()` alone resolves the
+ * instant the page loads and would let this helper return before the
+ * fake-timer click has actually landed.
  */
 async function runCurrentHeat(page: import('@playwright/test').Page) {
     await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
     await page.getByRole('button', { name: 'Start Timer' }).click();
     await page.getByRole('button', { name: 'Finish Heat' }).click();
-    await expect(page.getByRole('button', { name: /^Next Heat/ })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByTestId('next-heat-button')).toBeEnabled({ timeout: 30000 });
 }
 
 test('Space moves to the next heat', async ({ page }) => {
@@ -83,13 +89,21 @@ test('the finish sound is offered, through Sound options, and remembered', async
     // (#1074) — Sound options is the one control now, and the panel's own
     // "Heat Finish" row is what this test drives instead. The behaviour is
     // unchanged: off until somebody asks, and remembered on this device.
+    //
+    // Sound options (and the car-photo and auto-advance preferences below)
+    // moved behind one ⚙ in the card header (#1157) — a popover, not a
+    // control sitting directly on the row — so every lookup here opens it
+    // first.
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Shortcut Chime Race');
     await createSchedule(page, raceId);
 
     await page.goto(`/race/${raceId}/control/race`);
+    const preferencesTrigger = page.getByTestId('race-execution-preferences-trigger');
+    await expect(preferencesTrigger).toBeVisible({ timeout: 30000 });
+    await preferencesTrigger.click();
     const soundOptions = page.getByTestId('sound-effects-modal-trigger');
-    await expect(soundOptions).toBeVisible({ timeout: 30000 });
+    await expect(soundOptions).toBeVisible();
     await soundOptions.click();
 
     const masterToggle = page.getByTestId('sound-master-toggle');
@@ -104,6 +118,7 @@ test('the finish sound is offered, through Sound options, and remembered', async
     await page.getByRole('button', { name: 'Done' }).click();
     await page.reload();
 
+    await page.getByTestId('race-execution-preferences-trigger').click();
     await page.getByTestId('sound-effects-modal-trigger').click();
     await expect(page.getByTestId('sound-master-toggle')).toBeChecked({ timeout: 30000 });
     await expect(page.getByTestId('sound-effect-finish')).toBeChecked();
@@ -120,6 +135,9 @@ test('the car-or-face photo preference is remembered on this device (#1075)', as
     await page.goto(`/race/${raceId}/control/race`);
     await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
 
+    // Behind the ⚙ popover (#1157).
+    await page.getByTestId('race-execution-preferences-trigger').click();
+
     // The checkbox is visually hidden behind the pill, same as
     // `auto-advance-toggle` — click what the operator clicks.
     const photoToggle = page.getByTestId('lane-photo-toggle');
@@ -131,5 +149,7 @@ test('the car-or-face photo preference is remembered on this device (#1075)', as
     await expect(photoToggle).not.toBeChecked();
     await page.reload();
 
-    await expect(page.getByTestId('lane-photo-toggle')).not.toBeChecked({ timeout: 30000 });
+    await expect(page.getByTestId('race-execution-preferences-trigger')).toBeVisible({ timeout: 30000 });
+    await page.getByTestId('race-execution-preferences-trigger').click();
+    await expect(page.getByTestId('lane-photo-toggle')).not.toBeChecked();
 });

@@ -452,6 +452,18 @@ button:disabled {
     min-width: 44px;
     min-height: 44px;
   }
+
+  /*
+   * Keyboard hints on a touch screen (#1140). Space and E mean nothing on a
+   * phone with no keyboard, and the "Space" hint next to Next Heat was part
+   * of what made that button wrap to two lines there. Scoped to the action
+   * row rather than a bare `kbd` selector — it is the only place this app
+   * renders one, but a future one elsewhere should not disappear here by
+   * accident.
+   */
+  [data-testid='race-execution-action-row'] kbd {
+    display: none;
+  }
 }
 
 /*
@@ -1458,6 +1470,21 @@ input:checked + .slider:before {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 20px;
+}
+
+/*
+ * The action row's own buttons never wrap their label onto a second line
+ * (#1157) — the bug the footer redesign fixes was five controls squeezed by
+ * `justify-content: space-between` to their minimum width, so "Skip Heat"
+ * rendered as "Skip" over "Heat". The row no longer uses `space-between`
+ * (see `RaceExecution.tsx`), but a button's own text can still wrap if the
+ * row runs out of room and flex-shrink compresses it below its content
+ * width; `white-space: nowrap` makes a cramped row overflow (wrap to a new
+ * row via the row's own `flexWrap`, or scroll) rather than break a label
+ * across two lines.
+ */
+[data-testid='race-execution-action-row'] button {
+  white-space: nowrap;
 }
 
 /*

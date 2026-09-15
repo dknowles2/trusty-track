@@ -4,6 +4,15 @@ import './TimerStatusBadge.css';
 
 interface TimerStatusBadgeProps {
   trackId: number;
+  /**
+   * `'pill'` (the default) is the free-standing badge every other caller
+   * still uses — its own rounded, tinted background. `'muted'` drops that
+   * background and renders as plain muted text instead, for a spot that
+   * already has a pill of its own beside it (#1157's status line: the heat
+   * phase pill plus the timer state as muted text, not two competing
+   * pills).
+   */
+  variant?: 'pill' | 'muted';
 }
 
 interface TimerStatusData {
@@ -52,7 +61,7 @@ function getStatusDisplay(state: string | undefined): { colorClass: string; labe
   }
 }
 
-export function TimerStatusBadge({ trackId }: TimerStatusBadgeProps) {
+export function TimerStatusBadge({ trackId, variant = 'pill' }: TimerStatusBadgeProps) {
   const [{ data }] = useSubscription<TimerStatusData>({
     query: TIMER_STATUS_SUBSCRIPTION,
     variables: { trackId },
@@ -63,7 +72,10 @@ export function TimerStatusBadge({ trackId }: TimerStatusBadgeProps) {
   const { colorClass, label } = getStatusDisplay(state);
 
   return (
-    <span className="timer-status-badge" title={lastError ?? undefined}>
+    <span
+      className={variant === 'muted' ? 'timer-status-badge timer-status-badge--muted' : 'timer-status-badge'}
+      title={lastError ?? undefined}
+    >
       <span className={`timer-status-dot timer-status-dot--${colorClass}`} />
       <span className="timer-status-label">{label}</span>
     </span>

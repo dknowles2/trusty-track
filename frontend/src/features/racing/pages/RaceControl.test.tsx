@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useQuery, useMutation, useSubscription } from 'urql';
@@ -283,6 +283,46 @@ describe('RaceControl Page', () => {
         expect(screen.queryByText('Heat 7')).not.toBeInTheDocument();
         expect(screen.getAllByText('Heat 1')).toHaveLength(2);
         expect(screen.getByText('Grand Finals')).toBeInTheDocument();
+    });
+
+    it('collapses Previous Heats to one summary row per heat under 600px, expanding on tap (#1152)', async () => {
+        const originalWidth = window.innerWidth;
+        try {
+            window.innerWidth = 390;
+            withHeats([ran(1, 1, 1), notRun(2, 1, 2)]);
+
+            await openRaceTab();
+
+            expect(screen.getByText('Previous Heats')).toBeInTheDocument();
+            // Collapsed: the full lane list is not on screen yet.
+            expect(screen.queryByText('Lane 1')).not.toBeInTheDocument();
+
+            const summaryRow = screen.getByText('Heat 1').closest('.previous-heat-row') as HTMLElement;
+            expect(summaryRow).not.toBeNull();
+            fireEvent.click(within(summaryRow).getByText('Heat 1'));
+
+            expect(within(summaryRow).getByText('Lane 1')).toBeInTheDocument();
+
+            // Tapping again collapses it back.
+            fireEvent.click(within(summaryRow).getByText('Heat 1'));
+            expect(screen.queryByText('Lane 1')).not.toBeInTheDocument();
+        } finally {
+            window.innerWidth = originalWidth;
+        }
+    });
+
+    it('leaves Previous Heats always expanded at desktop width (#1152)', async () => {
+        // jsdom's default width (1024) is already above the 600px
+        // breakpoint, so this is the suite's ordinary rendering — pinned
+        // explicitly so a future change to the default cannot silently
+        // stop covering the desktop case.
+        expect(window.innerWidth).toBeGreaterThan(600);
+        withHeats([ran(1, 1, 1), notRun(2, 1, 2)]);
+
+        await openRaceTab();
+
+        expect(screen.getByText('Previous Heats')).toBeInTheDocument();
+        expect(screen.getByText('Lane 1')).toBeInTheDocument();
     });
 
     it('shows no heat at all when the race has none', async () => {

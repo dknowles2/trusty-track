@@ -63,7 +63,11 @@ test('a heat the timer records reaches the log', async ({ page }) => {
     await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
     await page.getByRole('button', { name: 'Start Timer' }).click();
     await page.getByRole('button', { name: 'Finish Heat' }).click();
-    await expect(page.getByRole('button', { name: /^Next Heat/ })).toBeVisible({
+    // Enabled, not merely visible (#1157) — the button is always in the
+    // DOM now, disabled until the heat has a result, so `toBeVisible()`
+    // alone would resolve before the timer's result actually lands and let
+    // this navigate away too soon.
+    await expect(page.getByTestId('next-heat-button')).toBeEnabled({
         timeout: 30000,
     });
 
@@ -139,7 +143,8 @@ test('Live brings in a heat result the timer just recorded, with no Refresh clic
     await expect(control.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
     await control.getByRole('button', { name: 'Start Timer' }).click();
     await control.getByRole('button', { name: 'Finish Heat' }).click();
-    await expect(control.getByRole('button', { name: /^Next Heat/ })).toBeVisible({
+    // Same reasoning as above — enabled, not merely visible.
+    await expect(control.getByTestId('next-heat-button')).toBeEnabled({
         timeout: 30000,
     });
 

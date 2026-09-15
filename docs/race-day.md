@@ -433,7 +433,7 @@ Switch to the **Race** tab in Race Control to enter the race execution view. Thi
 
 The view is split into two columns:
 
-- **Left (main area)**: The current heat. Its header holds the heat's status alongside every control that acts on it — **Edit**/**Enter Results**, **Skip Heat**, **Re-Run**, **Next Heat**, a photo toggle, **Sound options** and **Auto-advance** — so the buttons you need most are at the top of the screen rather than below a tall lane list. Before a heat runs on a track with a timer, a small **Override** text link sits beside Skip Heat for the rare case a result needs correcting by hand — it is deliberately understated, since overriding a timer's result is the exception, not the ordinary way a heat gets recorded. Racer names, lane assignments and results follow underneath, one line per lane.
+- **Left (main area)**: The current heat. Its header shows the heat number and one status line — the heat's own phase (Ready, Racing…, Recorded) with the timer's state as muted text beside it — and a **⚙** button for this device's own preferences (a car-or-face photo toggle, **Sound options**, **Auto-advance**); see [Sound Options](#sound-options) and [Cars or Faces](#cars-or-faces) below. Racer names, lane assignments and results follow underneath, one line per lane. Below that, a footer holds the controls that act on *this* heat: **Skip Heat** and **Override** (or **Enter Results** on a track with no timer) before it runs, **Edit** and **Re-Run** after — and, on the right, **Next Heat**, always there but only clickable once a result has landed. Before a heat runs on a track with a timer, **Override** is a small, deliberately understated text link rather than a button, for the rare case a result needs correcting by hand — overriding a timer's result is the exception, not the ordinary way a heat gets recorded.
 - **Right (sidebar)**: **On Deck** — the next heat's lane-up, so those cars can be staged — with the round's progress below it and any later rounds after that. The progress panel shows an estimated finish time and pace for the round, which starts as a rough guess and gets more accurate as heats are actually recorded — it learns this event's own rhythm rather than assuming a fixed time per heat. **Take a break** sits in that panel's header — see [Taking a Break](#taking-a-break) below.
 
 Both panels show the same kind of picture beside each lane — a car photo by
@@ -451,13 +451,13 @@ How a heat starts depends on your track timer:
 
 - **With a hardware timer**: Trusty Track automatically prepares the timer for the next heat. Place the cars on the track and release them as normal — the timer records finish times automatically.
 - **With the fake timer** (for testing without a physical track): A **Fake Timer Controls** panel appears below the current heat. Once the heat is staged the panel reads "Ready to start" — click **Start Timer** to send the cars off. The heat then finishes on its own a few seconds later, or you can click **Finish Heat** to end it immediately.
-- **With no timer at all**: nothing is armed and there is no "Waiting for Timer…" message — the main button on the heat is **Enter Results**, and hand entry is how every heat gets recorded. See [No timer](reference/race-settings.md#no-timer).
+- **With no timer at all**: nothing is armed, and the header's status line has no timer state to show — the main button on the heat is **Enter Results**, and hand entry is how every heat gets recorded. See [No timer](reference/race-settings.md#no-timer).
 
 ![Fake Timer Controls](assets/screenshots/race-day/13-fake-timer-controls.png)
 _The Fake Timer Controls panel used for testing. "Start Timer" begins the run; "Finish Heat" ends it and records simulated times._
 
 ![Race Execution on a track with no timer](assets/screenshots/race-day/31-enter-results-no-timer.png)
-_A track configured with no timer: no "Waiting for Timer…" message, and **Enter Results** stands where **Override** would on a track that has one._
+_A track configured with no timer: no timer badge in the status line, and **Enter Results** stands where **Override** would on a track that has one._
 
 ---
 
@@ -490,7 +490,7 @@ in two lanes of one heat — either is refused when you click **Save Results**.
 After reviewing results, click **Next Heat** to advance to the next heat — or enable **Auto-advance** to move forward automatically after 10 seconds.
 
 > [!TIP]
-> The **Auto-advance** toggle is in the active heat card's header, beside the result controls. When on, the display counts down and advances without any button click.
+> The **Auto-advance** toggle is behind the **⚙** button in the active heat card's header. When on, **Next Heat** counts down and advances without any button click.
 
 ### Keyboard Shortcuts
 
@@ -514,16 +514,18 @@ every heat, worth teaching at a glance. **Edit** does too, since correcting a
 mis-read result is also routine once a heat is recorded. **Override**, the
 same key's pre-heat name, is the exception rather than the everyday path to a
 result, so it carries no printed hint — hover it, or just press **E**, and
-the same editor opens.
+the same editor opens. On a phone or tablet there is no keyboard to press
+these on, so the printed hints don't show there either.
 
 ### Sound Options
 
-A single **Sound options** button in the header opens a panel of event
-sounds — a heat being staged, the gate release, the finish chime, a track
-record broken, the award ceremony fanfare — all behind one shared **Enable
-sound effects on this device** switch. Nothing plays until that switch is on,
-and the setting (like every sound below it) is remembered on that device
-only — your laptop can have it while the wall displays stay silent.
+A single **Sound options** button, behind the **⚙** in the heat card's
+header, opens a panel of event sounds — a heat being staged, the gate
+release, the finish chime, a track record broken, the award ceremony
+fanfare — all behind one shared **Enable sound effects on this device**
+switch. Nothing plays until that switch is on, and the setting (like every
+sound below it) is remembered on that device only — your laptop can have it
+while the wall displays stay silent.
 
 Each sound below the switch remembers its own on/off state independently, so
 turning one on does not turn any of the others on with it — you'll need the
@@ -539,9 +541,10 @@ sound is on for this device.
 
 The current heat and **On Deck** both show a small picture beside each
 lane — either the car's own photo or the racer's portrait, whichever you've
-told this device to show. A toggle beside **Sound options** switches
-between them; the two panels always show the same kind of picture, so
-switching it changes what that kind is everywhere on the screen at once.
+told this device to show. A **Show car photos** toggle in the same **⚙**
+menu as **Sound options** switches between them; the two panels always show
+the same kind of picture, so switching it changes what that kind is
+everywhere on the screen at once.
 
 **Cars is the default.** Staging heats out of parc fermé is a job done by
 matching a car in your hand to a picture, not a face — an announcer calling
