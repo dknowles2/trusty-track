@@ -7,7 +7,7 @@ import { excludedCount, excludedNotice } from '../excludedFromStandings';
 import { dropWorstNotice } from '../dropWorstNotice';
 import { standingsRows, standingsSuffix } from '../standingsExport';
 import { slowestFirst } from '../slowestFirst';
-import { shouldShowDivision } from '../racingGroupLabel';
+import { heatsSummary, racingGroupLabel, shouldShowDivision } from '../racingGroupLabel';
 import { resolutionNote } from '../tiebreakText';
 import { defaultEliminationRound, isEliminationOnlyRace } from '../eliminationScope';
 import { dnfAnnotation, formatScore, scoreLabel } from '../scoringStrategyText';
@@ -16,6 +16,7 @@ import { downloadCsv, filenameFor } from '../../../utils/csv';
 import { useTerminology } from '../../../context/TerminologyContext';
 import RunOffControl from '../../racing/components/RunOffControl';
 import { runOffCluster, usableLaneCount } from '../../racing/runOff';
+import './Leaderboard.css';
 
 export interface LeaderboardEntry {
   racerId: number;
@@ -398,7 +399,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
           )}
         </h2>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div className="leaderboard-toolbar" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
         {selectableRounds.length > 0 && (
           <select
             aria-label="Standings scope"
@@ -492,15 +493,15 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         overflowX: 'auto',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
       }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table className="leaderboard-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--scouting-blue)', color: 'var(--on-primary-color)' }}>
-              <th style={{ padding: '12px', textAlign: 'left', width: '60px' }}>Rank</th>
-              <th style={{ padding: '12px', textAlign: 'center', width: '60px' }}>Avatar</th>
-              <th style={{ padding: '12px', textAlign: 'left', width: '80px' }}>{vehicle} #</th>
+              <th className="lb-col-rank" style={{ padding: '12px', textAlign: 'left', width: '60px' }}>Rank</th>
+              <th className="lb-col-avatar" style={{ padding: '12px', textAlign: 'center', width: '60px' }}>Avatar</th>
+              <th className="lb-col-car" style={{ padding: '12px', textAlign: 'left', width: '80px' }}>{vehicle} #</th>
               <th style={{ padding: '12px', textAlign: 'left' }}>Name</th>
-              <th style={{ padding: '12px', textAlign: 'left' }}>{group}</th>
-              <th style={{ padding: '12px', textAlign: 'center' }}>Heats</th>
+              <th className="lb-col-den" style={{ padding: '12px', textAlign: 'left' }}>{group}</th>
+              <th className="lb-col-heats" style={{ padding: '12px', textAlign: 'center' }}>Heats</th>
               <th style={{ padding: '12px', textAlign: 'right' }}>{scoreColumnLabel}</th>
             </tr>
           </thead>
@@ -532,13 +533,18 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                   >
                 <td
                   data-testid="leaderboard-rank-cell"
+                  className="lb-col-rank"
                   style={{
                     padding: '12px',
                     fontSize: '1.1rem',
                     borderLeft: `4px solid ${getRankAccentColor(entry.rank)}`,
                   }}
                 >
-                  {getRankMedal(entry.rank)} {entry.rank}
+                  {/* The medal and the rank number used to wrap onto two
+                      lines at phone width once the row narrowed (#1138) —
+                      `nowrap` keeps "🥇 1" on one line the way it always
+                      read at desktop width. */}
+                  <span className="lb-rank-value">{getRankMedal(entry.rank)} {entry.rank}</span>
                   {/* A resolved tie stops sharing a rank and says why —
                       "2nd, on fastest single heat" — rather than silently
                       un-sharing it (#540). An unresolved tie shows nothing
@@ -556,7 +562,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                     </span>
                   )}
                 </td>
-                <td style={{ padding: '12px', textAlign: 'center' }}>
+                <td className="lb-col-avatar" style={{ padding: '12px', textAlign: 'center' }}>
                   <RacerAvatar
                     racer={{
                       id: entry.racerId,
@@ -567,19 +573,31 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                     size="40px"
                   />
                 </td>
-                <td style={{ padding: '12px', fontWeight: 'bold' }}>
+                <td className="lb-col-car" style={{ padding: '12px', fontWeight: 'bold' }}>
                   {entry.carNumber}
                 </td>
                 <td style={{ padding: '12px' }}>
                   {entry.firstName} {entry.lastName}
+                  {/* Under 600px, Den and Heats stop being columns of their
+                      own (#1138) — dropped in the order the issue asked
+                      for (Avatar, then Den, then Heats), never the score —
+                      and reappear here as one muted line under the name
+                      instead of vanishing. `racingGroupLabel`/`heatsSummary`
+                      are the same composition the desktop Den/Heats cells
+                      use, so the two never say it differently. */}
+                  <span className="lb-mobile-meta">
+                    {racingGroupLabel(entry.racingGroupName, entry.racingGroupDivision)}
+                    {' · '}
+                    {heatsSummary(entry.heatsCompleted)}
+                  </span>
                 </td>
-                <td style={{ padding: '12px', color: 'var(--text-muted-color)' }}>
+                <td className="lb-col-den" style={{ padding: '12px', color: 'var(--text-muted-color)' }}>
                   {entry.racingGroupName}
                   {shouldShowDivision(entry.racingGroupName, entry.racingGroupDivision) && (
                     <span style={{ fontSize: '0.8rem' }}> ({entry.racingGroupDivision})</span>
                   )}
                 </td>
-                <td style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted-color)' }}>
+                <td className="lb-col-heats" style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted-color)' }}>
                   {entry.heatsCompleted}
                 </td>
                 <td style={{

@@ -1,0 +1,67 @@
+/**
+ * Standings on a phone (#1138).
+ *
+ * `mobileStandingsAndAwards.spec.ts` (#950) gave the seven-column table an
+ * `overflow-x: auto` wrapper so a phone could *reach* every column by
+ * scrolling — a real fix for a table that had been silently clipped, but
+ * still one where the score (Avg Time / Points) sat off the right edge of
+ * a 390px screen with nothing telling the room to scroll for it. This file
+ * is the harder requirement on top: under 600px, Avatar, {group} (Den) and
+ * Heats are dropped from the table entirely — Den and Heats are not lost,
+ * they move to a muted second line under the racer's name instead — so the
+ * remaining Rank / Car# / Name / Score columns fit without scrolling at
+ * all. The overflow-x wrapper stays in `Leaderboard.tsx` regardless: a
+ * long enough name can still ask for it, and #950's fix for that case is
+ * still correct.
+ */
+
+.lb-mobile-meta {
+  display: none;
+}
+
+.lb-rank-value {
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 600px) {
+  .lb-col-avatar,
+  .lb-col-den,
+  .lb-col-heats {
+    display: none !important;
+  }
+
+  .lb-mobile-meta {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted-color);
+    margin-top: 2px;
+    font-weight: normal;
+    white-space: normal;
+  }
+
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 8px 6px !important;
+  }
+
+  .leaderboard-table th.lb-col-rank,
+  .leaderboard-table th.lb-col-car {
+    width: auto !important;
+  }
+
+  /* The round `<select>` and the two action buttons (#950's own "Export
+     CSV" wrapping to two lines, "Print results" clipped at the right
+     edge) — one column instead of a row that has to squeeze three
+     controls into 390px. */
+  .leaderboard-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100%;
+  }
+
+  .leaderboard-toolbar > * {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+  }
+}

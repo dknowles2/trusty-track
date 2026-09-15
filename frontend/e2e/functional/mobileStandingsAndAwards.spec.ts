@@ -8,7 +8,14 @@
  * - Standings' seven-column table had no `overflow-x` wrapper — its outer
  *   card used `overflow: 'hidden'`, so at phone width the table's own
  *   intrinsic width (wider than the card) was cropped rather than scrolled,
- *   and the Heats and score columns were entirely unreachable.
+ *   and the Heats and score columns were entirely unreachable. The wrapper
+ *   this filed still stands (a long enough racer name can still ask for
+ *   it), but #1138 found reaching the score column by scrolling was not
+ *   good enough on its own — nothing on screen said to scroll, so the test
+ *   below now asks for the harder bar: dropping Avatar/Den/Heats at this
+ *   width (`Leaderboard.css`) narrows the table enough that the score is
+ *   visible without scrolling at all, on the data this spec seeds. See
+ *   `mobileStandingsScore.spec.ts` for the fuller #1138 coverage.
  * - The Awards row (reorder arrows, artwork, name, recipient, edit, delete)
  *   had no `flexWrap`, so `minWidth: 0` on the name block let it shrink to
  *   nothing at phone width — every word of a long award name wrapped onto
@@ -33,7 +40,7 @@ import {
 
 const PHONE_VIEWPORT = { width: 390, height: 844 };
 
-test('the Standings table scrolls horizontally on a 390px phone instead of clipping (#950)', async ({
+test('the Standings table keeps its horizontal scroll wrapper and stays fully on screen on a 390px phone (#950, #1138)', async ({
     page,
 }) => {
     const { raceId, racers } = await seedRace(page, 'Mobile Standings Layout ' + Date.now());
@@ -53,10 +60,9 @@ test('the Standings table scrolls horizontally on a 390px phone instead of clipp
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(scrollWidth).toBeLessThanOrEqual(PHONE_VIEWPORT.width + 2);
 
-    // The table is wider than the phone at its own column widths, so its
-    // immediate wrapper must carry a horizontal scroll container — the
-    // column headers are attached to the DOM but scrolled out of view
-    // rather than clipped with nothing to reach them.
+    // The wrapper this test is named for is still there — `overflow-x:
+    // auto`, in case a long enough racer name someday needs it again — even
+    // though #1138 means this spec's own data no longer has to use it.
     const table = page.locator('table').first();
     const scoreHeader = page.getByRole('columnheader', { name: /Avg Time|Points/ });
     await expect(scoreHeader).toBeAttached();
@@ -71,11 +77,12 @@ test('the Standings table scrolls horizontally on a 390px phone instead of clipp
         };
     });
     expect(['auto', 'scroll']).toContain(scrollInfo.overflowX);
-    expect(scrollInfo.scrollWidth).toBeGreaterThan(scrollInfo.clientWidth);
-
-    // Scrolling the wrapper reaches the score column that the fixed layout
-    // (viewport width alone) does not show.
-    await scoreHeader.scrollIntoViewIfNeeded();
+    // #1138's own, harder bar: dropping Avatar/Den/Heats at this width
+    // narrows the table enough that it is no longer *wider* than its
+    // wrapper for this data — the score column is on screen without
+    // needing to scroll for it at all, rather than merely reachable by
+    // scrolling. See `mobileStandingsScore.spec.ts` for the direct check.
+    expect(scrollInfo.scrollWidth).toBeLessThanOrEqual(scrollInfo.clientWidth);
     await expect(scoreHeader).toBeInViewport();
 });
 
