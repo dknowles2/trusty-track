@@ -384,26 +384,47 @@ export default function Home() {
 
             {fetching && <p>Loading races...</p>}
             {error && <p>{errorText(error, 'The list of races could not be loaded.')}</p>}
+            {/* No races to lay out as either a table row or a card, so the
+                empty state is the original table shell regardless of width
+                (#1137) — changing it too would move
+                `getting-started/01-home-page.png`, which this issue has no
+                reason to touch. */}
             {!fetching && !error && races.length === 0 && (
-                <div style={{ padding: '20px', textAlign: 'center', backgroundColor: 'var(--surface-color)', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                    No races found. Create one to get started — or{' '}
-                    <button
-                        onClick={() => handlePractice(false)}
-                        data-testid="practice-race-empty"
-                        disabled={practiceResult.fetching}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            font: 'inherit',
-                            color: 'var(--scouting-blue)',
-                            textDecoration: 'underline',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        try a practice race
-                    </button>{' '}
-                    on a fake timer first.
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'var(--surface-color)', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                        <thead style={{ backgroundColor: 'var(--scouting-blue)', color: 'var(--on-primary-color)' }}>
+                            <tr>
+                                <th style={{ padding: '15px', textAlign: 'left' }}>Event Name</th>
+                                <th className="mobile-hide" style={{ padding: '15px', textAlign: 'left' }}>Date & Time</th>
+                                <th className="mobile-hide" style={{ padding: '15px', textAlign: 'left' }}>Location</th>
+                                <th className="mobile-hide" style={{ padding: '15px', textAlign: 'center' }}>Registered</th>
+                                <th className="mobile-hide" style={{ padding: '15px', textAlign: 'center' }}>Checked In</th>
+                                <th style={{ padding: '15px', textAlign: 'right' }}>Quick Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colSpan={6} style={{ padding: '20px', textAlign: 'center' }}>
+                                No races found. Create one to get started — or{' '}
+                                <button
+                                    onClick={() => handlePractice(false)}
+                                    data-testid="practice-race-empty"
+                                    disabled={practiceResult.fetching}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        padding: 0,
+                                        font: 'inherit',
+                                        color: 'var(--scouting-blue)',
+                                        textDecoration: 'underline',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    try a practice race
+                                </button>{' '}
+                                on a fake timer first.
+                            </td></tr>
+                        </tbody>
+                    </table>
                 </div>
             )}
             {!fetching && !error && races.length > 0 && (isNarrow ? (
