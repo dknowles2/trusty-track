@@ -878,7 +878,17 @@ export default function RaceDetails() {
           backgroundColor: isSelected ? 'var(--surface-hover-color)' : 'var(--surface-color)',
           borderColor: isSelected ? 'var(--selection-accent-color)' : 'var(--divider-color)'
       }}>
-              <div className="racer-card-header">
+              {/* #1146: the checkbox itself measured 16×16 — a `<label>`
+                  wrapping the whole header (avatar, name, car number and the
+                  input) makes the entire row the tap target, the input's
+                  implicit label association toggling it on a tap anywhere in
+                  the header rather than only on the 16px box. Nothing here
+                  is a link (the racer card has no navigation of its own —
+                  only the roster *table*'s desktop row opens a racer, and
+                  that is a separate render path from this mobile card), so
+                  there is no name-tap-vs-select conflict to carve the label
+                  around. */}
+              <label className="racer-card-header">
                   <RacerAvatar
                       racer={racer}
                       size="60px"
@@ -895,7 +905,7 @@ export default function RaceDetails() {
                   onChange={() => toggleSelectRacer(racer.id)}
                   style={{ transform: 'scale(1.2)', marginLeft: '10px' }}
               />
-          </div>
+          </label>
 
           <div className="racer-card-row">
               <span className="racer-card-label">{group}</span>

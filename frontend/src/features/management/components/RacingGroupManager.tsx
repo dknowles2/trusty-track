@@ -395,20 +395,34 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
                                         </span>
                                     )}
                                 </div>
-                                <div>
+                                {/* #1146: Edit and Delete used to sit 10px
+                                    apart, both icon-only at ~25×29px — a
+                                    destructive control one slipped tap away
+                                    from a non-destructive one. `gap: 16px`
+                                    separates them; Delete becomes a labelled
+                                    text button rather than a same-shaped icon
+                                    (chosen over folding Delete into the edit
+                                    form, since the two actions read as
+                                    independent choices — reordering the
+                                    fields inside an already-committed-to-edit
+                                    form is a worse place to change your mind
+                                    about deleting instead) so the two are
+                                    distinguishable by shape as well as
+                                    distance, not just spacing. */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                     <button
                                         onClick={() => handleEditRacingGroupClick(racingGroup)}
-                                        style={{ marginRight: '10px', background: 'none', border: 'none', color: 'var(--link-color)', cursor: 'pointer', padding: '4px' }}
+                                        style={{ background: 'none', border: 'none', color: 'var(--link-color)', cursor: 'pointer', padding: '4px 8px' }}
                                         title={`Edit ${group}`}
                                     >
                                         <Icon path={mdiPencil} size={0.7} />
                                     </button>
                                     <button
                                         onClick={() => handleDeleteRacingGroup(racingGroup.id)}
-                                        style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', fontSize: '0.85rem', fontWeight: 500 }}
                                         title={`Delete ${group}`}
                                     >
-                                        <Icon path={mdiDelete} size={0.7} />
+                                        <Icon path={mdiDelete} size={0.7} /> Delete
                                     </button>
                                 </div>
                             </div>
