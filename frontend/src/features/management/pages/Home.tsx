@@ -13,7 +13,7 @@ import logoFullUrl from '../../../assets/logo_full_transparent.png';
 import LockedBadge from '../../core/components/LockedBadge';
 import RaceStatusBadge, { type RaceStatus } from '../components/RaceStatusBadge';
 import { raceListSummary } from '../homeRaceList';
-import { useNarrowViewport } from '../../../utils/useNarrowViewport';
+import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
 
 // Below this width the table (950px-plus at full column count, per #1137's
 // own measurement) no longer fits — a phone at 390px and a portrait tablet
@@ -22,6 +22,19 @@ import { useNarrowViewport } from '../../../utils/useNarrowViewport';
 // this issue reports as still broken at 768: nothing is hidden there and the
 // table still needs 950px.
 const CARD_BREAKPOINT = 900;
+
+// `useNarrowViewport` (`features/core/hooks/useNarrowViewport.ts`, shared
+// with the Standings/Stats charts #1147 added it for) measures rather than
+// leaning on a CSS toggle — compare the roster table's own always-mounted
+// `.desktop-only-table`/`.mobile-only-cards`, which lets CSS hide one of two
+// renderings that are both in the DOM at once. That works there because
+// `RaceDetails.tsx`'s card rows carry no `data-testid` at all, so nothing
+// collides with the table's own. Here, the row and the card both need the
+// *same* per-race test ids (`race-more-menu-{id}`, `race-menu-*-{id}`) so
+// `homeRaceCards.spec.ts` can open and inspect the identical `⋯` menu at
+// each width — two always-mounted copies of those ids would break
+// Playwright's strict-mode single-element locators. Mounting only one tree
+// at a time (below) avoids that entirely.
 
 // #847 item 3's other half: "finished / in progress / not started" per
 // race, alongside the Standings route below. `status` is computed
