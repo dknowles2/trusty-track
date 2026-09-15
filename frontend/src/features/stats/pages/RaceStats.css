@@ -161,6 +161,22 @@
   margin-top: 0.75rem;
 }
 
+/* The race name, folded under the racer's own name instead of its own
+   wide "Race" column (#1147) — see `hideRaceColumn` in
+   `trackRecordColumns.ts` for when this renders at all. */
+.race-stats__record-race-meta {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted-color);
+}
+
+/* The Per-Racer Stats table's Min/Max line, folded under the racer's name
+   under 600px (#1147) — same shape as the track record's race-meta line
+   above and `Leaderboard.tsx`'s `.lb-mobile-meta`. */
+.rs-mobile-meta {
+  display: none;
+}
+
 .race-stats__highlight-type {
   font-size: 0.7rem;
   text-transform: uppercase;
@@ -244,5 +260,28 @@
   .race-stats__table th,
   .race-stats__table td {
     padding: 7px 8px;
+  }
+}
+
+/* Per-Racer Stats on a phone (#1147): the table was 534px wide with Avg and
+   Max off-screen. {group}, Min, Max and Std Dev stop being columns of
+   their own under 600px — Min/Max move to `.rs-mobile-meta`'s muted line
+   under the racer's name (see `RaceStats.tsx`); {group} and Std Dev are
+   dropped outright, same as `Leaderboard.tsx` drops Avatar entirely rather
+   than finding it a second home. */
+@media screen and (max-width: 600px) {
+  .rs-col-group,
+  .rs-col-min,
+  .rs-col-max,
+  .rs-col-stddev {
+    display: none !important;
+  }
+
+  .rs-mobile-meta {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted-color);
+    margin-top: 2px;
+    font-weight: normal;
   }
 }

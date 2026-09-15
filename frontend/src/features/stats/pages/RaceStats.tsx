@@ -19,6 +19,8 @@ import { useTerminology } from '../../../context/TerminologyContext';
 import { formatScaleMph } from '../../observation/scaleSpeed';
 import { groupScoreDomain } from '../groupScoreDomain';
 import { strategyLabel } from '../scoringStrategyText';
+import { hideRaceColumn } from '../trackRecordColumns';
+import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
 import './RaceStats.css';
 
 // ---- Types ----
@@ -189,6 +191,10 @@ export default function RaceStats() {
 
   const [sortKey, setSortKey] = useState<SortKey>('meanTime');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  // Recharts draws axis ticks itself, in JS, not CSS — a `@media` rule
+  // cannot shorten "Lane 1" to "L1" or force `interval={0}` the way the
+  // table columns below are hidden by a stylesheet (#1147).
+  const isNarrow = useNarrowViewport(600);
 
   if (!raceId || isNaN(id)) return <div>Invalid Race ID</div>;
 
@@ -267,7 +273,19 @@ export default function RaceStats() {
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={stats.laneStats} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="lane" tickFormatter={(v: number) => `Lane ${v}`} />
+                  {/* `interval={0}` forces every lane to get its own tick —
+                      Recharts' default skips alternate labels once they
+                      would collide, which at phone width turned a 4-lane
+                      chart into "Lane 2 · Lane 4" with lanes 1 and 3
+                      unlabelled (#1147). Short "L1"–"L4" labels under 600px
+                      are what make room for all of them at that width;
+                      `fontSize: 11` gives them a little more still. */}
+                  <XAxis
+                    dataKey="lane"
+                    interval={0}
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v: number) => (isNarrow ? `L${v}` : `Lane ${v}`)}
+                  />
                   <YAxis unit="%" tickFormatter={(v: number) => v.toFixed(1)} />
                   <Tooltip
                     formatter={(value: unknown) => [`${Number(value).toFixed(2)}%`, 'Advantage']}
@@ -297,7 +315,10 @@ export default function RaceStats() {
               <tbody>
                 {stats.laneStats.map(ls => (
                   <tr key={ls.lane}>
-                    <td>Lane {ls.lane}</td>
+                    {/* "Lane / 1" used to wrap onto two lines in a narrow
+                        column (#1147) — the label is short but not
+                        unbreakable at the space between the two words. */}
+                    <td style={{ whiteSpace: 'nowrap' }}>Lane {ls.lane}</td>
                     <td className="mono">{fmt(ls.avgTime)}</td>
                     <td>{ls.heatCount}</td>
                     <td className="mono">
@@ -331,20 +352,20 @@ export default function RaceStats() {
                     <th className="sortable" onClick={() => handleSort('lastName')}>
                       Name{sortIndicator('lastName')}
                     </th>
-                    <th>{group}</th>
+                    <th className="rs-col-group">{group}</th>
                     <th className="sortable" onClick={() => handleSort('heatsCompleted')}>
                       Heats{sortIndicator('heatsCompleted')}
                     </th>
-                    <th className="sortable" onClick={() => handleSort('minTime')}>
+                    <th className="rs-col-min sortable" onClick={() => handleSort('minTime')}>
                       Min{sortIndicator('minTime')}
                     </th>
                     <th className="sortable" onClick={() => handleSort('meanTime')}>
                       Avg{sortIndicator('meanTime')}
                     </th>
-                    <th className="sortable" onClick={() => handleSort('maxTime')}>
+                    <th className="rs-col-max sortable" onClick={() => handleSort('maxTime')}>
                       Max{sortIndicator('maxTime')}
                     </th>
-                    <th className="sortable" onClick={() => handleSort('stdDev')}>
+                    <th className="rs-col-stddev sortable" onClick={() => handleSort('stdDev')}>
                       Std Dev{sortIndicator('stdDev')}
                     </th>
                   </tr>
@@ -353,13 +374,25 @@ export default function RaceStats() {
                   {sortedRacers.map(rs => (
                     <tr key={rs.racerId}>
                       <td>{rs.carNumber ?? '—'}</td>
-                      <td>{rs.firstName} {rs.lastName}</td>
-                      <td style={{ color: 'var(--text-muted-color)' }}>{rs.racingGroupName}</td>
+                      <td>
+                        {rs.firstName} {rs.lastName}
+                        {/* Under 600px, {group}/Min/Max/Std Dev stop being
+                            columns of their own — the table was 534px wide
+                            with Avg and Max off-screen (#1147) — and Min/Max
+                            reappear here as one muted line under the name.
+                            {group} and Std Dev are dropped outright, the
+                            same "least useful, not shown elsewhere" call
+                            the issue made for Min alone as a column. */}
+                        <span className="rs-mobile-meta">
+                          Min {fmt(rs.minTime)} · Max {fmt(rs.maxTime)}
+                        </span>
+                      </td>
+                      <td className="rs-col-group" style={{ color: 'var(--text-muted-color)' }}>{rs.racingGroupName}</td>
                       <td style={{ textAlign: 'center' }}>{rs.heatsCompleted}</td>
-                      <td className="mono">{fmt(rs.minTime)}</td>
+                      <td className="rs-col-min mono">{fmt(rs.minTime)}</td>
                       <td className="mono" style={{ fontWeight: 'bold' }}>{fmt(rs.meanTime)}</td>
-                      <td className="mono">{fmt(rs.maxTime)}</td>
-                      <td className="mono">{rs.stdDev != null ? rs.stdDev.toFixed(3) : '—'}</td>
+                      <td className="rs-col-max mono">{fmt(rs.maxTime)}</td>
+                      <td className="rs-col-stddev mono">{rs.stdDev != null ? rs.stdDev.toFixed(3) : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -435,7 +468,21 @@ export default function RaceStats() {
                   </div>
                 </div>
               </div>
-              {stats.trackRecords.length > 1 && (
+              {stats.trackRecords.length > 1 && (() => {
+                  // #1147: each row used to be ~90px tall, mostly from a
+                  // "Race" column wrapping a name like "2026 Pinewood
+                  // Derby, Sep 19, 2026" across up to four lines — while
+                  // every row *also* carried a "THIS EVENT" badge under the
+                  // racer, naming the same race twice. The standalone
+                  // column is gone unconditionally now; when every record
+                  // on the list is this race, the badge already says so on
+                  // every row and nothing replaces it. Otherwise (a mix of
+                  // this race and an earlier one, or a hand-entered
+                  // historical record) the race name moves to one muted
+                  // line under the racer's own name instead of a column
+                  // that has to compete with Time/Racer/Car # for width.
+                  const hideRace = hideRaceColumn(stats.trackRecords, stats.raceId);
+                  return (
                   <table className="race-stats__table">
                     <thead>
                       <tr>
@@ -443,7 +490,6 @@ export default function RaceStats() {
                         <th>Time</th>
                         <th>Racer</th>
                         <th>{vehicle} #</th>
-                        <th>Race</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -458,17 +504,20 @@ export default function RaceStats() {
                             {tr.raceId === stats.raceId && (
                               <span className="race-stats__record-badge">This event</span>
                             )}
+                            {!hideRace && (
+                              <span className="race-stats__record-race-meta">
+                                {tr.raceName ?? '—'}
+                                {recordDate(tr.raceDate) && `, ${recordDate(tr.raceDate)}`}
+                              </span>
+                            )}
                           </td>
                           <td>{tr.carNumber ?? '—'}</td>
-                          <td style={{ color: 'var(--text-muted-color)' }}>
-                            {tr.raceName ?? '—'}
-                            {recordDate(tr.raceDate) && <span>, {recordDate(tr.raceDate)}</span>}
-                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-              )}
+                  );
+              })()}
               <p className="race-stats__record-note">
                 The fastest run each {vehicleLower} has recorded on this track, across
                 every race run on it. Correcting a time moves the record;
@@ -489,13 +538,25 @@ export default function RaceStats() {
                     margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
+                    {/* Same fix as Lane Fairness's XAxis above (#1147):
+                        Recharts' default `interval` skips a tick rather
+                        than let two labels collide, which at phone width
+                        left this chart down to two den names on screen. */}
                     <XAxis
                       type="number"
                       unit="s"
+                      interval={0}
+                      tick={{ fontSize: 11 }}
                       tickFormatter={(v: number) => v.toFixed(2)}
                       domain={groupScoreDomain(stats.racingGroupStats)}
                     />
-                    <YAxis type="category" dataKey="racingGroupName" width={75} />
+                    <YAxis
+                      type="category"
+                      dataKey="racingGroupName"
+                      width={75}
+                      interval={0}
+                      tick={{ fontSize: 11 }}
+                    />
                     <Tooltip
                       formatter={(value: unknown) => [`${Number(value).toFixed(3)}s`, 'Avg Score']}
                     />
