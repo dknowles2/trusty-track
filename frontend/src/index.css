@@ -1465,6 +1465,34 @@ input:checked + .slider:before {
 }
 
 /*
+ * Home's race list header on a phone or portrait tablet (#1137). Below the
+ * same 900px this issue switches the race list itself from a table to a
+ * card per race — see `Home.tsx`'s `CARD_BREAKPOINT` for why 900 rather
+ * than the roster's own 768px. "Your Races" gets its own line, and the
+ * rehearsal/create buttons stack full-width below it rather than wrapping
+ * onto a third line each, which is what the flat row did at 390px before
+ * this.
+ */
+@media screen and (max-width: 900px) {
+  .home-races-header {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .home-races-header-actions {
+    flex-direction: column;
+    align-items: stretch !important;
+    width: 100%;
+  }
+
+  .home-races-header-actions .secondary-btn,
+  .home-races-header-actions .primary-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/*
  * Awards row on a phone (#950). The row (reorder arrows, artwork, name,
  * recipient, edit, delete) carries no `flexWrap` inline — a deliberate
  * omission at desktop widths, where it comfortably fits one line — so at
