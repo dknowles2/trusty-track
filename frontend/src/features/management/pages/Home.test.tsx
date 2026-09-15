@@ -182,9 +182,9 @@ describe('Home Page', () => {
             expect(screen.getByText(/No races found/)).toBeInTheDocument();
         });
 
-        // Colspan should be 6
-        const emptyCell = screen.getByText(/No races found/).closest('td');
-        expect(emptyCell).toHaveAttribute('colSpan', '6');
+        // The empty state is its own card now (#1137), not a table row —
+        // there is no table at all once there is nothing to show in one.
+        expect(screen.queryByRole('table')).not.toBeInTheDocument();
     });
 
     it('offers a rehearsal from the empty state', async () => {
