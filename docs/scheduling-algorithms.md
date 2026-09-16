@@ -1,6 +1,6 @@
 # Race Scheduling Algorithm
 
-Trusty Track schedules a general round's heats with the **Partial Perfect Chart (PPC)** algorithm by default. A second algorithm, **Lane rotation**, is also available — the round wizard does not offer a choice yet, but every one of these algorithms produces the same shared guarantees (lane neutrality and equal run counts), just with a different opponent pattern.
+Trusty Track schedules a general round's heats with the **Partial Perfect Chart (PPC)** algorithm by default. Two more are also available — **Lane rotation**, and now the **Perfect-N chart** — and the round wizard does not offer a choice yet ([part D of #1090](https://github.com/dknowles2/trusty-track/issues/1090) is the wizard step; every one of these algorithms already produces the same shared guarantees — lane neutrality and equal run counts — just with a different opponent pattern.
 
 ## Partial Perfect Chart (PPC)
 
@@ -58,12 +58,57 @@ In a race with 4 racers and 4 lanes:
 
 ---
 
+## Perfect-N chart
+
+**Goal:** Lane Neutrality + Equal Opposition, exactly rather than best-effort.
+**Best For:** A field size the chart actually covers (below) — otherwise, the Partial Perfect Chart.
+
+Named for, and transcribed from, [Stan Pope](http://www.stanpope.net/)'s "Perfect N" Race Grid Directory (`stanpope.net/grdir.html`, with Cory Young) — the method GPRM and DerbyNet both offer too, under the same name. Where PPC's opponent variety is a heuristic that gets close, a true Perfect-N chart guarantees every pair of cars meets the *same number of times*, not merely close counts — a balanced incomplete block design, not an approximation of one.
+
+### Benefits
+- **Fairness:** Every racer runs every lane the same number of times — always once for PPC and Lane rotation, but not always once for a Perfect-N chart (below).
+- **Exact equal opposition:** Every pair of cars races against each other the same number of times as every other pair — not "close," but identical, for every chart this algorithm serves.
+- **The fairest chart there is, when it exists:** unlike PPC, this is not a heuristic converging on fairness; it is fairness by construction.
+
+### How it Works
+
+A Perfect-N chart is only possible for the field sizes Pope's directory actually publishes one for — the reason it is not PPC's unconditional replacement. `available_for(n_racers, n_lanes)` says which: it returns `None` when a chart exists for that exact shape, or a reason (naming the nearest field sizes that do have one, and recommending PPC) otherwise. Where a chart exists, `generate_perfect_n` maps a seeded shuffle of the field onto the chart's car positions and the track's usable lanes onto its lane columns — the chart itself is fixed data (`backend/domain/schedulers/perfect_n_tables.py`), transcribed by hand from the directory, not computed per race.
+
+**A chart's heat count is not always the racer count.** Pope's directory sometimes publishes a chart with several runs per lane already built in — still perfect, just more heats than one per racer. Where a shape has more than one published chart, Trusty Track schedules with the fewest-heats one by default.
+
+### Which field sizes have a chart
+
+| Lanes | Field sizes (n) |
+| --- | --- |
+| 3 | 3, 4, 5, 7, 9, 13, 19, 25 |
+| 4 | 4, 5, 7, 9, 10, 13, 19, 37 |
+| 5 | 5, 6, 7, 9, 11, 21, 41 |
+| 6 | 6, 7, 11, 13, 31 |
+| 7 | 7, 8, 15 |
+| 8 | 8, 9, 15, 57 |
+| 9 | 9, 10, 13, 19, 37 |
+| 10 | 91 |
+
+41 shapes, transcribed from every row of Pope's directory except three whose own listed generators do not actually verify against the "Perfect-N" (or "Complementary Perfect-N") claim their symbol makes — a genuine transcription error in the 1997 source, kept on record (with the specific reason) in `perfect_n_tables.py`'s `EXCLUDED` rather than silently dropped. See that module's docstring for the full provenance, and `scripts/compare_perfect_n_with_derbynet.py` / this PR's own body for the comparison against DerbyNet's independently-built charts for the same shapes.
+
+### Example
+In a race with 5 racers and 4 lanes (chart `P5-4 (3)`, Pope's directory):
+- Every racer appears in one heat for each of the 4 lanes.
+- Every pair of the 5 cars races against each other exactly 3 times — not "about" 3, exactly 3, for every pair.
+
+### A latecomer
+
+Adding one car to a Perfect-N chart already underway has no answer that keeps every pair meeting the chart's own constant number of times — there is no splice that preserves the guarantee, unlike PPC's per-newcomer appendix. `Round.algorithm`'s `absorbs_latecomer` is `False` for Perfect-N: admission regenerates the round if nothing has raced yet, or refuses (naming the round and why) once something has — the same rule Lane rotation already follows.
+
+---
+
 ## Technical Implementation
-Both algorithms are pure functions over plain values — a list of racer IDs and a list of usable lanes in, a schedule out, no database code involved — registered in `backend/domain/schedulers/__init__.py` and selected by a round's own `algorithm` column. `crud.generate_heats_for_round` decides who is in the field, looks up which algorithm the round asked for, and persists the result.
+All three algorithms are pure functions over plain values — a list of racer IDs and a list of usable lanes in, a schedule out, no database code involved — registered in `backend/domain/schedulers/__init__.py` and selected by a round's own `algorithm` column. `crud.generate_heats_for_round` decides who is in the field, looks up which algorithm the round asked for, and persists the result.
 
 - PPC lives in `backend/domain/scheduling.py` (`generate_ppc`).
 - Lane rotation lives in `backend/domain/schedulers/rotation.py` (`generate_rotation`).
+- Perfect-N lives in `backend/domain/schedulers/perfect_n.py` (`generate_perfect_n`), reading its chart data from `backend/domain/schedulers/perfect_n_tables.py`.
 
-Both take *which* lanes rather than how many ([issue #171](https://github.com/dknowles2/trusty-track/issues/171)). On an undamaged track that is every lane, and nothing changes; when a lane is out of service it is the remaining ones, and the schedule names the lanes that exist rather than renumbering them. Every property above is stated over the usable lanes — including the one that matters most, that every heat is full and everybody runs the same number of times.
+All three take *which* lanes rather than how many ([issue #171](https://github.com/dknowles2/trusty-track/issues/171)). On an undamaged track that is every lane, and nothing changes; when a lane is out of service it is the remaining ones, and the schedule names the lanes that exist rather than renumbering them. Every property above is stated over the usable lanes — including the one that matters most, that every heat is full and everybody runs the same number of times.
 
-Because they are pure, `backend/tests/test_domain_scheduling.py` exercises every racer count from 2 to 20 against every lane count from 2 to 8 with no fixtures, in about a second, plus a set of gapped tracks, for both algorithms. That is how #26 was found, and it is the same suite a new algorithm has to pass before it can be registered.
+Because they are pure, `backend/tests/test_domain_scheduling.py` exercises every racer count from 2 to 20 against every lane count from 2 to 8 with no fixtures, in about a second, plus a set of gapped tracks, for every registered algorithm — filtered through `available_for` first for Perfect-N, since (unlike PPC and Lane rotation) it genuinely refuses shapes it has no chart for. That sweep is how #26 was found, and it is the same suite a new algorithm has to pass before it can be registered — plus, for Perfect-N specifically, the constant-pairwise-meetings property that is its whole reason to exist.

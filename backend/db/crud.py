@@ -2659,7 +2659,7 @@ def pin_round_field(db: Session, round_id: int, racer_ids: list[int]) -> models.
         raise ValueError(problem)
 
     usable = usable_lanes_for_race(db, round_obj.race_id)
-    _reset_round_to_placeholders(db, round_id, len(racer_ids), usable)
+    _reset_round_to_placeholders(db, round_obj, len(racer_ids), usable)
     populate_round_field(db, round_id, racer_ids)
     round_obj.field_pinned = True
     db.commit()
@@ -2689,7 +2689,7 @@ def unpin_round_field(db: Session, round_id: int) -> models.Round:
     if advancement.may_rebuild(_round_heat_lanes(db, round_id)):
         usable = usable_lanes_for_race(db, round_obj.race_id)
         _reset_round_to_placeholders(
-            db, round_id, round_field_size(db, round_obj), usable
+            db, round_obj, round_field_size(db, round_obj), usable
         )
         populate_round_if_decided(db, round_obj)
     db.refresh(round_obj)
@@ -3343,7 +3343,7 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
             size = round_field_size(db, round_obj)
             if size <= 0:
                 continue
-            _reset_round_to_placeholders(db, round_obj.id, size, usable)
+            _reset_round_to_placeholders(db, round_obj, size, usable)
             winner_ids = scoring.get_advancing_racers(
                 db,
                 race_id,
@@ -3483,7 +3483,7 @@ def usable_lanes_for_race(db: Session, race_id: int) -> list[int]:
 
 
 def _reset_heats_in_place(
-    db: Session, round_id: int, p_ids: list[int], usable_lanes: Sequence[int]
+    db: Session, round_obj: models.Round, p_ids: list[int], usable_lanes: Sequence[int]
 ) -> bool:
     """Rewrite a round's existing heats instead of replacing the rows (#50).
 
@@ -3513,7 +3513,13 @@ def _reset_heats_in_place(
     a championship round scheduled with `ROTATION` must keep rewriting in
     place with `ROTATION`, not silently regress to PPC the moment its field
     is invalidated and rebuilt.
+
+    Takes the `Round` row rather than its id — every caller already has it
+    on hand (`_reset_round_to_placeholders`'s three callers each query it
+    for their own reasons first), so resolving `algorithm` here used to be
+    a second, avoidable `Round` query on every rewrite.
     """
+    round_id = round_obj.id
     existing = sorted(
         db.query(models.Heat).filter(models.Heat.round_id == round_id).all(),
         key=lambda h: h.heat_number,
@@ -3521,13 +3527,7 @@ def _reset_heats_in_place(
     if not existing:
         return False
 
-    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
-    algorithm = (
-        round_algorithm(round_obj)
-        if round_obj
-        else models.SchedulingAlgorithm.PPC.value
-    )
-    scheduler = SCHEDULERS[algorithm]
+    scheduler = SCHEDULERS[round_algorithm(round_obj)]
 
     plans = scheduler.generate(
         p_ids,
@@ -3581,11 +3581,11 @@ def invalidate_future_rounds(db: Session, race_id: int, current_round_number: in
     for r in advancement.rounds_to_invalidate(all_rounds, current_round_number):
         if not advancement.may_rebuild(_round_heat_lanes(db, r.id)):
             continue
-        _reset_round_to_placeholders(db, r.id, round_field_size(db, r), usable_lanes)
+        _reset_round_to_placeholders(db, r, round_field_size(db, r), usable_lanes)
 
 
 def _reset_round_to_placeholders(
-    db: Session, round_id: int, size: int, usable_lanes: Sequence[int]
+    db: Session, round_obj: models.Round, size: int, usable_lanes: Sequence[int]
 ) -> None:
     """Put an unraced championship round back to ``size`` placeholder slots.
 
@@ -3594,12 +3594,18 @@ def _reset_round_to_placeholders(
     Three paths reset a round this way — the recorded-result cascade, a
     withdrawal, and a hand-picked line-up (#711) — and the first two each
     carried their own copy of these five lines until the third arrived.
+
+    Takes the `Round` row, not its id — every one of the three callers
+    already has it, and `_reset_heats_in_place` needs it to resolve
+    `algorithm` without a query of its own.
     """
     if size > 0 and _reset_heats_in_place(
-        db, round_id, scheduling.placeholder_ids(size), usable_lanes
+        db, round_obj, scheduling.placeholder_ids(size), usable_lanes
     ):
         return
-    generate_heats_for_round(db, round_id, num_placeholders=size, clear_existing=True)
+    generate_heats_for_round(
+        db, round_obj.id, num_placeholders=size, clear_existing=True
+    )
 
 
 def is_round_complete(db: Session, round_id: int) -> bool:

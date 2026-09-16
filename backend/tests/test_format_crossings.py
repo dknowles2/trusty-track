@@ -152,16 +152,29 @@ LANE_COUNT = 4
 TOP_N = 2
 
 
-def _setup_race(db, label: str) -> tuple[models.Race, list[int]]:
-    """A race with `RACER_COUNT` checked-in racers across two racing groups
-    on a `LANE_COUNT`-lane track — big enough that Elimination runs several
+def _setup_race(
+    db,
+    label: str,
+    racer_count: int = RACER_COUNT,
+    lane_count: int = LANE_COUNT,
+) -> tuple[models.Race, list[int]]:
+    """A race with `racer_count` checked-in racers across two racing groups
+    on a `lane_count`-lane track — big enough that Elimination runs several
     waves and Balanced gets a real phase count, per the brief this sweep was
-    written from."""
+    written from.
+
+    ``racer_count``/``lane_count`` default to the module's own `RACER_COUNT`
+    and `LANE_COUNT` (every cell of the 24-cell sweep uses the defaults);
+    the PERFECT_N crossing below is the one caller that overrides both, to
+    land on a field size `perfect_n_tables.TABLES` actually covers — a
+    Perfect-N chart, unlike PPC and ROTATION, does not degrade to serve an
+    arbitrary field.
+    """
     org = crud.create_organization(db, schemas.OrganizationCreate(name=f"{label} Pack"))
     track = crud.create_track(
         db,
         schemas.TrackCreate(
-            name=f"{label} Track", lane_count=LANE_COUNT, timer_type="FAKE"
+            name=f"{label} Track", lane_count=lane_count, timer_type="FAKE"
         ),
     )
     race = crud.create_race(
@@ -180,7 +193,7 @@ def _setup_race(db, label: str) -> tuple[models.Race, list[int]]:
         db, schemas.RacingGroupCreate(name="Bears", color="#654321"), race.id
     )
     ids = []
-    for n in range(RACER_COUNT):
+    for n in range(racer_count):
         group_id = group_a.id if n % 2 == 0 else group_b.id
         racer = crud.create_racer(
             db,
@@ -546,6 +559,72 @@ def test_format_crossing(
         )
         assert not errors, (
             f"createRound refused ROUND:<general> for a {general_style} "
+            f"general round: {errors}"
+        )
+
+    if master_order == "on":
+        _turn_on_master_running_order(client, race.id)
+
+    _race_everything(db, race.id, ids)
+
+    if master_order == "on":
+        _assert_heat_numbers_unique(db, race.id)
+
+    _assert_no_solo_heat_in_growing_rounds(db, race.id)
+
+    if champ_round_id is not None:
+        _assert_championship_filled(db, champ_round_id)
+        _assert_seeded_awards_resolve(db, race.id, champ_round_id)
+
+    status = _race_status(client, race.id)
+    assert status == "FINISHED", f"race never reached FINISHED (status={status})"
+
+
+# PERFECT_N joins the algorithm axis on its own field size (#1090, part C):
+# the module's 24-cell sweep is fixed at RACER_COUNT=7 / LANE_COUNT=4, and
+# no Perfect-N chart exists for that shape (`perfect_n_tables.TABLES` has no
+# `(4, 7)` entry — see that module's docstring for which shapes do). Rather
+# than change the field size every other cell in this file already relies
+# on, this crosses the same 8 GENERAL cells (championship shape × master
+# order) at 5 racers / 4 lanes, matching `TABLES[(4, 5)]`.
+PERFECT_N_RACER_COUNT = 5
+PERFECT_N_LANE_COUNT = 4
+GENERAL_CELLS = [
+    (championship_shape, master_order)
+    for (general_style, championship_shape, master_order) in CELLS
+    if general_style == "GENERAL"
+]
+
+
+@pytest.mark.parametrize(("championship_shape", "master_order"), GENERAL_CELLS)
+def test_format_crossing_perfect_n(db, client, championship_shape, master_order):
+    label = f"Crossing PERFECT_N {championship_shape} {master_order}"
+    race, ids = _setup_race(
+        db,
+        label,
+        racer_count=PERFECT_N_RACER_COUNT,
+        lane_count=PERFECT_N_LANE_COUNT,
+    )
+
+    general_round_id = _create_general_round(
+        client, race.id, "GENERAL", algorithm="PERFECT_N"
+    )
+
+    champ_round_id = None
+    if championship_shape in ("ALL", "EACH_GROUP"):
+        champ_round_id, errors = _create_championship_round(
+            client, race.id, championship_shape
+        )
+        assert not errors, (
+            f"createRound refused {championship_shape} for a PERFECT_N "
+            f"general round: {errors}"
+        )
+    elif championship_shape == "ROUND":
+        champ_round_id, errors = _create_championship_round(
+            client, race.id, f"ROUND:{general_round_id}"
+        )
+        assert not errors, (
+            f"createRound refused ROUND:<general> for a PERFECT_N "
             f"general round: {errors}"
         )
 
