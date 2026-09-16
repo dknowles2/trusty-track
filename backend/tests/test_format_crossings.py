@@ -62,6 +62,7 @@ from backend.db import crud, models, schemas
 from backend.domain import lanes as lanes_module
 from backend.domain.audit import ResultSource
 from backend.services import awards as awards_service
+from backend.services import scoring
 
 WIZARD = """
 mutation Wizard($raceId: Int!, $config: WizardConfigurationInput!) {
@@ -144,6 +145,14 @@ mutation CreateRace($race: RaceInput!) {
 REGENERATE_ROUND = """
 mutation Regenerate($roundId: Int!) {
     regenerateRound(roundId: $roundId) { id }
+}
+"""
+
+CREATE_AWARD = """
+mutation CreateDistrictAward($raceId: Int!, $award: AwardInput!) {
+    createAward(raceId: $raceId, award: $award) {
+        id
+    }
 }
 """
 
@@ -821,3 +830,425 @@ def test_copied_round_plan_races_to_finished(
 
     status = _race_status(client, new_race_id)
     assert status == "FINISHED", f"copied race never reached FINISHED (status={status})"
+
+
+# --------------------------------------------------------------------------- #
+# The district cell (#1076, stage 2 — "proof the flow holds end to end")      #
+# --------------------------------------------------------------------------- #
+#
+# A district or council event races several ranks (Lion through AOL) as
+# sequential blocks on one track, cuts within a rank, and combines the
+# rank winners into one grand final (#1076's "Rescoped" section). Every
+# piece already exists — racing groups standing in for ranks, an
+# `EACH_GROUP` *general* round to split qualifying one round per rank
+# (`crud.create_general_round`, #1013), an `EACH_GROUP` *championship*
+# round to draw the grand final's field, `Racer.home_unit` for the
+# roster/announcer line (#1076 stage 1) — so this is a composition proof,
+# in the tradition of the sweep above: build the event through the same
+# doors an operator uses, race it to the end, and check the pieces agree
+# with each other rather than with a second, hand-derived copy of the
+# answer.
+#
+# **The knockout stage is the chained-championship-round shape, not a
+# per-rank bracket.** The issue's brief for this stage names two options —
+# "a `ROUND:<grand-final>`-style second championship round, or a per-rank
+# knockout" — and only the first is expressible with today's
+# `advancement_source` vocabulary. `createRound`'s championship branch
+# always builds *one* round for an `EACH_GROUP` source (`crud.create_round`,
+# not `crud.create_general_round`'s per-group loop, which only a *general*
+# round gets), and a source can only ever name one round
+# (`ALL`/`EACH_GROUP`/`ROUND:<id>` — `.claude/rules/advancement-and-awards.md`'s
+# "Championship advancement"). A genuine per-rank knockout — four separate
+# brackets, one per rank, each feeding the grand final on its own — would
+# need a final whose source names *several* rounds at once, which is
+# exactly the `ROUNDS:<id>,<id>,<id>` source the original (iceboxed)
+# multi-track sketch at the foot of #1076 proposes and which does not
+# exist yet. So "knockout" here is an intermediate `EACH_GROUP`
+# championship round (top `DISTRICT_KNOCKOUT_N` per rank, combined into one
+# field) that the grand final then chains to with `ROUND:<knockout id>` —
+# the two-championship-round chain the existing sweep's own `"ROUND"`
+# cells already exercise, just with a district-shaped field underneath it.
+DISTRICT_RANKS = ["Lions", "Tigers", "Wolves", "Bears"]
+DISTRICT_RACERS_PER_RANK = 5
+DISTRICT_LANE_COUNT = 4
+DISTRICT_GRAND_FINAL_N = 2
+DISTRICT_KNOCKOUT_N = 3
+DISTRICT_HOME_UNITS = ["Pack 12", "Pack 30", "Pack 45"]
+
+# The algorithm axis (#1090) crosses PPC/ROTATION/PERFECT_N, not just the
+# PPC/ROTATION pair the general sweep above uses. Perfect-N is included
+# because `DISTRICT_RACERS_PER_RANK` (5) racers on a `DISTRICT_LANE_COUNT`
+# (4) lane track is exactly `perfect_n_tables.CHARTS[(4, 5)]`'s own shape —
+# the identical (lanes, cars) pair `test_format_crossing_perfect_n` above
+# already relies on for the general sweep, so there is a real chart behind
+# every rank's own qualifying round here too.
+DISTRICT_ALGORITHMS = ["PPC", "ROTATION", "PERFECT_N"]
+
+
+def _setup_district_race(
+    db, label: str
+) -> tuple[models.Race, dict[str, list[int]], dict[str, int]]:
+    """A district event: `DISTRICT_RANKS` as racing groups (the issue's
+    "ranks"), each with `DISTRICT_RACERS_PER_RANK` checked-in racers
+    carrying a `home_unit` drawn from a handful of packs (#1076's "a dozen
+    packs send their qualifiers"). Returns ``(race, {rank: [racer_id,
+    ...]}, {rank: racing_group_id})``.
+
+    `championship_trophies=0` — the district cell creates exactly the
+    awards it means to assert against, through `createAward` below, rather
+    than the per-racing-group set `crud.seed_championship_awards` would
+    otherwise attach to whichever championship round is created first
+    (`.claude/rules/advancement-and-awards.md`'s "Awards": an `EACH_GROUP`
+    final's auto-seeded trophies are already one set *per group*, which
+    for a district's grand final would mean one trophy per rank scoped to
+    *that* round rather than the single grand-final trophy and the
+    separate, qualifying-round-scoped rank championships this cell wants).
+    """
+    org = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"{label} District")
+    )
+    track = crud.create_track(
+        db,
+        schemas.TrackCreate(
+            name=f"{label} Track", lane_count=DISTRICT_LANE_COUNT, timer_type="FAKE"
+        ),
+    )
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            name=label,
+            organization_id=org.id,
+            track_id=track.id,
+            car_numbering_strategy="MANUAL",
+            championship_trophies=0,
+        ),
+    )
+    groups: dict[str, int] = {}
+    racer_ids: dict[str, list[int]] = {}
+    car_number = 1
+    for rank in DISTRICT_RANKS:
+        group = crud.create_racing_group(
+            db, schemas.RacingGroupCreate(name=rank, color="#123456"), race.id
+        )
+        groups[rank] = group.id
+        ids = []
+        for n in range(DISTRICT_RACERS_PER_RANK):
+            racer = crud.create_racer(
+                db,
+                schemas.RacerCreate(
+                    race_id=race.id,
+                    first_name=f"{rank}{n}",
+                    last_name=label,
+                    car_number=car_number,
+                    car_passed_inspection=True,
+                    racing_group_id=group.id,
+                    home_unit=DISTRICT_HOME_UNITS[
+                        car_number % len(DISTRICT_HOME_UNITS)
+                    ],
+                ),
+            )
+            ids.append(racer.id)
+            car_number += 1
+        racer_ids[rank] = ids
+    return race, racer_ids, groups
+
+
+def _create_district_qualifying_rounds(
+    client, race_id: int, algorithm: str
+) -> dict[str, int]:
+    """One `GENERAL` round per rank — the wizard's `"EACH_GROUP"` general
+    round type (#1013), the same door `_create_general_round` above uses
+    for `"ALL"`. Returns ``{rank: round_id}``, matched by position: the
+    wizard's `EACH_GROUP` loop (`crud.create_general_round`) visits racing
+    groups in `get_racing_groups`'s own id order, which is racing-group
+    creation order — `DISTRICT_RANKS`' own order, since
+    `_setup_district_race` creates them in that order and none is empty.
+    """
+    general_round: dict = {"type": "EACH_GROUP", "runsPerLane": 1}
+    if algorithm != "PPC":
+        general_round["algorithm"] = algorithm
+    body = client.post(
+        "/graphql",
+        json={
+            "query": WIZARD,
+            "variables": {
+                "raceId": race_id,
+                "config": {"generalRound": general_round, "championshipRounds": []},
+            },
+        },
+    ).json()
+    assert "errors" not in body, body
+    rounds = body["data"]["createRoundWizard"]
+    assert len(rounds) == len(DISTRICT_RANKS), (
+        f"expected one qualifying round per rank, got {len(rounds)}: {rounds}"
+    )
+    return {rank: r["id"] for rank, r in zip(DISTRICT_RANKS, rounds, strict=True)}
+
+
+def _create_district_championship_round(
+    client, race_id: int, *, name: str, source: str, num_racers: int
+) -> int:
+    """Add a championship round through `createRound`'s "Add Round" door —
+    the knockout or the grand final, both built this way, matching the
+    general sweep's own `_create_championship_round` convention above."""
+    body = client.post(
+        "/graphql",
+        json={
+            "query": CREATE_ROUND,
+            "variables": {
+                "raceId": race_id,
+                "roundData": {
+                    "name": name,
+                    "advancementSource": source,
+                    "advancementNumRacers": num_racers,
+                    "runsPerLane": 1,
+                },
+            },
+        },
+    ).json()
+    errors = body.get("errors") or []
+    assert not errors, f"createRound refused {source!r}: {errors}"
+    return int(body["data"]["createRound"][0]["id"])
+
+
+def _create_speed_award(client, race_id: int, *, name: str, round_id: int) -> int:
+    """A `SPEED` award for first place in one round's own standings —
+    through `createAward`, the same door the Awards page's own form uses."""
+    body = client.post(
+        "/graphql",
+        json={
+            "query": CREATE_AWARD,
+            "variables": {
+                "raceId": race_id,
+                "award": {
+                    "name": name,
+                    "kind": "SPEED",
+                    "source": f"ROUND:{round_id}",
+                    "place": 1,
+                },
+            },
+        },
+    ).json()
+    assert "errors" not in body, body
+    return int(body["data"]["createAward"]["id"])
+
+
+def _update_race(client, race_id: int, fields: dict) -> None:
+    body = client.post(
+        "/graphql",
+        json={"query": UPDATE_RACE, "variables": {"id": race_id, "race": fields}},
+    ).json()
+    assert "errors" not in body, body
+
+
+def _real_racer_ids_in_round(db, round_id: int) -> set[int]:
+    heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
+    ids: set[int] = set()
+    for lanes in crud.lanes_for_heats(db, heats):
+        for lane in lanes:
+            if lane.racer_id is not None:
+                ids.add(lane.racer_id)
+    return ids
+
+
+def _top_n_ids(db, race_id: int, round_id: int, n: int) -> list[int]:
+    """The top `n` racer ids in one round's own standings, best first —
+    `services.scoring`'s own leaderboard, never a hand-computed ranking."""
+    entries = scoring.get_leaderboard(db, race_id, round_id=round_id)
+    return [entry["racer_id"] for entry in entries[:n]]
+
+
+@pytest.mark.parametrize("knockout", ["off", "on"])
+@pytest.mark.parametrize("algorithm", DISTRICT_ALGORITHMS)
+def test_district_derby_crossing(db, client, algorithm, knockout):
+    """#1076 stage 2: the district-derby flow, end to end.
+
+    Shape: `DISTRICT_RANKS` (4) as racing groups, each racing its own
+    qualifying round (`"EACH_GROUP"` general round, one per rank) with
+    `DISTRICT_RACERS_PER_RANK` (5) checked-in racers apiece, each carrying
+    a `home_unit` from one of `DISTRICT_HOME_UNITS`. A grand final
+    (`createRound`, `advancement_source="EACH_GROUP"`, top
+    `DISTRICT_GRAND_FINAL_N` per rank) draws one combined field; with
+    ``knockout == "on"`` an intermediate `EACH_GROUP` round (top
+    `DISTRICT_KNOCKOUT_N` per rank) sits between qualifying and the final,
+    chained the ordinary way (`ROUND:<knockout id>`) — see this module's
+    own note above for why that is the shape tested rather than a per-rank
+    bracket. Scoring strategy is left at the module default, `TIMED` — the
+    sweep above never parametrizes `ScoringStrategy` either, and a district
+    event's own "one track, cuts by time" description (#1076) is exactly
+    what `TIMED` models; `POINTS`'s sum-of-placements would need every rank
+    to run the same heat count to stay fair, which nothing about this
+    format changes, so there is nothing new here for it to catch.
+
+    Invariants: every rank's qualifying field is disjoint and equals its
+    checked-in racers; the grand-final (and, with a knockout, the
+    knockout's own) field is exactly the per-round top N by
+    `services.scoring`'s standings; each rank's champion award — sourced
+    from that rank's own qualifying round, never the combined final —
+    resolves to that rank's 1st; the grand-final trophy resolves to
+    exactly one racer; "at most one trophy per racer" (`roll_down.py`)
+    rolls a double winner's rank championship down to their rank's
+    runner-up once `Race.oneTrophyPerRacer` is on; and the race reaches
+    `FINISHED`.
+    """
+    label = f"District {algorithm} {knockout}"
+    race, racer_ids, _groups = _setup_district_race(db, label)
+    checked_in_by_rank = {rank: set(ids) for rank, ids in racer_ids.items()}
+
+    qualifying_round_ids = _create_district_qualifying_rounds(
+        client, race.id, algorithm
+    )
+
+    if knockout == "on":
+        knockout_round_id: int | None = _create_district_championship_round(
+            client,
+            race.id,
+            name="Knockout",
+            source="EACH_GROUP",
+            num_racers=DISTRICT_KNOCKOUT_N,
+        )
+        final_round_id = _create_district_championship_round(
+            client,
+            race.id,
+            name="Grand Final",
+            source=f"ROUND:{knockout_round_id}",
+            num_racers=DISTRICT_GRAND_FINAL_N,
+        )
+    else:
+        knockout_round_id = None
+        final_round_id = _create_district_championship_round(
+            client,
+            race.id,
+            name="Grand Final",
+            source="EACH_GROUP",
+            num_racers=DISTRICT_GRAND_FINAL_N,
+        )
+
+    # Every racer id, fastest-overall first. `_run_heat_favouring` ranks a
+    # heat's own real racers by their position in this list, so the racer
+    # listed first beats every rank-mate in qualifying (their rank's own
+    # champion) *and* beats every other rank's qualifier once the fields
+    # combine in the knockout/final — the double winner the roll-down
+    # assertion below needs, produced for free rather than rigged
+    # separately.
+    favourite_order = [rid for rank in DISTRICT_RANKS for rid in racer_ids[rank]]
+
+    _race_everything(db, race.id, favourite_order)
+
+    _assert_no_solo_heat_in_growing_rounds(db, race.id)
+
+    # Invariant: every rank's qualifying field is disjoint and equals the
+    # rank's own checked-in racers.
+    seen: set[int] = set()
+    for rank in DISTRICT_RANKS:
+        field = _real_racer_ids_in_round(db, qualifying_round_ids[rank])
+        assert field == checked_in_by_rank[rank], (
+            f"{rank}'s qualifying round held {sorted(field)}, expected "
+            f"{sorted(checked_in_by_rank[rank])}"
+        )
+        assert not (field & seen), f"{rank}'s qualifying field overlaps another rank's"
+        seen |= field
+
+    # Invariant: the grand-final field (and the knockout's, if there is
+    # one) is exactly the per-round top N, against `services.scoring`'s
+    # own standings.
+    if knockout_round_id is not None:
+        _assert_championship_filled(db, knockout_round_id)
+        knockout_expected: set[int] = set()
+        for rank in DISTRICT_RANKS:
+            knockout_expected |= set(
+                _top_n_ids(db, race.id, qualifying_round_ids[rank], DISTRICT_KNOCKOUT_N)
+            )
+        knockout_actual = _real_racer_ids_in_round(db, knockout_round_id)
+        assert knockout_actual == knockout_expected, (
+            f"knockout field {sorted(knockout_actual)} != expected "
+            f"{sorted(knockout_expected)}"
+        )
+        final_expected = set(
+            _top_n_ids(db, race.id, knockout_round_id, DISTRICT_GRAND_FINAL_N)
+        )
+    else:
+        final_expected = set()
+        for rank in DISTRICT_RANKS:
+            final_expected |= set(
+                _top_n_ids(
+                    db, race.id, qualifying_round_ids[rank], DISTRICT_GRAND_FINAL_N
+                )
+            )
+
+    _assert_championship_filled(db, final_round_id)
+    final_actual = _real_racer_ids_in_round(db, final_round_id)
+    assert final_actual == final_expected, (
+        f"grand-final field {sorted(final_actual)} != expected {sorted(final_expected)}"
+    )
+
+    # Awards: a champion per rank, sourced from that rank's own qualifying
+    # round, and a single grand-final trophy.
+    champion_award_ids = {
+        rank: _create_speed_award(
+            client,
+            race.id,
+            name=f"{rank} Champion",
+            round_id=qualifying_round_ids[rank],
+        )
+        for rank in DISTRICT_RANKS
+    }
+    grand_final_award_id = _create_speed_award(
+        client, race.id, name="Grand Final Champion", round_id=final_round_id
+    )
+
+    # Invariant: each rank's champion resolves to that rank's own 1st, and
+    # the grand-final trophy resolves to exactly one racer — isolated
+    # resolution (no roll-down yet), so a collision (below) is visible as
+    # exactly that: two awards agreeing on the same racer.
+    recipients = awards_service.recipients_for(db, race.id)
+    for rank in DISTRICT_RANKS:
+        expected = _top_n_ids(db, race.id, qualifying_round_ids[rank], 1)[0]
+        assert recipients[champion_award_ids[rank]] == expected, (
+            f"{rank} champion resolved to {recipients[champion_award_ids[rank]]}, "
+            f"expected {expected}"
+        )
+    grand_final_winner = _top_n_ids(db, race.id, final_round_id, 1)[0]
+    assert grand_final_winner is not None
+    assert recipients[grand_final_award_id] == grand_final_winner
+
+    # `favourite_order[0]` beats every rank-mate and every other rank's
+    # qualifier alike, so they hold both their own rank's championship and
+    # the grand final at this point — the collision "at most one trophy per
+    # racer" exists to resolve.
+    fastest_overall = favourite_order[0]
+    fastest_overall_rank = next(
+        rank for rank in DISTRICT_RANKS if fastest_overall in racer_ids[rank]
+    )
+    assert grand_final_winner == fastest_overall
+    assert recipients[champion_award_ids[fastest_overall_rank]] == fastest_overall
+
+    # Invariant: "at most one trophy per racer" (`domain/roll_down.py`).
+    # The grand final is the race-wide podium and is resolved first
+    # (`roll_down.priority_order`: race-wide before group-scoped), so the
+    # double winner keeps it; their own rank's championship — a
+    # group-scoped podium — rolls down to the next fastest racer in that
+    # rank's own qualifying standings.
+    _update_race(client, race.id, {"oneTrophyPerRacer": True})
+    resolutions = awards_service.resolutions_for(db, race.id, one_trophy_per_racer=True)
+
+    grand_final_resolution = resolutions[grand_final_award_id]
+    assert grand_final_resolution.recipient == fastest_overall
+
+    rank_standings = _top_n_ids(
+        db, race.id, qualifying_round_ids[fastest_overall_rank], 2
+    )
+    runner_up = rank_standings[1]
+    rank_resolution = resolutions[champion_award_ids[fastest_overall_rank]]
+    assert rank_resolution.recipient == runner_up, (
+        f"{fastest_overall_rank} champion should roll down to {runner_up}, "
+        f"got {rank_resolution.recipient}"
+    )
+    assert any(
+        passed.racer_id == fastest_overall for passed in rank_resolution.passed_over
+    ), "the roll-down's own passed_over list should name the double winner"
+
+    status = _race_status(client, race.id)
+    assert status == "FINISHED", (
+        f"district race never reached FINISHED (status={status})"
+    )
