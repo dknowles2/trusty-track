@@ -188,3 +188,4 @@ Now that your race is set up, you can proceed to adding racers and managing the 
 - [Race Setup Guide](race-setup.md) — Adding racers and managing dens
 - [Race Day Operations Guide](race-day.md) — Check-in and running the race
 - [Observation & Audience Displays Guide](observation-displays.md) — Setting up kiosks and displays
+- [Instant Replay Guide](instant-replay.md) — Turning a phone into a finish-line camera

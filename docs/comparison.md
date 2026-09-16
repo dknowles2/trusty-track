@@ -10,7 +10,8 @@ of them. Here is what the others are, and when one of them is the better pick.
 
 Prices and versions were checked on each program's own site on 28 August 2026;
 the "Telling screens apart" row on 29 August 2026, and the "Words on screen"
-row on 30 August 2026; Derby Pulse's entries on 3 September 2026. They move,
+row on 30 August 2026; Derby Pulse's entries on 3 September 2026; the "Instant
+replay" row on 16 September 2026. They move,
 so follow the links before you spend anything, and please
 [tell us](https://github.com/dknowles2/trusty-track/issues) if something here has
 gone stale or reads unfairly.
@@ -85,6 +86,7 @@ and a stopwatch it is a perfectly good answer.
 | **Racer and car photos** | Yes | Pro only | Yes | — | — | Premium only |
 | **Words on screen** | Free text — group, organization and vehicle, plus a vehicle picture | Built-in presets for Pinewood, Awana Grand Prix, Space Derby and Raingutter Regatta, with their own vehicle names | — | — | — | — |
 | **Try before installing** | One shared demo | — | A private instance, a few hours | — | — | In-app demo, read-only |
+| **Instant replay** | Any phone, tablet or laptop camera; clip cut to the timer's own start and finish times | Via a separate app (RaceReplay), Pro only | Yes — a webcam plays each heat back automatically; a browser-based remote camera page too | — | — | — |
 | **Public since** | Jan 2026 | Version 26 | Jul 2015 | Long-established | Long-established | — |
 
 A blank cell means their site does not say, not that the answer is no.

@@ -190,6 +190,21 @@ what it shows in full is in
 
 ---
 
+### Instant replay
+
+Any phone, tablet or laptop with a camera can become a finish-line camera —
+open the **Camera** page on it, pick which track it's watching, and every
+heat that track times gets an automatic replay clip, cut to the timer's own
+start and finish so the slow-motion always shows the actual race rather than
+a few seconds of guesswork either side of it. It plays back on every screen
+that has **Replays** turned on, right after that heat's results.
+
+See the [Instant Replay Guide](instant-replay.md) for the whole thing —
+aiming the camera, which browsers it needs, and what happens on a track with
+no electronic timer.
+
+---
+
 ## Changing what a screen shows, from where you are
 
 With four screens taped around a gym, changing one used to mean finding it and
@@ -237,6 +252,11 @@ Two things worth knowing:
 - **A screen that has gone quiet stays in the list**, marked *Not connected*
   — that is how you find out the projector at the back has dropped off the
   wifi. Clear the row with the ✕.
+- **Every ordinary screen has its own Replays checkbox**, on by default — turn
+  it off for a screen that should never show the [instant replay](instant-replay.md),
+  the ceremony projector during the trophies, say. A camera registered through
+  the Camera page shows a track picker in this spot instead, since a camera has
+  nothing of its own to display.
 
 The ten views a screen can show, and how assignment behaves, are in
 [Audience display views](reference/displays.md).

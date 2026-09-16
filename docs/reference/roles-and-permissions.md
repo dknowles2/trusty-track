@@ -110,7 +110,8 @@ PIN was set.
 The macOS app, the Windows app, the Raspberry Pi installer and a from-source
 install all serve **https://** by default, using a certificate Trusty Track
 generates for itself. That is not about hiding your PIN from anyone — it is
-what lets the camera and the check-in scanner turn on at all. A modern
+what lets the check-in scanner, the check-in camera and an
+[instant replay](../instant-replay.md) camera turn on at all. A modern
 browser refuses to open a camera except on a "secure" connection, and it only
 counts `https://` and the machine's own `localhost` as secure — a plain
 `http://192.168.1.42:8000` on a second device does not qualify, whatever
@@ -132,9 +133,10 @@ machine](../user/install-docker.md#accessing-from-other-devices-on-your-network)
 If the certificate warning is a bigger problem for your event than losing
 the camera on a second device — a shared school iPad nobody wants to explain
 "Advanced → Proceed anyway" to, say — you can opt out and serve plain HTTP
-everywhere instead. Everything except photo capture and the check-in scanner
-keeps working exactly the same on every device: the roster, Race Control,
-standings, the audience displays.
+everywhere instead. Everything except photo capture, the check-in scanner
+and an instant replay camera away from the host machine keeps working
+exactly the same on every device: the roster, Race Control, standings, the
+audience displays.
 
 - **macOS and Windows app:** the tray/menu-bar icon has a **Use Plain HTTP
   (no certificate warnings)** item. Click it, then quit and reopen Trusty

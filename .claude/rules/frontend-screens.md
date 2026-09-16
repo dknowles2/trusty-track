@@ -15,6 +15,7 @@ paths:
   - frontend/src/components/ui/imageEdit.ts
   - frontend/src/components/ui/ImageCropModal.tsx
   - frontend/src/components/ui/CameraCapture.tsx
+  - frontend/src/features/camera/pages/Camera.tsx
   - frontend/src/utils/csv.ts
   - backend/domain/printables.py
   - backend/services/printables.py
@@ -47,6 +48,10 @@ Two friction points the issue raised had no button behind them at all — the ra
 **Edit race opens the Roster page's existing modal, not a new `/race/:id/settings` route.** The edit form has only ever been a modal on `RaceDetails.tsx`, opened by its own **Edit Details** button — there was no settings page to link to, and inventing one would mean two ways to reach the same form drawing from two different pieces of code. Instead, both Home's overflow menu and a new **Edit race** button on Race Control (replacing a spacer div that existed only to balance the centered tab group against the page title) navigate to `/race/:id?edit=true`; `RaceDetails.tsx` opens the modal when it sees the param and strips it immediately (`replace`, so it does not sit in history and cannot reopen the modal on a reload or a Back navigation). Opening the modal is done as an "adjust state while rendering" comparison against the previous render's param value, not inside a `useEffect` — `eslint-plugin-react-hooks`' `set-state-in-effect` rule (part of the React Compiler-oriented rules pulled in by v7) flags a bare `useEffect(() => { if (param) setIsEditingRace(true) }, ...)`, and rightly: it fires on every render where the param is still present, including the render right after the operator has already closed the modal by hand but before the param-stripping effect has run. Stripping the param itself stays a plain effect — it synchronizes the browser's own address bar, an external system, not this component's state.
 
 **Under 768px, both standalone pills move into an overflow instead** ([#1148](https://github.com/dknowles2/trusty-track/issues/1148)). The bottom tab bar already names the page (`.claude/rules/frontend-screens.md`'s own "One row of race navigation"), so the phone layout drops the page heading the pill used to sit beside — on Race Control the tab strip becomes the header's first row, with a small **⋯** (`race-control-overflow`) beside it holding **Edit race** (`race-control-edit-race`, same testid as the desktop pill, same `?edit=true` navigation); on the Roster page the pill moves into the roster toolbar's own `roster-more-menu` (`edit-race-btn`, same testid, same `setIsEditingRace(true)`). Neither destination changes — only where the button to reach it lives — and desktop (≥768px) is untouched: `useNarrowViewport(768)` gates the swap, the same hook and breakpoint `Navigation.tsx`'s own bottom tab bar uses.
+
+### The camera page
+
+`/race/:raceId/camera` (`features/camera/pages/Camera.tsx`, #177 stage 1b) is deliberately **not** in `Navigation.tsx`'s `links` — it is a display, not a race view, and belongs beside `/observation` in the set of pages reached by opening a URL on a second device rather than by clicking through the operator's own chrome. There is no button that opens it the way **Open a new display window** opens `/observation`, either: unlike an audience screen, there is nothing useful to preview on the operator's own laptop (a camera page with no camera pointed at anything), so the volunteer holding the phone types or scans the address directly, the same way `ConnectDisplayAddress` already works for a wall display. The rules for what it does once open — registration, capture, sync, playback — are in `.claude/rules/displays.md`'s "A camera is a display with a role" and "The camera page, capture, and playback" sections, not here.
 
 ### The roster toolbar
 
