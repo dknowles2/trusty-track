@@ -634,11 +634,6 @@ export default function SystemConfig() {
         throw sideEffectError;
       }
 
-      // We can't easily use useClient() here unless we change the component to use it,
-      // but we can trust that the mutation result being successful means the backend is ready.
-      // To be absolutely safe against race conditions, we'll wait a brief moment.
-      await new Promise(resolve => setTimeout(resolve, 100));
-
       // The device that set the operator PIN keeps it. Otherwise setting one
       // demotes the operator on their own laptop the instant they save, which
       // is the same lockout #192 was about approached from the other side.
