@@ -114,8 +114,8 @@ export const ActiveFreeRaceHeatSubscription = gql`
  * told, not the thing asking.
  */
 export const DisplayAssignmentSubscription = gql`
-  subscription DisplayAssignment($displayId: String!, $raceId: Int!) {
-    displayAssignment(displayId: $displayId, raceId: $raceId) {
+  subscription DisplayAssignment($displayId: String!, $raceId: Int!, $role: DisplayRole) {
+    displayAssignment(displayId: $displayId, raceId: $raceId, role: $role) {
       displayId
       name
       view
@@ -124,6 +124,16 @@ export const DisplayAssignmentSubscription = gql`
       showCheckedIn
       qrTarget
       showStandingsTicker
+      # Whether this screen plays a heat's replay clip after its results
+      # overlay (#177 stage 1b) — the per-display rider assignDisplay's
+      # own replays argument sets.
+      replays
+      # A camera is a display with a role (#177 stage 1a) — the /camera
+      # page opens this exact subscription with role: CAMERA, so it needs
+      # the same three camera-only fields an ordinary screen never reads.
+      role
+      trackId
+      lastClipAt
       description
       pacedByAPerson
       connected
@@ -149,6 +159,10 @@ export const DisplaysSubscription = gql`
       showCheckedIn
       qrTarget
       showStandingsTicker
+      replays
+      role
+      trackId
+      lastClipAt
       description
       pacedByAPerson
       connected
@@ -172,6 +186,10 @@ export const DISPLAYS_QUERY = gql`
       showCheckedIn
       qrTarget
       showStandingsTicker
+      replays
+      role
+      trackId
+      lastClipAt
       description
       pacedByAPerson
       connected
@@ -245,6 +263,7 @@ export const ASSIGN_DISPLAY = gql`
     $showCheckedIn: Boolean
     $qrTarget: QRTarget
     $showStandingsTicker: Boolean
+    $replays: Boolean
   ) {
     assignDisplay(
       displayId: $displayId
@@ -254,6 +273,7 @@ export const ASSIGN_DISPLAY = gql`
       showCheckedIn: $showCheckedIn
       qrTarget: $qrTarget
       showStandingsTicker: $showStandingsTicker
+      replays: $replays
     ) {
       displayId
       view
@@ -262,11 +282,54 @@ export const ASSIGN_DISPLAY = gql`
       showCheckedIn
       qrTarget
       showStandingsTicker
+      replays
       description
       pacedByAPerson
       connected
       name
       raceId
+    }
+  }
+`;
+
+/**
+ * Tell a camera which track's timer it should listen to (#177 stage 1a/1b).
+ *
+ * Operator-only, the same bucket as every other display mutation — a camera
+ * holds no PIN and makes no GraphQL call of its own, so this travels the
+ * Displays panel's own per-row track picker rather than the camera page
+ * choosing for itself.
+ */
+export const SET_CAMERA_TRACK = gql`
+  mutation SetCameraTrack($displayId: String!, $trackId: Int!) {
+    setCameraTrack(displayId: $displayId, trackId: $trackId) {
+      displayId
+      trackId
+    }
+  }
+`;
+
+/**
+ * The current heat's replay clips, as cameras upload them (#177 stage 1b).
+ *
+ * A snapshot channel, not a delta — see `.claude/rules/displays.md`'s "A
+ * camera is a display with a role" for why the default bounded pub/sub
+ * queue is safe here. `Observation.tsx` keys a payload by `heatId` +
+ * `recordedAt` through the same `observeHeatResult` edge-detector the
+ * results overlay already uses (`resultsOverlay.ts`), rather than trusting
+ * the subscription's own opening payload.
+ */
+export const HeatReplaySubscription = gql`
+  subscription HeatReplay($raceId: Int!) {
+    heatReplay(raceId: $raceId) {
+      heatId
+      recordedAt
+      clips {
+        cameraId
+        url
+        durationMs
+        t0OffsetMs
+      }
     }
   }
 `;

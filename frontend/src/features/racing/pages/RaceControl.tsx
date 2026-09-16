@@ -15,6 +15,7 @@ import { colorForLane } from '../../settings/laneColors';
 import ReadinessStrip from '../components/ReadinessStrip';
 import { FreeRaceTab } from '../components/FreeRaceTab';
 import EditRaceButton from '../../management/components/EditRaceButton';
+import CameraBadges from '../../observation/components/CameraBadges';
 import {
   GET_RACE_CONTROL_DATA,
   HEAT_SESSION_SUBSCRIPTION,
@@ -1130,6 +1131,13 @@ export default function RaceControl() {
   return (
     <div className="container" style={{ padding: mobileChrome ? '8px 12px' : '20px' }}>
       {controlHeader}
+
+      {/* One badge per registered camera (#177 stage 1b) — "Finish line —
+          connected, last clip 2s ago" — so an operator can tell a camera
+          is actually listening without opening the Displays page. Renders
+          nothing when this race has no cameras, which is every race until
+          somebody opens /camera. */}
+      <CameraBadges raceId={id} />
 
       {/* The lock (#585). Scheduling and result entry below are disabled
           rather than hidden — see ScheduleManagement's and RaceExecution's
