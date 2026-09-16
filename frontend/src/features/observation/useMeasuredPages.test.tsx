@@ -48,18 +48,24 @@ function Harness({
 
 function renderHarness(overrides: Partial<React.ComponentProps<typeof Harness>> = {}) {
     let latest: MeasuredPages<number> | undefined;
+    const onResult = (r: MeasuredPages<number>) => {
+        latest = r;
+    };
+    const behavior = overrides.behavior ?? 'PAGING';
+    const cycleMs = overrides.cycleMs ?? 10000;
     const view = render(
-        <Harness
-            items={[1, 2, 3]}
-            behavior="PAGING"
-            cycleMs={10000}
-            onResult={(r) => {
-                latest = r;
-            }}
-            {...overrides}
-        />,
+        <Harness items={[1, 2, 3]} behavior={behavior} cycleMs={cycleMs} onResult={onResult} {...overrides} />,
     );
-    return { ...view, current: () => latest! };
+    return {
+        ...view,
+        current: () => latest!,
+        // Re-renders with the same `onResult` closure (rather than a fresh
+        // one from `overrides`), so `current()` keeps reading the latest
+        // result across the re-render the same way a real subscription
+        // payload replacing an empty `items` array would (#1155).
+        rerenderWithItems: (items: readonly number[]) =>
+            view.rerender(<Harness items={items} behavior={behavior} cycleMs={cycleMs} onResult={onResult} />),
+    };
 }
 
 describe('useMeasuredPages', () => {
@@ -136,6 +142,37 @@ describe('useMeasuredPages', () => {
         unmount();
 
         expect(clearSpy).toHaveBeenCalled();
+    });
+
+    // #1155: `displayResolutions.spec.ts`'s 8-lane Standings case flaked in
+    // CI by finding zero `.standing-row`s at the moment it measured — a
+    // slow backend under load handing the leaderboard subscription its
+    // first real payload after the page had already rendered an empty
+    // list. This pins that the hook itself does the right thing once that
+    // payload lands: `visible` is computed straight from `items`, `page`
+    // and `pageSize` on every render (`pageSlice` below), with no gate that
+    // could leave it stuck at the empty list's own answer — so the fix
+    // for #1155 lives in the spec's own wait, not here. Kept anyway, as the
+    // pin the issue asked for against a future regression that *did* add
+    // such a gate.
+    it('shows rows once a later roster arrival replaces an initially empty list', () => {
+        Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+            configurable: true,
+            value: 1000, // comfortably more than one row's worth
+        });
+        try {
+            const { current, rerenderWithItems } = renderHarness({ items: [] });
+            expect(current().visible).toEqual([]);
+            expect(current().pageCount).toBe(1);
+
+            const arrived = Array.from({ length: 5 }, (_, i) => i);
+            rerenderWithItems(arrived);
+
+            expect(current().visible).toEqual(arrived);
+            expect(current().pageCount).toBe(1);
+        } finally {
+            Reflect.deleteProperty(HTMLElement.prototype, 'clientHeight');
+        }
     });
 
     it('keeps the previous page size rather than collapsing to one when nothing has laid out yet (clientHeight === 0)', () => {

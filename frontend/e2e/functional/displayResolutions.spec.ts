@@ -619,6 +619,14 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             await page.goto(`/race/${raceId}/observation`);
             await page.waitForLoadState('networkidle');
             await expect(page.locator('.standings-table')).toBeVisible();
+            // `networkidle` only tracks HTTP traffic, not the leaderboard
+            // subscription's own WebSocket payload — the table itself can be
+            // visible (an empty `<tbody>`) before the first snapshot has
+            // arrived, which is what made this flake in CI under load
+            // (#1155). Wait on the content the assertions below actually
+            // count, the same way "Last heat's times" already waits on
+            // `.timing-list-item` rather than its own table wrapper.
+            await expect(page.locator('.standing-row').first()).toBeVisible();
             await assertCleanRender(page, { fullScreen: false, overlapSelectors: ['.heat-card', '.standing-row'] });
 
             // Every row on screen fits the fold, and the roster (24 racers,
@@ -657,6 +665,9 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             await page.goto(`/race/${raceId8}/observation`);
             await page.waitForLoadState('networkidle');
             await expect(page.locator('.standings-table')).toBeVisible();
+            // See the 6-lane "Standings" test above (#1155) — this is the
+            // case that actually flaked in CI, on the busier 32-racer seed.
+            await expect(page.locator('.standing-row').first()).toBeVisible();
             await assertCleanRender(page, {
                 fullScreen: false,
                 overlapSelectors: ['.heat-card', '.standing-row'],
