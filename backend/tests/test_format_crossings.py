@@ -1058,9 +1058,10 @@ def _top_n_ids(db, race_id: int, round_id: int, n: int) -> list[int]:
     return [entry["racer_id"] for entry in entries[:n]]
 
 
+@pytest.mark.parametrize("master_order", ["off", "on"])
 @pytest.mark.parametrize("knockout", ["off", "on"])
 @pytest.mark.parametrize("algorithm", DISTRICT_ALGORITHMS)
-def test_district_derby_crossing(db, client, algorithm, knockout):
+def test_district_derby_crossing(db, client, algorithm, knockout, master_order):
     """#1076 stage 2: the district-derby flow, end to end.
 
     Shape: `DISTRICT_RANKS` (4) as racing groups, each racing its own
@@ -1073,12 +1074,23 @@ def test_district_derby_crossing(db, client, algorithm, knockout):
     `DISTRICT_KNOCKOUT_N` per rank) sits between qualifying and the final,
     chained the ordinary way (`ROUND:<knockout id>`) — see this module's
     own note above for why that is the shape tested rather than a per-rank
-    bracket. Scoring strategy is left at the module default, `TIMED` — the
-    sweep above never parametrizes `ScoringStrategy` either, and a district
-    event's own "one track, cuts by time" description (#1076) is exactly
-    what `TIMED` models; `POINTS`'s sum-of-placements would need every rank
-    to run the same heat count to stay fair, which nothing about this
-    format changes, so there is nothing new here for it to catch.
+    bracket. `master_order`, when "on", is switched on the same way the
+    general sweep above does it — `_turn_on_master_running_order` right
+    after every round exists, before any racing — and is what caught #1076
+    stage 2's own review-found seam: two *chained* championship rounds
+    (the knockout, then a grand final drawing from it) are new territory
+    the 24-cell sweep above never reaches (`championship_shape` there is
+    always exactly one round), and each independently restarted its own
+    heat numbering at 1 on every invalidation-driven rebuild, colliding
+    with the other for as long as neither had been raced — fixed in
+    `crud._next_master_order_heat_number` (`generate_heats_for_round` and
+    `_reset_heats_in_place`). Scoring strategy is left at the module
+    default, `TIMED` — the sweep above never parametrizes `ScoringStrategy`
+    either, and a district event's own "one track, cuts by time"
+    description (#1076) is exactly what `TIMED` models; `POINTS`'s
+    sum-of-placements would need every rank to run the same heat count to
+    stay fair, which nothing about this format changes, so there is
+    nothing new here for it to catch.
 
     Invariants: every rank's qualifying field is disjoint and equals its
     checked-in racers; the grand-final (and, with a knockout, the
@@ -1088,10 +1100,12 @@ def test_district_derby_crossing(db, client, algorithm, knockout):
     resolves to that rank's 1st; the grand-final trophy resolves to
     exactly one racer; "at most one trophy per racer" (`roll_down.py`)
     rolls a double winner's rank championship down to their rank's
-    runner-up once `Race.oneTrophyPerRacer` is on; and the race reaches
-    `FINISHED`.
+    runner-up once `Race.oneTrophyPerRacer` is on; heat numbers are
+    globally unique once `master_order` is "on" (matching the general
+    sweep's own `_assert_heat_numbers_unique`, called under the identical
+    condition); and the race reaches `FINISHED`.
     """
-    label = f"District {algorithm} {knockout}"
+    label = f"District {algorithm} {knockout} {master_order}"
     race, racer_ids, _groups = _setup_district_race(db, label)
     checked_in_by_rank = {rank: set(ids) for rank, ids in racer_ids.items()}
 
@@ -1124,6 +1138,9 @@ def test_district_derby_crossing(db, client, algorithm, knockout):
             num_racers=DISTRICT_GRAND_FINAL_N,
         )
 
+    if master_order == "on":
+        _turn_on_master_running_order(client, race.id)
+
     # Every racer id, fastest-overall first. `_run_heat_favouring` ranks a
     # heat's own real racers by their position in this list, so the racer
     # listed first beats every rank-mate in qualifying (their rank's own
@@ -1134,6 +1151,9 @@ def test_district_derby_crossing(db, client, algorithm, knockout):
     favourite_order = [rid for rank in DISTRICT_RANKS for rid in racer_ids[rank]]
 
     _race_everything(db, race.id, favourite_order)
+
+    if master_order == "on":
+        _assert_heat_numbers_unique(db, race.id)
 
     _assert_no_solo_heat_in_growing_rounds(db, race.id)
 
