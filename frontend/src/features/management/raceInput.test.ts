@@ -147,6 +147,10 @@ describe('buildCreateRaceInput', () => {
                 runsPerLane: 2,
                 eliminationLosses: null,
                 balancedPhases: null,
+                // #1090, part D — carried through the same as every other
+                // field on the general round; `null` here since the fixture
+                // this plan comes from carries no `algorithm` of its own.
+                algorithm: null,
             },
             championshipRounds: [
                 {

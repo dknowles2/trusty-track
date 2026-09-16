@@ -1,7 +1,50 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RoundConfigModal } from './RoundConfigModal';
+
+// "How heats are built" (#1090, part D) queries `schedulingAlgorithms` — a
+// plain `vi.fn()` (rather than a fixed factory return) so the choice's own
+// tests below can override it with real options; every other test gets the
+// "nothing fetched yet" default from `beforeEach`, and needs no real urql
+// client/Provider either way.
+const mockUseQuery: any = vi.fn(() => [{ data: undefined, fetching: false, error: undefined }, vi.fn()]);
+vi.mock('urql', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('urql')>();
+  return {
+    ...actual,
+    useQuery: (...args: unknown[]) => mockUseQuery(...args),
+  };
+});
+
+/** A `schedulingAlgorithms` response shaped the way the real query answers
+ * — mirrors `RoundWizard.test.tsx`'s own fixture. */
+const SCHEDULING_ALGORITHMS_FIXTURE = [
+  {
+    value: 'PPC',
+    label: 'Partial Perfect Chart',
+    guarantee: 'Every car runs every lane once; heats full; opponents vary as much as the field allows',
+    unavailableReason: null,
+    absorbsLatecomer: true,
+    heatCount: null,
+  },
+  {
+    value: 'ROTATION',
+    label: 'Lane rotation',
+    guarantee: "Each car's next heat is its previous lane + 1; simplest to run from a printed sheet; opponents repeat",
+    unavailableReason: null,
+    absorbsLatecomer: false,
+    heatCount: null,
+  },
+  {
+    value: 'PERFECT_N',
+    label: 'Perfect-N chart',
+    guarantee: 'Every car meets every other car the same number of times — the fairest chart there is, where one exists for this field and lane count',
+    unavailableReason: 'No Perfect-N chart is published for 12 cars on 4 lanes; the nearest are 10 and 13 cars. Use the Partial Perfect Chart.',
+    absorbsLatecomer: false,
+    heatCount: null,
+  },
+];
 
 vi.mock('../../../components/ui/Modal', () => ({
   default: ({ isOpen, children, title }: any) =>
@@ -29,6 +72,10 @@ describe('RoundConfigModal', () => {
   const openChampionshipTab = () => {
     fireEvent.click(screen.getByText('Championship Round'));
   };
+
+  beforeEach(() => {
+    mockUseQuery.mockImplementation(() => [{ data: undefined, fetching: false, error: undefined }, vi.fn()]);
+  });
 
   it('a championship round defaults to the fastest cars', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
@@ -354,6 +401,66 @@ describe('RoundConfigModal', () => {
     expect(
       screen.getByText('Elimination and balanced rounds require at least 2 usable lanes.')
     ).toBeInTheDocument();
+  });
+
+  // #1090, part D: "How heats are built".
+  describe('"How heats are built"', () => {
+    beforeEach(() => {
+      mockUseQuery.mockImplementation(() => [
+        { data: { schedulingAlgorithms: SCHEDULING_ALGORITHMS_FIXTURE }, fetching: false, error: undefined },
+        vi.fn(),
+      ]);
+    });
+
+    it('is shown, collapsed, only for a general round — and PPC is checked by default', () => {
+      render(<RoundConfigModal {...defaultProps} />);
+      const details = screen.getByText('How heats are built').closest('details');
+      expect(details).not.toBeNull();
+      expect(details).not.toHaveAttribute('open');
+      expect(screen.getByLabelText('Partial Perfect Chart')).toBeChecked();
+    });
+
+    it('is hidden for Elimination and Balanced', () => {
+      render(<RoundConfigModal {...defaultProps} />);
+
+      fireEvent.click(screen.getByLabelText("Elimination — lose too many heats and you're out"));
+      expect(screen.queryByText('How heats are built')).not.toBeInTheDocument();
+
+      fireEvent.click(
+        screen.getByLabelText('Balanced — each round of heats matches cars doing about as well')
+      );
+      expect(screen.queryByText('How heats are built')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByLabelText('Everyone races in every lane'));
+      expect(screen.getByText('How heats are built')).toBeInTheDocument();
+    });
+
+    it('is hidden entirely on the Championship tab', () => {
+      render(<RoundConfigModal {...defaultProps} />);
+      openChampionshipTab();
+      expect(screen.queryByText('How heats are built')).not.toBeInTheDocument();
+    });
+
+    it('greys an unavailable option with its reason', () => {
+      render(<RoundConfigModal {...defaultProps} />);
+      const perfectN = screen.getByLabelText('Perfect-N chart');
+      expect(perfectN).toBeDisabled();
+      expect(
+        screen.getByText(/No Perfect-N chart is published for 12 cars on 4 lanes/)
+      ).toBeInTheDocument();
+    });
+
+    it('a chosen algorithm reaches onSubmit, and only alongside GENERAL', async () => {
+      const onSubmit = vi.fn().mockResolvedValue(undefined);
+      render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} />);
+
+      fireEvent.click(screen.getByLabelText('Lane rotation'));
+      fireEvent.click(screen.getByRole('button', { name: 'Add round' }));
+
+      await waitFor(() => {
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ algorithm: 'ROTATION' }));
+      });
+    });
   });
 });
 

@@ -87,9 +87,30 @@ class Scheduler:
     generate: _Generate
     available_for: Callable[[int, int], str | None]
     absorbs_latecomer: bool
+    #: One line saying what this algorithm actually guarantees — the wizard's
+    #: "How heats are built" disclosure (#1090, part D) shows this beside
+    #: each option, worded from the epic's own candidates table so the
+    #: choice reads as "these differ" rather than three unexplained names.
+    guarantee: str
+    #: Heats *one run* of this algorithm produces for an exact
+    #: ``(n_racers, n_lanes)`` shape, when that is not simply ``n_racers`` —
+    #: null otherwise. PPC and ROTATION always produce one heat per racer
+    #: per run, so both leave this at the default (`_one_heat_per_racer`,
+    #: always `None`); a Perfect-N chart's own heat count is whatever Pope's
+    #: directory lists for that shape (`perfect_n_tables.Chart.heats`, not
+    #: derivable from the field size alone) — see
+    #: `perfect_n.chart_heat_count`. `Query.schedulingAlgorithms`
+    #: (`SchedulingAlgorithmOption.heatCount`) is the one caller: a wizard
+    #: preview multiplying by `runsPerLane` itself gets the right total
+    #: either way, defaulting to the racer count when this is null.
+    heat_count: Callable[[int, int], int | None]
 
 
 def _always_available(_n_racers: int, _n_lanes: int) -> str | None:
+    return None
+
+
+def _one_heat_per_racer(_n_racers: int, _n_lanes: int) -> int | None:
     return None
 
 
@@ -104,6 +125,11 @@ SCHEDULERS: dict[str, Scheduler] = {
         # lanes) PPC refuses.
         available_for=_always_available,
         absorbs_latecomer=True,
+        guarantee=(
+            "Every car runs every lane once; heats full; opponents vary as "
+            "much as the field allows"
+        ),
+        heat_count=_one_heat_per_racer,
     ),
     "ROTATION": Scheduler(
         label="Lane rotation",
@@ -114,12 +140,17 @@ SCHEDULERS: dict[str, Scheduler] = {
         # likewise no (n, lanes) it refuses.
         available_for=_always_available,
         absorbs_latecomer=False,
+        guarantee=(
+            "Each car's next heat is its previous lane + 1; simplest to run "
+            "from a printed sheet; opponents repeat"
+        ),
+        heat_count=_one_heat_per_racer,
     ),
     "PERFECT_N": Scheduler(
         label="Perfect-N chart",
         generate=perfect_n.generate_perfect_n,
         # Unlike PPC and ROTATION, a real refusal — only the (lanes, n)
-        # shapes `perfect_n_tables.TABLES` actually has a chart for. See
+        # shapes `perfect_n_tables.CHARTS` actually has a chart for. See
         # `schedulers/perfect_n.py`'s module docstring.
         available_for=perfect_n.available_for,
         # Adding one car to a perfect chart has no answer that keeps every
@@ -127,5 +158,11 @@ SCHEDULERS: dict[str, Scheduler] = {
         # latecomer path regenerates the round when nothing has raced yet
         # (every algorithm supports that) or refuses once something has.
         absorbs_latecomer=False,
+        guarantee=(
+            "Every car meets every other car the same number of times — "
+            "the fairest chart there is, where one exists for this field "
+            "and lane count"
+        ),
+        heat_count=perfect_n.chart_heat_count,
     ),
 }

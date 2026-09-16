@@ -231,6 +231,12 @@ export interface SourceGeneralRoundPlan {
     runsPerLane: number;
     eliminationLosses?: number | null;
     balancedPhases?: number | null;
+    /** How the round's schedule is built (#1090, part D) — `"PPC"`,
+     * `"ROTATION"` or `"PERFECT_N"`. Meaningless outside a GENERAL-format
+     * round, and always `"PPC"` for one created before this field existed
+     * — `Round.algorithm`'s own null-means-PPC rule, already resolved
+     * server-side by the time `Race.roundPlan` reads it. */
+    algorithm?: string;
 }
 
 /** One championship round of a copied round plan. `sourceRoundId` is the
@@ -442,6 +448,7 @@ export function toWizardConfigurationInput(plan: SourceRoundPlan) {
             runsPerLane: plan.generalRound.runsPerLane,
             eliminationLosses: plan.generalRound.eliminationLosses ?? null,
             balancedPhases: plan.generalRound.balancedPhases ?? null,
+            algorithm: plan.generalRound.algorithm ?? null,
         },
         championshipRounds: plan.championshipRounds.map((c) => ({
             name: c.name,
@@ -460,6 +467,20 @@ const GENERAL_STYLE_LABEL: Record<string, string> = {
     BALANCED: 'Balanced',
 };
 
+/** How a GENERAL-format round's schedule is built (#1090, part D) —
+ * named in the round-plan summary only when it isn't the default, the same
+ * "say it only when it differs" rule `raceOverrideFor` follows for
+ * terminology. `PPC` maps to `null` on purpose: it is what every round
+ * plan copied before this field existed carries, and a summary reading
+ * "(General, 1 run per lane, Partial Perfect Chart)" for the overwhelming
+ * common case would bury the one detail worth a parent's attention under a
+ * name nobody chose. */
+const ALGORITHM_LABEL: Record<string, string | null> = {
+    PPC: null,
+    ROTATION: 'Lane rotation',
+    PERFECT_N: 'Perfect-N',
+};
+
 /**
  * The one-line summary the Details step shows beside the "Copy the rounds
  * too" checkbox (#1088) — "Rounds: 1 qualifying (General, 2 runs per lane) →
@@ -471,6 +492,11 @@ const GENERAL_STYLE_LABEL: Record<string, string> = {
  * it), so that one word is a parameter, the same shape `awardText.
  * describeSpeedAward` takes `groupWord` in. Defaults to the built-in
  * Scouting word, matching that function's own default.
+ *
+ * A non-PPC algorithm (#1090, part D) is named in the same parenthetical,
+ * after the runs-per-lane clause — "1 qualifying (General, 2 runs per
+ * lane, Perfect-N)" — and only for a GENERAL-format round: Elimination and
+ * Balanced build their own schedules and never read `Round.algorithm`.
  */
 export function roundPlanSummary(
     plan: SourceRoundPlan,
@@ -480,10 +506,15 @@ export function roundPlanSummary(
     const { generalRound, championshipRounds } = plan;
     const style = GENERAL_STYLE_LABEL[generalRound.schedulingStrategy] ?? generalRound.schedulingStrategy;
     const runsWord = generalRound.runsPerLane === 1 ? 'run' : 'runs';
+    const algorithmLabel =
+        generalRound.schedulingStrategy === 'GENERAL' && generalRound.algorithm
+            ? ALGORITHM_LABEL[generalRound.algorithm]
+            : null;
+    const detail = `${style}, ${generalRound.runsPerLane} ${runsWord} per lane${algorithmLabel ? `, ${algorithmLabel}` : ''}`;
     const qualifying =
         generalRound.type === 'EACH_GROUP'
-            ? `Qualifying by ${groupWordLower} (${style}, ${generalRound.runsPerLane} ${runsWord} per lane)`
-            : `1 qualifying (${style}, ${generalRound.runsPerLane} ${runsWord} per lane)`;
+            ? `Qualifying by ${groupWordLower} (${detail})`
+            : `1 qualifying (${detail})`;
     const chain = championshipRounds
         .map((c) => `${c.name} (top ${c.numTopRacers}${c.advancementFromBottom ? ', slowest' : ''})`)
         .join(' → ');

@@ -58,6 +58,27 @@ import type { RacerOption } from '../../management/components/RacerCombobox';
 // nothing tied to the schema, and it drifted the moment `lanes` was added.
 export type { Heat };
 
+/** A GENERAL round's scheduling algorithm (#1090, part D), named on its
+ * header only when it isn't `PPC` — the default every round from before
+ * this column existed carries, and the overwhelming common case besides.
+ *
+ * **Label only, not a chart symbol.** The epic's own sketch (`Round.
+ * algorithmLabel`/`chartSymbol`) imagined something like "Perfect-N ·
+ * P13-4 (1)" — but no column persists *which* published chart a Perfect-N
+ * round was actually built from, only `Round.algorithm` itself
+ * (`domain/schedulers/perfect_n.default_chart` is a pure function of the
+ * round's racer/lane count *at generation time*; recomputing it from the
+ * round's *current* racer count could silently name a different chart than
+ * the one that actually produced the schedule, if the roster changed
+ * since). Adding that would mean a migration this part does not carry.
+ * Computed client-side, matching every other algorithm-name mapping in the
+ * frontend (`raceSetup.ts`'s own `ALGORITHM_LABEL`) rather than a second
+ * schema field for three known strings. */
+const SCHEDULING_ALGORITHM_LABEL: Record<string, string> = {
+  ROTATION: 'Lane rotation',
+  PERFECT_N: 'Perfect-N',
+};
+
 interface ScheduleManagementProps {
   raceId: number;
   heats: Heat[];
@@ -74,6 +95,7 @@ interface ScheduleManagementProps {
     runsPerLane?: number;
     generalType?: string;
     pickFieldByHand?: boolean;
+    algorithm?: string;
   }) => Promise<void>;
   onRegenerateRound: (roundId: number, silent?: boolean) => Promise<void>;
   onDeleteRound: (roundId: number) => Promise<void>;
@@ -819,6 +841,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     runsPerLane?: number;
     generalType?: string;
     pickFieldByHand?: boolean;
+    algorithm?: string;
   }) => {
     await onAddRound(config);
   };
@@ -1242,6 +1265,16 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                       }}>
                         {roundHeats[0]?.roundName || `Round ${roundNum}`}
                       </h2>
+                      {advancementInfo?.algorithm &&
+                        advancementInfo.algorithm !== 'PPC' &&
+                        SCHEDULING_ALGORITHM_LABEL[advancementInfo.algorithm] && (
+                          <span
+                            data-testid={`round-algorithm-${roundId}`}
+                            style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}
+                          >
+                            {SCHEDULING_ALGORITHM_LABEL[advancementInfo.algorithm]}
+                          </span>
+                        )}
                       <span style={{ fontSize: '0.9rem', color: 'var(--text-muted-color)', fontWeight: 500 }}>
                         {nextWaveExpected ? (
                           <span>Next set appears when this one is run</span>

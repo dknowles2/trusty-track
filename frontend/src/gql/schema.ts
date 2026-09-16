@@ -1093,6 +1093,7 @@ export type Query = {
   rounds: Array<Round>;
   scenePresets: Array<ScenePresetInfo>;
   scenes: Array<Scene>;
+  schedulingAlgorithms: Array<SchedulingAlgorithmOption>;
   suggestDisplayName: Scalars['String']['output'];
   timerModels: Array<TimerModel>;
   timerStatus?: Maybe<TimerStatus>;
@@ -1178,6 +1179,12 @@ export type QueryRoundsArgs = {
 
 export type QueryScenesArgs = {
   raceId: Scalars['Int']['input'];
+};
+
+
+export type QuerySchedulingAlgorithmsArgs = {
+  laneCount: Scalars['Int']['input'];
+  racerCount: Scalars['Int']['input'];
 };
 
 
@@ -1517,6 +1524,15 @@ export type ScenePreset =
 export type ScenePresetInfo = {
   key: ScenePreset;
   label: Scalars['String']['output'];
+};
+
+export type SchedulingAlgorithmOption = {
+  absorbsLatecomer: Scalars['Boolean']['output'];
+  guarantee: Scalars['String']['output'];
+  heatCount?: Maybe<Scalars['Int']['output']>;
+  label: Scalars['String']['output'];
+  unavailableReason?: Maybe<Scalars['String']['output']>;
+  value: Scalars['String']['output'];
 };
 
 export type ScrollBehavior =

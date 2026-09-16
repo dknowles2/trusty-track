@@ -7,13 +7,51 @@ import { AlertProvider } from '../../../context/AlertContext';
 
 // Mock urql
 const mockExecuteMutation = vi.fn();
+// "How heats are built" (#1090, part D) queries `schedulingAlgorithms` for
+// the field/lane shape — an empty result keeps every existing test's own
+// heat-count math unaffected (`generalHeatsPerRun` falls back to the racer
+// count with nothing fetched), and `useQuery` stays a plain `vi.fn()` so
+// the choice's own tests below can override it per test with real options.
+const mockUseQuery: any = vi.fn(() => [{ data: undefined, fetching: false, error: undefined }, vi.fn()]);
 vi.mock('urql', async (importOriginal) => {
     const actual = await importOriginal<typeof import('urql')>();
     return {
         ...actual,
         useMutation: () => [{}, mockExecuteMutation],
+        useQuery: (...args: unknown[]) => mockUseQuery(...args),
     };
 });
+
+/** A `schedulingAlgorithms` response shaped the way the real query answers
+ * — PPC/ROTATION always available, Perfect-N refused at this shape (the
+ * default `defaultProps.racerCount`/`laneCount` below is not one of Pope's
+ * published field sizes). */
+const SCHEDULING_ALGORITHMS_FIXTURE = [
+    {
+        value: 'PPC',
+        label: 'Partial Perfect Chart',
+        guarantee: 'Every car runs every lane once; heats full; opponents vary as much as the field allows',
+        unavailableReason: null,
+        absorbsLatecomer: true,
+        heatCount: null,
+    },
+    {
+        value: 'ROTATION',
+        label: 'Lane rotation',
+        guarantee: "Each car's next heat is its previous lane + 1; simplest to run from a printed sheet; opponents repeat",
+        unavailableReason: null,
+        absorbsLatecomer: false,
+        heatCount: null,
+    },
+    {
+        value: 'PERFECT_N',
+        label: 'Perfect-N chart',
+        guarantee: 'Every car meets every other car the same number of times — the fairest chart there is, where one exists for this field and lane count',
+        unavailableReason: 'No Perfect-N chart is published for 10 cars on 4 lanes; the nearest are 9 and 13 cars. Use the Partial Perfect Chart.',
+        absorbsLatecomer: false,
+        heatCount: null,
+    },
+];
 
 describe('RoundWizard Component', () => {
     const mockOnClose = vi.fn();
@@ -33,6 +71,12 @@ describe('RoundWizard Component', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockExecuteMutation.mockResolvedValue({ data: { createRaceWizard: [] } });
+        // Reset to the "nothing fetched yet" default on every test —
+        // `clearAllMocks` clears call history but not a prior test's own
+        // `mockImplementation` override, so a test exercising the
+        // scheduling-algorithm choice below would otherwise leak into the
+        // next one.
+        mockUseQuery.mockImplementation(() => [{ data: undefined, fetching: false, error: undefined }, vi.fn()]);
     });
 
     it('counts a multi-run championship as the runs it was asked for', async () => {
@@ -395,6 +439,68 @@ describe('RoundWizard Component', () => {
                     type: 'ALL',
                 }),
             }),
+        });
+    });
+
+    // #1090, part D: "How heats are built".
+    describe('"How heats are built"', () => {
+        beforeEach(() => {
+            mockUseQuery.mockImplementation(() => [
+                { data: { schedulingAlgorithms: SCHEDULING_ALGORITHMS_FIXTURE }, fetching: false, error: undefined },
+                vi.fn(),
+            ]);
+        });
+
+        it('is shown, collapsed, only for GENERAL — and PPC is checked by default', async () => {
+            render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+            const details = screen.getByText('How heats are built').closest('details');
+            expect(details).not.toBeNull();
+            expect(details).not.toHaveAttribute('open');
+            expect(screen.getByLabelText('Partial Perfect Chart')).toBeChecked();
+        });
+
+        it('is hidden for Elimination and Balanced, which build their own schedules', async () => {
+            const user = userEvent.setup();
+            render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+            await user.click(screen.getByText(/Elimination — lose too many heats/));
+            expect(screen.queryByText('How heats are built')).not.toBeInTheDocument();
+
+            await user.click(
+                screen.getByLabelText('Balanced — each round of heats matches cars doing about as well')
+            );
+            expect(screen.queryByText('How heats are built')).not.toBeInTheDocument();
+
+            await user.click(screen.getByText('Everyone races in every lane'));
+            expect(screen.getByText('How heats are built')).toBeInTheDocument();
+        });
+
+        it('greys an unavailable option with its reason', async () => {
+            render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+            const perfectN = screen.getByLabelText('Perfect-N chart');
+            expect(perfectN).toBeDisabled();
+            expect(
+                screen.getByText(/No Perfect-N chart is published for 10 cars on 4 lanes/)
+            ).toBeInTheDocument();
+        });
+
+        it('a chosen algorithm reaches the mutation variables', async () => {
+            const user = userEvent.setup();
+            render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+            await user.click(screen.getByLabelText('Lane rotation'));
+            await user.click(screen.getByText('Next'));
+            await user.click(screen.getByText('Next'));
+            await user.click(screen.getByText('Generate schedule'));
+
+            expect(mockExecuteMutation).toHaveBeenCalledWith({
+                raceId: 1,
+                config: expect.objectContaining({
+                    generalRound: expect.objectContaining({ algorithm: 'ROTATION' }),
+                }),
+            });
         });
     });
 

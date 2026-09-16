@@ -468,6 +468,7 @@ export const GET_RACE_SETUP_SOURCE = gql`
           runsPerLane
           eliminationLosses
           balancedPhases
+          algorithm
         }
         championshipRounds {
           name

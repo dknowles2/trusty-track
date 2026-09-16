@@ -114,6 +114,11 @@ export const EMBEDDED_TYPES = [
   'SceneApplyOutcome',
   'SceneDisplayAssignment',
   'ScenePresetInfo',
+  // A row of `Query.schedulingAlgorithms` (#1090, part D) — the same
+  // "server-compiled catalogue" shape as `TimerModel` above: recomputed
+  // fresh for whatever field/lane shape is asked about, `value` is unique
+  // *within one response* but not a durable identity worth an entity for.
+  'SchedulingAlgorithmOption',
   'SerialLogEntry',
   'Terminology',
   'TimerModel',

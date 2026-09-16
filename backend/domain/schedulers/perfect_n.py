@@ -89,6 +89,22 @@ def default_chart(n_racers: int, n_lanes: int) -> Chart | None:
     return min(candidates, key=lambda c: c.heats)
 
 
+def chart_heat_count(n_racers: int, n_lanes: int) -> int | None:
+    """Heats *one run* of :func:`generate_perfect_n` produces for this exact
+    shape — whatever `default_chart` picks — or ``None`` when no chart
+    covers it.
+
+    Not always ``n_racers``: see this module's docstring ("A chart's heat
+    count is not always the racer count"). The one caller is
+    `Query.schedulingAlgorithms` (part D of #1090), so the wizard's own
+    heat-count preview can multiply by `runsPerLane` and get the right total
+    for Perfect-N the same way it already does for PPC and ROTATION, where
+    one run is always exactly `n_racers` heats.
+    """
+    chart = default_chart(n_racers, n_lanes)
+    return chart.heats if chart else None
+
+
 def available_for(n_racers: int, n_lanes: int) -> str | None:
     """A reason Perfect-N cannot schedule this field, or ``None``.
 

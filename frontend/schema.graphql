@@ -583,6 +583,7 @@ type Query {
   races(skip: Int! = 0, limit: Int! = 1000): [Race!]!
   practiceRace: Race
   timerModels: [TimerModel!]!
+  schedulingAlgorithms(racerCount: Int!, laneCount: Int!): [SchedulingAlgorithmOption!]!
   version: String!
   networkAddresses: [String!]!
   mdnsHostname: String
@@ -925,6 +926,15 @@ enum ScenePreset {
 type ScenePresetInfo {
   key: ScenePreset!
   label: String!
+}
+
+type SchedulingAlgorithmOption {
+  value: String!
+  label: String!
+  guarantee: String!
+  unavailableReason: String
+  absorbsLatecomer: Boolean!
+  heatCount: Int
 }
 
 enum ScrollBehavior {

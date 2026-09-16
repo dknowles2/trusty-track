@@ -1,5 +1,22 @@
 import { gql } from 'urql';
 
+// Every registered scheduling algorithm at an exact field/lane shape (#1090,
+// part D) — the "How heats are built" disclosure re-queries whenever either
+// changes, since only Perfect-N's `unavailableReason`/`heatCount` actually
+// depend on the shape.
+export const SCHEDULING_ALGORITHMS = gql`
+  query SchedulingAlgorithms($racerCount: Int!, $laneCount: Int!) {
+    schedulingAlgorithms(racerCount: $racerCount, laneCount: $laneCount) {
+      value
+      label
+      guarantee
+      unavailableReason
+      absorbsLatecomer
+      heatCount
+    }
+  }
+`;
+
 export const CREATE_ROUND_WIZARD = gql`
   mutation CreateRoundWizard($raceId: Int!, $config: WizardConfigurationInput!) {
     createRoundWizard(raceId: $raceId, config: $config) {
@@ -215,6 +232,11 @@ export const GET_RACE_CONTROL_DATA = gql`
         # standings"/"Edit picks" controls key off this.
         fieldPinned
         schedulingStrategy
+        # How this GENERAL round's schedule is built (#1090, part D) — the
+        # Schedule tab's muted algorithm line reads this; null-resolved to
+        # "PPC" server-side already, so every round from before this column
+        # existed reads as the default without a client-side fallback.
+        algorithm
         # Balanced/Elimination only (#1022) — what growingRounds.ts's
         # expectedHeatCount needs to estimate a growing round's eventual
         # heat count, since the round's own rows are only what has been

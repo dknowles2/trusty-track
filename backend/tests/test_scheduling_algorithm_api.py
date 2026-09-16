@@ -1,12 +1,14 @@
-"""The `algorithm` seam is reachable through the GraphQL API (#1090, part B).
-
-No wizard UI offers this yet (part D) — these tests are what "settable
-through the API so tests can exercise it" means: `createRound`,
-`createRoundWizard`, `Round.algorithm`, and the round-plan copy each carry
+"""The `algorithm` seam is reachable through the GraphQL API (#1090, part B),
+and the wizard's own "How heats are built" choice reads `Query.
+schedulingAlgorithms` for the field/lane shape it is about to schedule
+(part D): `createRound`, `createRoundWizard`, `Round.algorithm`, the
+round-plan copy, and now `schedulingAlgorithms` itself all carry
 `SchedulingAlgorithm` through, end to end.
 """
 
 from backend.db import crud, models, schemas
+from backend.domain.schedulers import SCHEDULERS
+from backend.domain.schedulers.perfect_n import default_chart
 
 
 def _race(db, *, lane_count=4, racer_count=6, label="AlgoAPI"):
@@ -171,3 +173,120 @@ def test_round_plan_carries_the_algorithm_forward_for_copying(db, client):
     body = response.json()
     assert "errors" not in body, body
     assert body["data"]["race"]["roundPlan"]["generalRound"]["algorithm"] == "ROTATION"
+
+
+# --------------------------------------------------------------------------- #
+# `Query.schedulingAlgorithms` (#1090, part D) — the wizard's "How heats are
+# built" choice reads this to know which algorithms exist, which one this
+# exact field/lane shape can actually use, and (for Perfect-N) how many
+# heats one run produces.
+#
+# The rule itself — `available_for`, `heat_count`, the registry order — is
+# `domain/schedulers`' own and is exercised exhaustively by
+# `test_scheduler_registry.py` and `test_domain_scheduling.py`. These tests
+# only check the GraphQL surface reports what the registry says, for the one
+# shape whose answer genuinely depends on the racer/lane count: Perfect-N.
+# --------------------------------------------------------------------------- #
+
+SCHEDULING_ALGORITHMS_QUERY = """
+query SchedulingAlgorithms($racerCount: Int!, $laneCount: Int!) {
+    schedulingAlgorithms(racerCount: $racerCount, laneCount: $laneCount) {
+        value
+        label
+        guarantee
+        unavailableReason
+        absorbsLatecomer
+        heatCount
+    }
+}
+"""
+
+# 9 racers / 4 lanes: `perfect_n_tables.CHARTS` has an entry whose heat count
+# (18) is *not* the racer count — chosen deliberately over a shape like
+# 5/4 (`P5-4 (3)`, heats == racers) so this file actually exercises the case
+# `heatCount` exists to report: a Perfect-N chart's own heat count is
+# whatever Pope's directory lists, not always one per racer.
+COVERED_RACERS, COVERED_LANES = 9, 4
+
+# 2 racers / 4 lanes: no published chart starts below 4 cars on 4 lanes, so
+# this shape is refused — not a special case `available_for` shortcuts
+# (only 0 racers/lanes is), a genuine "nothing this small is published".
+UNCOVERED_RACERS, UNCOVERED_LANES = 2, 4
+
+
+def _scheduling_algorithms(client, racer_count: int, lane_count: int):
+    response = client.post(
+        "/graphql",
+        json={
+            "query": SCHEDULING_ALGORITHMS_QUERY,
+            "variables": {"racerCount": racer_count, "laneCount": lane_count},
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert "errors" not in body, body
+    return body["data"]["schedulingAlgorithms"]
+
+
+def test_scheduling_algorithms_order_is_ppc_first(client):
+    """PPC is the default and stays first regardless of shape — the wizard
+    relies on this to preselect it without a second rule of its own."""
+    options = _scheduling_algorithms(client, COVERED_RACERS, COVERED_LANES)
+    assert [o["value"] for o in options] == list(SCHEDULERS)
+    assert options[0]["value"] == "PPC"
+
+
+def test_scheduling_algorithms_carry_the_registry_fields(client):
+    options = _scheduling_algorithms(client, COVERED_RACERS, COVERED_LANES)
+    by_value = {o["value"]: o for o in options}
+    assert set(by_value) == set(SCHEDULERS)
+    for value, scheduler in SCHEDULERS.items():
+        option = by_value[value]
+        assert option["label"] == scheduler.label
+        assert option["guarantee"] == scheduler.guarantee
+        assert option["absorbsLatecomer"] == scheduler.absorbs_latecomer
+
+
+def test_ppc_and_rotation_are_always_available_with_no_heat_count(client):
+    """Neither algorithm ever refuses a shape, and both produce exactly one
+    heat per racer per run — so `heatCount` stays null, the "use
+    `racerCount`" signal, at both the covered and the uncovered shape."""
+    for racers, lanes in [
+        (COVERED_RACERS, COVERED_LANES),
+        (UNCOVERED_RACERS, UNCOVERED_LANES),
+    ]:
+        options = _scheduling_algorithms(client, racers, lanes)
+        by_value = {o["value"]: o for o in options}
+        for value in ("PPC", "ROTATION"):
+            assert by_value[value]["unavailableReason"] is None
+            assert by_value[value]["heatCount"] is None
+
+
+def test_perfect_n_reports_a_reason_at_an_uncovered_shape(client):
+    options = _scheduling_algorithms(client, UNCOVERED_RACERS, UNCOVERED_LANES)
+    by_value = {o["value"]: o for o in options}
+    perfect_n = by_value["PERFECT_N"]
+
+    assert default_chart(UNCOVERED_RACERS, UNCOVERED_LANES) is None
+    assert perfect_n["unavailableReason"] is not None
+    assert perfect_n["heatCount"] is None
+    # Named as a real refusal, matching `Scheduler.available_for` — not a
+    # bare "no".
+    assert str(UNCOVERED_LANES) in perfect_n["unavailableReason"]
+
+
+def test_perfect_n_reports_no_reason_and_the_chart_heat_count_at_a_covered_shape(
+    client,
+):
+    options = _scheduling_algorithms(client, COVERED_RACERS, COVERED_LANES)
+    by_value = {o["value"]: o for o in options}
+    perfect_n = by_value["PERFECT_N"]
+
+    chart = default_chart(COVERED_RACERS, COVERED_LANES)
+    assert chart is not None
+    assert perfect_n["unavailableReason"] is None
+    assert perfect_n["heatCount"] == chart.heats
+    # Never simply the racer count for this shape (part C's own point) — a
+    # test that never actually exercises the "not the racer count" case
+    # would not have caught a bug in the wizard's own heat-count estimate.
+    assert chart.heats != COVERED_RACERS

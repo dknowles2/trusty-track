@@ -218,6 +218,11 @@ Set **Runs per lane** (default: 1, "Everyone races in every lane" only). Increas
 ![Round Wizard — Step 1](assets/screenshots/race-day/07-round-wizard-step1.png)
 _Step 1: "Everyone races in every lane" is the most common choice, and the most common format under it is "All Pack"._
 
+With "Everyone races in every lane" chosen, a second, collapsed choice appears: **How heats are built**. Click it to open it — most packs never need to. Partial Perfect Chart is selected by default and is the right choice for almost every field; the other two options (Lane rotation, Perfect-N) each show a one-line description of what they guarantee, and an option greyed out says why it can't be used for your current roster and track. See [Scheduling algorithms](scheduling-algorithms.md) for the full comparison.
+
+![Round Wizard — How heats are built](assets/screenshots/race-day/34-round-wizard-how-heats-are-built.png)
+_"How heats are built," opened: Partial Perfect Chart is the default, and each option says what it guarantees._
+
 #### Step 2: Championship Rounds (Optional)
 
 Add one or more championship rounds. For each championship round, configure:
