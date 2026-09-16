@@ -92,6 +92,21 @@ test.describe('touch targets on a touchscreen (#1146)', () => {
         await firstHeader.locator('.racer-card-name').click();
         await expect(firstCheckbox).toBeChecked();
 
+        // The other half of the same claim, on a different row so it isn't
+        // reading state the tap above already changed: the status pill is a
+        // real, separately-clickable `<button>` inside the same `<label>`,
+        // and tapping it must open Check In *without* also toggling that
+        // row's own checkbox — a `<label>` with no explicit `for` binds to
+        // its first labelable descendant, which used to be this button
+        // (before the checkbox), so tapping *either* one forwarded to the
+        // button and the checkbox never toggled at all (#1148).
+        const secondCard = page.locator('.racer-card').nth(1);
+        const secondCheckbox = secondCard.locator('input[type="checkbox"]');
+        await expect(secondCheckbox).not.toBeChecked();
+        await secondCard.locator('.racer-card-status-pill').click();
+        await expect(page.getByRole('dialog', { name: 'Racer Check In' })).toBeVisible();
+        await expect(secondCheckbox).not.toBeChecked();
+
         await assertNoHorizontalScroll(page, PHONE_VIEWPORT.width);
     });
 

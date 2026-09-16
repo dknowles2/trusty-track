@@ -155,6 +155,31 @@ test.describe('phone chrome at 390×844 (#1148)', () => {
         expect(visibleWithinViewport).toBeGreaterThanOrEqual(7);
     });
 
+    test('Roster: the sticky region with rows selected stays well under the old ~500px', async ({ page }) => {
+        // The issue's own headline number: with two rows ticked, the sticky
+        // region (then holding the heading, check-in progress, the full
+        // toolbar, search *and* the selection bar all at once) ran to about
+        // 500px. It now holds only search plus the selection bar.
+        const { raceId } = await seedRace(page, 'Mobile Chrome Roster Selection ' + Date.now());
+        await ensureConfigured(page);
+        await page.goto(`/race/${raceId}`);
+        await page.waitForLoadState('networkidle');
+
+        const checkboxes = page.locator('.racer-card input[type="checkbox"]');
+        await checkboxes.nth(0).check();
+        await checkboxes.nth(1).check();
+        await expect(page.getByTestId('roster-selection-bar')).toBeVisible();
+
+        const box = await page.locator('.roster-header').boundingBox();
+        expect(box).not.toBeNull();
+        // Measured locally at 168px (a 32px search box plus a two-row-wide
+        // selection bar). 250px leaves comfortable margin for font/OS
+        // rendering differences while still catching a regression anywhere
+        // near the issue's own 500px number — a new bulk-action button
+        // wrapping the selection bar onto a second line, say.
+        expect(box!.height).toBeLessThan(250);
+    });
+
     test('Roster: Edit race is reachable from the roster\'s own overflow', async ({ page }) => {
         const { raceId } = await seedRace(page, 'Mobile Chrome Roster Edit ' + Date.now());
         await ensureConfigured(page);
