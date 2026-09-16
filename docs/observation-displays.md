@@ -149,9 +149,12 @@ card down to just the cars still needed at the scale. More in
 
 Instead of shouting an IP address across the gym or walking a laptop around,
 put up a screen with a large, scannable code on it. By default it opens this
-race's own Live page on whichever phone scans it; switch its row in
-**Displays** to **Voting ballot** and it opens the
-[voting page](awards.md#letting-people-vote) instead.
+race's own Live page on whichever phone scans it — narrow enough, the page
+switches to a single-column, scrolling layout sized for a phone rather than
+the wall-display one, so nothing on it reads as the tiny text a wall display
+uses from across a room; switch its row in **Displays** to **Voting
+ballot** and it opens the [voting page](awards.md#letting-people-vote)
+instead.
 
 ![The QR code display view](assets/screenshots/observation/13-qrcode.png)
 _A large code, the address printed underneath, and an optional headline and Wi-Fi line set on the race's edit form._

@@ -26,6 +26,7 @@ import AwardArtwork from '../artwork';
 import { CeremonyAward, deltaForKey, slideFor, stepIndex } from '../ceremony';
 import { RACE_AWARDS_QUERY } from '../graphql/queries';
 import { displayId, startDeviceClaimHeartbeat } from '../../observation/displayIdentity';
+import { usePhoneTier } from '../../observation/useDisplayDensity';
 import { DisplayAssignmentSubscription } from '../../observation/graphql/queries';
 import IdentifyPresence from '../../observation/IdentifyPresence';
 import { useIdentifyOverlay } from '../../observation/useIdentifyOverlay';
@@ -140,6 +141,15 @@ export default function AwardCeremony() {
 
   const [soundOn, setSoundOn] = useState(() => isSoundEffectEnabled('awardFanfare', window.localStorage));
 
+  // The phone tier (#1144): the title, artwork, winner's name and footer
+  // used to be centered as one absolutely-positioned block inside a full
+  // viewport — fine when there is room to spare, and how a phone at 390×844
+  // ended up with the recipient's own "(#205)" overprinting "Click or press
+  // → for the next award". Below the render is a `min-height`-stacked
+  // column instead, which is allowed to scroll rather than overlap (see
+  // `displays.md`'s own note on this tier).
+  const phoneTier = usePhoneTier();
+
   const step = useCallback(
     (delta: number) => {
       setIndex((current) => stepIndex(current, delta, awards.length));
@@ -206,13 +216,15 @@ export default function AwardCeremony() {
     return () => window.removeEventListener('keydown', onKey);
   }, [step, index, awards.length, goBack]);
 
-  // A projector wants no scrollbars and no page chrome.
+  // A projector wants no scrollbars and no page chrome — the phone tier
+  // (#1144) is the deliberate exception, the one place this route may
+  // scroll rather than overlap its own footer.
   useEffect(() => {
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = phoneTier ? '' : 'hidden';
     return () => {
       document.body.style.overflow = '';
     };
-  }, []);
+  }, [phoneTier]);
 
   // The navigation bar was never actually removed from the page here — this
   // route's own `zIndex: 3000` merely painted over it, so `Navigation`
@@ -305,9 +317,21 @@ export default function AwardCeremony() {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
+        // The phone tier (#1144) does not center this column — centering a
+        // block taller than the viewport is what let the winner's own name
+        // run under the fixed footer in the first place. `flex-start` plus
+        // `overflow-y: auto` below stacks title → artwork → name → footer
+        // with real `min-height`, at whatever total height that comes to,
+        // and scrolls rather than overlapping when it is taller than 844px.
+        justifyContent: phoneTier ? 'flex-start' : 'center',
         textAlign: 'center',
-        padding: '4vh 6vw',
+        // Extra top padding on the phone tier clears `IdentifyPresence`'s
+        // own fixed `top: 16px` badge — on the desktop layout the centered
+        // column leaves blank space above the title anyway, so the badge
+        // never had anything to collide with; a top-aligned column needs
+        // that room reserved explicitly instead.
+        padding: phoneTier ? '4.5rem 1.25rem 1.5rem' : '4vh 6vw',
+        overflowY: phoneTier ? 'auto' : undefined,
         cursor: 'pointer',
         userSelect: 'none',
         ...displayThemeStyle,
@@ -419,28 +443,62 @@ export default function AwardCeremony() {
       )}
 
       <div
-        style={{
-          position: 'absolute',
-          // Bounded on both sides (#1073) — this row used to have only
-          // `bottom` set, so its width was sized to its own content with
-          // nothing stopping "Click or press → for the next award" plus the
-          // fanfare toggle from running past the right edge of an 800px-wide
-          // screen. `flexWrap` is the fallback once even a centered, bounded
-          // row is still too narrow for all three pieces on one line.
-          left: '4vw',
-          right: '4vw',
-          bottom: '3vh',
-          fontSize: '2vh',
-          opacity: 0.5,
-          display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          gap: '1.2vh 1.5rem',
-          alignItems: 'center',
-        }}
+        style={
+          phoneTier
+            ? {
+                // In the flow, not absolutely positioned (#1144) — `marginTop:
+                // 'auto'` pins it to the bottom of the column when the slide
+                // above is shorter than the viewport, the same place the
+                // desktop layout's `bottom: 3vh` always put it, and simply
+                // follows the content when it is not, rather than the two
+                // overlapping. Column, not the desktop row's `flexWrap`: three
+                // pieces ("1 of 3", the hint text, the Fanfare toggle) wrapped
+                // unpredictably at 390px wide, which is the "1 of / 3" and
+                // clipped-checkbox failures the issue reported — a fixed
+                // stack of three lines cannot wrap.
+                marginTop: 'auto',
+                width: '100%',
+                boxSizing: 'border-box',
+                paddingTop: '1.5rem',
+                fontSize: '0.9rem',
+                opacity: 0.6,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.6rem',
+              }
+            : {
+                position: 'absolute',
+                // Bounded on both sides (#1073) — this row used to have only
+                // `bottom` set, so its width was sized to its own content with
+                // nothing stopping "Click or press → for the next award" plus the
+                // fanfare toggle from running past the right edge of an 800px-wide
+                // screen. `flexWrap` is the fallback once even a centered, bounded
+                // row is still too narrow for all three pieces on one line.
+                left: '4vw',
+                right: '4vw',
+                bottom: '3vh',
+                fontSize: '2vh',
+                opacity: 0.5,
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                gap: '1.2vh 1.5rem',
+                alignItems: 'center',
+              }
+        }
       >
-        {slide && <span>{slide.position}</span>}
-        <span>Click or press → for the next award</span>
+        {slide && <span style={{ whiteSpace: 'nowrap' }}>{slide.position}</span>}
+        <span>
+          {/* CSS-swapped, not read from `matchMedia` (#1144) — a coarse
+              pointer, not this tier's own width, decides whether "Click" or
+              "Tap" is the right word: a touchscreen kiosk wider than 600px
+              still taps rather than clicks. `.ceremony-footer-hint-*` in
+              `index.css`'s existing `@media (pointer: coarse)` block (#1168)
+              is the one place that gate is expressed. */}
+          <span className="ceremony-footer-hint-mouse">Click or press → for the next award</span>
+          <span className="ceremony-footer-hint-touch">Tap or press → for the next award</span>
+        </span>
         <label
           style={{
             cursor: 'pointer',

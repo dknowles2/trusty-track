@@ -874,6 +874,106 @@ export default function Observation() {
 
   const renderHeatCard = (title: string, entries: LaneEntry[], isNext: boolean = false, iconPath?: string, heatInfo?: string, exhibition?: boolean) => {
     const isEmpty = entries.length === 0;
+
+    // The phone tier (#1144): a 2-column lane grid in `rem`s rather than the
+    // vmin-sized single row below. `rem` because this tier is read a foot
+    // from someone's face rather than from across a gym, so a size that
+    // reads correctly on a phone regardless of exactly how tall it is
+    // (unlike `vmin`/`vh`, which the desktop card is deliberately sized in)
+    // is the right unit here. Two columns, not one row of however many lanes
+    // this heat holds — a four- or six-lane heat in one row at 390px wide
+    // is exactly the 9px-name failure #1144 reported; wrapping at two lets
+    // every card stay above the legibility floor with real margin. Reuses
+    // the desktop render's own class names (`heat-card`, `heat-card-racer`,
+    // …) so a selector written against one tier still finds the other.
+    if (density.phoneTier) {
+      return (
+        <div className="heat-card" style={{ marginBottom: '1.25rem' }}>
+          <h2
+            className="heat-card-title"
+            style={{
+              margin: '0 0 0.6rem',
+              fontSize: '1.1rem',
+              color: isNext ? 'var(--display-text-muted-color)' : 'var(--display-text-color)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            {iconPath && <Icon path={iconPath} size="1rem" color={isNext ? 'var(--display-text-muted-color)' : 'var(--error)'} />}
+            <span>{title}</span>
+            {exhibition && (
+              <span
+                style={{
+                  background: 'var(--display-accent-color)',
+                  color: 'var(--display-on-accent-color)',
+                  fontSize: '0.7rem',
+                  fontWeight: 'bold',
+                  padding: '0.15rem 0.5rem',
+                  borderRadius: '12px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                Exhibition
+              </span>
+            )}
+            {heatInfo && (
+              <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: 'var(--display-text-muted-color)' }}>
+                ({heatInfo})
+              </span>
+            )}
+          </h2>
+          {isEmpty ? (
+            <p style={{ margin: 0 }}>No heat scheduled</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.6rem' }}>
+              {entries.map(({ lane, racer }: LaneEntry) => (
+                <div
+                  key={lane}
+                  className="heat-card-racer"
+                  style={{
+                    textAlign: 'center',
+                    padding: '0.6rem',
+                    background: 'var(--display-card-bg-color)',
+                    borderRadius: '8px',
+                    minWidth: 0,
+                  }}
+                >
+                  <LaneBadge
+                    color={colorForLane(laneColors, lane)}
+                    className="heat-card-lane"
+                    style={{ justifyContent: 'center', fontWeight: 'bold', marginBottom: '0.25rem', fontSize: '0.75rem', color: 'var(--display-text-subtle-color)' }}
+                  >
+                    Lane {lane}
+                  </LaneBadge>
+                  <RacerAvatar
+                    racer={{
+                      id: racer.id,
+                      first_name: racer.firstName,
+                      last_name: racer.lastName,
+                      racer_image_url: shouldShowRacerPhoto(nameDisplay) ? racer.racerImageUrl : null,
+                    }}
+                    size="3.2rem"
+                    style={{ margin: '0 auto 0.3rem', border: '2px solid var(--display-border-color)' }}
+                  />
+                  <div className="heat-card-racer-name" style={{ fontWeight: 'bold', fontSize: '1rem', overflowWrap: 'break-word' }}>
+                    {formatDisplayName(nameDisplay, racer.firstName, racer.lastName)}
+                  </div>
+                  {racer.carNumber && (
+                    <div className="heat-card-car-number" style={{ fontSize: '0.85rem', color: 'var(--display-text-muted-color)' }}>
+                      {vehicle} #{racer.carNumber}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     // Every lane in one row, always — never wrapped onto a second row of
     // avatars (#1073 part 2). A fixed column count (not `auto-fit`, which
     // is what used to wrap) is what guarantees it: `minmax(0, 1fr)` lets a
@@ -1162,7 +1262,18 @@ export default function Observation() {
           ...displayThemeStyle,
         }}
       >
-        <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
+        {/* The phone tier (#1144): the badge moves into the flow, above the
+            title, rather than its ordinary fixed top-right corner — at
+            390px wide that corner sits on top of the standings table's own
+            "Runs" header, which is the collision the issue reported. Every
+            wider screen keeps the fixed-corner treatment unchanged. */}
+        {density.phoneTier ? (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.75rem 0.75rem 0' }}>
+            <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} inline />
+          </div>
+        ) : (
+          <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
+        )}
         <StandingsOnlyView
           standings={effectiveStandings}
           racersMap={racersMap}
@@ -1173,6 +1284,7 @@ export default function Observation() {
           vehicle={vehicle}
           scrollBehavior={behaviour.scrollBehavior}
           cycleMs={behaviour.cycleMs}
+          phoneTier={density.phoneTier}
         />
       </div>
     );
@@ -1218,6 +1330,7 @@ export default function Observation() {
           // can call `assignDisplay` to switch itself away (#15).
           racingHasBegun={!!lastHeatResults}
           loading={initialResult.fetching && !initialData}
+          phoneTier={density.phoneTier}
         />
       </div>
     );
@@ -1330,6 +1443,139 @@ export default function Observation() {
 
   // --- STANDARD MODE RENDER ---
   if (!isProjectorMode) {
+    // The phone tier (#1144): rem-sized text, one column, and — deliberately,
+    // the one place an audience display is allowed to (see `displays.md`) —
+    // scrolling. The desktop render below budgets the whole viewport
+    // (`height: 100vh`, `overflow: hidden`, `heatCardsMaxHeightVh`) so
+    // nothing ever needs to scroll on a wall display; that budget has no
+    // room left for a heat card plus five real standings rows at 390px wide
+    // without either scrolling or shrinking under the legibility floor a
+    // second time, which is exactly what the issue found (9px heat-card
+    // names, 26px/8px-text standings rows). No "Launch Projector Mode"
+    // button here — a phone invited by the Displays panel's own QR code has
+    // no use for it, and it is the one control this tier drops rather than
+    // resizes (#1144's own "hide Launch Projector Mode" requirement).
+    if (density.phoneTier) {
+      return (
+        <div
+          className="container observation-phone"
+          data-theme={displayThemeKey}
+          data-testid="observation-standard-phone"
+          style={{
+            maxWidth: '100%',
+            padding: '1rem',
+            boxSizing: 'border-box',
+            minHeight: '100vh',
+            background: 'var(--display-bg-color)',
+            color: 'var(--display-text-color)',
+            ...displayThemeStyle,
+          }}
+        >
+          {renderResultsOverlay()}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            {initialData?.race?.track?.id && (
+              <TimerStatusBadge trackId={initialData.race.track.id} />
+            )}
+            <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} inline />
+          </div>
+
+          {renderHeatCard(
+            "Now Racing",
+            currentHeatRacers,
+            false,
+            mdiFire,
+            isExhibition
+              ? undefined
+              : officialCurrentHeat
+                ? (runOffAnnouncement(officialCurrentHeat.runOffPlacement) ??
+                  `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}`)
+                : undefined,
+            isExhibition
+          )}
+          {density.onDeckDepth > 0 && renderHeatCard(
+            "On Deck",
+            nextHeatRacers,
+            true,
+            mdiChevronDoubleRight,
+            onDeckHeat ? `Round ${onDeckHeat.roundNumber}, Heat ${onDeckHeat.globalHeatNumber ?? onDeckHeat.heatNumber}` : undefined
+          )}
+
+          <div style={{ marginTop: '0.5rem' }}>
+            <h2 style={{ margin: '0 0 0.6rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Icon path={mdiTrophy} size="1rem" />
+              Standings
+            </h2>
+            <table className="standings-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead style={{ backgroundColor: 'var(--display-accent-color)', color: 'var(--display-on-accent-color)' }}>
+                <tr>
+                  <th style={{ padding: '0.4rem', fontSize: '0.8rem' }}>Rank</th>
+                  <th style={{ padding: '0.4rem', fontSize: '0.8rem' }}>Racer</th>
+                  <th style={{ padding: '0.4rem', textAlign: 'right', fontSize: '0.8rem' }}>{effectiveScoreLabel}</th>
+                  <th style={{ padding: '0.4rem', textAlign: 'right', fontSize: '0.8rem' }}>Runs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {effectiveStandings.map((s: Standing) => {
+                  const racer = racersMap[s.racerId];
+                  return (
+                    <tr key={s.racerId} className="standing-row" style={{ borderBottom: '1px solid var(--display-border-subtle-color)' }}>
+                      <td
+                        className="standing-rank"
+                        style={{
+                          padding: '0.5rem 0.4rem',
+                          fontSize: '1rem',
+                          fontWeight: 'bold',
+                          color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : 'var(--display-text-color)',
+                        }}
+                      >
+                        {s.rank}
+                      </td>
+                      <td className="standing-racer" style={{ padding: '0.5rem 0.4rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <RacerAvatar
+                            racer={{
+                              id: s.racerId,
+                              first_name: racer?.firstName || '',
+                              last_name: racer?.lastName || '',
+                              racer_image_url: shouldShowRacerPhoto(nameDisplay) ? racer?.racerImageUrl : null,
+                            }}
+                            size="2.4rem"
+                            style={{ border: '2px solid var(--display-border-color)' }}
+                          />
+                          <div>
+                            {/* ≥14px (#1144's own requirement) — 1rem at the
+                                default root size. */}
+                            <div className="standing-racer-name" style={{ fontWeight: 'bold', fontSize: '1rem' }}>
+                              {racer ? formatDisplayName(nameDisplay, racer.firstName, racer.lastName) : `Racer #${s.racerId}`}
+                            </div>
+                            {racer?.carNumber && (
+                              <div className="standing-car-number" style={{ color: 'var(--display-text-muted-color)', fontSize: '0.85rem' }}>{vehicle} #{racer.carNumber}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="standing-time" style={{ padding: '0.5rem 0.4rem', textAlign: 'right', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontSize: '1rem', fontWeight: 'bold' }}>
+                        {scoreCell(s, effectiveFormatScore)}
+                        {dnfAnnotation(s.dnfCount ?? 0) && (
+                          <div className="standing-dnf-note" style={{ fontSize: '0.7rem', fontWeight: 'normal', fontFamily: 'var(--font-body)', color: 'var(--display-text-muted-color)' }}>
+                            {dnfAnnotation(s.dnfCount ?? 0)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="standing-runs" style={{ padding: '0.5rem 0.4rem', textAlign: 'right', fontSize: '0.85rem' }}>{s.heatsCompleted}</td>
+                    </tr>
+                  );
+                })}
+                {effectiveStandings.length === 0 && (
+                  <tr><td colSpan={4} style={{ padding: '1.5rem', textAlign: 'center' }}>No results yet.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div
         className="container"

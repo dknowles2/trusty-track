@@ -166,4 +166,53 @@ describe('densityFor', () => {
             densityFor(768, 1024, 8).projectorHeatCardsMaxHeightVh,
         );
     });
+
+    // #1144: the phone tier below the vmin-sized layout's own floor — a
+    // parent's phone, scanning the Displays panel's own QR code, rather than
+    // a wall display or a propped-up tablet.
+    describe('phoneTier', () => {
+        it('is the phone tier at 390×844 (iPhone-class, this issue\'s own case)', () => {
+            expect(densityFor(390, 844, 4).phoneTier).toBe(true);
+        });
+
+        it('is the phone tier at 412×915 (a common Android width)', () => {
+            expect(densityFor(412, 915, 4).phoneTier).toBe(true);
+        });
+
+        it('is the phone tier at 360×780 (a smaller Android width)', () => {
+            expect(densityFor(360, 780, 4).phoneTier).toBe(true);
+        });
+
+        it('is the phone tier one pixel under the threshold (599px)', () => {
+            expect(densityFor(599, 900, 4).phoneTier).toBe(true);
+        });
+
+        it('is not the phone tier exactly at the threshold (600px)', () => {
+            expect(densityFor(600, 900, 4).phoneTier).toBe(false);
+        });
+
+        it('is not the phone tier at any of the four tested wall-display viewports', () => {
+            expect(densityFor(800, 600, 6).phoneTier).toBe(false);
+            expect(densityFor(1024, 768, 6).phoneTier).toBe(false);
+            expect(densityFor(1280, 720, 6).phoneTier).toBe(false);
+            expect(densityFor(1920, 1080, 6).phoneTier).toBe(false);
+        });
+
+        it('is not the phone tier for the portrait-tablet projector cases (#1143) — a tablet, not a phone', () => {
+            expect(densityFor(820, 1180, 6).phoneTier).toBe(false);
+            expect(densityFor(768, 1024, 6).phoneTier).toBe(false);
+        });
+
+        it('does not disturb any other field at or above the threshold — #1144 changes nothing there', () => {
+            expect(densityFor(1024, 768, 6)).toMatchObject({
+                showSecondaryText: true,
+                onDeckDepth: 1,
+                heatCardsMaxHeightVh: 37,
+                heatCardCompactness: 2,
+                projectorStacked: false,
+                projectorHeatCardsSideBySide: true,
+                projectorHeatCardsMaxHeightVh: 52,
+            });
+        });
+    });
 });

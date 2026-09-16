@@ -142,4 +142,47 @@ describe('CheckInDisplayView (#612)', () => {
         renderView({ racingHasBegun: false });
         expect(screen.queryByTestId('checkin-racing-underway')).not.toBeInTheDocument();
     });
+
+    // The phone tier (#1144): a parent's phone rather than a wall display.
+    // The `vmin`-sized `auto-fit` grid reads as three 120px dens at 7.8px
+    // names on a 390px screen — the failure the issue reported — because it
+    // was tuned for a floor of 800px wide.
+    describe('the phone tier (#1144)', () => {
+        it('stacks one den per row instead of the auto-fit grid', () => {
+            renderView({ phoneTier: true });
+            const grid = screen.getByTestId('checkin-group-1').parentElement!;
+            expect(grid.style.gridTemplateColumns).toBe('1fr');
+        });
+
+        it('keeps the auto-fit grid unchanged when it is not the phone tier', () => {
+            renderView({ phoneTier: false });
+            const grid = screen.getByTestId('checkin-group-1').parentElement!;
+            expect(grid.style.gridTemplateColumns).not.toBe('1fr');
+        });
+
+        it('renders a pending racer at least 12px, clearing the issue\'s own floor', () => {
+            renderView({ phoneTier: true });
+            // `getByText`'s own row match holds the whole "#3 Grace Hopper"
+            // row's `fontSize` — jsdom does not compute `rem` against a root
+            // font size, so this reads the literal style rather than
+            // `getComputedStyle`; `0.95rem` is 15.2px at the default 16px
+            // root, well past 12px.
+            const row = screen.getByText('Grace Hopper');
+            expect(row.style.fontSize).toBe('0.95rem');
+        });
+
+        it('lets the view scroll rather than clipping at 100vh', () => {
+            renderView({ phoneTier: true });
+            const view = screen.getByTestId('checkin-view');
+            expect(view.style.height).toBe('auto');
+            expect(view.style.overflow).toBe('visible');
+        });
+
+        it('still allows overflow scrolling on the desktop tiers, unchanged', () => {
+            renderView({ phoneTier: false });
+            const view = screen.getByTestId('checkin-view');
+            expect(view.style.height).toBe('100vh');
+            expect(view.style.overflow).toBe('auto');
+        });
+    });
 });

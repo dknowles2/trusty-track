@@ -464,6 +464,30 @@ button:disabled {
   [data-testid='race-execution-action-row'] kbd {
     display: none;
   }
+
+  /*
+   * The awards ceremony's own footer hint (#1144) — "Click or press → for
+   * the next award" names an input device a touchscreen does not have.
+   * Gated on `pointer: coarse` rather than `AwardCeremony.tsx`'s own phone
+   * tier: a touchscreen kiosk wider than 600px still taps, not clicks, and
+   * this is the one wording decision in that tier that is genuinely about
+   * the pointer rather than the screen size — see
+   * `.claude/rules/terminology-and-names.md` before changing either string;
+   * neither is terminology-driven.
+   */
+  .ceremony-footer-hint-mouse {
+    display: none;
+  }
+
+  .ceremony-footer-hint-touch {
+    display: inline;
+  }
+}
+
+/* Base state for the swap above — a mouse/trackpad session (the common
+ * case, and every docs screenshot) sees "Click", never "Tap". */
+.ceremony-footer-hint-touch {
+  display: none;
 }
 
 /*

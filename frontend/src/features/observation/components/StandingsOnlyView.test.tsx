@@ -137,4 +137,30 @@ describe('StandingsOnlyView (#663)', () => {
         expect(screen.getByText('Racer #1')).toBeInTheDocument();
         expect(screen.getByText('Racer #2')).toBeInTheDocument();
     });
+
+    // The phone tier (#1144): a parent's phone rather than a wall display —
+    // the `2vmin` header cells below read as 7.8px on a 390px screen (2% of
+    // viewport *height*, this table's own desktop legibility floor —
+    // nothing about it scales with width, which is this tier's own axis).
+    describe('the phone tier (#1144)', () => {
+        it('reads the header at least 12px, clearing the issue\'s own floor', () => {
+            renderView({ phoneTier: true });
+            // jsdom does not compute `rem` against a root font size, so this
+            // reads the literal style rather than `getComputedStyle` —
+            // `0.85rem` is 13.6px at the default 16px root, past 12px.
+            expect(screen.getByText('Rank').style.fontSize).toBe('0.85rem');
+            expect(screen.getByText('Racer').style.fontSize).toBe('0.85rem');
+            expect(screen.getByText('Runs').style.fontSize).toBe('0.85rem');
+        });
+
+        it('keeps the vmin-sized header unchanged when it is not the phone tier', () => {
+            renderView({ phoneTier: false });
+            expect(screen.getByText('Rank').style.fontSize).toBe('2vmin');
+        });
+
+        it('renders a racer\'s name at 1rem (16px), well past the 14px floor', () => {
+            renderView({ phoneTier: true });
+            expect(screen.getByText('Speedy McQueen').style.fontSize).toBe('1rem');
+        });
+    });
 });
