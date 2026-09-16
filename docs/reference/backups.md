@@ -17,6 +17,17 @@ A backup is a single zip:
 
 The file is named for the moment it was taken.
 
+## What a backup does not contain
+
+**Stored [instant-replay](../instant-replay.md) clips are never included**,
+whether or not [**Keep replay clips**](../instant-replay.md#keeping-clips-longer)
+is turned on. They live in their own folder on the machine, separate from
+`uploads/`, and a backup never reads it — the same reasoning that keeps a
+racer's photograph in the file: a video of the finish line is a video of
+children too, and it is not the kind of thing that should ride along in an
+archive by accident. Restoring a backup always starts with no stored clips
+at all, however many were kept before.
+
 ## What a restore does
 
 Restoring replaces **everything** currently in the app with the backup's

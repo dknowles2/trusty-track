@@ -12,7 +12,7 @@ It is designed to run as a **single process on a machine at the venue** (often a
 | Frontend | TypeScript, React 19, Vite, urql                | `frontend/src/App.tsx` |
 | Database | SQLite in `~/.trustytrack`, Alembic migrations  | `trusty-track.db`      |
 
-`/graphql` is the primary interface between frontend and backend. There is also a small set of REST endpoints (`POST /upload/`; `POST /replay/` and `GET /replay/<name>` for instant-replay clips, #177 stage 1a) and a WebSocket at `/ws/timer/{track_id}` for browser-proxied serial timers.
+`/graphql` is the primary interface between frontend and backend. There is also a small set of REST endpoints (`POST /upload/`; `POST /replay/` and `GET /replay/<name>` for instant-replay clips, #177 stages 1a and 2) and a WebSocket at `/ws/timer/{track_id}` for browser-proxied serial timers.
 
 **Full stack (production / single process):**
 
@@ -207,9 +207,15 @@ Round           id, race_id, round_number, name, scheduling_strategy,
 
 Heat            id, race_id, round_id?, kind, heat_number,
                 created_at?, recorded_at?
-  └─ HeatLane[]       (cascade delete; see below)
+  ├─ HeatLane[]       (cascade delete; see below)
+  └─ HeatReplay[]     (cascade delete; #177 stage 2 — stored replay clips,
+                       written only while `Organization.keepReplays` is on)
 
 ```
+
+`Organization` also carries `keep_replays`, `replay_retention_heats?`,
+`replay_retention_mb?` (#177 stage 2 — see `.claude/rules/displays.md`'s "A
+camera is a display with a role").
 
 ### Enums (`backend/db/models.py`)
 
@@ -293,7 +299,7 @@ Defined entirely in `backend/api/schema.py`.
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 - Run-off: `createRunOffHeat`, `deleteRunOffHeat`
 - Intermission: `startIntermission`, `extendIntermission`, `pauseIntermission`, `resumeIntermission`, `endIntermission`
-- System/data: `createInitialConfig`, `updateInitialConfig`, `setDebugMode`, `setThemes` (Debugging Mode and the Display/Printables themes, split out of `updateInitialConfig`'s bundle so the demo can offer them — #1079, #1080), `importRacers`, `previewGprmImport`, `confirmGprmImport` (GrandPrix Race Manager import, #618), `previewDerbynetImport`, `confirmDerbynetImport` (DerbyNet import, #661), `uploadImage`, `populateRace`, `createPracticeRace`
+- System/data: `createInitialConfig`, `updateInitialConfig` (also carries `keepReplays`/`replayRetentionHeats`/`replayRetentionMb`, #177 stage 2 — deliberately *not* split out the way the next two were, since the demo needs this one to stay refused), `setDebugMode`, `setThemes` (Debugging Mode and the Display/Printables themes, split out of `updateInitialConfig`'s bundle so the demo can offer them — #1079, #1080), `importRacers`, `previewGprmImport`, `confirmGprmImport` (GrandPrix Race Manager import, #618), `previewDerbynetImport`, `confirmDerbynetImport` (DerbyNet import, #661), `uploadImage`, `populateRace`, `createPracticeRace`
 
 **Subscriptions:** `raceStateChanged`, `racesChanged`, `timerStatus`, `heatSession`, `leaderboard`, `heats`, `onDeck`, `currentlyRacing`, `timingStats`, `freeRaceHeat`, `activeFreeRaceHeat`, `displayAssignment`, `displays`, `heatReplay` (#177 stage 1a)
 
