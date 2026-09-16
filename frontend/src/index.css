@@ -1797,3 +1797,33 @@ input:checked + .slider:before {
     order: 4;
   }
 }
+
+/* FieldHelp (#1154): a control's helper sentence, collapsed to a disclosure
+ * under 600px (or always, when `summary` is used — the Lock race box).
+ * `FieldHelp.tsx` decides *whether* to render the toggle; this is only its
+ * appearance. */
+.field-help-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 0.3rem;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--primary);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.field-help-toggle:hover,
+.field-help-toggle:focus-visible {
+  color: var(--scouting-blue);
+}
+
+.field-help-detail {
+  display: block;
+  margin-top: 0.35rem;
+}
+
+.field-help-detail[hidden] {
+  display: none;
+}

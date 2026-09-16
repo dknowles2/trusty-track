@@ -11,6 +11,7 @@ import { GET_TRACKS } from '../../core/graphql/queries';
 import SettingsNav from '../../settings/components/SettingsNav';
 import ThemePicker from '../../settings/components/ThemePicker';
 import AppearancePreview from '../../settings/components/AppearancePreview';
+import FieldHelp from '../../../components/ui/FieldHelp';
 import { readAppTheme } from '../../../theming/appTheme';
 import type { SurfaceThemeSetting } from '../../../theming/themes';
 import {
@@ -448,12 +449,21 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                         />
                                         <span>{formData.is_locked ? 'Unlock race' : 'Lock race'}</span>
                                     </label>
-                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', margin: 0 }}>
-                                        Once an event has concluded, locking it guards against an accidental edit — a
-                                        stray tap on a shared machine, not a step you have to remember to undo. While
-                                        locked, scheduling, results, racer registrations and awards cannot be changed;
-                                        the race stays fully readable, and can still be deleted.
-                                    </p>
+                                    {/* One line at every width, per #1154 — the full explanation
+                                        (what stays readable, what cannot be changed) sits behind the
+                                        toggle rather than only under 600px, since a locked race is
+                                        rare enough on any screen that the short version is what an
+                                        operator needs first. See auth-and-demo.md's "Locking a race":
+                                        deletion is the one action a lock deliberately does not stop. */}
+                                    <FieldHelp
+                                        id="race-is-locked-help"
+                                        style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', margin: 0 }}
+                                        summary="Guards a finished race against accidental edits; it can still be deleted."
+                                    >
+                                        While locked, scheduling, results, racer registrations and awards cannot be
+                                        changed — a stray tap on a shared machine, not a step you have to remember to
+                                        undo. The race stays fully readable throughout.
+                                    </FieldHelp>
                                 </div>
                             )}
 
@@ -521,10 +531,10 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                     ))}
                                 </select>
                                 )}
-                                <p style={helpStyle}>
+                                <FieldHelp id="race-track-help" style={helpStyle}>
                                     The track&apos;s lanes, timer and records are set up in System Settings — a
                                     track is hardware in the room, shared by every race run on it.
-                                </p>
+                                </FieldHelp>
                             </div>
 
                             {/* The master running order (#549 stage 4): one interleaved
@@ -550,12 +560,12 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                         />
                                         <span>Interleave heats across every {groupLower}</span>
                                     </label>
-                                    <p style={helpStyle}>
+                                    <FieldHelp id="race-master-running-order-help" style={helpStyle}>
                                         Runs one {groupLower}&apos;s heat, then the next {groupLower}&apos;s, instead of every
                                         {' '}{groupLower} running its whole round back to back — so the track need not sit
                                         empty between {groupsLower}. Apply it from the Schedule screen once the rounds are
                                         set up.
-                                    </p>
+                                    </FieldHelp>
                                 </div>
                             )}
 
@@ -621,9 +631,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                                 onChange={() => handleChange('scoring_strategy', option.value)}
                                             />{' '}
                                             {option.label}
-                                            <small style={optionDescriptionStyle}>
+                                            <FieldHelp id={`race-scoring-${option.value}-help`} as="small" style={optionDescriptionStyle}>
                                                 {option.description}
-                                            </small>
+                                            </FieldHelp>
                                         </label>
                                     ))}
                                 </div>
@@ -649,11 +659,11 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                     className="form-control"
                                     style={inputStyle}
                                 />
-                                <p style={helpStyle}>
+                                <FieldHelp id="race-drop-worst-runs-help" style={helpStyle}>
                                     {formData.drop_worst_runs > 0
                                         ? `Each racer's worst ${formData.drop_worst_runs} counted result${formData.drop_worst_runs === 1 ? '' : 's'} ${formData.drop_worst_runs === 1 ? 'is' : 'are'} dropped before scoring. Only applies once everyone who has raced has the same number of runs, with at least ${formData.drop_worst_runs + 1} each — otherwise nothing is dropped, and the standings say so.`
                                         : "Off. Set above 0 to drop each racer's worst runs before scoring — everyone who has raced needs the same number of runs to drop from, with one to spare."}
-                                </p>
+                                </FieldHelp>
                             </div>
 
                             {/* Which way a tie is settled (#540) — beside Scoring, since
@@ -680,9 +690,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                                     onChange={() => handleChange('tiebreaker', option.value)}
                                                 />{' '}
                                                 {option.label}
-                                                <small style={optionDescriptionStyle}>
+                                                <FieldHelp id={`race-tiebreaker-${option.value}-help`} as="small" style={optionDescriptionStyle}>
                                                     {option.description}
-                                                </small>
+                                                </FieldHelp>
                                                 {wontFireReason && (
                                                     <small
                                                         style={{ color: 'var(--warning-soft-color)', display: 'block', marginTop: '0.15rem', marginLeft: '1.4rem' }}
@@ -713,10 +723,10 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                     className="form-control"
                                     style={inputStyle}
                                 />
-                                <p style={helpStyle}>
+                                <FieldHelp id="race-trophies-help" style={helpStyle}>
                                     How many {vehiclesLower} the round wizard puts into the final. About the racing,
                                     not the physical trophies — those are on the Awards page.
-                                </p>
+                                </FieldHelp>
                             </div>
 
                             {/* The Grand Finals half of #548: once a championship round is
@@ -737,11 +747,11 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                         />
                                         <span>Exclude Grand Finals winners from qualifying standings</span>
                                     </label>
-                                    <p style={helpStyle}>
+                                    <FieldHelp id="race-exclude-round-winners-help" style={helpStyle}>
                                         Once a championship round has a winner, that {vehicleLower} stops counting toward the
                                         standings it qualified from — so the same {vehicleLower} does not win both the overall
                                         trophy and their own {groupLower}&apos;s.
-                                    </p>
+                                    </FieldHelp>
                                 </div>
                             )}
 
@@ -763,12 +773,12 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                         />
                                         <span>At most one trophy per racer</span>
                                     </label>
-                                    <p style={helpStyle}>
+                                    <FieldHelp id="race-one-trophy-per-racer-help" style={helpStyle}>
                                         A {vehicleLower} that already holds an award is skipped for a later one — so the
                                         {' '}{groupLower} trophy rolls down to the next-fastest {vehicleLower} once its own
                                         winner has already taken the overall trophy. Set up which award comes first on the
                                         Awards page&apos;s running order.
-                                    </p>
+                                    </FieldHelp>
                                 </div>
                             )}
                         </section>
@@ -852,10 +862,10 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                         />
                                     </>
                                 )}
-                                <p style={helpStyle}>
+                                <FieldHelp id="race-check-weights-help" style={helpStyle}>
                                     Check-in warns when a {vehicleLower} is over this. It is a warning, not a
                                     refusal — the inspector decides.
-                                </p>
+                                </FieldHelp>
                             </div>
                         </section>
                     )}
@@ -1000,9 +1010,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                         </div>
                                     </div>
                                 )}
-                                <p style={{ ...helpStyle, marginTop: 0 }}>
+                                <FieldHelp id="race-custom-terminology-help" style={{ ...helpStyle, marginTop: 0 }}>
                                     Overrides the install-wide default from System Settings, for this race only.
-                                </p>
+                                </FieldHelp>
                             </div>
 
                             {/* A per-race name-display override (#552). Same checkbox-plus-
@@ -1042,17 +1052,17 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                                         onChange={() => handleChange('name_display', option.value)}
                                                     />{' '}
                                                     {option.label}
-                                                    <small style={optionDescriptionStyle}>
+                                                    <FieldHelp id={`race-name-display-${option.value}-help`} as="small" style={optionDescriptionStyle}>
                                                         {option.description}
-                                                    </small>
+                                                    </FieldHelp>
                                                 </label>
                                             ))}
                                         </div>
                                     </fieldset>
                                 )}
-                                <p style={{ ...helpStyle, marginTop: 0 }}>
+                                <FieldHelp id="race-custom-name-display-help" style={{ ...helpStyle, marginTop: 0 }}>
                                     Overrides the install-wide default from System Settings, for this race only.
-                                </p>
+                                </FieldHelp>
                             </div>
                         </section>
                     )}
@@ -1098,9 +1108,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                         setFormData(prev => ({ ...prev, printables_theme: null })),
                                 }}
                             />
-                            <p style={{ ...helpStyle, marginTop: 0 }}>
+                            <FieldHelp id="race-appearance-help" style={{ ...helpStyle, marginTop: 0 }}>
                                 Overrides the install-wide default from System Settings, for this race only.
-                            </p>
+                            </FieldHelp>
                             <p style={{ fontWeight: 'bold', margin: '0.5rem 0 0.75rem' }}>Preview</p>
                             <AppearancePreview
                                 appThemeKey={readAppTheme()}
@@ -1151,10 +1161,10 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                     className="form-control"
                                     style={inputStyle}
                                 />
-                                <p style={helpStyle}>
+                                <FieldHelp id="race-qr-help" style={helpStyle}>
                                     Shown on the full-screen QR code audience display, under the code — see
                                     the Displays panel on Race Control.
-                                </p>
+                                </FieldHelp>
                             </div>
                         </section>
                     )}

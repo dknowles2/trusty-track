@@ -37,6 +37,7 @@ import { NAME_DISPLAY_OPTIONS } from '../../core/displayName';
 import BackLink from '../../core/components/BackLink';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 import { useAlert } from '../../../context/AlertContext';
+import FieldHelp from '../../../components/ui/FieldHelp';
 
 const GET_INITIAL_CONFIG = `
   query GetInitialConfig {
@@ -785,9 +786,14 @@ export default function SystemConfig() {
             remembers which answer was picked. */}
         <fieldset style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', marginBottom: '1.5rem' }}>
           <legend style={{ fontSize: '0.9rem', padding: '0 0.4rem', fontWeight: 'bold' }}>What is being raced, and who is holding it?</legend>
-          <small style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: '0.75rem' }}>
+          <FieldHelp
+            id="preset-kinds-help"
+            as="small"
+            style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: '0.75rem' }}
+            forceOpen={!sectioned}
+          >
             A starting point for the words below — answer nothing and this install stays Den/Pack/Car, exactly as it always has.
-          </small>
+          </FieldHelp>
           {/* `auto-fit`/`minmax` rather than a fixed `1fr 1fr` (#1150): a
               phone-width column wraps every radio's helper text at under
               150px, so this collapses to one column below ~536px and stays
@@ -805,9 +811,14 @@ export default function SystemConfig() {
                       onChange={() => choosePreset({ ...presetAnswers, eventKind: kind.key })}
                     />{' '}
                     {kind.label}
-                    <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.1rem', marginLeft: '1.4rem' }}>
+                    <FieldHelp
+                      id={`preset-event-kind-${kind.key}-help`}
+                      as="small"
+                      style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.1rem', marginLeft: '1.4rem' }}
+                      forceOpen={!sectioned}
+                    >
                       {kind.description}
-                    </small>
+                    </FieldHelp>
                   </label>
                 ))}
               </div>
@@ -824,9 +835,14 @@ export default function SystemConfig() {
                       onChange={() => choosePreset({ ...presetAnswers, organizationKind: kind.key, scale: 'own' })}
                     />{' '}
                     {kind.label}
-                    <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.1rem', marginLeft: '1.4rem' }}>
+                    <FieldHelp
+                      id={`preset-organization-kind-${kind.key}-help`}
+                      as="small"
+                      style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.1rem', marginLeft: '1.4rem' }}
+                      forceOpen={!sectioned}
+                    >
                       {kind.description}
-                    </small>
+                    </FieldHelp>
                   </label>
                 ))}
               </div>
@@ -843,9 +859,14 @@ export default function SystemConfig() {
                           onChange={() => choosePreset({ ...presetAnswers, scale: scale.key })}
                         />{' '}
                         {scale.label}
-                        <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.1rem', marginLeft: '1.4rem' }}>
+                        <FieldHelp
+                          id={`preset-scale-${scale.key}-help`}
+                          as="small"
+                          style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.1rem', marginLeft: '1.4rem' }}
+                          forceOpen={!sectioned}
+                        >
                           {scale.description}
-                        </small>
+                        </FieldHelp>
                       </label>
                     ))}
                   </div>
@@ -872,9 +893,14 @@ export default function SystemConfig() {
             />
             <span style={{ fontWeight: 'bold' }}>Use different words for &ldquo;Den&rdquo;, &ldquo;Pack&rdquo; and &ldquo;Car&rdquo;</span>
           </label>
-          <small style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: customTerminology ? '0.75rem' : 0 }}>
+          <FieldHelp
+            id="custom-terminology-help"
+            as="small"
+            style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: customTerminology ? '0.75rem' : 0 }}
+            forceOpen={!sectioned}
+          >
             For a school, a club, a Space Derby, or anyone racing the same format under different words. A race can override this on its own settings too.
-          </small>
+          </FieldHelp>
           {customTerminology && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
               <div>
@@ -970,9 +996,14 @@ export default function SystemConfig() {
             can override this on its own settings too. */}
         <fieldset data-testid="name-display-fields" style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', marginBottom: '2rem' }}>
           <legend style={{ fontSize: '0.9rem', padding: '0 0.4rem', fontWeight: 'bold' }}>Names on public screens</legend>
-          <small style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: '0.75rem' }}>
+          <FieldHelp
+            id="name-display-help"
+            as="small"
+            style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: '0.75rem' }}
+            forceOpen={!sectioned}
+          >
             What the audience displays, the printables and the standings export show for a racer&apos;s name. The roster, check-in and Race Control always show the full name.
-          </small>
+          </FieldHelp>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             {NAME_DISPLAY_OPTIONS.map(option => (
               <label key={option.value} style={{ display: 'block', cursor: 'pointer' }}>
@@ -984,9 +1015,14 @@ export default function SystemConfig() {
                   onChange={() => setNameDisplay(option.value)}
                 />{' '}
                 {option.label}
-                <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem', marginLeft: '1.4rem' }}>
+                <FieldHelp
+                  id={`org-name-display-${option.value}-help`}
+                  as="small"
+                  style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem', marginLeft: '1.4rem' }}
+                  forceOpen={!sectioned}
+                >
                   {option.description}
-                </small>
+                </FieldHelp>
               </label>
             ))}
           </div>
