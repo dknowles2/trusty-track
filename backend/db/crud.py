@@ -2516,6 +2516,19 @@ def generate_heats_for_round(
     # round to 5..8 instead of 1..4 — and left a gap in the race's numbering.
     start_heat_num = len(existing_heats) + 1 if existing_heats and not cleared else 1
 
+    # A fresh (re)build of a *championship* round while master running
+    # order is on must not restart at 1 — `apply_master_running_order`
+    # excludes championship rounds from its own weave precisely because
+    # they renumber themselves on every rebuild, which is only safe when a
+    # race never holds more than one of them to collide with. #1076 stage
+    # 2's district cell (a knockout chained into a grand final) broke that:
+    # both restarted at 1 and shared heat numbers with each other for as
+    # long as neither had been raced. See `_next_master_order_heat_number`.
+    if start_heat_num == 1 and round_obj.advancement_source is not None:
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        if race is not None and race.master_running_order:
+            start_heat_num = _next_master_order_heat_number(db, race_id)
+
     if round_obj.scheduling_strategy == models.SchedulingStrategy.ELIMINATION:
         # Only the first wave is scheduled here — everyone on zero losses.
         # The rest of the schedule does not exist yet by design: each later
@@ -3483,6 +3496,34 @@ def usable_lanes_for_race(db: Session, race_id: int) -> list[int]:
     ]
 
 
+def _next_master_order_heat_number(db: Session, race_id: int) -> int:
+    """One past the highest ``heat_number`` anywhere in the race, or ``1``
+    if it holds none — the same starting point
+    `apply_master_running_order`/`repair_master_running_order` give a fresh
+    batch of *general*-round heats, reused here for a *championship* round.
+
+    Championship rounds are deliberately left out of the master-order weave
+    (`apply_master_running_order`'s own docstring) because their field is
+    drawn from the general rounds' standings and cannot run before those
+    finish — but every rebuild of one still starts its own numbering back
+    at 1, on the unstated assumption that a race never holds more than one
+    championship round to collide with. #1076 stage 2's district cell
+    (chained championship rounds: a knockout, then a grand final drawing
+    from it) broke that assumption — both rounds restarted at 1 and shared
+    heat numbers with each other for as long as neither had been raced,
+    which the master-running-order sweep's own `_assert_heat_numbers_unique`
+    catches. Called only while `Race.master_running_order` is on; every
+    other race is unaffected, since a championship round restarting at 1 is
+    exactly right when nothing else in the race claims global uniqueness.
+    """
+    highest = (
+        db.query(func.max(models.Heat.heat_number))
+        .filter(models.Heat.race_id == race_id)
+        .scalar()
+    )
+    return (highest or 0) + 1
+
+
 def _reset_heats_in_place(
     db: Session, round_obj: models.Round, p_ids: list[int], usable_lanes: Sequence[int]
 ) -> bool:
@@ -3530,11 +3571,23 @@ def _reset_heats_in_place(
 
     scheduler = SCHEDULERS[round_algorithm(round_obj)]
 
+    # Restarting at 1 is right for the ordinary case — nothing else in the
+    # race cares what number a championship round's own placeholders hold.
+    # Once master running order is on, it is the one thing that does: a
+    # second championship round chained off this one (or off any other)
+    # would otherwise restart at 1 too and collide with it, for as long as
+    # neither has been raced. See `_next_master_order_heat_number`.
+    race_id = existing[0].race_id
+    base = 1
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is not None and race.master_running_order:
+        base = _next_master_order_heat_number(db, race_id)
+
     plans = scheduler.generate(
         p_ids,
         usable_lanes,
-        start_heat_number=1,
-        rng=_schedule_rng(db, existing[0].race_id, round_id),
+        start_heat_number=base,
+        rng=_schedule_rng(db, race_id, round_id),
     )
     if not plans or len(existing) % len(plans) != 0:
         return False
@@ -3542,16 +3595,17 @@ def _reset_heats_in_place(
         plans += scheduler.generate(
             p_ids,
             usable_lanes,
-            start_heat_number=len(plans) + 1,
-            rng=_schedule_rng(db, existing[0].race_id, round_id, run=run),
+            start_heat_number=base + len(plans),
+            rng=_schedule_rng(db, race_id, round_id, run=run),
         )
 
     for heat, plan in zip(existing, plans, strict=True):
         # Belt and braces: every path that creates a round numbers its heats
-        # 1..N, and `existing` is sorted by that, so this is a no-op today.
-        # Mutation-testing confirms nothing catches its removal. Kept because
-        # the alternative is a silent mismatch between a heat's number and its
-        # schedule if some other path ever numbers differently.
+        # `base`..`base + N - 1` (1-based when master running order is off,
+        # which is the ordinary case), and `existing` is sorted the same
+        # way, so this is usually a no-op. Kept because the alternative is a
+        # silent mismatch between a heat's number and its schedule if some
+        # other path ever numbers differently.
         heat.heat_number = plan.heat_number
         # Through the ORM, so `lane_sync` projects it into `heat_lanes`.
         set_heat_lanes(
