@@ -56,9 +56,13 @@ def arrive(db, race_id, *, name="Latecomer", checked_in=True, racing_group_id=No
     )
 
 
-def start_round(db, race_id, number=1, racing_group_id=None):
+def start_round(db, race_id, number=1, racing_group_id=None, algorithm=None):
     round_obj = crud.create_round(
-        db, race_id=race_id, round_number=number, racing_group_id=racing_group_id
+        db,
+        race_id=race_id,
+        round_number=number,
+        racing_group_id=racing_group_id,
+        algorithm=algorithm,
     )
     crud.generate_heats_for_round(db, round_obj.id)
     return round_obj
@@ -564,3 +568,61 @@ class TestTheMutationsThatTriggerIt:
 
         db.expire_all()
         assert late.id in racers_in(db, race_id, round_obj.id)
+
+
+class TestAnAlgorithmThatCannotAbsorbALatecomer:
+    """#1090 decision 3: a chart that cannot add one car without a rebuild.
+
+    ROTATION pins every already-scheduled car's lane sequence to its own
+    position in the field (`domain.schedulers.SCHEDULERS["ROTATION"]
+    .absorbs_latecomer` is `False`) — there is no PPC-style appendix for it,
+    so the two cases from #171/#172 split differently than they do for PPC:
+    nothing raced yet still regenerates cleanly (every algorithm supports a
+    full rebuild), but a round already part-way through has to refuse rather
+    than corrupt the chart.
+    """
+
+    def test_a_round_nobody_has_raced_still_regenerates(self, db):
+        _, race_id = build(db)
+        round_obj = start_round(
+            db, race_id, algorithm=models.SchedulingAlgorithm.ROTATION
+        )
+        late = arrive(db, race_id)
+
+        crud.admit_late_racers(db, race_id)
+
+        assert late.id in racers_in(db, race_id, round_obj.id)
+
+    def test_a_round_part_way_through_refuses_instead_of_appending(self, db, client):
+        _, race_id = build(db)
+        round_obj = start_round(
+            db, race_id, algorithm=models.SchedulingAlgorithm.ROTATION
+        )
+        run_heats(client, db, race_id, round_obj.id, count=2)
+        before = [
+            (lane.lane, lane.racer_id, lane.time)
+            for heat in crud.get_heats(db, race_id, round_id=round_obj.id)
+            for lane in crud.heat_lanes_of(db, heat)
+        ]
+
+        arrive(db, race_id)
+        try:
+            crud.admit_late_racers(db, race_id)
+            raised = False
+        except ValueError as exc:
+            raised = True
+            # Names the algorithm and says why — the door `errorText` on the
+            # frontend already reads a GraphQL error through.
+            assert "Lane rotation" in str(exc)
+
+        assert raised, "expected admit_late_racers to refuse"
+
+        db.expire_all()
+        after = [
+            (lane.lane, lane.racer_id, lane.time)
+            for heat in crud.get_heats(db, race_id, round_id=round_obj.id)
+            for lane in crud.heat_lanes_of(db, heat)
+        ]
+        # Refusing means refusing to write anything for this round — the
+        # schedule is exactly what it was before admission was attempted.
+        assert after == before

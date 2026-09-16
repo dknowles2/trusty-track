@@ -45,6 +45,11 @@ class RoundFact:
     #: the wizard's own default for "no opinion" — see `models.Round.
     #: runs_per_lane`.
     runs_per_lane: int | None
+    #: How the round's schedule is built (#1090) — already resolved to a
+    #: concrete string by the caller (`api.schema`'s `null -> "PPC"`
+    #: default; see `models.Round.algorithm`), so this module never has to
+    #: know the column can be null.
+    algorithm: str
 
 
 @dataclass(frozen=True)
@@ -56,6 +61,8 @@ class GeneralRoundPlan:
     runs_per_lane: int
     elimination_losses: int | None
     balanced_phases: int | None
+    #: See `RoundFact.algorithm`.
+    algorithm: str
 
 
 @dataclass(frozen=True)
@@ -106,10 +113,11 @@ def plan_from_rounds(rounds: Sequence[RoundFact]) -> RoundPlan | None:
     plan, so reproducing "EACH_GROUP" needs nothing about *which* groups:
     the new race's own current racing groups (whichever the copy carried
     over) are exactly what it iterates. `scheduling_strategy`,
-    `elimination_losses` and `balanced_phases` are read off the first
-    general round found — every general round of an "EACH_GROUP" split
-    shares the same style, since the wizard offers no way to give them
-    different ones.
+    `elimination_losses`, `balanced_phases` and `algorithm` (#1090) are
+    read off the first general round found — every general round of an
+    "EACH_GROUP" split shares the same style, since the wizard offers no
+    way to give them different ones (`create_general_round` passes one
+    `algorithm` through for the whole split, same as `runs_per_lane`).
 
     **Championship rounds**, in `round_number` order. A round's stored
     `advancement_source` is already the *resolved* value
@@ -158,6 +166,7 @@ def plan_from_rounds(rounds: Sequence[RoundFact]) -> RoundPlan | None:
         runs_per_lane=first_general.runs_per_lane or 1,
         elimination_losses=first_general.elimination_losses,
         balanced_phases=first_general.balanced_phases,
+        algorithm=first_general.algorithm,
     )
 
     championship_plans: list[ChampionshipRoundPlan] = []

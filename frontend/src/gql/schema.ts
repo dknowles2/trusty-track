@@ -1416,6 +1416,7 @@ export type Round = {
   advancementNumRacers?: Maybe<Scalars['Int']['output']>;
   advancementSource?: Maybe<Scalars['String']['output']>;
   advancementStatus: AdvancementStatus;
+  algorithm: Scalars['String']['output'];
   balancedPhases?: Maybe<Scalars['Int']['output']>;
   disrupted: Scalars['Boolean']['output'];
   eliminationChart?: Maybe<EliminationChart>;
@@ -1435,6 +1436,7 @@ export type RoundCreateInput = {
   advancementFromBottom?: Scalars['Boolean']['input'];
   advancementNumRacers?: InputMaybe<Scalars['Int']['input']>;
   advancementSource?: InputMaybe<Scalars['String']['input']>;
+  algorithm?: InputMaybe<Scalars['String']['input']>;
   balancedPhases?: InputMaybe<Scalars['Int']['input']>;
   eliminationLosses?: InputMaybe<Scalars['Int']['input']>;
   generalType?: Scalars['String']['input'];
@@ -1733,6 +1735,7 @@ export type WizardConfigurationInput = {
 };
 
 export type WizardGeneralRound = {
+  algorithm: Scalars['String']['output'];
   balancedPhases?: Maybe<Scalars['Int']['output']>;
   eliminationLosses?: Maybe<Scalars['Int']['output']>;
   runsPerLane: Scalars['Int']['output'];
@@ -1741,6 +1744,7 @@ export type WizardGeneralRound = {
 };
 
 export type WizardGeneralRoundInput = {
+  algorithm?: InputMaybe<Scalars['String']['input']>;
   balancedPhases?: InputMaybe<Scalars['Int']['input']>;
   eliminationLosses?: InputMaybe<Scalars['Int']['input']>;
   runsPerLane?: Scalars['Int']['input'];

@@ -388,6 +388,11 @@ class WizardGeneralRoundCreate(BaseModel):
     scheduling_strategy: str | None = None
     elimination_losses: int | None = None
     balanced_phases: int | None = None
+    #: How the round's schedule is built (#1090). `None` means `PPC`,
+    #: resolved by `crud.round_algorithm` rather than here — see
+    #: `models.Round.algorithm`. Meaningless once `scheduling_strategy`
+    #: names `ELIMINATION`/`BALANCED`, which build their own schedules.
+    algorithm: str | None = None
 
 
 class WizardChampionshipRoundCreate(BaseModel):

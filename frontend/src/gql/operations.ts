@@ -207,6 +207,7 @@ export type RoundCreateInput = {
   advancementFromBottom?: boolean;
   advancementNumRacers?: number | null | undefined;
   advancementSource?: string | null | undefined;
+  algorithm?: string | null | undefined;
   balancedPhases?: number | null | undefined;
   eliminationLosses?: number | null | undefined;
   generalType?: string;
@@ -255,6 +256,7 @@ export type WizardConfigurationInput = {
 };
 
 export type WizardGeneralRoundInput = {
+  algorithm?: string | null | undefined;
   balancedPhases?: number | null | undefined;
   eliminationLosses?: number | null | undefined;
   runsPerLane?: number;
