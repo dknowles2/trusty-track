@@ -6,6 +6,7 @@ import { ScheduleManagement, Heat } from './ScheduleManagement';
 import { heat, lane } from '../testFixtures';
 import { AlertProvider } from '../../../context/AlertContext';
 import { MemoryRouter } from 'react-router-dom';
+import { TerminologyProvider } from '../../../context/TerminologyContext';
 
 // `useMutation` is mocked because `RoundWizard` — unconditionally mounted by
 // `ScheduleManagement`, gated only on visibility — calls it, and these tests
@@ -1805,5 +1806,73 @@ describe('heats render as cards under 600px (#1139)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Run' }));
     expect(onRunHeat).toHaveBeenCalledWith(pendingHeat, true);
+  });
+});
+
+describe('the district round-plan prefill on the round wizard (#1076 stage 3)', () => {
+  const districtWords = {
+    racingGroupSingular: 'Rank',
+    racingGroupPlural: 'Ranks',
+    organizationSingular: 'District',
+    organizationPlural: 'Districts',
+    vehicleSingular: 'Car',
+    vehiclePlural: 'Cars',
+    vehicleArtworkKey: 'car',
+  };
+
+  const renderEmptySchedule = (words?: typeof districtWords) => {
+    const tree = (
+      <MemoryRouter>
+        <AlertProvider>
+          <ScheduleManagement
+            raceId={1}
+            heats={[]}
+            generating={false}
+            activeHeatId={null}
+            onAddRound={vi.fn()}
+            onRegenerateRound={vi.fn()}
+            onDeleteRound={vi.fn()}
+            onDeleteHeat={vi.fn()}
+            onRunHeat={vi.fn()}
+            onReorderHeats={vi.fn()}
+            getRacerName={vi.fn((id: number) => `Racer ${id}`)}
+            onRefetchHeats={vi.fn()}
+            laneCount={4}
+            racerCount={10}
+            racingGroupCount={3}
+            championshipTrophies={3}
+          />
+        </AlertProvider>
+      </MemoryRouter>
+    );
+    return words ? render(<TerminologyProvider value={words}>{tree}</TerminologyProvider>) : render(tree);
+  };
+
+  it('opens the round wizard pre-filled for By Rank / Each Rank once the race is a district derby', () => {
+    renderEmptySchedule(districtWords);
+    fireEvent.click(screen.getByText('Start Round Creation Wizard'));
+
+    expect(screen.getByLabelText(/By Rank/)).toBeChecked();
+    expect(screen.getByLabelText(/All District/)).not.toBeChecked();
+  });
+
+  it('leaves every other race on the ordinary hardcoded defaults', () => {
+    // No `TerminologyProvider` — the default Pack/Den words, same as an
+    // ordinary pack derby.
+    renderEmptySchedule();
+    fireEvent.click(screen.getByText('Start Round Creation Wizard'));
+
+    expect(screen.getByLabelText(/All Pack/)).toBeChecked();
+    expect(screen.queryByLabelText(/By Den/)).not.toBeChecked();
+  });
+
+  it('does not fire on words that merely say "Rank" without being the district scale', () => {
+    renderEmptySchedule({
+      ...districtWords,
+      organizationSingular: 'Council',
+    });
+    fireEvent.click(screen.getByText('Start Round Creation Wizard'));
+
+    expect(screen.getByLabelText(/All Council/)).toBeChecked();
   });
 });

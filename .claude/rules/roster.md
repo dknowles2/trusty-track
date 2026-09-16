@@ -11,6 +11,9 @@ paths:
   - backend/domain/photos.py
   - backend/services/importers/**
   - frontend/src/features/management/**
+  - frontend/src/features/racing/components/RoundWizard.tsx
+  - frontend/src/features/racing/components/ScheduleManagement.tsx
+  - frontend/src/context/organizationKinds.ts
 ---
 
 # Setting a race up: numbering, imports, the wizard, the weight limit
@@ -136,6 +139,10 @@ Rules in `frontend/src/features/management/raceSetup.ts`, wiring in `components/
 **The start step exists only once there is a race to copy from** (`stepsFor`). That makes its presence in the docs screenshot specs depend on whether another spec's race exists at that moment — they run at once — so `e2e/docs/support.ts`'s `passSetupStart` steps past it when it is there, and the picture of the copy option is taken by the `first-run` setup project, the one place that can promise exactly one race exists and that it is its own.
 
 **The option labels name the built-in words on purpose** ("Packs and dens — the words the app uses out of the box"), for the same reason `SystemSettings.tsx`'s terminology labels are allowlisted by `terminologyGuard.test.ts`: an option that *chooses* a vocabulary has to say which one it chooses. They live in `raceSetup.ts` as data, by the usual pure-rule/React-wiring split, not to sidestep the guard — the wizard's own JSX reads every group word off the chosen terminology, so a district derby's groups step says "Rank 1 name" and "Add rank".
+
+**The district answer's round-plan default is a prefill on the *round* wizard, not a second thing `createRace` builds** (#1076 stage 3, `docs/district-derby.md`). The obvious place to land "by-rank qualifying and an each-rank grand final" looked like `Race.roundPlan`/`createRace`'s existing copy machinery (#1088) — it already carries exactly this shape (`WizardConfigurationInput`) — but that path builds rounds at race-creation time, before any roster exists, and `create_general_round`'s `EACH_GROUP` branch silently skips a racing group with no checked-in racer (correct for its own case: a copy's operator runs **Regenerate** once the roster exists). At creation time *every* group has zero racers, so an `EACH_GROUP` general round built that way would come out as zero rounds — an existing, pre-#1076 gap in the copy path for any race whose qualifying format is `EACH_GROUP`, not something this stage introduced, and out of scope to fix here. `ScheduleManagement.tsx` instead derives `isDistrictWords(organizationSingular, racingGroupSingular)` — `context/organizationKinds.ts`'s own "derive it, don't store it" technique `categoryPresetsFor` already uses — and passes a `RoundWizard.prefill` prop only when true and the race has no rounds yet (the one state that can open the wizard at all, so this is always a first visit): `generalType: 'EACH_GROUP'`, `championshipSource: 'EACH_GROUP'`, `numTopRacers: 2` (floored to `championshipTrophies`, the same floor the wizard's own "Number to pick" input already enforces), `alsoSeedOverallAward: true`. A race whose words happen to read "District"/"Rank" without ever answering the wizard's scale question gets the identical, reasonable prefill — there is no stored flag to disagree with the words themselves, matching `categoryPresetsFor`'s own reasoning one paragraph up.
+
+**`alsoSeedOverallAward` is a real, generally useful round-wizard checkbox, not a district-only flag** — see `.claude/rules/advancement-and-awards.md`'s "Awards" for `championship_award_seed`'s own `also_seed_overall` parameter it wires to. Offered only alongside an `EACH_GROUP` championship round (meaningless otherwise, since there is no combined field to be "fastest overall" of), defaulting off for every race that does not opt in — an ordinary pack's own by-den final seeds exactly the per-den set it always has.
 
 ### The weight limit
 

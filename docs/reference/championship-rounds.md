@@ -165,7 +165,13 @@ trophies actually get created. The moment a final round exists — built by
 the wizard, or added afterward through **Add Round** — Trusty Track seeds
 one speed award per place, 1st through however many trophies you asked for,
 pointed at that final, onto the [Awards](../awards.md) page. If your pack
-races by den as well, each den gets its own set. Changing the number
+races by den as well, each den gets its own set — the Round Wizard's own
+**Also give one overall trophy** checkbox, offered only alongside "The
+fastest from each den" above, adds a further set for whoever is fastest
+across the round as a whole, on top of the per-den ones; it is off by
+default, since an ordinary by-den final has no single combined field for
+"fastest overall" to mean anything more than "fastest in the biggest den".
+Changing the number
 afterward does not add or remove awards already there — it only changes
 what a *new* final would seed, and it stays the floor on how many cars a
 final can hold: you cannot hand out more championship trophies than there

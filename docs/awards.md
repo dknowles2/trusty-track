@@ -15,9 +15,13 @@ The moment your race has a final — built by the Round Wizard, or added
 afterward through **Add Round** — this page already has 1st, 2nd, 3rd (and
 however many more **Championship Trophies** on the race settings asks for)
 pointed at it, with nobody decided yet until the racing says so. If your
-pack races by den as well, each den gets its own set. Nothing to type in by
-hand for the trophies every derby gives out; add Best Paint or any other
-award of your own the ordinary way, below.
+pack races by den as well, each den gets its own set — and if the final
+draws from each den at once (a district or council derby's grand final,
+say), ticking **Also give one overall trophy** on the Round Wizard's
+Championships step adds one more set for whoever is fastest across the
+*whole* final, on top of the per-den ones. Nothing to type in by hand for
+the trophies every derby gives out; add Best Paint or any other award of
+your own the ordinary way, below.
 
 Deleted them by mistake, or skipped the wizard entirely? The empty state
 here offers an **Add the N championship trophies** button that brings the

@@ -1113,6 +1113,7 @@ input WizardChampionshipRoundInput {
   runsPerLane: Int! = 1
   advancementFromBottom: Boolean! = false
   sourceRoundId: Int = null
+  alsoSeedOverallAward: Boolean! = false
 }
 
 type WizardConfiguration {

@@ -41,6 +41,29 @@ interface RoundWizardProps {
    * the rest for the round's own "Pick by hand" button on the schedule.
    */
   onCreated: (handPickRoundId: number | null) => void | Promise<void>;
+  /**
+   * What the wizard's own defaults should be, instead of "everyone races
+   * together" / "Overall" — a district derby's by-rank qualifying and
+   * each-rank grand final (#1076 stage 3), reusing the round-plan shape
+   * `Race.roundPlan`/#1088's copy step already carries rather than a
+   * parallel one. `ScheduleManagement` supplies this only on a race's
+   * first visit here (no rounds yet — the only state that can open this
+   * component at all) whose resolved words are the district scale
+   * (`organizationKinds.isDistrictWords`); every other race gets the
+   * ordinary hardcoded defaults below, unchanged.
+   */
+  prefill?: RoundWizardPrefill;
+}
+
+/** See `RoundWizardProps.prefill`. */
+export interface RoundWizardPrefill {
+  generalType: 'ALL' | 'EACH_GROUP';
+  championshipSource: 'ALL' | 'EACH_GROUP';
+  /** Floored to `championshipTrophies` the same way the ordinary "Number
+   * to pick" input already is — a district's own answer is "how many per
+   * rank", not a second, independent floor. */
+  numTopRacers: number;
+  alsoSeedOverallAward: boolean;
 }
 
 interface GeneralConfig {
@@ -72,6 +95,13 @@ interface ChampionshipConfig {
   fromBottom: boolean;
   /** "I'll choose who races myself" (#711, #943). */
   pickFieldByHand: boolean;
+  /** "Also give one overall trophy" (#1076 stage 3) — meaningful, and
+   * shown, only alongside `source === 'EACH_GROUP'`: an each-group final
+   * seeds one trophy set per group already; this adds a race-wide one for
+   * the round as a whole, the "fastest of everyone here" question only an
+   * each-group final's own combined field can answer. Off by default —
+   * see `WizardChampionshipRoundInput.also_seed_overall_award`. */
+  alsoSeedOverallAward: boolean;
 }
 
 /** The general round's name a fresh wizard session would produce, absent an
@@ -109,11 +139,12 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   championshipTrophies,
   minutesPerHeat = ESTIMATED_HEAT_DURATION_MIN,
   onCreated,
+  prefill,
 }) => {
   const { group, groupLower, groupsLower, org, vehicleLower, vehiclesLower } = useTerminology();
   const [step, setStep] = useState(1);
   const [generalConfig, setGeneralConfig] = useState<GeneralConfig>({
-    type: 'ALL',
+    type: prefill?.generalType ?? 'ALL',
     runsPerLane: 1,
     raceStyle: 'GENERAL',
     eliminationLosses: 3,
@@ -128,7 +159,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   const [championshipRounds, setChampionshipRounds] = useState<ChampionshipConfig[]>([{
     id: 'champ-1',
     name: 'Grand Finals',
-    source: 'ALL',
+    source: prefill?.championshipSource ?? 'ALL',
     // `Race.championship_trophies` is how many cars advance to the final — a
     // scheduling input the operator has already set on the race's own
     // settings (#775). This used to default to `Math.max(championshipTrophies,
@@ -136,11 +167,15 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     // setting on the very first screen that offers a number for it whenever
     // the track had more lanes than trophies. `RoundConfigModal` — the same
     // control reached later, from the add-round dialog — already defaults to
-    // `championshipTrophies` alone; this now matches it.
-    numTopRacers: championshipTrophies,
+    // `championshipTrophies` alone; this now matches it. A district prefill
+    // (#1076 stage 3) asks a different question — "how many per rank", not
+    // "how many overall" — so it is floored to, rather than replaced by,
+    // that same setting.
+    numTopRacers: prefill ? Math.max(prefill.numTopRacers, championshipTrophies) : championshipTrophies,
     runsPerLane: 1,
     fromBottom: false,
     pickFieldByHand: false,
+    alsoSeedOverallAward: prefill?.alsoSeedOverallAward ?? false,
   }]);
   const [loading, setLoading] = useState(false);
   const { showAlert } = useAlert();
@@ -302,6 +337,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
         runsPerLane: 1,
         fromBottom: false,
         pickFieldByHand: false,
+        alsoSeedOverallAward: false,
       }
     ]);
   };
@@ -360,6 +396,11 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
           numTopRacers: r.numTopRacers,
           runsPerLane: r.runsPerLane,
           advancementFromBottom: r.fromBottom,
+          // Meaningless outside `EACH_GROUP` — sent as `false` for every
+          // other round the same "nothing on screen can set it otherwise"
+          // belt-and-braces shape `algorithm` above already follows, since
+          // the checkbox itself only renders when `source === 'EACH_GROUP'`.
+          alsoSeedOverallAward: r.source === 'EACH_GROUP' ? r.alsoSeedOverallAward : false,
         })),
       };
 
@@ -652,6 +693,31 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     <div style={{ fontSize: '0.75rem', color: 'var(--wizard-text-muted-color)', fontStyle: 'italic', marginTop: '0.5rem' }}>
                       Minimum pick count ({championshipTrophies}) enforced by trophy config.
                     </div>
+                  )}
+
+                  {/* Also give one overall trophy (#1076 stage 3) — only
+                      meaningful once the field is drawn from each {group}
+                      separately: this round's own combined field is what
+                      makes "fastest of everyone here" a real, one-recipient
+                      question, on top of the per-{group} sets `Add the N
+                      championship trophies` already seeds. */}
+                  {round.source === 'EACH_GROUP' && (
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', marginTop: '1rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={round.alsoSeedOverallAward}
+                        onChange={(e) => updateChampionshipRound(round.id, { alsoSeedOverallAward: e.target.checked })}
+                        style={{ marginTop: '3px' }}
+                      />
+                      <span>
+                        <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>Also give one overall trophy</span>
+                        <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--wizard-text-muted-color)' }}>
+                          Besides a champion for each {groupLower}, seed a trophy for whoever is
+                          fastest across the whole {round.name || 'round'} — the grand-final winner
+                          of a district or council derby, say.
+                        </p>
+                      </span>
+                    </label>
                   )}
 
                   {/* I'll choose who races myself (#711, #943) — the same

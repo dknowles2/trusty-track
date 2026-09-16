@@ -309,6 +309,7 @@ def championship_award_seed(
     is_each_group: bool,
     existing_awards: Sequence[Any],
     sort_order_start: int = 0,
+    also_seed_overall: bool = False,
 ) -> list[AwardSeed]:
     """The championship trophies a fresh final earns (#1082).
 
@@ -345,6 +346,26 @@ def championship_award_seed(
     bracket, whose "how many to pick" floor is 1 rather than the trophy
     count. ``field_size <= 0`` means "not known" (a request the caller could
     not size, rather than a field of zero) and is not treated as a bound.
+
+    **``also_seed_overall`` adds one race-wide set alongside the per-group
+    one, only meaningful — and only ever passed — when ``is_each_group``
+    is true** (#1076 stage 3's "one grand-final trophy", the one thing an
+    ``EACH_GROUP`` final never seeded on its own: a district derby's grand
+    final draws its field from every rank at once and races them together,
+    so "fastest in that round" is a real, single-recipient question — the
+    per-rank sets answer "fastest in *this* rank", not "fastest of
+    everyone here", and before this an operator got the rank trophies for
+    free and added the grand-final one by hand (`docs/district-derby.md`,
+    `districtDerby.spec.ts`). Off by default: every existing `EACH_GROUP`
+    final — a pack's own by-den championship, not only a district's —
+    seeds exactly as it always has unless a caller opts in, so this is
+    additive rather than a change to what "seed the trophies" already
+    means for everyone. The overall set is appended after every per-group
+    one, in the same ``1..effective_trophies`` shape and the same
+    ``"1st Place"``-style naming — `racing_group_id=None` is what makes
+    it read as "fastest in this round" rather than "fastest in this rank"
+    once resolved (`eligible_standings` narrows only when a rule carries a
+    group id).
     """
     if trophies < 1:
         return []
@@ -356,6 +377,8 @@ def championship_award_seed(
         return []
 
     group_ids: Sequence[int | None] = racing_group_ids if is_each_group else (None,)
+    if is_each_group and also_seed_overall:
+        group_ids = (*group_ids, None)
 
     seeds: list[AwardSeed] = []
     sort_order = sort_order_start

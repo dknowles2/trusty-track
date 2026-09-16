@@ -1774,6 +1774,7 @@ export type WizardChampionshipRound = {
 
 export type WizardChampionshipRoundInput = {
   advancementFromBottom?: Scalars['Boolean']['input'];
+  alsoSeedOverallAward?: Scalars['Boolean']['input'];
   name?: Scalars['String']['input'];
   numTopRacers?: Scalars['Int']['input'];
   runsPerLane?: Scalars['Int']['input'];

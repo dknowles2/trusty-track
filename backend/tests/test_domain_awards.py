@@ -330,6 +330,40 @@ class TestChampionshipAwardSeed:
         ]
         assert [seed.sort_order for seed in seeds] == [0, 1, 2, 3]
 
+    def test_also_seed_overall_adds_a_race_wide_set_after_the_groups(self) -> None:
+        """#1076 stage 3's "also give one overall trophy" — an EACH_GROUP
+        final's own grand-final champion, appended after every per-group
+        set rather than replacing any of them."""
+        seeds = championship_award_seed(
+            2,
+            4,
+            [10, 20],
+            is_each_group=True,
+            existing_awards=[],
+            also_seed_overall=True,
+        )
+        assert [(seed.racing_group_id, seed.place) for seed in seeds] == [
+            (10, 1),
+            (10, 2),
+            (20, 1),
+            (20, 2),
+            (None, 1),
+            (None, 2),
+        ]
+        assert [seed.sort_order for seed in seeds] == [0, 1, 2, 3, 4, 5]
+
+    def test_also_seed_overall_is_a_no_op_off_each_group(self) -> None:
+        """Meaningless — and never sent — outside `EACH_GROUP`; passing it
+        anyway must not double the overall set."""
+        seeds = championship_award_seed(
+            3, 8, [], is_each_group=False, existing_awards=[], also_seed_overall=True
+        )
+        assert [(seed.racing_group_id, seed.place) for seed in seeds] == [
+            (None, 1),
+            (None, 2),
+            (None, 3),
+        ]
+
     def test_an_existing_speed_award_blocks_seeding_entirely(self) -> None:
         existing = [_StubAward(kind=SPEED)]
         assert (

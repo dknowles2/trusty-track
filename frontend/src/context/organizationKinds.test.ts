@@ -7,6 +7,7 @@ import {
     EVENT_KINDS,
     ORGANIZATION_KINDS,
     categoryPresetsFor,
+    isDistrictWords,
     organizationKindFor,
     wordsFor,
 } from './organizationKinds';
@@ -89,5 +90,23 @@ describe('categoryPresetsFor (#928, part 1)', () => {
 
     it('offers nothing for a custom vocabulary that matches no kind', () => {
         expect(categoryPresetsFor({ organizationSingular: 'Troop', racingGroupSingular: 'Patrol' })).toEqual([]);
+    });
+});
+
+describe('isDistrictWords (#1076 stage 3)', () => {
+    it('matches the district/council derby scale exactly', () => {
+        expect(isDistrictWords({ organizationSingular: 'District', racingGroupSingular: 'Rank' })).toBe(true);
+    });
+
+    it('does not match a pack’s own derby', () => {
+        expect(isDistrictWords({ organizationSingular: 'Pack', racingGroupSingular: 'Den' })).toBe(false);
+    });
+
+    it('does not match a custom vocabulary, even one naming ranks', () => {
+        expect(isDistrictWords({ organizationSingular: 'Council', racingGroupSingular: 'Rank' })).toBe(false);
+    });
+
+    it('is case-sensitive — the operator’s own renamed words are a different string', () => {
+        expect(isDistrictWords({ organizationSingular: 'district', racingGroupSingular: 'rank' })).toBe(false);
     });
 });

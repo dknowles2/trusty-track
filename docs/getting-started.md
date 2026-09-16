@@ -111,7 +111,11 @@ Once your system settings are configured, you're ready to create a race event.
      Raingutter Regatta), who is holding it (Cub Scouts, Awana, a school, or
      something else) and, for Cub Scouts, whether it is one pack's own derby
      or a district one. The line at the bottom says which words the race
-     will use — "Pack", "Den" and "Car" for a pack's Pinewood Derby.
+     will use — "Pack", "Den" and "Car" for a pack's Pinewood Derby. If
+     you're setting up a district or council event — several packs racing
+     by rank, with a grand final of the rank winners — see the
+     [District or Council Derby](district-derby.md) guide instead of this
+     one from here on.
 
    ![The Kind of event step, asking what is being raced and who is holding it](assets/screenshots/getting-started/03-new-race-questions.png)
 

@@ -1,19 +1,24 @@
 /**
- * The district-derby flow, end to end (#1076, stage 2).
+ * The district-derby flow, end to end (#1076, stages 2 and 3).
  *
  * `test_format_crossings.py::test_district_derby_crossing` already proves the
  * backend composition — ranks as racing groups, one qualifying round per
  * rank, a combined grand final, awards resolving against `services.scoring`,
  * the roll-down settling a double winner — against the GraphQL client
  * directly. What only a real browser shows is that the same event can be
- * *built* by an operator: the race setup wizard's existing "A district or
- * council derby" scale (`context/organizationKinds.ts`, predates #1076 —
- * ranks and the District/Rank words), a roster imported from a CSV with a
- * Pack column (`Racer.home_unit`, #1076 stage 1), the round wizard's "By
- * Rank" format plus an "Each Rank" championship round, and the Awards page
- * reading it all back — a rank's own champion named with their home unit,
- * a grand-final trophy, and (once `Race.oneTrophyPerRacer` is on) the
- * roll-down note explaining why a double winner's rank trophy moved.
+ * *built* by an operator, and — since stage 3 — built the *short* way: the
+ * race setup wizard's existing "A district or council derby" scale
+ * (`context/organizationKinds.ts`, predates #1076 — ranks and the
+ * District/Rank words), a roster imported from a CSV with a Pack column
+ * (`Racer.home_unit`, stage 1), the round wizard opening pre-filled for "By
+ * Rank" qualifying and an "Each Rank" grand final with "Also give one
+ * overall trophy" already ticked (`ScheduleManagement.tsx`'s
+ * `isDistrictWords` prefill, stage 3 — the organiser no longer chooses any
+ * of that by hand), and the Awards page reading it all back — a rank's own
+ * champion named with their home unit, a grand-final trophy seeded
+ * automatically rather than added by hand, and (once
+ * `Race.oneTrophyPerRacer` is on) the roll-down note explaining why a
+ * double winner's rank trophy moved.
  *
  * A flow test, not a layout one — `scrollWidth` is checked once, at 1280,
  * as a sanity check rather than a mobile-width audit (those live in
@@ -119,23 +124,39 @@ test('a district derby is built through the wizard, the roster, the round wizard
         { racerIds: racers.map((r) => r.id) },
     );
 
-    // --- Round wizard: "By Rank" qualifying, then an "Each Rank"
-    // championship round — the two doors #1076's "What already fits" table
-    // names (`crud.create_general_round`'s `EACH_GROUP` type for qualifying,
-    // `EACH_GROUP` advancement for the grand final), driven through the
-    // screen an operator actually uses. ---
+    // --- Round wizard: opened on a race with no rounds yet, whose words
+    // are the district scale chosen above — the short path #1076 stage 3
+    // adds. It no longer needs to be told "By Rank" qualifying and an
+    // "Each Rank" grand final (`crud.create_general_round`'s `EACH_GROUP`
+    // type for qualifying, `EACH_GROUP` advancement for the grand final,
+    // #1076's own "What already fits" table); it opens on both already,
+    // with "Also give one overall trophy" already ticked too — accepting
+    // the prefill is the whole of this step now. ---
     await page.goto(`/race/${raceId}/control/schedule`);
     await page.getByRole('button', { name: 'Start Round Creation Wizard' }).click();
 
-    await page.getByLabel(/By Rank/).check();
+    await expect(page.getByLabel(/By Rank/)).toBeChecked();
     await page.getByRole('button', { name: 'Next' }).click();
 
-    // Step 2: one championship round ("Grand Finals") is pre-populated;
-    // its "Top performers from" select is the wizard's only `<select>`.
-    // `numTopRacers` already defaults to `championshipTrophies` (3), which
-    // is comfortably under `RACERS_PER_RANK` (5), so nothing else here
-    // needs changing.
-    await page.locator('select').selectOption('EACH_GROUP');
+    // Step 2: one championship round ("Grand Finals") is pre-populated,
+    // already "Each Rank" with "Also give one overall trophy" checked, and
+    // "Number to pick" prefilled at 3 (`championshipTrophies`'s own
+    // default). Raised to 4 here — one more than the trophy count — so
+    // that once the overall trophy claims the three fastest Lions (Lion's
+    // car numbers are always the race's lowest, so Lion sweeps the top of
+    // any combined field under this spec's deterministic times), a fourth
+    // Lion is still in the final and still eligible for Lion's *own*
+    // "Fastest in Lion" award once the roll-down below runs — the
+    // runner-up the roll-down assertion checks for. With only 3 Lions in
+    // the final, all three would already hold the overall trophy and
+    // Lion's own award would have nobody left to roll down to, which is a
+    // correct answer to a different question than the one this spec means
+    // to ask.
+    await expect(page.locator('select')).toHaveValue('EACH_GROUP');
+    await expect(page.getByLabel(/Also give one overall trophy/)).toBeChecked();
+    const numberToPick = page.locator('xpath=//label[text()="Number to pick"]/following-sibling::input');
+    await expect(numberToPick).toHaveValue('3');
+    await numberToPick.fill('4');
     await page.getByRole('button', { name: 'Next' }).click();
 
     await page.getByRole('button', { name: 'Generate schedule' }).click();
@@ -164,28 +185,21 @@ test('a district derby is built through the wizard, the roster, the round wizard
     const finalHeats = (await readHeats(page, raceId)).filter((h) => h.roundId === finalRound.id);
     await recordRound(page, finalHeats, racers);
 
-    // --- Awards: the wizard's own championship-trophy seeding (#1082) has
+    // --- Awards: the wizard's own championship-trophy seeding (#1082,
+    // extended by #1076 stage 3's "Also give one overall trophy") has
     // already created one "1st Place"/"2nd/3rd" set per rank, scoped to the
-    // grand final round (`EACH_GROUP` advancement seeds per group) — that is
-    // this event's "rank champion" set. A single grand-final trophy is not
-    // auto-seeded for an `EACH_GROUP` final (the auto-seed's one departure:
-    // it seeds *per group*, never one overall, when the source is
-    // `EACH_GROUP` — see `.claude/rules/advancement-and-awards.md`'s
-    // "Awards"), so it is added the ordinary way an operator would: "Add an
-    // award", which defaults to a `SPEED` award sourced from the race's own
-    // last championship round (#862) — exactly the grand final. ---
+    // grand final round (`EACH_GROUP` advancement seeds per group) — this
+    // event's "rank champion" set — *and* one more, unscoped, set for
+    // whoever is fastest across the grand final as a whole. No "Add an
+    // award" step: accepting the checkbox above is what seeds it. ---
     await page.goto(`/race/${raceId}/awards`);
-    await page.getByRole('button', { name: /add an award/i }).click();
-    await page.getByLabel('Award name').fill('Grand Final Champion');
-    await page.getByRole('button', { name: 'Add award' }).click();
 
-    // Scoped to `.award-row-name-text`/`.award-row-desc`, not the whole
-    // `<li>` — once the roll-down is on (below), "Fastest in Lion"'s own
-    // note reads "...already won Grand Final Champion.", which would make a
-    // whole-row `hasText: 'Grand Final Champion'` filter match *both* rows.
+    // Scoped to `.award-row-desc`, not the whole `<li>` — its description
+    // ("Fastest in Grand Finals") is what distinguishes it from a rank's own
+    // "1st Place" row, which reads "Fastest in Lion" instead.
     const grandFinalRow = page
         .locator('li')
-        .filter({ has: page.locator('.award-row-name-text', { hasText: 'Grand Final Champion' }) });
+        .filter({ has: page.locator('.award-row-desc', { hasText: 'Fastest in Grand Finals' }) });
     await expect(grandFinalRow).toBeVisible();
     await expect(grandFinalRow.getByText('Not decided by the racing yet')).toHaveCount(0);
     const grandFinalWinner = (await grandFinalRow.locator('.award-row-recipient span').first().textContent())!;
@@ -201,8 +215,8 @@ test('a district derby is built through the wizard, the roster, the round wizard
     // The double winner: `RANKS`' file order and `PER_GROUP` numbering give
     // Lion the lowest car numbers in the race, so the grand final's overall
     // fastest car is a Lion — the same racer `describeSpeedAward` names for
-    // both "Grand Final Champion" and "Fastest in Lion" before the roll-down
-    // is switched on.
+    // both "Fastest in Grand Finals" and "Fastest in Lion" before the
+    // roll-down is switched on.
     await expect(lionRow.locator('.award-row-recipient')).toContainText(grandFinalWinner.split(' · ')[0]);
 
     // --- The roll-down: "at most one trophy per racer" (`domain/roll_down.py`).
@@ -224,7 +238,12 @@ test('a district derby is built through the wizard, the roster, the round wizard
         .locator('li')
         .filter({ has: page.locator('.award-row-desc', { hasText: 'Fastest in Lion' }) });
     await expect(lionRowAfter).toContainText('Rolled down from Fastest');
-    await expect(lionRowAfter).toContainText('Grand Final Champion');
+    // Not asserted by name here: the passed-over award's own note names it
+    // by its stored `name` (`awardText.rollDownNote`), and the auto-seeded
+    // overall trophy shares the generic "1st Place" name every rank's own
+    // does — distinguishing them is what `.award-row-desc` is for, not the
+    // note text. The recipient check below is the specific assertion.
+    //
     // The recipient moved off the double winner, onto the rank's own
     // runner-up.
     const lionRecipientAfter = (
@@ -236,12 +255,12 @@ test('a district derby is built through the wizard, the roster, the round wizard
     // resolved first (`roll_down.priority_order`), so it keeps its winner.
     const grandFinalRowAfter = page
         .locator('li')
-        .filter({ has: page.locator('.award-row-name-text', { hasText: 'Grand Final Champion' }) });
+        .filter({ has: page.locator('.award-row-desc', { hasText: 'Fastest in Grand Finals' }) });
     await expect(grandFinalRowAfter.locator('.award-row-recipient span').first()).toHaveText(grandFinalWinner);
 
     // A flow test, not a layout test — one sanity check, at 1280, that the
-    // Awards page (now carrying nine seeded rank trophies plus the
-    // hand-added grand-final one) does not overflow.
+    // Awards page (nine seeded rank trophies plus three auto-seeded overall
+    // ones — `championshipTrophies` defaults to 3) does not overflow.
     await page.setViewportSize({ width: 1280, height: 900 });
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(scrollWidth).toBeLessThanOrEqual(1282);

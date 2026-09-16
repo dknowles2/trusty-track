@@ -5068,7 +5068,7 @@ def last_championship_round(db: Session, race_id: int) -> models.Round | None:
 
 
 def seed_championship_awards(
-    db: Session, round_obj: models.Round
+    db: Session, round_obj: models.Round, *, also_seed_overall_award: bool = False
 ) -> list[models.Award]:
     """Create this race's championship trophies, the moment a final round
     exists to point them at (#1082).
@@ -5100,6 +5100,11 @@ def seed_championship_awards(
     was seeded from — "awards are the operator's list once they exist," not
     a live view of whichever round is currently last (#1119's review;
     `.claude/rules/advancement-and-awards.md` has the full reasoning).
+
+    `also_seed_overall_award` (#1076 stage 3) is the round wizard's own
+    "also give one overall trophy" checkbox, offered only alongside an
+    `EACH_GROUP` final — see `domain.awards.championship_award_seed`'s own
+    docstring for what it adds and why it defaults off.
     """
     race = db.query(models.Race).filter(models.Race.id == round_obj.race_id).first()
     if race is None:
@@ -5120,6 +5125,7 @@ def seed_championship_awards(
         is_each_group=is_each_group,
         existing_awards=existing_awards,
         sort_order_start=_next_award_sort_order(db, round_obj.race_id),
+        also_seed_overall=also_seed_overall_award,
     )
     if not seeds:
         return []
