@@ -22,6 +22,7 @@ import { useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import { mdiAlertOutline, mdiCheck, mdiContentCopy } from '@mdi/js';
 import { copyText } from '../../../utils/clipboard';
+import ShareableUrl from '../../../components/ui/ShareableUrl';
 import { shareUrl, qrCodeSrc } from '../../core/shareAddress';
 import { qrTargetPath } from '../qrCode';
 import { NETWORK_ADDRESSES_QUERY } from '../graphql/queries';
@@ -62,8 +63,8 @@ export default function ConnectDisplayAddress({ raceId }: { raceId: number }) {
                 gap: '0.75rem',
             }}
         >
-            <span style={{ color: 'var(--text-muted-color)', wordBreak: 'break-all' }}>
-                Open this address on a screen anywhere on this network to connect it: {url}
+            <span style={{ color: 'var(--text-muted-color)' }}>
+                Open this address on a screen anywhere on this network to connect it: <ShareableUrl url={url} />
             </span>
             <button
                 type="button"

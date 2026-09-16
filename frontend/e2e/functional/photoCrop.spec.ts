@@ -112,6 +112,16 @@ async function openCropModal(page: Page, raceId: number): Promise<Locator> {
     await page.getByRole('button', { name: /Checked In/ }).click();
 
     const form = page.getByRole('dialog', { name: 'Racer Check In' });
+    // #1153: the photo panels sit behind a **Photos** disclosure now, closed
+    // by default under 768px — this spec's own 375px case included. Opening
+    // it is a no-op above that breakpoint (already open), and checking
+    // `open` first rather than clicking unconditionally avoids toggling an
+    // already-open `<details>` back closed.
+    const photosSection = form.getByTestId('racer-form-photos');
+    const photosOpen = await photosSection.evaluate((el) => (el as HTMLDetailsElement).open);
+    if (!photosOpen) {
+        await photosSection.locator('summary').click();
+    }
     await form.getByRole('button', { name: /rotate \/ recrop/i }).click();
 
     const dialog = page.getByRole('dialog', { name: /rotate \/ recrop photo/i });

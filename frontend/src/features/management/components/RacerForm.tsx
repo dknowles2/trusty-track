@@ -10,6 +10,7 @@ import { duplicateCarNumberNotice, type CarNumberHolder } from '../carNumberChec
 import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { errorText } from '../../../utils/errors';
+import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
 import {
   PHOTOS_REFUSED_ON_DEMO_MESSAGE,
   useIsRefusedOnDemo,
@@ -111,8 +112,11 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   const [cropTarget, setCropTarget] = useState<'none' | 'racer' | 'car'>('none');
   // Where the cursor goes after "Save and add another": without this the focus
   // sits on a button and the next name has to be reached for with the mouse,
-  // which is most of what the button was meant to save.
+  // which is most of what the button was meant to save. Also where a
+  // check-in's own validation (below) sends focus back to, since First Name
+  // is the first field inside the Details disclosure.
   const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
   const [, uploadImageMutation] = useMutation(UPLOAD_IMAGE);
   const { showAlert } = useAlert();
   // Refused before the upload, not after (#1095) — a 4 MB photo read into a
@@ -145,6 +149,19 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   const submitButtonLabel = checkInMode
     ? (formData.car_passed_inspection ? (submitLabel || 'Save Check-in') : 'Save without checking in')
     : (submitLabel || 'Save Racer');
+
+  // #1153: check-in mode puts everything but weight, the inspection toggle
+  // and Save behind two disclosures — Details (name, number, group, car
+  // name, "Racing, not ranked") and Photos — so the desk's own queue-time
+  // changes reach Save with no scroll on a phone or a tablet in portrait.
+  // `useNarrowViewport(768)` (the same breakpoint `RaceDetails.tsx`'s own
+  // mobile chrome reads) decides only the *initial* state: open above the
+  // breakpoint, closed under it, matching the settings page's own sectioned
+  // form and the roster's setup checklist. Add Racer is unaffected — both
+  // start (and stay) open there, since `checkInMode` is false.
+  const narrow = useNarrowViewport(768);
+  const [detailsOpen, setDetailsOpen] = useState(!checkInMode || !narrow);
+  const [photosOpen, setPhotosOpen] = useState(!checkInMode || !narrow);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -199,6 +216,27 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // In check-in mode, First/Last Name live inside the collapsible Details
+    // section — a real browser auto-opens an ancestor `<details>` to reveal
+    // an invalid field it has to focus, but jsdom does not model that (and
+    // `required` alone does not stop a value of all-whitespace anyway), so
+    // this is the explicit backstop: open the section and focus the empty
+    // field before anything is sent. Every check-in reaches this form
+    // already named (`RaceDetails.handleCheckInClick` seeds `initialData`
+    // from an existing racer), so this only ever fires if a name is
+    // cleared out by hand.
+    if (checkInMode) {
+      if (!formData.first_name.trim()) {
+        setDetailsOpen(true);
+        firstNameRef.current?.focus();
+        return;
+      }
+      if (!formData.last_name.trim()) {
+        setDetailsOpen(true);
+        lastNameRef.current?.focus();
+        return;
+      }
+    }
     setLoading(true);
     try {
       await onSubmit(formData);
@@ -222,277 +260,389 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
     }
   };
 
+  // Every field below is built once and composed into one of two
+  // arrangements further down — the same inputs, refs and handlers either
+  // way, per #1153's own rule that check-in mode is a different layout of
+  // one form, not a second form.
+  const firstNameField = (
+    <div>
+      <label htmlFor="racer-first-name" style={{ display: 'block', marginBottom: '5px' }}>First Name</label>
+      <input
+        type="text"
+        name="first_name"
+        id="racer-first-name"
+        ref={firstNameRef}
+        value={formData.first_name}
+        onChange={handleChange}
+        required
+        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+      />
+    </div>
+  );
+
+  const lastNameField = (
+    <div>
+      <label htmlFor="racer-last-name" style={{ display: 'block', marginBottom: '5px' }}>Last Name</label>
+      <input
+        type="text"
+        name="last_name"
+        id="racer-last-name"
+        ref={lastNameRef}
+        value={formData.last_name}
+        onChange={handleChange}
+        required
+        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+      />
+    </div>
+  );
+
+  const carNumberField = (
+    <div>
+      <label htmlFor="racer-car-number" style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Number</label>
+      <input
+        type="number"
+        name="car_number"
+        id="racer-car-number"
+        value={formData.car_number || ''}
+        onChange={handleChange}
+        aria-describedby={carNumberWarning ? 'racer-car-number-notice' : undefined}
+        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+      />
+      {carNumberWarning && (
+        <p
+          id="racer-car-number-notice"
+          data-testid="car-number-warning"
+          style={{ margin: '4px 0 0', color: 'var(--warning-color)', fontSize: '0.8rem' }}
+        >
+          {carNumberWarning}
+        </p>
+      )}
+    </div>
+  );
+
+  // In check-in mode this is the form's own first field — autofocused (the
+  // `autofocus` attribute `Modal` looks for before falling back to "first
+  // focusable element", and React's own commit-time `.focus()` besides,
+  // which is what lets a test render this component with no real `Modal`
+  // around it at all) and `inputMode="decimal"` for a phone's numeric
+  // keypad. Both are no-ops in Add Racer, where `checkInMode` is false.
+  const carWeightField = (
+    <div>
+      <label htmlFor="racer-car-weight" style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Weight (oz)</label>
+      <input
+        type="number"
+        step="0.01"
+        name="car_weight"
+        id="racer-car-weight"
+        autoFocus={checkInMode}
+        inputMode={checkInMode ? 'decimal' : undefined}
+        value={formData.car_weight || ''}
+        onChange={handleChange}
+        placeholder="e.g. 5.0"
+        aria-describedby={overweightNotice ? 'racer-car-weight-notice' : undefined}
+        style={{
+          width: '100%',
+          padding: '8px',
+          borderRadius: '4px',
+          // The border carries the warning as well as the text. The
+          // person reading this is holding a car with a queue behind
+          // them, and the field is what they are looking at.
+          border: overweightNotice ? '2px solid var(--danger-strong-color)' : '1px solid var(--border-color)',
+        }}
+      />
+      {overweightNotice && (
+        <p
+          id="racer-car-weight-notice"
+          data-testid="weight-warning"
+          style={{ margin: '4px 0 0', color: 'var(--danger-strong-color)', fontSize: '0.8rem' }}
+        >
+          {overweightNotice}
+        </p>
+      )}
+    </div>
+  );
+
+  const carNameField = (
+    <div>
+      <label htmlFor="racer-car-name" style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Name</label>
+      <input
+        type="text"
+        name="car_name"
+        id="racer-car-name"
+        value={formData.car_name || ''}
+        onChange={handleChange}
+        placeholder="e.g. Blue Streak"
+        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+      />
+    </div>
+  );
+
+  const racingGroupField = (
+    <div>
+      <label htmlFor="racer-racing-group" style={{ display: 'block', marginBottom: '5px' }}>{group}</label>
+      <select
+        name="racing_group_id"
+        id="racer-racing-group"
+        value={formData.racing_group_id || ''}
+        onChange={handleChange}
+        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+      >
+        <option value="">Select a {group}...</option>
+        {racingGroups.map((racingGroup: RacingGroup) => (
+          <option key={racingGroup.id} value={racingGroup.id}>{racingGroup.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+
+  const passedInspectionToggle = (
+    <div style={{ marginBottom: '20px' }}>
+      {/* `htmlFor` rather than a bare caption: the toggle is a styled
+          checkbox, and without the association it has no accessible name
+          at all — nothing to announce, and nothing to find it by. */}
+      <label htmlFor="car-passed-inspection" style={{ display: 'block', marginBottom: '5px' }}>Passed Inspection / Checked In</label>
+      <label className="toggle-switch">
+        <input
+          id="car-passed-inspection"
+          type="checkbox"
+          name="car_passed_inspection"
+          checked={formData.car_passed_inspection}
+          onChange={handleChange}
+        />
+        <span className="slider"></span>
+      </label>
+    </div>
+  );
+
+  const excludedFromStandingsToggle = (
+    <div>
+      {/* Races, but is not ranked (#548) — the primary control is the
+          roster's bulk action, but this is what lets one racer added
+          individually (the den leader's demonstration car, say) be
+          flagged without a trip to the selection bar. */}
+      <label htmlFor="racer-excluded-from-standings" style={{ display: 'block', marginBottom: '5px' }}>Racing, not ranked</label>
+      <label className="toggle-switch">
+        <input
+          id="racer-excluded-from-standings"
+          type="checkbox"
+          name="excluded_from_standings"
+          checked={formData.excluded_from_standings}
+          onChange={handleChange}
+        />
+        <span className="slider"></span>
+      </label>
+      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '5px', marginBottom: 0 }}>
+        Still races and still shows on the audience displays — just left out of the standings, advancement and awards. For a sibling or parent&apos;s {vehicleLower}, a demonstration run, or an outlaw-class entry.
+      </p>
+    </div>
+  );
+
+  const racerPhotoPanel = (
+    <div>
+      <label style={{ display: 'block', marginBottom: '5px' }}>Racer Photo</label>
+      {formData.racer_image_url && (
+        <img src={formData.racer_image_url} alt="Racer" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: 'var(--divider-color)' }} />
+      )}
+      <div style={{ display: 'flex', gap: '5px' }} title={photosRefused ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}>
+        <input
+          type="file"
+          accept="image/*"
+          style={{ width: '0.1px', height: '0.1px', opacity: 0, overflow: 'hidden', position: 'absolute', zIndex: -1 }}
+          id="racer-file"
+          disabled={photosRefused}
+          onChange={(e) => {
+            if (e.target.files && e.target.files[0]) {
+              uploadFile(e.target.files[0], 'racer');
+            }
+          }}
+        />
+        <label
+          htmlFor="racer-file"
+          className="secondary-btn"
+          style={{ flex: 1, textAlign: 'center', cursor: photosRefused ? 'not-allowed' : 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid var(--input-border-color)', borderRadius: '4px', opacity: photosRefused ? 0.5 : 1 }}
+        >
+           Upload File
+        </label>
+        <button
+          type="button"
+          className="secondary-btn"
+          onClick={() => setShowCamera('racer')}
+          disabled={photosRefused}
+          style={{ flex: 1, padding: '5px', fontSize: '0.8rem', cursor: photosRefused ? 'not-allowed' : 'pointer' }}
+        >
+          📷 Camera
+        </button>
+      </div>
+      {formData.racer_image_url && (
+        <button
+          type="button"
+          className="secondary-btn"
+          onClick={() => setCropTarget('racer')}
+          disabled={photosRefused}
+          title={photosRefused ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}
+          style={{ width: '100%', marginTop: '5px', padding: '5px', fontSize: '0.8rem', cursor: photosRefused ? 'not-allowed' : 'pointer' }}
+        >
+          ⟳ Rotate / Recrop
+        </button>
+      )}
+    </div>
+  );
+
+  const carPhotoPanel = (
+    <div>
+      <label style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Photo</label>
+      {formData.car_image_url && (
+        <img src={formData.car_image_url} alt={vehicle} style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: 'var(--divider-color)' }} />
+      )}
+      <div style={{ display: 'flex', gap: '5px' }} title={photosRefused ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}>
+        <input
+          type="file"
+          accept="image/*"
+          style={{ width: '0.1px', height: '0.1px', opacity: 0, overflow: 'hidden', position: 'absolute', zIndex: -1 }}
+          id="car-file"
+          disabled={photosRefused}
+          onChange={(e) => {
+            if (e.target.files && e.target.files[0]) {
+              uploadFile(e.target.files[0], 'car');
+            }
+          }}
+        />
+        <label
+          htmlFor="car-file"
+          className="secondary-btn"
+          style={{ flex: 1, textAlign: 'center', cursor: photosRefused ? 'not-allowed' : 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid var(--input-border-color)', borderRadius: '4px', opacity: photosRefused ? 0.5 : 1 }}
+        >
+           Upload File
+        </label>
+        <button
+          type="button"
+          className="secondary-btn"
+          onClick={() => setShowCamera('car')}
+          disabled={photosRefused}
+          style={{ flex: 1, padding: '5px', fontSize: '0.8rem', cursor: photosRefused ? 'not-allowed' : 'pointer' }}
+        >
+          📷 Camera
+        </button>
+      </div>
+      {formData.car_image_url && (
+        <button
+          type="button"
+          className="secondary-btn"
+          onClick={() => setCropTarget('car')}
+          disabled={photosRefused}
+          title={photosRefused ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}
+          style={{ width: '100%', marginTop: '5px', padding: '5px', fontSize: '0.8rem', cursor: photosRefused ? 'not-allowed' : 'pointer' }}
+        >
+          ⟳ Rotate / Recrop
+        </button>
+      )}
+    </div>
+  );
+
+  const photosGrid = (
+    <div className="racer-form-grid" style={{ marginBottom: checkInMode ? '0' : '20px' }}>
+      {racerPhotoPanel}
+      {carPhotoPanel}
+    </div>
+  );
+
+  const actionButtons = (
+    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+      <button type="button" onClick={onCancel} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
+      {onSubmitAndContinue && (
+        <button
+          type="button"
+          onClick={handleSubmitAndContinue}
+          disabled={loading || !formData.first_name || !formData.last_name}
+          className="secondary-btn"
+          style={{ fontSize: '0.9rem', padding: '8px 16px' }}
+        >
+          Save and add another
+        </button>
+      )}
+      <button type="submit" disabled={loading} className="primary-btn" style={{ fontSize: '0.9rem', padding: '8px 16px' }}>
+        {loading ? 'Saving...' : submitButtonLabel}
+      </button>
+    </div>
+  );
+
+  // The disclosure's own summary styling — a plain, low-key heading rather
+  // than something that competes with Save above it, in the same spirit as
+  // `SetupChecklist.tsx`'s own `<summary>`.
+  const summaryStyle: React.CSSProperties = {
+    cursor: 'pointer',
+    fontWeight: 600,
+    padding: '8px 0',
+    borderTop: '1px solid var(--border-faint-color)',
+  };
+
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <div className="racer-form-grid" style={{ marginBottom: '10px' }}>
-          <div>
-            <label htmlFor="racer-first-name" style={{ display: 'block', marginBottom: '5px' }}>First Name</label>
-            <input
-              type="text"
-              name="first_name"
-                   id="racer-first-name"
-              ref={firstNameRef}
-              value={formData.first_name}
-              onChange={handleChange}
-              required
-              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
-            />
-          </div>
-          <div>
-             <label htmlFor="racer-last-name" style={{ display: 'block', marginBottom: '5px' }}>Last Name</label>
-             <input
-               type="text"
-               name="last_name"
-                   id="racer-last-name"
-               value={formData.last_name}
-               onChange={handleChange}
-               required
-               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
-             />
-          </div>
-        </div>
+        {checkInMode ? (
+          <>
+            {/* #1153: weight, the inspection toggle and Save — the three
+                things a desk actually changes on every racer — sit above
+                everything else, so they reach the fold on a phone or a
+                tablet in portrait with no scrolling. */}
+            <div style={{ marginBottom: '10px' }}>{carWeightField}</div>
+            {passedInspectionToggle}
+            {actionButtons}
 
-        <div className="racer-form-grid" style={{ marginBottom: '10px' }}>
-            <div>
-                 <label htmlFor="racer-car-number" style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Number</label>
-                 <input
-                   type="number"
-                   name="car_number"
-                   id="racer-car-number"
-                   value={formData.car_number || ''}
-                   onChange={handleChange}
-                   aria-describedby={carNumberWarning ? 'racer-car-number-notice' : undefined}
-                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
-                 />
-                 {carNumberWarning && (
-                   <p
-                     id="racer-car-number-notice"
-                     data-testid="car-number-warning"
-                     style={{ margin: '4px 0 0', color: 'var(--warning-color)', fontSize: '0.8rem' }}
-                   >
-                     {carNumberWarning}
-                   </p>
-                 )}
-            </div>
-            <div>
-                 <label htmlFor="racer-car-weight" style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Weight (oz)</label>
-                 <input
-                   type="number"
-                   step="0.01"
-                   name="car_weight"
-                   id="racer-car-weight"
-                   value={formData.car_weight || ''}
-                   onChange={handleChange}
-                   placeholder="e.g. 5.0"
-                   aria-describedby={overweightNotice ? 'racer-car-weight-notice' : undefined}
-                   style={{
-                     width: '100%',
-                     padding: '8px',
-                     borderRadius: '4px',
-                     // The border carries the warning as well as the text. The
-                     // person reading this is holding a car with a queue behind
-                     // them, and the field is what they are looking at.
-                     border: overweightNotice ? '2px solid var(--danger-strong-color)' : '1px solid var(--border-color)',
-                   }}
-                 />
-                 {overweightNotice && (
-                   <p
-                     id="racer-car-weight-notice"
-                     data-testid="weight-warning"
-                     style={{ margin: '4px 0 0', color: 'var(--danger-strong-color)', fontSize: '0.8rem' }}
-                   >
-                     {overweightNotice}
-                   </p>
-                 )}
-            </div>
-        </div>
-
-        <div style={{ marginBottom: '10px' }}>
-             <label htmlFor="racer-car-name" style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Name</label>
-             <input
-               type="text"
-               name="car_name"
-                   id="racer-car-name"
-               value={formData.car_name || ''}
-               onChange={handleChange}
-               placeholder="e.g. Blue Streak"
-               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
-             />
-        </div>
-
-        <div style={{ marginBottom: '10px' }}>
-             <label htmlFor="racer-racing-group" style={{ display: 'block', marginBottom: '5px' }}>{group}</label>
-             <select
-               name="racing_group_id"
-                   id="racer-racing-group"
-               value={formData.racing_group_id || ''}
-               onChange={handleChange}
-               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
-             >
-                <option value="">Select a {group}...</option>
-                {racingGroups.map((racingGroup: RacingGroup) => (
-                    <option key={racingGroup.id} value={racingGroup.id}>{racingGroup.name}</option>
-                ))}
-             </select>
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-            {/* `htmlFor` rather than a bare caption: the toggle is a styled
-                checkbox, and without the association it has no accessible name
-                at all — nothing to announce, and nothing to find it by. */}
-            <label htmlFor="car-passed-inspection" style={{ display: 'block', marginBottom: '5px' }}>Passed Inspection / Checked In</label>
-            <label className="toggle-switch">
-                <input
-                    id="car-passed-inspection"
-                    type="checkbox"
-                    name="car_passed_inspection"
-                    checked={formData.car_passed_inspection}
-                    onChange={handleChange}
-                />
-                <span className="slider"></span>
-            </label>
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-            {/* Races, but is not ranked (#548) — the primary control is the
-                roster's bulk action, but this is what lets one racer added
-                individually (the den leader's demonstration car, say) be
-                flagged without a trip to the selection bar. */}
-            <label htmlFor="racer-excluded-from-standings" style={{ display: 'block', marginBottom: '5px' }}>Racing, not ranked</label>
-            <label className="toggle-switch">
-                <input
-                    id="racer-excluded-from-standings"
-                    type="checkbox"
-                    name="excluded_from_standings"
-                    checked={formData.excluded_from_standings}
-                    onChange={handleChange}
-                />
-                <span className="slider"></span>
-            </label>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '5px', marginBottom: 0 }}>
-                Still races and still shows on the audience displays — just left out of the standings, advancement and awards. For a sibling or parent&apos;s {vehicleLower}, a demonstration run, or an outlaw-class entry.
-            </p>
-        </div>
-
-        <div className="racer-form-grid" style={{ marginBottom: '20px' }}>
-            {/* Racer Image Upload */}
-            <div>
-                <label style={{ display: 'block', marginBottom: '5px' }}>Racer Photo</label>
-                {formData.racer_image_url && (
-                    <img src={formData.racer_image_url} alt="Racer" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: 'var(--divider-color)' }} />
-                )}
-                <div style={{ display: 'flex', gap: '5px' }} title={photosRefused ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}>
-                    <input
-                        type="file"
-                        accept="image/*"
-                        style={{ width: '0.1px', height: '0.1px', opacity: 0, overflow: 'hidden', position: 'absolute', zIndex: -1 }}
-                        id="racer-file"
-                        disabled={photosRefused}
-                        onChange={(e) => {
-                            if (e.target.files && e.target.files[0]) {
-                                uploadFile(e.target.files[0], 'racer');
-                            }
-                        }}
-                    />
-                    <label
-                        htmlFor="racer-file"
-                        className="secondary-btn"
-                        style={{ flex: 1, textAlign: 'center', cursor: photosRefused ? 'not-allowed' : 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid var(--input-border-color)', borderRadius: '4px', opacity: photosRefused ? 0.5 : 1 }}
-                    >
-                         Upload File
-                    </label>
-                    <button
-                        type="button"
-                        className="secondary-btn"
-                        onClick={() => setShowCamera('racer')}
-                        disabled={photosRefused}
-                        style={{ flex: 1, padding: '5px', fontSize: '0.8rem', cursor: photosRefused ? 'not-allowed' : 'pointer' }}
-                    >
-                        📷 Camera
-                    </button>
-                </div>
-                {formData.racer_image_url && (
-                    <button
-                        type="button"
-                        className="secondary-btn"
-                        onClick={() => setCropTarget('racer')}
-                        disabled={photosRefused}
-                        title={photosRefused ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}
-                        style={{ width: '100%', marginTop: '5px', padding: '5px', fontSize: '0.8rem', cursor: photosRefused ? 'not-allowed' : 'pointer' }}
-                    >
-                        ⟳ Rotate / Recrop
-                    </button>
-                )}
-            </div>
-             {/* Car Image Upload */}
-             <div>
-                <label style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Photo</label>
-                {formData.car_image_url && (
-                    <img src={formData.car_image_url} alt={vehicle} style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: 'var(--divider-color)' }} />
-                )}
-                <div style={{ display: 'flex', gap: '5px' }} title={photosRefused ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}>
-                    <input
-                        type="file"
-                        accept="image/*"
-                        style={{ width: '0.1px', height: '0.1px', opacity: 0, overflow: 'hidden', position: 'absolute', zIndex: -1 }}
-                        id="car-file"
-                        disabled={photosRefused}
-                        onChange={(e) => {
-                            if (e.target.files && e.target.files[0]) {
-                                uploadFile(e.target.files[0], 'car');
-                            }
-                        }}
-                    />
-                    <label
-                        htmlFor="car-file"
-                        className="secondary-btn"
-                        style={{ flex: 1, textAlign: 'center', cursor: photosRefused ? 'not-allowed' : 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid var(--input-border-color)', borderRadius: '4px', opacity: photosRefused ? 0.5 : 1 }}
-                    >
-                         Upload File
-                    </label>
-                    <button
-                        type="button"
-                        className="secondary-btn"
-                        onClick={() => setShowCamera('car')}
-                        disabled={photosRefused}
-                        style={{ flex: 1, padding: '5px', fontSize: '0.8rem', cursor: photosRefused ? 'not-allowed' : 'pointer' }}
-                    >
-                        📷 Camera
-                    </button>
-                </div>
-                {formData.car_image_url && (
-                    <button
-                        type="button"
-                        className="secondary-btn"
-                        onClick={() => setCropTarget('car')}
-                        disabled={photosRefused}
-                        title={photosRefused ? PHOTOS_REFUSED_ON_DEMO_MESSAGE : undefined}
-                        style={{ width: '100%', marginTop: '5px', padding: '5px', fontSize: '0.8rem', cursor: photosRefused ? 'not-allowed' : 'pointer' }}
-                    >
-                        ⟳ Rotate / Recrop
-                    </button>
-                )}
-            </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          <button type="button" onClick={onCancel} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
-          {onSubmitAndContinue && (
-            <button
-              type="button"
-              onClick={handleSubmitAndContinue}
-              disabled={loading || !formData.first_name || !formData.last_name}
-              className="secondary-btn"
-              style={{ fontSize: '0.9rem', padding: '8px 16px' }}
+            <details
+              data-testid="racer-form-details"
+              open={detailsOpen}
+              onToggle={(e) => setDetailsOpen(e.currentTarget.open)}
+              style={{ marginBottom: '10px' }}
             >
-              Save and add another
-            </button>
-          )}
-          <button type="submit" disabled={loading} className="primary-btn" style={{ fontSize: '0.9rem', padding: '8px 16px' }}>
-            {loading ? 'Saving...' : submitButtonLabel}
-          </button>
-        </div>
+              <summary style={summaryStyle}>Details</summary>
+              <div style={{ paddingTop: '10px' }}>
+                <div className="racer-form-grid" style={{ marginBottom: '10px' }}>
+                  {firstNameField}
+                  {lastNameField}
+                </div>
+                <div style={{ marginBottom: '10px' }}>{carNumberField}</div>
+                <div style={{ marginBottom: '10px' }}>{racingGroupField}</div>
+                <div style={{ marginBottom: '10px' }}>{carNameField}</div>
+                <div style={{ marginBottom: '10px' }}>{excludedFromStandingsToggle}</div>
+              </div>
+            </details>
+
+            <details
+              data-testid="racer-form-photos"
+              open={photosOpen}
+              onToggle={(e) => setPhotosOpen(e.currentTarget.open)}
+              style={{ marginBottom: '10px' }}
+            >
+              <summary style={summaryStyle}>Photos</summary>
+              <div style={{ paddingTop: '10px' }}>{photosGrid}</div>
+            </details>
+          </>
+        ) : (
+          <>
+            <div className="racer-form-grid" style={{ marginBottom: '10px' }}>
+              {firstNameField}
+              {lastNameField}
+            </div>
+
+            <div className="racer-form-grid" style={{ marginBottom: '10px' }}>
+              {carNumberField}
+              {carWeightField}
+            </div>
+
+            <div style={{ marginBottom: '10px' }}>{carNameField}</div>
+
+            <div style={{ marginBottom: '10px' }}>{racingGroupField}</div>
+
+            {passedInspectionToggle}
+
+            <div style={{ marginBottom: '20px' }}>{excludedFromStandingsToggle}</div>
+
+            {photosGrid}
+
+            {actionButtons}
+          </>
+        )}
       </form>
 
       {showCamera !== 'none' && (
