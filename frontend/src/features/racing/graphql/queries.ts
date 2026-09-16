@@ -220,6 +220,16 @@ export const GET_RACE_CONTROL_DATA = gql`
           place
           skipped
         }
+        # Stored replay clips (#177 stage 2) — empty whether the setting is
+        # off or nothing has been uploaded yet for this heat; either way
+        # there is nothing to offer a play button for. See the HeatReplay
+        # model's own docstring.
+        replays {
+          cameraId
+          url
+          durationMs
+          t0OffsetMs
+        }
       }
       rounds {
         id

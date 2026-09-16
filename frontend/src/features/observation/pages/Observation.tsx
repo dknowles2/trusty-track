@@ -50,6 +50,7 @@ import IdentifyPresence from '../IdentifyPresence';
 import { useIdentifyOverlay } from '../useIdentifyOverlay';
 import IntermissionOverlay from '../components/IntermissionOverlay';
 import RaceFinishedOverlay from '../components/RaceFinishedOverlay';
+import ReplayPlayer from '../components/ReplayPlayer';
 import { finalChampionshipRound, raceIsFinished } from '../raceFinished';
 import { roundLabel as championshipRoundLabel } from '../../stats/disruptedRounds';
 import { defaultEliminationRound, isEliminationOnlyRace } from '../../stats/eliminationScope';
@@ -1315,27 +1316,16 @@ export default function Observation() {
 
     return (
       <div className="replay-player-overlay" data-testid="replay-player">
-        <video
+        <ReplayPlayer
           // Keyed on `playCount` too, not just the clip — a repeat showing
           // of the *same* clip has to remount the element (which is what
           // actually restarts `autoPlay`), since the browser has no reason
-          // to replay a video that already reached `ended`.
+          // to replay a video that already reached `ended`. See
+          // `ReplayPlayer`'s own docstring for why this key lives here,
+          // at the call site, rather than inside that component.
           key={`${clip.url}-${replayPlaybackState.clipIndex}-${replayPlaybackState.playCount}`}
-          src={clip.url}
-          autoPlay
-          muted
-          playsInline
-          data-testid="replay-video"
-          ref={(el) => {
-            if (el) el.playbackRate = settings.rate;
-          }}
-          style={{
-            width: '80vmin',
-            maxWidth: '90vw',
-            maxHeight: '70vh',
-            borderRadius: '12px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-          }}
+          url={clip.url}
+          rate={settings.rate}
           onEnded={() => {
             const step = afterClipEnded(replayPlaybackState, settings.showings, replayClips.length);
             if (step === 'done') {

@@ -77,7 +77,10 @@ export type HistoricalTrackRecordInput = {
 
 export type InitialConfigInput = {
   checkinPin?: string | null | undefined;
+  clearReplayRetentionHeats?: boolean;
+  clearReplayRetentionMb?: boolean;
   clearTerminology?: boolean;
+  keepReplays?: boolean | null | undefined;
   nameDisplay?: string | null | undefined;
   operatorPin?: string | null | undefined;
   organizationName: string;
@@ -85,6 +88,8 @@ export type InitialConfigInput = {
   organizationSingular?: string | null | undefined;
   racingGroupPlural?: string | null | undefined;
   racingGroupSingular?: string | null | undefined;
+  replayRetentionHeats?: number | null | undefined;
+  replayRetentionMb?: number | null | undefined;
   tracks: Array<TrackInput>;
   vehicleArtworkKey?: string | null | undefined;
   vehiclePlural?: string | null | undefined;
@@ -989,7 +994,7 @@ export type GetRaceControlDataQueryVariables = Exact<{
 }>;
 
 
-export type GetRaceControlDataQuery = { initialConfig: { debugMode: boolean }, race: { id: number, name: string, championshipTrophies: number, scoringStrategy: string, autoAdvanceHeat: boolean, registeredCount: number, checkedInCount: number, isLocked: boolean, masterRunningOrder: boolean, track: { id: number, laneCount: number, timerType: string, laneOutages: Array<number>, laneColors: Array<string> } | null, racingGroups: Array<{ id: number, name: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null, carImageUrl: string | null, carPassedInspection: boolean }>, heats: Array<{ id: number, heatNumber: number, roundNumber: number, roundId: number, roundName: string | null, recordedAt: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null, time: number | null, place: number | null, skipped: boolean }> }>, rounds: Array<{ id: number, roundNumber: number, name: string | null, advancementSource: string | null, advancementFromBottom: boolean, fieldPinned: boolean, schedulingStrategy: string, algorithm: string, eliminationLosses: number | null, balancedPhases: number | null, racingGroupId: number | null, eliminationChart: { maxLosses: number, decided: boolean, waves: Array<{ number: number, heats: Array<{ heatId: number, heatNumber: number, finished: boolean, lanes: Array<{ lane: number, racerId: number | null, outcome: string | null, lossesAfter: number, out: boolean }> }> }>, standings: Array<{ racerId: number, losses: number, alive: boolean }> } | null, advancementStatus: { isReady: boolean, requiresAdvancement: boolean, alreadyAdvanced: boolean, fieldIsStale: boolean, contestedCut: boolean, fieldIsPinned: boolean, source: string | null, numRacers: number | null, fromBottom: boolean, advancingRacers: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, racingGroupName: string, score: number, rank: number, isAdvancing: boolean }> } }> } | null };
+export type GetRaceControlDataQuery = { initialConfig: { debugMode: boolean }, race: { id: number, name: string, championshipTrophies: number, scoringStrategy: string, autoAdvanceHeat: boolean, registeredCount: number, checkedInCount: number, isLocked: boolean, masterRunningOrder: boolean, track: { id: number, laneCount: number, timerType: string, laneOutages: Array<number>, laneColors: Array<string> } | null, racingGroups: Array<{ id: number, name: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null, carImageUrl: string | null, carPassedInspection: boolean }>, heats: Array<{ id: number, heatNumber: number, roundNumber: number, roundId: number, roundName: string | null, recordedAt: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null, time: number | null, place: number | null, skipped: boolean }>, replays: Array<{ cameraId: string, url: string, durationMs: number, t0OffsetMs: number }> }>, rounds: Array<{ id: number, roundNumber: number, name: string | null, advancementSource: string | null, advancementFromBottom: boolean, fieldPinned: boolean, schedulingStrategy: string, algorithm: string, eliminationLosses: number | null, balancedPhases: number | null, racingGroupId: number | null, eliminationChart: { maxLosses: number, decided: boolean, waves: Array<{ number: number, heats: Array<{ heatId: number, heatNumber: number, finished: boolean, lanes: Array<{ lane: number, racerId: number | null, outcome: string | null, lossesAfter: number, out: boolean }> }> }>, standings: Array<{ racerId: number, losses: number, alive: boolean }> } | null, advancementStatus: { isReady: boolean, requiresAdvancement: boolean, alreadyAdvanced: boolean, fieldIsStale: boolean, contestedCut: boolean, fieldIsPinned: boolean, source: string | null, numRacers: number | null, fromBottom: boolean, advancingRacers: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, racingGroupName: string, score: number, rank: number, isAdvancing: boolean }> } }> } | null };
 
 export type CreateRoundMutationVariables = Exact<{
   raceId: number;

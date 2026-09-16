@@ -28,6 +28,10 @@ export const heat = (
     roundName: 'Round 1',
     recordedAt: null,
     lanes,
+    // Stored replay clips (#177 stage 2) — empty by default, matching
+    // every heat before a camera has uploaded anything (or before the
+    // `keepReplays` setting is ever turned on at all).
+    replays: [],
     ...rest,
   };
 };
