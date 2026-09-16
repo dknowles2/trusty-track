@@ -59,9 +59,9 @@ describe('RaceControl Reordering on Run', () => {
             racingGroups: [],
             racers: [],
             heats: [
-                { id: 1, roundId: 10, roundNumber: 1, heatNumber: 1, lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }] }, // Completed
-                { id: 2, roundId: 10, roundNumber: 1, heatNumber: 2, lanes: [] }, // Next
-                { id: 3, roundId: 10, roundNumber: 1, heatNumber: 3, lanes: [] }  // Future
+                { id: 1, roundId: 10, roundNumber: 1, heatNumber: 1, lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }], replays: [] }, // Completed
+                { id: 2, roundId: 10, roundNumber: 1, heatNumber: 2, lanes: [], replays: [] }, // Next
+                { id: 3, roundId: 10, roundNumber: 1, heatNumber: 3, lanes: [], replays: [] }  // Future
             ]
         }
     };

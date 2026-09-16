@@ -38,6 +38,7 @@ describe('RaceExecution sound effect transitions (#554)', () => {
             lane({ lane: 1, racerId: 101 }),
             lane({ lane: 2, racerId: 102 }),
         ],
+        replays: [],
     };
 
     const racers = {

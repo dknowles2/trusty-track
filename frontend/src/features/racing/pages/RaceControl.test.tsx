@@ -52,13 +52,13 @@ vi.mock('../components/RaceExecution', () => ({
             {roundSummary && <div data-testid="round-summary-id">{roundSummary.roundId}</div>}
             <button onClick={() => onRunHeat({
                 id: 1,
-                heatNumber: 1, lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }]
+                heatNumber: 1, lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }], replays: []
             }, true)}>Run Heat 1</button>
             {/* Jumps ahead of an uncompleted heat, which is what triggers the
                 reorder-then-navigate path in handleRunHeat (issue #416). */}
             <button onClick={() => onRunHeat({
                 id: 3, roundId: 5,
-                heatNumber: 3, lanes: [{ lane: 1, racerId: 3, placeholderSlot: null, time: null, place: null, skipped: false }]
+                heatNumber: 3, lanes: [{ lane: 1, racerId: 3, placeholderSlot: null, time: null, place: null, skipped: false }], replays: []
             }, true)}>Run Heat 3 (jump ahead)</button>
             <button onClick={() => {
                 // Simulate finishing heat
@@ -126,8 +126,8 @@ describe('RaceControl Page', () => {
                 { id: 102, firstName: 'C', lastName: 'D', carNumber: 102 }
             ],
             heats: [
-                { id: 1, roundNumber: 1, heatNumber: 1, lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }] }, // Completed heat
-                { id: 2, roundNumber: 1, heatNumber: 2, lanes: [] }
+                { id: 1, roundNumber: 1, heatNumber: 1, lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }], replays: [] }, // Completed heat
+                { id: 2, roundNumber: 1, heatNumber: 2, lanes: [], replays: [] }
             ]
         }
     };
@@ -168,10 +168,12 @@ describe('RaceControl Page', () => {
     const ran = (id: number, roundNumber: number, heatNumber: number) => ({
         id, roundNumber, heatNumber,
         lanes: [{ lane: 1, racerId: 1, placeholderSlot: null, time: 3.5, place: 1, skipped: false }],
+        replays: [],
     });
     const notRun = (id: number, roundNumber: number, heatNumber: number) => ({
         id, roundNumber, heatNumber,
         lanes: [{ lane: 1, racerId: 1, placeholderSlot: null, time: null, place: null, skipped: false }],
+        replays: [],
     });
 
     const openRaceTab = async () => {
@@ -283,6 +285,23 @@ describe('RaceControl Page', () => {
         expect(screen.queryByText('Heat 7')).not.toBeInTheDocument();
         expect(screen.getAllByText('Heat 1')).toHaveLength(2);
         expect(screen.getByText('Grand Finals')).toBeInTheDocument();
+    });
+
+    it('offers a ▶ on a Previous Heats row only for a heat with a stored clip (#177 stage 2)', async () => {
+        withHeats([
+            { ...ran(1, 1, 1), replays: [{ cameraId: 'finish-line', url: '/replay/one.webm', durationMs: 4000, t0OffsetMs: 500 }] },
+            ran(2, 1, 2),
+            notRun(3, 1, 3),
+        ]);
+
+        await openRaceTab();
+
+        expect(screen.getByTestId('heat-replay-btn-1')).toBeInTheDocument();
+        expect(screen.queryByTestId('heat-replay-btn-2')).toBeNull();
+
+        fireEvent.click(screen.getByTestId('heat-replay-btn-1'));
+
+        expect(screen.getByText('Replay — Heat 1')).toBeInTheDocument();
     });
 
     it('collapses Previous Heats to one summary row per heat under 600px, expanding on tap (#1152)', async () => {
@@ -445,9 +464,9 @@ describe('RaceControl Page', () => {
         (useMutation as any).mockImplementation(() => [{ fetching: false }, mockMutate]);
 
         withHeats([
-            { id: 1, roundId: 5, heatNumber: 1, lanes: [{ lane: 1, racerId: 1, placeholderSlot: null, time: 3.5, place: 1, skipped: false }] },
-            { id: 2, roundId: 5, heatNumber: 2, lanes: [{ lane: 1, racerId: 2, placeholderSlot: null, time: null, place: null, skipped: false }] },
-            { id: 3, roundId: 5, heatNumber: 3, lanes: [{ lane: 1, racerId: 3, placeholderSlot: null, time: null, place: null, skipped: false }] },
+            { id: 1, roundId: 5, heatNumber: 1, lanes: [{ lane: 1, racerId: 1, placeholderSlot: null, time: 3.5, place: 1, skipped: false }], replays: [] },
+            { id: 2, roundId: 5, heatNumber: 2, lanes: [{ lane: 1, racerId: 2, placeholderSlot: null, time: null, place: null, skipped: false }], replays: [] },
+            { id: 3, roundId: 5, heatNumber: 3, lanes: [{ lane: 1, racerId: 3, placeholderSlot: null, time: null, place: null, skipped: false }], replays: [] },
         ]);
 
         await openRaceTab();

@@ -61,6 +61,7 @@ const mockHeats: Heat[] = [
         recordedAt: '2026-01-01T00:00:00Z',
         lanes: [{ lane: 1, racerId: 1, placeholderSlot: null, time: 5.0, place: 1, skipped: false }],
         roundName: 'Round 1',
+        replays: [],
     },
 ];
 
@@ -76,6 +77,7 @@ const unracedHeats: Heat[] = [
         recordedAt: null,
         lanes: [{ lane: 1, racerId: 1, placeholderSlot: null, time: null, place: null, skipped: false }],
         roundName: 'Round 1',
+        replays: [],
     },
 ];
 

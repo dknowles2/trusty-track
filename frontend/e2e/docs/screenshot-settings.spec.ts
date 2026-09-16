@@ -207,6 +207,21 @@ test('screenshot the settings panels', async ({ page }) => {
 
     await screenshotLocator(appearancePanel, { path: path.join(SCREENSHOT_DIR, '08-appearance-old-glory.png') });
 
+    // The Replays block (#177 stage 2), inside the same Appearance section
+    // as the three theme pickers above — same "unsaved local state only"
+    // rule: the checkbox is ticked (which is what reveals the two retention
+    // boxes) and never saved, so the install's own `keepReplays` stays off
+    // for every other spec in this pool. `screenshot-instant-replay.spec.ts`
+    // is the one place a *saved*, real "on" setting is exercised, on its own
+    // track with its own cleanup — see that file for why.
+    await page.getByTestId('keep_replays').click();
+    const replayRetentionFields = page.getByTestId('replay-retention-fields');
+    await expect(replayRetentionFields.getByLabel('Keep the last')).toBeVisible();
+    await page.waitForTimeout(200);
+    await screenshotLocator(replayRetentionFields, {
+        path: path.join(SCREENSHOT_DIR, '10-replays-retention.png'),
+    });
+
     // The backup panel, which is a section of its own now — it used to be at
     // the foot of the page, below every track.
     await page.getByTestId('settings-nav-backup').click();

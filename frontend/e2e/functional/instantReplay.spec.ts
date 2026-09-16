@@ -61,6 +61,40 @@ async function finishHeat(page: Page, heatId: number): Promise<void> {
     await gql(page, `mutation IRFinish($heatId: Int!) { fakeTimerFinish(heatId: $heatId) }`, { heatId });
 }
 
+/**
+ * `keepReplays` and its two retention bounds (#177 stage 2) — install-wide,
+ * shared with every other spec in this run, the same `debugAndThemes.spec.ts`
+ * exception this file's own header docs don't otherwise take: each caller
+ * restores it afterward. Driven through the real System Settings form
+ * (Appearance section) rather than a hand-built `updateInitialConfig` call —
+ * the form already holds this install's full track list in its own state and
+ * resends it unchanged, which is what `InitialConfigInput.tracks` being
+ * required (an empty list means "delete every track", not "leave alone")
+ * would otherwise make a hand-built payload responsible for getting right.
+ */
+async function setKeepReplays(
+    page: Page,
+    { on, retentionHeats }: { on: boolean; retentionHeats?: number },
+): Promise<void> {
+    await page.goto('/system-settings');
+    await page.getByTestId('settings-nav-appearance').click();
+    const checkbox = page.getByLabel('Keep replay clips');
+    if (on) {
+        if (!(await checkbox.isChecked())) await checkbox.check();
+        // The retention box only renders while the checkbox is on — fill it
+        // (or clear it, for "no bound") while it is actually on screen.
+        await page.getByLabel('Keep the last').fill(retentionHeats !== undefined ? String(retentionHeats) : '');
+    } else if (await checkbox.isChecked()) {
+        // Clear the bound while the field is still visible, before
+        // unchecking hides it — otherwise a stale number lingers in this
+        // install's own saved state with nothing on screen to show it.
+        await page.getByLabel('Keep the last').fill('');
+        await checkbox.uncheck();
+    }
+    await page.getByRole('button', { name: 'Save Settings' }).click();
+    await expect(page.getByText('Settings saved')).toBeVisible();
+}
+
 test('a camera uploads through FakeCamera, and a replays-on display plays the clip', async ({ browser, page }) => {
     await ensureConfigured(page);
     const { raceId, trackId } = await seedRace(page, 'Instant Replay Playback Race');
@@ -412,4 +446,199 @@ test('a heat re-run plays its corrected clip; the identical clip does not replay
     await display.waitForLoadState('networkidle');
     await display.waitForTimeout(3000);
     await expect(display.getByTestId('replay-video')).toHaveCount(0);
+});
+
+test.describe.serial('stage 2: stored retention, install-wide, so these three run serially rather than racing each other over the shared keepReplays flag (#177)', () => {
+    test('the Schedule tab offers a ▶ once Keep replay clips is on, playing a decodable clip, and it survives the next heat', async ({
+        browser,
+        page,
+    }) => {
+        await ensureConfigured(page);
+        const { raceId, trackId } = await seedRace(page, 'Instant Replay Stored Race');
+        await scheduleWithSpareHeats(page, raceId, 3);
+        const heats = await officialHeatsInOrder(page, raceId);
+        expect(heats.length).toBeGreaterThanOrEqual(4);
+        const [camWarmUp, displayWarmUp, underTest, afterward] = heats;
+
+        await setKeepReplays(page, { on: true });
+
+        try {
+            const camera = await (await browser.newContext()).newPage();
+            await openCamera(camera, raceId, 'spec-camera-stored');
+            await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+            await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
+                timeout: 15000,
+            });
+
+            // Two warm-ups, exactly as every other test in this file — the
+            // camera's own `seen === null` edge, then the first clip a fresh
+            // `heatReplay` subscription would otherwise swallow. Stage 2's own
+            // storage does not depend on a display being open at all, but the
+            // camera still needs to be past its own warm-up before it captures
+            // anything.
+            await runHeatToStart(page, camWarmUp.id);
+            await finishHeat(page, camWarmUp.id);
+            await camera.waitForTimeout(2000);
+
+            const warmUpload = camera.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 45000 },
+            );
+            await runHeatToStart(page, displayWarmUp.id);
+            await finishHeat(page, displayWarmUp.id);
+            await warmUpload;
+
+            const uploadResponse = camera.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 45000 },
+            );
+            await runHeatToStart(page, underTest.id);
+            await finishHeat(page, underTest.id);
+            await uploadResponse;
+            await camera.context().close();
+
+            await page.goto(`/race/${raceId}/control/schedule`);
+            await page.waitForLoadState('networkidle');
+            const replayButton = page.getByTestId(`heat-replay-btn-${underTest.id}`);
+            await expect(replayButton).toBeVisible({ timeout: 15000 });
+
+            await replayButton.click();
+            const video = page.getByTestId('replay-video');
+            await expect(video).toBeVisible({ timeout: 15000 });
+            await expect(video).toHaveAttribute('src', /\/replay\//);
+            await expect
+                .poll(async () => video.evaluate((el: HTMLVideoElement) => el.duration), { timeout: 10000 })
+                .toBeGreaterThan(0);
+            await page.keyboard.press('Escape');
+
+            // Preparing the *next* heat is stage 1a's own purge trigger
+            // (`discard_or_retain`) — with the setting on, it must be a no-op:
+            // the ▶ for the heat under test survives. Finished, not just
+            // armed — an armed-and-never-finished heat leaves the track's
+            // one `TimerManager` RUNNING, which refuses to arm a later
+            // heat (`.claude/rules/timers.md`'s #337) and would starve
+            // every later test sharing this worker's own track.
+            await runHeatToStart(page, afterward.id);
+            await finishHeat(page, afterward.id);
+            await page.goto(`/race/${raceId}/control/schedule`);
+            await page.waitForLoadState('networkidle');
+            await expect(page.getByTestId(`heat-replay-btn-${underTest.id}`)).toBeVisible({ timeout: 15000 });
+        } finally {
+            await setKeepReplays(page, { on: false });
+        }
+    });
+
+    test('no ▶ appears on the Schedule tab when Keep replay clips is off', async ({ browser, page }) => {
+        await ensureConfigured(page);
+        const { raceId, trackId } = await seedRace(page, 'Instant Replay No Storage Race');
+        await scheduleWithSpareHeats(page, raceId);
+        const [warmUp, underTest] = await officialHeatsInOrder(page, raceId);
+
+        const camera = await (await browser.newContext()).newPage();
+        await openCamera(camera, raceId, 'spec-camera-no-storage');
+        await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+        await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
+            timeout: 15000,
+        });
+
+        await runHeatToStart(page, warmUp.id);
+        await finishHeat(page, warmUp.id);
+        await camera.waitForTimeout(2000);
+
+        const uploadResponse = camera.waitForResponse(
+            (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+            { timeout: 45000 },
+        );
+        await runHeatToStart(page, underTest.id);
+        await finishHeat(page, underTest.id);
+        await uploadResponse;
+        await camera.context().close();
+
+        // The clip exists (the camera uploaded it, and it plays on a display
+        // right after the results overlay) — it is simply never persisted as a
+        // `HeatReplay` row, since `keepReplays` is off, which is this
+        // install's own default and so needs no setup here.
+        await page.goto(`/race/${raceId}/control/schedule`);
+        await page.waitForLoadState('networkidle');
+        await expect(page.getByText(`Heat ${underTest.heatNumber}`)).toBeVisible();
+        await expect(page.getByTestId(`heat-replay-btn-${underTest.id}`)).toHaveCount(0);
+    });
+
+    test('retention keeps only the last N heats\' clips', async ({ browser, page }) => {
+        await ensureConfigured(page);
+        const { raceId, trackId } = await seedRace(page, 'Instant Replay Retention Race');
+        await scheduleWithSpareHeats(page, raceId, 3);
+        const heats = await officialHeatsInOrder(page, raceId);
+        expect(heats.length).toBeGreaterThanOrEqual(4);
+        const [camWarmUp, first, second, third] = heats;
+
+        // N=1: only the most recently active heat's clip should ever survive.
+        await setKeepReplays(page, { on: true, retentionHeats: 1 });
+
+        try {
+            const camera = await (await browser.newContext()).newPage();
+            await openCamera(camera, raceId, 'spec-camera-retention');
+            await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+            await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
+                timeout: 15000,
+            });
+
+            await runHeatToStart(page, camWarmUp.id);
+            await finishHeat(page, camWarmUp.id);
+            await camera.waitForTimeout(2000);
+
+            const firstUpload = camera.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 45000 },
+            );
+            await runHeatToStart(page, first.id);
+            await finishHeat(page, first.id);
+            await firstUpload;
+
+            await page.goto(`/race/${raceId}/control/schedule`);
+            await page.waitForLoadState('networkidle');
+            await expect(page.getByTestId(`heat-replay-btn-${first.id}`)).toBeVisible({ timeout: 15000 });
+
+            const secondUpload = camera.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 45000 },
+            );
+            await runHeatToStart(page, second.id);
+            await finishHeat(page, second.id);
+            await secondUpload;
+            await camera.context().close();
+
+            // N=1 purged the first heat's clip the moment the second's landed.
+            await page.goto(`/race/${raceId}/control/schedule`);
+            await page.waitForLoadState('networkidle');
+            await expect(page.getByTestId(`heat-replay-btn-${second.id}`)).toBeVisible({ timeout: 15000 });
+            await expect(page.getByTestId(`heat-replay-btn-${first.id}`)).toHaveCount(0);
+
+            // Mutation-test the bound itself: raise it, run a third heat, and
+            // confirm the second heat's clip — which N=1 would have purged the
+            // identical way — now survives.
+            await setKeepReplays(page, { on: true, retentionHeats: 1000 });
+            const camera2 = await (await browser.newContext()).newPage();
+            await openCamera(camera2, raceId, 'spec-camera-retention-2');
+            await camera2.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+            await expect(camera2.getByTestId('camera-status-line')).toContainText('Listening to', {
+                timeout: 15000,
+            });
+            const thirdUpload = camera2.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 45000 },
+            );
+            await runHeatToStart(page, third.id);
+            await finishHeat(page, third.id);
+            await thirdUpload;
+            await camera2.context().close();
+
+            await page.goto(`/race/${raceId}/control/schedule`);
+            await page.waitForLoadState('networkidle');
+            await expect(page.getByTestId(`heat-replay-btn-${third.id}`)).toBeVisible({ timeout: 15000 });
+            await expect(page.getByTestId(`heat-replay-btn-${second.id}`)).toBeVisible({ timeout: 15000 });
+        } finally {
+            await setKeepReplays(page, { on: false });
+        }
+    });
 });

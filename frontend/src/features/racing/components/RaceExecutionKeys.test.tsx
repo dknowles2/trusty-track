@@ -38,6 +38,7 @@ describe('race day keys and sound', () => {
             lane({ lane: 1, racerId: 101, time: 3.5, place: 1 }),
             lane({ lane: 2, racerId: 102, time: 3.6, place: 2 }),
         ],
+        replays: [],
     };
 
     const nextHeat: Heat = {
@@ -48,6 +49,7 @@ describe('race day keys and sound', () => {
         roundName: 'Round 1',
         recordedAt: null,
         lanes: [lane({ lane: 1, racerId: 101 }), lane({ lane: 2, racerId: 102 })],
+        replays: [],
     };
 
     const racers = {
