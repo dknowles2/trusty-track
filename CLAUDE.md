@@ -215,7 +215,10 @@ Heat            id, race_id, round_id?, kind, heat_number,
 
 `Organization` also carries `keep_replays`, `replay_retention_heats?`,
 `replay_retention_mb?` (#177 stage 2 — see `.claude/rules/displays.md`'s "A
-camera is a display with a role").
+camera is a display with a role"). `Race` also carries
+`intermission_highlights` (#177 stage 3 — whether the current break is
+showing the current round's stored replay clips; see that file's
+"Intermission highlights").
 
 ### Enums (`backend/db/models.py`)
 

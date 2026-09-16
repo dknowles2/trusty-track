@@ -197,3 +197,54 @@ class TestEnd:
 
     def test_is_idempotent(self):
         assert intermission.end() == intermission.end() == intermission.NONE
+
+
+class TestHighlights:
+    """#177 stage 3 — whether a break shows the current round's stored
+    replay clips. This module only carries the flag through; whether it is
+    actually *allowed* to be `True` is `crud.start_intermission`'s job,
+    since that needs a database this module deliberately has none of.
+    """
+
+    def test_defaults_off(self):
+        state = intermission.start(60, None, NOW)
+        assert intermission.resolve(state, NOW).highlights is False
+
+    def test_carried_through_when_requested(self):
+        state = intermission.start(60, None, NOW, highlights=True)
+        assert intermission.resolve(state, NOW).highlights is True
+
+    def test_survives_a_pause_and_resume(self):
+        state = intermission.start(300, None, NOW, highlights=True)
+        paused = intermission.pause(state, NOW + timedelta(seconds=10))
+        assert (
+            intermission.resolve(paused, NOW + timedelta(seconds=10)).highlights is True
+        )
+        resumed = intermission.resume(paused, NOW + timedelta(minutes=5))
+        assert (
+            intermission.resolve(resumed, NOW + timedelta(minutes=5)).highlights is True
+        )
+
+    def test_survives_an_extend(self):
+        state = intermission.start(60, None, NOW, highlights=True)
+        extended = intermission.extend(state, 60, NOW)
+        assert intermission.resolve(extended, NOW).highlights is True
+
+    def test_cleared_once_expired(self):
+        state = intermission.start(60, None, NOW, highlights=True)
+        after = NOW + timedelta(seconds=120)
+        assert intermission.resolve(state, after).highlights is False
+
+    def test_cleared_by_end(self):
+        assert intermission.resolve(intermission.end(), NOW).highlights is False
+
+    def test_a_fresh_restart_does_not_inherit_the_old_value(self):
+        """Restarting a break is a fresh decision, the same as the label
+        (#592's own "a fresh label" precedent) — an operator who ticked the
+        box for one break should not find a later, unrelated break silently
+        carrying it forward just because the countdown was restarted rather
+        than ended first."""
+        state = intermission.start(60, None, NOW, highlights=True)
+        restarted = intermission.start(120, None, NOW)
+        assert intermission.resolve(restarted, NOW).highlights is False
+        assert state != restarted

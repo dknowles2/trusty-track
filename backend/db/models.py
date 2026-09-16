@@ -672,6 +672,17 @@ class Race(Base):
     intermission_paused_remaining_seconds: Mapped[int | None] = mapped_column(
         Integer, nullable=True
     )
+    #: Whether the current break is showing the current round's stored
+    #: replay clips instead of the ordinary next-up preview (#177 stage 3).
+    #: Cleared whenever the intermission ends, the same as `intermission_label`
+    #: — a fresh `start` decides again rather than a stale "on" carrying into
+    #: an unrelated later break. Written only by `startIntermission`, which
+    #: refuses `True` unless `Organization.keep_replays` is on and the race
+    #: already has at least one stored clip (`crud.start_intermission`) — see
+    #: `.claude/rules/displays.md`'s "Intermission highlights".
+    intermission_highlights: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
     #: Once an event has concluded, the operator can lock its race to guard
     #: against an accidental edit — a stray tap on a shared tablet weeks
     #: later, not a person with something to hide (#585). Enforced by

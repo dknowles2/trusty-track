@@ -14,7 +14,7 @@ from backend.api import auth
 from backend.api import schema as schema_module
 from backend.api.pubsub import pubsub
 from backend.api.schema import RaceChangeKind
-from backend.db import crud, schemas
+from backend.db import crud, models, schemas
 
 
 def _seed(db):
@@ -30,6 +30,44 @@ def _seed(db):
             name="Intermission Race", organization_id=org.id, track_id=track.id
         ),
     )
+
+
+def _enable_keep_replays(db, race):
+    organization = (
+        db.query(models.Organization)
+        .filter(models.Organization.id == race.organization_id)
+        .first()
+    )
+    organization.keep_replays = True
+    db.commit()
+    return organization
+
+
+def _add_stored_clip(db, race, *, heat_number=1):
+    """A minimal `HeatReplay` row — enough for `race_has_stored_replays` to
+    see, without going through the upload endpoint's own store/index
+    machinery, which stage 2's own `test_replays.py` already covers."""
+    heat = models.Heat(
+        race_id=race.id,
+        heat_number=heat_number,
+        recorded_at="2026-09-16T12:00:00+00:00",
+    )
+    db.add(heat)
+    db.commit()
+    db.refresh(heat)
+    row = models.HeatReplay(
+        heat_id=heat.id,
+        camera_id="cam-1",
+        recorded_at=heat.recorded_at,
+        path="00000000-0000-0000-0000-000000000000.webm",
+        duration_ms=4000,
+        t0_offset_ms=500,
+        size_bytes=1234,
+        created_at="2026-09-16T12:00:01+00:00",
+    )
+    db.add(row)
+    db.commit()
+    return heat
 
 
 # --------------------------------------------------------------------------- #
@@ -92,6 +130,56 @@ class TestCrud:
             crud.start_intermission(
                 db, race.id, domain_intermission.MAX_DURATION_SECONDS + 1, None
             )
+
+
+class TestHighlightsEligibility:
+    """#177 stage 3 — `highlights` is refused outright, not silently
+    downgraded to `False`, unless `Organization.keepReplays` is on *and*
+    the race already holds at least one stored clip. See
+    `crud.start_intermission`'s own docstring for why a refusal is right
+    here."""
+
+    def test_refuses_when_keep_replays_is_off(self, db):
+        race = _seed(db)
+        _add_stored_clip(db, race)
+        with pytest.raises(ValueError, match="Keep Replay Clips"):
+            crud.start_intermission(db, race.id, 60, None, highlights=True)
+
+    def test_refuses_when_keep_replays_is_on_but_no_clip_exists(self, db):
+        race = _seed(db)
+        _enable_keep_replays(db, race)
+        with pytest.raises(ValueError, match="stored clip"):
+            crud.start_intermission(db, race.id, 60, None, highlights=True)
+
+    def test_accepted_once_both_conditions_hold(self, db):
+        race = _seed(db)
+        _enable_keep_replays(db, race)
+        _add_stored_clip(db, race)
+        updated = crud.start_intermission(db, race.id, 60, None, highlights=True)
+        assert updated.intermission_highlights is True
+
+    def test_off_needs_neither_condition(self, db):
+        """The ordinary case — no camera at this event — is unaffected:
+        `highlights=False` (the default) never touches either check."""
+        race = _seed(db)
+        updated = crud.start_intermission(db, race.id, 60, None)
+        assert updated.intermission_highlights is False
+
+    def test_cleared_on_end(self, db):
+        race = _seed(db)
+        _enable_keep_replays(db, race)
+        _add_stored_clip(db, race)
+        crud.start_intermission(db, race.id, 60, None, highlights=True)
+        ended = crud.end_intermission(db, race.id)
+        assert ended.intermission_highlights is False
+
+    def test_a_fresh_start_with_no_argument_turns_it_back_off(self, db):
+        race = _seed(db)
+        _enable_keep_replays(db, race)
+        _add_stored_clip(db, race)
+        crud.start_intermission(db, race.id, 60, None, highlights=True)
+        restarted = crud.start_intermission(db, race.id, 60, None)
+        assert restarted.intermission_highlights is False
 
 
 # --------------------------------------------------------------------------- #
@@ -237,6 +325,82 @@ class TestGraphQLMutations:
         assert body.get("errors"), "extending nothing should be refused"
 
 
+START_WITH_HIGHLIGHTS = """
+mutation($raceId: Int!, $duration: Int!, $highlights: Boolean!) {
+  startIntermission(
+    raceId: $raceId
+    durationSeconds: $duration
+    highlights: $highlights
+  ) {
+    intermission { active highlights }
+  }
+}
+"""
+
+RACE_REPLAY_COUNT_QUERY = """
+query($raceId: Int!) {
+  race(raceId: $raceId) { replayCount }
+}
+"""
+
+
+class TestHighlightsGraphQL:
+    def test_round_trips_through_the_mutation_and_the_query(self, client, db):
+        race = _seed(db)
+        _enable_keep_replays(db, race)
+        _add_stored_clip(db, race)
+
+        started = client.post(
+            "/graphql",
+            json={
+                "query": START_WITH_HIGHLIGHTS,
+                "variables": {"raceId": race.id, "duration": 60, "highlights": True},
+            },
+        ).json()
+        assert "errors" not in started, started
+        assert (
+            started["data"]["startIntermission"]["intermission"]["highlights"] is True
+        )
+
+        read_back = client.post(
+            "/graphql",
+            json={"query": RACE_INTERMISSION_QUERY, "variables": {"raceId": race.id}},
+        ).json()
+        # `RACE_INTERMISSION_QUERY` above only asks for the original five
+        # fields; a dedicated query confirms `highlights` survives a fresh
+        # read rather than only the mutation's own echoed response.
+        assert read_back["data"]["race"]["intermission"]["active"] is True
+
+    def test_refused_over_graphql_when_not_eligible(self, client, db):
+        race = _seed(db)
+        body = client.post(
+            "/graphql",
+            json={
+                "query": START_WITH_HIGHLIGHTS,
+                "variables": {"raceId": race.id, "duration": 60, "highlights": True},
+            },
+        ).json()
+        assert body.get("errors")
+
+    def test_race_replay_count(self, client, db):
+        race = _seed(db)
+        empty = client.post(
+            "/graphql",
+            json={"query": RACE_REPLAY_COUNT_QUERY, "variables": {"raceId": race.id}},
+        ).json()
+        assert empty["data"]["race"]["replayCount"] == 0
+
+        _enable_keep_replays(db, race)
+        _add_stored_clip(db, race)
+        _add_stored_clip(db, race, heat_number=2)
+
+        populated = client.post(
+            "/graphql",
+            json={"query": RACE_REPLAY_COUNT_QUERY, "variables": {"raceId": race.id}},
+        ).json()
+        assert populated["data"]["race"]["replayCount"] == 2
+
+
 # --------------------------------------------------------------------------- #
 # Roles (#15)                                                                  #
 # --------------------------------------------------------------------------- #
@@ -354,3 +518,111 @@ async def test_starting_publishes_the_resolved_state_on_the_race_channel(db):
     assert event.intermission.active is True
     assert event.intermission.label == "Snack break"
     assert 295 <= event.intermission.remaining_seconds <= 300
+
+
+# --------------------------------------------------------------------------- #
+# Race.highlightsSummary (#177 stage 3)                                       #
+# --------------------------------------------------------------------------- #
+
+
+def _round(db, race, *, round_number=1, name=None):
+    round_obj = models.Round(race_id=race.id, round_number=round_number, name=name)
+    db.add(round_obj)
+    db.commit()
+    db.refresh(round_obj)
+    return round_obj
+
+
+def _heat_in_round(db, race, round_obj, *, heat_number=1, recorded_at=None):
+    heat = models.Heat(
+        race_id=race.id,
+        round_id=round_obj.id,
+        heat_number=heat_number,
+        recorded_at=recorded_at,
+    )
+    db.add(heat)
+    db.commit()
+    db.refresh(heat)
+    return heat
+
+
+def _clip_for(db, heat):
+    row = models.HeatReplay(
+        heat_id=heat.id,
+        camera_id="cam-1",
+        recorded_at=heat.recorded_at or "2026-09-16T12:00:00+00:00",
+        path="00000000-0000-0000-0000-000000000001.webm",
+        duration_ms=4000,
+        t0_offset_ms=500,
+        size_bytes=1234,
+        created_at="2026-09-16T12:00:01+00:00",
+    )
+    db.add(row)
+    db.commit()
+    return row
+
+
+HIGHLIGHTS_SUMMARY_QUERY = """
+query($raceId: Int!) {
+  race(raceId: $raceId) {
+    highlightsSummary { clipCount roundNumber roundName }
+  }
+}
+"""
+
+
+def _highlights_summary(client, race_id):
+    body = client.post(
+        "/graphql",
+        json={"query": HIGHLIGHTS_SUMMARY_QUERY, "variables": {"raceId": race_id}},
+    ).json()
+    assert "errors" not in body, body
+    return body["data"]["race"]["highlightsSummary"]
+
+
+class TestHighlightsSummary:
+    def test_null_when_nothing_has_a_clip(self, client, db):
+        race = _seed(db)
+        round_obj = _round(db, race, round_number=1)
+        _heat_in_round(db, race, round_obj, recorded_at="2026-09-16T12:00:00+00:00")
+
+        assert _highlights_summary(client, race.id) is None
+
+    def test_names_the_round_of_the_last_recorded_heat_and_counts_its_clips(
+        self, client, db
+    ):
+        race = _seed(db)
+        round1 = _round(db, race, round_number=1, name="Preliminary")
+        round2 = _round(db, race, round_number=2, name="Final")
+        h1 = _heat_in_round(
+            db, race, round1, heat_number=1, recorded_at="2026-09-16T12:00:00+00:00"
+        )
+        _clip_for(db, h1)
+        h2 = _heat_in_round(
+            db, race, round2, heat_number=1, recorded_at="2026-09-16T12:10:00+00:00"
+        )
+        h3 = _heat_in_round(
+            db, race, round2, heat_number=2, recorded_at="2026-09-16T12:20:00+00:00"
+        )
+        _clip_for(db, h2)
+        _clip_for(db, h3)
+
+        summary = _highlights_summary(client, race.id)
+        assert summary == {"clipCount": 2, "roundNumber": 2, "roundName": "Final"}
+
+    def test_falls_back_to_the_latest_round_with_a_clip_when_nothing_is_recorded(
+        self, client, db
+    ):
+        race = _seed(db)
+        round1 = _round(db, race, round_number=1, name="Preliminary")
+        round2 = _round(db, race, round_number=2, name="Final")
+        h1 = _heat_in_round(db, race, round1, heat_number=1)
+        _clip_for(db, h1)
+        _heat_in_round(db, race, round2, heat_number=1)
+
+        summary = _highlights_summary(client, race.id)
+        assert summary == {"clipCount": 1, "roundNumber": 1, "roundName": "Preliminary"}
+
+    def test_null_when_the_race_has_no_heats_at_all(self, client, db):
+        race = _seed(db)
+        assert _highlights_summary(client, race.id) is None
