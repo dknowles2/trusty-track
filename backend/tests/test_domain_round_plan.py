@@ -15,6 +15,7 @@ def general(
     elimination_losses: int | None = None,
     balanced_phases: int | None = None,
     runs_per_lane: int | None = 1,
+    algorithm: str = "PPC",
 ) -> RoundFact:
     return RoundFact(
         id=id,
@@ -27,6 +28,7 @@ def general(
         elimination_losses=elimination_losses,
         balanced_phases=balanced_phases,
         runs_per_lane=runs_per_lane,
+        algorithm=algorithm,
     )
 
 
@@ -50,6 +52,7 @@ def championship(
         elimination_losses=None,
         balanced_phases=None,
         runs_per_lane=runs_per_lane,
+        algorithm="PPC",
     )
 
 
