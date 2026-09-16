@@ -12,7 +12,7 @@ It is designed to run as a **single process on a machine at the venue** (often a
 | Frontend | TypeScript, React 19, Vite, urql                | `frontend/src/App.tsx` |
 | Database | SQLite in `~/.trustytrack`, Alembic migrations  | `trusty-track.db`      |
 
-`/graphql` is the primary interface between frontend and backend. There is also a small REST endpoint (`POST /upload/`) for file uploads and a WebSocket at `/ws/timer/{track_id}` for browser-proxied serial timers.
+`/graphql` is the primary interface between frontend and backend. There is also a small set of REST endpoints (`POST /upload/`; `POST /replay/` and `GET /replay/<name>` for instant-replay clips, #177 stage 1a) and a WebSocket at `/ws/timer/{track_id}` for browser-proxied serial timers.
 
 **Full stack (production / single process):**
 
@@ -288,14 +288,14 @@ Defined entirely in `backend/api/schema.py`.
 - Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `startTimerTest`, `fakeTimerStart`, `fakeTimerFinish`
 - Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards`, `seedChampionshipAwards` (the Awards page's empty-state button, #1082 — the same seeding a final round's creation already does)
 - Voting: `castVote` — the one mutation `VIEWER` may run
-- Audience displays: `assignDisplay`, `advanceDisplay`, `identifyDisplay`, `renameDisplay`, `forgetDisplay`
+- Audience displays: `assignDisplay`, `advanceDisplay`, `identifyDisplay`, `renameDisplay`, `forgetDisplay`, `setCameraTrack` (#177 stage 1a — a camera is a display with a role)
 - Display scenes (#613): `createScene`, `renameScene`, `deleteScene`, `updateSceneDisplay`, `removeSceneDisplay`, `applyScene`, `applyScenePreset`
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 - Run-off: `createRunOffHeat`, `deleteRunOffHeat`
 - Intermission: `startIntermission`, `extendIntermission`, `pauseIntermission`, `resumeIntermission`, `endIntermission`
 - System/data: `createInitialConfig`, `updateInitialConfig`, `setDebugMode`, `setThemes` (Debugging Mode and the Display/Printables themes, split out of `updateInitialConfig`'s bundle so the demo can offer them — #1079, #1080), `importRacers`, `previewGprmImport`, `confirmGprmImport` (GrandPrix Race Manager import, #618), `previewDerbynetImport`, `confirmDerbynetImport` (DerbyNet import, #661), `uploadImage`, `populateRace`, `createPracticeRace`
 
-**Subscriptions:** `raceStateChanged`, `racesChanged`, `timerStatus`, `heatSession`, `leaderboard`, `heats`, `onDeck`, `currentlyRacing`, `timingStats`, `freeRaceHeat`, `activeFreeRaceHeat`, `displayAssignment`, `displays`
+**Subscriptions:** `raceStateChanged`, `racesChanged`, `timerStatus`, `heatSession`, `leaderboard`, `heats`, `onDeck`, `currentlyRacing`, `timingStats`, `freeRaceHeat`, `activeFreeRaceHeat`, `displayAssignment`, `displays`, `heatReplay` (#177 stage 1a)
 
 ### Adding a mutation
 

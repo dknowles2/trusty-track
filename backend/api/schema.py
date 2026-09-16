@@ -38,6 +38,7 @@ from backend.domain import elimination as domain_elimination
 from backend.domain import heat_session as domain_heat_session
 from backend.domain import intermission as domain_intermission
 from backend.domain import name_display as domain_name_display
+from backend.domain import replays as domain_replays
 from backend.domain import round_plan as domain_round_plan
 from backend.domain import scenes as domain_scenes
 from backend.domain import scoring as domain_scoring
@@ -48,6 +49,7 @@ from backend.domain.scale_speed import scale_mph as domain_scale_mph
 from backend.services import displays as displays_service
 from backend.services import network, scoring
 from backend.services import records as records_service
+from backend.services import replays as replays_service
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.importers.derbynet import parse_derbynet_database
 from backend.services.importers.gprm import parse_gprm_database
@@ -2718,6 +2720,10 @@ ScrollBehaviorEnum = strawberry.enum(
 #: reason as `DisplayViewEnum` above.
 QRTargetEnum = strawberry.enum(domain_displays.QRTarget, name="QRTarget")
 
+#: What kind of device a display is (#177 stage 1a) — wrapped for the same
+#: reason as `DisplayViewEnum` above.
+DisplayRoleEnum = strawberry.enum(domain_displays.DisplayRole, name="DisplayRole")
+
 #: A built-in scene recipe's key (#613) — wrapped for the same reason as
 #: `DisplayViewEnum` above.
 ScenePresetEnum = strawberry.enum(domain_scenes.ScenePreset, name="ScenePreset")
@@ -2839,6 +2845,20 @@ class Display:
     #: regardless of `view`, the same reasoning as `scroll_behavior`,
     #: `show_checked_in` and `qr_target`.
     show_standings_ticker: bool
+    #: Whether this display plays a heat's replay clip after its results
+    #: overlay (#177 stage 1a). Carried regardless of `view`, the same
+    #: reasoning as `show_standings_ticker`.
+    replays: bool
+    #: Whether this device is an ordinary screen or a `/camera` page (#177
+    #: stage 1a). See `domain.displays.DisplayRole`.
+    role: DisplayRoleEnum  # type: ignore[valid-type]
+    #: Which track a `CAMERA` listens to for its clip boundaries — null until
+    #: `setCameraTrack` picks one, and meaningless for an ordinary display.
+    track_id: int | None
+    #: ISO 8601 UTC, the last time a clip from this camera landed — null
+    #: until the first one does, and meaningless for an ordinary display.
+    #: What Race Control's camera badge reads to say "last clip 2s ago".
+    last_clip_at: str | None
     connected: bool
     #: Whether an operator has told this display anything. False means it is
     #: still following its own URL, which is what every display did before
@@ -2895,6 +2915,10 @@ def _display(
         show_checked_in=display.assignment.show_checked_in,
         qr_target=display.assignment.qr_target,
         show_standings_ticker=display.assignment.show_standings_ticker,
+        replays=display.assignment.replays,
+        role=display.role,
+        track_id=display.track_id,
+        last_clip_at=display.last_clip_at,
         connected=display.connected,
         assigned=display.assigned,
         description=domain_displays.describe(display.assignment),
@@ -2904,6 +2928,96 @@ def _display(
         identify_seq=display.identify_seq,
         display_theme_setting=display_theme_setting,
     )
+
+
+@strawberry.type
+class ReplayClip:
+    """One camera's clip for one heat (#177 stage 1a).
+
+    `url` is the credential-free `GET /replay/<name>` route — the name is a
+    UUID, and that is the whole of the access control, the same shape
+    `POST /upload/`'s photographs already use (#552's reasoning extended to
+    video). `cameraId` is the uploading display's own `displayId`, so a
+    display showing two cameras' clips for one heat can tell them apart or
+    order them, though stage 1 builds no ordering rule of its own.
+    """
+
+    camera_id: str
+    url: str
+    duration_ms: int
+    t0_offset_ms: int
+
+
+@strawberry.type
+class HeatReplay:
+    """The current heat's clips, for whichever displays have `replays` on
+    (#177 stage 1a).
+
+    Keyed the same way `resultsOverlay.ts`'s `observeHeatResult` already
+    keys a result: `heatId` plus the exact `recordedAt` the heat carried at
+    the moment the clip was captured. A display compares this pair against
+    the last one it acted on — never the `heatReplay` subscription's own
+    opening payload, which is a reconnection and not an instruction, the
+    same `seen === null` rule `identifyOverlay.ts` and the ceremony's steps
+    already follow — so a screen reconnecting mid-event does not replay a
+    heat from ten minutes ago.
+    """
+
+    heat_id: int
+    recorded_at: str
+    clips: list[ReplayClip]
+
+
+def _replay_clip(clip: domain_replays.ReplayClip) -> ReplayClip:
+    return ReplayClip(
+        camera_id=clip.camera_id,
+        url=f"/replay/{clip.path}",
+        duration_ms=clip.duration_ms,
+        t0_offset_ms=clip.t0_offset_ms,
+    )
+
+
+def _current_heat_replay(race_id: int) -> HeatReplay | None:
+    """The `HeatReplay` a race's `heatReplay` subscription should show right
+    now, if any camera has uploaded a clip that has not since been purged.
+    """
+    found = replays_service.store.latest_for_race(race_id)
+    if found is None:
+        return None
+    key, clips = found
+    if not clips:
+        return None
+    return HeatReplay(
+        heat_id=key.heat_id,
+        recorded_at=key.recorded_at,
+        clips=[_replay_clip(clip) for clip in clips],
+    )
+
+
+async def _publish_heat_replay(race_id: int) -> None:
+    """Wake a race's `heatReplay` subscribers to re-read the current clip set."""
+    await pubsub.publish(f"heat_replay:{race_id}", None)
+
+
+async def _purge_older_replays(race_id: int, keep_heat_id: int) -> None:
+    """Discard every other heat's clips for *race_id* (#177 stage 1a).
+
+    Called both when a heat's result is recorded (an *earlier* heat's clip is
+    now stale — this heat's own clip has not been uploaded yet, so it is
+    never what this call removes) and when the next heat is armed (the heat
+    that just finished has had its turn). See
+    `services.replays.ReplayStore.discard_other_heats`.
+
+    Publishes afterward, always — even when nothing was actually removed.
+    A connected display's `heatReplay` subscription only re-reads the store
+    on a wake-up (`_current_heat_replay`, a snapshot re-read, never the
+    payload itself), so a purge that changed the store without publishing
+    would leave an already-open screen holding a stale `HeatReplay` —
+    including a `url` for a file that has just been deleted — until some
+    unrelated clip upload for the same race happened to wake it.
+    """
+    replays_service.store.discard_other_heats(race_id, keep_heat_id)
+    await _publish_heat_replay(race_id)
 
 
 def _display_theme_setting(db: Session, race_id: int) -> str:
@@ -4589,6 +4703,7 @@ class Mutation:
         show_checked_in: bool | None = None,
         qr_target: QRTargetEnum | None = None,  # type: ignore[valid-type]
         show_standings_ticker: bool | None = None,
+        replays: bool | None = None,
     ) -> Display | None:
         """Tell an audience display what to show (#174).
 
@@ -4596,6 +4711,9 @@ class Mutation:
         for this, it is handed the answer over the subscription it already
         holds. Returns null for a display nobody has seen, which is what the
         operator gets if a screen was forgotten between listing and clicking.
+
+        ``replays`` (#177 stage 1a) is the same "omitted means keep the
+        current one" rider shape as `show_standings_ticker` above.
         """
         if cycle_seconds is not None and cycle_seconds < 1:
             raise ValueError("cycle_seconds must be at least 1")
@@ -4607,7 +4725,26 @@ class Mutation:
             show_checked_in,
             qr_target,
             show_standings_ticker,
+            replays,
         )
+        if display is None:
+            return None
+        await pubsub.publish(f"display_assignment:{display_id}", None)
+        await _publish_displays(display.race_id)
+        return _display(display)
+
+    @strawberry.mutation
+    async def set_camera_track(self, display_id: str, track_id: int) -> Display | None:
+        """Tell a camera which track's timer it should listen to (#177 stage 1a).
+
+        Operator-only, the same bucket as the other display mutations — a
+        camera holds no PIN and makes no GraphQL call of its own, so this
+        travels the operator's own Displays panel rather than the camera page
+        choosing for itself. Returns null for a display nobody has seen, or
+        one that is not a `CAMERA`: `track_id` means nothing on an ordinary
+        screen.
+        """
+        display = displays_service.registry.set_camera_track(display_id, track_id)
         if display is None:
             return None
         await pubsub.publish(f"display_assignment:{display_id}", None)
@@ -5823,6 +5960,10 @@ class Mutation:
         if lane_mask == 0:
             return False
 
+        # This heat is now the one that might get a replay clip; the heat
+        # that just finished has had its turn (#177 stage 1a).
+        await _purge_older_replays(race.id, heat_id)
+
         await mgr.prepare_heat(
             heat_id=heat_id,
             kind=heat.kind,
@@ -5919,6 +6060,11 @@ class Mutation:
         # Recording here can re-field a later championship round (#50).
         await _revalidate_timers(info)
         if updated_heat:
+            # An earlier heat's replay clip is now stale (#177 stage 1a).
+            # This heat's own clip has not been uploaded yet — it arrives a
+            # second or two after this returns — so it is never what this
+            # call removes.
+            await _purge_older_replays(updated_heat.race_id, heat_id)
             await _publish_race_state(
                 updated_heat.race_id,
                 kind=RaceChangeKind.HEAT_RESULT,
@@ -7091,6 +7237,7 @@ class Mutation:
             ),
         )
         if updated:
+            await _purge_older_replays(updated.race_id, heat_id)
             await _publish_race_state(updated.race_id)
         return updated
 
@@ -7535,7 +7682,12 @@ class Subscription:
 
     @strawberry.subscription
     async def display_assignment(
-        self, info: Info, display_id: str, race_id: int, name: str | None = None
+        self,
+        info: Info,
+        display_id: str,
+        race_id: int,
+        name: str | None = None,
+        role: DisplayRoleEnum = domain_displays.DisplayRole.DISPLAY,  # type: ignore[valid-type,assignment]
     ) -> AsyncGenerator[Display, None]:
         """What this display should be showing, pushed as it changes (#174).
 
@@ -7587,12 +7739,22 @@ class Subscription:
         — dropping the older nudge in favour of the newer one silently
         erases one of them, not a stale-but-harmless duplicate. See
         `MAX_QUEUE_SIZE`'s own docstring in `api/pubsub.py`.
+
+        **`role` registers a camera the same way (#177 stage 1a).** The
+        `/camera` page opens this exact subscription with `role: CAMERA`
+        rather than a second one — a camera is a device with a role, not a
+        different kind of connection, so it appears in the operator's
+        Displays list and answers Identify/rename/forget exactly like an
+        ordinary screen. Defaulted to `DISPLAY` rather than made required so
+        every existing display caller keeps working unchanged.
         """
         db = info.context["db"]
         async with pubsub.subscribe(
             f"display_assignment:{display_id}", drop_oldest_when_full=False
         ) as stream:
-            display = displays_service.registry.connect(display_id, race_id, name)
+            display = displays_service.registry.connect(
+                display_id, race_id, name, role=role
+            )
             await _publish_displays(race_id)
             try:
                 yield _display(display, _display_theme_setting(db, display.race_id))
@@ -7600,7 +7762,7 @@ class Subscription:
                     current = displays_service.registry.get(display_id)
                     if current is None:
                         current = displays_service.registry.connect(
-                            display_id, race_id, name
+                            display_id, race_id, name, role=role
                         )
                         await _publish_displays(race_id)
                     db.expire_all()
@@ -7621,6 +7783,40 @@ class Subscription:
             yield [_display(d) for d in displays_service.registry.for_race(race_id)]
             async for _ in stream:
                 yield [_display(d) for d in displays_service.registry.for_race(race_id)]
+
+    @strawberry.subscription
+    async def heat_replay(
+        self, race_id: int
+    ) -> AsyncGenerator[HeatReplay | None, None]:
+        """The current heat's replay clips, as cameras upload them (#177 stage 1a).
+
+        **A snapshot, not a delta — the default bounded queue is the right
+        one here.** Every wake re-reads `ReplayStore.latest_for_race`, the
+        *current* clip set for whichever heat is the race's active one right
+        now, rather than trusting the pubsub payload (always `None`) or
+        accumulating anything client-side. Two cameras uploading close
+        together publish two wake-ups; if the first is dropped for a full
+        queue, the second still finds both clips already in the store — the
+        newest read already supersedes the one that was dropped, which is
+        exactly the premise `MAX_QUEUE_SIZE`'s docstring (`api/pubsub.py`)
+        asks a new channel to meet. Contrast `display_assignment` above: a
+        ceremony step's `slide_delta` is *overwritten* per call, so the only
+        record two steps happened is two separate wake-ups: nothing here is
+        overwritten in that sense, since a purge removes a whole key rather
+        than mutating one in place, and a re-read after a purge correctly
+        finds nothing to show.
+
+        A display's own `replays` setting decides whether to *act* on this,
+        not this subscription — every connected display for a race gets the
+        same channel, the same shape `displays`/`onDeck`/`leaderboard`
+        already use, since a per-display filter would be a second
+        subscription per screen for a value the payload already carries
+        nothing display-specific about.
+        """
+        async with pubsub.subscribe(f"heat_replay:{race_id}") as stream:
+            yield _current_heat_replay(race_id)
+            async for _ in stream:
+                yield _current_heat_replay(race_id)
 
     @strawberry.subscription
     async def on_deck(

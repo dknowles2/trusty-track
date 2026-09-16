@@ -23,6 +23,7 @@ __all__ = [
     "DisplayView",
     "ScrollBehavior",
     "QRTarget",
+    "DisplayRole",
     "Assignment",
     "DEFAULT_VIEW",
     "DEFAULT_SCROLL_BEHAVIOR",
@@ -118,6 +119,26 @@ class QRTarget(str, Enum):
     VOTE = "VOTE"
 
 
+class DisplayRole(str, Enum):
+    """What kind of device this is, not what it is showing (#177 stage 1a).
+
+    A ``str`` enum for the same reason as ``DisplayView``: it crosses into
+    GraphQL and the client unchanged. Orthogonal to ``DisplayView`` — a role
+    is a fact about the *device* (does it hold a camera), a view is a fact
+    about what its screen currently shows, and a device that is both camera
+    and screen is still one role, one connection, ``CAMERA``, with "show the
+    replay here" ticked on its own preview rather than a second registration.
+    """
+
+    #: An ordinary audience screen — every display before #177, and every
+    #: display that is not a `/camera` page.
+    DISPLAY = "DISPLAY"
+    #: A device running the `/camera` page: it holds a preview for aiming,
+    #: listens to one track's timer for its clip boundaries, and uploads a
+    #: clip after each heat. See `Display.track_id` for which track.
+    CAMERA = "CAMERA"
+
+
 #: What a display shows when nobody has told it anything. Standings rather than
 #: nothing: an unassigned screen is a screen somebody has just plugged in, and
 #: a blank one reads as broken.
@@ -167,6 +188,14 @@ class Assignment:
     #: leaves empty; a streamer who wants the bar and nothing else turns it
     #: off deliberately rather than the reverse.
     show_standings_ticker: bool = True
+    #: Whether this display plays a heat's replay clip after its results
+    #: overlay, once one lands (#177 stage 1a) — the same rider shape as
+    #: `show_standings_ticker` above: set once, carried regardless of `view`,
+    #: preserved across a screen being switched away and back. Defaults to
+    #: on — the happy path is a display showing results that also plays the
+    #: replay, and a display that never sees a replay clip (no camera at this
+    #: event) simply never has anything to play, costing nothing to leave on.
+    replays: bool = True
 
     def __post_init__(self) -> None:
         if self.cycle_seconds < 1:

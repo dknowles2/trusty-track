@@ -22,6 +22,7 @@ from fastapi import (
     Depends,
     FastAPI,
     File,
+    Form,
     HTTPException,
     Request,
     Response,
@@ -40,6 +41,7 @@ from strawberry.fastapi import GraphQLRouter
 from backend import demo_content, demo_mode
 from backend.api import auth
 from backend.api.loaders import RequestLoaders
+from backend.api.pubsub import pubsub
 from backend.api.schema import MAX_UPLOAD_BYTES, _publish_races_list, schema
 from backend.db import crud, models
 from backend.db.database import (
@@ -52,7 +54,10 @@ from backend.db.database import (
     known_revisions,
 )
 from backend.domain import audit
+from backend.domain import replays as domain_replays
 from backend.services import backup, discovery, network, printables
+from backend.services import displays as displays_service
+from backend.services import replays as replays_service
 from backend.services.image_processing import (
     UnreadableImageError,
     convert_to_browser_safe_png,
@@ -261,6 +266,16 @@ async def lifespan(_app: FastAPI):
             logger.info("Pruned %d old audit entries.", removed)
     except Exception as e:
         logger.error("Could not prune the audit log: %s", e)
+
+    # Stage 1's retention is delete-after-next-heat, held only in this
+    # process's memory (`services/replays.py`'s own docstring) — a clip from
+    # before a restart has no index entry pointing at it and nothing left
+    # that would ever clean it up otherwise, so the directory is emptied
+    # rather than merely forgotten.
+    try:
+        replays_service.store.sweep()
+    except Exception as e:
+        logger.error("Could not sweep the replay clip directory: %s", e)
 
     logger.info("Initializing timer managers...")
     try:
@@ -912,6 +927,13 @@ async def restore_backup(
     init_db()
     await initialize_timer_managers(TIMER_MANAGERS, session_factory=SessionLocal)
 
+    # Every heat id and `recorded_at` a stored clip was keyed against just
+    # stopped meaning anything — the restored database has its own heats,
+    # not these. Stage 1 keeps no clip across a restart already (see the
+    # lifespan's own sweep); a restore replaces the running event exactly
+    # the same way (#177 stage 1a).
+    replays_service.store.sweep()
+
     # Every race in the room just changed underneath whoever is looking at
     # one — a wall display, the check-in tablet, a second operator tab. The
     # same signal `createRace`/`updateRace`/`deleteRace`/`createPracticeRace`
@@ -1000,17 +1022,160 @@ def timer_test_report(
     )
 
 
-# Mount static assets if the built frontend exists
-if FRONTEND_DIST.exists():
-    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+@app.post("/replay/")
+async def upload_replay_clip(
+    race_id: int = Form(...),
+    heat_id: int = Form(...),
+    recorded_at: str = Form(...),
+    camera_id: str = Form(...),
+    t0_offset_ms: int = Form(0),
+    duration_ms: int = Form(0),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Store one camera's replay clip for one heat (#177 stage 1a).
+
+    **No PIN required — the same auth story `displayAssignment`'s
+    subscription already has.** A camera is a display with a role
+    (`domain.displays.DisplayRole.CAMERA`), and a display holds no credential
+    (#15); requiring one here would make the camera page need something the
+    displays it sits beside never have. What actually guards this route is
+    narrower than a PIN but real: a caller has to already know a specific
+    heat's *current* `recordedAt` — a value that only exists once that heat's
+    result has just been recorded, and that changes the moment it is re-run —
+    which is not a fact a drive-by request can supply. **Refused outright on
+    the demo** (`_refuse_on_demo`), the same as `POST /upload/`: it writes an
+    unauthenticated caller-supplied file to disk, and the demo exists partly
+    to avoid that.
+
+    **`recorded_at` is the clip's key, and a stale one is refused with 409.**
+    It must equal the heat's *current* `Heat.recorded_at` — the exact string
+    `heatSession` published at the moment the camera captured its buffer
+    (the same pair `frontend/src/features/observation/resultsOverlay.ts`'s
+    `observeHeatResult` already keys a result by). A heat re-run between
+    capture and upload (Reset Heat, a corrected result) moves `recorded_at`
+    on, and the clip is for a run the record no longer holds — refusing it
+    is right, not merely convenient: playing it back would show the wrong
+    result.
+
+    **Never `uploads/`.** The file lands under `DATA_DIR/replays/`, given a
+    fresh, non-enumerable name — `services/backup.py` archives `uploads/` by
+    name, and a clip landing there would be swept into every backup, which
+    is exactly what stage 1's retention story says must not happen. Content
+    type is checked against `ALLOWED_CONTENT_TYPES` (415 otherwise) and size
+    against `MAX_REPLAY_CLIP_BYTES`, measured while reading rather than
+    after (`_read_capped`), the same "generous, not tight" shape
+    `MAX_UPLOAD_BYTES` uses for a photograph.
+    """
+    _refuse_on_demo("Uploading a replay clip")
+
+    heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+    if heat is None or heat.race_id != race_id:
+        raise HTTPException(status_code=404, detail="No such heat on this race")
+
+    if domain_replays.is_stale(heat.recorded_at, recorded_at):
+        raise HTTPException(
+            status_code=409,
+            detail="This heat's result has since changed, so this clip is "
+            "for a run that no longer exists.",
+        )
+
+    extension = replays_service.ALLOWED_CONTENT_TYPES.get(file.content_type or "")
+    if extension is None:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported clip type: {file.content_type or 'unknown'}",
+        )
+
+    raw_bytes = await _read_capped(file, replays_service.MAX_REPLAY_CLIP_BYTES)
+
+    filename, target_path = replays_service.store.new_clip_path(extension)
+    with open(target_path, "wb") as buffer:
+        buffer.write(raw_bytes)
+
+    clip = domain_replays.ReplayClip(
+        camera_id=camera_id,
+        path=filename,
+        race_id=race_id,
+        t0_offset_ms=t0_offset_ms,
+        duration_ms=duration_ms,
+    )
+    replays_service.store.add(
+        domain_replays.ReplayKey(heat_id=heat_id, recorded_at=recorded_at), clip
+    )
+    # Best-effort, the same shape `record_clip` documents: a camera the
+    # registry has since forgotten still gets its clip stored.
+    displays_service.registry.record_clip(camera_id)
+    await pubsub.publish(f"heat_replay:{race_id}", None)
+
+    return {"url": f"/replay/{filename}"}
+
+
+@app.get("/replay/{filename}")
+async def get_replay_clip(filename: str) -> FileResponse:
+    """Stream a stored replay clip (#177 stage 1a).
+
+    Not `/static` — a replay never lands in `UPLOAD_DIR`, so it is served
+    from its own route rather than gaining a second meaning there. The
+    filename is a UUID (`ReplayStore.new_clip_path`); that is the whole of
+    the access control, the same shape `/static/<filename>` already uses for
+    a photograph (#552's reasoning extended to video — a video of the finish
+    line is a video of children too). `Cache-Control: no-store` because
+    stage 1's retention (delete-after-next-heat) can remove the file within
+    seconds of it being served; a cached copy played back after that would
+    be showing the wrong run.
+
+    **Registered before the SPA catch-all below, and it must stay that
+    way.** `@app.get("/{full_path:path}")` matches any GET path once
+    `frontend/dist` exists — the ordinary case for every real deployment
+    (`./scripts/serve.sh`, the Pi image, `install.sh`) — and FastAPI matches
+    routes in registration order, so a `GET /replay/<name>` defined *after*
+    that catch-all would always return `index.html` instead of the clip.
+    `test_replay_route_is_registered_before_the_spa_catchall` in
+    `test_replays.py` pins the order directly; the serving tests below pin
+    the behaviour against a real mounted `FRONTEND_DIST`, not just an
+    unmounted test app, so this cannot pass by accident on a CI environment
+    that happens to have no built frontend.
+    """
+    directory = replays_service.store.directory.resolve()
+    candidate = (directory / filename).resolve()
+    if not candidate.is_relative_to(directory) or not candidate.is_file():
+        raise HTTPException(status_code=404, detail="No such clip")
+    media_type = "video/webm" if candidate.suffix == ".webm" else "video/mp4"
+    return FileResponse(
+        candidate, media_type=media_type, headers={"Cache-Control": "no-store"}
+    )
+
+
+def _mount_frontend(dist_dir: Path) -> None:
+    """Serve a built frontend from *dist_dir*: static assets, then the SPA
+    catch-all.
+
+    A function rather than inline module-level code so a test can call it a
+    second time, against a temporary directory, to prove that every route
+    registered *before* this runs — `/replay/{filename}` (#177 stage 1a)
+    included — still wins over the broad `GET /{full_path:path}` catch-all
+    this adds, without reimporting this whole module (which real side
+    effects — a database connection, timer managers — make impractical).
+    See `test_replays.py`'s
+    `test_a_later_mounted_spa_catchall_does_not_shadow_replay_serving`: it
+    is build-independent, so it catches the same shadowing bug regardless
+    of whether the checkout running it happens to have `frontend/dist` built.
+    """
+    app.mount("/assets", StaticFiles(directory=dist_dir / "assets"), name="assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str) -> FileResponse:
         """Serve dist files when they exist, otherwise fall back to index.html."""
-        candidate = (FRONTEND_DIST / full_path).resolve()
-        if candidate.is_file() and candidate.is_relative_to(FRONTEND_DIST.resolve()):
+        candidate = (dist_dir / full_path).resolve()
+        if candidate.is_file() and candidate.is_relative_to(dist_dir.resolve()):
             return FileResponse(candidate)
-        return FileResponse(FRONTEND_DIST / "index.html")
+        return FileResponse(dist_dir / "index.html")
+
+
+# Mount static assets if the built frontend exists
+if FRONTEND_DIST.exists():
+    _mount_frontend(FRONTEND_DIST)
 
 
 @app.websocket("/ws/timer/{track_id}")

@@ -92,6 +92,11 @@ export const EMBEDDED_TYPES = [
   'HeatHighlight',
   'HeatLane',
   'HeatReorderResponse',
+  // The current heat's replay clips (#177 stage 1a) — re-read fresh from
+  // `ReplayStore.latest_for_race` on every `heatReplay` wake, the same
+  // "computed row, not a record" shape as `HeatSession` two lines down. Its
+  // own `clips: [ReplayClip]` is embedded too, for the identical reason.
+  'HeatReplay',
   'HeatResultRow',
   'HeatSession',
   'InitialConfigStatus',
@@ -103,6 +108,9 @@ export const EMBEDDED_TYPES = [
   'RaceStateChangedEvent',
   'RaceStats',
   'RacerStat',
+  // One camera's clip within a `HeatReplay` (#177 stage 1a) — see the note
+  // beside `HeatReplay` above.
+  'ReplayClip',
   'SceneApplyOutcome',
   'SceneDisplayAssignment',
   'ScenePresetInfo',

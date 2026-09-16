@@ -24,6 +24,7 @@ from backend.api.pubsub import pubsub
 from backend.db import crud, models
 from backend.db.database import SessionLocal
 from backend.domain import audit
+from backend.services import replays as replays_service
 
 from . import probe
 from .devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE, NO_TIMER
@@ -1576,6 +1577,14 @@ class TimerManager:
                         db, heat_id, heat_lanes, source=audit.ResultSource.TIMER
                     )
                 race_id = heat.race_id
+                # An earlier heat's replay clip is now stale (#177 stage
+                # 1a) — see `api.schema._purge_older_replays` for the fuller
+                # explanation; this is the timer's own result path, which
+                # never goes through that resolver. A connected display's
+                # `heatReplay` subscription only re-reads the store on a
+                # wake-up, so the purge is silent without this publish.
+                replays_service.store.discard_other_heats(race_id, heat_id)
+                await pubsub.publish(f"heat_replay:{race_id}", None)
             except SQLAlchemyError as e:
                 # A locked SQLite file or an integrity error, most plausibly —
                 # see the docstring on `_recording_failed` for why this must

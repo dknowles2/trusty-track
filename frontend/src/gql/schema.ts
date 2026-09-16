@@ -152,17 +152,25 @@ export type Display = {
   displayId: Scalars['String']['output'];
   displayThemeSetting: Scalars['String']['output'];
   identifySeq: Scalars['Int']['output'];
+  lastClipAt?: Maybe<Scalars['String']['output']>;
   name: Scalars['String']['output'];
   pacedByAPerson: Scalars['Boolean']['output'];
   qrTarget: QrTarget;
   raceId: Scalars['Int']['output'];
+  replays: Scalars['Boolean']['output'];
+  role: DisplayRole;
   scrollBehavior: ScrollBehavior;
   showCheckedIn: Scalars['Boolean']['output'];
   showStandingsTicker: Scalars['Boolean']['output'];
   slideDelta: Scalars['Int']['output'];
   slideSeq: Scalars['Int']['output'];
+  trackId?: Maybe<Scalars['Int']['output']>;
   view: DisplayView;
 };
+
+export type DisplayRole =
+  | 'CAMERA'
+  | 'DISPLAY';
 
 export type DisplayView =
   | 'AWARDS'
@@ -313,6 +321,12 @@ export type HeatReorderItemInput = {
 export type HeatReorderResponse = {
   heats: Array<Heat>;
   updatedCount: Scalars['Int']['output'];
+};
+
+export type HeatReplay = {
+  clips: Array<ReplayClip>;
+  heatId: Scalars['Int']['output'];
+  recordedAt: Scalars['String']['output'];
 };
 
 export type HeatResultRow = {
@@ -513,6 +527,7 @@ export type Mutation = {
   resetTimer: Scalars['Boolean']['output'];
   resumeIntermission: Race;
   seedChampionshipAwards: Array<Award>;
+  setCameraTrack?: Maybe<Display>;
   setDebugMode: InitialConfigStatus;
   setLaneOutages: Array<Scalars['Int']['output']>;
   setThemes: InitialConfigStatus;
@@ -570,6 +585,7 @@ export type MutationAssignDisplayArgs = {
   cycleSeconds?: InputMaybe<Scalars['Int']['input']>;
   displayId: Scalars['String']['input'];
   qrTarget?: InputMaybe<QrTarget>;
+  replays?: InputMaybe<Scalars['Boolean']['input']>;
   scrollBehavior?: InputMaybe<ScrollBehavior>;
   showCheckedIn?: InputMaybe<Scalars['Boolean']['input']>;
   showStandingsTicker?: InputMaybe<Scalars['Boolean']['input']>;
@@ -908,6 +924,12 @@ export type MutationResumeIntermissionArgs = {
 
 export type MutationSeedChampionshipAwardsArgs = {
   raceId: Scalars['Int']['input'];
+};
+
+
+export type MutationSetCameraTrackArgs = {
+  displayId: Scalars['String']['input'];
+  trackId: Scalars['Int']['input'];
 };
 
 
@@ -1406,6 +1428,13 @@ export type RacingGroupStat = {
   racingGroupName: Scalars['String']['output'];
 };
 
+export type ReplayClip = {
+  cameraId: Scalars['String']['output'];
+  durationMs: Scalars['Int']['output'];
+  t0OffsetMs: Scalars['Int']['output'];
+  url: Scalars['String']['output'];
+};
+
 export type Role =
   | 'CHECKIN'
   | 'OPERATOR'
@@ -1506,6 +1535,7 @@ export type Subscription = {
   displayAssignment: Display;
   displays: Array<Display>;
   freeRaceHeat?: Maybe<FreeRaceHeat>;
+  heatReplay?: Maybe<HeatReplay>;
   heatSession: HeatSession;
   heats: Array<Round>;
   leaderboard: Array<LeaderboardEntry>;
@@ -1531,6 +1561,7 @@ export type SubscriptionDisplayAssignmentArgs = {
   displayId: Scalars['String']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
   raceId: Scalars['Int']['input'];
+  role?: DisplayRole;
 };
 
 
@@ -1541,6 +1572,11 @@ export type SubscriptionDisplaysArgs = {
 
 export type SubscriptionFreeRaceHeatArgs = {
   heatId: Scalars['Int']['input'];
+};
+
+
+export type SubscriptionHeatReplayArgs = {
+  raceId: Scalars['Int']['input'];
 };
 
 
