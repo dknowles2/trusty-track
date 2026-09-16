@@ -126,6 +126,31 @@ class SchedulingStrategy(str, enum.Enum):
     BALANCED = "BALANCED"
 
 
+class SchedulingAlgorithm(str, enum.Enum):
+    """How a `GENERAL` round's schedule is *built* — #1090's seam.
+
+    `SchedulingStrategy.GENERAL` is the format (everyone races the same
+    number of heats); this is the algorithm that produces it. The registry
+    is `domain/schedulers/__init__.py`, keyed on these values' own strings
+    (CLAUDE.md's "Enum-ish values cross the boundary as plain strings" —
+    `domain/` imports no SQLAlchemy, so it never sees this enum itself).
+
+    `PPC` (`domain/scheduling.py`) is the long-standing default and the
+    only algorithm every round built before this enum existed used, which
+    is why `Round.algorithm` is nullable and a null value means `PPC`
+    rather than meaning nothing — see that column's own docstring.
+    """
+
+    #: Partial Perfect Chart: every car runs every lane once; heats are as
+    #: full as the field allows; opponent variety is a best-effort
+    #: heuristic. See `domain/scheduling.py`.
+    PPC = "PPC"
+    #: Lane rotation ("chaotic rotation"): a car's next heat is its
+    #: previous lane plus one; every car still runs every usable lane once.
+    #: See `domain/schedulers/rotation.py`.
+    ROTATION = "ROTATION"
+
+
 class ScoringStrategy(str, enum.Enum):
     """See `backend/domain/scoring.py` for what each member means and how it
     aggregates. ``CUMULATIVE_TIME`` and ``FASTEST_TIME`` (#547 stage 1) are
@@ -762,6 +787,18 @@ class Round(Base):
     #: column existed reads back `None`, and a copied plan treats that the
     #: same as `1` (the wizard's own default) rather than refusing to copy.
     runs_per_lane: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: How this round's `GENERAL`-format schedule is built (#1090). Null
+    #: means `PPC` — every round created before this column existed, and
+    #: the default for a new one that does not ask for anything else —
+    #: rather than a server default, so the meaning lives in one place
+    #: (`domain/schedulers`'s registry lookup) instead of being duplicated
+    #: into the schema. Meaningless for `ELIMINATION`/`BALANCED` rounds,
+    #: which have their own fixed algorithms and never read this column;
+    #: left set (or null) rather than forced null for those, the same
+    #: choice `elimination_losses`/`balanced_phases` make in reverse.
+    algorithm: Mapped[SchedulingAlgorithm | None] = mapped_column(
+        "scheduling_algorithm", SAEnum(SchedulingAlgorithm), nullable=True
+    )
 
     race: Mapped["Race"] = relationship("Race", back_populates="rounds")
     heats: Mapped[list["Heat"]] = relationship(
