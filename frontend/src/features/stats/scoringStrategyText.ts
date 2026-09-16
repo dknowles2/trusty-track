@@ -185,12 +185,20 @@ export const NO_SCORE = '—';
  * (`domain.scoring.rank_key` sorts `heats_completed == 0` to `float('inf')`
  * regardless of `score`), so this is purely a rendering fix — the ranking
  * these entries land at was never wrong.
+ *
+ * `noScore` defaults to `NO_SCORE` — the on-screen glyph — but is a parameter
+ * rather than hard-coded, because the *gate* ("has this racer completed a
+ * heat") is the one rule shared across every caller while its *presentation*
+ * is not: `standingsExport.ts`'s CSV wants an empty cell rather than the
+ * screen's em dash, since a spreadsheet sorts and averages a blank column
+ * correctly and would instead treat `'—'` as text (#1179).
  */
 export function scoreCell(
   entry: { score: number; heatsCompleted: number },
   format: (score: number) => string,
+  noScore: string = NO_SCORE,
 ): string {
-  return entry.heatsCompleted > 0 ? format(entry.score) : NO_SCORE;
+  return entry.heatsCompleted > 0 ? format(entry.score) : noScore;
 }
 
 /**

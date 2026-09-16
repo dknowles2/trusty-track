@@ -153,6 +153,29 @@ describe('resultsSections', () => {
         expect(overall.rows[0].score).toBe('7');
     });
 
+    // #1179 — a checked-in racer with no completed heat still sits in the
+    // overall table (rank stamped by the backend's own "unraced sorts
+    // last" rule), and used to print its untouched aggregate score
+    // (`0.000`/`0`) rather than the same dash `Leaderboard.tsx` already
+    // shows on screen for the identical case (#1145).
+    it('prints the on-screen dash, not a fabricated score, for a racer who has not raced', () => {
+        const [overall] = resultsSections(
+            [entry({ racerId: 1, score: 0, heatsCompleted: 0 })],
+            'TIMED',
+        );
+
+        expect(overall.rows[0].score).toBe('—');
+    });
+
+    it('does the same under POINTS', () => {
+        const [overall] = resultsSections(
+            [entry({ racerId: 1, score: 0, heatsCompleted: 0 })],
+            'POINTS',
+        );
+
+        expect(overall.rows[0].score).toBe('—');
+    });
+
     it('leaves the car number blank rather than printing null', () => {
         const [overall] = resultsSections([entry({ racerId: 1, carNumber: null })], 'TIMED');
 

@@ -15,6 +15,7 @@
  */
 
 import { scoreValue } from '../stats/standingsExport';
+import { scoreCell } from '../stats/scoringStrategyText';
 import { formatDisplayName, type NameDisplay } from '../core/displayName';
 import { roundTitle, type SheetRound } from './heatSheet';
 
@@ -131,7 +132,14 @@ function rowsFrom(
         name: nameOf(entry, nameDisplay),
         carNumber: entry.carNumber == null ? '' : String(entry.carNumber),
         racingGroupName: entry.racingGroupName || noGroupLabel,
-        score: scoreValue(entry.score, scoringStrategy),
+        // `NO_SCORE` (the screen's em dash), not `scoreValue` unguarded —
+        // an overall-table entry can have `heatsCompleted: 0` (a checked-in
+        // racer who has not raced yet), and printing its raw score reads as
+        // a fabricated best time or best finish (#1179, mirroring #1145's
+        // on-screen fix). This is paper, not a spreadsheet, so the same
+        // glyph every screen already shows is the right cell here — unlike
+        // `standingsExport.ts`'s CSV, which prefers a blank cell instead.
+        score: scoreCell(entry, (score) => scoreValue(score, scoringStrategy)),
         heats: entry.heatsCompleted,
     }));
 }

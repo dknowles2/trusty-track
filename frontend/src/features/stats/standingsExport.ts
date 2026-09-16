@@ -14,6 +14,7 @@ import type { CsvRow } from '../../utils/csv';
 import { isTimeBasedStrategy } from '../racing/lanes';
 import { methodPhrase } from './tiebreakText';
 import { formatDisplayName, type NameDisplay } from '../core/displayName';
+import { scoreCell } from './scoringStrategyText';
 
 export interface StandingsEntry {
     rank: number;
@@ -54,7 +55,11 @@ export function scoreHeading(scoringStrategy: string): string {
 
 /** A time keeps its milliseconds; points are whole numbers and should look
  * it. `isTimeBasedStrategy` is the one predicate for which is which — see
- * its own docstring on why it is not restated per site. */
+ * its own docstring on why it is not restated per site.
+ *
+ * Formats a real score only — a caller with a `heatsCompleted` to check
+ * wants `scoreCell`/`standingsRows`'s own zero-heat guard below, not this
+ * directly, or a racer who has not raced yet exports as `0.000`/`0` (#1179). */
 export function scoreValue(score: number, scoringStrategy: string): string {
     return isTimeBasedStrategy(scoringStrategy) ? score.toFixed(3) : String(score);
 }
@@ -120,7 +125,13 @@ export function standingsRows(
                 entry.carNumber,
                 ...nameCells,
                 entry.racingGroupName,
-                scoreValue(entry.score, scoringStrategy),
+                // An empty cell, not the screen's `NO_SCORE` em dash
+                // (#1179): `0.000`/`0` for a racer who has not completed a
+                // heat is a fabricated result (see `scoreCell`'s own
+                // docstring), but `'—'` is a glyph meant to be read next to
+                // a page, not a spreadsheet value — it sorts and averages
+                // as text where a blank cell is correctly ignored by both.
+                scoreCell(entry, (score) => scoreValue(score, scoringStrategy), ''),
                 entry.heatsCompleted,
                 tieBrokenByValue(entry.resolvedBy),
             ];

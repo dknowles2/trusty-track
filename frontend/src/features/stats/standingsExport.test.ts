@@ -51,6 +51,35 @@ describe('the score column', () => {
     });
 });
 
+describe('the score cell for a racer who has not completed a heat (#1179)', () => {
+    // The screens show `NO_SCORE` ('—') for a `heatsCompleted: 0` entry
+    // rather than the raw, untouched-aggregate score, since every
+    // strategy's starting value happens to be the best possible result
+    // (#1145). The CSV export used to skip that guard and print the raw
+    // score anyway; a spreadsheet prefers a blank cell over either the raw
+    // fabricated value or the screen's own dash glyph, which sorts/averages
+    // as text.
+    it('exports an empty cell under TIMED', () => {
+        const rows = standingsRows([entry({ score: 0, heatsCompleted: 0 })], 'TIMED');
+        expect(rows[1][5]).toBe('');
+        expect(rows[1][6]).toBe(0);
+    });
+
+    it('exports an empty cell under POINTS', () => {
+        const rows = standingsRows([entry({ score: 0, heatsCompleted: 0 })], 'POINTS');
+        expect(rows[1][5]).toBe('');
+        expect(rows[1][6]).toBe(0);
+    });
+
+    it('still exports the real score once a heat has been raced', () => {
+        const timedRows = standingsRows([entry({ score: 3.2016, heatsCompleted: 4 })], 'TIMED');
+        expect(timedRows[1][5]).toBe('3.202');
+
+        const pointsRows = standingsRows([entry({ score: 7, heatsCompleted: 3 })], 'POINTS');
+        expect(pointsRows[1][5]).toBe('7');
+    });
+});
+
 describe('standingsRows', () => {
     it('starts with a header naming the strategy', () => {
         const [header] = standingsRows([entry()], 'POINTS');
