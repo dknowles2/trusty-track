@@ -221,6 +221,8 @@ describe('RaceExecution sound effect transitions (#554)', () => {
     it('opening Sound options reaches the same Heat Finish row the removed checkbox duplicated', () => {
         render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
 
+        // Sound options sits behind the ⚙ preferences popover now (#1157).
+        fireEvent.click(screen.getByTestId('race-execution-preferences-trigger'));
         fireEvent.click(screen.getByTestId('sound-effects-modal-trigger'));
         fireEvent.click(screen.getByTestId('sound-master-toggle'));
 
@@ -305,6 +307,8 @@ describe('RaceExecution sound effect transitions (#554)', () => {
 
         const { rerender } = render(<AlertProvider><RaceExecution {...props} /></AlertProvider>);
 
+        // Sound options sits behind the ⚙ preferences popover now (#1157).
+        fireEvent.click(screen.getByTestId('race-execution-preferences-trigger'));
         fireEvent.click(screen.getByTestId('sound-effects-modal-trigger'));
         const masterToggle = screen.getByTestId('sound-master-toggle');
         fireEvent.click(masterToggle); // on

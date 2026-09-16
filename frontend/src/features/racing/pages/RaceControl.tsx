@@ -5,6 +5,7 @@ import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { useRole } from '../../core/hooks/useRole';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 import { arrayMove } from '@dnd-kit/sortable';
+import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { ScheduleManagement } from '../components/ScheduleManagement';
@@ -29,7 +30,7 @@ import {
   UNPIN_ROUND_FIELD_MUTATION,
 } from '../graphql/queries';
 import { Icon } from '@mdi/react';
-import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh } from '@mdi/js';
+import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiChevronDown, mdiChevronRight } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane, EliminationChart } from '../types';
 import { hasRun, hasTime, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shouldDerivePlaces, skippedHeats } from '../lanes';
 import { executionComparator, isUnfinished } from '../runningOrder';
@@ -61,6 +62,16 @@ export default function RaceControl() {
 
   const [selectedHeatId, setSelectedHeatId] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
+  // Previous Heats collapses to one summary row per heat under 600px
+  // (#1152) — a phone screen has no room for every lane of every heat, and
+  // this list is a reference an operator glances at, not one read closely.
+  // Which heats are expanded back out to their full lane list, by id; a
+  // heat leaves this set once it scrolls out of Previous Heats entirely
+  // (it becomes the active heat, or a later heat's own re-run displaces
+  // it), which is fine — there is nothing to remember once the row is
+  // gone.
+  const [expandedPreviousHeatIds, setExpandedPreviousHeatIds] = useState<Set<number>>(new Set());
+  const narrowViewport = useNarrowViewport();
   const [roundSummary, setRoundSummary] = useState<AdvancementStatus | null>(null);
   // The whole race has just finished (#847) — `roundSummary`'s counterpart
   // for the race rather than one round. Sticky the same way: set once by a
@@ -1172,25 +1183,58 @@ export default function RaceControl() {
                     const isSkipped = heat.lanes.some((l) => l.skipped);
                     const timed = hasTimes(heat.lanes);
                     const sorted = byPlace(heat.lanes);
+                    const winner = sorted[0];
+                    // Collapsed on a phone (#1152): one row summarizing the
+                    // heat, expanding on tap to the full lane list below —
+                    // an operator glances at this list, and does not need
+                    // every lane of every heat on screen at once to do it.
+                    // Desktop stays always-expanded, unchanged.
+                    const collapsible = narrowViewport;
+                    const isExpanded = !collapsible || expandedPreviousHeatIds.has(heat.id);
+                    const toggleExpanded = () => {
+                        setExpandedPreviousHeatIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(heat.id)) next.delete(heat.id);
+                            else next.add(heat.id);
+                            return next;
+                        });
+                    };
                     return (
-                      <div key={heat.id} style={{
+                      <div key={heat.id} className="previous-heat-row" style={{
                         background: 'var(--surface-color)',
                         borderRadius: '12px',
                         padding: '14px 20px',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                         borderLeft: isSkipped && !timed ? '4px solid var(--danger-accent-color)' : '4px solid var(--success-accent-color)'
                       }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Heat {heat.heatNumber}</span>
+                        <div
+                          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: collapsible && !isExpanded ? 0 : '10px', gap: '10px', cursor: collapsible ? 'pointer' : 'default' }}
+                          onClick={collapsible ? toggleExpanded : undefined}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                            {collapsible && (
+                                <Icon path={isExpanded ? mdiChevronDown : mdiChevronRight} size={0.7} color="var(--text-muted-color)" />
+                            )}
+                            <span style={{ fontWeight: 'bold', fontSize: '1rem', flexShrink: 0 }}>Heat {heat.heatNumber}</span>
                             {isSkipped && !timed && (
-                                <span style={{ background: 'var(--danger-bg-color)', color: 'var(--danger-strong-color)', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>Skipped</span>
+                                <span style={{ background: 'var(--danger-bg-color)', color: 'var(--danger-strong-color)', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase', flexShrink: 0 }}>Skipped</span>
+                            )}
+                            {/* The collapsed row's own summary — winner and
+                                time — so a glance at the closed row still
+                                says who won, the same thing the list is for. */}
+                            {collapsible && !isExpanded && winner && !(isSkipped && !timed) && (
+                                <span className="previous-heat-summary" style={{ color: 'var(--text-subtle-color)', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                                    {laneRacerName(winner, slowestRoundIds.has(heat.roundId))}
+                                    {formatLaneTime(winner.time) ? ` · ${formatLaneTime(winner.time)}` : ''}
+                                </span>
                             )}
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ color: 'var(--text-subtle-color)', fontSize: '0.85rem' }}>{heat.roundName || `Round ${heat.roundNumber}`}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                            {(!collapsible || isExpanded) && (
+                                <span style={{ color: 'var(--text-subtle-color)', fontSize: '0.85rem' }}>{heat.roundName || `Round ${heat.roundNumber}`}</span>
+                            )}
                             <button
-                                onClick={() => handleRunHeat(heat)}
+                                onClick={(e) => { e.stopPropagation(); handleRunHeat(heat); }}
                                 style={{
                                     padding: '4px 10px',
                                     fontSize: '0.8rem',
@@ -1224,47 +1268,49 @@ export default function RaceControl() {
                             has anything to shrink *into* once the row
                             containing it stops growing to fit that
                             unwrapped content. */}
-                        <div style={{ display: 'grid', gap: '2px' }}>
-                          {sorted.map((r) => (
-                            <div
-                              key={r.lane}
-                              className="previous-heat-lane-row"
-                              style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', padding: '5px 0', borderBottom: '1px solid var(--background-color)', minWidth: 0 }}
-                            >
-                              <span style={{
-                                minWidth: '26px',
-                                height: '26px',
-                                borderRadius: '50%',
-                                background: r.place === 1 ? 'var(--cub-scouting-gold)' : r.place === 2 ? 'var(--surface-strong-color)' : r.place === 3 ? 'var(--rank-bronze-color)' : 'var(--surface-soft-color)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontWeight: 'bold',
-                                fontSize: '0.75rem',
-                                flexShrink: 0
-                              }}>{r.place ?? '–'}</span>
-                              <LaneBadge
-                                  color={colorForLane(race?.track?.laneColors ?? [], r.lane)}
-                                  style={{ color: 'var(--text-subtle-color)', minWidth: '52px', fontSize: '0.85rem' }}
+                        {isExpanded && (
+                          <div style={{ display: 'grid', gap: '2px', marginTop: collapsible ? '10px' : 0 }}>
+                            {sorted.map((r) => (
+                              <div
+                                key={r.lane}
+                                className="previous-heat-lane-row"
+                                style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', padding: '5px 0', borderBottom: '1px solid var(--background-color)', minWidth: 0 }}
                               >
-                                  Lane {r.lane}
-                              </LaneBadge>
-                              {/* #1008: this span had no `minWidth: 0` or
-                                  `overflow: hidden`, so at phone width — a
-                                  lane badge, a place circle and the time all
-                                  fixed-width, this the only flexible column
-                                  — its automatic min size stayed the full
-                                  name's content width rather than shrinking,
-                                  and the overflowing text (default
-                                  `overflow: visible`) painted straight over
-                                  the time next to it rather than being
-                                  clipped or wrapped. Same fix `RaceExecution.tsx`'s
-                                  own lane rows already use. */}
-                              <span className="previous-heat-racer-name" style={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontWeight: r.place === 1 ? 600 : 'normal' }}>{laneRacerName(r, slowestRoundIds.has(heat.roundId))}</span>
-                              <span className="previous-heat-time" style={{ fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', color: 'var(--text-heading-alt-color)', flexShrink: 0 }}>{formatLaneTime(r.time) ?? '–'}</span>
-                            </div>
-                          ))}
-                        </div>
+                                <span style={{
+                                  minWidth: '26px',
+                                  height: '26px',
+                                  borderRadius: '50%',
+                                  background: r.place === 1 ? 'var(--cub-scouting-gold)' : r.place === 2 ? 'var(--surface-strong-color)' : r.place === 3 ? 'var(--rank-bronze-color)' : 'var(--surface-soft-color)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: 'bold',
+                                  fontSize: '0.75rem',
+                                  flexShrink: 0
+                                }}>{r.place ?? '–'}</span>
+                                <LaneBadge
+                                    color={colorForLane(race?.track?.laneColors ?? [], r.lane)}
+                                    style={{ color: 'var(--text-subtle-color)', minWidth: '52px', fontSize: '0.85rem' }}
+                                >
+                                    Lane {r.lane}
+                                </LaneBadge>
+                                {/* #1008: this span had no `minWidth: 0` or
+                                    `overflow: hidden`, so at phone width — a
+                                    lane badge, a place circle and the time all
+                                    fixed-width, this the only flexible column
+                                    — its automatic min size stayed the full
+                                    name's content width rather than shrinking,
+                                    and the overflowing text (default
+                                    `overflow: visible`) painted straight over
+                                    the time next to it rather than being
+                                    clipped or wrapped. Same fix `RaceExecution.tsx`'s
+                                    own lane rows already use. */}
+                                <span className="previous-heat-racer-name" style={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontWeight: r.place === 1 ? 600 : 'normal' }}>{laneRacerName(r, slowestRoundIds.has(heat.roundId))}</span>
+                                <span className="previous-heat-time" style={{ fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', color: 'var(--text-heading-alt-color)', flexShrink: 0 }}>{formatLaneTime(r.time) ?? '–'}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

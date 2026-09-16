@@ -1166,9 +1166,12 @@ test('with auto-advance on the countdown runs and then advances', async ({ page 
     await page.goto(`/race/${raceId}/control/race`);
     await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
 
+    // Auto-advance sits behind the ⚙ preferences popover (#1157).
+    await page.getByTestId('race-execution-preferences-trigger').click();
+
     // The checkbox is visually hidden behind the slider, so click what the
     // operator clicks. Named rather than "the only checkbox on the page" —
-    // the finish-sound toggle (#208) is beside it now.
+    // the photo preference toggle is beside it now.
     const autoAdvance = page.getByTestId('auto-advance-toggle');
     await page.locator('label').filter({ has: autoAdvance }).click();
     await expect(autoAdvance).toBeChecked();

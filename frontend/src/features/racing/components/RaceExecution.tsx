@@ -18,7 +18,8 @@ import LaneAvatar from './LaneAvatar';
 import LaneBadge from '../../../components/ui/LaneBadge';
 import { colorForLane } from '../../settings/laneColors';
 import { Icon } from '@mdi/react';
-import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange, mdiPlay, mdiVolumeHigh, mdiVolumeOff } from '@mdi/js';
+import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange, mdiPlay, mdiVolumeHigh, mdiVolumeOff, mdiCog } from '@mdi/js';
+import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
 
 // These types are derived from the generated GraphQL operation types in
 // ../types. They are re-exported here because several components already
@@ -278,9 +279,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingResults, setEditingResults] = useState<EditableLane[]>([]);
     const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
-    const [showAutoAdvanceTooltip, setShowAutoAdvanceTooltip] = useState(false);
     const { showConfirm, showAlert } = useAlert();
-    const { orgLower, groupLower, vehicle, vehiclesLower } = useTerminology();
+    const { orgLower, groupLower, vehicle, vehicleLower, vehiclesLower } = useTerminology();
 
     // The live view, assembled by the server (#7). What used to be here was a
     // merge of the heat's stored lanes with `timerStatus.pendingResults`,
@@ -439,6 +439,58 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
         setLanePhotoPreferenceState(preference);
     };
 
+    // The three per-device preferences (car/face photos, sound, auto-advance)
+    // behind one ⚙ in the card header (#1157) — set once per event, not
+    // something the eye needs to read every heat. Same outside-click-closes
+    // popover shape `IntermissionControl.tsx`'s compact mode already uses,
+    // plus Escape-to-close and a return of focus to the trigger — a gap
+    // `IntermissionControl.tsx`'s own popover still has, not fixed here
+    // since that component sits outside this issue's scope.
+    const [preferencesOpen, setPreferencesOpen] = useState(false);
+    const preferencesRef = useRef<HTMLDivElement>(null);
+    const preferencesTriggerRef = useRef<HTMLButtonElement>(null);
+    useEffect(() => {
+        if (!preferencesOpen) return;
+        const handleClickOutside = (event: MouseEvent) => {
+            if (preferencesRef.current && !preferencesRef.current.contains(event.target as Node)) {
+                setPreferencesOpen(false);
+            }
+        };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.stopPropagation();
+            setPreferencesOpen(false);
+            preferencesTriggerRef.current?.focus();
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        // Capture phase: this popover's own Escape is a narrower, more
+        // local concern than the shortcuts effect's Escape (cancels an
+        // auto-advance countdown) — closing the popover shouldn't also
+        // cancel a countdown running underneath it, so this claims the key
+        // first and `stopPropagation` keeps it from reaching that handler.
+        document.addEventListener('keydown', handleKeyDown, true);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown, true);
+        };
+    }, [preferencesOpen]);
+
+    // Heat-independent preferences shown in a heat-scoped card — nothing
+    // inside the popover goes stale by staying open, but carrying it open
+    // across Next Heat (or an auto-advance countdown reaching zero) reads
+    // as a leftover rather than a deliberate choice, so it closes with the
+    // heat it opened on. Adjusted during render, the same "converges in one
+    // pass" pattern `RaceControl.tsx` uses to pin `selectedHeatId` — a
+    // `useEffect` here would be a bare `setState` with nothing to
+    // synchronize against an external system, which is exactly what
+    // `react-hooks/set-state-in-effect` flags.
+    const preferencesHeatRef = useRef<number | null>(activeExecutionHeat?.id ?? null);
+    if (preferencesHeatRef.current !== (activeExecutionHeat?.id ?? null)) {
+        preferencesHeatRef.current = activeExecutionHeat?.id ?? null;
+        if (preferencesOpen) setPreferencesOpen(false);
+    }
+
+    const narrowViewport = useNarrowViewport();
 
     const isRoundSummaryOpen = flow.screen.kind === 'ROUND_SUMMARY';
     const isRaceSummaryOpen = flow.screen.kind === 'RACE_SUMMARY';
@@ -700,7 +752,17 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         {showProxyControls && trackId != null && (
                             <SerialProxyConnector trackId={trackId} />
                         )}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        {/* One status line (#1157): the heat's own phase pill,
+                            with the timer's state as muted text beside it —
+                            not a second pill, and not the "Waiting for
+                            Timer…" box this used to also say a third time in
+                            the primary-action slot (removed; see the footer
+                            below for the primary action itself, which is now
+                            always a Next Heat button rather than a status
+                            placeholder standing in for one — read #765's own
+                            note further down before changing how a refused
+                            `prepareHeat` is surfaced). */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', gap: '12px' }}>
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                                     <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.heatNumber}</h2>
@@ -708,100 +770,171 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <span className={`heat-phase-dot heat-phase-dot--${heatPhaseDisplay(phase).statusClass}`} />
                                         <span>{heatPhaseDisplay(phase).label}</span>
                                     </span>
-                                    {trackId != null && hasTimer && <TimerStatusBadge trackId={trackId} />}
+                                    {trackId != null && hasTimer && <TimerStatusBadge trackId={trackId} variant="muted" />}
+                                    {isRunning && (
+                                        <span
+                                            style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}
+                                        >
+                                            {elapsedSeconds.toFixed(1)}s
+                                        </span>
+                                    )}
                                 </div>
                                 <div style={{ color: 'var(--text-muted-color)', fontSize: '1.1rem' }}>
                                     {activeExecutionHeat.roundName || `Round ${activeExecutionHeat.roundNumber}`}
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                {isCompleted && nextExecutionHeat && (!roundSummary || !isRoundSummaryOpen) ? (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+
+                            {/* Preferences behind one ⚙ (#1157) — Show car
+                                photos, Sound options and Auto-advance are
+                                per-device settings changed once per event,
+                                not heat actions, so they come off the row
+                                below and into a popover here. Same
+                                outside-click-closes shape as
+                                `IntermissionControl.tsx`'s compact mode. */}
+                            <div ref={preferencesRef} style={{ position: 'relative', flexShrink: 0 }}>
+                                <button
+                                    ref={preferencesTriggerRef}
+                                    type="button"
+                                    className="secondary-btn"
+                                    data-testid="race-execution-preferences-trigger"
+                                    aria-label="Preferences"
+                                    aria-haspopup="dialog"
+                                    aria-expanded={preferencesOpen}
+                                    onClick={() => setPreferencesOpen((o) => !o)}
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0, borderRadius: '8px' }}
+                                >
+                                    <Icon path={mdiCog} size={0.9} />
+                                </button>
+                                {preferencesOpen && (
+                                    <div
+                                        role="dialog"
+                                        aria-label="Preferences"
+                                        data-testid="race-execution-preferences-popover"
+                                        style={{
+                                            position: 'absolute',
+                                            top: 'calc(100% + 6px)',
+                                            right: 0,
+                                            zIndex: 20,
+                                            background: 'var(--surface-color)',
+                                            border: '1px solid var(--input-border-color)',
+                                            borderRadius: '12px',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                            padding: '14px',
+                                            minWidth: '240px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '16px',
+                                        }}
+                                    >
+                                        {/* Which picture a lane shows (#1075) —
+                                            per device, like sound. Car by
+                                            default: this screen's main reader
+                                            is the operator pulling cars out of
+                                            parc fermé, not the announcer. */}
+                                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', cursor: 'pointer' }}>
+                                            <span style={{ fontSize: '0.9rem', color: 'var(--text-strong-muted-color)', userSelect: 'none' }}>
+                                                Show {vehicleLower} photos
+                                            </span>
+                                            <span style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', flexShrink: 0 }}>
+                                                <input
+                                                    type="checkbox"
+                                                    data-testid="lane-photo-toggle"
+                                                    aria-label={`Show ${vehicleLower} photos`}
+                                                    checked={lanePhotoPreference === 'car'}
+                                                    onChange={(e) => setLanePhotoPreference(e.target.checked ? 'car' : 'portrait')}
+                                                    style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
+                                                />
+                                                <div style={{
+                                                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                                    background: lanePhotoPreference === 'car' ? 'var(--scouting-blue)' : 'var(--input-border-color)',
+                                                    borderRadius: '24px',
+                                                    transition: 'background 0.2s',
+                                                }} />
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    height: '18px', width: '18px',
+                                                    left: lanePhotoPreference === 'car' ? '23px' : '3px',
+                                                    bottom: '3px',
+                                                    background: 'var(--surface-color)',
+                                                    borderRadius: '50%',
+                                                    transition: 'left 0.2s',
+                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                                                }} />
+                                            </span>
+                                        </label>
+
                                         <button
-                                            className="primary-btn"
+                                            type="button"
+                                            className="btn btn-secondary btn-sm"
+                                            style={{ fontSize: '0.85rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-start' }}
                                             onClick={() => {
-                                                flow.cancelCountdown();
-                                                onNextHeat();
+                                                setIsSoundModalOpen(true);
+                                                setPreferencesOpen(false);
                                             }}
-                                            style={{
-                                                padding: '6px 16px',
-                                                fontSize: '0.95rem',
-                                                background: 'var(--success-color)',
-                                                color: 'var(--on-primary-color)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px',
-                                                borderRadius: '6px',
-                                                height: '36px'
-                                            }}
+                                            title="Configure race sound effects"
+                                            data-testid="sound-effects-modal-trigger"
                                         >
-                                            Next Heat{autoAdvanceCountdown !== null ? ` (${autoAdvanceCountdown}s)` : ''} <Icon path={mdiArrowRight} size={0.8} />
-                                            <kbd style={KBD_STYLE}>{SHORTCUT_HINTS.ADVANCE}</kbd>
+                                            {/* A muted hint on the button itself
+                                                (#1074) — without it, folding the
+                                                corner checkbox into this panel
+                                                left nothing saying whether sound
+                                                is on at all. */}
+                                            <Icon path={soundSettings.master ? mdiVolumeHigh : mdiVolumeOff} size={0.7} />
+                                            Sound options
                                         </button>
-                                        {autoAdvanceCountdown !== null && (
-                                            <button
-                                                onClick={flow.cancelCountdown}
-                                                style={{
-                                                    padding: '6px 14px',
-                                                    fontSize: '0.9rem',
-                                                    background: 'transparent',
-                                                    color: 'var(--danger-strong-color)',
-                                                    border: '1px solid var(--danger-strong-color)',
-                                                    borderRadius: '6px',
-                                                    cursor: 'pointer',
-                                                    fontWeight: 'bold',
-                                                    height: '36px'
-                                                }}
-                                            >
-                                                Cancel
-                                                <kbd style={KBD_STYLE}>{SHORTCUT_HINTS.CANCEL_COUNTDOWN}</kbd>
-                                            </button>
+
+                                        {onToggleAutoAdvance && (
+                                            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', cursor: 'pointer' }}>
+                                                <span style={{ fontSize: '0.9rem', color: 'var(--text-strong-muted-color)', userSelect: 'none' }}>Auto-advance</span>
+                                                <span style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', flexShrink: 0 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        data-testid="auto-advance-toggle"
+                                                        aria-label="Auto-advance"
+                                                        checked={autoAdvanceHeat}
+                                                        onChange={(e) => onToggleAutoAdvance(e.target.checked)}
+                                                        style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
+                                                    />
+                                                    <div style={{
+                                                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                                        background: autoAdvanceHeat ? 'var(--scouting-blue)' : 'var(--input-border-color)',
+                                                        borderRadius: '24px',
+                                                        transition: 'background 0.2s',
+                                                    }} />
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        height: '18px', width: '18px',
+                                                        left: autoAdvanceHeat ? '23px' : '3px',
+                                                        bottom: '3px',
+                                                        background: 'var(--surface-color)',
+                                                        borderRadius: '50%',
+                                                        transition: 'left 0.2s',
+                                                        boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                                                    }} />
+                                                </span>
+                                            </label>
                                         )}
                                     </div>
-                                ) : isRunning ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
-                                        <div style={{
-                                            padding: '8px 20px',
-                                            fontSize: '1.15rem',
-                                            background: timerState === 'RESULTS_OVERDUE' ? 'var(--error)' : 'orange',
-                                            color: 'var(--on-primary-color)',
-                                            borderRadius: '4px',
-                                            fontWeight: 'bold',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '10px'
-                                        }}>
-                                            <span className="pulse-dot" style={{ width: '12px', height: '12px', background: 'var(--surface-color)', borderRadius: '50%' }} />
-                                            {timerState === 'RESULTS_OVERDUE' ? 'Overdue' : 'Racing'}... {elapsedSeconds.toFixed(1)}s
-                                        </div>
-                                        <style>{`
-                                        .pulse-dot { animation: pulse 1s infinite; }
-                                        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
-                                    `}</style>
-                                    </div>
-                                ) : timerState === 'IDLE' && trackId != null && !isCompleted && hasTimer ? (
-                                    <div style={{ padding: '8px 20px', color: 'var(--text-muted-color)', fontStyle: 'italic', background: 'var(--background-color)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
-                                        Waiting for Timer...
-                                    </div>
-                                ) : !isCompleted && hasTimer ? (
-                                    <div style={{
-                                        padding: '8px 20px',
-                                        fontSize: '1.15rem',
-                                        background: 'var(--background-color)',
-                                        color: 'var(--text-muted-color)',
-                                        borderRadius: '4px',
-                                        fontWeight: 'bold',
-                                        border: '1px solid var(--border-color)'
-                                    }}>
-                                        Waiting for Timer...
-                                    </div>
-                                ) : null}
+                                )}
                             </div>
                         </div>
 
-                        <div className="race-execution-controls-bottom" data-testid="race-execution-action-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid var(--divider-color)' }}>
-                            {/* BOTTOM LEFT: Controls */}
-                            <div className="race-execution-controls-left" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        {/* Footer, not header, for actions (#1157). Left:
+                            the secondary actions for the current state.
+                            Right: the one primary action, Next Heat —
+                            disabled rather than replaced by a status box
+                            before the result lands, so the slot's meaning
+                            never changes, only whether it can be pressed.
+                            `gap` plus `whiteSpace: nowrap` on every button
+                            below, not `justify-content: space-between`
+                            across the whole row — that was what shrank five
+                            individual controls to their minimum width and
+                            wrapped two-word labels onto two lines at 1440px;
+                            with two groups instead of five loose items,
+                            `marginLeft: auto` on the right group gets the
+                            same left/right layout without reintroducing it. */}
+                        <div className="race-execution-controls-bottom" data-testid="race-execution-action-row" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid var(--divider-color)' }}>
+                            <div className="race-execution-controls-left" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                                 {isCompleted ? (
                                     <>
                                         <button
@@ -935,123 +1068,65 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 )}
                             </div>
 
-                            {/* BOTTOM RIGHT: lane photo, sound, then auto-advance */}
-                            <div className="race-execution-controls-right" style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-                            {/* Which picture a lane shows (#1075) — per
-                                device, like sound. Car by default: this
-                                screen's main reader is the operator pulling
-                                cars out of parc fermé, not the announcer. */}
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                                <span style={{ fontSize: '0.9rem', color: 'var(--text-strong-muted-color)', userSelect: 'none' }}>
-                                    Show {vehiclesLower} photos
-                                </span>
-                                <span style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
-                                    <input
-                                        type="checkbox"
-                                        data-testid="lane-photo-toggle"
-                                        aria-label={`Show ${vehiclesLower} photos`}
-                                        checked={lanePhotoPreference === 'car'}
-                                        onChange={(e) => setLanePhotoPreference(e.target.checked ? 'car' : 'portrait')}
-                                        style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
-                                    />
-                                    <div style={{
-                                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                                        background: lanePhotoPreference === 'car' ? 'var(--scouting-blue)' : 'var(--input-border-color)',
-                                        borderRadius: '24px',
-                                        transition: 'background 0.2s',
-                                    }} />
-                                    <div style={{
-                                        position: 'absolute',
-                                        height: '18px', width: '18px',
-                                        left: lanePhotoPreference === 'car' ? '23px' : '3px',
-                                        bottom: '3px',
-                                        background: 'var(--surface-color)',
-                                        borderRadius: '50%',
-                                        transition: 'left 0.2s',
-                                        boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                                    }} />
-                                </span>
-                            </label>
-                            <button
-                                type="button"
-                                className="btn btn-secondary btn-sm"
-                                style={{ fontSize: '0.8rem', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '5px' }}
-                                onClick={() => setIsSoundModalOpen(true)}
-                                title="Configure race sound effects"
-                                data-testid="sound-effects-modal-trigger"
-                            >
-                                {/* A muted hint on the button itself (#1074) —
-                                    without it, folding the corner checkbox
-                                    into this panel left nothing on the header
-                                    saying whether sound is on at all. */}
-                                <Icon path={soundSettings.master ? mdiVolumeHigh : mdiVolumeOff} size={0.6} />
-                                Sound options
-                            </button>
-                            {onToggleAutoAdvance && (
-                                <div
-                                    style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '10px' }}
-                                    onMouseEnter={() => setShowAutoAdvanceTooltip(true)}
-                                    onMouseLeave={() => setShowAutoAdvanceTooltip(false)}
-                                >
-                                    {showAutoAdvanceTooltip && (
-                                        <div style={{
-                                            position: 'absolute',
-                                            bottom: '100%',
-                                            right: 0,
-                                            marginBottom: '8px',
-                                            background: 'var(--text-color)',
-                                            color: 'var(--on-primary-color)',
-                                            fontSize: '0.8rem',
-                                            padding: '6px 10px',
-                                            borderRadius: '6px',
-                                            whiteSpace: 'nowrap',
-                                            boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-                                            pointerEvents: 'none',
-                                            zIndex: 10,
-                                        }}>
-                                            Automatically advances to the next heat 10 seconds after results are recorded.
-                                        </div>
-                                    )}
-                                    {/* One `<label>` around the word and the pill
-                                        toggle (#998) — they used to be siblings, a
-                                        `<span>` beside a `<label>` wrapping only the
-                                        44px control, so clicking the word "Auto-advance"
-                                        did nothing. A `<label>` toggles its control from
-                                        anywhere inside it, not only a direct child, so
-                                        nesting the pill's own visuals in a `<span>`
-                                        (never another `<label>` — nested labels are
-                                        invalid HTML) here is enough. */}
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                                    <span style={{ fontSize: '0.9rem', color: 'var(--text-strong-muted-color)', userSelect: 'none' }}>Auto-advance</span>
-                                    <span style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
-                                        <input
-                                            type="checkbox"
-                                            data-testid="auto-advance-toggle"
-                                            aria-label="Auto-advance"
-                                            checked={autoAdvanceHeat}
-                                            onChange={(e) => onToggleAutoAdvance(e.target.checked)}
-                                            style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
-                                        />
-                                        <div style={{
-                                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                                            background: autoAdvanceHeat ? 'var(--scouting-blue)' : 'var(--input-border-color)',
-                                            borderRadius: '24px',
-                                            transition: 'background 0.2s',
-                                        }} />
-                                        <div style={{
-                                            position: 'absolute',
-                                            height: '18px', width: '18px',
-                                            left: autoAdvanceHeat ? '23px' : '3px',
-                                            bottom: '3px',
-                                            background: 'var(--surface-color)',
-                                            borderRadius: '50%',
-                                            transition: 'left 0.2s',
-                                            boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                                        }} />
-                                    </span>
-                                    </label>
-                                </div>
-                            )}
+                            {/* Right: the one primary action, Next Heat —
+                                always rendered, disabled until there is a
+                                result and somewhere to go, rather than a
+                                status box standing in its slot beforehand
+                                (#1157). `marginLeft: auto` pushes this group
+                                to the end of the row without the row itself
+                                using `space-between`. */}
+                            <div className="race-execution-controls-right" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', flexWrap: 'wrap' }}>
+                                {(() => {
+                                    const canAdvance = isCompleted && !!nextExecutionHeat && (!roundSummary || !isRoundSummaryOpen);
+                                    return (
+                                        <>
+                                            <button
+                                                type="button"
+                                                data-testid="next-heat-button"
+                                                className="primary-btn"
+                                                disabled={!canAdvance}
+                                                title={!canAdvance ? 'This heat has not been recorded yet' : undefined}
+                                                onClick={() => {
+                                                    flow.cancelCountdown();
+                                                    onNextHeat();
+                                                }}
+                                                style={{
+                                                    padding: '6px 16px',
+                                                    fontSize: '0.95rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    borderRadius: '6px',
+                                                    height: '36px',
+                                                    ...(canAdvance ? { background: 'var(--success-color)', color: 'var(--on-primary-color)' } : {}),
+                                                }}
+                                            >
+                                                Next Heat{canAdvance && autoAdvanceCountdown !== null ? ` (${autoAdvanceCountdown}s)` : ''} <Icon path={mdiArrowRight} size={0.8} />
+                                                <kbd style={KBD_STYLE}>{SHORTCUT_HINTS.ADVANCE}</kbd>
+                                            </button>
+                                            {canAdvance && autoAdvanceCountdown !== null && (
+                                                <button
+                                                    type="button"
+                                                    onClick={flow.cancelCountdown}
+                                                    style={{
+                                                        padding: '6px 14px',
+                                                        fontSize: '0.9rem',
+                                                        background: 'transparent',
+                                                        color: 'var(--danger-strong-color)',
+                                                        border: '1px solid var(--danger-strong-color)',
+                                                        borderRadius: '6px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 'bold',
+                                                        height: '36px'
+                                                    }}
+                                                >
+                                                    Cancel
+                                                    <kbd style={KBD_STYLE}>{SHORTCUT_HINTS.CANCEL_COUNTDOWN}</kbd>
+                                                </button>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
                         {/* Tightened to one line per lane, a 48px avatar rather
@@ -1077,8 +1152,19 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         className="race-execution-lane-row"
                                         style={{
                                             display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '10px',
+                                            // Two lines under 600px (#1140):
+                                            // lane badge, photo and full name
+                                            // on the first, time and place on
+                                            // the second, right-aligned —
+                                            // rather than the one-line layout
+                                            // that squeezed the name to an
+                                            // ellipsis ("Co…") on a phone
+                                            // while the thumbnail, car number,
+                                            // time and place badge all kept
+                                            // their full width.
+                                            flexDirection: narrowViewport ? 'column' : 'row',
+                                            alignItems: narrowViewport ? 'stretch' : 'center',
+                                            gap: narrowViewport ? '4px' : '10px',
                                             padding: '8px 12px',
                                             background: isFirst ? 'var(--highlight-gold-tint-color)' : 'var(--surface-tint-color)',
                                             borderRadius: '8px',
@@ -1099,43 +1185,59 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             minWidth: 0,
                                         }}
                                     >
-                                        <LaneBadge
-                                            color={colorForLane(laneColors, r.lane)}
-                                            className="race-execution-lane-badge"
-                                            style={{ fontSize: '0.9rem', fontWeight: 'bold', width: '54px', flexShrink: 0, color: 'var(--text-muted-color)' }}
-                                        >
-                                            Lane {r.lane}
-                                        </LaneBadge>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: '1 1 auto' }}>
+                                            <LaneBadge
+                                                color={colorForLane(laneColors, r.lane)}
+                                                className="race-execution-lane-badge"
+                                                style={{ fontSize: '0.9rem', fontWeight: 'bold', width: '54px', flexShrink: 0, color: 'var(--text-muted-color)' }}
+                                            >
+                                                Lane {r.lane}
+                                            </LaneBadge>
 
-                                        {/* Car or face — the operator's own toggle (#1075), the same
-                                            picture On Deck shows below (#608's rule survives it). The
-                                            wrap no longer forces a circular clip: `LaneAvatar` decides
-                                            its own shape per kind, since a car photo reads as a
-                                            rounded rect rather than the portrait's circle. */}
-                                        <div className="race-execution-avatar-wrap" style={{ width: '48px', height: '48px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                            {!empty && (
-                                                <LaneAvatar
-                                                    racer={{
-                                                        id: racer?.id || r.racerId || 0,
-                                                        firstName: racer?.firstName || '',
-                                                        lastName: racer?.lastName || '',
-                                                        racerImageUrl: racer?.racerImageUrl,
-                                                        carImageUrl: racer?.carImageUrl,
+                                            {/* Car or face — the operator's own toggle (#1075), the same
+                                                picture On Deck shows below (#608's rule survives it). The
+                                                wrap no longer forces a circular clip: `LaneAvatar` decides
+                                                its own shape per kind, since a car photo reads as a
+                                                rounded rect rather than the portrait's circle. */}
+                                            <div className="race-execution-avatar-wrap" style={{ width: '48px', height: '48px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                                {!empty && (
+                                                    <LaneAvatar
+                                                        racer={{
+                                                            id: racer?.id || r.racerId || 0,
+                                                            firstName: racer?.firstName || '',
+                                                            lastName: racer?.lastName || '',
+                                                            racerImageUrl: racer?.racerImageUrl,
+                                                            carImageUrl: racer?.carImageUrl,
+                                                        }}
+                                                        preference={lanePhotoPreference}
+                                                        size="48px"
+                                                    />
+                                                )}
+                                            </div>
+
+                                            <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: '6px', overflow: narrowViewport ? 'visible' : 'hidden', flexWrap: narrowViewport ? 'wrap' : 'nowrap' }}>
+                                                <span
+                                                    className="race-execution-racer-name"
+                                                    style={{
+                                                        fontSize: '1.05rem',
+                                                        fontWeight: 'bold',
+                                                        // Never truncated under 600px (#1140) — a phone
+                                                        // reads this on its own line, with nothing else
+                                                        // fighting it for width, so the whole name fits
+                                                        // (wrapping onto a second line if it must)
+                                                        // instead of ending in "Co…".
+                                                        whiteSpace: narrowViewport ? 'normal' : 'nowrap',
+                                                        overflow: narrowViewport ? 'visible' : 'hidden',
+                                                        textOverflow: narrowViewport ? 'clip' : 'ellipsis',
                                                     }}
-                                                    preference={lanePhotoPreference}
-                                                    size="48px"
-                                                />
-                                            )}
+                                                >
+                                                    {laneDisplayName(r, racer, getRacerName, slowestRoundIds?.has(activeExecutionHeat.roundId))}
+                                                </span>
+                                                {racer?.carNumber && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)', flexShrink: 0 }}>#{racer.carNumber}</span>}
+                                            </div>
                                         </div>
 
-                                        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: '6px', overflow: 'hidden' }}>
-                                            <span className="race-execution-racer-name" style={{ fontSize: '1.05rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {laneDisplayName(r, racer, getRacerName, slowestRoundIds?.has(activeExecutionHeat.roundId))}
-                                            </span>
-                                            {racer?.carNumber && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)', flexShrink: 0 }}>#{racer.carNumber}</span>}
-                                        </div>
-
-                                        <div className="race-execution-time-place" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                        <div className="race-execution-time-place" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, justifyContent: narrowViewport ? 'flex-end' : 'flex-start', marginLeft: narrowViewport ? 0 : 'auto' }}>
                                             <div className="race-execution-time" style={{ fontSize: '1.1rem', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontWeight: 'bold', minWidth: '54px', textAlign: 'right' }}>
                                                 {formatLaneTime(r.time) ?? '--'}
                                             </div>
@@ -1217,45 +1319,53 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     <span style={{ fontSize: '1.1rem' }}>Heat {nextExecutionHeat.heatNumber}</span>
                                     <span style={{ fontSize: '0.8rem', color: 'var(--text-subtle-color)', fontWeight: 'normal' }}>{nextExecutionHeat.roundName || `Round ${nextExecutionHeat.roundNumber}`}</span>
                                 </div>
-                                <div style={{ display: 'grid', gap: '12px' }}>
+                                {/* One line per lane, 32px avatars rather than
+                                    60px under 600px (#1152) — On Deck is a
+                                    glance, not a screen the operator reads
+                                    closely, so a phone gets the compact
+                                    version. Avatar size is a `LaneAvatar`
+                                    prop rather than a CSS length, so it needs
+                                    the viewport read in JS; see
+                                    `useNarrowViewport`. */}
+                                <div style={{ display: 'grid', gap: narrowViewport ? '6px' : '12px' }}>
                                     {nextExecutionHeat.lanes.map((r: Lane) => {
                                         const racer = r.racerId != null ? racers[r.racerId] : undefined;
                                         const empty = isLaneEmpty(r);
+                                        const avatarSize = narrowViewport ? 32 : 60;
                                         return (
-                                                                                        <div key={r.lane} className="race-execution-ondeck-lane-row" style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingBottom: '12px', borderBottom: '1px solid var(--background-color)', minWidth: 0 }}>
-                                                                                            <LaneBadge
-                                                                                                color={colorForLane(laneColors, r.lane)}
-                                                                                                style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-faint-color)', width: '30px' }}
-                                                                                            >
-                                                                                                L{r.lane}
-                                                                                            </LaneBadge>
+                                            <div key={r.lane} className="race-execution-ondeck-lane-row" style={{ display: 'flex', alignItems: 'center', gap: narrowViewport ? '8px' : '15px', paddingBottom: narrowViewport ? '6px' : '12px', borderBottom: '1px solid var(--background-color)', minWidth: 0 }}>
+                                                <LaneBadge
+                                                    color={colorForLane(laneColors, r.lane)}
+                                                    style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-faint-color)', width: '30px' }}
+                                                >
+                                                    L{r.lane}
+                                                </LaneBadge>
 
-                                                                                            <div className="race-execution-ondeck-avatar-wrap" style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                                                {!empty && (
-                                                                                                    <LaneAvatar
-                                                                                                        racer={{
-                                                                                                            id: racer?.id || r.racerId || 0,
-                                                                                                            firstName: racer?.firstName || '',
-                                                                                                            lastName: racer?.lastName || '',
-                                                                                                            racerImageUrl: racer?.racerImageUrl,
-                                                                                                            carImageUrl: racer?.carImageUrl,
-                                                                                                        }}
-                                                                                                        preference={lanePhotoPreference}
-                                                                                                        size="60px"
-                                                                                                    />
-                                                                                                )}
-                                                                                            </div>
+                                                <div className="race-execution-ondeck-avatar-wrap" style={{ width: `${avatarSize}px`, height: `${avatarSize}px`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    {!empty && (
+                                                        <LaneAvatar
+                                                            racer={{
+                                                                id: racer?.id || r.racerId || 0,
+                                                                firstName: racer?.firstName || '',
+                                                                lastName: racer?.lastName || '',
+                                                                racerImageUrl: racer?.racerImageUrl,
+                                                                carImageUrl: racer?.carImageUrl,
+                                                            }}
+                                                            preference={lanePhotoPreference}
+                                                            size={`${avatarSize}px`}
+                                                        />
+                                                    )}
+                                                </div>
 
-                                                                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                                                                <div style={{ fontWeight: '600', fontSize: '1.05rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                                                                    {laneDisplayName(r, racer, getRacerName, slowestRoundIds?.has(nextExecutionHeat?.roundId ?? -1))}
-                                                                                                </div>
-                                                                                                {racer?.carNumber && (
-                                                                                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-subtle-color)' }}>{vehicle} #{racer.carNumber}</div>
-                                                                                                )}
-                                                                                            </div>
-                                                                                        </div>
-
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontWeight: '600', fontSize: '1.05rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {laneDisplayName(r, racer, getRacerName, slowestRoundIds?.has(nextExecutionHeat?.roundId ?? -1))}
+                                                    </div>
+                                                    {racer?.carNumber && (
+                                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-subtle-color)' }}>{vehicle} #{racer.carNumber}</div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         );
                                     })}
                                 </div>

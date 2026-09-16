@@ -418,11 +418,11 @@ own line on the [Stats page](stats-and-exports.md#top-moments).
 
 Not every pack owns an electronic timer, and **No timer — I'll enter results
 by hand** is for that: choose it and the Race screen stops trying to arm a
-device at all. Instead of a "Waiting for Timer…" message, the main button on
-each heat is **Enter Results**, opening the same result screen the **Override**
-button always has — times for a Timed race, finishing order for a Points
-race (see [Scoring](scoring.md#points), which is what points-based scoring is
-for).
+device at all, and the heat's status line shows no timer state — there is
+none to show. The main button on each heat is **Enter Results**, opening the
+same result screen the **Override** button always has — times for a Timed
+race, finishing order for a Points race (see
+[Scoring](scoring.md#points), which is what points-based scoring is for).
 
 This is different from the **Fake Timer**: the fake one starts heats and
 invents a finishing time a few seconds later, which is meant for a practice
