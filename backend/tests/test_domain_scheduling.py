@@ -7,8 +7,9 @@ fixtures. The whole module runs in well under a second.
 
 #1090 turned "the scheduler" into a registry of them
 (`domain/schedulers/__init__.py`) — PPC (`generate_ppc`, the original, kept
-here) and ROTATION (`domain.schedulers.rotation.generate_rotation`) so far.
-Every *shared* property below — the ones `crud.py` and `services/scoring.py`
+here), ROTATION (`domain.schedulers.rotation.generate_rotation`), and now
+PERFECT_N (`domain.schedulers.perfect_n.generate_perfect_n`, part C). Every
+*shared* property below — the ones `crud.py` and `services/scoring.py`
 actually rely on, not incidental behaviour of one algorithm's implementation
 — is parametrized over every registered algorithm, so a third algorithm
 cannot be registered without passing every property the app downstream of
@@ -16,14 +17,31 @@ cannot be registered without passing every property the app downstream of
 paragraph). What is specific to PPC's own history — the augmenting-path
 repair, the exact seed that reproduced issue #26 — stays PPC-only; there is
 nothing analogous to regress in an algorithm that has never shipped a bug.
+
+PERFECT_N is the first registered algorithm for which `available_for` is a
+real refusal rather than a formality — a Perfect-N chart only exists for the
+field sizes `domain.schedulers.perfect_n_tables.TABLES` actually has a chart
+for (see that module's docstring for why, and for the honest account of
+where its data came from). Every sweep below that iterates "every
+(algorithm, racers, lane_count)" therefore filters through `available_for`
+first (`_all_configurations`) rather than assuming every registered
+algorithm can serve every shape the sweep covers; a handful of tests that
+use one *fixed* shape rather than the full sweep call
+`_skip_unless_available` directly, and are skipped for PERFECT_N wherever
+that fixed shape has no table. PERFECT_N's own reason to exist —
+"`available_for` returns a reason exactly where no table exists, and where
+it does not, every pair of racers meets the chart's own constant number of
+times" — is its own section near the bottom, next to ROTATION's.
 """
 
+import itertools
 import random
 from collections import Counter
 
 import pytest
 
 from backend.domain.schedulers import SCHEDULERS
+from backend.domain.schedulers.perfect_n_tables import TABLES as PERFECT_N_TABLES
 from backend.domain.scheduling import HeatPlan, generate_ppc, placeholder_ids
 
 ALGORITHMS = sorted(SCHEDULERS)
@@ -45,9 +63,17 @@ SEEDS = range(8)
 
 
 def _all_configurations():
+    """Every ``(algorithm, racers, lane_count, seed)`` the shared property
+    suite sweeps — filtered through ``available_for`` first (#1090's
+    PERFECT_N: unlike PPC and ROTATION, whose ``available_for`` never
+    refuses, a shape with no published chart is not something the property
+    suite can hold PERFECT_N to, since there is no schedule to check).
+    """
     for algorithm in ALGORITHMS:
         for racers in RACER_COUNTS:
             for lane_count in LANE_COUNTS:
+                if SCHEDULERS[algorithm].available_for(racers, lane_count) is not None:
+                    continue
                 for seed in SEEDS:
                     yield algorithm, racers, lane_count, seed
 
@@ -58,6 +84,18 @@ def _schedule(
     return SCHEDULERS[algorithm].generate(
         list(range(1, racers + 1)), lanes_numbered(lane_count), rng=random.Random(seed)
     )
+
+
+def _skip_unless_available(algorithm: str, racers: int, lane_count: int) -> None:
+    """Skip a fixed-shape test for an algorithm whose ``available_for``
+    refuses that exact shape, rather than letting it call ``generate`` on a
+    shape the algorithm was never able to serve (PERFECT_N raises for one;
+    see `domain/schedulers/perfect_n.py`). PPC and ROTATION never refuse
+    anything the module-level sweeps cover, so this is a no-op for them.
+    """
+    reason = SCHEDULERS[algorithm].available_for(racers, lane_count)
+    if reason is not None:
+        pytest.skip(reason)
 
 
 @pytest.mark.parametrize(
@@ -102,6 +140,7 @@ def test_lane_one_is_a_permutation_of_the_field(algorithm, racers, lane_count, s
 @pytest.mark.parametrize("seed", SEEDS)
 def test_the_caller_s_list_is_not_reordered(algorithm, seed):
     """The scheduler shuffles internally; it must not shuffle the input."""
+    _skip_unless_available(algorithm, 4, 4)
     racer_ids = [5, 3, 9, 1]
     original = list(racer_ids)
     SCHEDULERS[algorithm].generate(
@@ -113,6 +152,7 @@ def test_the_caller_s_list_is_not_reordered(algorithm, seed):
 @pytest.mark.parametrize("algorithm", ALGORITHMS)
 def test_start_heat_number_offsets_the_numbering(algorithm):
     """Used when stacking a round's heats after existing ones."""
+    _skip_unless_available(algorithm, 3, 2)
     plans = SCHEDULERS[algorithm].generate(
         [1, 2, 3], lanes_numbered(2), start_heat_number=7, rng=random.Random(0)
     )
@@ -126,6 +166,7 @@ def test_empty_field_produces_no_heats(algorithm):
 
 @pytest.mark.parametrize("algorithm", ALGORITHMS)
 def test_single_racer_gets_one_heat(algorithm):
+    _skip_unless_available(algorithm, 1, 4)
     plans = SCHEDULERS[algorithm].generate(
         [42], lanes_numbered(4), rng=random.Random(0)
     )
@@ -138,6 +179,7 @@ def test_single_racer_gets_one_heat(algorithm):
 @pytest.mark.parametrize("algorithm", ALGORITHMS)
 def test_more_lanes_than_racers_leaves_lanes_empty(algorithm):
     """Not a defect: four lanes cannot hold three racers."""
+    _skip_unless_available(algorithm, 3, 5)
     plans = SCHEDULERS[algorithm].generate(
         [1, 2, 3], lanes_numbered(5), rng=random.Random(0)
     )
@@ -180,6 +222,7 @@ def test_no_heat_is_short_over_many_seeds(algorithm, racers, lane_count):
     A handful of seeds per configuration would have missed it. Run over every
     registered algorithm, not just the one it was found in.
     """
+    _skip_unless_available(algorithm, racers, lane_count)
     expected = min(racers, lane_count)
     for seed in range(300):
         for plan in _schedule(algorithm, racers, lane_count, seed):
@@ -206,6 +249,7 @@ def test_every_racer_gets_the_same_number_of_runs(algorithm, racers, lane_count,
 @pytest.mark.parametrize("seed", SEEDS)
 def test_the_same_seed_gives_the_same_schedule(algorithm, seed):
     """Regenerating a round must not silently reshuffle the field."""
+    _skip_unless_available(algorithm, 5, 4)
     first = SCHEDULERS[algorithm].generate(
         [1, 2, 3, 4, 5], lanes_numbered(4), rng=random.Random(seed)
     )
@@ -289,6 +333,7 @@ GAPPED_LANES = [
 @pytest.mark.parametrize("racers", [2, 3, 5, 8, 13])
 @pytest.mark.parametrize("seed", [0, 1, 2])
 def test_a_gapped_track_keeps_every_property(algorithm, usable, racers, seed):
+    _skip_unless_available(algorithm, racers, len(usable))
     plans = SCHEDULERS[algorithm].generate(
         list(range(1, racers + 1)), usable, rng=random.Random(seed)
     )
@@ -330,6 +375,7 @@ def test_a_gapped_track_keeps_every_property(algorithm, usable, racers, seed):
 
 @pytest.mark.parametrize("algorithm", ALGORITHMS)
 def test_the_dead_lane_is_never_scheduled(algorithm):
+    _skip_unless_available(algorithm, 6, 3)
     plans = SCHEDULERS[algorithm].generate(
         [1, 2, 3, 4, 5, 6], [1, 2, 4], rng=random.Random(0)
     )
@@ -341,6 +387,7 @@ def test_the_dead_lane_is_never_scheduled(algorithm):
 def test_assignments_pair_a_racer_with_the_lane_they_are_actually_in(algorithm):
     # The whole reason `lane_numbers` exists. Pairing `plan.lanes` with its
     # index — which is what the code did before — puts lane 4's racer in lane 3.
+    _skip_unless_available(algorithm, 3, 3)
     plans = SCHEDULERS[algorithm].generate([1, 2, 3], [1, 2, 4], rng=random.Random(0))
     for plan in plans:
         assert [lane for lane, _ in plan.assignments] == [1, 2, 4]
@@ -351,6 +398,7 @@ def test_assignments_pair_a_racer_with_the_lane_they_are_actually_in(algorithm):
 def test_lane_numbers_are_sorted_and_deduplicated(algorithm):
     # A schedule listing lane 4 before lane 2 gets read out in that order at the
     # track, and a repeated lane would be two racers in one lane.
+    _skip_unless_available(algorithm, 3, 3)
     plans = SCHEDULERS[algorithm].generate(
         [1, 2, 3], [4, 2, 2, 1], rng=random.Random(0)
     )
@@ -368,6 +416,7 @@ def test_a_track_with_no_usable_lane_schedules_nothing(algorithm):
 def test_one_usable_lane_still_gives_everyone_a_heat(algorithm):
     # Degenerate but not absurd: a three-lane track down to its last lane is a
     # very slow event rather than an impossible one.
+    _skip_unless_available(algorithm, 3, 1)
     plans = SCHEDULERS[algorithm].generate([1, 2, 3], [2], rng=random.Random(0))
     assert len(plans) == 3
     assert sorted(racer for plan in plans for racer in plan.racer_ids) == [1, 2, 3]
@@ -420,3 +469,66 @@ def test_rotation_lane_advances_by_one_for_the_next_heat_a_car_is_in(
                     f"{lane_index}, heat {next_heat} lane index "
                     f"{by_heat[next_heat]}, window {window}"
                 )
+
+
+# --------------------------------------------------------------------------- #
+# PERFECT_N's own properties (#1090, part C)                                  #
+# --------------------------------------------------------------------------- #
+#
+# The reason to pick PERFECT_N over PPC: not just every car every lane once
+# (PPC already gives that), but every *pair* of cars meeting the same number
+# of times — a property PPC only approximates (opponent-variety heuristic)
+# and PERFECT_N holds exactly, for the field sizes it has a published chart
+# for. `available_for` is this algorithm's real gate (see
+# `domain/schedulers/perfect_n.py`'s module docstring) — these two tests are
+# what make that gate trustworthy: the first, that it draws its line exactly
+# at the table's edge; the second, that everything inside that line actually
+# delivers the constant-meetings guarantee the chart exists for.
+
+
+@pytest.mark.parametrize("lane_count", LANE_COUNTS)
+@pytest.mark.parametrize("racers", RACER_COUNTS)
+def test_perfect_n_available_for_matches_table_coverage(racers, lane_count):
+    """``available_for`` says yes exactly where a table exists, and refuses
+    with a reason everywhere else — the property `test_scheduler_registry.py`
+    checks generically, pinned here against the table module directly so a
+    future table addition/removal that forgets to keep the two in step is
+    caught without needing to regenerate a schedule to notice.
+    """
+    reason = SCHEDULERS["PERFECT_N"].available_for(racers, lane_count)
+    if (lane_count, racers) in PERFECT_N_TABLES:
+        assert reason is None, (
+            f"table exists for {racers} racers / {lane_count} lanes but "
+            f"available_for refused it: {reason}"
+        )
+    else:
+        assert reason is not None, (
+            f"no table for {racers} racers / {lane_count} lanes but "
+            "available_for claimed it anyway"
+        )
+
+
+@pytest.mark.parametrize("lanes,n", sorted(PERFECT_N_TABLES))
+@pytest.mark.parametrize("seed", SEEDS)
+def test_perfect_n_every_pair_meets_the_same_number_of_times(lanes, n, seed):
+    """The property the chart exists for. Every table PERFECT_N ships is a
+    *true* Perfect-N chart (`perfect_n_tables.TRUE_PERFECT`), not merely
+    lane-perfect, so this must hold exactly — a single constant `k` — for
+    every one of them, over the real (shuffled, id-mapped) schedule
+    `generate_perfect_n` hands back, not just the raw chart.
+    """
+    plans = _schedule("PERFECT_N", n, lanes, seed)
+    meetings: dict[tuple[int, int], int] = {}
+    for plan in plans:
+        present = plan.racer_ids
+        for a, b in itertools.combinations(sorted(present), 2):
+            meetings[(a, b)] = meetings.get((a, b), 0) + 1
+
+    total_pairs = n * (n - 1) // 2
+    assert len(meetings) == total_pairs, (
+        f"({lanes}, {n}): {len(meetings)} distinct pairs met, expected {total_pairs}"
+    )
+    kvals = set(meetings.values())
+    assert len(kvals) == 1, (
+        f"({lanes}, {n}) is not perfect: pairwise meeting counts vary: {sorted(kvals)}"
+    )

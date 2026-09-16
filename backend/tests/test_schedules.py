@@ -208,7 +208,7 @@ def test_rewriting_a_round_in_place_also_uses_the_lane_numbers(db):
     crud.generate_heats_for_round(db, round_obj.id)
     racer_ids = [r.id for r in crud.get_racers(db, race_id=race_id)]
 
-    assert crud._reset_heats_in_place(db, round_obj.id, racer_ids, [1, 2, 4])
+    assert crud._reset_heats_in_place(db, round_obj, racer_ids, [1, 2, 4])
 
     for heat in crud.get_heats(db, race_id, round_id=round_obj.id):
         lane_numbers = sorted(lane.lane for lane in crud.heat_lanes_of(db, heat))
@@ -249,7 +249,7 @@ def test_rewriting_a_round_in_place_keeps_its_own_algorithm(db):
     crud.generate_heats_for_round(db, round_obj.id)
     racer_ids = [r.id for r in crud.get_racers(db, race_id=race_id)]
 
-    assert crud._reset_heats_in_place(db, round_obj.id, racer_ids, [1, 2, 3, 4])
+    assert crud._reset_heats_in_place(db, round_obj, racer_ids, [1, 2, 3, 4])
 
     heats = sorted(
         crud.get_heats(db, race_id, round_id=round_obj.id), key=lambda h: h.heat_number

@@ -218,7 +218,7 @@ Heat            id, race_id, round_id?, kind, heat_number,
 | `CarNumberingStrategy` | `PER_GROUP`, `GLOBAL`, `MANUAL`                                              |
 | `HeatKind`             | `OFFICIAL`, `FREE`, `RUN_OFF` (#550 — settles a tie, never joins the aggregate score) |
 | `SchedulingStrategy`   | `GENERAL`, `ELIMINATION`, `BALANCED` — a round's *format*, not the algorithm that builds a `GENERAL` round's schedule |
-| `SchedulingAlgorithm`  | `PPC`, `ROTATION` — the algorithm behind a `GENERAL` round's schedule (`Round.algorithm`, nullable, null means `PPC`); registry in `domain/schedulers/__init__.py`, `.claude/rules/scheduling.md`'s "Heat scheduling (PPC)" ([#1090](https://github.com/dknowles2/trusty-track/issues/1090)) |
+| `SchedulingAlgorithm`  | `PPC`, `ROTATION`, `PERFECT_N` — the algorithm behind a `GENERAL` round's schedule (`Round.algorithm`, nullable, null means `PPC`); registry in `domain/schedulers/__init__.py`, `.claude/rules/scheduling.md`'s "Heat scheduling (PPC)" ([#1090](https://github.com/dknowles2/trusty-track/issues/1090)) |
 | `ScoringStrategy`      | `TIMED` (avg time), `POINTS` (sum of placements) — lower is better for both  |
 | `TiebreakMethod`       | `SHARED` (not resolved — the default), `BEST_TIME`, `TOTAL_TIME`, `COUNTBACK`, `HEAD_TO_HEAD` — see `domain/tiebreak.py` (#540) |
 | `TimerType`            | `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`, `NONE`                   |

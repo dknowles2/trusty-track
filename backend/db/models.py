@@ -149,6 +149,12 @@ class SchedulingAlgorithm(str, enum.Enum):
     #: previous lane plus one; every car still runs every usable lane once.
     #: See `domain/schedulers/rotation.py`.
     ROTATION = "ROTATION"
+    #: Perfect-N chart: every car runs every lane once *and* every pair of
+    #: cars meets the same number of times — a true balanced design, not
+    #: PPC's best-effort opponent variety. Only exists for the field sizes a
+    #: published chart covers; `available_for` names the rest. See
+    #: `domain/schedulers/perfect_n.py`.
+    PERFECT_N = "PERFECT_N"
 
 
 class ScoringStrategy(str, enum.Enum):

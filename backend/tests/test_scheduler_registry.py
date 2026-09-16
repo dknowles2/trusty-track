@@ -33,15 +33,23 @@ def test_available_for_agrees_with_a_working_schedule(algorithm, racers, lane_co
     schedule, nor no to one it can — `test_domain_scheduling.py`'s own sweep
     covers exactly this (racers, lane_count) grid and passes for every
     registered algorithm, so a `None` answer here had better mean that.
+
+    A refusal is not merely a formality to check the wording of, either
+    (#1090 part C, PERFECT_N): `generate` itself is allowed to raise for a
+    shape `available_for` refuses — it does, as a backstop for a round
+    created without going through either checked door — so this only calls
+    `generate` when `available_for` said yes, and additionally confirms a
+    refused shape's `generate` call does raise rather than silently
+    returning something that looks like a schedule.
     """
     scheduler = SCHEDULERS[algorithm]
     reason = scheduler.available_for(racers, lane_count)
-    plans = scheduler.generate(
-        list(range(1, racers + 1)),
-        list(range(1, lane_count + 1)),
-        rng=random.Random(0),
-    )
     if reason is None:
+        plans = scheduler.generate(
+            list(range(1, racers + 1)),
+            list(range(1, lane_count + 1)),
+            rng=random.Random(0),
+        )
         assert len(plans) == racers, (
             f"{algorithm} claimed availability for {racers} racers / "
             f"{lane_count} lanes but produced {len(plans)} heats"
@@ -49,3 +57,9 @@ def test_available_for_agrees_with_a_working_schedule(algorithm, racers, lane_co
     else:
         # An algorithm that refuses a shape says why, not just that it does.
         assert reason.strip(), f"{algorithm} gave an empty refusal reason"
+        with pytest.raises(ValueError):
+            scheduler.generate(
+                list(range(1, racers + 1)),
+                list(range(1, lane_count + 1)),
+                rng=random.Random(0),
+            )

@@ -1,4 +1,5 @@
-"""The scheduling-algorithm registry (#1090, part B: "the seam").
+"""The scheduling-algorithm registry (#1090, part B: "the seam"; PERFECT_N
+added in part C).
 
 `domain/scheduling.py`'s `generate_ppc` used to be the only way a `GENERAL`
 round's schedule was built, chosen nowhere but `crud.generate_heats_for_round`
@@ -25,6 +26,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
+from backend.domain.schedulers import perfect_n
 from backend.domain.schedulers.rotation import generate_rotation
 from backend.domain.scheduling import HeatPlan, generate_ppc
 
@@ -111,6 +113,19 @@ SCHEDULERS: dict[str, Scheduler] = {
         # including the edges PPC's own history warns about — there is
         # likewise no (n, lanes) it refuses.
         available_for=_always_available,
+        absorbs_latecomer=False,
+    ),
+    "PERFECT_N": Scheduler(
+        label="Perfect-N chart",
+        generate=perfect_n.generate_perfect_n,
+        # Unlike PPC and ROTATION, a real refusal — only the (lanes, n)
+        # shapes `perfect_n_tables.TABLES` actually has a chart for. See
+        # `schedulers/perfect_n.py`'s module docstring.
+        available_for=perfect_n.available_for,
+        # Adding one car to a perfect chart has no answer that keeps every
+        # pair meeting the same number of times — #1090 decision 3. The
+        # latecomer path regenerates the round when nothing has raced yet
+        # (every algorithm supports that) or refuses once something has.
         absorbs_latecomer=False,
     ),
 }
