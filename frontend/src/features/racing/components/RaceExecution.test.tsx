@@ -143,6 +143,16 @@ describe('RaceExecution', () => {
 
     const liveLane = (overrides: any) => ({ ...lane(overrides), pending: false, ...overrides });
 
+    /**
+     * Show car photos, Sound options and Auto-advance all moved behind one
+     * ⚙ in the card header (#1157) — a popover, not always-on-screen
+     * controls. Every test that used to click one of those three directly
+     * opens the popover first now.
+     */
+    function openPreferences() {
+        fireEvent.click(screen.getByTestId('race-execution-preferences-trigger'));
+    }
+
     it('renders race execution message if no active heat', () => {
         render(
             <RaceExecution
@@ -712,7 +722,11 @@ describe('RaceExecution', () => {
         });
     });
 
-    it('renders "Racing..." when timer state is RUNNING', () => {
+    it('shows Racing in the phase pill, with the elapsed time as muted text beside it (#1157)', () => {
+        // The header used to also say this a second and third way — a
+        // colored "Racing... 0.0s" box in the primary-action slot, on top
+        // of the phase pill's own "Racing…" — which #1157 removed. The one
+        // status line left is the phase pill plus the elapsed counter.
         mockHeatSession({
             trackId: 1,
             heatId: 1,
@@ -731,7 +745,9 @@ describe('RaceExecution', () => {
             />
         );
 
-        expect(screen.getByText(/Racing.../)).toBeInTheDocument();
+        const badge = screen.getByTestId('heat-phase-badge');
+        expect(within(badge).getByText(/Racing/)).toBeInTheDocument();
+        expect(screen.getByText('0.0s')).toBeInTheDocument();
     });
 
     describe('the live view comes from the server (#7)', () => {
@@ -893,7 +909,7 @@ describe('RaceExecution', () => {
         });
     });
 
-    it('shows "Waiting for Timer..." message when IDLE and not completed', () => {
+    it('says the timer state as muted text beside the phase pill, not in a "Waiting for Timer..." box (#1157)', () => {
         render(
             <RaceExecution
                 {...defaultProps}
@@ -904,7 +920,12 @@ describe('RaceExecution', () => {
             />
         );
 
-        expect(screen.getByText('Waiting for Timer...')).toBeInTheDocument();
+        expect(screen.queryByText('Waiting for Timer...')).not.toBeInTheDocument();
+        // No `timerStatus` subscription is mocked, so `TimerStatusBadge`
+        // reads its default (disconnected) state — the same text the
+        // "shows the timer status badge for a track that has one" test
+        // above pins for the identical setup.
+        expect(screen.getByText('Timer disconnected')).toBeInTheDocument();
     });
 
     it('calls prepareHeat mutation automatically when IDLE and not completed', () => {
@@ -1336,6 +1357,7 @@ describe('RaceExecution', () => {
                 />
             );
 
+            openPreferences();
             fireEvent.click(screen.getByText(/Show .* photos/));
 
             const portraits = document.querySelectorAll('img[src="http://example.com/portrait103.jpg"]');
@@ -1867,6 +1889,7 @@ describe('RaceExecution', () => {
                 />
             );
 
+            openPreferences();
             const checkbox = screen.getByTestId('auto-advance-toggle') as HTMLInputElement;
             expect(checkbox.checked).toBe(false);
 
@@ -1875,7 +1898,7 @@ describe('RaceExecution', () => {
             expect(onToggle).toHaveBeenCalledWith(true);
         });
 
-        it('clicking the words "Show Cars photos" toggles the lane-photo preference', () => {
+        it('clicking the words "Show car photos" toggles the lane-photo preference', () => {
             render(
                 <RaceExecution
                     {...defaultProps}
@@ -1883,12 +1906,83 @@ describe('RaceExecution', () => {
                 />
             );
 
+            openPreferences();
             const toggle = screen.getByTestId('lane-photo-toggle') as HTMLInputElement;
             expect(toggle.checked).toBe(true); // Car by default (#1075).
 
             fireEvent.click(screen.getByText(/Show .* photos/));
 
             expect(toggle.checked).toBe(false);
+        });
+    });
+
+    describe('the action row footer and the ⚙ preferences popover (#1157)', () => {
+        it('renders Next Heat disabled, not absent, before this heat has a result', () => {
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    activeExecutionHeat={{ ...mockHeat, lanes: [lane({ lane: 1, racerId: 101 })] }}
+                    nextExecutionHeat={{ ...mockHeat, id: 2, heatNumber: 2 }}
+                />
+            );
+
+            const button = screen.getByTestId('next-heat-button');
+            expect(button).toBeInTheDocument();
+            expect(button).toBeDisabled();
+        });
+
+        it('enables Next Heat once the heat is recorded and there is somewhere to go', () => {
+            // `defaultProps.activeExecutionHeat` (`mockHeat`) already carries
+            // recorded times.
+            render(<RaceExecution {...defaultProps} nextExecutionHeat={{ ...mockHeat, id: 2, heatNumber: 2 }} />);
+
+            expect(screen.getByTestId('next-heat-button')).not.toBeDisabled();
+        });
+
+        it('keeps Next Heat disabled once recorded if there is nowhere left to go', () => {
+            render(<RaceExecution {...defaultProps} nextExecutionHeat={null} />);
+
+            expect(screen.getByTestId('next-heat-button')).toBeDisabled();
+        });
+
+        it('the popover is closed until the ⚙ is clicked, and holds all three preferences', () => {
+            render(<RaceExecution {...defaultProps} onToggleAutoAdvance={vi.fn()} />);
+
+            expect(screen.queryByTestId('lane-photo-toggle')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('sound-effects-modal-trigger')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('auto-advance-toggle')).not.toBeInTheDocument();
+
+            openPreferences();
+
+            expect(screen.getByTestId('lane-photo-toggle')).toBeInTheDocument();
+            expect(screen.getByTestId('sound-effects-modal-trigger')).toBeInTheDocument();
+            expect(screen.getByTestId('auto-advance-toggle')).toBeInTheDocument();
+        });
+
+        it('Sound options still opens the same sound settings modal from inside the popover', () => {
+            render(<RaceExecution {...defaultProps} />);
+
+            openPreferences();
+            fireEvent.click(screen.getByTestId('sound-effects-modal-trigger'));
+
+            expect(screen.getByText('Race Sound Effects')).toBeInTheDocument();
+        });
+
+        // The CSS rule (`index.css`'s `@media (pointer: coarse)`) hides every
+        // `<kbd>` scoped under this row's own `data-testid` — jsdom does not
+        // implement `window.matchMedia` (see `useNarrowViewport.ts`'s own
+        // note), so a real media-query evaluation cannot be exercised here.
+        // What a unit test *can* pin is the invariant that rule depends on:
+        // every keyboard hint actually lives inside the row the selector
+        // targets, so nothing added later renders a `<kbd>` the touch-device
+        // rule fails to reach.
+        it('every keyboard hint lives inside the action row, where the touch-device rule hides it (#1140)', () => {
+            render(<RaceExecution {...defaultProps} nextExecutionHeat={{ ...mockHeat, id: 2, heatNumber: 2 }} />);
+
+            const actionRow = screen.getByTestId('race-execution-action-row');
+            const kbds = document.querySelectorAll('kbd');
+            expect(kbds.length).toBeGreaterThan(0);
+            kbds.forEach((kbd) => expect(actionRow).toContainElement(kbd as HTMLElement));
         });
     });
 

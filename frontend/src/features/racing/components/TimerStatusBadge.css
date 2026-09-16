@@ -9,6 +9,16 @@
   font-weight: 500;
 }
 
+/* #1157: the same badge, without a pill of its own — for a spot that
+   already has one pill (the heat phase) and only wants the timer's state as
+   plain muted text beside it. */
+.timer-status-badge--muted {
+  padding: 0;
+  background: none;
+  color: var(--text-muted-color);
+  font-weight: 400;
+}
+
 .timer-status-dot {
   width: 8px;
   height: 8px;
