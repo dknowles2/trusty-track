@@ -35,6 +35,7 @@ import { formatLaneTime } from '../../racing/lanes';
 import {
   dnfAnnotation as dnfAnnotationShared,
   formatScore as formatScoreShared,
+  scoreCell,
   scoreLabel as scoreLabelFor,
 } from '../../stats/scoringStrategyText';
 import IdentifyPresence from '../IdentifyPresence';
@@ -1605,7 +1606,7 @@ export default function Observation() {
                         </div>
                       </td>
                       <td className="standing-time" style={{ padding: '3px', textAlign: 'right', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontSize: '2.4vmin', fontWeight: 'bold' }}>
-                        {effectiveFormatScore(s.score)}
+                        {scoreCell(s, effectiveFormatScore)}
                         {dnfAnnotation(s.dnfCount ?? 0) && (
                           <div className="standing-dnf-note" style={{ fontSize: '1.6vmin', fontWeight: 'normal', fontFamily: 'var(--font-body)', color: 'var(--display-text-muted-color)' }}>
                             {dnfAnnotation(s.dnfCount ?? 0)}
@@ -1950,7 +1951,7 @@ export default function Observation() {
                         <td className="projector-standings-time-col" style={{ padding: '1.5vmin 0', width: '30%', textAlign: 'right' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
                             <span style={{ fontSize: '3.5vmin', fontWeight: 'bold', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', color: 'var(--display-accent-color)', lineHeight: '1' }}>
-                              {effectiveFormatProjectorScore(s.score)}
+                              {scoreCell(s, effectiveFormatProjectorScore)}
                             </span>
                             <span style={{ fontSize: '1.5vmin', color: 'var(--display-text-faintest-color)', textTransform: 'uppercase', letterSpacing: '0.1vmin', marginTop: '0.5vmin' }}>
                               {effectiveScoreLabel}

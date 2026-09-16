@@ -66,6 +66,24 @@ describe('StandingsOnlyView (#663)', () => {
         expect(screen.getByText('(1 DNF)')).toBeInTheDocument();
     });
 
+    // #1145: a checked-in racer whose first heat has not run yet reaches
+    // this view as `score: 0, heatsCompleted: 0` — the untouched starting
+    // value of every scoring strategy's aggregate, indistinguishable from a
+    // genuinely fast result unless the row is guarded by `heatsCompleted`.
+    it('shows a dash rather than a fabricated score for a racer with no completed heat', () => {
+        renderView({
+            standings: [
+                { racerId: 1, score: 3.2, heatsCompleted: 2, rank: 1 },
+                { racerId: 2, score: 0, heatsCompleted: 0, rank: 2 },
+            ],
+        });
+
+        expect(screen.getByText('Doc Hudson')).toBeInTheDocument();
+        expect(screen.queryByText('0.000s')).not.toBeInTheDocument();
+        const row = screen.getByText('Doc Hudson').closest('tr');
+        expect(row).toHaveTextContent('—');
+    });
+
     it('shows nothing extra when the caller says there is nothing to say', () => {
         renderView();
 

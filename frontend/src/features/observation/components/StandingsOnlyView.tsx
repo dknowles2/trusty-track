@@ -15,6 +15,7 @@ import RacerAvatar from '../../management/components/RacerAvatar';
 import { formatDisplayName, shouldShowRacerPhoto, type NameDisplay } from '../../core/displayName';
 import { useMeasuredPages } from '../useMeasuredPages';
 import type { ScrollBehavior } from '../displayView';
+import { scoreCell } from '../../stats/scoringStrategyText';
 
 export interface StandingsOnlyRacer {
     firstName: string;
@@ -214,7 +215,7 @@ export default function StandingsOnlyView({
                                                 fontWeight: 'bold',
                                             }}
                                         >
-                                            {formatScore(s.score)}
+                                            {scoreCell(s, formatScore)}
                                             {dnfAnnotation(s.dnfCount ?? 0) && (
                                                 <div
                                                     style={{
