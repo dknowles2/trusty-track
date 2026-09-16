@@ -533,3 +533,130 @@ class TestWithdrawalRepairsAcrossRounds:
         assert [h.heat_number for h in lions_after] == list(
             range(1, len(lions_after) + 1)
         )
+
+
+def _championship_round(db, race_id, *, number, name, source, num_racers):
+    round_obj = crud.create_round(
+        db,
+        race_id=race_id,
+        round_number=number,
+        name=name,
+        advancement_source=source,
+        advancement_num_racers=num_racers,
+    )
+    crud.generate_heats_for_round(
+        db, round_obj.id, num_placeholders=crud.round_field_size(db, round_obj)
+    )
+    return round_obj
+
+
+class TestChainedChampionshipRoundsGetGloballySafeNumbers:
+    """A fourth seam (#1076 stage 2's own district cell, not #1019 — a
+    reviewer turned the district format-crossing cell's own master-order
+    axis on the way this file's other classes already exercise their own
+    seam, and it found this one).
+
+    `invalidate_future_rounds` resets a downstream championship round back
+    to placeholders on every qualifying result — `_reset_round_to_placeholders`,
+    via `_reset_heats_in_place` or a full `generate_heats_for_round`
+    fallback — and both of those always restarted that round's own
+    numbering at 1. Harmless for a race holding at most one championship
+    round (every shape the 24-cell format-crossing sweep in
+    `test_format_crossings.py` tries), since nothing else claims the small
+    numbers it lands on. Wrong the moment a *second* championship round is
+    chained off the first — a knockout feeding a grand final, say — because
+    both restart at 1 and collide with each other for as long as neither
+    has been raced: `crud.repair_master_running_order` never reaches them
+    (championship rounds are deliberately outside its weave, same as
+    `apply_master_running_order`), so nothing was ever pushing their
+    numbers apart.
+
+    Fixed by `crud._next_master_order_heat_number`: whenever the round
+    being (re)built is a championship round and `Race.master_running_order`
+    is on, its numbering starts one past the highest `heat_number` anywhere
+    in the race instead of always at 1 — called from both
+    `generate_heats_for_round`'s own `start_heat_num` and
+    `_reset_heats_in_place`'s.
+    """
+
+    def test_two_chained_championship_rounds_never_share_a_number(self, db, client):
+        _, race_id = _race(db, "Chained Championship Derby", lane_count=4)
+        pack = _group(db, race_id, "Pack", 8, car_start=1)
+        qualifying = _round(db, race_id, pack.id, 1)
+        knockout = _championship_round(
+            db, race_id, number=2, name="Knockout", source="ALL", num_racers=4
+        )
+        final = _championship_round(
+            db,
+            race_id,
+            number=3,
+            name="Final",
+            source=f"ROUND:{knockout.id}",
+            num_racers=2,
+        )
+
+        # Before the flag touches anything: both championship rounds
+        # restart at 1 by design (round-local numbering — the ordinary,
+        # harmless shape of the app with the flag off) and so collide with
+        # each other already. That collision is expected here and stays
+        # expected in the flag-off twin below; what must not survive is the
+        # flag coming on.
+        knockout_before = {
+            h.heat_number for h in crud.get_heats(db, race_id, round_id=knockout.id)
+        }
+        final_before = {
+            h.heat_number for h in crud.get_heats(db, race_id, round_id=final.id)
+        }
+        assert knockout_before & final_before, (
+            "fixture assumption: two championship rounds share small numbers "
+            "with the flag off, same as any race today"
+        )
+
+        _turn_on_master_running_order(db, race_id)
+        crud.apply_master_running_order(db, race_id)
+
+        # Race the qualifying round to completion — `invalidate_future_rounds`
+        # resets both downstream championship rounds on every one of its
+        # heats, and the last one fills the knockout's field for real.
+        pending = crud.get_heats(db, race_id, round_id=qualifying.id)
+        _run(client, db, race_id, qualifying.id, count=len(pending))
+
+        # And the knockout itself, so the final's own placeholders resolve —
+        # every one of these heats resets the final round too.
+        knockout_heats = crud.get_heats(db, race_id, round_id=knockout.id)
+        _run(client, db, race_id, knockout.id, count=len(knockout_heats))
+
+        all_heats = crud.get_heats(db, race_id)
+        numbers = [h.heat_number for h in all_heats]
+        assert len(numbers) == len(set(numbers)), (
+            f"duplicate heat_number values: {sorted(numbers)}"
+        )
+
+    def test_the_flag_off_twin_still_restarts_each_round_at_one(self, db):
+        # The identical shape with the flag at its default (off): two
+        # chained championship rounds sharing small numbers with each other
+        # is the ordinary, accepted state of the app without master running
+        # order, and nothing here should change it.
+        _, race_id = _race(db, "Chained Championship Flag Off Derby", lane_count=4)
+        pack = _group(db, race_id, "Pack", 8, car_start=1)
+        _round(db, race_id, pack.id, 1)
+        knockout = _championship_round(
+            db, race_id, number=2, name="Knockout", source="ALL", num_racers=4
+        )
+        final = _championship_round(
+            db,
+            race_id,
+            number=3,
+            name="Final",
+            source=f"ROUND:{knockout.id}",
+            num_racers=2,
+        )
+
+        knockout_numbers = {
+            h.heat_number for h in crud.get_heats(db, race_id, round_id=knockout.id)
+        }
+        final_numbers = {
+            h.heat_number for h in crud.get_heats(db, race_id, round_id=final.id)
+        }
+        assert min(knockout_numbers) == 1
+        assert min(final_numbers) == 1
