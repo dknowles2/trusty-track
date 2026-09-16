@@ -63,32 +63,37 @@ In a race with 4 racers and 4 lanes:
 **Goal:** Lane Neutrality + Equal Opposition, exactly rather than best-effort.
 **Best For:** A field size the chart actually covers (below) — otherwise, the Partial Perfect Chart.
 
-Named for, and attributed to, [Stan Pope](http://www.stanpope.net/)'s published Perfect-N charts — the method GPRM and DerbyNet both call "PPN"/"Perfect-N" too. Where PPC's opponent variety is a heuristic that gets close, a true Perfect-N chart guarantees every pair of cars meets the *same number of times*, not merely close counts — a balanced incomplete block design, not an approximation of one.
+Named for, and transcribed from, [Stan Pope](http://www.stanpope.net/)'s "Perfect N" Race Grid Directory (`stanpope.net/grdir.html`, with Cory Young) — the method GPRM and DerbyNet both offer too, under the same name. Where PPC's opponent variety is a heuristic that gets close, a true Perfect-N chart guarantees every pair of cars meets the *same number of times*, not merely close counts — a balanced incomplete block design, not an approximation of one.
 
 ### Benefits
-- **Fairness:** Every racer runs in every lane exactly once, the same guarantee PPC and Lane rotation make.
-- **Exact equal opposition:** Every pair of cars races against each other the same number of times as every other pair — not "close," but identical, for every table this chart ships.
+- **Fairness:** Every racer runs every lane the same number of times — always once for PPC and Lane rotation, but not always once for a Perfect-N chart (below).
+- **Exact equal opposition:** Every pair of cars races against each other the same number of times as every other pair — not "close," but identical, for every chart this algorithm serves.
 - **The fairest chart there is, when it exists:** unlike PPC, this is not a heuristic converging on fairness; it is fairness by construction.
 
 ### How it Works
 
-A Perfect-N chart is only possible for certain (lane count, field size) combinations — the reason it is not PPC's unconditional replacement. `available_for(n_racers, n_lanes)` says which: it returns `None` when a chart is published for that exact shape, or a reason (recommending PPC) otherwise. Where a chart exists, `generate_perfect_n` maps a seeded shuffle of the field onto the chart's car positions and the track's usable lanes onto its lane columns — the chart shape itself is fixed data (`backend/domain/schedulers/perfect_n_tables.py`), not computed per race.
+A Perfect-N chart is only possible for the field sizes Pope's directory actually publishes one for — the reason it is not PPC's unconditional replacement. `available_for(n_racers, n_lanes)` says which: it returns `None` when a chart exists for that exact shape, or a reason (naming the nearest field sizes that do have one, and recommending PPC) otherwise. Where a chart exists, `generate_perfect_n` maps a seeded shuffle of the field onto the chart's car positions and the track's usable lanes onto its lane columns — the chart itself is fixed data (`backend/domain/schedulers/perfect_n_tables.py`), transcribed by hand from the directory, not computed per race.
+
+**A chart's heat count is not always the racer count.** Pope's directory sometimes publishes a chart with several runs per lane already built in — still perfect, just more heats than one per racer. Where a shape has more than one published chart, Trusty Track schedules with the fewest-heats one by default.
 
 ### Which field sizes have a chart
 
 | Lanes | Field sizes (n) |
 | --- | --- |
-| 3 | 3, 4, 7 |
-| 4 | 4, 5, 13 |
-| 5 | 5, 6 |
-| 6 | 6, 7 |
+| 3 | 3, 4, 5, 7, 9, 13, 19, 25 |
+| 4 | 4, 5, 7, 9, 10, 13, 19, 37 |
+| 5 | 5, 6, 7, 9, 11, 21, 41 |
+| 6 | 6, 7, 11, 13, 31 |
+| 7 | 7, 8, 15 |
+| 8 | 8, 9, 15, 57 |
+| 9 | 9, 10, 13, 19, 37 |
+| 10 | 91 |
 
-Every one of these is a *true* Perfect-N chart — constant pairwise meetings, not merely "close" — built from one of three constructions: the trivial case (`n == lanes`, a Latin square, since every heat necessarily holds the whole field), the "one absence" case (`n == lanes + 1`, one car sits out each heat), and a planar difference set for the two "meets exactly once" cases in range (`3` lanes/`7` cars is the Fano plane; `4` lanes/`13` cars is `PG(2,3)`). See that module's docstring for the mathematics, the honest account of why these were derived rather than transcribed from Pope's site (unreachable during this PR's authorship), and the comparison run against DerbyNet's own generator-based scheduler. This table is not exhaustive of every shape a Perfect-N chart could exist for — see the module docstring's "which necessary shapes exist but are not here" for the ones a future PR could add.
+41 shapes, transcribed from every row of Pope's directory except three whose own listed generators do not actually verify against the "Perfect-N" (or "Complementary Perfect-N") claim their symbol makes — a genuine transcription error in the 1997 source, kept on record (with the specific reason) in `perfect_n_tables.py`'s `EXCLUDED` rather than silently dropped. See that module's docstring for the full provenance, and `scripts/compare_perfect_n_with_derbynet.py` / this PR's own body for the comparison against DerbyNet's independently-built charts for the same shapes.
 
 ### Example
-In a race with 5 racers and 4 lanes (`(4, 5)`, the "one absence" construction):
+In a race with 5 racers and 4 lanes (chart `P5-4 (3)`, Pope's directory):
 - Every racer appears in one heat for each of the 4 lanes.
-- Each heat is the one heat a different car sits out of.
 - Every pair of the 5 cars races against each other exactly 3 times — not "about" 3, exactly 3, for every pair.
 
 ### A latecomer

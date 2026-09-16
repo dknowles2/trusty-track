@@ -50,7 +50,14 @@ def test_available_for_agrees_with_a_working_schedule(algorithm, racers, lane_co
             list(range(1, lane_count + 1)),
             rng=random.Random(0),
         )
-        assert len(plans) == racers, (
+        # `len(plans)` is `racers` for PPC/ROTATION always — one heat per
+        # racer, one run per lane. A Perfect-N chart (#1090 part C) is not
+        # always that: Stan Pope's directory sometimes publishes several
+        # runs per lane for a shape, so its own heat count is a multiple of
+        # `racers` rather than always equal to it — what every registered
+        # algorithm actually guarantees is *some* whole number of heats
+        # per racer, not exactly one.
+        assert plans and len(plans) % racers == 0, (
             f"{algorithm} claimed availability for {racers} racers / "
             f"{lane_count} lanes but produced {len(plans)} heats"
         )
