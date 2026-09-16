@@ -44,7 +44,9 @@ middle of it.
 
 Lanyard sized, six to a sheet. The photo, the name, the den, the car, a small
 vehicle picture, and the event details — what a scout needs to know where to
-be. The picture (car, rocket, or boat) follows a System Settings choice; see
+be. A racer's home pack prints as a small line of its own once it is set —
+left off for an ordinary single-pack race, where nobody has one. The picture
+(car, rocket, or boat) follows a System Settings choice; see
 [Printed documents](reference/printing.md#the-vehicle-picture).
 
 ![A sheet of pit passes](assets/screenshots/printables/pit-pass-sheet.png)
@@ -96,7 +98,8 @@ disturbing the graphite on the axles.
 ![A sheet of car labels](assets/screenshots/printables/car-sticker-sheet.png)
 _Ten to a sheet, sized for Avery 5163 shipping labels. The car number is the
 biggest thing on it; the name, the den, the weight, and a scan code are
-alongside it. No photo — this label rides on the car, not on the scout._
+alongside it, with the racer's home pack too once one is set. No photo — this
+label rides on the car, not on the scout._
 
 ![A single car label](assets/screenshots/printables/car-sticker-card.png){ width=260 }
 

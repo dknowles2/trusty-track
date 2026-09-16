@@ -37,6 +37,20 @@ const RACER_WITH_PHOTO: PrintableRacer = {
     racer_image_url: '/static/alex.png',
 };
 
+describe('a racer\'s home unit (#1076, stage 1)', () => {
+    it('prints a small line when a home unit is set', () => {
+        render(<PitPass racer={{ ...RACER_NO_PHOTO, home_unit: 'Pack 12' }} race={RACE} />);
+
+        expect(screen.getByText('Pack 12')).toBeInTheDocument();
+    });
+
+    it('renders no such line for an ordinary single-pack race', () => {
+        const { container } = render(<PitPass racer={RACER_NO_PHOTO} race={RACE} />);
+
+        expect(container.querySelectorAll('.pit-pass-race-location')).toHaveLength(1);
+    });
+});
+
 describe('PitPass', () => {
     it('renders initials in a placeholder for a racer without a photo', () => {
         render(<PitPass racer={RACER_NO_PHOTO} race={RACE} />);

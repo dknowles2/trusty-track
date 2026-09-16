@@ -83,6 +83,14 @@ export default function CarSticker({ racer, race, racingGroup, nameDisplay = 'FU
                         </span>
                     )}
 
+                    {/* A racer's own unit (#1076, stage 1) — absent at an
+                        ordinary single-pack race, so this line is too. */}
+                    {racer.home_unit && (
+                        <div className="print-field-value" style={{ fontSize: '0.75rem' }}>
+                            {racer.home_unit}
+                        </div>
+                    )}
+
                     <div className="car-sticker-weight">
                         <span className="print-field-label">Weight</span>
                         <span className="print-field-value">

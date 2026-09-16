@@ -140,6 +140,17 @@ def test_every_racer_field_lands(gprm_file: Path) -> None:
     assert by_id["10"].car_number is None
 
 
+def test_gprm_carries_no_home_unit_field(gprm_file: Path) -> None:
+    """GrandPrix Race Manager is a single-pack program (#1076, stage 1) --
+    `RegistrationInfo` has no column for which unit a racer came from, only
+    `classid`/`rankid` (already mapped to the racing group and its
+    division). Every racer this parser produces leaves `home_unit` unset,
+    which is the correct, permanent answer for this source rather than a
+    gap to fill in later."""
+    roster = parse_gprm_database(gprm_file)
+    assert all(racer.home_unit is None for racer in roster.racers)
+
+
 def test_the_problems_read_in_roster_order_then_duplicates_then_photos(
     gprm_file: Path,
 ) -> None:

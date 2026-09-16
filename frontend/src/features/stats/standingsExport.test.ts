@@ -144,6 +144,40 @@ describe('standingsRows', () => {
         ]);
     });
 
+    describe('a racer\'s home unit (#1076, stage 1)', () => {
+        it('adds no column at all when nobody on the list has one — an ordinary single-pack race', () => {
+            const [header] = standingsRows([entry()], 'POINTS');
+            expect(header).not.toContain('Home Pack');
+            expect(header).toHaveLength(8);
+        });
+
+        it('adds a column, labelled for the race, once anybody has a unit', () => {
+            const rows = standingsRows(
+                [entry({ homeUnit: 'Pack 12' }), entry({ rank: 2, homeUnit: null })],
+                'POINTS',
+                'Den',
+                'Car',
+                'FULL',
+                'Home Troop',
+            );
+            expect(rows[0]).toEqual([
+                'Rank',
+                'Car #',
+                'First Name',
+                'Last Name',
+                'Den',
+                'Home Troop',
+                'Points',
+                'Heats',
+                'Tie Broken By',
+            ]);
+            expect(rows[1][5]).toBe('Pack 12');
+            // A racer with no unit gets a blank cell, not a dash — the
+            // column exists because *somebody* on this list has one.
+            expect(rows[2][5]).toBe('');
+        });
+    });
+
     describe('name display (#552)', () => {
         it('is byte-identical to today under FULL, the default', () => {
             const rows = standingsRows([entry()], 'TIMED', 'Den', 'Car', 'FULL');

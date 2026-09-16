@@ -1028,6 +1028,10 @@ class RacerInput:
     #: outlaw-class entry, a demonstration run. Read in exactly one place,
     #: `services/scoring.get_leaderboard`.
     excluded_from_standings: bool = False
+    #: A racer's own unit — "Pack 12" (#1076, stage 1), distinct from
+    #: `racing_group_id` (the rank they race within). Free text; cleared by
+    #: `clear_home_unit` below, the same shape as `car_name`.
+    home_unit: str | None = None
     #: `updateRacer` used to drop an explicit `null` the same way it dropped
     #: an absent field (#747) — both arrived as Python `None` off this same
     #: `None`-defaulted input, so a screen could never tell the server "clear
@@ -1048,6 +1052,9 @@ class RacerInput:
     clear_car_weight: bool = False
     clear_racer_image: bool = False
     clear_car_image: bool = False
+    #: `home_unit`'s own clear flag (#1076, stage 1) — same shape as
+    #: `clear_car_name` above.
+    clear_home_unit: bool = False
 
 
 #: `RacerInput`'s clear flags, by name — `createRacer`'s resolver pops every
@@ -1059,6 +1066,7 @@ _RACER_CLEAR_FLAGS = (
     "clear_car_weight",
     "clear_racer_image",
     "clear_car_image",
+    "clear_home_unit",
 )
 
 
@@ -1661,6 +1669,9 @@ class LeaderboardEntry:
     racing_group_id: int | None
     racing_group_name: str
     racing_group_division: str | None
+    #: A racer's own unit — "Pack 12" (#1076, stage 1). `None` on every
+    #: racer at an ordinary single-pack race.
+    home_unit: str | None
     score: float
     heats_completed: int
     #: How many of `heatsCompleted` were an actual DNF rather than a genuine
@@ -1808,6 +1819,11 @@ class Racer:
     #: withdrawal and the live heat view are untouched and still read
     #: check-in — this is not a second way to say "not racing".
     excluded_from_standings: bool
+    #: A racer's own unit — "Pack 12" (#1076, stage 1). `None` on every
+    #: racer until an operator sets one, which is every racer at a single-
+    #: pack race — nothing here reads it except a surface that already
+    #: checks it is non-empty before rendering anything.
+    home_unit: str | None
 
     @strawberry.field
     def racing_group(self, info: Info) -> RacingGroup | None:
@@ -2210,6 +2226,28 @@ class Race:
                 race=_terminology_overrides(self),
             )
         )
+
+    @strawberry.field
+    def home_unit_label(self, info: Info) -> str:
+        """What to call a racer's own unit — "Home Pack" (#1076, stage 1).
+
+        Deliberately **not** `terminology` above: that field is this race's
+        own resolved organization word, which at a district event is
+        overridden to "District" — the word the *event* is called by. A
+        racer's home unit is the *ordinary* organization word instead, so
+        this resolves terminology against the organization layer only,
+        never this race's own override, the one place in the app that reads
+        `resolve_terminology` with `race=None` on purpose. No new
+        terminology column: an operator who wants a different word for this
+        (a council running "Home Troop" for a combined event) renames the
+        *organization's* own word in System Settings, same as every other
+        install-wide default.
+        """
+        organization = _loaders(info).organization_by_id(self.organization_id)
+        resolved = domain_terminology.resolve_terminology(
+            organization=_terminology_overrides(organization) if organization else None
+        )
+        return f"Home {resolved.organization_singular}"
 
     @strawberry.field
     def leaderboard(
@@ -4537,6 +4575,9 @@ class _StagedCsvRacer:
     car_name: str | None
     car_passed_inspection: bool
     racing_group_name: str | None
+    #: A racer's own unit — "Pack 12" (#1076, stage 1). Absent when the
+    #: uploaded file carries no matching column.
+    home_unit: str | None = None
 
 
 def _format_blocking_import_problems(
@@ -5112,6 +5153,7 @@ class Mutation:
         clear_car_weight = data.pop("clear_car_weight", False)
         clear_racer_image = data.pop("clear_racer_image", False)
         clear_car_image = data.pop("clear_car_image", False)
+        clear_home_unit = data.pop("clear_home_unit", False)
         filtered_data = {k: v for k, v in data.items() if v is not None}
         if clear_racing_group:
             filtered_data["racing_group_id"] = None
@@ -5125,6 +5167,8 @@ class Mutation:
             filtered_data["racer_image_url"] = None
         if clear_car_image:
             filtered_data["car_image_url"] = None
+        if clear_home_unit:
+            filtered_data["home_unit"] = None
         racer_update = schemas.RacerUpdate(**typing.cast(Any, filtered_data))
         updated = typing.cast(
             Any, crud.update_racer(db, racer_id=id, racer_update=racer_update)
@@ -6809,6 +6853,9 @@ class Mutation:
             car_name = get_val(row, "car_name")
             passed = get_val(row, "car_passed_inspection", "passed_inspection")
             racing_group_val = get_val(row, "racing_group")
+            home_unit_val = get_val(
+                row, "home_unit", "pack", "unit", "home_pack", "troop"
+            )
 
             staged_racers.append(
                 _StagedCsvRacer(
@@ -6823,6 +6870,7 @@ class Mutation:
                     racing_group_name=racing_group_val.strip()
                     if racing_group_val
                     else None,
+                    home_unit=home_unit_val.strip() or None if home_unit_val else None,
                 )
             )
 
@@ -6881,6 +6929,7 @@ class Mutation:
                         car_name=staged.car_name,
                         car_passed_inspection=staged.car_passed_inspection,
                         racing_group_id=racing_group_id,
+                        home_unit=staged.home_unit,
                         race_id=race_id,
                     )
                     crud.create_racer(db, racer_in, commit=False)

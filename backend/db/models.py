@@ -716,6 +716,13 @@ class Racer(Base):
     excluded_from_standings: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    #: A racer's own unit — "Pack 12" — distinct from `racing_group_id` (the
+    #: rank they race within, which at a district event is shared with
+    #: racers from a dozen different units). Free text, nullable, so an
+    #: ordinary single-pack race is untouched: no unit is ever assigned to
+    #: any of its racers and every surface that renders one stays exactly as
+    #: it read before (#1076, stage 1).
+    home_unit: Mapped[str | None] = mapped_column(String, nullable=True)
 
     race: Mapped["Race"] = relationship("Race", back_populates="racers")
     racing_group: Mapped[Optional["RacingGroup"]] = relationship(

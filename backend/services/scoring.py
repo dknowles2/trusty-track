@@ -127,6 +127,9 @@ class _LeaderboardRow(TypedDict):
     racing_group_id: int | None
     racing_group_name: str
     racing_group_division: str | None
+    #: A racer's own unit — "Pack 12" (#1076, stage 1). `None` on every
+    #: racer at an ordinary single-pack race.
+    home_unit: str | None
     score: float
     heats_completed: int
     #: How many of `heats_completed` were an actual DNF rather than a
@@ -319,6 +322,7 @@ def get_leaderboard(
                 racing_group_division=racing_group.division
                 if racing_group and racing_group.division
                 else None,
+                home_unit=racer.home_unit,
                 score=score_data["score"],
                 heats_completed=int(score_data["heats_completed"]),
                 dnf_count=int(score_data["dnf_count"]),
@@ -591,6 +595,7 @@ def _elimination_leaderboard(
                 racing_group_division=racing_group.division
                 if racing_group and racing_group.division
                 else None,
+                home_unit=racer.home_unit,
                 score=float(entry.losses),
                 heats_completed=completed.get(entry.racer_id, 0),
                 # Survival is scored by loss count, not by

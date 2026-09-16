@@ -19,6 +19,10 @@ export interface PrintableRacer {
      * the impound-pit weight field. Absent or `0` both mean "not weighed",
      * the same convention `weightVerdict` uses. */
     car_weight?: number | null;
+    /** A racer's own unit — "Pack 12" (#1076, stage 1). Absent on every
+     * racer at an ordinary single-pack race, so every printable renders
+     * exactly as it did before. */
+    home_unit?: string | null;
 }
 
 /** The event, as far as a printable is concerned. */

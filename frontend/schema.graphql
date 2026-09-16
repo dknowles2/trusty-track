@@ -432,6 +432,7 @@ type LeaderboardEntry {
   racingGroupId: Int
   racingGroupName: String!
   racingGroupDivision: String
+  homeUnit: String
   score: Float!
   heatsCompleted: Int!
   dnfCount: Int!
@@ -639,6 +640,7 @@ type Race {
   resolvedNameDisplay: String!
   resolvedPrintablesTheme: String!
   terminology: Terminology!
+  homeUnitLabel: String!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
   awards: [Award!]!
   registeredCount: Int!
@@ -768,6 +770,7 @@ type Racer {
   racingGroupId: Int
   raceId: Int!
   excludedFromStandings: Boolean!
+  homeUnit: String
   racingGroup: RacingGroup
 }
 
@@ -783,12 +786,14 @@ input RacerInput {
   carImageUrl: String = null
   raceId: Int = null
   excludedFromStandings: Boolean! = false
+  homeUnit: String = null
   clearRacingGroup: Boolean! = false
   clearCarNumber: Boolean! = false
   clearCarName: Boolean! = false
   clearCarWeight: Boolean! = false
   clearRacerImage: Boolean! = false
   clearCarImage: Boolean! = false
+  clearHomeUnit: Boolean! = false
 }
 
 type RacerStat {

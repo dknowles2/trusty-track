@@ -32,6 +32,10 @@ export const GET_RACE_DETAILS = gql`
       vehicleSingular
       vehiclePlural
       vehicleArtworkKey
+      # A racer's own unit is labelled with the *organization's* own word,
+      # never this race's own override of it (#1076, stage 1) — see the
+      # homeUnitLabel resolver's own docstring for why.
+      homeUnitLabel
       # Once a championship round is decided, its winner stops counting
       # toward the standings they qualified from (#548) — the race form's
       # checkbox for it.
@@ -77,6 +81,7 @@ export const GET_RACE_DETAILS = gql`
         racerImageUrl
         carImageUrl
         excludedFromStandings
+        homeUnit
       }
       leaderboard {
         racerId

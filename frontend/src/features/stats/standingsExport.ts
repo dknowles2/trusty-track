@@ -27,6 +27,9 @@ export interface StandingsEntry {
     /** How a shared score was broken, or null/undefined if it was never tied
      * or the tie did not resolve (#540). */
     resolvedBy?: string | null;
+    /** A racer's own unit — "Pack 12" (#1076, stage 1). Absent on every
+     * entry at an ordinary single-pack race. */
+    homeUnit?: string | null;
 }
 
 /**
@@ -98,14 +101,24 @@ export function standingsRows(
      * like corrupted data, where a differently-shaped sheet is an honest
      * export of what the operator asked this setting to do. */
     nameDisplay: NameDisplay | string = 'FULL',
+    /** "Home Pack" — the race's own resolved label (#1076, stage 1). Only
+     * reaches the sheet at all when at least one entry actually carries a
+     * unit — see the column note below. */
+    homeUnitLabel = 'Home Pack',
 ): CsvRow[] {
     const nameColumns: CsvRow =
         nameDisplay === 'FULL' ? ['First Name', 'Last Name'] : ['Name'];
+    // A racer's own unit (#1076, stage 1) is a column only when somebody on
+    // this list actually has one — an ordinary single-pack race exports
+    // byte-identically to before this field existed, the same "conditional
+    // on a non-empty value" rule every other surface follows.
+    const includeHomeUnit = standings.some((entry) => entry.homeUnit);
     const header: CsvRow = [
         'Rank',
         `${vehicleWord} #`,
         ...nameColumns,
         groupWord,
+        ...(includeHomeUnit ? [homeUnitLabel] : []),
         scoreHeading(scoringStrategy),
         'Heats',
         // A blank column reads as "not tied" the same way it does on the
@@ -125,6 +138,7 @@ export function standingsRows(
                 entry.carNumber,
                 ...nameCells,
                 entry.racingGroupName,
+                ...(includeHomeUnit ? [entry.homeUnit ?? ''] : []),
                 // An empty cell, not the screen's `NO_SCORE` em dash
                 // (#1179): `0.000`/`0` for a racer who has not completed a
                 // heat is a fabricated result (see `scoreCell`'s own

@@ -25,6 +25,13 @@ interface ImportRacersModalProps {
     onClose: () => void;
     raceId: number;
     onImportSuccess: () => void;
+    /** "Home Pack" — the race's own resolved label (#1076, stage 1), read
+     * off `Race.homeUnitLabel`. Always the *organization's* own word, never
+     * this race's own override of it — a district event's races still call
+     * a racer's own unit "Home Pack", not "Home District". Defaults to the
+     * built-in wording so a caller that has not been threaded through yet
+     * (a unit test) still reads sensibly. */
+    homeUnitLabel?: string;
 }
 
 const PREVIEW_ROWS = 5;
@@ -39,9 +46,9 @@ const PREVIEW_ROWS = 5;
  * What gets sent is rebuilt from the mapping rather than forwarded from the
  * file, so the import is exactly what the preview showed.
  */
-export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuccess }: ImportRacersModalProps) {
-    const { group } = useTerminology();
-    const FIELD_LABELS = fieldLabels(group);
+export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuccess, homeUnitLabel }: ImportRacersModalProps) {
+    const { group, vehicle } = useTerminology();
+    const FIELD_LABELS = fieldLabels(group, vehicle, homeUnitLabel);
     const [fileName, setFileName] = useState<string | null>(null);
     const [parsed, setParsed] = useState<ParsedCsv | null>(null);
     const [mapping, setMapping] = useState<Mapping | null>(null);

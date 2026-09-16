@@ -147,6 +147,20 @@ describe('sortRacers', () => {
             1, 2, 3,
         ]);
     });
+
+    it('sorts by home unit, with an unset unit first ascending (#1076, stage 1)', () => {
+        const sorted = sortRacers(
+            [
+                racer({ id: 1, home_unit: 'Pack 30' }),
+                racer({ id: 2, home_unit: null }),
+                racer({ id: 3, home_unit: 'Pack 12' }),
+            ],
+            RACING_GROUPS,
+            { key: 'home_unit', direction: 'asc' },
+        );
+
+        expect(ids(sorted)).toEqual([2, 3, 1]);
+    });
 });
 
 describe('nextSortState', () => {

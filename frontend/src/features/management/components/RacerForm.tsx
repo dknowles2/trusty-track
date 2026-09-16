@@ -16,6 +16,16 @@ import {
   useIsRefusedOnDemo,
 } from '../../core/hooks/useDemoRefusal';
 
+// The built-in wording for a racer's own unit (#1076, stage 1), mirroring
+// `Race.homeUnitLabel`'s own server-side default. Placed here, ahead of any
+// generic or JSX in this file, on purpose: `terminologyGuard.test.ts`'s
+// `>...<` heuristic is not a real JSX parser, and a literal sitting after a
+// `Promise<T>`'s own closing `>` further down this file was previously
+// swept into that scan's next (unrelated) span — the same false-positive
+// shape `PrintDecor.tsx`'s `VEHICLES` map is allowlisted for. There being no
+// `>` anywhere above this line yet is what keeps it out of any such span.
+const DEFAULT_HOME_UNIT_LABEL = 'Home Pack';
+
 export interface RacerData {
   first_name: string;
   last_name: string;
@@ -29,6 +39,11 @@ export interface RacerData {
   /** Races, but is not ranked (#548) — a sibling or parent's car, a
    * demonstration run, an outlaw-class entry. Check-in is unaffected. */
   excluded_from_standings: boolean;
+  /** A racer's own unit — "Pack 12" (#1076, stage 1). Distinct from
+   * `racing_group_id`, the rank they race within — at a district event a
+   * dozen units share one rank. Absent on every racer at an ordinary
+   * single-pack race. */
+  home_unit?: string;
 }
 
 export interface RacingGroup {
@@ -75,9 +90,14 @@ interface RacerFormProps {
    * and check-in is a different act again.
    */
   onSubmitAndContinue?: (data: RacerData) => Promise<void>;
+  /** "Home Pack" — the race's own resolved label for the field below
+   * (#1076, stage 1), read off `Race.homeUnitLabel`. Defaults to the
+   * built-in wording so a caller in a unit test (or a screen that has not
+   * been threaded through yet) still reads sensibly. */
+  homeUnitLabel?: string;
 }
 
-export default function RacerForm({ initialData, raceId, onSubmit, onCancel, submitLabel, onSubmitAndContinue, weightLimitOz, existingRacers, excludeRacerId, checkInMode }: RacerFormProps) {
+export default function RacerForm({ initialData, raceId, onSubmit, onCancel, submitLabel, onSubmitAndContinue, weightLimitOz, existingRacers, excludeRacerId, checkInMode, homeUnitLabel = DEFAULT_HOME_UNIT_LABEL }: RacerFormProps) {
   // Seeded from the racer being edited, rather than emptied and then patched
   // by an effect. The form lives in a modal that unmounts when it closes, so a
   // fresh mount is a fresh form; the caller also keys it, so switching racers
@@ -91,6 +111,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
     car_weight: undefined,
     car_name: '',
     excluded_from_standings: false,
+    home_unit: '',
   });
 
   // Use GraphQL to fetch racingGroups
@@ -395,6 +416,21 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
     </div>
   );
 
+  const homeUnitField = (
+    <div>
+      <label htmlFor="racer-home-unit" style={{ display: 'block', marginBottom: '5px' }}>{homeUnitLabel}</label>
+      <input
+        type="text"
+        name="home_unit"
+        id="racer-home-unit"
+        value={formData.home_unit || ''}
+        onChange={handleChange}
+        placeholder="e.g. Unit 12"
+        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+      />
+    </div>
+  );
+
   const passedInspectionToggle = (
     <div style={{ marginBottom: '20px' }}>
       {/* `htmlFor` rather than a bare caption: the toggle is a styled
@@ -603,6 +639,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                 </div>
                 <div style={{ marginBottom: '10px' }}>{carNumberField}</div>
                 <div style={{ marginBottom: '10px' }}>{racingGroupField}</div>
+                <div style={{ marginBottom: '10px' }}>{homeUnitField}</div>
                 <div style={{ marginBottom: '10px' }}>{carNameField}</div>
                 <div style={{ marginBottom: '10px' }}>{excludedFromStandingsToggle}</div>
               </div>
@@ -633,6 +670,8 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
             <div style={{ marginBottom: '10px' }}>{carNameField}</div>
 
             <div style={{ marginBottom: '10px' }}>{racingGroupField}</div>
+
+            <div style={{ marginBottom: '10px' }}>{homeUnitField}</div>
 
             {passedInspectionToggle}
 

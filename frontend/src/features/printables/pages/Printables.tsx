@@ -35,6 +35,7 @@ interface GQLRacer {
     racingGroupId?: number;
     racerImageUrl?: string;
     carWeight?: number | null;
+    homeUnit?: string | null;
 }
 
 /**
@@ -156,6 +157,7 @@ export default function Printables() {
             racing_group_id: r.racingGroupId,
             racer_image_url: r.racerImageUrl,
             car_weight: r.carWeight,
+            home_unit: r.homeUnit,
         }));
         return racersToPrint(racers, parseIds(searchParams.get('racers')));
     }, [data, searchParams]);

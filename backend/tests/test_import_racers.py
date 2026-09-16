@@ -306,3 +306,36 @@ def test_a_partial_name_match_does_not_block_an_unrelated_racer(
     count = _import(client, race.id, "first_name,last_name\nSam,Okafor\n")
     assert count == 1
     assert {r.first_name for r in _racers(db, race.id)} == {"Alex", "Sam"}
+
+
+# --------------------------------------------------------------------------- #
+# #1076 stage 1: a racer's own unit, from any of its header aliases            #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("header", ["home_unit", "pack", "unit", "home_pack", "troop"])
+def test_a_home_unit_column_is_read_under_any_of_its_aliases(
+    client: TestClient, db: Session, race: models.Race, header: str
+) -> None:
+    count = _import(
+        client, race.id, f"first_name,last_name,{header}\nAlex,Rivera,Pack 12\n"
+    )
+
+    assert count == 1
+    assert _racers(db, race.id)[0].home_unit == "Pack 12"
+
+
+def test_no_home_unit_column_leaves_it_unset(
+    client: TestClient, db: Session, race: models.Race
+) -> None:
+    _import(client, race.id, "first_name,last_name\nAlex,Rivera\n")
+
+    assert _racers(db, race.id)[0].home_unit is None
+
+
+def test_a_blank_home_unit_cell_is_left_unset(
+    client: TestClient, db: Session, race: models.Race
+) -> None:
+    _import(client, race.id, "first_name,last_name,home_unit\nAlex,Rivera,\n")
+
+    assert _racers(db, race.id)[0].home_unit is None

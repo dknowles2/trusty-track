@@ -25,6 +25,9 @@ export interface LeaderboardEntry {
   carNumber: number;
   racingGroupName: string;
   racingGroupDivision?: string | null;
+  /** A racer's own unit — "Pack 12" (#1076, stage 1). Absent on every entry
+   * at an ordinary single-pack race. */
+  homeUnit?: string | null;
   score: number;
   heatsCompleted: number;
   /** How many of `heatsCompleted` were an actual DNF rather than a genuine
@@ -47,6 +50,9 @@ const GET_LEADERBOARD_METADATA = `
       id
       name
       scoringStrategy
+      # "Home Pack" — the race's own resolved label for a racer's own unit
+      # (#1076, stage 1), read for the CSV export's column header.
+      homeUnitLabel
       # How many of each racer's worst runs are dropped before scoring
       # (drop-worst-runs, issue 547 stage 2) — read here so the "not
       # applied" notice can tell a configured-but-not-firing modifier
@@ -96,6 +102,7 @@ const GET_ROUND_STANDINGS = `
         carNumber
         racingGroupName
         racingGroupDivision
+        homeUnit
         score
         heatsCompleted
         dnfCount
@@ -444,6 +451,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                 group,
                 vehicle,
                 race?.resolvedNameDisplay ?? 'FULL',
+                race?.homeUnitLabel ?? 'Home Pack',
               ),
             )
           }
@@ -585,6 +593,16 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                 </td>
                 <td style={{ padding: '12px' }}>
                   {entry.firstName} {entry.lastName}
+                  {/* A racer's own unit (#1076, stage 1) — absent on every
+                      entry at an ordinary single-pack race, so this line is
+                      too, on desktop and mobile alike. */}
+                  {entry.homeUnit && (
+                    <span
+                      style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted-color)' }}
+                    >
+                      {entry.homeUnit}
+                    </span>
+                  )}
                   {/* Under 600px, Den and Heats stop being columns of their
                       own (#1138) — dropped in the order the issue asked
                       for (Avatar, then Den, then Heats), never the score —

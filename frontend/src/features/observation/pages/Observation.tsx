@@ -118,6 +118,9 @@ const GET_INITIAL_DATA = `
         carName
         racingGroupId
         carPassedInspection
+        # A racer's own unit — "Pack 12" (#1076, stage 1). Absent on every
+        # racer at an ordinary single-pack race.
+        homeUnit
       }
       racingGroups {
         id
@@ -509,6 +512,9 @@ export default function Observation() {
     carName?: string;
     racingGroupId?: number | null;
     carPassedInspection?: boolean;
+    /** A racer's own unit — "Pack 12" (#1076, stage 1). Absent on every
+     * racer at an ordinary single-pack race. */
+    homeUnit?: string | null;
   }
 
   const racersMap = useMemo(() => {
@@ -1551,6 +1557,15 @@ export default function Observation() {
                             {racer?.carNumber && (
                               <div className="standing-car-number" style={{ color: 'var(--display-text-muted-color)', fontSize: '0.85rem' }}>{vehicle} #{racer.carNumber}</div>
                             )}
+                            {/* A racer's own unit (#1076, stage 1) — a
+                                separate muted line, deliberately not folded
+                                into `formatDisplayName`, which stays a pure
+                                function of a name and the abbreviation
+                                setting. Absent on every racer at an ordinary
+                                single-pack race. */}
+                            {racer?.homeUnit && (
+                              <div className="standing-home-unit" style={{ color: 'var(--display-text-muted-color)', fontSize: '0.85rem' }}>{racer.homeUnit}</div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -1885,6 +1900,13 @@ export default function Observation() {
                                 second line does not. */}
                             {density.showSecondaryText && s.racingGroupDivision && (
                               <div className="standing-racing-group-division" style={{ color: 'var(--display-text-subtle-color)', fontSize: '2vmin' }}>{s.racingGroupDivision}</div>
+                            )}
+                            {/* A racer's own unit (#1076, stage 1) — absent
+                                at an ordinary single-pack race, so this line
+                                is too. Separate from `formatDisplayName`,
+                                which stays a pure function of a name. */}
+                            {density.showSecondaryText && racer?.homeUnit && (
+                              <div className="standing-home-unit" style={{ color: 'var(--display-text-subtle-color)', fontSize: '2vmin' }}>{racer.homeUnit}</div>
                             )}
                           </div>
                         </div>
