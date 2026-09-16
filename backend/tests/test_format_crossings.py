@@ -198,7 +198,7 @@ def _setup_race(db, label: str) -> tuple[models.Race, list[int]]:
 
 
 def _create_general_round(
-    client, race_id: int, style: str, runs_per_lane: int = 1
+    client, race_id: int, style: str, runs_per_lane: int = 1, algorithm: str = "PPC"
 ) -> int:
     """Build the general round through the wizard, alone — the same door
     `test_wizard_round_styles.py` drives. Returns its id.
@@ -209,10 +209,18 @@ def _create_general_round(
     here (and in `test_create_race_round_plan.py`) used 1, which is
     exactly why `Round.runs_per_lane` being silently discarded on
     regeneration went uncaught.
+
+    ``algorithm`` (#1090) is only sent when it names something other than
+    the default — omitted for ``"PPC"`` so every existing cell's request
+    body is byte-for-byte what it always was, and never sent at all for a
+    non-``GENERAL`` style, which has its own fixed algorithm and ignores
+    the field.
     """
     general_round: dict = {"type": "ALL", "runsPerLane": runs_per_lane}
     if style != "GENERAL":
         general_round["schedulingStrategy"] = style
+    elif algorithm != "PPC":
+        general_round["algorithm"] = algorithm
     body = client.post(
         "/graphql",
         json={
@@ -495,12 +503,33 @@ CELLS = [
 ]
 
 
+# The algorithm axis (#1090): PPC × ROTATION over the same 24 cells above.
+# Meaningful only for a `GENERAL`-style general round — `ELIMINATION` and
+# `BALANCED` build their own schedules and ignore `algorithm` entirely, so
+# crossing them with `ROTATION` would be the identical race already proven
+# by the `PPC` cell, run a second time for nothing. Those 16 cells are
+# skipped rather than left out of the parametrization, so the 48-id list
+# stays the honest record of what this sweep covers and why a given id did
+# or did not run — doubling the file's slowest, most valuable 8 cells
+# (`GENERAL` × 4 championship shapes × 2 master-order settings) rather than
+# the whole 24.
+ALGORITHMS = ["PPC", "ROTATION"]
+
+
 @pytest.mark.parametrize(("general_style", "championship_shape", "master_order"), CELLS)
-def test_format_crossing(db, client, general_style, championship_shape, master_order):
-    label = f"Crossing {general_style} {championship_shape} {master_order}"
+@pytest.mark.parametrize("algorithm", ALGORITHMS)
+def test_format_crossing(
+    db, client, algorithm, general_style, championship_shape, master_order
+):
+    if algorithm != "PPC" and general_style != "GENERAL":
+        pytest.skip(f"algorithm is meaningless for a {general_style} general round")
+
+    label = f"Crossing {algorithm} {general_style} {championship_shape} {master_order}"
     race, ids = _setup_race(db, label)
 
-    general_round_id = _create_general_round(client, race.id, general_style)
+    general_round_id = _create_general_round(
+        client, race.id, general_style, algorithm=algorithm
+    )
 
     champ_round_id = None
     if championship_shape in ("ALL", "EACH_GROUP"):
