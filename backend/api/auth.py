@@ -143,6 +143,11 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         "identifyDisplay",
         "renameDisplay",
         "forgetDisplay",
+        # A camera is a display with a role (#177 stage 1a); telling one
+        # which track's timer to listen to is the same bucket for the same
+        # reason — the camera page itself holds no PIN and makes no mutation
+        # of its own, so this travels the operator's own Displays panel.
+        "setCameraTrack",
         # Display scenes (#613). Same bucket and the same reasoning as the
         # display mutations directly above — a scene is a saved way to call
         # several of them at once, not a different kind of authority.

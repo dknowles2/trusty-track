@@ -23,11 +23,13 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
 
 from backend.domain.display_names import whimsical_name
 from backend.domain.displays import (
     DEFAULT_VIEW,
     Assignment,
+    DisplayRole,
     DisplayView,
     QRTarget,
     ScrollBehavior,
@@ -91,6 +93,20 @@ class Display:
     #: opening payload is a reconnection, not an instruction, and obeying it
     #: would flash the name on every wifi hiccup.
     identify_seq: int = 0
+    #: What kind of device this is (#177 stage 1a) — see `domain.displays.
+    #: DisplayRole`. Set from whatever the connecting page claims and carried
+    #: across reconnects the same way `name` is; a browser tab does not
+    #: change what it is between reloads.
+    role: DisplayRole = DisplayRole.DISPLAY
+    #: Which track this camera listens to, for its clip boundaries — null
+    #: until `setCameraTrack` picks one, and meaningless for a `DISPLAY` role.
+    track_id: int | None = None
+    #: ISO 8601 UTC, the last time a clip from this camera landed — null
+    #: until the first one does. A plain string rather than a stored instant,
+    #: the same shape `Heat.recorded_at` uses, since this crosses into
+    #: GraphQL and a client only ever reads it, never compares it to a clock
+    #: on this side.
+    last_clip_at: str | None = None
 
     @property
     def connected(self) -> bool:
@@ -111,19 +127,31 @@ class DisplayRegistry:
     # -- presence ---------------------------------------------------------
 
     def connect(
-        self, display_id: str, race_id: int, name: str | None = None
+        self,
+        display_id: str,
+        race_id: int,
+        name: str | None = None,
+        role: DisplayRole = DisplayRole.DISPLAY,
     ) -> Display:
         """Register a display, or note that a known one is back.
 
         A reconnect keeps the assignment and the name. That is the point of the
         display choosing its own id: the operator names a screen once, and it
         survives the reload that happens when somebody bumps the trolley.
+
+        ``role`` is written on every connect, reconnect included — unlike
+        ``name``, which only changes on an explicit rename, a browser tab does
+        not change what page it is between reloads, so there is no "keep the
+        old one" case worth defending against. Every real caller passes the
+        connecting page's own role explicitly (#177 stage 1a); it is not
+        optional the way ``name`` is.
         """
         existing = self._displays.get(display_id)
         if existing is not None:
             existing.race_id = race_id
             existing.connections += 1
             existing.last_seen = time.monotonic()
+            existing.role = role
             if name and existing.name != name:
                 existing.name = name
             return existing
@@ -134,6 +162,7 @@ class DisplayRegistry:
             name=name or self._auto_name(display_id, race_id),
             last_seen=time.monotonic(),
             connections=1,
+            role=role,
         )
         self._displays[display_id] = display
         return display
@@ -195,6 +224,7 @@ class DisplayRegistry:
         show_checked_in: bool | None = None,
         qr_target: QRTarget | None = None,
         show_standings_ticker: bool | None = None,
+        replays: bool | None = None,
     ) -> Display | None:
         """Tell a display what to show. Returns None for one nobody has seen."""
         display = self._displays.get(display_id)
@@ -218,8 +248,39 @@ class DisplayRegistry:
                 if show_standings_ticker is None
                 else show_standings_ticker
             ),
+            replays=(current.replays if replays is None else replays),
         )
         display.assigned = True
+        return display
+
+    def set_camera_track(self, display_id: str, track_id: int) -> Display | None:
+        """Tell a camera which track's timer it should listen to (#177 stage 1a).
+
+        Refused (returns `None`) for a display nobody has seen, the same
+        shape every other write here uses, and for a display that is not a
+        `CAMERA` — `track_id` means nothing on an ordinary screen, and
+        setting it there would be a value nothing ever reads.
+        """
+        display = self._displays.get(display_id)
+        if display is None or display.role is not DisplayRole.CAMERA:
+            return None
+        display.track_id = track_id
+        return display
+
+    def record_clip(self, display_id: str) -> Display | None:
+        """Note that a clip from this camera just landed (#177 stage 1a).
+
+        Called from the upload route, not a mutation — a camera holds no PIN
+        and makes no GraphQL call of its own, the same reasoning that makes
+        `displayAssignment` a subscription rather than a mutation. Returns
+        `None` for a camera the registry has since forgotten (a restart, or
+        `forgetDisplay`), which the caller treats as "nothing to update," not
+        as a reason to refuse the upload itself.
+        """
+        display = self._displays.get(display_id)
+        if display is None:
+            return None
+        display.last_clip_at = datetime.now(timezone.utc).isoformat()
         return display
 
     def advance(self, display_id: str, delta: int) -> Display | None:

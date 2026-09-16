@@ -22,6 +22,17 @@ An archive is a zip holding three things:
 Nothing here imports the app. It takes an engine and two directories, which is
 what lets the tests exercise a real restore against a temporary data directory
 rather than the operator's own.
+
+``DATA_DIR/replays/`` (`services/replays.py`, #177 stage 1a) is never in an
+archive. This module only ever reads ``upload_dir`` by name — it does not walk
+``DATA_DIR`` generally — so a sibling directory needs no explicit exclusion to
+stay out; the exclusion is what this module *doesn't* do, not a check it
+makes. Deliberate: stage 1's clips are deleted within seconds of the heat they
+belong to finishing, so a backup carrying one would be carrying a file that is
+almost certainly already gone by the time anybody restores it, and #552's
+reasoning (a video of the finish line is a video of children) applies here
+just as it does to `uploads/` itself — no reason to give a clip a longer life
+than stage 1 already gives it by copying it into every archive taken.
 """
 
 from __future__ import annotations

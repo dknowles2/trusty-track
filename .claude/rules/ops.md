@@ -46,6 +46,8 @@ Four rules, each of which is a way of getting it wrong:
 
 **One level of undo, deliberately.** What is replaced is kept as `trusty-track.db.pre-restore` and `uploads.pre-restore/`. An unbounded history of 60-photo directories would fill the SD card the backup exists to protect.
 
+**`DATA_DIR/replays/` (`services/replays.py`, #177 stage 1a) is never in an archive**, and needs no exclusion check to keep it that way — `write_archive` only ever reads `upload_dir` by name, it does not walk `DATA_DIR` generally, so a sibling directory was never a candidate. Deliberate given stage 1's own retention (delete-after-next-heat): a clip is almost always already gone by the time anybody restores a backup, and #552's reasoning (a video of the finish line is a video of children) applies to it exactly as it does to `uploads/` itself.
+
 ### Networking: HTTPS by default, plain HTTP as an opt-out
 
 HTTPS is forced on purpose (#593), not a default that happened to stick. `components/ui/CameraCapture.tsx` and the check-in scanner's `BarcodeDetector` (`features/printables/components/CheckInScanner.tsx`) only work in a browser **secure context**, and a browser only counts `https://` and the machine's own `localhost` as secure — a second device reached by plain `http://<lan-ip>` is not, whatever network it is on. So `packaging/run_server.py`, `scripts/serve.sh` and `scripts/install-pi.sh` all generate a self-signed certificate and serve `https://` everywhere, which is what lets those two features work off the machine running the server at all.

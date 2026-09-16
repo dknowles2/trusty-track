@@ -28,10 +28,11 @@ Everything not named below, and in particular:
   ``isLocked`` — the operator's own way back out. See
   :func:`is_lock_only_update`;
 * the display mutations (``assignDisplay``, ``advanceDisplay``,
-  ``identifyDisplay``, ``renameDisplay``, ``forgetDisplay``) — they are about
-  which screen shows what, not about the race's own record, the same
-  reasoning that puts them outside ``CHECKIN_MUTATIONS``/needing anything
-  beyond an ``OPERATOR`` role in the first place;
+  ``identifyDisplay``, ``renameDisplay``, ``forgetDisplay``,
+  ``setCameraTrack`` — a camera is a display with a role, #177 stage 1a) —
+  they are about which screen shows what, not about the race's own record,
+  the same reasoning that puts them outside ``CHECKIN_MUTATIONS``/needing
+  anything beyond an ``OPERATOR`` role in the first place;
 * the scene mutations (``createScene``, ``renameScene``, ``deleteScene``,
   ``updateSceneDisplay``, ``removeSceneDisplay``, ``applyScene``,
   ``applyScenePreset``, #613) — the same reasoning again: a scene is a saved

@@ -143,6 +143,10 @@ type Display {
   showCheckedIn: Boolean!
   qrTarget: QRTarget!
   showStandingsTicker: Boolean!
+  replays: Boolean!
+  role: DisplayRole!
+  trackId: Int
+  lastClipAt: String
   connected: Boolean!
   assigned: Boolean!
   description: String!
@@ -151,6 +155,11 @@ type Display {
   slideDelta: Int!
   identifySeq: Int!
   displayThemeSetting: String!
+}
+
+enum DisplayRole {
+  DISPLAY
+  CAMERA
 }
 
 enum DisplayView {
@@ -306,6 +315,12 @@ type HeatReorderResponse {
   heats: [Heat!]!
 }
 
+type HeatReplay {
+  heatId: Int!
+  recordedAt: String!
+  clips: [ReplayClip!]!
+}
+
 type HeatResultRow {
   roundName: String!
   heatNumber: Int!
@@ -445,7 +460,8 @@ type Mutation {
   pauseIntermission(raceId: Int!): Race!
   resumeIntermission(raceId: Int!): Race!
   endIntermission(raceId: Int!): Race!
-  assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null, scrollBehavior: ScrollBehavior = null, showCheckedIn: Boolean = null, qrTarget: QRTarget = null, showStandingsTicker: Boolean = null): Display
+  assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null, scrollBehavior: ScrollBehavior = null, showCheckedIn: Boolean = null, qrTarget: QRTarget = null, showStandingsTicker: Boolean = null, replays: Boolean = null): Display
+  setCameraTrack(displayId: String!, trackId: Int!): Display
   advanceDisplay(displayId: String!, delta: Int!): Display
   identifyDisplay(displayId: String!): Display
   renameDisplay(displayId: String!, name: String!): Display
@@ -818,6 +834,13 @@ type RacingGroupStat {
   bestRacerName: String
 }
 
+type ReplayClip {
+  cameraId: String!
+  url: String!
+  durationMs: Int!
+  t0OffsetMs: Int!
+}
+
 enum Role {
   VIEWER
   CHECKIN
@@ -921,8 +944,9 @@ type Subscription {
   raceStateChanged(raceId: Int!): RaceStateChangedEvent!
   racesChanged: Boolean!
   leaderboard(raceId: Int!): [LeaderboardEntry!]!
-  displayAssignment(displayId: String!, raceId: Int!, name: String = null): Display!
+  displayAssignment(displayId: String!, raceId: Int!, name: String = null, role: DisplayRole! = DISPLAY): Display!
   displays(raceId: Int!): [Display!]!
+  heatReplay(raceId: Int!): HeatReplay
   onDeck(raceId: Int!): [Heat!]!
   currentlyRacing(raceId: Int!): Heat
   timingStats(raceId: Int!): TimingStats
