@@ -29,6 +29,7 @@ from backend.domain import (
 )
 from backend.domain.displays import Assignment
 from backend.domain.photos import is_valid_photo_url
+from backend.domain.schedulers import SCHEDULERS
 
 from . import lane_sync, models, schemas
 
@@ -1515,6 +1516,7 @@ def create_round(
     elimination_losses: int | None = None,
     balanced_phases: int | None = None,
     runs_per_lane: int | None = 1,
+    algorithm: models.SchedulingAlgorithm | str | None = None,
 ) -> models.Round:
     """Create a new round for a race.
 
@@ -1524,6 +1526,13 @@ def create_round(
     on heat generation itself — the caller still passes its own ``runs`` to
     `generate_heats_for_round` — this is a record of the answer, not a
     second source of truth for it.
+
+    ``algorithm`` (#1090) is stored the same way and for the same reason:
+    it decides nothing here, `generate_heats_for_round` reads it off the
+    row it is about to schedule for. ``None`` is stored as ``None`` rather
+    than resolved to `PPC` up front — see `Round.algorithm`'s own
+    docstring for why a null column, not a `PPC` default value, is what
+    means "every round from before this existed."
     """
     validate_advancement_source(db, race_id, advancement_source)
     round_obj = models.Round(
@@ -1538,6 +1547,7 @@ def create_round(
         elimination_losses=elimination_losses,
         balanced_phases=balanced_phases,
         runs_per_lane=runs_per_lane,
+        algorithm=models.SchedulingAlgorithm(algorithm) if algorithm else None,
     )
     db.add(round_obj)
     db.commit()
@@ -1555,8 +1565,16 @@ def create_general_round(
     runs_per_lane: int = 1,
     elimination_losses: int | None = None,
     balanced_phases: int | None = None,
+    algorithm: models.SchedulingAlgorithm | str | None = None,
 ) -> list[models.Round]:
     """Create a race's qualifying (general) round(s) and generate their heats.
+
+    ``algorithm`` (#1090) is passed straight through to `create_round` for
+    every round this builds — one for ``"ALL"``, one per non-empty racing
+    group for ``"EACH_GROUP"`` — so an "each den races its own rotation"
+    choice applies uniformly across the split the same way `runs_per_lane`
+    already does. ``None`` means `PPC`, resolved by `round_algorithm` at
+    schedule time rather than here.
 
     ``general_type`` is ``"ALL"`` (one round, the whole field) or
     ``"EACH_GROUP"`` (one round per racing group that has a checked-in racer
@@ -1627,6 +1645,7 @@ def create_general_round(
                     elimination_losses=elimination_losses,
                     balanced_phases=balanced_phases,
                     runs_per_lane=runs_per_lane,
+                    algorithm=algorithm,
                 )
                 rounds.append(round_obj)
                 generate_heats_for_round(
@@ -1648,6 +1667,7 @@ def create_general_round(
             elimination_losses=elimination_losses,
             balanced_phases=balanced_phases,
             runs_per_lane=runs_per_lane,
+            algorithm=algorithm,
         )
         rounds.append(round_obj)
         generate_heats_for_round(
@@ -1824,6 +1844,7 @@ def create_rounds_from_plan(
                     elimination_losses=gen_losses,
                     balanced_phases=gen_phases,
                     runs_per_lane=general_cfg.runs_per_lane,
+                    algorithm=general_cfg.algorithm,
                 )
             ]
         else:
@@ -1837,6 +1858,7 @@ def create_rounds_from_plan(
                 runs_per_lane=general_cfg.runs_per_lane,
                 elimination_losses=gen_losses,
                 balanced_phases=gen_phases,
+                algorithm=general_cfg.algorithm,
             )
         created_rounds.extend(general_rounds)
         current_round_number += len(general_rounds)
@@ -2056,24 +2078,42 @@ def _schedule_rng(
     return demo_seed.rng(f"schedule:{name}:{number}{suffix}")
 
 
-def _generate_ppc(
+def round_algorithm(round_obj: models.Round) -> str:
+    """The scheduling algorithm a `GENERAL`-format round schedules with.
+
+    `Round.algorithm` is nullable and null means `PPC` (#1090) — every round
+    created before the column existed, and the default for a new one that
+    does not ask for anything else. The one place that resolves the default,
+    so a caller never compares `round_obj.algorithm` to `None` itself; enums
+    cross the domain boundary as plain strings (CLAUDE.md), which is the
+    shape `domain.schedulers.SCHEDULERS` is keyed on.
+    """
+    return (round_obj.algorithm or models.SchedulingAlgorithm.PPC).value
+
+
+def _generate_scheduled_heats(
     db: Session,
     race_id: int,
     round_id: int,
+    algorithm: str,
     p_ids: list[int],
     usable_lanes: Sequence[int],
     start_heat_num: int = 1,
     run: int = 0,
 ) -> list[models.Heat]:
-    """Persist a PPC schedule for the given racers.
+    """Persist a schedule for the given racers, built by ``algorithm``.
 
-    The algorithm itself is :func:`backend.domain.scheduling.generate_ppc`; this
-    is only the part that turns heat plans into rows.
+    The algorithm itself lives in :mod:`backend.domain.schedulers` (a
+    registry keyed on `models.SchedulingAlgorithm`'s string values,
+    :func:`round_algorithm` above resolves a round's own choice into); this
+    is only the part that turns heat plans into rows, unchanged from when it
+    only ever called PPC.
 
     ``usable_lanes`` is which lanes, not how many (#171). ``run`` is which run
     of a multi-run round this is — it only varies the seeded shuffle.
     """
-    plans = scheduling.generate_ppc(
+    scheduler = SCHEDULERS[algorithm]
+    plans = scheduler.generate(
         p_ids,
         usable_lanes,
         start_heat_number=start_heat_num,
@@ -2098,6 +2138,36 @@ def _generate_ppc(
         db.add(heat)
         generated_heats.append(heat)
     return generated_heats
+
+
+def _generate_ppc(
+    db: Session,
+    race_id: int,
+    round_id: int,
+    p_ids: list[int],
+    usable_lanes: Sequence[int],
+    start_heat_num: int = 1,
+    run: int = 0,
+) -> list[models.Heat]:
+    """Persist a PPC schedule for the given racers.
+
+    Kept as a thin, always-PPC wrapper around
+    :func:`_generate_scheduled_heats` — `test_schedules.py` calls this
+    directly to test PPC generation without a round whose own `algorithm`
+    has to be set up first. `generate_heats_for_round` itself no longer
+    calls this; it calls `_generate_scheduled_heats` with whichever
+    algorithm the round names, PPC included.
+    """
+    return _generate_scheduled_heats(
+        db,
+        race_id,
+        round_id,
+        models.SchedulingAlgorithm.PPC.value,
+        p_ids,
+        usable_lanes,
+        start_heat_num=start_heat_num,
+        run=run,
+    )
 
 
 def _write_elimination_wave(
@@ -2367,9 +2437,10 @@ def generate_heats_for_round(
 
     ``runs`` is how many runs per lane to schedule. ``None`` — the default and
     what every rebuild path passes — means **preserve what the round had**,
-    derived from the heats about to be cleared: PPC makes one heat per
-    participant per run, so the run count is the heat count over the field
-    size (#230). The derivation lives here rather than in callers because it
+    derived from the heats about to be cleared: every registered algorithm
+    (#1090) makes one heat per participant per run, so the run count is the
+    heat count over the field size (#230). The derivation lives here rather
+    than in callers because it
     used to live in exactly one of them (``regenerateRound``, from #143) while
     ``invalidate_future_rounds`` and ``populate_round_field`` had nothing —
     so a two-run final quietly became a one-run final the moment any prelim
@@ -2473,14 +2544,17 @@ def generate_heats_for_round(
         db.commit()
         return phase_heats
 
-    # Generate heats using PPC strategy, once per run. Each run gets its own
-    # schedule — `run` varies the shuffle — and the numbering continues.
+    # Generate heats using the round's own scheduling algorithm (#1090),
+    # once per run. Each run gets its own schedule — `run` varies the
+    # shuffle — and the numbering continues.
+    algorithm = round_algorithm(round_obj)
     new_heats: list[models.Heat] = []
     for run in range(runs):
-        new_heats += _generate_ppc(
+        new_heats += _generate_scheduled_heats(
             db,
             race_id,
             round_id,
+            algorithm,
             p_ids,
             usable_lanes,
             start_heat_num=start_heat_num + len(new_heats),
@@ -3073,7 +3147,12 @@ def admit_late_racers(db: Session, race_id: int) -> list[int]:
     appended, planned by :mod:`backend.domain.latecomers`. Whoever fills the
     other lanes of those heats runs more often than their peers, so the round is
     marked ``disrupted`` and drops out of ``POINTS`` standings exactly as a
-    re-laned one does.
+    re-laned one does. That appendix assumes PPC's lane-balance shape
+    (#1090 decision 3): a round whose algorithm's ``absorbs_latecomer`` is
+    ``False`` — a fixed rotation, whose every car's lane sequence is pinned
+    to its own position in the field — refuses instead, raising
+    ``ValueError`` with a sentence naming the round, rather than appending a
+    heat that would corrupt the guarantee the algorithm exists for.
 
     **A round already finished** is left alone. Appending to it would be asking
     people to come back to a round they have finished; the newcomer joins from
@@ -3137,6 +3216,24 @@ def admit_late_racers(db: Session, race_id: int) -> list[int]:
             # not seen — so the latecomer simply joins the next wave or
             # phase (which, for a balanced round, marks it disrupted).
             continue
+
+        # A round already part-way through can only be *appended* to, and
+        # `latecomers.plan_late_entry` is a PPC-shaped appendix — it assumes
+        # nothing about who else is racing, which is exactly what a fixed
+        # rotation is not (#1090 decision 3). An algorithm that cannot
+        # absorb a latecomer this way refuses rather than silently corrupt
+        # its own guarantee; the round above (nothing raced yet) already
+        # took the regenerate path, which every algorithm supports.
+        scheduler = SCHEDULERS[round_algorithm(round_obj)]
+        if not scheduler.absorbs_latecomer:
+            label = round_obj.name or f"Round {round_obj.round_number}"
+            raise ValueError(
+                f"{label} can't add a late arrival now — its "
+                f"{scheduler.label} schedule has no way to insert one "
+                "without rebuilding the whole round, and heats have "
+                "already been run. Clear its results to regenerate it, or "
+                "let them join starting with the next round."
+            )
 
         appended = latecomers.plan_late_entry(
             missing, sorted(already), usable, met=_met_counts(heat_lanes, missing)
@@ -3406,6 +3503,16 @@ def _reset_heats_in_place(
     slots has four heats, and rewriting only when the count equalled *one*
     run's worth meant every invalidation fell through to full regeneration —
     which rebuilt a single run, collapsing the final the operator configured.
+
+    Only ever called for a championship round (`_reset_round_to_placeholders`'s
+    one caller), which is always `GENERAL` format — an elimination or
+    balanced round cannot also be a championship one (`.claude/rules/
+    scheduling.md`). So its `algorithm` (#1090) is meaningful here exactly as
+    it is in `generate_heats_for_round`, and this goes through the same
+    registry rather than calling `scheduling.generate_ppc` unconditionally —
+    a championship round scheduled with `ROTATION` must keep rewriting in
+    place with `ROTATION`, not silently regress to PPC the moment its field
+    is invalidated and rebuilt.
     """
     existing = sorted(
         db.query(models.Heat).filter(models.Heat.round_id == round_id).all(),
@@ -3414,7 +3521,15 @@ def _reset_heats_in_place(
     if not existing:
         return False
 
-    plans = scheduling.generate_ppc(
+    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    algorithm = (
+        round_algorithm(round_obj)
+        if round_obj
+        else models.SchedulingAlgorithm.PPC.value
+    )
+    scheduler = SCHEDULERS[algorithm]
+
+    plans = scheduler.generate(
         p_ids,
         usable_lanes,
         start_heat_number=1,
@@ -3423,7 +3538,7 @@ def _reset_heats_in_place(
     if not plans or len(existing) % len(plans) != 0:
         return False
     for run in range(1, len(existing) // len(plans)):
-        plans += scheduling.generate_ppc(
+        plans += scheduler.generate(
             p_ids,
             usable_lanes,
             start_heat_number=len(plans) + 1,

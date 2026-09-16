@@ -1,4 +1,4 @@
-from backend.db import crud, schemas
+from backend.db import crud, models, schemas
 
 
 def create_test_race(db):
@@ -215,3 +215,60 @@ def test_rewriting_a_round_in_place_also_uses_the_lane_numbers(db):
         assert lane_numbers == [1, 2, 4], (
             f"heat {heat.heat_number} was rewritten into lanes {lane_numbers}"
         )
+
+
+def test_rewriting_a_round_in_place_keeps_its_own_algorithm(db):
+    """#1090: `_reset_heats_in_place` must not silently fall back to PPC.
+
+    A championship round scheduled with `ROTATION` gets rewritten in place
+    (by `invalidate_future_rounds`, on every earlier result) exactly as often
+    as a PPC one does — the round's own `algorithm` column has to survive
+    that rewrite, or a rotation chart quietly regresses to PPC's opponent
+    variety the first time a preliminary result invalidates it.
+    """
+    race_id = create_test_race(db)
+    for i in range(4):
+        crud.create_racer(
+            db,
+            schemas.RacerCreate(
+                first_name=f"Rotation{i}",
+                last_name="Test",
+                car_number=600 + i,
+                race_id=race_id,
+                car_passed_inspection=True,
+            ),
+        )
+
+    round_obj = crud.create_round(
+        db,
+        race_id=race_id,
+        round_number=1,
+        name="RotationReset",
+        algorithm=models.SchedulingAlgorithm.ROTATION,
+    )
+    crud.generate_heats_for_round(db, round_obj.id)
+    racer_ids = [r.id for r in crud.get_racers(db, race_id=race_id)]
+
+    assert crud._reset_heats_in_place(db, round_obj.id, racer_ids, [1, 2, 3, 4])
+
+    heats = sorted(
+        crud.get_heats(db, race_id, round_id=round_obj.id), key=lambda h: h.heat_number
+    )
+    lane_by_heat_for_racer: dict[int, dict[int, int]] = {}
+    for heat in heats:
+        for lane in crud.heat_lanes_of(db, heat):
+            if lane.racer_id is not None:
+                lane_by_heat_for_racer.setdefault(lane.racer_id, {})[
+                    heat.heat_number
+                ] = lane.lane
+
+    window = min(len(racer_ids), 4)
+    for racer_id, by_heat in lane_by_heat_for_racer.items():
+        for heat_number, lane_number in by_heat.items():
+            nxt = heat_number + 1
+            if nxt in by_heat:
+                assert by_heat[nxt] == (lane_number % window) + 1, (
+                    "a rewritten ROTATION round no longer advances lanes by "
+                    f"one: racer {racer_id}, heat {heat_number} -> {nxt}, "
+                    f"lanes {lane_number} -> {by_heat[nxt]}"
+                )

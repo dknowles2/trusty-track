@@ -623,6 +623,23 @@ class Round:
     runs_per_lane: int | None
 
     @strawberry.field
+    def algorithm(self) -> str:
+        """How this round's ``GENERAL``-format schedule is built (#1090).
+
+        `"PPC"` or `"ROTATION"` — see `domain/schedulers`. The stored
+        column is nullable and null means `PPC`; this resolver is what
+        applies that default (`crud.round_algorithm`'s own rule, restated
+        here since a Strawberry field resolver's `self` is the ORM row,
+        not the mapper `crud` reads through — CLAUDE.md's "Strawberry
+        types are duck-typed shells"), so nothing downstream of the schema
+        has to know the column can be null. Meaningless for
+        ``ELIMINATION``/``BALANCED`` rounds, which build their own
+        schedules and never read it.
+        """
+        value = self.algorithm  # the ORM row's column, not this method itself
+        return value.value if value else models.SchedulingAlgorithm.PPC.value
+
+    @strawberry.field
     def heats(self, info: Info) -> list[Heat]:
         """Get all heats in this round."""
         return typing.cast(Any, _loaders(info).heats_for_round(self.race_id, self.id))
@@ -1287,6 +1304,11 @@ class WizardGeneralRoundInput:
     #: track's lane count, the same as `RoundCreateInput.balanced_phases`,
     #: when the strategy is ``BALANCED`` and this is not supplied.
     balanced_phases: int | None = None
+    #: How the round's schedule is built (#1090) — `"PPC"` or `"ROTATION"`.
+    #: `None` means `PPC`, matching `RoundCreateInput.algorithm`. Not yet
+    #: offered by the wizard's own UI (part D of #1090); settable here so
+    #: a caller that wants something other than PPC can ask for it.
+    algorithm: str | None = None
 
 
 @strawberry.input
@@ -1332,6 +1354,8 @@ class WizardGeneralRound:
     runs_per_lane: int
     elimination_losses: int | None
     balanced_phases: int | None
+    #: How the round's schedule is built (#1090) — see `Round.algorithm`.
+    algorithm: str
 
 
 @strawberry.type
@@ -1706,6 +1730,11 @@ class RoundCreateInput:
     #: lane count when the strategy is ``BALANCED`` and this is not supplied
     #: — GPRM's own advice, one phase per lane.
     balanced_phases: int | None = None
+    #: How a ``GENERAL`` round's schedule is built (#1090) — `"PPC"` or
+    #: `"ROTATION"`. `None` means `PPC`, the default and the only algorithm
+    #: every round created before this field existed used. Meaningless for
+    #: ``ELIMINATION``/``BALANCED``, which build their own schedules.
+    algorithm: str | None = None
 
 
 @strawberry.input
@@ -2261,6 +2290,11 @@ class Race:
                 elimination_losses=r.elimination_losses,
                 balanced_phases=r.balanced_phases,
                 runs_per_lane=r.runs_per_lane,
+                algorithm=(
+                    r.algorithm.value
+                    if r.algorithm
+                    else models.SchedulingAlgorithm.PPC.value
+                ),
             )
             for r in rounds
         ]
@@ -2274,6 +2308,7 @@ class Race:
                 runs_per_lane=plan.general_round.runs_per_lane,
                 elimination_losses=plan.general_round.elimination_losses,
                 balanced_phases=plan.general_round.balanced_phases,
+                algorithm=plan.general_round.algorithm,
             ),
             championship_rounds=[
                 WizardChampionshipRound(
@@ -6862,6 +6897,7 @@ class Mutation:
                     runs_per_lane=round_data.runs_per_lane,
                     elimination_losses=losses,
                     balanced_phases=phases,
+                    algorithm=round_data.algorithm,
                 )
                 created_rounds.extend(general_rounds)
                 await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
@@ -6919,6 +6955,7 @@ class Mutation:
                     advancement_num_racers=round_data.advancement_num_racers,
                     advancement_from_bottom=round_data.advancement_from_bottom,
                     runs_per_lane=round_data.runs_per_lane,
+                    algorithm=round_data.algorithm,
                 )
                 created_rounds.append(round_obj)
 

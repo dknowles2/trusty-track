@@ -839,6 +839,7 @@ type Round {
   disrupted: Boolean!
   racingGroupId: Int
   runsPerLane: Int
+  algorithm: String!
   heats: [Heat!]!
   advancementStatus: AdvancementStatus!
   eliminationChart: EliminationChart
@@ -854,6 +855,7 @@ input RoundCreateInput {
   advancementFromBottom: Boolean! = false
   eliminationLosses: Int = null
   balancedPhases: Int = null
+  algorithm: String = null
 }
 
 type RunOffHeat {
@@ -1090,6 +1092,7 @@ type WizardGeneralRound {
   runsPerLane: Int!
   eliminationLosses: Int
   balancedPhases: Int
+  algorithm: String!
 }
 
 input WizardGeneralRoundInput {
@@ -1098,4 +1101,5 @@ input WizardGeneralRoundInput {
   schedulingStrategy: String = null
   eliminationLosses: Int = null
   balancedPhases: Int = null
+  algorithm: String = null
 }

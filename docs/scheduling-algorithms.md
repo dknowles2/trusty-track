@@ -1,6 +1,6 @@
 # Race Scheduling Algorithm
 
-Trusty Track uses the **Partial Perfect Chart (PPC)** algorithm for scheduling race heats. This algorithm is designed to ensure maximum fairness and variety for all participants.
+Trusty Track schedules a general round's heats with the **Partial Perfect Chart (PPC)** algorithm by default. A second algorithm, **Lane rotation**, is also available — the round wizard does not offer a choice yet, but every one of these algorithms produces the same shared guarantees (lane neutrality and equal run counts), just with a different opponent pattern.
 
 ## Partial Perfect Chart (PPC)
 
@@ -32,9 +32,38 @@ Opponent variety remains a heuristic — this is a *partial* perfect chart, not 
 
 ---
 
+## Lane rotation
+
+**Goal:** Lane Neutrality + Simplicity.
+**Best For:** A pack that wants the chart it used to run by hand, or that finds PPC's shuffled opponents harder to explain at the track.
+
+### Benefits
+- **Fairness:** Every racer runs in every lane exactly once, the same guarantee PPC makes — a field smaller than the track leaves the spare lanes unused rather than short-changing anybody.
+- **Simplicity:** The whole chart is one rule — *your next heat puts you one lane further along than your last* — which reads off a printed sheet without an explanation of matchup scores.
+- **Predictability:** An operator (or a racer) can say where they will be next without consulting the sheet again.
+
+### How it Works
+
+1. **Randomized order:** The roster is shuffled once, same as PPC's lane-1 seeding.
+2. **A sliding window:** Read the shuffled roster as a circle. Each heat is the next `usable lane count` racers around that circle, one heat per racer in the field.
+3. **The rotation:** A car's lane moves one place along the usable-lane list from one heat to the next, wrapping back to the first lane when it reaches the last — and wrapping the *roster*, not just the lane list, so the last heat borrows from the front of the circle rather than running short. Every heat stays full even when the field is not an exact multiple of the lane count.
+
+There is no opponent-variety step, and none is attempted — that trade is the whole point of choosing this over PPC.
+
+### Example
+In a race with 4 racers and 4 lanes:
+- Every racer appears in one heat for each of the 4 lanes, the same as PPC's example.
+- A racer in lane 2 this heat is in lane 3 next, lane 4 after that, and lane 1 after that.
+- Who races whom is decided entirely by the shuffle at the start, not re-optimized heat to heat.
+
+---
+
 ## Technical Implementation
-The algorithm lives in `backend/domain/scheduling.py` (`generate_ppc`), which is pure — it takes a list of racer IDs and a list of usable lanes, and imports no database code. `crud.generate_heats_for_round` decides who is in the field and persists the result.
+Both algorithms are pure functions over plain values — a list of racer IDs and a list of usable lanes in, a schedule out, no database code involved — registered in `backend/domain/schedulers/__init__.py` and selected by a round's own `algorithm` column. `crud.generate_heats_for_round` decides who is in the field, looks up which algorithm the round asked for, and persists the result.
 
-It takes *which* lanes rather than how many ([issue #171](https://github.com/dknowles2/trusty-track/issues/171)). On an undamaged track that is every lane, and nothing changes; when a lane is out of service it is the remaining ones, and the schedule names the lanes that exist rather than renumbering them. Every property above is stated over the usable lanes — including the one that matters most, that every heat is full and everybody runs the same number of times.
+- PPC lives in `backend/domain/scheduling.py` (`generate_ppc`).
+- Lane rotation lives in `backend/domain/schedulers/rotation.py` (`generate_rotation`).
 
-Because it is pure, `backend/tests/test_domain_scheduling.py` exercises every racer count from 2 to 20 against every lane count from 2 to 8 with no fixtures, in about a second, plus a set of gapped tracks. That is how #26 was found.
+Both take *which* lanes rather than how many ([issue #171](https://github.com/dknowles2/trusty-track/issues/171)). On an undamaged track that is every lane, and nothing changes; when a lane is out of service it is the remaining ones, and the schedule names the lanes that exist rather than renumbering them. Every property above is stated over the usable lanes — including the one that matters most, that every heat is full and everybody runs the same number of times.
+
+Because they are pure, `backend/tests/test_domain_scheduling.py` exercises every racer count from 2 to 20 against every lane count from 2 to 8 with no fixtures, in about a second, plus a set of gapped tracks, for both algorithms. That is how #26 was found, and it is the same suite a new algorithm has to pass before it can be registered.
