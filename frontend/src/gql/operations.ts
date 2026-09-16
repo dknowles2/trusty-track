@@ -1099,10 +1099,11 @@ export type StartIntermissionMutationVariables = Exact<{
   raceId: number;
   durationSeconds: number;
   label?: string | null | undefined;
+  highlights?: boolean | null | undefined;
 }>;
 
 
-export type StartIntermissionMutation = { startIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null } } };
+export type StartIntermissionMutation = { startIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null, highlights: boolean } } };
 
 export type ExtendIntermissionMutationVariables = Exact<{
   raceId: number;
@@ -1110,35 +1111,35 @@ export type ExtendIntermissionMutationVariables = Exact<{
 }>;
 
 
-export type ExtendIntermissionMutation = { extendIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null } } };
+export type ExtendIntermissionMutation = { extendIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null, highlights: boolean } } };
 
 export type PauseIntermissionMutationVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type PauseIntermissionMutation = { pauseIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null } } };
+export type PauseIntermissionMutation = { pauseIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null, highlights: boolean } } };
 
 export type ResumeIntermissionMutationVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type ResumeIntermissionMutation = { resumeIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null } } };
+export type ResumeIntermissionMutation = { resumeIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null, highlights: boolean } } };
 
 export type EndIntermissionMutationVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type EndIntermissionMutation = { endIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null } } };
+export type EndIntermissionMutation = { endIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null, highlights: boolean } } };
 
 export type GetRaceIntermissionQueryVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type GetRaceIntermissionQuery = { race: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null } } | null };
+export type GetRaceIntermissionQuery = { race: { id: number, replayCount: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null, highlights: boolean }, highlightsSummary: { clipCount: number, roundNumber: number, roundName: string | null } | null } | null, initialConfig: { keepReplays: boolean } };
 
 export type SetLaneOutagesMutationVariables = Exact<{
   trackId: number;

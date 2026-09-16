@@ -342,6 +342,12 @@ type HeatSession {
   lanes: [LiveLane!]!
 }
 
+type HighlightsSummary {
+  clipCount: Int!
+  roundNumber: Int!
+  roundName: String
+}
+
 type HistoricalTrackRecord {
   id: Int!
   trackId: Int!
@@ -417,6 +423,7 @@ type Intermission {
   paused: Boolean!
   label: String
   endsAt: String
+  highlights: Boolean!
 }
 
 type LaneResult {
@@ -465,7 +472,7 @@ type Mutation {
   createRace(race: RaceInput!): Race!
   updateRace(id: Int!, race: RaceUpdateInput!): Race
   deleteRace(id: Int!): Boolean!
-  startIntermission(raceId: Int!, durationSeconds: Int!, label: String = null): Race!
+  startIntermission(raceId: Int!, durationSeconds: Int!, label: String = null, highlights: Boolean! = false): Race!
   extendIntermission(raceId: Int!, seconds: Int!): Race!
   pauseIntermission(raceId: Int!): Race!
   resumeIntermission(raceId: Int!): Race!
@@ -646,6 +653,8 @@ type Race {
   qrHeadline: String
   qrWifiNote: String
   intermission: Intermission!
+  replayCount: Int!
+  highlightsSummary: HighlightsSummary
   resolvedNameDisplay: String!
   resolvedPrintablesTheme: String!
   terminology: Terminology!

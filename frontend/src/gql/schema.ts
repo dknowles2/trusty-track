@@ -350,6 +350,12 @@ export type HeatSession = {
   trackId: Scalars['Int']['output'];
 };
 
+export type HighlightsSummary = {
+  clipCount: Scalars['Int']['output'];
+  roundName?: Maybe<Scalars['String']['output']>;
+  roundNumber: Scalars['Int']['output'];
+};
+
 export type HistoricalTrackRecord = {
   carNumber?: Maybe<Scalars['Int']['output']>;
   id: Scalars['Int']['output'];
@@ -422,6 +428,7 @@ export type InitialConfigStatus = {
 export type Intermission = {
   active: Scalars['Boolean']['output'];
   endsAt?: Maybe<Scalars['String']['output']>;
+  highlights: Scalars['Boolean']['output'];
   label?: Maybe<Scalars['String']['output']>;
   paused: Scalars['Boolean']['output'];
   remainingSeconds: Scalars['Int']['output'];
@@ -968,6 +975,7 @@ export type MutationStartFreeRaceHeatArgs = {
 
 export type MutationStartIntermissionArgs = {
   durationSeconds: Scalars['Int']['input'];
+  highlights?: Scalars['Boolean']['input'];
   label?: InputMaybe<Scalars['String']['input']>;
   raceId: Scalars['Int']['input'];
 };
@@ -1220,6 +1228,7 @@ export type Race = {
   excludeRoundWinnersFromQualifyingStandings: Scalars['Boolean']['output'];
   globalStartNumber: Scalars['Int']['output'];
   heats: Array<Heat>;
+  highlightsSummary?: Maybe<HighlightsSummary>;
   homeUnitLabel: Scalars['String']['output'];
   id: Scalars['Int']['output'];
   intermission: Intermission;
@@ -1242,6 +1251,7 @@ export type Race = {
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
   racingGroups: Array<RacingGroup>;
   registeredCount: Scalars['Int']['output'];
+  replayCount: Scalars['Int']['output'];
   resolvedNameDisplay: Scalars['String']['output'];
   resolvedPrintablesTheme: Scalars['String']['output'];
   roundPlan?: Maybe<WizardConfiguration>;

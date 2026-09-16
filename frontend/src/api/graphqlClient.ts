@@ -99,6 +99,10 @@ export const EMBEDDED_TYPES = [
   'HeatReplay',
   'HeatResultRow',
   'HeatSession',
+  // "Highlights: 8 clips from Round 2" (#177 stage 3) — computed fresh on
+  // every read off the current heats/replays, the same "computed row, not
+  // a record" shape as `HeatSession` above.
+  'HighlightsSummary',
   'InitialConfigStatus',
   'Intermission',
   'LaneResult',

@@ -96,6 +96,14 @@ screen shows the countdown alone, with no line-up to preview), so a room
 that has wandered off to the snack table still knows roughly when to come
 back and for what.
 
+If [stored clips](../instant-replay.md#keeping-clips-longer) are turned on
+and the race already has at least one, **Show replay highlights** appears
+next to the break's duration on Race Control — see [Highlights during a
+break](../instant-replay.md#highlights-during-a-break). Every screen showing
+this race plays the same reel, whether or not that screen's own **Replays**
+setting is on: highlights are the operator's explicit choice for the break,
+not the ordinary after-heat replay that setting controls.
+
 The overlay clears itself the instant the countdown reaches zero, or sooner
 if the operator clicks **End now** — there is nothing to acknowledge on the
 display's own end. A paused break shows the time it was paused at rather than

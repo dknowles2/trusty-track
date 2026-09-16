@@ -33,9 +33,24 @@ const resumeIntermission = vi.fn();
 const endIntermission = vi.fn();
 const reExecute = vi.fn();
 
-function mockIntermission(intermission: unknown) {
+function mockIntermission(
+  intermission: unknown,
+  options: {
+    keepReplays?: boolean;
+    replayCount?: number;
+    highlightsSummary?: { clipCount: number; roundNumber: number; roundName: string | null } | null;
+  } = {},
+) {
+  const { keepReplays = false, replayCount = 0, highlightsSummary = null } = options;
   (vi.mocked(useQuery) as ReturnType<typeof vi.fn>).mockReturnValue([
-    { data: { race: { id: 1, intermission } }, fetching: false, error: null },
+    {
+      data: {
+        race: { id: 1, replayCount, intermission, highlightsSummary },
+        initialConfig: { keepReplays },
+      },
+      fetching: false,
+      error: null,
+    },
     reExecute,
   ]);
 }
@@ -87,6 +102,7 @@ describe('no intermission is active', () => {
       raceId: 1,
       durationSeconds: 600,
       label: null,
+      highlights: false,
     });
   });
 
@@ -103,6 +119,7 @@ describe('no intermission is active', () => {
       raceId: 1,
       durationSeconds: 420,
       label: null,
+      highlights: false,
     });
   });
 
@@ -217,5 +234,94 @@ describe('a countdown that has run out locally', () => {
     render(<IntermissionControl raceId={1} />);
 
     expect(screen.getByTestId('intermission-preset-300')).toBeInTheDocument();
+  });
+});
+
+describe('the highlights checkbox (#177 stage 3)', () => {
+  it('is absent, with a note, when stored clips are off', () => {
+    mockIntermission(NONE, { keepReplays: false, replayCount: 0 });
+    render(<IntermissionControl raceId={1} />);
+
+    expect(screen.queryByTestId('intermission-highlights-checkbox')).toBeNull();
+    expect(screen.getByText(/Turn on stored clips in Settings/)).toBeInTheDocument();
+  });
+
+  it('is absent, with the same note, when stored clips are on but the race has no clip yet', () => {
+    mockIntermission(NONE, { keepReplays: true, replayCount: 0 });
+    render(<IntermissionControl raceId={1} />);
+
+    expect(screen.queryByTestId('intermission-highlights-checkbox')).toBeNull();
+    expect(screen.getByText(/Turn on stored clips in Settings/)).toBeInTheDocument();
+  });
+
+  it('is offered, checked by default, once both conditions hold', () => {
+    mockIntermission(NONE, { keepReplays: true, replayCount: 3 });
+    render(<IntermissionControl raceId={1} />);
+
+    const checkbox = screen.getByTestId('intermission-highlights-checkbox');
+    expect(checkbox).toBeChecked();
+  });
+
+  it('is sent as true on the default (checked) state', () => {
+    mockIntermission(NONE, { keepReplays: true, replayCount: 3 });
+    render(<IntermissionControl raceId={1} />);
+
+    fireEvent.click(screen.getByTestId('intermission-preset-600'));
+
+    expect(startIntermission).toHaveBeenCalledWith({
+      raceId: 1,
+      durationSeconds: 600,
+      label: null,
+      highlights: true,
+    });
+  });
+
+  it('is sent as false once unchecked', () => {
+    mockIntermission(NONE, { keepReplays: true, replayCount: 3 });
+    render(<IntermissionControl raceId={1} />);
+
+    fireEvent.click(screen.getByTestId('intermission-highlights-checkbox'));
+    fireEvent.click(screen.getByTestId('intermission-preset-600'));
+
+    expect(startIntermission).toHaveBeenCalledWith({
+      raceId: 1,
+      durationSeconds: 600,
+      label: null,
+      highlights: false,
+    });
+  });
+
+  it('names the clip count and round while a highlights break runs', () => {
+    mockIntermission(
+      { active: true, remainingSeconds: 300, paused: false, label: 'Break', endsAt: null, highlights: true },
+      { keepReplays: true, replayCount: 8, highlightsSummary: { clipCount: 8, roundNumber: 2, roundName: 'Final' } },
+    );
+    render(<IntermissionControl raceId={1} />);
+
+    expect(screen.getByTestId('intermission-highlights-summary')).toHaveTextContent(
+      'Highlights: 8 clips from Final',
+    );
+  });
+
+  it('falls back to "Round N" when the round has no name', () => {
+    mockIntermission(
+      { active: true, remainingSeconds: 300, paused: false, label: 'Break', endsAt: null, highlights: true },
+      { keepReplays: true, replayCount: 1, highlightsSummary: { clipCount: 1, roundNumber: 3, roundName: null } },
+    );
+    render(<IntermissionControl raceId={1} />);
+
+    expect(screen.getByTestId('intermission-highlights-summary')).toHaveTextContent(
+      'Highlights: 1 clip from Round 3',
+    );
+  });
+
+  it('says nothing when the running break is not a highlights one', () => {
+    mockIntermission(
+      { active: true, remainingSeconds: 300, paused: false, label: 'Break', endsAt: null, highlights: false },
+      { keepReplays: true, replayCount: 8, highlightsSummary: { clipCount: 8, roundNumber: 2, roundName: 'Final' } },
+    );
+    render(<IntermissionControl raceId={1} />);
+
+    expect(screen.queryByTestId('intermission-highlights-summary')).toBeNull();
   });
 });

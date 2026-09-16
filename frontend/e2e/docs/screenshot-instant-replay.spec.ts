@@ -140,10 +140,13 @@ test('screenshot instant replay', async ({ page, browser }) => {
         const heats = (await readHeats(page, raceId))
             .filter((heat) => heat.roundId !== null)
             .sort((a, b) => a.id - b.id);
-        // One more than stage 1b needed — the fourth is what stage 2's own
-        // "kept" clip runs on, below, once the setting is switched on.
-        expect(heats.length).toBeGreaterThanOrEqual(4);
-        const [warmUp1, warmUp2, underTest, storedHeat] = heats;
+        // Two more than stage 1b needed — the fourth is what stage 2's own
+        // "kept" clip runs on, and the fifth gives stage 3's highlight reel
+        // a second clip to play (one alone would say nothing about the
+        // "fastest first" ordering the guide's screenshot is meant to
+        // show), once the setting is switched on.
+        expect(heats.length).toBeGreaterThanOrEqual(5);
+        const [warmUp1, warmUp2, underTest, storedHeat, storedHeat2] = heats;
 
         // The camera, in its own browser context — a second device, exactly
         // as it is in a real gym.
@@ -274,6 +277,46 @@ test('screenshot instant replay', async ({ page, browser }) => {
         const storedHeatRow = page.locator('tr', { has: replayButton });
         await screenshotLocator(storedHeatRow, {
             path: path.join(SCREENSHOT_DIR, '06-schedule-replay-button.png'),
+        });
+
+        // Stage 3 (#177): a second stored clip in the same round, so the
+        // highlight reel below has more than one heat to order.
+        const secondStoredClipUpload = cameraPage.waitForResponse(
+            (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+            { timeout: 30000 },
+        );
+        await prepareAndRunFakeHeat(page, storedHeat2.id);
+        await secondStoredClipUpload;
+
+        // 11: the break, playing on the audience display — the overlay
+        // mid-clip, with its caption and the countdown's corner badge.
+        // Started from Race Control's own compact break control, with
+        // "Show replay highlights" left at its default (checked).
+        await page.goto(`/race/${raceId}/control`);
+        await page.waitForLoadState('networkidle');
+        await page.getByRole('button', { name: 'Race', exact: true }).click();
+        const intermissionToggle = page.getByTestId('intermission-toggle');
+        await expect(intermissionToggle).toBeVisible({ timeout: 15000 });
+        await intermissionToggle.click();
+        const popover = page.getByTestId('intermission-popover');
+        const highlightsCheckbox = popover.getByTestId('intermission-highlights-checkbox');
+        await expect(highlightsCheckbox).toBeVisible({ timeout: 15000 });
+        await expect(highlightsCheckbox).toBeChecked();
+        await popover.getByTestId('intermission-preset-300').click();
+
+        const highlightVideo = displayPage.getByTestId('replay-video');
+        await expect(highlightVideo).toBeVisible({ timeout: 15000 });
+        await expect(displayPage.getByTestId('intermission-highlight-caption')).toBeVisible({
+            timeout: 15000,
+        });
+        await expect(displayPage.getByTestId('intermission-overlay-countdown-corner')).toBeVisible();
+        await displayPage.waitForTimeout(300);
+        await displayPage.screenshot({
+            path: path.join(SCREENSHOT_DIR, '11-intermission-highlights.png'),
+        });
+
+        await gql(page, `mutation IRDocsEndIntermission($raceId: Int!) { endIntermission(raceId: $raceId) { id } }`, {
+            raceId,
         });
 
         await cameraContext.close();

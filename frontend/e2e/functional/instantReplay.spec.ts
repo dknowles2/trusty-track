@@ -650,3 +650,125 @@ test.describe.serial('stage 2: stored retention, install-wide, so these three ru
         }
     });
 });
+
+test.describe.serial('stage 3: intermission highlights, install-wide via keepReplays so these run serially (#177)', () => {
+    // Two camera uploads, two displays, and a Race Control round trip — the
+    // same headroom the stage 2 block above gives itself for the same
+    // reason.
+    test.describe.configure({ timeout: 300_000 });
+
+    test('a highlights break plays the fastest heat first, on every display including one with replays off, and clears on End now', async ({
+        browser,
+        page,
+    }) => {
+        await ensureConfigured(page);
+        const { raceId, trackId } = await seedRace(page, 'Instant Replay Highlights Race');
+        await scheduleWithSpareHeats(page, raceId, 3);
+        const heats = await officialHeatsInOrder(page, raceId);
+        expect(heats.length).toBeGreaterThanOrEqual(4);
+        const [camWarmUp, first, second, spare] = heats;
+
+        await setKeepReplays(page, { on: true });
+
+        try {
+            const camera = await (await browser.newContext()).newPage();
+            await openCamera(camera, raceId, 'spec-camera-highlights');
+            await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+            await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
+                timeout: 15000,
+            });
+
+            await runHeatToStart(page, camWarmUp.id);
+            await finishHeat(page, camWarmUp.id);
+            await camera.waitForTimeout(2000);
+
+            const firstUpload = camera.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 90000 },
+            );
+            await runHeatToStart(page, first.id);
+            await finishHeat(page, first.id);
+            await firstUpload;
+
+            const secondUpload = camera.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 90000 },
+            );
+            await runHeatToStart(page, second.id);
+            await finishHeat(page, second.id);
+            await secondUpload;
+            await camera.context().close();
+
+            // The fake timer's own results are random (3.0-4.0s) — read the
+            // two heats' winning times back rather than assuming which one
+            // is faster, so the "fastest first" assertion below is honest
+            // regardless of the draw.
+            const recorded = await officialHeatsInOrder(page, raceId);
+            const winner = (heatId: number): { heatNumber: number; time: number } => {
+                const heat = recorded.find((h) => h.id === heatId);
+                if (!heat) throw new Error(`heat ${heatId} not found`);
+                const lane = heat.lanes.find((l) => l.place === 1);
+                if (!lane || lane.time == null) throw new Error(`heat ${heatId} has no timed winner`);
+                return { heatNumber: heat.heatNumber, time: lane.time };
+            };
+            const firstWinner = winner(first.id);
+            const secondWinner = winner(second.id);
+            const fastestHeatNumber =
+                firstWinner.time <= secondWinner.time ? firstWinner.heatNumber : secondWinner.heatNumber;
+
+            // Two displays: one with replays on (the default), one with it
+            // explicitly off — highlights are the operator's own choice for
+            // the break, not the ordinary after-heat replay that setting
+            // controls (`.claude/rules/displays.md`'s "Intermission
+            // highlights"), so both must show the reel.
+            const displayOn = await (await browser.newContext()).newPage();
+            await openObservation(displayOn, raceId, 'spec-display-highlights-on');
+            const displayOff = await (await browser.newContext()).newPage();
+            await openObservation(displayOff, raceId, 'spec-display-highlights-off');
+            await gql(
+                page,
+                `mutation IRAssignHighlightsOff($displayId: String!) {
+                    assignDisplay(displayId: $displayId, view: STANDINGS, replays: false) { displayId }
+                }`,
+                { displayId: 'spec-display-highlights-off' },
+            );
+
+            await page.goto(`/race/${raceId}/control`);
+            await page.waitForLoadState('networkidle');
+            await page.getByRole('button', { name: 'Race', exact: true }).click();
+            const toggle = page.getByTestId('intermission-toggle');
+            await expect(toggle).toBeVisible({ timeout: 15000 });
+            await toggle.click();
+            const popover = page.getByTestId('intermission-popover');
+            const highlightsCheckbox = popover.getByTestId('intermission-highlights-checkbox');
+            await expect(highlightsCheckbox).toBeVisible({ timeout: 15000 });
+            await expect(highlightsCheckbox).toBeChecked();
+            await popover.getByTestId('intermission-preset-300').click();
+
+            for (const display of [displayOn, displayOff]) {
+                const video = display.getByTestId('replay-video');
+                await expect(video).toBeVisible({ timeout: 15000 });
+                await expect(video).toHaveAttribute('src', /\/replay\//);
+                await expect(display.getByTestId('intermission-highlight-caption')).toContainText(
+                    `Heat ${fastestHeatNumber}`,
+                );
+            }
+
+            await gql(page, `mutation IREndBreak($raceId: Int!) { endIntermission(raceId: $raceId) { id } }`, {
+                raceId,
+            });
+
+            for (const display of [displayOn, displayOff]) {
+                await expect(display.getByTestId('replay-video')).toHaveCount(0, { timeout: 15000 });
+            }
+
+            // Finish the round's last heat so the track is not left with an
+            // armed-and-never-finished heat for whatever runs after this
+            // (`.claude/rules/timers.md`'s #337).
+            await runHeatToStart(page, spare.id);
+            await finishHeat(page, spare.id);
+        } finally {
+            await setKeepReplays(page, { on: false });
+        }
+    });
+});

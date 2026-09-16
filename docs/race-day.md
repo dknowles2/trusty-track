@@ -622,6 +622,12 @@ every audience display picks up automatically: whatever a screen was showing
 switches to a full-screen countdown with the break's name and a faint preview
 of who races next, until the time runs out or you end it early.
 
+If [stored clips](instant-replay.md#keeping-clips-longer) are turned on and
+the race already has one, the popover also offers **Show replay
+highlights** — every screen spends the break looping the current round's
+clips, fastest first, instead of the quiet preview. See [Highlights during
+a break](instant-replay.md#highlights-during-a-break).
+
 The same presets also appear on the **Round Complete!** summary, since a
 round finishing is exactly when a break is most often called.
 
