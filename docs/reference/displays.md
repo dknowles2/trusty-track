@@ -27,6 +27,18 @@ as a line under the select, so the choices are not ten bare names:
 | **Broadcast overlay** | A transparent graphic for streaming this race on OBS Studio — see [below](#broadcast-overlay) |
 | **Awards ceremony** | The [ceremony](../awards.md#announcing-them), one award at a time. Unlike every other view, it only moves when a person does — either at the screen, or with the **‹** and **›** buttons on its row in the operator's list |
 
+**A phone gets its own, scrolling layout below 600px wide.** Every view above
+is otherwise laid out for a projector or a wall monitor — nothing scrolls,
+and a small screen simply shows less (see the note under Standings only,
+above). A parent's phone scanning the **QR code** view, or the Displays
+panel's own code, lands on the **Standings** view and is narrow enough to
+fall under that width instead: Now Racing shows as a two-car-wide grid, On
+Deck follows it, and the standings list scrolls underneath rather than
+paging — the one place any of these screens scrolls at all. The check-in
+view drops to one den per row for the same reason. **Launch Projector
+Mode** does not appear at this width, since a phone invited by the QR code
+has no use for it.
+
 **The ceremony only appears once you have awards.** A race with none is not
 offered it, because the screen would land on a page saying there is nothing
 to announce. Add the awards on the [Awards page](../awards.md) and the choice

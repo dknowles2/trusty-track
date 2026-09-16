@@ -585,5 +585,75 @@ describe('the way out (#955)', () => {
     await userEvent.click(screen.getByTestId('ceremony-back-link'));
     expect(screen.getByText('awards page')).toBeInTheDocument();
   });
+
+  // The phone tier (#1144): a parent's phone rather than a wall display —
+  // `usePhoneTier` reads `window.innerWidth`, the same signal
+  // `displayDensity.ts`'s own `phoneTier` field reads for Observation.tsx.
+  describe('the phone tier (#1144)', () => {
+    const DEFAULT_WIDTH = window.innerWidth;
+
+    afterEach(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: DEFAULT_WIDTH });
+    });
+
+    function setWidth(width: number) {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    }
+
+    it('renders both footer-hint spans for CSS to swap between, regardless of tier', () => {
+      renderCeremony();
+      expect(screen.getByText('Click or press → for the next award')).toHaveClass(
+        'ceremony-footer-hint-mouse',
+      );
+      expect(screen.getByText('Tap or press → for the next award')).toHaveClass(
+        'ceremony-footer-hint-touch',
+      );
+    });
+
+    it('keeps "1 of 2" from wrapping onto two lines, on every tier', () => {
+      renderCeremony();
+      expect(screen.getByText('1 of 2')).toHaveStyle({ whiteSpace: 'nowrap' });
+    });
+
+    it('locks the body scroll at the desktop width, unchanged', () => {
+      setWidth(1280);
+      renderCeremony();
+      expect(document.body.style.overflow).toBe('hidden');
+    });
+
+    it('allows the body to scroll on the phone tier — the one place this route may', () => {
+      setWidth(390);
+      renderCeremony();
+      expect(document.body.style.overflow).toBe('');
+    });
+
+    it('moves the footer into the document flow instead of absolutely positioning it', () => {
+      setWidth(390);
+      renderCeremony();
+      const footer = screen.getByTestId('ceremony-sound-toggle').closest('label')!.parentElement!;
+      expect(footer.getAttribute('style')).not.toMatch(/position:\s*absolute/);
+    });
+
+    it('keeps the footer absolutely positioned at the desktop width, unchanged', () => {
+      setWidth(1280);
+      renderCeremony();
+      const footer = screen.getByTestId('ceremony-sound-toggle').closest('label')!.parentElement!;
+      expect(footer.getAttribute('style')).toMatch(/position:\s*absolute/);
+    });
+
+    it('still shows the Fanfare checkbox on the phone tier', () => {
+      setWidth(390);
+      renderCeremony();
+      expect(screen.getByTestId('ceremony-sound-toggle')).toBeInTheDocument();
+    });
+
+    it('still shows the back link, and the slide itself, on the phone tier', () => {
+      setWidth(390);
+      renderCeremony();
+      expect(screen.getByTestId('ceremony-back-link')).toBeInTheDocument();
+      expect(screen.getByText('Fastest Wolf')).toBeInTheDocument();
+      expect(screen.getByText('Ada Lovelace (#42)')).toBeInTheDocument();
+    });
+  });
 });
 

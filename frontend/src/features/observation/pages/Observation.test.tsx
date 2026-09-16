@@ -2009,4 +2009,150 @@ describe('Observation Page', () => {
             expect(screen.queryByText(/\d\.\d{3}s/)).toBeNull();
         });
     });
+
+    // The phone tier (#1144): a parent's phone, scanning the Displays
+    // panel's own QR code, rather than a wall display or a propped-up
+    // tablet — `density.phoneTier`, read off `window.innerWidth` below
+    // `displayDensity.ts`'s own 600px threshold.
+    describe('the phone tier (#1144)', () => {
+        const renderTree = () => (
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        it('renders the phone layout, hiding Launch Projector Mode, at 390px wide', async () => {
+            Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+            setupMocks({
+                currentlyRacing: {
+                    id: 2, roundNumber: 1, heatNumber: 2,
+                    lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
+                },
+                onDeck: [{
+                    id: 3, roundNumber: 1, heatNumber: 3,
+                    lanes: [{ lane: 1, racerId: 3, placeholderSlot: null }],
+                }],
+                leaderboard: [{ racerId: 1, score: 3.2, heatsCompleted: 2, rank: 1 }],
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('observation-standard-phone')).toBeInTheDocument();
+            });
+            expect(screen.queryByText('Launch Projector Mode')).not.toBeInTheDocument();
+            expect(screen.getByText('Now Racing')).toBeInTheDocument();
+            expect(screen.getByText('On Deck')).toBeInTheDocument();
+            expect(screen.getAllByText('Doc Hudson').length).toBeGreaterThan(0);
+            expect(screen.getAllByText('Mater Tow').length).toBeGreaterThan(0);
+            expect(screen.getByText('Speedy McQueen')).toBeInTheDocument();
+        });
+
+        it('keeps the desktop layout, Launch Projector Mode included, exactly at 600px', async () => {
+            Object.defineProperty(window, 'innerWidth', { configurable: true, value: 600 });
+            setupMocks({});
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByText('Now Racing')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('observation-standard-phone')).not.toBeInTheDocument();
+            expect(screen.getByText('Launch Projector Mode')).toBeInTheDocument();
+        });
+
+        it('renders a name at least 14px on the standings list, clearing the issue\'s own floor', async () => {
+            Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+            setupMocks({
+                leaderboard: [{ racerId: 1, score: 3.2, heatsCompleted: 2, rank: 1 }],
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('observation-standard-phone')).toBeInTheDocument();
+            });
+            // jsdom does not compute `rem` against a root font size, so this
+            // reads the literal style — `1rem` is 16px at the default 16px
+            // root, past the issue's own 14px floor.
+            const name = screen.getAllByText('Speedy McQueen')[0];
+            expect(name.closest('.standing-racer-name')?.getAttribute('style')).toMatch(/font-size:\s*1rem/);
+        });
+
+        it('moves the identify badge into the flow on the standings-only view, rather than fixed over the Runs column', async () => {
+            Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+            setupMocks({
+                displayAssignment: {
+                    name: 'Plucky Puffin',
+                    identifySeq: 0,
+                    assigned: true,
+                    view: 'STANDINGS_ONLY',
+                    cycleSeconds: 10,
+                    scrollBehavior: 'PAGING',
+                },
+                leaderboard: [{ racerId: 1, score: 3.2, heatsCompleted: 2, rank: 1 }],
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('standings-only-view')).toBeInTheDocument();
+            });
+            const badge = screen.getByTestId('identify-connect-badge');
+            expect(badge.getAttribute('style')).not.toMatch(/position:\s*fixed/);
+        });
+
+        it('keeps the identify badge fixed on the standings-only view at the desktop width, unchanged', async () => {
+            Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+            setupMocks({
+                displayAssignment: {
+                    name: 'Plucky Puffin',
+                    identifySeq: 0,
+                    assigned: true,
+                    view: 'STANDINGS_ONLY',
+                    cycleSeconds: 10,
+                    scrollBehavior: 'PAGING',
+                },
+                leaderboard: [{ racerId: 1, score: 3.2, heatsCompleted: 2, rank: 1 }],
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('standings-only-view')).toBeInTheDocument();
+            });
+            const badge = screen.getByTestId('identify-connect-badge');
+            expect(badge.getAttribute('style')).toMatch(/position:\s*fixed/);
+        });
+
+        it('stacks the check-in view to one den per row', async () => {
+            Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+            setupMocks({
+                displayAssignment: {
+                    name: 'Plucky Puffin',
+                    identifySeq: 0,
+                    assigned: true,
+                    view: 'CHECKIN',
+                    cycleSeconds: 10,
+                    scrollBehavior: 'PAGING',
+                },
+            }, {
+                race: {
+                    ...mockRacersData.race,
+                    racingGroups: [{ id: 1, name: 'Wolves', color: '#888', division: null }],
+                    racers: mockRacersData.race.racers.map((r) => ({ ...r, racingGroupId: 1, carPassedInspection: false })),
+                },
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('checkin-view')).toBeInTheDocument();
+            });
+            const grid = screen.getByTestId('checkin-group-1').parentElement!;
+            expect(grid.style.gridTemplateColumns).toBe('1fr');
+        });
+    });
 });

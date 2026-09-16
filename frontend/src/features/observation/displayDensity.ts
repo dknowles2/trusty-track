@@ -167,6 +167,43 @@ const PROJECTOR_HEAT_CARDS_SIDE_BY_SIDE_MIN_WIDTH_PX = 700;
  */
 const PROJECTOR_STACKED_HEAT_CARDS_BUDGET_VH = 52;
 
+/**
+ * The width below which even the narrowest tier above — the vmin-sized,
+ * fixed-viewport-budget layout every wider screen (down to the SVGA floor)
+ * shares — no longer has room to read at all (#1144). A parent's phone,
+ * scanning the Displays panel's own QR code (`qrTargetPath('STANDINGS')`),
+ * lands on the Live page at 390×844 and found 9px heat-card names and 26px,
+ * 8px-text standings rows: everything still fit the viewport exactly,
+ * because nothing scrolled, which is right for a wall display thirty feet
+ * from the bleachers and wrong for a screen held a foot from someone's
+ * face. Below this width the standard Live view, the check-in view and the
+ * awards ceremony switch to a `rem`-sized, single-column layout that is
+ * allowed to scroll — `displays.md`'s "What a small screen drops" is the
+ * one place this app's own screens are told never to — because there is no
+ * `heatCardsMaxHeightVh`-style budget narrow enough to fit a heat card plus
+ * five real standings rows into 390px without either scrolling or
+ * shrinking text under the legibility floor a second time.
+ *
+ * 600, not the 700px `PROJECTOR_HEAT_CARDS_SIDE_BY_SIDE_MIN_WIDTH_PX` floor
+ * above shares with `index.css`'s own narrow-screen fallback for the
+ * *projector* view. That floor is tuned to a portrait *tablet* held up to
+ * preview a projector (768/820px wide) — still wide enough for two heat
+ * panels side by side — where a phone (390/412px, this issue's own cases)
+ * is narrower still and wants its own, lower tier rather than folding into
+ * that one; a viewport between the two (600–699px) keeps the vmin-sized
+ * layout, unaffected by this constant.
+ */
+const PHONE_MAX_WIDTH_PX = 600;
+
+/** Whether a screen this wide is in `#1144`'s own phone tier — the one test
+ * both `densityFor` and every caller that only needs the boolean (the
+ * check-in view, the standings-only view, the awards ceremony — none of
+ * which has a lane count of its own to hand `densityFor`) share, so the
+ * threshold has exactly one home. */
+export function isPhoneWidth(viewportWidth: number): boolean {
+    return viewportWidth < PHONE_MAX_WIDTH_PX;
+}
+
 export interface DisplayDensity {
     /**
      * Whether a secondary line under a name — a racing-group division on
@@ -217,6 +254,18 @@ export interface DisplayDensity {
      * counterpart to `heatCardsMaxHeightVh` for that layout. Meaningless
      * when `projectorStacked` is `false`. */
     projectorHeatCardsMaxHeightVh: number;
+    /**
+     * Whether this screen is narrow enough to be a phone rather than a wall
+     * display or a propped-up tablet (#1144) — `isPhoneWidth(viewportWidth)`,
+     * carried on the shape every other density field already lives on so
+     * `Observation.tsx`'s standard Live view (the one caller here that
+     * already has a lane count to hand `densityFor`) does not need a second
+     * read of `window.innerWidth` beside this one. `false` below the SVGA
+     * floor never appears in practice — 600 sits well under 800 — but
+     * nothing here assumes an ordering with the other thresholds beyond
+     * that.
+     */
+    phoneTier: boolean;
 }
 
 function compactnessForLaneCount(laneCount: number): DisplayDensity['heatCardCompactness'] {
@@ -255,5 +304,6 @@ export function densityFor(viewportWidth: number, viewportHeight: number, laneCo
         projectorStacked: viewportWidth / viewportHeight < PROJECTOR_STACK_MAX_ASPECT_RATIO,
         projectorHeatCardsSideBySide: viewportWidth >= PROJECTOR_HEAT_CARDS_SIDE_BY_SIDE_MIN_WIDTH_PX,
         projectorHeatCardsMaxHeightVh: PROJECTOR_STACKED_HEAT_CARDS_BUDGET_VH,
+        phoneTier: isPhoneWidth(viewportWidth),
     };
 }

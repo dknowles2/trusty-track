@@ -49,6 +49,19 @@ interface Props {
     scrollBehavior: ScrollBehavior;
     /** The time a page stays up, or a full top-to-bottom pass takes. */
     cycleMs: number;
+    /**
+     * The phone tier (#1144, `displayDensity.ts`'s `phoneTier`): a parent's
+     * phone rather than a wall display. The header cells below read at
+     * 7.8px on a 390px screen (2% of viewport *height*, the desktop
+     * legibility floor — nothing about it scales with *width*, which is
+     * this tier's own axis). This switches every size in this table to a
+     * `rem` reading that clears the issue's own ≥12px header requirement.
+     * The badge that used to sit over the "Runs" column on this tier is
+     * `Observation.tsx`'s own fix, not this component's — it moves
+     * `IdentifyPresence` into the flow above this view entirely, so nothing
+     * here has to make room for it.
+     */
+    phoneTier?: boolean;
 }
 
 export default function StandingsOnlyView({
@@ -61,6 +74,7 @@ export default function StandingsOnlyView({
     vehicle,
     scrollBehavior,
     cycleMs,
+    phoneTier = false,
 }: Props) {
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
@@ -84,7 +98,7 @@ export default function StandingsOnlyView({
                 width: '100%',
                 overflow: 'hidden',
                 boxSizing: 'border-box',
-                padding: '2vmin 3vmin',
+                padding: phoneTier ? '1rem' : '2vmin 3vmin',
             }}
         >
             {standings.length === 0 ? (
@@ -120,12 +134,20 @@ export default function StandingsOnlyView({
                             }}
                         >
                             <tr>
-                                <th style={{ padding: '15px', fontSize: '2vmin' }}>Rank</th>
-                                <th style={{ padding: '15px', fontSize: '2vmin' }}>Racer</th>
-                                <th style={{ padding: '15px', textAlign: 'right', fontSize: '2vmin' }}>
+                                {/* `2vmin` reads as 7.8px on a 390px-wide phone
+                                    (#1144) — `vmin` follows the *smaller*
+                                    dimension, and width is this tier's own
+                                    narrow axis where the desktop tiers this
+                                    view otherwise shares are always at least
+                                    as wide as they are tall. `rem` clears the
+                                    issue's own ≥12px header requirement with
+                                    margin regardless of viewport shape. */}
+                                <th style={{ padding: phoneTier ? '0.5rem' : '15px', fontSize: phoneTier ? '0.85rem' : '2vmin' }}>Rank</th>
+                                <th style={{ padding: phoneTier ? '0.5rem' : '15px', fontSize: phoneTier ? '0.85rem' : '2vmin' }}>Racer</th>
+                                <th style={{ padding: phoneTier ? '0.5rem' : '15px', textAlign: 'right', fontSize: phoneTier ? '0.85rem' : '2vmin' }}>
                                     {scoreLabel}
                                 </th>
-                                <th style={{ padding: '15px', textAlign: 'right', fontSize: '2vmin' }}>Runs</th>
+                                <th style={{ padding: phoneTier ? '0.5rem' : '15px', textAlign: 'right', fontSize: phoneTier ? '0.85rem' : '2vmin' }}>Runs</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -139,8 +161,8 @@ export default function StandingsOnlyView({
                                     >
                                         <td
                                             style={{
-                                                padding: '15px',
-                                                fontSize: '2.5vmin',
+                                                padding: phoneTier ? '0.5rem' : '15px',
+                                                fontSize: phoneTier ? '1rem' : '2.5vmin',
                                                 fontWeight: 'bold',
                                                 color:
                                                     s.rank === 1
@@ -154,8 +176,8 @@ export default function StandingsOnlyView({
                                         >
                                             {s.rank}
                                         </td>
-                                        <td style={{ padding: '15px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                        <td style={{ padding: phoneTier ? '0.5rem' : '15px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: phoneTier ? '0.5rem' : '15px' }}>
                                                 <RacerAvatar
                                                     racer={{
                                                         id: s.racerId,
@@ -165,11 +187,11 @@ export default function StandingsOnlyView({
                                                             ? racer?.racerImageUrl
                                                             : null,
                                                     }}
-                                                    size="7vmin"
+                                                    size={phoneTier ? '2.4rem' : '7vmin'}
                                                     style={{ border: '3px solid var(--display-border-color)' }}
                                                 />
                                                 <div>
-                                                    <div style={{ fontWeight: 'bold', fontSize: '2.2vmin' }}>
+                                                    <div style={{ fontWeight: 'bold', fontSize: phoneTier ? '1rem' : '2.2vmin' }}>
                                                         {racer
                                                             ? formatDisplayName(nameDisplay, racer.firstName, racer.lastName)
                                                             : `Racer #${s.racerId}`}
@@ -183,8 +205,11 @@ export default function StandingsOnlyView({
                                                                 // supported viewport is landscape enough for
                                                                 // `vmin` to equal — see `Observation.tsx`'s
                                                                 // `renderHeatCard` comment) — a car number is
-                                                                // one of the things that floor exists to protect.
-                                                                fontSize: '2vmin',
+                                                                // one of the things that floor exists to
+                                                                // protect. The phone tier (#1144) switches to
+                                                                // `rem` outright, for the same reason the header
+                                                                // cells above do.
+                                                                fontSize: phoneTier ? '0.85rem' : '2vmin',
                                                             }}
                                                         >
                                                             {vehicle} #{racer.carNumber}
@@ -194,7 +219,7 @@ export default function StandingsOnlyView({
                                                         <div
                                                             style={{
                                                                 color: 'var(--display-text-subtle-color)',
-                                                                fontSize: '1.6vmin',
+                                                                fontSize: phoneTier ? '0.75rem' : '1.6vmin',
                                                             }}
                                                         >
                                                             {s.racingGroupDivision}
@@ -205,13 +230,13 @@ export default function StandingsOnlyView({
                                         </td>
                                         <td
                                             style={{
-                                                padding: '15px',
+                                                padding: phoneTier ? '0.5rem' : '15px',
                                                 textAlign: 'right',
                                                 // Not a system `monospace` (#821) —
                                                 // see `.overlay-time` in `index.css`.
                                                 fontFamily: 'var(--font-body)',
                                                 fontVariantNumeric: 'tabular-nums',
-                                                fontSize: '2.4vmin',
+                                                fontSize: phoneTier ? '1rem' : '2.4vmin',
                                                 fontWeight: 'bold',
                                             }}
                                         >
@@ -219,7 +244,7 @@ export default function StandingsOnlyView({
                                             {dnfAnnotation(s.dnfCount ?? 0) && (
                                                 <div
                                                     style={{
-                                                        fontSize: '1.2vmin',
+                                                        fontSize: phoneTier ? '0.7rem' : '1.2vmin',
                                                         fontWeight: 'normal',
                                                         fontFamily: 'var(--font-body)',
                                                         color: 'var(--display-text-muted-color)',
@@ -229,7 +254,7 @@ export default function StandingsOnlyView({
                                                 </div>
                                             )}
                                         </td>
-                                        <td style={{ padding: '15px', textAlign: 'right', fontSize: '2vmin' }}>
+                                        <td style={{ padding: phoneTier ? '0.5rem' : '15px', textAlign: 'right', fontSize: phoneTier ? '0.85rem' : '2vmin' }}>
                                             {s.heatsCompleted}
                                         </td>
                                     </tr>
@@ -244,9 +269,9 @@ export default function StandingsOnlyView({
                     data-testid="standings-only-page-indicator"
                     style={{
                         textAlign: 'center',
-                        marginTop: '1.5vmin',
+                        marginTop: phoneTier ? '0.75rem' : '1.5vmin',
                         color: 'var(--display-text-faint-color)',
-                        fontSize: '1.8vmin',
+                        fontSize: phoneTier ? '0.8rem' : '1.8vmin',
                     }}
                 >
                     Page {page + 1} of {rowCount}

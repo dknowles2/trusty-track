@@ -50,6 +50,17 @@ interface Props {
      * prop for why this matters: without it, "not open yet" flashes on
      * screen for a moment before the real roster arrives. */
     loading?: boolean;
+    /**
+     * The phone tier (#1144, `displayDensity.ts`'s `phoneTier`): a parent's
+     * phone, not a wall display or a propped-up tablet. The `vmin`-sized
+     * `auto-fit` grid below reads as three 120px dens at 7.8px names on a
+     * 390px screen — everything the issue reported — because it was tuned
+     * for a floor of 800px wide. This tier switches to one den per row,
+     * `rem`-sized and legible, and lets the screen scroll rather than
+     * cramming every den into one viewport (`displays.md`'s "What a small
+     * screen drops" — this is the one tier that may).
+     */
+    phoneTier?: boolean;
 }
 
 export default function CheckInDisplayView({
@@ -60,6 +71,7 @@ export default function CheckInDisplayView({
     showCheckedIn,
     racingHasBegun,
     loading = false,
+    phoneTier = false,
 }: Props) {
     const summary = summarizeCheckIn(racers, racingGroups, groupWord);
     const compact = racingHasBegun;
@@ -88,18 +100,25 @@ export default function CheckInDisplayView({
         <div
             data-testid="checkin-view"
             style={{
-                height: '100vh',
+                // The phone tier scrolls (#1144) — `height: auto` plus a
+                // `minHeight` of the viewport, rather than the `100vh` +
+                // `overflow: auto` every wider screen uses. Both scroll a
+                // roster too tall for one screen; the difference is only
+                // whether the *page* or an inner region owns the scrollbar,
+                // and the page is what a phone's own browser chrome expects.
+                height: phoneTier ? 'auto' : '100vh',
+                minHeight: phoneTier ? '100vh' : undefined,
                 width: '100%',
-                overflow: 'auto',
+                overflow: phoneTier ? 'visible' : 'auto',
                 boxSizing: 'border-box',
-                padding: compact ? '2vmin 3vmin' : '3vmin 4vmin',
+                padding: phoneTier ? '1rem' : compact ? '2vmin 3vmin' : '3vmin 4vmin',
             }}
         >
-            <div style={{ textAlign: 'center', marginBottom: compact ? '2vmin' : '3vmin' }}>
+            <div style={{ textAlign: 'center', marginBottom: phoneTier ? '1rem' : compact ? '2vmin' : '3vmin' }}>
                 <h1
                     style={{
                         margin: 0,
-                        fontSize: compact ? '4vmin' : '6vmin',
+                        fontSize: phoneTier ? '1.5rem' : compact ? '4vmin' : '6vmin',
                         color: 'var(--display-text-color)',
                     }}
                 >
@@ -109,8 +128,8 @@ export default function CheckInDisplayView({
                     <div
                         data-testid="checkin-racing-underway"
                         style={{
-                            marginTop: '0.5vmin',
-                            fontSize: '2vmin',
+                            marginTop: phoneTier ? '0.3rem' : '0.5vmin',
+                            fontSize: phoneTier ? '0.85rem' : '2vmin',
                             color: 'var(--display-text-muted-color)',
                         }}
                     >
@@ -119,8 +138,8 @@ export default function CheckInDisplayView({
                 )}
                 <div
                     style={{
-                        marginTop: '1.5vmin',
-                        fontSize: compact ? '2.2vmin' : '3vmin',
+                        marginTop: phoneTier ? '0.75rem' : '1.5vmin',
+                        fontSize: phoneTier ? '1.1rem' : compact ? '2.2vmin' : '3vmin',
                         fontWeight: 'bold',
                         color: summary.allCheckedIn
                             ? 'var(--display-success-color)'
@@ -157,8 +176,14 @@ export default function CheckInDisplayView({
             <div
                 style={{
                     display: 'grid',
-                    gridTemplateColumns: `repeat(auto-fit, minmax(${compact ? '22vmin' : '28vmin'}, 1fr))`,
-                    gap: compact ? '1.5vmin' : '2vmin',
+                    // One column per den on the phone tier (#1144) — stacked,
+                    // rather than the `auto-fit` grid every wider screen
+                    // uses, which fits three ~120px-wide columns at 390px
+                    // and reads as the 7.8px names the issue found.
+                    gridTemplateColumns: phoneTier
+                        ? '1fr'
+                        : `repeat(auto-fit, minmax(${compact ? '22vmin' : '28vmin'}, 1fr))`,
+                    gap: phoneTier ? '0.75rem' : compact ? '1.5vmin' : '2vmin',
                 }}
             >
                 {summary.groups.map((group) => (
@@ -167,9 +192,9 @@ export default function CheckInDisplayView({
                         data-testid={`checkin-group-${group.racingGroupId}`}
                         style={{
                             background: 'var(--display-surface-color)',
-                            borderRadius: '1.2vmin',
-                            padding: compact ? '1.5vmin' : '2vmin',
-                            borderTop: `0.6vmin solid ${group.racingGroupColor}`,
+                            borderRadius: phoneTier ? '8px' : '1.2vmin',
+                            padding: phoneTier ? '0.75rem' : compact ? '1.5vmin' : '2vmin',
+                            borderTop: `${phoneTier ? '4px' : '0.6vmin'} solid ${group.racingGroupColor}`,
                             boxSizing: 'border-box',
                         }}
                     >
@@ -178,12 +203,12 @@ export default function CheckInDisplayView({
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'baseline',
-                                marginBottom: '0.8vmin',
+                                marginBottom: phoneTier ? '0.5rem' : '0.8vmin',
                             }}
                         >
                             <span
                                 style={{
-                                    fontSize: compact ? '2.2vmin' : '2.8vmin',
+                                    fontSize: phoneTier ? '1.1rem' : compact ? '2.2vmin' : '2.8vmin',
                                     fontWeight: 'bold',
                                     color: 'var(--display-text-color)',
                                 }}
@@ -192,7 +217,7 @@ export default function CheckInDisplayView({
                             </span>
                             <span
                                 style={{
-                                    fontSize: compact ? '1.6vmin' : '2vmin',
+                                    fontSize: phoneTier ? '0.85rem' : compact ? '1.6vmin' : '2vmin',
                                     color: group.allCheckedIn
                                         ? 'var(--display-success-color)'
                                         : 'var(--display-text-muted-color)',
@@ -226,14 +251,14 @@ export default function CheckInDisplayView({
                         {group.allCheckedIn ? (
                             <div
                                 style={{
-                                    fontSize: compact ? '1.6vmin' : '2vmin',
+                                    fontSize: phoneTier ? '0.9rem' : compact ? '1.6vmin' : '2vmin',
                                     color: 'var(--display-success-color)',
                                 }}
                             >
                                 All checked in ✓
                             </div>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6vmin' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: phoneTier ? '0.4rem' : '0.6vmin' }}>
                                 {group.missing.map((racer) => (
                                     <div
                                         key={racer.id}
@@ -245,8 +270,12 @@ export default function CheckInDisplayView({
                                             // enough for `vmin` to equal) —
                                             // a car number and a racer's own
                                             // name are both things that floor
-                                            // exists to protect.
-                                            fontSize: compact ? '2vmin' : '2.2vmin',
+                                            // exists to protect. The phone
+                                            // tier (#1144) switches to `rem`
+                                            // outright, since `vmin` at 390px
+                                            // wide is what produced the 7.8px
+                                            // text the issue reported.
+                                            fontSize: phoneTier ? '0.95rem' : compact ? '2vmin' : '2.2vmin',
                                             color: 'var(--display-text-color)',
                                         }}
                                     >
@@ -268,7 +297,7 @@ export default function CheckInDisplayView({
                                         <div
                                             key={racer.id}
                                             style={{
-                                                fontSize: compact ? '2vmin' : '2.2vmin',
+                                                fontSize: phoneTier ? '0.95rem' : compact ? '2vmin' : '2.2vmin',
                                                 color: 'var(--display-text-faint-color)',
                                             }}
                                         >

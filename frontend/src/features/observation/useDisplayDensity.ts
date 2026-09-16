@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { densityFor, type DisplayDensity } from './displayDensity';
+import { densityFor, isPhoneWidth, type DisplayDensity } from './displayDensity';
 
 function currentViewport(): { width: number; height: number } {
     if (typeof window === 'undefined') return { width: 1920, height: 1080 };
@@ -31,4 +31,26 @@ export function useDisplayDensity(laneCount: number): DisplayDensity {
     }, []);
 
     return densityFor(viewport.width, viewport.height, laneCount);
+}
+
+/**
+ * The bare phone-tier boolean (#1144), for a caller with no lane count of
+ * its own to hand `useDisplayDensity` — `AwardCeremony.tsx` shows no heat
+ * cards and has no track loaded at all by the time it first renders. Reads
+ * the identical `window.innerWidth` this file's other hook already does,
+ * kept as a second small hook rather than a `laneCount?: number` default on
+ * `useDisplayDensity` itself: this caller does not want the rest of
+ * `DisplayDensity`'s shape, and a default lane count here would be a made-up
+ * number with nothing to justify any particular value.
+ */
+export function usePhoneTier(): boolean {
+    const [width, setWidth] = useState(() => currentViewport().width);
+
+    useEffect(() => {
+        const onResize = () => setWidth(currentViewport().width);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
+    return isPhoneWidth(width);
 }
