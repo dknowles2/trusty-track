@@ -14,6 +14,7 @@ import { useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import { mdiAlertOutline, mdiCheck, mdiContentCopy, mdiOpenInNew, mdiQrcode } from '@mdi/js';
 import { copyText } from '../../../utils/clipboard';
+import ShareableUrl from '../../../components/ui/ShareableUrl';
 import { NETWORK_ADDRESSES_QUERY } from '../graphql/queries';
 import { shareUrl, qrCodeSrc } from '../../core/shareAddress';
 import { qrCodeWindowUrl } from '../../observation/displayIdentity';
@@ -55,8 +56,8 @@ export default function BallotShare({ raceId }: BallotShareProps) {
         gap: '0.75rem',
       }}
     >
-      <span style={{ color: 'var(--text-muted-color)', wordBreak: 'break-all' }}>
-        Share this address for people to vote from their phones: {url}
+      <span style={{ color: 'var(--text-muted-color)' }}>
+        Share this address for people to vote from their phones: <ShareableUrl url={url} />
       </span>
       <button
         type="button"
