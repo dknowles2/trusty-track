@@ -24,8 +24,8 @@ import { ensureConfigured, gql, readHeats, seedRace, type Heat } from './support
 
 test.setTimeout(180_000);
 
-async function openCamera(page: Page, raceId: number, id: string) {
-    await page.goto(`/race/${raceId}/camera?fake=1&displayId=${id}`);
+async function openCamera(page: Page, raceId: number, id: string, extraParams = ''): Promise<void> {
+    await page.goto(`/race/${raceId}/camera?fake=1&displayId=${id}${extraParams}`);
     await page.waitForLoadState('networkidle');
 }
 
@@ -220,14 +220,22 @@ test('a clip cut long after the ring has evicted its own opening keyframe still 
     // capture pipeline carried its container header only in the very first
     // timesliced chunk of a recording session, and the ring's own age-based
     // eviction discarded that chunk like any other once the session ran
-    // longer than the ring's own ~10s capacity — which every real capture
-    // does, since a camera is opened and aimed well before the first heat.
+    // longer than the ring's own capacity — which every real capture does,
+    // since a camera is opened and aimed well before the first heat.
     // `capture.ts` now forces a fresh keyframe roughly every second and
     // `mux.ts` writes a fresh container header for whatever chunks a cut
-    // hands it, so this should no longer depend on chunk 0 surviving at
-    // all — proven here by actually waiting past the ring's own capacity
-    // (`RING_CAPACITY_MS`, 10s) before cutting anything, then asserting the
-    // resulting clip is not merely *uploaded* but genuinely decodable.
+    // hands it, so this should no longer depend on chunk 0 surviving at all
+    // — proven here by actually waiting past the ring's own capacity before
+    // cutting anything, then asserting the resulting clip is not merely
+    // *uploaded* but genuinely decodable.
+    //
+    // `ringMs=3000` shrinks `Camera.tsx`'s own ~10s default down to 3s for
+    // this page only — a real camera never sets this. The property under
+    // test (a cut long after the ring's own opening keyframe is gone) does
+    // not depend on the window's actual size, only on it having rolled over
+    // at least once; a real 10s wait proved the identical thing at ~4x the
+    // wall-clock cost and ~4x the encoded frames, on a shard already running
+    // the rest of the functional suite alongside it.
     await ensureConfigured(page);
     const { raceId, trackId } = await seedRace(page, 'Instant Replay Eviction Race');
     await scheduleWithSpareHeats(page, raceId, 3);
@@ -239,7 +247,7 @@ test('a clip cut long after the ring has evicted its own opening keyframe still 
     const [camWarmUp, displayWarmUp, underTest] = heats;
 
     const camera = await (await browser.newContext()).newPage();
-    await openCamera(camera, raceId, 'spec-camera-eviction');
+    await openCamera(camera, raceId, 'spec-camera-eviction', '&ringMs=3000');
     await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
     await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
         timeout: 15000,
@@ -266,11 +274,11 @@ test('a clip cut long after the ring has evicted its own opening keyframe still 
     await warmUpload;
     await display.waitForTimeout(1000);
 
-    // Sit past the ring's own capacity — several keyframe cycles beyond it
-    // — before cutting anything under test. This is the actual shape of the
-    // bug: not "a clip cut inside the first 10s," but a camera left running
-    // well past it, which is every real capture.
-    await camera.waitForTimeout(13_000);
+    // Sit past the shrunk 3s ring — several keyframe cycles beyond it — before
+    // cutting anything under test. This is the actual shape of the bug: not
+    // "a clip cut inside the ring's own opening window," but a camera left
+    // running well past it, which is every real capture.
+    await camera.waitForTimeout(4500);
 
     const uploadResponse = camera.waitForResponse(
         (r) => r.url().includes('/replay/') && r.request().method() === 'POST',

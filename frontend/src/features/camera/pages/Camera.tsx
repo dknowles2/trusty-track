@@ -99,6 +99,14 @@ export default function Camera() {
   const raceId = parseInt(raceIdParam || '0');
   const [searchParams] = useSearchParams();
   const fake = searchParams.get('fake') === '1';
+  // A test-only override, read once at mount — `instantReplay.spec.ts`'s own
+  // post-eviction case wants to prove a cut still works once the ring has
+  // aged past its original opening keyframe, and waiting out a real 10s
+  // window on every run costs real wall-clock time and real CPU (the ring
+  // keeps encoding the whole time) across a shard already running the rest
+  // of the functional suite alongside it. Shrinking the window is the same
+  // proof at a fraction of the cost; a real camera never sets this.
+  const ringCapacityOverrideMs = Number(searchParams.get('ringMs')) || undefined;
 
   const displayIdParam = searchParams.get('displayId');
   const thisDisplayId = useMemo(() => displayId(displayIdParam), [displayIdParam]);
@@ -147,7 +155,7 @@ export default function Camera() {
   const usable = fake || (support.webCodecs && support.secureContext && !demoMode);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const ringRef = useRef(new RingBuffer<EncodedFrame>(RING_CAPACITY_MS));
+  const ringRef = useRef(new RingBuffer<EncodedFrame>(ringCapacityOverrideMs ?? RING_CAPACITY_MS));
   const videoTrackInfoRef = useRef<VideoTrackInfo | null>(null);
   const rttSamplesRef = useRef<number[]>([]);
   const rttMedianRef = useRef(0);
