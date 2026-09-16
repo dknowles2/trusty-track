@@ -28,8 +28,8 @@ function renderView(overrides: Partial<React.ComponentProps<typeof BroadcastOver
             nameDisplay="FULL"
             vehicle="Car"
             standings={[
-                { racerId: 1, score: 3.501, rank: 1 },
-                { racerId: 2, score: 3.9, rank: 2 },
+                { racerId: 1, score: 3.501, heatsCompleted: 2, rank: 1 },
+                { racerId: 2, score: 3.9, heatsCompleted: 2, rank: 2 },
             ]}
             racersMap={{
                 1: { firstName: 'Speedy', lastName: 'McQueen' },
@@ -91,11 +91,28 @@ describe('BroadcastOverlayView (#616)', () => {
 
     it('notes a DNF beside the score in the ticker, without replacing it (#898)', () => {
         renderView({
-            standings: [{ racerId: 1, score: 9.999, dnfCount: 1, rank: 1 }],
+            standings: [{ racerId: 1, score: 9.999, heatsCompleted: 1, dnfCount: 1, rank: 1 }],
         });
         const ticker = screen.getByTestId('overlay-standings-ticker');
         expect(ticker).toHaveTextContent('9.999s');
         expect(ticker).toHaveTextContent('(1 DNF)');
+    });
+
+    // #1145: a checked-in racer whose first heat has not run yet reaches
+    // the frontend as `score: 0, heatsCompleted: 0` — the untouched
+    // starting value of every scoring strategy's aggregate, which
+    // `formatScore` alone cannot tell apart from a genuinely fast result.
+    it('shows a dash rather than a fabricated score for a racer with no completed heat', () => {
+        renderView({
+            standings: [
+                { racerId: 1, score: 3.501, heatsCompleted: 2, rank: 1 },
+                { racerId: 2, score: 0, heatsCompleted: 0, rank: 2 },
+            ],
+        });
+        const ticker = screen.getByTestId('overlay-standings-ticker');
+        expect(ticker).toHaveTextContent('Doc Hudson');
+        expect(ticker).not.toHaveTextContent('0.000s');
+        expect(ticker.textContent).toContain('—');
     });
 
     it('hides the ticker entirely when the operator turns it off', () => {

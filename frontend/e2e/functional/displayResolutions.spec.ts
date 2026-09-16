@@ -619,6 +619,14 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             await page.goto(`/race/${raceId}/observation`);
             await page.waitForLoadState('networkidle');
             await expect(page.locator('.standings-table')).toBeVisible();
+            // `networkidle` only tracks HTTP traffic, not the leaderboard
+            // subscription's own WebSocket payload — the table itself can be
+            // visible (an empty `<tbody>`) before the first snapshot has
+            // arrived, which is what made this flake in CI under load
+            // (#1155). Wait on the content the assertions below actually
+            // count, the same way "Last heat's times" already waits on
+            // `.timing-list-item` rather than its own table wrapper.
+            await expect(page.locator('.standing-row').first()).toBeVisible();
             await assertCleanRender(page, { fullScreen: false, overlapSelectors: ['.heat-card', '.standing-row'] });
 
             // Every row on screen fits the fold, and the roster (24 racers,
@@ -657,6 +665,9 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             await page.goto(`/race/${raceId8}/observation`);
             await page.waitForLoadState('networkidle');
             await expect(page.locator('.standings-table')).toBeVisible();
+            // See the 6-lane "Standings" test above (#1155) — this is the
+            // case that actually flaked in CI, on the busier 32-racer seed.
+            await expect(page.locator('.standing-row').first()).toBeVisible();
             await assertCleanRender(page, {
                 fullScreen: false,
                 overlapSelectors: ['.heat-card', '.standing-row'],
@@ -714,6 +725,64 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             await expect(page.locator('.projector-grid')).toBeVisible();
             await assertCleanRender(page, { fullScreen: true, overlapSelectors: ['.projector-racer-card'] });
         });
+    });
+
+    /**
+     * Projector Mode on a portrait tablet (#1143): the ordinary two-column
+     * layout (`.projector-grid`, `.projector-left-col`/`.projector-right-col`)
+     * pushed Current Standings partially or entirely off-screen at 820×1180
+     * — the left column's heat cards refused to shrink below their own
+     * content width, so the right column was pushed out past the viewport's
+     * own edge. `displayDensity.ts`'s `projectorStacked` (aspect ratio < 1)
+     * switches to a stacked layout (`.projector-stacked`) instead: heat
+     * cards on top, Current Standings underneath with a row count measured
+     * to fit rather than a fixed Top 5.
+     *
+     * 1180×820 is landscape (aspect ratio 1.44) and deliberately stays on
+     * the *ordinary* two-column layout — included here because it sits just
+     * outside every `VIEWPORTS` entry above, at the size the issue found
+     * closest to the two-column layout's own limits, so this is where a
+     * regression to that layout's own arithmetic would first show up.
+     */
+    test('Projector, a portrait tablet or the two-column layout at its own edge (#1143)', async ({ page }) => {
+        const cases = [
+            { name: '820x1180 (portrait tablet)', width: 820, height: 1180, stacked: true },
+            { name: '768x1024 (portrait tablet)', width: 768, height: 1024, stacked: true },
+            { name: '1180x820 (landscape, two-column)', width: 1180, height: 820, stacked: false },
+        ];
+        for (const c of cases) {
+            await page.setViewportSize({ width: c.width, height: c.height });
+            await page.goto(`/race/${raceId}/observation?projector=true`);
+            await page.waitForLoadState('networkidle');
+            await expect(page.locator('.projector-mode')).toBeVisible();
+            await expect(page.locator(c.stacked ? '.projector-stacked' : '.projector-grid')).toBeVisible();
+            await assertCleanRender(page, { fullScreen: true, overlapSelectors: ['.projector-racer-card', '.projector-standing-row'] });
+
+            const rightCol = page.locator('.projector-right-col');
+            await expect(rightCol).toBeVisible();
+            const rightBox = await rightCol.boundingBox();
+            expect(rightBox, `at ${c.name}: .projector-right-col has no bounding box`).not.toBeNull();
+            expect(
+                rightBox!.x + rightBox!.width,
+                `at ${c.name}: standings column's right edge (${(rightBox!.x + rightBox!.width).toFixed(1)}) exceeds the viewport width (${c.width})`,
+            ).toBeLessThanOrEqual(c.width + 1);
+
+            const rowCount = await page.locator('.projector-standing-row').count();
+            expect(rowCount, `at ${c.name}: no .projector-standing-row rendered`).toBeGreaterThanOrEqual(1);
+
+            const overflow = await page.evaluate(() => ({
+                scrollWidth: document.documentElement.scrollWidth,
+                scrollHeight: document.documentElement.scrollHeight,
+                clientWidth: document.documentElement.clientWidth,
+                clientHeight: document.documentElement.clientHeight,
+            }));
+            expect(overflow.scrollWidth, `at ${c.name}: horizontal overflow`).toBeLessThanOrEqual(
+                overflow.clientWidth + 1,
+            );
+            expect(overflow.scrollHeight, `at ${c.name}: vertical overflow`).toBeLessThanOrEqual(
+                overflow.clientHeight + 1,
+            );
+        }
     });
 
     test('Racer photos (the slideshow)', async ({ page }) => {

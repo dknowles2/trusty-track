@@ -3,11 +3,13 @@ import {
   CUMULATIVE_TIME,
   DNF_PENALTY_SECONDS,
   FASTEST_TIME,
+  NO_SCORE,
   POINTS,
   SCORING_STRATEGY_OPTIONS,
   TIMED,
   dnfAnnotation,
   formatScore,
+  scoreCell,
   scoreLabel,
 } from './scoringStrategyText';
 
@@ -73,6 +75,44 @@ describe('formatScore', () => {
 
   it('does not relabel an ordinary Points score that happens to equal 9.999', () => {
     expect(formatScore(DNF_PENALTY_SECONDS, 'POINTS')).toBe('9.999');
+  });
+});
+
+// #1145: a checked-in racer who has not completed a heat reaches every
+// standings surface with the strategy's own untouched starting value —
+// `0`, which is the fastest possible TIMED/CUMULATIVE_TIME average and the
+// best possible POINTS total — so `formatScore` alone would print it as a
+// suspiciously good result rather than "hasn't raced yet".
+describe('scoreCell', () => {
+  it('formats a real time-based score once at least one heat is completed', () => {
+    expect(scoreCell({ score: 3.2016, heatsCompleted: 2 }, (s) => formatScore(s, 'TIMED'))).toBe(
+      '3.202s',
+    );
+  });
+
+  it('formats a real Points score once at least one heat is completed', () => {
+    expect(scoreCell({ score: 7, heatsCompleted: 3 }, (s) => formatScore(s, 'POINTS'))).toBe('7');
+  });
+
+  it('shows NO_SCORE instead of a fabricated 0.000s for TIMED with no completed heats', () => {
+    expect(scoreCell({ score: 0, heatsCompleted: 0 }, (s) => formatScore(s, 'TIMED'))).toBe(
+      NO_SCORE,
+    );
+  });
+
+  it('shows NO_SCORE instead of a fabricated 0 pts for POINTS with no completed heats', () => {
+    expect(scoreCell({ score: 0, heatsCompleted: 0 }, (s) => formatScore(s, 'POINTS'))).toBe(
+      NO_SCORE,
+    );
+  });
+
+  it('composes with any formatter, not only formatScore', () => {
+    // Leaderboard.tsx and Observation.tsx's own projector panel both format
+    // an elimination round's losses with a bare `Math.round` rather than
+    // `formatScore` — `scoreCell`'s guard has to work the same way there.
+    const eliminationFormat = (score: number) => `${Math.round(score)}`;
+    expect(scoreCell({ score: 2, heatsCompleted: 3 }, eliminationFormat)).toBe('2');
+    expect(scoreCell({ score: 0, heatsCompleted: 0 }, eliminationFormat)).toBe(NO_SCORE);
   });
 });
 

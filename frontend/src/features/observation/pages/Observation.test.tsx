@@ -598,6 +598,71 @@ describe('Observation Page', () => {
         expect(screen.getByText('(1 DNF)')).toBeInTheDocument();
     });
 
+    // #1145: a checked-in racer whose first heat has not run yet reaches
+    // this page as `score: 0, heatsCompleted: 0` — every scoring strategy's
+    // untouched starting value, which used to print as a suspiciously fast
+    // "0.000s" rather than "hasn't raced yet".
+    it('shows a dash rather than 0.000s for a racer with no completed heat, on the Standings tab', async () => {
+        const racersData = {
+            race: {
+                id: 1,
+                scoringStrategy: 'TIMED',
+                racers: [
+                    { id: 1, firstName: 'Speedy', lastName: 'McQueen', carNumber: 95, racerImageUrl: null },
+                    { id: 2, firstName: 'Doc', lastName: 'Hudson', carNumber: 51, racerImageUrl: null },
+                ],
+            }
+        };
+
+        setupMocks({
+            leaderboard: [
+                { racerId: 1, score: 3.2, heatsCompleted: 2, rank: 1 },
+                { racerId: 2, score: 0, heatsCompleted: 0, rank: 2 },
+            ],
+        }, racersData);
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Doc Hudson')).toBeInTheDocument();
+        });
+        expect(screen.queryByText('0.000s')).not.toBeInTheDocument();
+        const row = screen.getByText('Doc Hudson').closest('tr');
+        expect(row).toHaveTextContent('—');
+    });
+
+    // Same bug, the projector layout's own "Current Standings" panel
+    // (top 5 only — reachable with a small enough roster).
+    it('shows a dash rather than 0.000s for a racer with no completed heat, in Projector Mode', async () => {
+        setupMocks({
+            leaderboard: [
+                { racerId: 1, score: 3.2, heatsCompleted: 2, rank: 1 },
+                { racerId: 2, score: 0, heatsCompleted: 0, rank: 2 },
+            ],
+        });
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation?projector=true']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Hudson')).toBeInTheDocument();
+        });
+        expect(screen.queryByText('0.000s')).not.toBeInTheDocument();
+        const row = screen.getByText('Hudson').closest('tr');
+        expect(row).toHaveTextContent('—');
+    });
+
     it('projector standings label a POINTS race by points and keep the shared rank (#329)', async () => {
         const racersData = {
             race: {

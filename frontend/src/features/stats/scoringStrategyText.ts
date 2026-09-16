@@ -150,6 +150,50 @@ export function formatScore(
 }
 
 /**
+ * What every standings row prints in the score column for a racer who has
+ * not completed a heat yet — a checked-in racer before their first run, or
+ * one whose first heat has not been raced yet mid-round (#1145).
+ */
+export const NO_SCORE = '—';
+
+/**
+ * The score column's actual cell contents: `format(entry.score)`, or
+ * `NO_SCORE` for a racer with no completed heat (#1145).
+ *
+ * Every aggregate strategy's untouched starting value is `0` — the fastest
+ * possible `TIMED`/`CUMULATIVE_TIME` average and the best possible `POINTS`
+ * total — so formatting a `heatsCompleted: 0` entry's raw score is not a
+ * "hasn't raced yet" placeholder, it is a fabricated result that reads as
+ * the best time or the best finish in the room. `Leaderboard.tsx`'s own
+ * Standings page always guarded this before calling `formatScore`; this is
+ * the same guard, in the one module every score-formatting caller already
+ * shares, so the audience-facing displays (`Observation.tsx`,
+ * `StandingsOnlyView.tsx`, `BroadcastOverlayView.tsx`) can call it too
+ * rather than reimplementing the check — or, before this, not implementing
+ * it at all.
+ *
+ * Takes the formatter as a plain callback rather than a `scoringStrategy`
+ * directly, because more than one caller here does not simply call
+ * `formatScore` — an elimination round's own standings substitute a bare
+ * `Math.round` (losses, not a time or a points total) both on the
+ * operator's Standings page and on this page's projector panel. Composing
+ * with whichever formatter the caller already resolved keeps the "which
+ * formatter" decision in exactly one place per caller, with only "was
+ * there anything to format" pulled out here.
+ *
+ * The backend already ranks a zero-heat entry last under both strategies
+ * (`domain.scoring.rank_key` sorts `heats_completed == 0` to `float('inf')`
+ * regardless of `score`), so this is purely a rendering fix — the ranking
+ * these entries land at was never wrong.
+ */
+export function scoreCell(
+  entry: { score: number; heatsCompleted: number },
+  format: (score: number) => string,
+): string {
+  return entry.heatsCompleted > 0 ? format(entry.score) : NO_SCORE;
+}
+
+/**
  * The DNF note to show beside a formatted score — "(1 DNF)", "(2 DNFs)" — or
  * `null` when there is nothing to say (#898).
  *
