@@ -28,6 +28,14 @@ import {
 } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
+import {
+  DEFAULT_REPLAY_SETTINGS,
+  INITIAL_PLAYBACK_STATE,
+  afterClipEnded,
+  orderClipsByCameraId,
+  readReplaySettings,
+  type PlaybackState,
+} from '../replayPlayback';
 import { isSoundEffectEnabled, playFinishSound, playRecordBreakSound } from '../../audio/soundEffects';
 import { formatScaleMph } from '../scaleSpeed';
 import { runOffAnnouncement } from '../../racing/runOff';
@@ -58,7 +66,17 @@ import {
   TimingStatsSubscription,
   ActiveFreeRaceHeatSubscription,
   DisplayAssignmentSubscription,
+  HeatReplaySubscription,
 } from '../graphql/queries';
+
+/** One camera's clip for the current heat (#177 stage 1b) — mirrors the
+ * GraphQL `ReplayClip` type's own field selection below. */
+interface HeatReplayClip {
+  cameraId: string;
+  url: string;
+  durationMs: number;
+  t0OffsetMs: number;
+}
 
 const GET_INITIAL_DATA = `
   query GetInitialData($id: Int!) {
@@ -259,6 +277,17 @@ export default function Observation() {
     recordBreak?: RecordBreak | null;
   } | null>(null);
   const [seenHeatResult, setSeenHeatResult] = useState<SeenHeatResult>(null);
+
+  // Replay playback state (#177 stage 1b) — `seenReplay` is the same
+  // `seen === null` edge-detector as the results overlay above, applied to
+  // `heatReplay`'s own {heatId, recordedAt} pair rather than a second copy
+  // of the rule. `replayClips` holds the clip set once a *new* replay
+  // arrives; it is not shown immediately — see the render-time sync below,
+  // which waits for the results overlay (where one exists) to finish first.
+  const [seenReplay, setSeenReplay] = useState<SeenHeatResult>(null);
+  const [replayClips, setReplayClips] = useState<HeatReplayClip[] | null>(null);
+  const [showReplayPlayer, setShowReplayPlayer] = useState(false);
+  const [replayPlaybackState, setReplayPlaybackState] = useState<PlaybackState>(INITIAL_PLAYBACK_STATE);
 
   // Auto-cycling logic (disabled in projector mode)
   useEffect(() => {
@@ -461,6 +490,21 @@ export default function Observation() {
     pause: !trackId,
   });
 
+  // The current heat's replay clip(s), if any camera has uploaded one
+  // (#177 stage 1b). A snapshot channel — see `.claude/rules/displays.md`'s
+  // "A camera is a display with a role" for why the default bounded queue
+  // is safe here.
+  const [{ data: heatReplayData }] = useSubscription({
+    query: HeatReplaySubscription,
+    variables: { raceId: id },
+    pause: !id,
+  });
+  const heatReplay = heatReplayData?.heatReplay ?? null;
+  // Default on, matching `Assignment.replays`' own server default — a
+  // display nobody has assigned yet (still on its own URL fallback) plays
+  // a replay exactly as an assigned-and-on screen does.
+  const replaysEnabled = assignment?.replays ?? true;
+
   // Sync results overlay state during render. `observeHeatResult` is the
   // `seen === null` rule from `roundCompletion.ts`: the subscription's
   // opening payload (on load, or on reconnect) is history, not news, and the
@@ -502,6 +546,42 @@ export default function Observation() {
       }
     }
   }, [showResultsOverlay, seenHeatResult, overlayData]);
+
+  // Sync replay playback state during render — the same `seen === null`
+  // shape as the results overlay above, applied to `heatReplay`'s own
+  // {heatId, recordedAt} pair. Two rules, both from the issue:
+  //
+  //  - A purge (the next heat starting, or an earlier result changing)
+  //    clears `heatReplay` back to null on the server; this stops whatever
+  //    is currently playing rather than leaving it frozen on a stale clip.
+  //  - A *new* clip set is captured into `replayClips` but not shown yet —
+  //    the actual "start playing" happens below, once the results overlay
+  //    (where this view has one) has finished, so a display never shows
+  //    the replay and the finish banner at the same time.
+  if (!heatReplay) {
+    if (replayClips !== null || showReplayPlayer) {
+      setReplayClips(null);
+      setShowReplayPlayer(false);
+    }
+  } else if (replaysEnabled) {
+    const observation = observeHeatResult(seenReplay, heatReplay);
+    if (observation.seen !== seenReplay) {
+      setSeenReplay(observation.seen);
+      if (observation.isNew && heatReplay.clips.length > 0) {
+        setReplayClips(orderClipsByCameraId(heatReplay.clips));
+        setReplayPlaybackState(INITIAL_PLAYBACK_STATE);
+      }
+    }
+  }
+
+  // Start playing once there is something queued and nothing else (the
+  // results overlay) is covering the screen right now. A view with no
+  // results overlay of its own (the standard, non-projector mode) has
+  // `showResultsOverlay` permanently false, so a queued replay there plays
+  // immediately — there was never anything to wait for.
+  if (replayClips && !showResultsOverlay && !showReplayPlayer) {
+    setShowReplayPlayer(true);
+  }
 
   interface Racer {
     id: number;
@@ -1227,6 +1307,49 @@ export default function Observation() {
     );
   };
 
+  const renderReplayPlayer = () => {
+    if (!showReplayPlayer || !replayClips || replayClips.length === 0) return null;
+    const clip = replayClips[replayPlaybackState.clipIndex];
+    if (!clip) return null;
+    const settings = readReplaySettings(thisDisplayId) ?? DEFAULT_REPLAY_SETTINGS;
+
+    return (
+      <div className="replay-player-overlay" data-testid="replay-player">
+        <video
+          // Keyed on `playCount` too, not just the clip — a repeat showing
+          // of the *same* clip has to remount the element (which is what
+          // actually restarts `autoPlay`), since the browser has no reason
+          // to replay a video that already reached `ended`.
+          key={`${clip.url}-${replayPlaybackState.clipIndex}-${replayPlaybackState.playCount}`}
+          src={clip.url}
+          autoPlay
+          muted
+          playsInline
+          data-testid="replay-video"
+          ref={(el) => {
+            if (el) el.playbackRate = settings.rate;
+          }}
+          style={{
+            width: '80vmin',
+            maxWidth: '90vw',
+            maxHeight: '70vh',
+            borderRadius: '12px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          }}
+          onEnded={() => {
+            const step = afterClipEnded(replayPlaybackState, settings.showings, replayClips.length);
+            if (step === 'done') {
+              setShowReplayPlayer(false);
+              setReplayClips(null);
+            } else {
+              setReplayPlaybackState(step);
+            }
+          }}
+        />
+      </div>
+    );
+  };
+
   // --- SLIDESHOW (#175) ---
   // Ahead of both other modes: it is a full-screen view of its own rather than
   // a tab, and it deliberately shows none of the race furniture — the point is
@@ -1478,6 +1601,7 @@ export default function Observation() {
           }}
         >
           {renderResultsOverlay()}
+          {renderReplayPlayer()}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
             {initialData?.race?.track?.id && (
               <TimerStatusBadge trackId={initialData.race.track.id} />
@@ -1643,6 +1767,7 @@ export default function Observation() {
         }}
       >
         {renderResultsOverlay()}
+        {renderReplayPlayer()}
         <div style={{ flexShrink: 0 }}>
         <div
           style={{
@@ -2247,6 +2372,7 @@ export default function Observation() {
       style={{ maxWidth: '100%', padding: '2vmin', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box', ...displayThemeStyle }}
     >
       {renderResultsOverlay()}
+      {renderReplayPlayer()}
       <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
 
       {density.projectorStacked ? (

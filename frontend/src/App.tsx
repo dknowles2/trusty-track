@@ -35,6 +35,7 @@ function RedirectControlDisplays() {
 }
 import Observation from './features/observation/pages/Observation';
 import DisplaysPage from './features/observation/pages/DisplaysPage';
+import Camera from './features/camera/pages/Camera';
 import Standings from './features/stats/pages/Standings';
 import RaceStats from './features/stats/pages/RaceStats';
 import Awards from './features/awards/pages/Awards';
@@ -207,6 +208,11 @@ function App() {
                 <Route path="/race/:raceId/control/displays" element={raceRoute(<RedirectControlDisplays />)} />
                 <Route path="/race/:raceId/displays" element={raceRoute(<DisplaysPage />)} />
                 <Route path="/race/:raceId/observation" element={raceRoute(<Observation />)} />
+                {/* A camera registers the way a display does (#177 stage
+                    1b) — same wrapping as every other race-scoped route,
+                    since it holds no PIN and is a VIEWER exactly like a
+                    display. */}
+                <Route path="/race/:raceId/camera" element={raceRoute(<Camera />)} />
 
                 {/* Legacy redirects */}
                 <Route path="/checkin" element={<Navigate to="/" replace />} />

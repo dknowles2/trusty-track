@@ -89,6 +89,13 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_BACKEND_URL || 'http://localhost:8005',
           changeOrigin: true,
           secure: env.VITE_BACKEND_SECURE === 'true',
+        },
+        // Replay clip upload/serving (#177 stage 1b) — same shape as
+        // '/upload' above, a REST door beside /graphql.
+        '/replay': {
+          target: env.VITE_BACKEND_URL || 'http://localhost:8005',
+          changeOrigin: true,
+          secure: env.VITE_BACKEND_SECURE === 'true',
         }
       },
     },

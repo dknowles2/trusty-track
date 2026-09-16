@@ -717,13 +717,17 @@ describe('RaceControl Page', () => {
             error: null
         }, mockReExecute]);
 
-        // The page now runs two subscriptions — raceStateChanged and (#345)
-        // heatSession — so the handler is only captured for the one this test
-        // is about, by its distinguishing variable. Otherwise the heatSession
-        // call, which passes no handler, overwrites it with undefined.
+        // The page (and, since #177 stage 1b, its child CameraBadges) now
+        // runs several subscriptions sharing the same {raceId} variable
+        // shape — raceStateChanged, heatSession, and CameraBadges' own
+        // DisplaysSubscription — so the handler is only captured for the
+        // one this test is about, by the query text naming it. Filtering
+        // on the variable shape alone (the previous approach) stopped
+        // being unique once a second raceId-keyed subscription joined the
+        // tree.
         (useSubscription as any).mockImplementation(
             (opts: any, handler: (prev: any, data: any) => any) => {
-                if (opts.variables?.raceId !== undefined) {
+                if (typeof opts.query === 'string' && opts.query.includes('RaceStateChanged')) {
                     capturedHandler = handler;
                 }
                 return [{ data: undefined }, vi.fn()];
@@ -765,13 +769,17 @@ describe('RaceControl Page', () => {
             error: null
         }, mockReExecute]);
 
-        // The page now runs two subscriptions — raceStateChanged and (#345)
-        // heatSession — so the handler is only captured for the one this test
-        // is about, by its distinguishing variable. Otherwise the heatSession
-        // call, which passes no handler, overwrites it with undefined.
+        // The page (and, since #177 stage 1b, its child CameraBadges) now
+        // runs several subscriptions sharing the same {raceId} variable
+        // shape — raceStateChanged, heatSession, and CameraBadges' own
+        // DisplaysSubscription — so the handler is only captured for the
+        // one this test is about, by the query text naming it. Filtering
+        // on the variable shape alone (the previous approach) stopped
+        // being unique once a second raceId-keyed subscription joined the
+        // tree.
         (useSubscription as any).mockImplementation(
             (opts: any, handler: (prev: any, data: any) => any) => {
-                if (opts.variables?.raceId !== undefined) {
+                if (typeof opts.query === 'string' && opts.query.includes('RaceStateChanged')) {
                     capturedHandler = handler;
                 }
                 return [{ data: undefined }, vi.fn()];

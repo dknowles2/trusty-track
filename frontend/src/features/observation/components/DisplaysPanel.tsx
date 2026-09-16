@@ -39,8 +39,10 @@ import {
     IDENTIFY_DISPLAY,
     RACE_AWARD_COUNT_QUERY,
     RENAME_DISPLAY,
+    SET_CAMERA_TRACK,
     SUGGEST_DISPLAY_NAME,
 } from '../graphql/queries';
+import { GET_TRACKS } from '../../core/graphql/queries';
 import {
     groupedViewOptions,
     VIEW_OPTIONS,
@@ -69,10 +71,36 @@ interface DisplayRow {
     showCheckedIn: boolean;
     qrTarget: QRTarget;
     showStandingsTicker: boolean;
+    /** Whether this screen plays a heat's replay clip after its results
+     * overlay (#177 stage 1b) — meaningless for a CAMERA row. */
+    replays: boolean;
+    /** DISPLAY (an ordinary screen) or CAMERA (#177 stage 1a/1b). */
+    role: 'DISPLAY' | 'CAMERA';
+    /** Which track a CAMERA listens to — null until `setCameraTrack` picks
+     * one, meaningless for an ordinary display. */
+    trackId: number | null;
+    /** ISO 8601 UTC, the last time this camera's clip landed — null until
+     * the first one does. */
+    lastClipAt: string | null;
     description: string;
     pacedByAPerson: boolean;
     connected: boolean;
     identifySeq: number;
+}
+
+/** "2s ago" / "3m ago", the same rounded-elapsed-time shape
+ * `Camera.tsx`'s own status line uses — kept as a small local helper
+ * rather than importing across the feature boundary for one function. */
+function agoText(iso: string | null): string | null {
+    if (!iso) return null;
+    const then = Date.parse(iso);
+    if (Number.isNaN(then)) return null;
+    const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
+    if (seconds < 1) return 'just now';
+    if (seconds === 1) return '1s ago';
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.round(seconds / 60);
+    return minutes === 1 ? '1m ago' : `${minutes}m ago`;
 }
 
 interface DisplaysPanelProps {
@@ -129,6 +157,12 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     const [, renameDisplay] = useMutation(RENAME_DISPLAY);
     const [, forgetDisplay] = useMutation(FORGET_DISPLAY);
     const [, identifyDisplay] = useMutation(IDENTIFY_DISPLAY);
+    const [, setCameraTrack] = useMutation(SET_CAMERA_TRACK);
+
+    // For a CAMERA row's own track picker (#177 stage 1b) — the same query
+    // the race form already reads tracks from.
+    const [tracksResult] = useQuery({ query: GET_TRACKS });
+    const tracks: { id: number; name: string }[] = tracksResult.data?.tracks ?? [];
     // Imperative rather than `useQuery`: the reroll fires once per click
     // rather than tracking a variable the render loop would re-fetch on
     // (#521). `renameDisplay` still commits it — this only fills the draft.
@@ -327,6 +361,12 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                             )}
                         </div>
 
+                        {/* A camera row gets no view/riders — those describe
+                            what a *screen* shows, and a camera's own
+                            controls (which track, whether the replay is
+                            landing) are a different set entirely, below. */}
+                        {display.role !== 'CAMERA' && (
+                        <>
                         <select
                             aria-label={`What ${display.name} shows`}
                             value={display.view}
@@ -502,6 +542,63 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                                 <option value="ON">With standings ticker</option>
                                 <option value="OFF">Heat only</option>
                             </select>
+                        )}
+
+                        {/* Instant replay (#177 stage 1b): whether this screen
+                            plays a heat's clip after its own results overlay.
+                            On by default — a display already showing results
+                            has nothing else to lose by also playing the
+                            replay once one exists. */}
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
+                            <input
+                                type="checkbox"
+                                aria-label={`Whether ${display.name} plays replays`}
+                                checked={display.replays}
+                                disabled={!isOperator}
+                                title={operatorTitle}
+                                onChange={(e) =>
+                                    assignDisplay({
+                                        displayId: display.displayId,
+                                        view: display.view,
+                                        replays: e.target.checked,
+                                    })
+                                }
+                            />
+                            Replays
+                        </label>
+                        </>
+                        )}
+
+                        {/* A camera's own controls (#177 stage 1a/1b): which
+                            track it is listening to, and when its clip last
+                            landed — Race Control's own badge (below) reads
+                            the same `lastClipAt`. */}
+                        {display.role === 'CAMERA' && (
+                            <>
+                                <select
+                                    aria-label={`Which track ${display.name} listens to`}
+                                    value={display.trackId ?? ''}
+                                    disabled={!isOperator}
+                                    title={operatorTitle}
+                                    onChange={(e) => {
+                                        const trackId = Number(e.target.value);
+                                        if (trackId) setCameraTrack({ displayId: display.displayId, trackId });
+                                    }}
+                                    style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+                                >
+                                    <option value="">Choose a track…</option>
+                                    {tracks.map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                            {t.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>
+                                    {display.lastClipAt
+                                        ? `Last clip ${agoText(display.lastClipAt)}`
+                                        : 'No clip yet'}
+                                </span>
+                            </>
                         )}
 
                         {/* The ceremony waits for a person, and until now that
