@@ -110,18 +110,37 @@
 }
 
 /*
- * The wrapper `Printables.tsx` measures for the mobile scaling below
- * (#1142): a plain block that fills whatever width its container gives it,
- * with the sheet itself centred inside via `text-align` rather than the
- * grid's own `justify-content` — see `.print-sheets` below for why the grid
- * can no longer do that centring itself. `overflow: hidden` only matters
- * once JS gives this element an explicit `height` shorter than the sheet's
- * own natural height (a `transform: scale()` shrinks how a box *paints*,
- * never the space it reserves in normal flow) — harmless before that,
- * since nothing here overflows at `height: auto`.
+ * The wrapper `Printables.tsx` and `Certificate.tsx` measure for the mobile
+ * scaling below (#1142): centres the sheet inside whatever width its
+ * container gives it, via `justify-content` rather than the grid's/flex's
+ * own `justify-content`/`align-items` — see `.print-sheets` below for why
+ * the grid can no longer do that centring itself.
+ *
+ * `display: flex` + `justify-content`, not `text-align` — a first version
+ * of this used `text-align: center`, and `text-align` is an *inherited*
+ * property: every certificate's "OFFICIAL"/"CHAMPION" text has no
+ * `text-align` of its own (it relies on the browser's default, left), so it
+ * silently inherited "center" from this wrapper and re-centred text that
+ * was never meant to move — caught by `screenshot-awards.spec.ts`'s own
+ * `07-certificates.png`, not by any unit test, since nothing here renders
+ * in jsdom. `justify-content` is not inherited and does not cascade into a
+ * child's own text at all, which is what `justify-content`/`align-items`
+ * already gave `.print-sheets`/`.certificates` themselves before this
+ * feature moved centring one level up — this restores that safety.
+ * `align-items: flex-start` stops flex's own default (`stretch`) from
+ * growing the sheet to the wrap's height, which would otherwise defeat the
+ * "reserve only the scaled height" point of this wrapper existing.
+ *
+ * `overflow: hidden` only matters once JS gives this element an explicit
+ * `height` shorter than the sheet's own natural height (a `transform:
+ * scale()` shrinks how a box *paints*, never the space it reserves in
+ * normal flow) — harmless before that, since nothing here overflows at
+ * `height: auto`.
  */
 .print-sheet-scale-wrap {
-    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
     overflow: hidden;
 }
 
@@ -137,12 +156,12 @@
  * browser's default scroll range does not extend left of the document's
  * own origin. `inline-grid` makes the box shrink-to-fit its content
  * instead, so its own measured width (`useSheetScale.ts`'s `offsetWidth`)
- * is always the sheet's *natural* size, and centring moves to the plain
- * `text-align` on `.print-sheet-scale-wrap` above — which, unlike
- * `justify-content`, is exactly what `useSheetScale.ts` overrides to `left`
- * once it applies a `transform: scale()`, so the scaled sheet's own left
- * edge lands at `x: 0` rather than getting centred (and re-clipped) a
- * second time.
+ * is always the sheet's *natural* size, and centring moves to
+ * `.print-sheet-scale-wrap`'s own `justify-content` above — which, unlike
+ * the grid's own, is exactly what `useSheetScale.ts` overrides to
+ * `flex-start` once it applies a `transform: scale()`, so the scaled
+ * sheet's own left edge lands at `x: 0` rather than getting centred (and
+ * re-clipped) a second time.
  */
 .print-sheets {
     display: inline-grid;
@@ -829,15 +848,15 @@
      * The mobile scaling above (#1142) is a screen-only affordance — the
      * printed sheet is always its natural, unscaled size, flush against the
      * printable area's own left edge exactly as it always was. `!important`
-     * on both: `useSheetScale.ts` sets `transform`/`height`/`textAlign` as
-     * inline styles, which beat an ordinary stylesheet rule regardless of
+     * on both: `useSheetScale.ts` sets `transform`/`height`/`justifyContent`
+     * as inline styles, which beat an ordinary stylesheet rule regardless of
      * which media it was written under. Written once here, for both the
      * card grid's `.print-sheets` and the certificate's `.certificates`
      * (below) — a shared reset for a shared wrapper, rather than one copy
      * per page's own `@media print` block.
      */
     .print-sheet-scale-wrap {
-        text-align: left !important;
+        justify-content: flex-start !important;
         height: auto !important;
         overflow: visible !important;
     }
@@ -1046,7 +1065,7 @@
  * overflow off both edges. `inline-flex` shrink-wraps the box to its
  * content instead, so `useSheetScale.ts`'s `offsetWidth` measurement is
  * always the certificate's true width, and centring moves to
- * `.print-sheet-scale-wrap`'s own `text-align`.
+ * `.print-sheet-scale-wrap`'s own `justify-content`.
  */
 .certificates {
     display: inline-flex;

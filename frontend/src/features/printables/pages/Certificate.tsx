@@ -113,7 +113,7 @@ export default function Certificate() {
                 <div
                     ref={wrapRef}
                     className="print-sheet-scale-wrap"
-                    style={scale < 1 ? { height: naturalHeight * scale, textAlign: 'left' } : undefined}
+                    style={scale < 1 ? { height: naturalHeight * scale, justifyContent: 'flex-start' } : undefined}
                 >
                     <div
                         ref={sheetRef}

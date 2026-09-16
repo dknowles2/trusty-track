@@ -100,8 +100,8 @@ test('at 1280px the sheet renders at its natural size, unscaled, unchanged from 
     // whatever the page happens to give it — see `PrintSheet.css`'s
     // `inline-grid` comment), but the cards inside it are pixel-identical:
     // centring moved from the grid's own `justify-content` to
-    // `.print-sheet-scale-wrap`'s `text-align`, which puts an unscaled
-    // sheet in exactly the same place either way. This is what
+    // `.print-sheet-scale-wrap`'s own `justify-content`, which puts an
+    // unscaled sheet in exactly the same place either way. This is what
     // `screenshot-printables.spec.ts` confirms too, byte for byte.
     const spec = specFor('pit-pass');
     const firstCardBox = await page.locator('.print-card').first().boundingBox();
