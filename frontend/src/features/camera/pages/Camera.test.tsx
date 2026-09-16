@@ -70,6 +70,15 @@ describe('browser support gating', () => {
     it('shows the WebCodecs message when VideoEncoder is missing', () => {
         mockConfig(false);
         vi.stubGlobal('VideoEncoder', undefined);
+        vi.stubGlobal('MediaStreamTrackProcessor', class {});
+        renderCamera();
+        expect(screen.getByText(/Use Chrome, Edge or Safari 16.4\+/)).toBeInTheDocument();
+    });
+
+    it('shows the WebCodecs message when MediaStreamTrackProcessor is missing — VideoEncoder alone is not enough for the real capture pipeline', () => {
+        mockConfig(false);
+        vi.stubGlobal('VideoEncoder', class {});
+        vi.stubGlobal('MediaStreamTrackProcessor', undefined);
         renderCamera();
         expect(screen.getByText(/Use Chrome, Edge or Safari 16.4\+/)).toBeInTheDocument();
     });
@@ -77,6 +86,7 @@ describe('browser support gating', () => {
     it('shows the insecure-context message over plain HTTP off localhost', () => {
         mockConfig(false);
         vi.stubGlobal('VideoEncoder', class {});
+        vi.stubGlobal('MediaStreamTrackProcessor', class {});
         Object.defineProperty(window, 'isSecureContext', { value: false, configurable: true });
         renderCamera();
         expect(screen.getByText(/plain HTTP/)).toBeInTheDocument();
@@ -86,6 +96,7 @@ describe('browser support gating', () => {
     it('renders the track picker once support and demo mode both allow it', () => {
         mockConfig(false);
         vi.stubGlobal('VideoEncoder', class {});
+        vi.stubGlobal('MediaStreamTrackProcessor', class {});
         Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
         // jsdom has no getUserMedia at all — stub the minimum this render
         // needs so the capture effect's rejection is handled quietly

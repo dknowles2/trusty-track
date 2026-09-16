@@ -2,35 +2,34 @@
  * `/race/:raceId/camera` — a device with a camera, registered the way a
  * display is (#177 stage 1b).
  *
- * **Capture is `MediaRecorder`, not `VideoEncoder` — a deliberate departure
- * from the issue's own "WebCodecs, not MediaRecorder" design, stated here
- * rather than left for a reviewer to notice.** The issue's reasoning is
- * sound (frame-accurate seeking, no `MediaRecorder` choppiness) but a
- * `VideoEncoder` pipeline needs a WebM/fMP4 *muxer* of its own — nothing
- * small and dependency-free ships in this tree, and writing one is a
- * project in itself, disproportionate to what stage 1b needs to prove. This
- * stage instead buffers `MediaRecorder`'s own time-sliced output (a `Blob`
- * every `RECORDER_TIMESLICE_MS`) in `../ring.ts`'s `RingBuffer`, and cuts a
- * clip by *concatenating* whichever slices overlap the computed window —
- * Chrome and Safari both produce a webm/mp4 whose first chunk carries the
- * container header and every later chunk appends cluster data cleanly
- * appendable this way, which is the same technique several open-source
- * "record the last N seconds" tools use in place of a full muxer.
+ * **Capture is WebCodecs, as the issue specifies** — `MediaStreamTrackProcessor`
+ * → `VideoEncoder` → a keyframe-aware ring (`../capture.ts`, `../ring.ts`) →
+ * a real WebM mux (`../mux.ts`). An earlier version of this file used
+ * `MediaRecorder` instead, reasoning that a `VideoEncoder` pipeline needed a
+ * muxer this tree did not have; that version shipped a correctness bug a
+ * review caught before merge, not just an accepted trade-off. `MediaRecorder`
+ * emits its container header only in the *first* timesliced `Blob` of a
+ * recording session, and the ring's own age-based eviction discarded that
+ * first chunk like any other once a session ran longer than the ring's
+ * ~10s capacity — which every real capture does, since a camera is opened
+ * and aimed well before the first heat and left running for the length of
+ * the event. Every clip cut after that point was built from headerless
+ * fragments with nothing for a decoder to configure itself from: not a
+ * `<video>`-playable file, for nearly all real-world usage. See
+ * `../capture.ts`'s and `../ring.ts`'s own headers for the fix in full, and
+ * `../mux.ts`'s for why a real muxer removes the "does the container have a
+ * header" question from this file's own problem entirely.
  *
- * **The cost of that trade-off is the cut's own granularity.** `t0` itself
- * is still corrected for half the measured round trip, same as the issue
- * asks (see `../clipBounds.ts`) — but the clip's *start and end* can only
- * land on a slice boundary, so the real-world jitter on where a clip
- * actually begins is bounded by `RECORDER_TIMESLICE_MS`, not the "±1 frame
- * at 30fps" a true `VideoEncoder` cut would give. Shrinking the timeslice
- * narrows that at the cost of more, smaller `Blob`s to concatenate — left
- * at 250ms here, a comfortable margin under the 1.5s default pre-roll.
- *
- * **The browser gate still reads `WebCodecs` support, not `MediaRecorder`
- * support** — see `../browserSupport.ts`'s own docs for why that is kept
- * rather than loosened now that the encode step does not use it: it is the
- * issue's own browser matrix, and Firefox (lacking both) is the one
- * exclusion the issue names by name.
+ * **`FakeCamera` (`?fake=1`) goes through this exact same pipeline.** The
+ * `MediaRecorder` version's fake path was a plain `fetch` of a canned file,
+ * bypassing capture entirely — which is how the header/eviction bug above
+ * shipped with `instantReplay.spec.ts` fully green: the path under
+ * automated test was never the path a real capture actually took. Fake mode
+ * now differs only in *where the `MediaStreamTrack` comes from*
+ * (`../capture.ts`'s `fakeCameraTrack`, a looping `<video>` of
+ * `fake-camera.webm` captured off an offscreen `<canvas>`) — the encode,
+ * ring, cut, mux and upload code after that point is identical, so this is
+ * what the functional and docs e2e specs actually exercise.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -64,15 +63,19 @@ import {
   type ClipBounds,
   type Transition,
 } from '../clipBounds';
-import { RingBuffer, type RingChunk } from '../ring';
+import { RingBuffer } from '../ring';
+import {
+  fakeCameraTrack,
+  startCapture,
+  type CaptureHandle,
+  type EncodedFrame,
+  type VideoTrackInfo,
+} from '../capture';
+import { muxChunks } from '../mux';
 import { CAMERA_PING_QUERY } from '../graphql/queries';
 
 /** ~10s of history, the issue's own estimate — a few MB at 720p/30fps. */
 const RING_CAPACITY_MS = 10_000;
-
-/** How often `MediaRecorder` hands back a `Blob` — see this file's own
- * header docs for what this trades off against a frame-accurate cut. */
-const RECORDER_TIMESLICE_MS = 250;
 
 /** How often an RTT sample is taken, and how many are kept for the median
  * `../clipBounds.ts`'s `medianMs` reduces. */
@@ -80,24 +83,6 @@ const PING_INTERVAL_MS = 8000;
 const MAX_RTT_SAMPLES = 8;
 
 type UploadStatus = 'idle' | 'recording' | 'uploading' | 'uploaded' | 'discarded' | 'error';
-
-const CANDIDATE_MIME_TYPES = [
-  'video/webm;codecs=vp9',
-  'video/webm;codecs=vp8',
-  'video/webm',
-  'video/mp4',
-];
-
-function pickMimeType(): string {
-  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) {
-    return 'video/webm';
-  }
-  return CANDIDATE_MIME_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) ?? 'video/webm';
-}
-
-function extensionFor(mimeType: string): string {
-  return mimeType.includes('mp4') ? 'mp4' : 'webm';
-}
 
 function secondsAgo(fromMs: number | null, nowMs: number): string | null {
   if (fromMs === null) return null;
@@ -162,8 +147,8 @@ export default function Camera() {
   const usable = fake || (support.webCodecs && support.secureContext && !demoMode);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const ringRef = useRef(new RingBuffer<Blob>(RING_CAPACITY_MS));
-  const recorderMimeRef = useRef<string>('video/webm');
+  const ringRef = useRef(new RingBuffer<EncodedFrame>(RING_CAPACITY_MS));
+  const videoTrackInfoRef = useRef<VideoTrackInfo | null>(null);
   const rttSamplesRef = useRef<number[]>([]);
   const rttMedianRef = useRef(0);
   const selectedTrackRef = useRef(selectedTrack);
@@ -237,66 +222,68 @@ export default function Camera() {
       .catch(() => setDevices([]));
   }, [usable, fake]);
 
-  // Capture itself: getUserMedia, a live preview, and MediaRecorder feeding
-  // the ring buffer. Skipped entirely in fake mode or when this device/
-  // context cannot support it.
+  // Capture itself: a real `getUserMedia` track or `FakeCamera`'s
+  // canvas-captured one, both fed into the identical WebCodecs pipeline —
+  // see this file's own header for why that unification matters. Skipped
+  // entirely when this device/context cannot support it.
   useEffect(() => {
-    if (!usable || fake) return;
+    if (!usable) return;
     // Captured once, here, rather than read again in the cleanup — the same
     // `RingBuffer` instance the whole component's life through, but the
     // linter cannot tell that from a plain `useRef` and warns about reading
     // `.current` in a cleanup that may run after it changed.
     const ring = ringRef.current;
-    let stream: MediaStream | null = null;
-    let recorder: MediaRecorder | null = null;
     let cancelled = false;
-    let lastChunkEndMs = Date.now();
+    let mediaStream: MediaStream | null = null;
+    let fakeSource: { track: MediaStreamTrack; stop: () => void } | null = null;
+    let captureHandle: CaptureHandle | null = null;
 
-    navigator.mediaDevices
-      .getUserMedia({
-        video: deviceId ? { deviceId: { exact: deviceId } } : true,
-        audio: false,
-      })
-      .then((s) => {
+    void (async () => {
+      try {
+        let track: MediaStreamTrack;
+        if (fake) {
+          fakeSource = await fakeCameraTrack();
+          track = fakeSource.track;
+        } else {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: deviceId ? { deviceId: { exact: deviceId } } : true,
+            audio: false,
+          });
+          if (cancelled) {
+            mediaStream.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          if (videoRef.current) videoRef.current.srcObject = mediaStream;
+          [track] = mediaStream.getVideoTracks();
+        }
         if (cancelled) {
-          s.getTracks().forEach((t) => t.stop());
+          fakeSource?.stop();
           return;
         }
-        stream = s;
-        if (videoRef.current) {
-          videoRef.current.srcObject = s;
-        }
-        const mimeType = pickMimeType();
-        recorderMimeRef.current = mimeType;
-        recorder = new MediaRecorder(s, { mimeType });
-        lastChunkEndMs = Date.now();
-        recorder.ondataavailable = (event) => {
-          if (event.data.size === 0) return;
-          const endMs = Date.now();
-          ring.push({ startMs: lastChunkEndMs, endMs, data: event.data });
-          lastChunkEndMs = endMs;
-        };
-        recorder.start(RECORDER_TIMESLICE_MS);
-        setStatus('recording');
-      })
-      .catch(() => setStatus('error'));
+        captureHandle = await startCapture(track, ring, (error) => {
+          // The one place a capture failure is surfaced beyond the status
+          // line, which only has room for "error".
+          console.error('Camera capture error', error);
+        });
+        videoTrackInfoRef.current = captureHandle.track;
+        if (!cancelled) setStatus('recording');
+      } catch {
+        if (!cancelled) setStatus('error');
+      }
+    })();
 
     return () => {
       cancelled = true;
-      recorder?.stop();
-      stream?.getTracks().forEach((t) => t.stop());
+      void captureHandle?.stop();
+      mediaStream?.getTracks().forEach((t) => t.stop());
+      fakeSource?.stop();
       ring.clear();
+      videoTrackInfoRef.current = null;
     };
   }, [usable, fake, deviceId]);
 
   const uploadClip = useCallback(
-    async (args: {
-      heatId: number;
-      recordedAt: string;
-      bounds: ClipBounds;
-      blob: Blob;
-      mimeType: string;
-    }) => {
+    async (args: { heatId: number; recordedAt: string; bounds: ClipBounds; blob: Blob }) => {
       setStatus('uploading');
       const attempt = () => {
         const form = new FormData();
@@ -306,7 +293,7 @@ export default function Camera() {
         form.set('camera_id', thisDisplayId);
         form.set('t0_offset_ms', String(Math.round(args.bounds.t0OffsetMs)));
         form.set('duration_ms', String(Math.round(args.bounds.endMs - args.bounds.startMs)));
-        form.set('file', args.blob, `clip.${extensionFor(args.mimeType)}`);
+        form.set('file', args.blob, 'clip.webm');
         return fetch('/replay/', { method: 'POST', body: form });
       };
 
@@ -379,6 +366,8 @@ export default function Camera() {
   // The actual cut-and-upload, triggered by `pendingResult` above rather
   // than woven into the render-time comparison — this is where `Date.now()`
   // and the transitions/track refs are read, which only an effect may do.
+  // Real and fake capture share this one path entirely (see this file's own
+  // header) — there is no longer a `fake` branch here at all.
   useEffect(() => {
     if (!pendingResult) return;
     const result = pendingResult;
@@ -395,28 +384,37 @@ export default function Camera() {
         if (runningAt === null) return;
         bounds = timerSyncedBounds(correctedT0Ms(runningAt, rttMedianRef.current), laneTimesSec);
       }
+      const t0Ms = bounds.startMs + bounds.t0OffsetMs;
 
-      if (fake) {
-        const res = await fetch('/fake-camera.webm');
-        if (!res.ok) return;
-        const blob = await res.blob();
-        await uploadClip({
-          heatId: result.heatId,
-          recordedAt: result.recordedAt,
-          bounds,
-          blob,
-          mimeType: 'video/webm',
-        });
-        return;
-      }
+      const trackInfo = videoTrackInfoRef.current;
+      if (!trackInfo) return;
 
-      const chunks: RingChunk<Blob>[] = ringRef.current.covering(bounds.startMs, bounds.endMs);
+      // The ring's own keyframe-aware cut — see `ring.ts`'s own header for
+      // why this, not `bounds.startMs`/`bounds.endMs` verbatim, is what a
+      // valid clip actually needs.
+      const chunks = ringRef.current.coveringFromKeyframe(bounds.startMs, bounds.endMs);
       if (chunks.length === 0) return;
-      const mimeType = recorderMimeRef.current;
-      const blob = new Blob(chunks.map((c) => c.data), { type: mimeType });
-      await uploadClip({ heatId: result.heatId, recordedAt: result.recordedAt, bounds, blob, mimeType });
+
+      const blob = muxChunks(chunks, trackInfo);
+      // The muxed clip's own first chunk is very often earlier than the
+      // originally requested `bounds.startMs` (it had to start on a
+      // keyframe) — `t0OffsetMs` is recomputed against wherever the file
+      // actually begins, not the request.
+      const actualStartMs = chunks[0].startMs;
+      const actualEndMs = chunks[chunks.length - 1].endMs;
+      const adjustedBounds: ClipBounds = {
+        startMs: actualStartMs,
+        endMs: actualEndMs,
+        t0OffsetMs: t0Ms - actualStartMs,
+      };
+      await uploadClip({
+        heatId: result.heatId,
+        recordedAt: result.recordedAt,
+        bounds: adjustedBounds,
+        blob,
+      });
     })();
-  }, [pendingResult, fake, uploadClip]);
+  }, [pendingResult, uploadClip]);
 
   if (!raceId) {
     return (

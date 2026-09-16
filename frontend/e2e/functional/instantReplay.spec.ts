@@ -214,3 +214,175 @@ test('a reconnecting display does not replay a result from before it reloaded', 
     await display.waitForTimeout(3000);
     await expect(display.getByTestId('replay-video')).toHaveCount(0);
 });
+
+test('a clip cut long after the ring has evicted its own opening keyframe still plays', async ({ browser, page }) => {
+    // The regression a review caught before merge: a `MediaRecorder`-based
+    // capture pipeline carried its container header only in the very first
+    // timesliced chunk of a recording session, and the ring's own age-based
+    // eviction discarded that chunk like any other once the session ran
+    // longer than the ring's own ~10s capacity — which every real capture
+    // does, since a camera is opened and aimed well before the first heat.
+    // `capture.ts` now forces a fresh keyframe roughly every second and
+    // `mux.ts` writes a fresh container header for whatever chunks a cut
+    // hands it, so this should no longer depend on chunk 0 surviving at
+    // all — proven here by actually waiting past the ring's own capacity
+    // (`RING_CAPACITY_MS`, 10s) before cutting anything, then asserting the
+    // resulting clip is not merely *uploaded* but genuinely decodable.
+    await ensureConfigured(page);
+    const { raceId, trackId } = await seedRace(page, 'Instant Replay Eviction Race');
+    await scheduleWithSpareHeats(page, raceId, 3);
+    const heats = await officialHeatsInOrder(page, raceId);
+    expect(heats.length).toBeGreaterThanOrEqual(3);
+    // Three heats warm up two independent `seen === null` edges before the
+    // one under test — the camera's own (`timingStats`) and the display's
+    // own (`heatReplay`), exactly as the first test in this file explains.
+    const [camWarmUp, displayWarmUp, underTest] = heats;
+
+    const camera = await (await browser.newContext()).newPage();
+    await openCamera(camera, raceId, 'spec-camera-eviction');
+    await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+    await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
+        timeout: 15000,
+    });
+
+    const display = await (await browser.newContext()).newPage();
+    await openObservation(display, raceId, 'spec-display-eviction');
+
+    // Warm-up 1: swallowed by the camera's own `seenHeatResult` — no clip
+    // yet.
+    await runHeatToStart(page, camWarmUp.id);
+    await finishHeat(page, camWarmUp.id);
+    await camera.waitForTimeout(2000);
+
+    // Warm-up 2: the camera now captures — this race's first clip, which is
+    // exactly what the display's own fresh `heatReplay` subscription reads
+    // as its opening payload and swallows in turn.
+    const warmUpload = camera.waitForResponse(
+        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+        { timeout: 30000 },
+    );
+    await runHeatToStart(page, displayWarmUp.id);
+    await finishHeat(page, displayWarmUp.id);
+    await warmUpload;
+    await display.waitForTimeout(1000);
+
+    // Sit past the ring's own capacity — several keyframe cycles beyond it
+    // — before cutting anything under test. This is the actual shape of the
+    // bug: not "a clip cut inside the first 10s," but a camera left running
+    // well past it, which is every real capture.
+    await camera.waitForTimeout(13_000);
+
+    const uploadResponse = camera.waitForResponse(
+        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+        { timeout: 30000 },
+    );
+    await runHeatToStart(page, underTest.id);
+    await finishHeat(page, underTest.id);
+    const response = await uploadResponse;
+    expect(response.status()).toBe(200);
+
+    // Not just "an upload happened" — an upload happens whether or not the
+    // file is playable, which is exactly how the original bug shipped with
+    // every automated check green. The clip must actually decode.
+    const video = display.getByTestId('replay-video');
+    await expect(video).toBeVisible({ timeout: 15000 });
+    await expect
+        .poll(async () => video.evaluate((el: HTMLVideoElement) => el.readyState), { timeout: 10000 })
+        .toBeGreaterThanOrEqual(2); // HAVE_CURRENT_DATA or better — real decoded frame data
+    const duration = await video.evaluate((el: HTMLVideoElement) => el.duration);
+    expect(Number.isFinite(duration)).toBe(true);
+    expect(duration).toBeGreaterThan(0);
+});
+
+test('a heat re-run plays its corrected clip; the identical clip does not replay a second time on reconnect', async ({
+    browser,
+    page,
+}) => {
+    // Closes the gap the review named: `Observation.tsx` keys a replay off
+    // `{heatId, recordedAt}` (`resultsOverlay.ts`'s `observeHeatResult`,
+    // proven correct at the pure-function level in `resultsOverlay.test.ts`)
+    // but nothing end to end had ever actually re-run a heat while its
+    // replay was live. Same heat, new `recordedAt` → the corrected clip
+    // must replay; the identical pair arriving again (a reconnect finding
+    // the same clip still current) must not replay a second time.
+    await ensureConfigured(page);
+    const { raceId, trackId } = await seedRace(page, 'Instant Replay Rerun Race');
+    await scheduleWithSpareHeats(page, raceId, 3);
+    const heats = await officialHeatsInOrder(page, raceId);
+    expect(heats.length).toBeGreaterThanOrEqual(3);
+    // Three heats warm up two independent `seen === null` edges before the
+    // one under test — the camera's own (`timingStats`) and the display's
+    // own (`heatReplay`), exactly as the first test in this file explains.
+    const [camWarmUp, displayWarmUp, underTest] = heats;
+
+    const camera = await (await browser.newContext()).newPage();
+    await openCamera(camera, raceId, 'spec-camera-rerun');
+    await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+    await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
+        timeout: 15000,
+    });
+
+    const display = await (await browser.newContext()).newPage();
+    await openObservation(display, raceId, 'spec-display-rerun');
+
+    // Warm-up 1: swallowed by the camera's own `seenHeatResult` — no clip
+    // yet.
+    await runHeatToStart(page, camWarmUp.id);
+    await finishHeat(page, camWarmUp.id);
+    await camera.waitForTimeout(2000);
+
+    // Warm-up 2: the camera now captures — this race's first clip, which is
+    // exactly what the display's own fresh `heatReplay` subscription reads
+    // as its opening payload and swallows in turn.
+    const warmUpload = camera.waitForResponse(
+        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+        { timeout: 30000 },
+    );
+    await runHeatToStart(page, displayWarmUp.id);
+    await finishHeat(page, displayWarmUp.id);
+    await warmUpload;
+    await display.waitForTimeout(1000);
+
+    // First run of the heat under test — genuinely new to both the camera
+    // and the display.
+    const firstUpload = camera.waitForResponse(
+        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+        { timeout: 30000 },
+    );
+    await runHeatToStart(page, underTest.id);
+    await finishHeat(page, underTest.id);
+    await firstUpload;
+    await expect(display.getByTestId('replay-video')).toBeVisible({ timeout: 15000 });
+    const firstSrc = await display.getByTestId('replay-video').getAttribute('src');
+    // Let it finish its two showings and disappear, so the re-run's own
+    // clip is unambiguously a *second* appearance rather than an extension
+    // of the first.
+    await expect(display.getByTestId('replay-player')).toBeHidden({ timeout: 60000 });
+
+    // Re-run the *same* heat — "Reset Heat," the operator's own way to
+    // abandon a run and retry it (`prepareHeat` on an already-recorded
+    // heat). Same `heatId`, a fresh `recordedAt` once it finishes again.
+    const secondUpload = camera.waitForResponse(
+        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+        { timeout: 30000 },
+    );
+    await runHeatToStart(page, underTest.id);
+    await finishHeat(page, underTest.id);
+    await secondUpload;
+
+    // The corrected clip replays — proving the key is `{heatId,
+    // recordedAt}` together, not `heatId` alone (which would have read
+    // this as "the same result already shown" and never played it).
+    await expect(display.getByTestId('replay-video')).toBeVisible({ timeout: 15000 });
+    const secondSrc = await display.getByTestId('replay-video').getAttribute('src');
+    expect(secondSrc).not.toBe(firstSrc);
+    await expect(display.getByTestId('replay-player')).toBeHidden({ timeout: 60000 });
+
+    // Reconnecting now finds the identical `{heatId, recordedAt}` pair
+    // still current — the `seen === null` rule must swallow it exactly as
+    // it does for a genuinely first-ever clip, not replay it a third time.
+    await display.reload();
+    await display.waitForLoadState('networkidle');
+    await display.waitForTimeout(3000);
+    await expect(display.getByTestId('replay-video')).toHaveCount(0);
+});

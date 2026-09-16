@@ -2,12 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { cameraSupport, hasWebCodecs, isInsecureContext } from './browserSupport';
 
 describe('hasWebCodecs', () => {
-  it('is true when VideoEncoder exists on the global', () => {
-    expect(hasWebCodecs({ VideoEncoder: class {} } as unknown as typeof globalThis)).toBe(true);
+  it('is true when both VideoEncoder and MediaStreamTrackProcessor exist on the global', () => {
+    expect(
+      hasWebCodecs({
+        VideoEncoder: class {},
+        MediaStreamTrackProcessor: class {},
+      } as unknown as typeof globalThis),
+    ).toBe(true);
   });
 
-  it('is false when VideoEncoder is absent — Firefox', () => {
+  it('is false when both are absent — Firefox', () => {
     expect(hasWebCodecs({} as unknown as typeof globalThis)).toBe(false);
+  });
+
+  it('is false when only VideoEncoder exists — the capture pipeline needs MediaStreamTrackProcessor too', () => {
+    expect(hasWebCodecs({ VideoEncoder: class {} } as unknown as typeof globalThis)).toBe(false);
+  });
+
+  it('is false when only MediaStreamTrackProcessor exists', () => {
+    expect(
+      hasWebCodecs({ MediaStreamTrackProcessor: class {} } as unknown as typeof globalThis),
+    ).toBe(false);
   });
 });
 
@@ -28,7 +43,7 @@ describe('isInsecureContext', () => {
 describe('cameraSupport', () => {
   it('combines both checks', () => {
     const support = cameraSupport(
-      { VideoEncoder: class {} } as unknown as typeof globalThis,
+      { VideoEncoder: class {}, MediaStreamTrackProcessor: class {} } as unknown as typeof globalThis,
       { isSecureContext: true },
     );
     expect(support).toEqual({ webCodecs: true, secureContext: true });

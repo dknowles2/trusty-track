@@ -50,11 +50,25 @@ export function latestRunningAt(transitions: readonly Transition[]): number | nu
 }
 
 /**
- * `t0`, corrected for half the measured WebSocket round trip (the issue's
- * own phrase). The server's own `at` already answers "when the gate opened,
- * by the server's clock"; half the measured RTT is added back because, by
- * the time this browser could possibly have observed that transition
- * arriving, it was already `rttMs / 2` old.
+ * `t0`, corrected for half the measured round trip (the issue's own
+ * phrase, "half the measured WebSocket RTT" — this measures the HTTP round
+ * trip instead, see `graphql/queries.ts`'s own note on `CAMERA_PING_QUERY`).
+ * The server's own `at` already answers "when the gate opened, by the
+ * server's clock"; half the measured RTT is added back because, by the
+ * time this browser could possibly have observed that transition arriving,
+ * it was already `rttMs / 2` old.
+ *
+ * **This is latency compensation, not clock-skew correction, and the two
+ * are different problems.** If the browser's and server's clocks are
+ * already close (NTP-synced, the ordinary case on a LAN), this is exactly
+ * right. If they have drifted apart, this does nothing to detect or correct
+ * that — doing so would need a `(client_send, server_at, client_recv)`
+ * triple to derive an offset from, and `CAMERA_PING_QUERY` only returns
+ * `{ version }`, no server-side timestamp. The issue's own prescribed
+ * method is this heuristic, not a clock-sync protocol, and the magnitude a
+ * genuine skew could introduce is bounded by ordinary LAN/Wi-Fi RTT — tens
+ * of milliseconds, smaller than the pre/post-roll margins already budgeted
+ * below.
  */
 export function correctedT0Ms(serverAtMs: number, rttMs: number): number {
   return serverAtMs + rttMs / 2;

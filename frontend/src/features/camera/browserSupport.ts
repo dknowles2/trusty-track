@@ -7,15 +7,16 @@
  * case ("say what is being given up, rather than failing silently or
  * blaming permissions") applies here too.
  *
- * **Gated on `WebCodecs` presence even though the capture pipeline itself
- * goes through `MediaRecorder`, not `VideoEncoder`** — see `Camera.tsx`'s
- * own module docs for the muxing trade-off this stage makes. `WebCodecs`
- * support is kept as the gate because it is a reliable proxy for the exact
- * browser matrix the issue names (Chrome, Edge, Safari 16.4+) and excludes
- * the one browser the issue calls out by name (Firefox, which lacks both
- * `WebCodecs` and a `MediaRecorder` implementation this stage has verified
- * produces a webm a `<video>` element seeks cleanly) — not because this
- * stage's own encode step reads a single `VideoEncoder` API.
+ * **`hasWebCodecs` checks both `VideoEncoder` and `MediaStreamTrackProcessor`
+ * — the capture pipeline (`capture.ts`) genuinely needs both.** `VideoEncoder`
+ * alone was the original check, back when this stage's capture pipeline was
+ * `MediaRecorder` and the WebCodecs gate was a *proxy* for the right browser
+ * matrix rather than a real prerequisite (see `capture.ts`'s own header for
+ * why that version was replaced — it produced unplayable clips for nearly
+ * every real capture). Now that capture genuinely goes through
+ * `MediaStreamTrackProcessor` → `VideoFrame` → `VideoEncoder`, both have to
+ * exist, and checking only one would pass a browser that has `VideoEncoder`
+ * but not the insertable-streams API `MediaStreamTrackProcessor` belongs to.
  */
 
 export interface CameraSupport {
@@ -23,11 +24,12 @@ export interface CameraSupport {
   readonly secureContext: boolean;
 }
 
-/** `VideoEncoder`/`MediaStreamTrackProcessor` — Chrome, Edge, Safari 16.4+.
- * Checked up front rather than letting capture fail silently partway
- * through a heat. */
+/** `VideoEncoder` and `MediaStreamTrackProcessor` — Chrome, Edge, Safari
+ * 16.4+. Checked up front rather than letting capture fail silently
+ * partway through a heat. */
 export function hasWebCodecs(g: typeof globalThis = globalThis): boolean {
-  return typeof (g as unknown as { VideoEncoder?: unknown }).VideoEncoder !== 'undefined';
+  const w = g as unknown as { VideoEncoder?: unknown; MediaStreamTrackProcessor?: unknown };
+  return typeof w.VideoEncoder !== 'undefined' && typeof w.MediaStreamTrackProcessor !== 'undefined';
 }
 
 /**
