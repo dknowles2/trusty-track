@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useQuery, useMutation, useSubscription } from 'urql';
 
 // Mock child components to isolate RaceControl logic
@@ -835,6 +835,55 @@ describe('RaceControl Page', () => {
 
         await waitFor(() => {
             expect(screen.getByTestId('landed-on-roster')).toBeInTheDocument();
+        });
+    });
+
+    // -----------------------------------------------------------------
+    // Phone chrome: Edit race moves into the overflow (#1148)
+    // -----------------------------------------------------------------
+    //
+    // Under 768px the standalone pill is gone — the tab strip is the
+    // header's first row instead — and "Edit race" is reachable from a
+    // small overflow beside it. It must still land on the identical
+    // `?edit=true` destination as the desktop pill above.
+
+    describe('under 768px', () => {
+        function resizeTo(width: number) {
+            Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width });
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        afterEach(() => {
+            resizeTo(1024);
+        });
+
+        it('offers Edit race from the header overflow, landing on the same ?edit=true route', async () => {
+            resizeTo(390);
+
+            render(
+                <AlertProvider>
+                    <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                        <Routes>
+                            <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                            <Route path="/race/:raceId" element={<div data-testid="landed-on-roster">roster</div>} />
+                        </Routes>
+                    </MemoryRouter>
+                </AlertProvider>
+            );
+
+            // No standalone pill at phone width — the mobile header's own
+            // overflow trigger is what reaches it instead.
+            expect(screen.queryByTestId('race-control-edit-race')).not.toBeInTheDocument();
+
+            const overflowButton = await screen.findByTestId('race-control-overflow');
+            fireEvent.click(overflowButton);
+
+            const editButton = await screen.findByTestId('race-control-edit-race');
+            fireEvent.click(editButton);
+
+            await waitFor(() => {
+                expect(screen.getByTestId('landed-on-roster')).toBeInTheDocument();
+            });
         });
     });
 

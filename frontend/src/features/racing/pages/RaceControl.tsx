@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useSubscription } from 'urql';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
@@ -30,7 +30,7 @@ import {
   UNPIN_ROUND_FIELD_MUTATION,
 } from '../graphql/queries';
 import { Icon } from '@mdi/react';
-import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiChevronDown, mdiChevronRight } from '@mdi/js';
+import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiChevronDown, mdiChevronRight, mdiDotsHorizontal, mdiPencil } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane, EliminationChart } from '../types';
 import { hasRun, hasTime, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shouldDerivePlaces, skippedHeats } from '../lanes';
 import { executionComparator, isUnfinished } from '../runningOrder';
@@ -72,6 +72,25 @@ export default function RaceControl() {
   // gone.
   const [expandedPreviousHeatIds, setExpandedPreviousHeatIds] = useState<Set<number>>(new Set());
   const narrowViewport = useNarrowViewport();
+  // #1148: under the same 768px width the bottom tab bar itself keys on
+  // (`Navigation.tsx`'s own `MOBILE_BREAKPOINT`), the header's own "Race
+  // Control" heading repeats the tab bar's "Control" label, and the tab
+  // strip becomes the page's first row instead — a different breakpoint
+  // than `narrowViewport` above, which is about the Previous Heats list
+  // restructuring at 600px, not this page's own chrome.
+  const mobileChrome = useNarrowViewport(768);
+  const [controlMenuOpen, setControlMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!controlMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (target.closest('.dropdown')) return;
+      setControlMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [controlMenuOpen]);
   const [roundSummary, setRoundSummary] = useState<AdvancementStatus | null>(null);
   // The whole race has just finished (#847) — `roundSummary`'s counterpart
   // for the race rather than one round. Sticky the same way: set once by a
@@ -981,102 +1000,131 @@ export default function RaceControl() {
 
   if (error && !race) return (
     <div className="container" style={{ padding: '20px' }}>
-      <h1>Race Control</h1>
+      {!mobileChrome && <h1>Race Control</h1>}
       <p style={{ color: 'var(--error-color)' }}>{errorText(error, 'The race could not be loaded.')}</p>
     </div>
   );
 
   if (!race && !fetching) return (
     <div className="container">
-      <h1>Race Control</h1>
+      {!mobileChrome && <h1>Race Control</h1>}
       <p>No active race found. Please return home and select a race.</p>
     </div>
   );
 
-  return (
-    <div className="container" style={{ padding: '20px' }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-          Race Control
-          {race?.isLocked && <LockedBadge />}
-        </h1>
+  // The three-way Schedule/Race/Free Race pill — shared between the desktop
+  // header row below and the mobile-chrome header, which makes it the
+  // page's first row instead of following an "Race Control" heading that
+  // only repeats the bottom tab bar's own "Control" label (#1148). Under
+  // mobileChrome it drops each button's icon and shrinks the padding —
+  // with the icon and 16px of horizontal padding on all three, the pill
+  // does not fit one line beside the overflow trigger at 390px and wraps
+  // to two, which is exactly the doubled-height chrome this issue is
+  // about; text alone at the tighter padding fits comfortably.
+  const tabButtonStyle = (active: boolean): CSSProperties => ({
+    padding: mobileChrome ? '6px 10px' : '6px 16px',
+    fontSize: mobileChrome ? '0.85rem' : '0.95rem',
+    whiteSpace: 'nowrap',
+    borderRadius: '20px',
+    border: 'none',
+    background: active ? 'var(--surface-color)' : 'transparent',
+    boxShadow: active ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+    fontWeight: active ? 'bold' : 'normal',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  });
+  const tabStripButtons = (
+    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', background: 'var(--surface-strong-color)', padding: '5px', borderRadius: '25px' }}>
+        <button onClick={() => navigate(`/race/${id}/control/schedule`)} style={tabButtonStyle(viewMode === 'SCHEDULE')}>
+            {!mobileChrome && <Icon path={mdiCalendarRange} size={0.8} />} Schedule
+        </button>
+        <button onClick={() => navigate(`/race/${id}/control/race`)} style={tabButtonStyle(viewMode === 'EXECUTION')}>
+            {!mobileChrome && <Icon path={mdiFlagCheckered} size={0.8} />} Race
+        </button>
+        <button onClick={() => navigate(`/race/${id}/control/free-race`)} style={tabButtonStyle(viewMode === 'FREE_RACE')}>
+            {!mobileChrome && <Icon path={mdiRacingHelmet} size={0.8} />} Free Race
+        </button>
+    </div>
+  );
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1, minWidth: '300px', justifyContent: 'center' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', background: 'var(--surface-strong-color)', padding: '5px', borderRadius: '25px' }}>
-                <button
-                    onClick={() => navigate(`/race/${id}/control/schedule`)}
-                     style={{
-                        padding: '6px 16px',
-                        fontSize: '0.95rem',
-                        whiteSpace: 'nowrap',
-                        borderRadius: '20px',
-                        border: 'none',
-                        background: viewMode === 'SCHEDULE' ? 'var(--surface-color)' : 'transparent',
-                        boxShadow: viewMode === 'SCHEDULE' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-                        fontWeight: viewMode === 'SCHEDULE' ? 'bold' : 'normal',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}
-                >
-                    <Icon path={mdiCalendarRange} size={0.8} /> Schedule
-                </button>
-                <button
-                    onClick={() => navigate(`/race/${id}/control/race`)}
-                    style={{
-                        padding: '6px 16px',
-                        fontSize: '0.95rem',
-                        whiteSpace: 'nowrap',
-                        borderRadius: '20px',
-                        border: 'none',
-                        background: viewMode === 'EXECUTION' ? 'var(--surface-color)' : 'transparent',
-                        boxShadow: viewMode === 'EXECUTION' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-                        fontWeight: viewMode === 'EXECUTION' ? 'bold' : 'normal',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}
-                >
-                    <Icon path={mdiFlagCheckered} size={0.8} /> Race
-                </button>
-                <button
-                    onClick={() => navigate(`/race/${id}/control/free-race`)}
-                    style={{
-                        padding: '6px 16px',
-                        fontSize: '0.95rem',
-                        whiteSpace: 'nowrap',
-                        borderRadius: '20px',
-                        border: 'none',
-                        background: viewMode === 'FREE_RACE' ? 'var(--surface-color)' : 'transparent',
-                        boxShadow: viewMode === 'FREE_RACE' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-                        fontWeight: viewMode === 'FREE_RACE' ? 'bold' : 'normal',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}
-                >
-                    <Icon path={mdiRacingHelmet} size={0.8} /> Free Race
-                </button>
-            </div>
-        </div>
+  // The "Edit race" action, shared by the desktop pill and the mobile
+  // overflow entry below — both navigate to the roster's own edit modal
+  // (`RaceDetails.tsx`'s `?edit=true` handling), never a settings route of
+  // its own.
+  const goToEditRace = () => navigate(`/race/${id}?edit=true`);
 
-        {/* Race settings had no route from Race Control at all — only from
-            the Roster page's own "Edit race" button (#589, #949). This opens
-            the same modal there rather than inventing a settings page of
-            its own; the spacer this replaced existed only to balance the
-            centered tab group against the title on the left. */}
-        <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-end' }}>
-          <EditRaceButton
-            onClick={() => navigate(`/race/${id}?edit=true`)}
-            disabled={!isOperator}
-            title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
-            data-testid="race-control-edit-race"
-          />
-        </div>
+  // The header row itself: under 768px, the tab strip is the first row with
+  // no "Race Control" heading above it (the bottom tab bar's own "Control"
+  // label already says this), and "Edit race" moves into this row's own
+  // overflow — there is no room left for a standalone pill beside the tab
+  // strip at phone width. At ordinary widths this is unchanged: heading,
+  // centered tab strip, and the pill (#1148).
+  const controlHeader = mobileChrome ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }} data-testid="race-control-mobile-header">
+      {race?.isLocked && <LockedBadge />}
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', minWidth: 0 }}>
+        {tabStripButtons}
       </div>
+      <div className="dropdown" style={{ position: 'relative' }}>
+        <button
+          type="button"
+          className="secondary-btn"
+          onClick={() => setControlMenuOpen(o => !o)}
+          aria-label="Race Control menu"
+          aria-expanded={controlMenuOpen}
+          data-testid="race-control-overflow"
+          style={{ display: 'flex', alignItems: 'center', padding: '6px 10px', height: '36px' }}
+        >
+          <Icon path={mdiDotsHorizontal} size={0.8} />
+        </button>
+        {controlMenuOpen && (
+          <div className="dropdown-content" style={{ display: 'block', right: 0, left: 'auto' }}>
+            <button
+              type="button"
+              onClick={() => { setControlMenuOpen(false); goToEditRace(); }}
+              disabled={!isOperator}
+              title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
+              data-testid="race-control-edit-race"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <Icon path={mdiPencil} size={0.7} /> Edit race
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  ) : (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+        Race Control
+        {race?.isLocked && <LockedBadge />}
+      </h1>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1, minWidth: '300px', justifyContent: 'center' }}>
+          {tabStripButtons}
+      </div>
+
+      {/* Race settings had no route from Race Control at all — only from
+          the Roster page's own "Edit race" button (#589, #949). This opens
+          the same modal there rather than inventing a settings page of
+          its own; the spacer this replaced existed only to balance the
+          centered tab group against the title on the left. */}
+      <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-end' }}>
+        <EditRaceButton
+          onClick={goToEditRace}
+          disabled={!isOperator}
+          title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
+          data-testid="race-control-edit-race"
+        />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="container" style={{ padding: mobileChrome ? '8px 12px' : '20px' }}>
+      {controlHeader}
 
       {/* The lock (#585). Scheduling and result entry below are disabled
           rather than hidden — see ScheduleManagement's and RaceExecution's
@@ -1103,14 +1151,22 @@ export default function RaceControl() {
           moved to its own race-row page (#958), so it no longer needs a
           carve-out here either. */}
       {shouldShowReadiness(anyHeatRecorded) && (viewMode === 'SCHEDULE' || viewMode === 'EXECUTION') && (
-        <ReadinessStrip
-          raceId={id}
-          trackId={race?.track?.id ?? null}
-          timerType={race?.track?.timerType ?? null}
-          registeredCount={race?.registeredCount ?? 0}
-          checkedInCount={race?.checkedInCount ?? 0}
-          heatCount={heats.length}
-        />
+        // `ReadinessStrip` carries its own fixed 1.25rem bottom margin, sized
+        // for a full-width desktop layout — this wrapper claws some of it
+        // back under mobileChrome, the same trick used for `SetupChecklist`
+        // on the roster page, so the strip does not push the heat card
+        // further than the pre-flight checklist itself needs to (#1148).
+        <div style={{ marginBottom: mobileChrome ? '-12px' : 0 }}>
+          <ReadinessStrip
+            raceId={id}
+            trackId={race?.track?.id ?? null}
+            timerType={race?.track?.timerType ?? null}
+            registeredCount={race?.registeredCount ?? 0}
+            checkedInCount={race?.checkedInCount ?? 0}
+            heatCount={heats.length}
+            hideWhenReady={mobileChrome}
+          />
+        </div>
       )}
 
       {viewMode === 'FREE_RACE' ? (

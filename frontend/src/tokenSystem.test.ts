@@ -631,7 +631,6 @@ describe('index.css declares no literal colour outside :root, except an explicit
     // looks wrong under a dark theme).
     '.dropdown-content|box-shadow': 'ordinary drop shadow, reads as depth in every theme',
     '.split-btn-main|border-right': 'a hairline separator between the two halves of a split button',
-    '.racer-card|box-shadow': 'ordinary drop shadow, reads as depth in every theme',
     '.racer-card-photo|box-shadow': 'ordinary drop shadow, reads as depth in every theme',
     '.projector-mode .heat-card, .projector-mode .heat-card-racer|box-shadow':
       'ordinary drop shadow, reads as depth in every theme',

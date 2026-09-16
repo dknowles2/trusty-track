@@ -206,6 +206,79 @@ describe('RaceDetails', () => {
         });
     });
 
+    // -----------------------------------------------------------------
+    // Phone chrome: Edit race moves into the roster's own overflow (#1148)
+    // -----------------------------------------------------------------
+    //
+    // Under 768px the standalone header row (the race's own name plus the
+    // Edit race pill) is dropped, and the same action is reachable from the
+    // roster toolbar's ⋯ overflow instead — it must still open the
+    // identical modal, not a new route.
+    describe('the mobile roster overflow (#1148)', () => {
+        function resizeTo(width: number) {
+            Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width });
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        function mockRaceQuery() {
+            (useQuery as any).mockReturnValue([{
+                data: {
+                    race: {
+                        id: 1,
+                        name: 'Test Race',
+                        dateTime: '2024-03-15T10:00:00',
+                        location: 'Test Location',
+                        schedulingStrategy: 'LANE_ROTATION',
+                        scoringStrategy: 'TIMED',
+                        carNumberingStrategy: 'PER_GROUP',
+                        trackId: 1,
+                        organizationId: 1,
+                        globalStartNumber: 1,
+                        championshipTrophies: 3,
+                        track: { name: 'Main Track' },
+                        racers: [],
+                        racingGroups: [],
+                        leaderboard: []
+                    },
+                    tracks: [{ id: 1, name: 'Main Track' }]
+                },
+                fetching: false,
+                error: null
+            }, vi.fn()]);
+            mockMutations();
+        }
+
+        afterEach(() => {
+            resizeTo(1024);
+        });
+
+        it('offers Edit race from the roster overflow and opens the same modal', async () => {
+            resizeTo(390);
+            mockRaceQuery();
+
+            render(
+                <MemoryRouter initialEntries={['/races/1']}>
+                    <Routes>
+                        <Route path="/races/:raceId" element={<RaceDetails />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            // No standalone pill at phone width.
+            expect(screen.queryByTestId('edit-race-btn')).not.toBeInTheDocument();
+
+            const moreMenu = await screen.findByTestId('roster-more-menu');
+            await userEvent.click(moreMenu);
+
+            const editButton = await screen.findByTestId('edit-race-btn');
+            await userEvent.click(editButton);
+
+            await waitFor(() => {
+                expect(screen.getByText('Edit Race Details')).toBeInTheDocument();
+            });
+        });
+    });
+
     it('displays human-readable race settings', async () => {
         // Mock race data
         const mockRace = {

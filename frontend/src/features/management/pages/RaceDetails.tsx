@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import type { GetRaceDetailsQuery } from '../../../gql/operations';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
+import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
 import { useRole } from '../../core/hooks/useRole';
 import { NEEDS_CHECKIN_PIN_MESSAGE, NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
@@ -34,7 +35,7 @@ import RacerAvatar from '../components/RacerAvatar';
 import EditRaceButton from '../components/EditRaceButton';
 import { Icon } from '@mdi/react';
 import {
-  mdiMagnify, mdiNumeric,
+  mdiMagnify, mdiNumeric, mdiPencil,
   mdiChevronDown, mdiLightningBolt, mdiFileUpload, mdiDatabaseImport, mdiDotsHorizontal, mdiClose,
   mdiCheckDecagram, mdiPlus, mdiAccountGroup, mdiCamera, mdiPrinter,
   mdiQrcodeScan, mdiTrophyBroken
@@ -352,6 +353,13 @@ export default function RaceDetails() {
   const [isGroupedByRacingGroup, setIsGroupedByRacingGroup] = useState(false);
   const [isAddRacerDropdownOpen, setIsAddRacerDropdownOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  // #1148: under the same 768px width the bottom tab bar itself keys on,
+  // the page header repeats the tab bar's own "Roster" label (the race's
+  // own name is already shown in the mobile nav's race pill), and the
+  // sticky region above the table shrinks to search + the selection bar —
+  // the heading, check-in progress and the Add Racer/Scan/overflow toolbar
+  // move into one compact, non-sticky row above it instead.
+  const mobileChrome = useNarrowViewport(768);
   const [isMoveToRacingGroupOpen, setIsMoveToRacingGroupOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
@@ -873,81 +881,55 @@ export default function RaceDetails() {
     const racingGroup = racingGroups.find(d => d.id === racer.racing_group_id);
     const isSelected = selectedRacerIds.includes(racer.id);
 
+    // #1148: one row per racer — a 40px avatar, name/number/group on a
+    // single line, a status pill and the selection checkbox, ~64px tall
+    // rather than the ~235px stacked card this replaces (avatar, a "DEN"
+    // row, a full-width status button each on their own line — 1.5 racers
+    // per screen). The `<label>` wiring from #1168 still makes the whole
+    // row the tap target for selection; the status pill is a real,
+    // separately-clickable `<button>` (Check In, or Checked In to reopen
+    // for editing) rather than a decorative badge, so it needs to sit
+    // outside that label's own toggle behaviour — clicking a labelable
+    // element like a nested `<button>` does not forward the click to the
+    // label's own control (the browser's own label-activation rule), so
+    // no `stopPropagation` dance is needed to keep the two independent.
     return (
       <div key={racer.id} className="racer-card" style={{
           backgroundColor: isSelected ? 'var(--surface-hover-color)' : 'var(--surface-color)',
           borderColor: isSelected ? 'var(--selection-accent-color)' : 'var(--divider-color)'
       }}>
-              {/* #1146: the checkbox itself measured 16×16 — a `<label>`
-                  wrapping the whole header (avatar, name, car number and the
-                  input) makes the entire row the tap target, the input's
-                  implicit label association toggling it on a tap anywhere in
-                  the header rather than only on the 16px box. Nothing here
-                  is a link (the racer card has no navigation of its own —
-                  only the roster *table*'s desktop row opens a racer, and
-                  that is a separate render path from this mobile card), so
-                  there is no name-tap-vs-select conflict to carve the label
-                  around. */}
-              <label className="racer-card-header">
-                  <RacerAvatar
-                      racer={racer}
-                      size="60px"
-                      className="racer-card-photo"
-                      style={{ marginRight: '15px' }}
-                  />
-              <div className="racer-card-name-group">
-                  <span className="racer-card-name">{racer.first_name} {racer.last_name}</span>
-                  <span className="racer-card-number">{vehicle} #{racer.car_number || '-'}</span>
-              </div>
-              <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => toggleSelectRacer(racer.id)}
-                  style={{ transform: 'scale(1.2)', marginLeft: '10px' }}
+          {/* `htmlFor` is load-bearing, not decoration: a `<label>` with no
+              `for` implicitly associates with its *first* labelable
+              descendant in DOM order, and the status `<button>` below is
+              labelable too — without an explicit `for` pointing past it at
+              the checkbox, tapping the name forwarded to the button
+              instead (opening Check In) and the checkbox never toggled. */}
+          <label className="racer-card-header" htmlFor={`racer-row-select-${racer.id}`}>
+              <RacerAvatar
+                  racer={racer}
+                  size="40px"
+                  className="racer-card-photo"
               />
-          </label>
-
-          <div className="racer-card-row">
-              <span className="racer-card-label">{group}</span>
-              <div className="racer-card-value">
-                  {racer.racing_group_id ? (
-                      <span style={{
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          backgroundColor: racingGroup?.color || 'var(--divider-color)',
-                          color: getContrastColor(racingGroup?.color || '#eee'),
-                          fontSize: '0.75rem',
-                          fontWeight: 'bold'
-                      }}>
-                          {racingGroup?.name || 'Unknown'}
+              <div className="racer-card-name-group">
+                  <span className="racer-card-name">
+                      {racer.first_name} {racer.last_name}
+                      <span className="racer-card-meta">
+                          {' '}· #{racer.car_number || '—'}
+                          {racer.racing_group_id && (
+                              <>
+                                  {' '}·{' '}
+                                  <span style={{ color: racingGroup?.color || 'inherit' }}>
+                                      {racingGroup?.name || group}
+                                  </span>
+                              </>
+                          )}
                       </span>
-                  ) : '-'}
+                  </span>
               </div>
-          </div>
 
-          <div className="racer-card-actions">
-              <button
-                  onClick={() => handleCheckInClick(racer)}
-                  className="secondary-btn"
-                  disabled={checkinDisabled}
-                  title={checkinTitle}
-                  style={{
-                      background: racer.car_passed_inspection ? 'var(--success-bg-color)' : 'var(--cub-scouting-gold)',
-                      borderColor: racer.car_passed_inspection ? 'var(--success-accent-color)' : 'var(--border-color)',
-                      color: racer.car_passed_inspection ? 'var(--success-color)' : 'var(--scouting-blue)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '5px',
-                      flex: 1
-                  }}
-              >
-                  {racer.car_passed_inspection ? (
-                      <><Icon path={mdiCheckDecagram} size={0.7} /> Checked In / Edit</>
-                  ) : (
-                      'Check In'
-                  )}
-              </button>
+              {/* Compact badges — most rows render neither (both return
+                  `null`), so this rarely costs any of the row's height
+                  budget. */}
               <NoHeatsBadge
                   racer={{ id: racer.id, carPassedInspection: racer.car_passed_inspection }}
                   scheduledRacerIds={scheduledRacerIds}
@@ -956,15 +938,162 @@ export default function RaceDetails() {
               <ExcludedFromStandingsBadge
                   racer={{ id: racer.id, excludedFromStandings: racer.excluded_from_standings }}
               />
-          </div>
+
+              <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); handleCheckInClick(racer); }}
+                  className="racer-card-status-pill"
+                  disabled={checkinDisabled}
+                  title={checkinTitle}
+                  data-checked-in={racer.car_passed_inspection}
+              >
+                  {racer.car_passed_inspection ? (
+                      <><Icon path={mdiCheckDecagram} size={0.65} /> Checked In</>
+                  ) : (
+                      'Check In'
+                  )}
+              </button>
+
+              <input
+                  id={`racer-row-select-${racer.id}`}
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => toggleSelectRacer(racer.id)}
+                  className="racer-card-checkbox"
+              />
+          </label>
       </div>
     );
   };
 
   if (loading && !race) return <p>Loading...</p>;
 
+  // Shared between the desktop sticky region (unchanged) and the narrow
+  // one below, which keeps only this and the search box sticky (#1148) —
+  // defined once so the two layouts cannot drift on what a bulk action
+  // actually does.
+  const selectionBarBlock = visibleSelectedRacerIds.length > 0 && (
+      <div
+          data-testid="roster-selection-bar"
+          style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexWrap: 'wrap',
+              marginTop: '0.75rem',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              background: 'var(--info-highlight-bg-color)',
+              border: '1px solid var(--info-highlight-border-color)'
+          }}
+      >
+          <strong style={{ fontSize: '0.85rem', color: 'var(--scouting-blue)', whiteSpace: 'nowrap' }}>
+              {visibleSelectedRacerIds.length} selected
+          </strong>
+          <button
+              className="secondary-btn"
+              onClick={handleBulkCheckIn}
+              disabled={checkinDisabled}
+              title={checkinTitle}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
+              data-testid="bulk-check-in-btn"
+          >
+              <Icon path={mdiCheckDecagram} size={0.6} /> Check In
+          </button>
+          <button
+              className="secondary-btn"
+              onClick={handleBulkSetExcludedFromStandings}
+              disabled={checkinDisabled}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
+              data-testid="bulk-excluded-from-standings-btn"
+              title={
+                  checkinTitle ||
+                  'Still races and shows on the audience displays — just left out of the standings, advancement and awards'
+              }
+          >
+              <Icon path={mdiTrophyBroken} size={0.6} /> Racing, not ranked
+          </button>
+          <button
+              className="secondary-btn"
+              onClick={handleBulkAutoNumber}
+              disabled={checkinDisabled}
+              title={checkinTitle}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
+              data-testid="bulk-auto-number-btn"
+          >
+              <Icon path={mdiNumeric} size={0.6} /> Auto number
+          </button>
+          <button
+              className="secondary-btn"
+              onClick={handleBulkClearNumbers}
+              disabled={checkinDisabled}
+              title={checkinTitle}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
+              data-testid="bulk-clear-numbers-btn"
+          >
+              <Icon path={mdiPlus} size={0.6} style={{ transform: 'rotate(45deg)' }} /> Clear numbers
+          </button>
+
+          {/* Still a menu, because a pack has six racingGroups and they will not
+              fit on the bar. It opens downward now rather than flying out
+              sideways, so there is no space left to measure — the
+              hover-and-flip machinery went with it. */}
+          <div className="dropdown" style={{ position: 'relative' }}>
+              <button
+                  className="secondary-btn"
+                  onClick={() => setIsMoveToRacingGroupOpen(!isMoveToRacingGroupOpen)}
+                  disabled={checkinDisabled}
+                  title={checkinTitle}
+                  style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
+                  data-testid="bulk-move-to-racing-group-expand-btn"
+                  aria-expanded={isMoveToRacingGroupOpen}
+              >
+                  <Icon path={mdiAccountGroup} size={0.6} /> Move to {group}
+                  <Icon path={mdiChevronDown} size={0.5} />
+              </button>
+              {isMoveToRacingGroupOpen && (
+                  <div className="dropdown-content" style={{ display: 'block', minWidth: '170px' }}>
+                      {racingGroups.map(racingGroup => (
+                          <button
+                              key={racingGroup.id}
+                              onClick={() => handleBulkMoveToRacingGroup(racingGroup.id)}
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                              data-testid={`bulk-move-to-racing-group-${racingGroup.id}`}
+                          >
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: racingGroup.color }}></span>
+                              {racingGroup.name}
+                          </button>
+                      ))}
+                      <button onClick={() => handleBulkMoveToRacingGroup(null)} data-testid="bulk-move-to-unassigned">Unassigned</button>
+                  </div>
+              )}
+          </div>
+
+          <button
+              className="secondary-btn"
+              onClick={handleBulkDelete}
+              disabled={checkinDisabled}
+              title={checkinTitle}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px', color: 'var(--error)' }}
+              data-testid="bulk-delete-btn"
+          >
+              Delete
+          </button>
+
+          <button
+              className="secondary-btn"
+              onClick={() => setSelectedRacerIds([])}
+              style={{ marginLeft: 'auto', background: 'transparent', padding: '4px 8px', height: '28px' }}
+              aria-label="Clear selection"
+              data-testid="clear-selection"
+          >
+              <Icon path={mdiClose} size={0.7} />
+          </button>
+      </div>
+  );
+
   return (
-    <div className="container" style={{ padding: '2rem' }}>
+    <div className="container" style={{ padding: mobileChrome ? '0.5rem 0.75rem' : '2rem' }}>
       {/* The page header (#949). It replaces the old "Race Settings" card —
           a heading, an Edit Details button, and a four-cell grid read once
           while setting the race up and never again — which, together with
@@ -974,30 +1103,44 @@ export default function RaceDetails() {
           matches the word Home's row menu and Race Control's own button
           already use (#589), ahead of #947's rename of this button
           specifically. */}
-      <div style={{ marginBottom: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
-              <h1 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {race?.name}
-                  {race?.is_locked && <LockedBadge />}
-              </h1>
-              <EditRaceButton
-                  onClick={() => setIsEditingRace(true)}
-                  disabled={!isOperator}
-                  title={operatorRoleTitle}
-                  data-testid="edit-race-btn"
-              />
-          </div>
-          <p data-testid="race-summary-line" style={{ margin: '0.35rem 0 0', color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
-              {raceSummaryLine(
-                  {
-                      scoring_strategy: race?.scoring_strategy,
-                      car_numbering_strategy: race?.car_numbering_strategy,
-                      championship_trophies: race?.championship_trophies,
-                      track_name: Array.isArray(tracks) ? tracks.find(t => t.id === race?.track_id)?.name : undefined,
-                  },
-                  group,
-              )}
-          </p>
+      <div style={{ marginBottom: mobileChrome ? 0 : '1rem' }}>
+          {/* #1148: under 768px the mobile nav's own race pill (`Navigation.tsx`)
+              already names this race, and the bottom tab bar's "Roster" label
+              already names this page, so the heading — and the summary line
+              under it, which exists to explain the heading's own settings
+              grid it replaced (#949) — are both dropped rather than
+              repeating the page's own name and adding chrome the check-in
+              queue has no room for. "Edit race" moves into the roster
+              toolbar's own ⋯ overflow below instead of standing alone here.
+              The locked notice stays regardless of width — it is safety
+              information, not orientation chrome. */}
+          {!mobileChrome && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+                  <h1 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {race?.name}
+                      {race?.is_locked && <LockedBadge />}
+                  </h1>
+                  <EditRaceButton
+                      onClick={() => setIsEditingRace(true)}
+                      disabled={!isOperator}
+                      title={operatorRoleTitle}
+                      data-testid="edit-race-btn"
+                  />
+              </div>
+              <p data-testid="race-summary-line" style={{ margin: '0.35rem 0 0', color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
+                  {raceSummaryLine(
+                      {
+                          scoring_strategy: race?.scoring_strategy,
+                          car_numbering_strategy: race?.car_numbering_strategy,
+                          championship_trophies: race?.championship_trophies,
+                          track_name: Array.isArray(tracks) ? tracks.find(t => t.id === race?.track_id)?.name : undefined,
+                      },
+                      group,
+                  )}
+              </p>
+            </>
+          )}
           {race?.is_locked && (
               <p
                   data-testid="race-locked-notice"
@@ -1021,20 +1164,28 @@ export default function RaceDetails() {
           once check-in starts (#949) — the two optional steps most packs
           never tick off, Set up awards and Print anything you need, would
           otherwise sit atop the roster for the rest of the day. */}
-      <SetupChecklist
-          progress={setupProgress}
-          onAction={{
-              racingGroups: () => setShowRacingGroupManager(true),
-              racers: handleAddRacerClick,
-              checkin: handleChecklistCheckIn,
-              schedule: () => navigate(`/race/${parsedRaceId}/control`),
-              awards: () => navigate(`/race/${parsedRaceId}/awards`),
-              // The hub (#957) rather than the roster's own picker, with pit
-              // passes preselected — this step exists for check-in, and
-              // pit passes are the document that step is about.
-              printables: () => navigate(`/race/${parsedRaceId}/print?kind=pit-pass`),
-          }}
-      />
+      {/* #1148: `SetupChecklist` carries its own fixed bottom margin (2rem
+          open, 1rem collapsed) with no prop to shrink it — this wrapper's
+          negative margin claws back some of that on a phone, where every
+          pixel before the check-in queue counts. A small overlap while the
+          checklist is open by hand is a cosmetic cost, not a functional
+          one — nothing here is a tap target. */}
+      <div style={{ marginBottom: mobileChrome ? '-12px' : 0 }}>
+        <SetupChecklist
+            progress={setupProgress}
+            onAction={{
+                racingGroups: () => setShowRacingGroupManager(true),
+                racers: handleAddRacerClick,
+                checkin: handleChecklistCheckIn,
+                schedule: () => navigate(`/race/${parsedRaceId}/control`),
+                awards: () => navigate(`/race/${parsedRaceId}/awards`),
+                // The hub (#957) rather than the roster's own picker, with pit
+                // passes preselected — this step exists for check-in, and
+                // pit passes are the document that step is about.
+                printables: () => navigate(`/race/${parsedRaceId}/print?kind=pit-pass`),
+            }}
+        />
+      </div>
 
       {/* Edit Race Modal */}
       {/* Wider than the default: the edit form is sectioned (#587), with a
@@ -1081,6 +1232,170 @@ export default function RaceDetails() {
           of the day disabled, which is space spent saying "not yet". What it
           held is now a selection bar that exists only when something is
           selected. */}
+      {mobileChrome && (
+        <>
+          {/* #1148: a compact, non-sticky utility row replaces the heading,
+              check-in progress and full toolbar under 768px — every action
+              they held (Populate/Import, Manage {groups}, Upload Photos,
+              Print…, Group by {group}, and now Edit race) collapses into
+              this one overflow, so the sticky region below shrinks to
+              search plus the selection bar. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.35rem' }}>
+            <CheckInProgress
+                checkedIn={racers.filter(r => r.car_passed_inspection).length}
+                registered={racers.length}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+              <button
+                  className="secondary-btn"
+                  onClick={handleAddRacerClick}
+                  disabled={checkinDisabled}
+                  title={checkinTitle || 'Add Racer'}
+                  aria-label="Add Racer"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', padding: 0 }}
+              >
+                  <Icon path={mdiPlus} size={0.8} />
+              </button>
+              <button
+                  className="secondary-btn"
+                  onClick={() => setShowScanner(true)}
+                  disabled={checkinDisabled}
+                  title={checkinTitle || 'Scan'}
+                  aria-label="Scan"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', padding: 0 }}
+              >
+                  <Icon path={mdiQrcodeScan} size={0.8} />
+              </button>
+              <div className="dropdown" style={{ position: 'relative' }}>
+                <button
+                    className="secondary-btn"
+                    onClick={() => setIsMoreMenuOpen(o => !o)}
+                    aria-label="More roster actions"
+                    aria-expanded={isMoreMenuOpen}
+                    data-testid="roster-more-menu"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', padding: 0 }}
+                >
+                    <Icon path={mdiDotsHorizontal} size={0.8} />
+                </button>
+                {isMoreMenuOpen && (
+                    <div className="dropdown-content" style={{ display: 'block', right: 0, left: 'auto', minWidth: '210px' }}>
+                        <button
+                            onClick={() => { setShowPopulateModal(true); setIsMoreMenuOpen(false); }}
+                            disabled={!isOperator}
+                            title={operatorRoleTitle || 'Populate Test Data'}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            <Icon path={mdiLightningBolt} size={0.7} color="var(--cub-scouting-gold)" /> Populate Test Data
+                        </button>
+                        <button
+                            onClick={() => { setShowImportModal(true); setIsMoreMenuOpen(false); }}
+                            disabled={!canCheckIn}
+                            title={checkinRoleTitle}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            <Icon path={mdiFileUpload} size={0.7} /> Import from CSV
+                        </button>
+                        <button
+                            onClick={() => { setShowOtherImportModal(true); setIsMoreMenuOpen(false); }}
+                            disabled={!canCheckIn}
+                            title={checkinRoleTitle}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            <Icon path={mdiDatabaseImport} size={0.7} /> {IMPORT_OTHER_SOFTWARE_LABEL}
+                        </button>
+                        <button
+                            onClick={() => { setShowRacingGroupManager(true); setIsMoreMenuOpen(false); }}
+                            disabled={operatorDisabled}
+                            title={operatorTitle}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            <Icon path={mdiAccountGroup} size={0.7} /> Manage {groups}
+                        </button>
+                        <button
+                            onClick={() => { setShowBulkPhotoUpload(true); setIsMoreMenuOpen(false); }}
+                            disabled={uploadPhotosDisabled}
+                            title={uploadPhotosTitle}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            <Icon path={mdiCamera} size={0.7} /> Upload Photos
+                        </button>
+                        <button
+                            onClick={() => {
+                                setIsMoreMenuOpen(false);
+                                navigate(
+                                    visibleSelectedRacerIds.length > 0
+                                        ? `/race/${parsedRaceId}/print?racers=${visibleSelectedRacerIds.join(',')}`
+                                        : `/race/${parsedRaceId}/print`
+                                );
+                            }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            <Icon path={mdiPrinter} size={0.7} /> Print…
+                            {visibleSelectedRacerIds.length > 0 && ` (${visibleSelectedRacerIds.length})`}
+                        </button>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={isGroupedByRacingGroup}
+                                onChange={e => setIsGroupedByRacingGroup(e.target.checked)}
+                            />
+                            Group by {group}
+                        </label>
+                        {/* Moved here from a standalone header pill (#949, #589)
+                            — there is no room left for it beside the search box
+                            at phone width, and it still opens the identical
+                            `?edit=true` modal on this same page. */}
+                        <button
+                            onClick={() => { setIsMoreMenuOpen(false); setIsEditingRace(true); }}
+                            disabled={!isOperator}
+                            title={operatorRoleTitle}
+                            data-testid="edit-race-btn"
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            <Icon path={mdiPencil} size={0.7} /> Edit race
+                        </button>
+                    </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Sticky region shrinks to search + the selection bar (#1148). */}
+          <div
+            ref={rosterSectionRef}
+            className="roster-header"
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+              background: 'var(--background-color)',
+              marginBottom: '6px',
+              borderBottom: '1px solid var(--divider-color)',
+              paddingBottom: '5px',
+            }}
+          >
+            <div className="search-container" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                <Icon path={mdiMagnify} size={0.7} style={{ position: 'absolute', left: '10px', color: 'var(--text-faint-color)' }} />
+                <input
+                    type="text"
+                    placeholder="Search racers..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{
+                        padding: '5px 12px 5px 30px',
+                        borderRadius: '20px',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '0.85rem',
+                        width: '100%',
+                        height: '32px'
+                    }}
+                />
+            </div>
+            {selectionBarBlock}
+          </div>
+        </>
+      )}
+
       {/* Sticky under the nav while the table scrolls (#949). The nav itself
           is `position: relative`, so it scrolls away with the rest of the
           page and this catches at the top of the viewport in its place —
@@ -1091,6 +1406,7 @@ export default function RaceDetails() {
           this row's own controls. The selection bar (#420) lives inside
           this same element, so it is carried along with it rather than
           left behind under the fold when a bulk action's controls appear. */}
+      {!mobileChrome && (
       <div
         ref={rosterSectionRef}
         className="roster-header"
@@ -1307,130 +1623,9 @@ export default function RaceDetails() {
             </label>
         </div>
 
-        {/* #769: keyed off the visible selection, not the raw one — a
-            selection made entirely out of the search's current view has
-            nothing on screen for the bar's actions to reach, so it stays
-            hidden rather than claiming a count it cannot act on. */}
-        {visibleSelectedRacerIds.length > 0 && (
-            <div
-                data-testid="roster-selection-bar"
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    flexWrap: 'wrap',
-                    marginTop: '0.75rem',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    background: 'var(--info-highlight-bg-color)',
-                    border: '1px solid var(--info-highlight-border-color)'
-                }}
-            >
-                <strong style={{ fontSize: '0.85rem', color: 'var(--scouting-blue)', whiteSpace: 'nowrap' }}>
-                    {visibleSelectedRacerIds.length} selected
-                </strong>
-                <button
-                    className="secondary-btn"
-                    onClick={handleBulkCheckIn}
-                    disabled={checkinDisabled}
-                    title={checkinTitle}
-                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
-                    data-testid="bulk-check-in-btn"
-                >
-                    <Icon path={mdiCheckDecagram} size={0.6} /> Check In
-                </button>
-                <button
-                    className="secondary-btn"
-                    onClick={handleBulkSetExcludedFromStandings}
-                    disabled={checkinDisabled}
-                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
-                    data-testid="bulk-excluded-from-standings-btn"
-                    title={
-                        checkinTitle ||
-                        'Still races and shows on the audience displays — just left out of the standings, advancement and awards'
-                    }
-                >
-                    <Icon path={mdiTrophyBroken} size={0.6} /> Racing, not ranked
-                </button>
-                <button
-                    className="secondary-btn"
-                    onClick={handleBulkAutoNumber}
-                    disabled={checkinDisabled}
-                    title={checkinTitle}
-                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
-                    data-testid="bulk-auto-number-btn"
-                >
-                    <Icon path={mdiNumeric} size={0.6} /> Auto number
-                </button>
-                <button
-                    className="secondary-btn"
-                    onClick={handleBulkClearNumbers}
-                    disabled={checkinDisabled}
-                    title={checkinTitle}
-                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
-                    data-testid="bulk-clear-numbers-btn"
-                >
-                    <Icon path={mdiPlus} size={0.6} style={{ transform: 'rotate(45deg)' }} /> Clear numbers
-                </button>
-
-                {/* Still a menu, because a pack has six racingGroups and they will not
-                    fit on the bar. It opens downward now rather than flying out
-                    sideways, so there is no space left to measure — the
-                    hover-and-flip machinery went with it. */}
-                <div className="dropdown" style={{ position: 'relative' }}>
-                    <button
-                        className="secondary-btn"
-                        onClick={() => setIsMoveToRacingGroupOpen(!isMoveToRacingGroupOpen)}
-                        disabled={checkinDisabled}
-                        title={checkinTitle}
-                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
-                        data-testid="bulk-move-to-racing-group-expand-btn"
-                        aria-expanded={isMoveToRacingGroupOpen}
-                    >
-                        <Icon path={mdiAccountGroup} size={0.6} /> Move to {group}
-                        <Icon path={mdiChevronDown} size={0.5} />
-                    </button>
-                    {isMoveToRacingGroupOpen && (
-                        <div className="dropdown-content" style={{ display: 'block', minWidth: '170px' }}>
-                            {racingGroups.map(racingGroup => (
-                                <button
-                                    key={racingGroup.id}
-                                    onClick={() => handleBulkMoveToRacingGroup(racingGroup.id)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                                    data-testid={`bulk-move-to-racing-group-${racingGroup.id}`}
-                                >
-                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: racingGroup.color }}></span>
-                                    {racingGroup.name}
-                                </button>
-                            ))}
-                            <button onClick={() => handleBulkMoveToRacingGroup(null)} data-testid="bulk-move-to-unassigned">Unassigned</button>
-                        </div>
-                    )}
-                </div>
-
-                <button
-                    className="secondary-btn"
-                    onClick={handleBulkDelete}
-                    disabled={checkinDisabled}
-                    title={checkinTitle}
-                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px', color: 'var(--error)' }}
-                    data-testid="bulk-delete-btn"
-                >
-                    Delete
-                </button>
-
-                <button
-                    className="secondary-btn"
-                    onClick={() => setSelectedRacerIds([])}
-                    style={{ marginLeft: 'auto', background: 'transparent', padding: '4px 8px', height: '28px' }}
-                    aria-label="Clear selection"
-                    data-testid="clear-selection"
-                >
-                    <Icon path={mdiClose} size={0.7} />
-                </button>
-            </div>
-        )}
+        {selectionBarBlock}
       </div>
+      )}
 
       <div style={{ overflowX: 'auto' }} className="desktop-only-table">
             <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }} className="responsive-table">
