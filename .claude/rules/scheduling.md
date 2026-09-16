@@ -2,6 +2,8 @@
 paths:
   - backend/db/crud.py
   - backend/domain/scheduling.py
+  - backend/domain/schedulers/__init__.py
+  - backend/domain/schedulers/rotation.py
   - backend/domain/heat_chunks.py
   - backend/domain/latecomers.py
   - backend/domain/elimination.py
@@ -33,13 +35,17 @@ Part of the Trusty Track agent guide; the index is in [`CLAUDE.md`](../../CLAUDE
 
 `docs/scheduling-algorithms.md`. The algorithm is `domain/scheduling.py`; `crud.generate_heats_for_round` decides who is in the field and writes the rows.
 
+**PPC is no longer the only algorithm, and no longer chosen nowhere but here** (#1090). `Round.algorithm` (`models.SchedulingAlgorithm`, nullable — null means `PPC`, resolved by `crud.round_algorithm`) names which one; `domain/schedulers/__init__.py`'s `SCHEDULERS` registry maps that string to a `Scheduler` — `generate_ppc`'s own exact signature, plus `available_for(n_racers, n_lanes) -> reason | None` and `absorbs_latecomer: bool`. `ROTATION` (`domain/schedulers/rotation.py`) is the second entry: a car's next heat is its previous lane plus one, built from a circular sliding window over the shuffled roster rather than PPC's opponent-variety matching. **Both `crud.generate_heats_for_round` and `crud._reset_heats_in_place`** (below) go through the registry — a championship round holding `ROTATION` must keep scheduling with `ROTATION` every time invalidation rewrites it in place, not silently fall back to PPC. `test_domain_scheduling.py`'s whole property suite (below) runs against every registered algorithm, and `test_scheduler_registry.py` fails the build if an enum member has no entry behind it — CLAUDE.md's domain-layer paragraph: "a new algorithm cannot be registered without passing every property the app relies on downstream."
+
+**Latecomers split by whether the algorithm can absorb one** (decision 3 of #1090's epic, "A racer who arrives after the racing has started" below). PPC's `absorbs_latecomer` is `True` — its per-newcomer appendix (`domain/latecomers.py`) assumes nothing about who else is in a heat. `ROTATION`'s is `False`: every already-scheduled car's lane sequence is pinned to its own position in the field, so there is no way to splice a newcomer in without a full rebuild. `crud.admit_late_racers` still regenerates a round nobody has raced regardless of algorithm (every algorithm supports a full rebuild); a round part-way through that cannot absorb one raises `ValueError` naming the round and the algorithm, rather than writing a heat that would corrupt the chart's own guarantee.
+
 Lane 1 is seeded with every racer, which fixes the heat count at one per racer; remaining lanes are filled greedily, preferring a racer who has not yet run that lane and has met the current occupants least often.
 
 Greedy alone finds a *maximal* matching, not a *maximum* one, so it used to strand a lane in roughly 1 in 4 four-lane schedules — giving one racer a heat fewer, which under `POINTS` scoring made their score *better*. Fixed in #26 by repairing the greedy result with augmenting paths. `test_domain_scheduling.py` holds the properties; **every heat is full** is the one that regressed silently for a long time, so keep it.
 
 **`generate_ppc` takes *which* lanes, not how many** (#171, step 1). `usable_lanes` is a sequence of lane numbers — `[1, 2, 4]` when lane 3's sensor has failed — and every property is stated over that set. It sorts and de-duplicates, and an empty set schedules nothing rather than heats of empty lanes.
 
-That makes a heat's **position** in the schedule and its **lane number** different things, which they never were before. `HeatPlan.lane_numbers` carries the mapping and **`HeatPlan.assignments` is what callers consume**; `enumerate(plan.lanes)` was the old idiom and with a gap it writes lane 4's racer into lane 3. Both write paths do this — `crud._generate_ppc` and `crud._reset_heats_in_place`, which builds its own schedule (#50) — and each has a test that fails to the one-line reversion. On an undamaged track the two agree, so nothing else in the suite can tell the difference.
+That makes a heat's **position** in the schedule and its **lane number** different things, which they never were before. `HeatPlan.lane_numbers` carries the mapping and **`HeatPlan.assignments` is what callers consume**; `enumerate(plan.lanes)` was the old idiom and with a gap it writes lane 4's racer into lane 3. Both write paths do this — `crud._generate_scheduled_heats` (called by `generate_heats_for_round`; `_generate_ppc` is now a thin PPC-only wrapper kept for a direct test) and `crud._reset_heats_in_place`, which builds its own schedule through the registry (#50, #1090) — and each has a test that fails to the one-line reversion. On an undamaged track the algorithms agree on lane numbering, so nothing else in the suite can tell the difference from that alone.
 
 **`crud.usable_lanes_for_race` is the one place that decides** — every lane the track has, less its outages. Several call sites read it, and #48 is why it is a function rather than the expression written out at each. Free racing went near none of them until [#303](https://github.com/dknowles2/trusty-track/issues/303): the random draw, `prepare_heat`'s anonymous-arm fallback and `fake_timer_finish`'s matching fallback all used to fall back to raw `track.lane_count` instead, so a lane out of service was armed and timed like any other. The two mutation fallbacks now read the mask off the heat's own stored lanes rather than the track — which is also what lets the Free Race screen's session-only per-lane toggle reach them without a second server-side list: a lane the operator switches off for the session simply never gets a row when the heat is created.
 
@@ -96,6 +102,8 @@ Rule in `domain/latecomers.py`, database wiring in `crud.admit_late_racers` (#17
 | finished | untouched; they join from the next round |
 
 **`disrupted` is the same flag with the same justification**, so `counts_a_disrupted_round` needed no change: whoever fills the other lanes of the appended heats runs more often than their peers, and under `POINTS` an extra heat can only add to a total where lower is better. This is #26 arriving by a fourth route.
+
+**The "part-way through" row assumes the algorithm can append a newcomer at all, and not every algorithm can** (#1090 decision 3). `SCHEDULERS[algorithm].absorbs_latecomer` decides: PPC's `True` is what makes the row above true for it. An algorithm whose `absorbs_latecomer` is `False` — `ROTATION`, whose every car's lane sequence is pinned to its own position in the field — refuses instead, raising `ValueError` naming the round and the algorithm; `crud.admit_late_racers` checks this immediately before calling `latecomers.plan_late_entry`, so nothing is written for that round. The "nothing raced" row is unaffected either way — every algorithm supports a full rebuild.
 
 **What admission has to get right is lane balance, not opponents.** A newcomer takes each usable lane exactly once — PPC exists because lanes are not equal, and who you race matters far less. Newcomers fill each other's remaining lanes before any established racer is pulled in, so two children arriving together share heats rather than each dragging a separate set of veterans into extra runs.
 
