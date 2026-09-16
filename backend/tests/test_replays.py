@@ -7,10 +7,15 @@ result path. See `.claude/rules/displays.md` for the camera-role half of
 #177 stage 1a, covered separately in `test_displays_camera.py`.
 """
 
+import asyncio
+import re
+from pathlib import Path
+
 import pytest
 
 from backend import demo_mode
-from backend.api.schema import Mutation
+from backend.api import main
+from backend.api.schema import Mutation, Subscription
 from backend.db import crud, models, schemas
 from backend.domain.replays import ReplayClip, ReplayKey, is_stale
 from backend.services import replays as replays_service
@@ -271,7 +276,81 @@ def test_an_unknown_clip_is_404(client):
 
 
 def test_path_traversal_is_refused(client):
-    assert client.get("/replay/..%2Fmain.py").status_code == 404
+    """`{filename}` is a single path segment (`main.py`'s route declares no
+    `:path` converter), so Starlette's own routing never hands this handler
+    a value containing a `/` in the first place — a request whose raw path
+    carries an encoded slash (`..%2Fmain.py`) either fails to match this
+    route at all or is normalised by the ASGI layer into an unrelated path
+    before routing ever sees it (verified: it lands on the SPA catch-all's
+    own "unknown path" fallback once a frontend is built, not on this
+    handler — a different, intended behaviour, not a traversal). The
+    meaningful case is the one that *does* reach `get_replay_clip`: a
+    literal `..` as the whole filename, which resolves to this directory's
+    own parent — not a file, so the existing `is_file()` check already
+    refuses it. `%2e%2e` avoids the client normalising a literal `..` out
+    of the URL before the request is even sent.
+    """
+    assert client.get("/replay/%2e%2e").status_code == 404
+
+
+def test_a_later_mounted_spa_catchall_does_not_shadow_replay_serving(
+    client, db, race, tmp_path
+):
+    """Regression test for the PR #1185 review finding: `GET
+    /replay/{filename}` was registered *after* `main.py`'s SPA catch-all
+    (`@app.get("/{full_path:path}")`, added once `frontend/dist` exists),
+    and FastAPI matches GET routes in registration order — so on every real
+    deployment (`./scripts/serve.sh`, the Pi image, `install.sh`, all of
+    which build the frontend) the catch-all's `{full_path:path}` matched a
+    replay request first and always returned `index.html`, 200, never the
+    clip.
+
+    Build-independent, unlike the other serving tests above, which only
+    caught this because *this checkout* happens to have `frontend/dist`
+    built (the original bug passed CI, whose backend job has no built
+    frontend, for that exact reason). This test manufactures its own "the
+    frontend is built" moment by calling `main._mount_frontend` — the same
+    function `main.py`'s own `if FRONTEND_DIST.exists():` calls — against a
+    fresh temporary directory, regardless of what the ambient checkout
+    holds, and proves the already-registered `/replay/` route still wins.
+    """
+    _, race_obj = race
+    heat = _heat(db, race_obj, recorded_at="2026-09-16T12:00:00+00:00")
+    upload = _upload(
+        client, race_id=race_obj.id, heat_id=heat.id, recorded_at=heat.recorded_at
+    )
+    url = upload.json()["url"]
+
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<html>spa shell</html>")
+    main._mount_frontend(dist)
+
+    response = client.get(url)
+
+    assert response.status_code == 200
+    assert response.content == _CLIP_BYTES
+    assert response.content != b"<html>spa shell</html>"
+
+
+def test_the_replay_get_route_is_registered_before_the_spa_catchall():
+    """A static, source-order guard alongside the dynamic test above: reads
+    `main.py` itself and asserts `@app.get("/replay/{filename}")` appears
+    earlier in the file than the SPA catch-all's own `@app.get`. Registration
+    *order* is exactly what matters here (Starlette/FastAPI match GET routes
+    in the order they were added), so pinning it structurally means this
+    fails the moment anyone reorders the two, independent of whichever of
+    them the dynamic test above happens to catch first.
+    """
+    source = Path(main.__file__).read_text()
+    replay_match = re.search(r'@app\.get\("/replay/\{filename\}"\)', source)
+    catchall_match = re.search(r'@app\.get\("/\{full_path:path\}"', source)
+    assert replay_match is not None, "the replay GET route has moved or been renamed"
+    assert catchall_match is not None, "the SPA catch-all has moved or been renamed"
+    assert replay_match.start() < catchall_match.start(), (
+        "GET /replay/{filename} must be registered before the SPA catch-all, "
+        "or a built frontend shadows every replay request with index.html"
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -379,6 +458,96 @@ async def test_preparing_the_next_heat_purges_the_previous_clip(db, race):
         )
         == []
     )
+
+
+# --------------------------------------------------------------------------- #
+# The heatReplay subscription                                                 #
+# --------------------------------------------------------------------------- #
+
+
+async def test_heat_replay_wakes_on_upload_and_on_purge(client, db, race):
+    """PR #1185's review finding: `_publish_heat_replay` was defined and
+    never called from any of the four purge sites, so a display already
+    holding a `HeatReplay` payload for a heat whose clip had just been
+    purged was never told to re-read — it kept a stale (and, per the other
+    finding in the same review, briefly 404ing) `url` until some unrelated
+    upload for the same race happened to wake it, which could be heats
+    later or never.
+
+    Subscribes once and drives both edges through the real doors: an
+    upload (`POST /replay/`) must wake it with the new clip, and recording
+    the *next* heat's result (`updateHeatResult`, one of the four purge
+    sites) must wake it again with nothing left for the old heat.
+    """
+    track, race_obj = race
+    first = _heat(db, race_obj, heat_number=1, recorded_at="2026-09-16T12:00:00+00:00")
+
+    stream = Subscription().heat_replay(race_id=race_obj.id)
+    opening = await asyncio.wait_for(stream.__anext__(), timeout=2.0)
+    assert opening is None  # nothing uploaded yet
+
+    following = asyncio.create_task(stream.__anext__())
+    await asyncio.sleep(0.05)
+    _upload(
+        client, race_id=race_obj.id, heat_id=first.id, recorded_at=first.recorded_at
+    )
+    payload = await asyncio.wait_for(following, timeout=2.0)
+
+    assert payload is not None
+    assert payload.heat_id == first.id
+    assert payload.recorded_at == first.recorded_at
+    assert len(payload.clips) == 1
+    assert payload.clips[0].camera_id == "cam-1"
+
+    second = _heat(db, race_obj, heat_number=2)
+    racer_a = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="A",
+            last_name="R",
+            race_id=race_obj.id,
+            car_passed_inspection=True,
+        ),
+    )
+    racer_b = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="B",
+            last_name="R",
+            race_id=race_obj.id,
+            car_passed_inspection=True,
+        ),
+    )
+    crud.set_heat_lanes(
+        second,
+        as_lanes(
+            [
+                {"lane": 1, "racer_id": racer_a.id, "time": None, "place": None},
+                {"lane": 2, "racer_id": racer_b.id, "time": None, "place": None},
+            ]
+        ),
+    )
+    db.commit()
+
+    following = asyncio.create_task(stream.__anext__())
+    await asyncio.sleep(0.05)
+    await Mutation().update_heat_result(
+        _info(db),
+        heat_id=second.id,
+        lanes_input=as_lanes(
+            [
+                {"lane": 1, "racer_id": racer_a.id, "time": 3.1, "place": 1},
+                {"lane": 2, "racer_id": racer_b.id, "time": 3.2, "place": 2},
+            ]
+        ),
+    )
+    payload = await asyncio.wait_for(following, timeout=2.0)
+
+    # The first heat's clip was just purged, and nothing has replaced it —
+    # `_current_heat_replay` finds no current key for this race at all.
+    assert payload is None
+
+    await stream.aclose()
 
 
 def test_the_startup_sweep_empties_the_directory(tmp_path):

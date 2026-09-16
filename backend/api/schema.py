@@ -2999,7 +2999,7 @@ async def _publish_heat_replay(race_id: int) -> None:
     await pubsub.publish(f"heat_replay:{race_id}", None)
 
 
-def _purge_older_replays(race_id: int, keep_heat_id: int) -> None:
+async def _purge_older_replays(race_id: int, keep_heat_id: int) -> None:
     """Discard every other heat's clips for *race_id* (#177 stage 1a).
 
     Called both when a heat's result is recorded (an *earlier* heat's clip is
@@ -3007,8 +3007,17 @@ def _purge_older_replays(race_id: int, keep_heat_id: int) -> None:
     never what this call removes) and when the next heat is armed (the heat
     that just finished has had its turn). See
     `services.replays.ReplayStore.discard_other_heats`.
+
+    Publishes afterward, always — even when nothing was actually removed.
+    A connected display's `heatReplay` subscription only re-reads the store
+    on a wake-up (`_current_heat_replay`, a snapshot re-read, never the
+    payload itself), so a purge that changed the store without publishing
+    would leave an already-open screen holding a stale `HeatReplay` —
+    including a `url` for a file that has just been deleted — until some
+    unrelated clip upload for the same race happened to wake it.
     """
     replays_service.store.discard_other_heats(race_id, keep_heat_id)
+    await _publish_heat_replay(race_id)
 
 
 def _display_theme_setting(db: Session, race_id: int) -> str:
@@ -5953,7 +5962,7 @@ class Mutation:
 
         # This heat is now the one that might get a replay clip; the heat
         # that just finished has had its turn (#177 stage 1a).
-        _purge_older_replays(race.id, heat_id)
+        await _purge_older_replays(race.id, heat_id)
 
         await mgr.prepare_heat(
             heat_id=heat_id,
@@ -6055,7 +6064,7 @@ class Mutation:
             # This heat's own clip has not been uploaded yet — it arrives a
             # second or two after this returns — so it is never what this
             # call removes.
-            _purge_older_replays(updated_heat.race_id, heat_id)
+            await _purge_older_replays(updated_heat.race_id, heat_id)
             await _publish_race_state(
                 updated_heat.race_id,
                 kind=RaceChangeKind.HEAT_RESULT,
@@ -7228,7 +7237,7 @@ class Mutation:
             ),
         )
         if updated:
-            _purge_older_replays(updated.race_id, heat_id)
+            await _purge_older_replays(updated.race_id, heat_id)
             await _publish_race_state(updated.race_id)
         return updated
 
