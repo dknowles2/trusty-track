@@ -126,3 +126,7 @@ The score column is named for the race's scoring method. **Tie Broken By**
 names the method that settled a shared rank — see
 [When two cars tie](scoring.md#when-two-cars-tie) — and is blank for a row
 that was never tied, or was tied and left that way.
+
+A **Home Pack** column (named for whatever your race calls it) is added
+after Den once any racer on the list has one set — left out entirely for an
+ordinary single-pack race, where nobody does.

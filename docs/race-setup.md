@@ -55,7 +55,7 @@ You can add racers one by one for small events or late registrations, or bulk-im
 1. Click the **Add Racer** button. (The arrow beside it is for the other ways in — **Import from CSV**, **Import from other racing software**, and **Populate Test Data**.)
 2. Enter the racer's **First Name** and **Last Name**.
 3. Enter a **Car Number** (if not using **Auto number** later).
-4. Select the appropriate **Den**. **Car Name**, **Car Weight** and a photo can all be filled in now or left until check-in. A photo taken or uploaded here can be straightened and cropped the same way as at check-in — see [Straightening a Photo](race-day.md#straightening-a-photo).
+4. Select the appropriate **Den**. **Home Pack** (if your race spans more than one pack), **Car Name**, **Car Weight** and a photo can all be filled in now or left until check-in. A photo taken or uploaded here can be straightened and cropped the same way as at check-in — see [Straightening a Photo](race-day.md#straightening-a-photo).
 5. Click **Save Racer** — or **Save and add another**, which saves this racer and hands you the form back for the next one.
 
 **Save and add another** is for typing a roster in at a sitting. It keeps the den you were working through, since rosters usually arrive grouped that way, and clears everything else. The car number is deliberately *not* carried forward or incremented: under manual numbering, the next car is not reliably the last one plus one, and a wrong number that looks deliberate is worse than a blank one.
@@ -77,7 +77,7 @@ Your file does not have to be in any particular format — you match its columns
 1. Click **Select CSV File** and choose your file. If you are starting from scratch, use **download a template** for a file with the right columns already in it.
 2. Check the **Match your columns** section. Trusty Track guesses from your headers — `Scout First Name`, `Car #` and `first_name` are all recognised — but you can change any of them, or set one to **Not included**.
 
-    First Name and Last Name are required; Car Number, Car Name, Den and Passed Inspection are optional.
+    First Name and Last Name are required; Car Number, Car Name, Den, Home Pack and Passed Inspection are optional. Home Pack recognises `home_unit`, `pack`, `unit`, `home_pack` or `troop` as a header, alongside the usual guessing — worth setting if your roster spans more than one pack.
 
 3. Look over the **Preview**, which shows the first few rows exactly as they will be imported.
 4. Read any warnings. Trusty Track points out rows missing a name, car numbers that are not numbers, and car numbers used twice, before anything is saved. A row naming a racer already on your roster — by first and last name — stops the whole import rather than warning: that is what catches a file being imported a second time.
