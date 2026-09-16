@@ -151,7 +151,11 @@ export function certificateHeading(award: CertificateHeadingAward): string {
   return 'AWARD';
 }
 
-/** A racer's name for a list: "Ada Lovelace (#42)".
+/** A racer's name for a list: "Ada Lovelace (#42)", or "Ada Lovelace (#42) ·
+ * Pack 12" once a home unit is set (#1076, stage 1) — a district event's
+ * "Pack 12's Bear champion" reads as the racing group's own name (the
+ * rank, shown elsewhere) beside this. Absent on every racer at an ordinary
+ * single-pack race, so the sentence is unchanged there.
  *
  * `nameDisplay` defaults to `'FULL'` — this helper is shared by the
  * operator's recipient picker (`AwardForm.tsx`) and management list
@@ -163,11 +167,13 @@ export function racerLabel(
     firstName: string;
     lastName: string;
     carNumber?: number | null;
+    homeUnit?: string | null;
   },
   nameDisplay: NameDisplay | string = 'FULL',
 ): string {
   const name = formatDisplayName(nameDisplay, racer.firstName, racer.lastName);
-  return racer.carNumber ? `${name} (#${racer.carNumber})` : name;
+  const withNumber = racer.carNumber ? `${name} (#${racer.carNumber})` : name;
+  return racer.homeUnit ? `${withNumber} · ${racer.homeUnit}` : withNumber;
 }
 
 /** One racer skipped because they already held a trophy on another podium

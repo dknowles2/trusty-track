@@ -438,6 +438,7 @@ export type LeaderboardEntry = {
   dropWorstRunsApplied: Scalars['Boolean']['output'];
   firstName: Scalars['String']['output'];
   heatsCompleted: Scalars['Int']['output'];
+  homeUnit?: Maybe<Scalars['String']['output']>;
   lastName: Scalars['String']['output'];
   racerId: Scalars['Int']['output'];
   racerImageUrl?: Maybe<Scalars['String']['output']>;
@@ -1210,6 +1211,7 @@ export type Race = {
   excludeRoundWinnersFromQualifyingStandings: Scalars['Boolean']['output'];
   globalStartNumber: Scalars['Int']['output'];
   heats: Array<Heat>;
+  homeUnitLabel: Scalars['String']['output'];
   id: Scalars['Int']['output'];
   intermission: Intermission;
   isLocked: Scalars['Boolean']['output'];
@@ -1363,6 +1365,7 @@ export type Racer = {
   carWeight?: Maybe<Scalars['Float']['output']>;
   excludedFromStandings: Scalars['Boolean']['output'];
   firstName: Scalars['String']['output'];
+  homeUnit?: Maybe<Scalars['String']['output']>;
   id: Scalars['Int']['output'];
   lastName: Scalars['String']['output'];
   raceId: Scalars['Int']['output'];
@@ -1381,10 +1384,12 @@ export type RacerInput = {
   clearCarName?: Scalars['Boolean']['input'];
   clearCarNumber?: Scalars['Boolean']['input'];
   clearCarWeight?: Scalars['Boolean']['input'];
+  clearHomeUnit?: Scalars['Boolean']['input'];
   clearRacerImage?: Scalars['Boolean']['input'];
   clearRacingGroup?: Scalars['Boolean']['input'];
   excludedFromStandings?: Scalars['Boolean']['input'];
   firstName: Scalars['String']['input'];
+  homeUnit?: InputMaybe<Scalars['String']['input']>;
   lastName: Scalars['String']['input'];
   raceId?: InputMaybe<Scalars['Int']['input']>;
   racerImageUrl?: InputMaybe<Scalars['String']['input']>;

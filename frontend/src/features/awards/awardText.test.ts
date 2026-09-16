@@ -166,6 +166,18 @@ describe('naming a racer', () => {
       racerLabel({ firstName: 'Ada', lastName: 'Lovelace', carNumber: 42 }, 'LAST_INITIAL'),
     ).toBe('Ada L. (#42)');
   });
+
+  it('appends a home unit when one is set (#1076, stage 1)', () => {
+    expect(
+      racerLabel({ firstName: 'Ada', lastName: 'Lovelace', carNumber: 42, homeUnit: 'Pack 12' }),
+    ).toBe('Ada Lovelace (#42) · Pack 12');
+  });
+
+  it('omits the home unit line when there is none — an ordinary single-pack race', () => {
+    expect(
+      racerLabel({ firstName: 'Ada', lastName: 'Lovelace', carNumber: 42, homeUnit: null }),
+    ).toBe('Ada Lovelace (#42)');
+  });
 });
 
 describe('naming a car in a vote tally', () => {

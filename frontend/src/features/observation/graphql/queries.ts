@@ -10,6 +10,9 @@ export const LeaderboardSubscription = gql`
       racingGroupId
       racingGroupName
       racingGroupDivision
+      # A racer's own unit — "Pack 12" (#1076, stage 1). Absent on every
+      # racer at an ordinary single-pack race.
+      homeUnit
       score
       heatsCompleted
       # How many of heatsCompleted were an actual DNF rather than a genuine

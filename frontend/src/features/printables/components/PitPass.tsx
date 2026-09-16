@@ -70,6 +70,14 @@ export default function PitPass({ racer, race, racingGroup, nameDisplay = 'FULL'
             <div className="pit-pass-footer-split">
                 <div className="pit-pass-footer-left">
                     <span className="pit-pass-race-location">{raceSubtitle}</span>
+                    {/* A racer's own unit (#1076, stage 1) — absent on every
+                        racer at an ordinary single-pack race, so this line
+                        is absent there too. */}
+                    {racer.home_unit && (
+                        <span className="pit-pass-race-location" style={{ display: 'block' }}>
+                            {racer.home_unit}
+                        </span>
+                    )}
                 </div>
                 <div className="pit-pass-footer-right">
                     <span className="pit-pass-year">{eventYear}</span>

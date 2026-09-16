@@ -113,6 +113,15 @@ def test_the_excluded_racer_still_imports_flagged(derbynet_file: Path) -> None:
     assert pat.group == "Siblings"
 
 
+def test_derbynet_carries_no_home_unit_field(derbynet_file: Path) -> None:
+    """DerbyNet's `Partitions` table is a den/rank list (already mapped to
+    the racing group), not a per-racer home-pack field (#1076, stage 1) --
+    `RegistrationInfo` carries the identical columns GPRM's own table does.
+    Every racer this parser produces leaves `home_unit` unset."""
+    roster = parse_derbynet_database(derbynet_file)
+    assert all(racer.home_unit is None for racer in roster.racers)
+
+
 def test_the_photo_warning_names_derbynet_not_gprm(derbynet_file: Path) -> None:
     roster = parse_derbynet_database(derbynet_file)
     photo_problems = [p for p in roster.problems if "photos in" in p.message]

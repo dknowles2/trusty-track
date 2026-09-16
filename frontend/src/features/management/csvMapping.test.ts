@@ -19,6 +19,7 @@ const mapping = (partial: Partial<Mapping>): Mapping => ({
   carName: null,
   racingGroup: null,
   passedInspection: null,
+  homeUnit: null,
   ...partial,
 });
 
@@ -358,6 +359,7 @@ describe('fieldLabels', () => {
   it('renders the default racing-group and vehicle words exactly as before #551', () => {
     expect(fieldLabels('Den')).toEqual({
       firstName: 'First Name',
+      homeUnit: 'Home Pack',
       lastName: 'Last Name',
       carNumber: 'Car Number',
       carName: 'Car Name',
@@ -369,11 +371,18 @@ describe('fieldLabels', () => {
   it('swaps in the resolved vehicle word (#551)', () => {
     expect(fieldLabels('Class', 'Rocket')).toEqual({
       firstName: 'First Name',
+      homeUnit: 'Home Pack',
       lastName: 'Last Name',
       carNumber: 'Rocket Number',
       carName: 'Rocket Name',
       racingGroup: 'Class',
       passedInspection: 'Passed Inspection',
+    });
+  });
+
+  it('takes an explicit home-unit label (#1076, stage 1)', () => {
+    expect(fieldLabels('Den', 'Car', 'Home Troop')).toMatchObject({
+      homeUnit: 'Home Troop',
     });
   });
 });

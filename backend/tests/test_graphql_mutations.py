@@ -91,6 +91,108 @@ def test_racer_mutations(client, db):
     assert response.json()["data"]["deleteRacer"] is True
 
 
+def test_racer_home_unit_create_update_and_clear(client, db):
+    """A racer's own unit (#1076, stage 1) -- created, read back, updated,
+    and cleared with its own explicit flag, the same shape `carName` /
+    `clearCarName` already take."""
+    organization = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Home Unit Test Organization")
+    )
+    track = crud.create_track(
+        db, schemas.TrackCreate(name="Home Unit Track", lane_count=4)
+    )
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            name="District Race",
+            organization_id=organization.id,
+            track_id=track.id,
+        ),
+    )
+
+    mutation_create = f"""
+    mutation {{
+        createRacer(racer: {{
+            firstName: "Jordan",
+            lastName: "Mitchell",
+            homeUnit: "Pack 12",
+            raceId: {race.id}
+        }}) {{
+            id
+            homeUnit
+        }}
+    }}
+    """
+    response = client.post("/graphql", json={"query": mutation_create})
+    data = response.json()["data"]["createRacer"]
+    assert data["homeUnit"] == "Pack 12"
+    racer_id = data["id"]
+
+    mutation_update = f"""
+    mutation {{
+        updateRacer(id: {racer_id}, racer: {{
+            firstName: "Jordan",
+            lastName: "Mitchell",
+            homeUnit: "Pack 30"
+        }}) {{
+            homeUnit
+        }}
+    }}
+    """
+    response = client.post("/graphql", json={"query": mutation_update})
+    assert response.json()["data"]["updateRacer"]["homeUnit"] == "Pack 30"
+
+    mutation_clear = f"""
+    mutation {{
+        updateRacer(id: {racer_id}, racer: {{
+            firstName: "Jordan",
+            lastName: "Mitchell",
+            clearHomeUnit: true
+        }}) {{
+            homeUnit
+        }}
+    }}
+    """
+    response = client.post("/graphql", json={"query": mutation_clear})
+    assert response.json()["data"]["updateRacer"]["homeUnit"] is None
+
+
+def test_home_unit_label_is_the_organization_word_not_the_race_override(client, db):
+    """`Race.homeUnitLabel` always resolves against the organization's own
+    terminology, never this race's own override of the organization word
+    (#1076, stage 1) -- a district event renames its own race to "District"
+    without changing what a racer's own unit is called."""
+    organization = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Label Test Organization")
+    )
+    track = crud.create_track(db, schemas.TrackCreate(name="Label Track", lane_count=4))
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            name="District Finals",
+            organization_id=organization.id,
+            track_id=track.id,
+            organization_singular="District",
+            organization_plural="Districts",
+        ),
+    )
+
+    query = f"""
+    {{
+        race(raceId: {race.id}) {{
+            homeUnitLabel
+            terminology {{
+                organizationSingular
+            }}
+        }}
+    }}
+    """
+    response = client.post("/graphql", json={"query": query})
+    data = response.json()["data"]["race"]
+    assert data["terminology"]["organizationSingular"] == "District"
+    assert data["homeUnitLabel"] == "Home Pack"
+
+
 def test_check_in_racer_preserves_weight_and_photos_it_was_not_given(client, db):
     # #324: checkInRacer used to build its RacerUpdate with every kwarg
     # supplied explicitly, so `weight`/`racerImageUrl`/`carImageUrl` left out

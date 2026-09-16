@@ -294,6 +294,9 @@ class RacerBase(BaseModel):
     #: Races, but is not ranked (#548). Off by default, same as
     #: `car_passed_inspection` above.
     excluded_from_standings: bool = False
+    #: A racer's own unit — "Pack 12" (#1076, stage 1). Free text, distinct
+    #: from `racing_group_id` (the rank).
+    home_unit: str | None = None
 
     @field_validator("racer_image_url", "car_image_url")
     @classmethod
@@ -322,6 +325,10 @@ class RacerUpdate(BaseModel):
     racer_image_url: str | None = None
     car_image_url: str | None = None
     excluded_from_standings: bool | None = None
+    #: A racer's own unit — "Pack 12" (#1076, stage 1). Absent leaves it
+    #: alone; `api.schema`'s `RacerInput.clear_home_unit` is the explicit
+    #: way back to null, same shape as `car_name`'s own `clear_car_name`.
+    home_unit: str | None = None
 
 
 class AwardCopyCreate(BaseModel):

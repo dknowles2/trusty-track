@@ -200,3 +200,44 @@ describe('#848: the submit button says what it is about to do', () => {
         expect(screen.getByRole('button', { name: 'Save Racer' })).toBeInTheDocument();
     });
 });
+
+describe('a racer\'s home unit (#1076, stage 1)', () => {
+    it('appears in the main order for Add Racer, after the group', () => {
+        renderForm();
+
+        expect(screen.getByLabelText('Home Pack')).toBeInTheDocument();
+    });
+
+    it('appears in the Details disclosure in check-in mode', () => {
+        renderForm({ checkInMode: true });
+
+        expect(screen.getByTestId('racer-form-details')).toContainElement(
+            screen.getByLabelText('Home Pack'),
+        );
+    });
+
+    it('reads the race\'s own resolved label instead of the built-in default', () => {
+        renderForm({ homeUnitLabel: 'Home Troop' });
+
+        expect(screen.getByLabelText('Home Troop')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Home Pack')).not.toBeInTheDocument();
+    });
+
+    it('seeds from the racer being edited and sends the typed value on submit', async () => {
+        const onSubmit = vi.fn().mockResolvedValue(undefined);
+        renderForm({
+            initialData: { ...racer, home_unit: 'Pack 12' },
+            onSubmit,
+        });
+
+        expect(screen.getByLabelText('Home Pack')).toHaveValue('Pack 12');
+
+        await userEvent.clear(screen.getByLabelText('Home Pack'));
+        await userEvent.type(screen.getByLabelText('Home Pack'), 'Pack 30');
+        await userEvent.click(screen.getByRole('button', { name: 'Save Racer' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(
+            expect.objectContaining({ home_unit: 'Pack 30' }),
+        );
+    });
+});

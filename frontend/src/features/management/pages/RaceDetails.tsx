@@ -94,6 +94,11 @@ export default function RaceDetails() {
   );
 
   const { data, fetching } = raceDetailsResult;
+  // "Home Pack" — the race's own resolved label (#1076, stage 1), always
+  // the *organization's* own word (never this race's own override of it —
+  // see `Race.homeUnitLabel`'s docstring). Falls back to the built-in
+  // wording before the query has answered.
+  const homeUnitLabel = data?.race?.homeUnitLabel ?? 'Home Pack';
 
   // GraphQL Mutations
   const [, updateRaceMutation] = useMutation(GQL.UPDATE_RACE);
@@ -177,6 +182,7 @@ export default function RaceDetails() {
       racer_image_url: r.racerImageUrl ?? undefined,
       car_image_url: r.carImageUrl ?? undefined,
       excluded_from_standings: r.excludedFromStandings,
+      home_unit: r.homeUnit ?? undefined,
     }));
   }, [data]);
 
@@ -577,6 +583,7 @@ export default function RaceDetails() {
           racerImageUrl: formData.racer_image_url || null,
           carImageUrl: formData.car_image_url || null,
           excludedFromStandings: formData.excluded_from_standings,
+          homeUnit: formData.home_unit || null,
           raceId: parsedRaceId,
           clearRacingGroup: formData.racing_group_id == null,
           clearCarNumber: formData.car_number == null,
@@ -584,6 +591,7 @@ export default function RaceDetails() {
           clearCarWeight: formData.car_weight == null,
           clearRacerImage: !formData.racer_image_url,
           clearCarImage: !formData.car_image_url,
+          clearHomeUnit: !formData.home_unit,
       };
 
       if (editingRacer) {
@@ -843,12 +851,21 @@ export default function RaceDetails() {
             (racer.first_name || '').toLowerCase().includes(searchLower) ||
             (racer.last_name || '').toLowerCase().includes(searchLower) ||
             (racer.car_number || '').toString().includes(searchLower) ||
-            racingGroupName.toLowerCase().includes(searchLower)
+            racingGroupName.toLowerCase().includes(searchLower) ||
+            (racer.home_unit || '').toLowerCase().includes(searchLower)
         );
     }),
     racingGroups,
     sort,
   );
+
+  // Whether the column/row line for a racer's home unit renders at all
+  // (#1076, stage 1) — nobody has one at an ordinary single-pack race, and
+  // an empty column would be visible chrome (and docs-screenshot drift)
+  // for nothing. Read off the *unfiltered* roster so the column does not
+  // pop in and out as a search narrows the visible rows.
+  const anyHomeUnit = racers.some(r => r.home_unit);
+  const rosterColumnCount = anyHomeUnit ? 8 : 7;
 
   // #769: the selection can hold a racer the current search has hidden.
   // Everything that counts, displays, or acts on "the selection" reads this
@@ -923,6 +940,7 @@ export default function RaceDetails() {
                                   </span>
                               </>
                           )}
+                          {racer.home_unit && <>{' '}· {racer.home_unit}</>}
                       </span>
                   </span>
               </div>
@@ -1654,12 +1672,15 @@ export default function RaceDetails() {
                         <SortableHeader label="First Name" sortKey="first_name" sort={sort} onSort={toggleSort} />
                         <SortableHeader label="Last Name" sortKey="last_name" sort={sort} onSort={toggleSort} />
                         <SortableHeader label={group} sortKey="racingGroup" sort={sort} onSort={toggleSort} />
+                        {anyHomeUnit && (
+                            <SortableHeader label={homeUnitLabel} sortKey="home_unit" sort={sort} onSort={toggleSort} />
+                        )}
                         <SortableHeader label="Status / Edit" sortKey="status" sort={sort} onSort={toggleSort} align="center" />
                     </tr>
                 </thead>
                 <tbody>
                     {filteredRacers.length === 0 ? (
-                        <tr><td data-label="Status" colSpan={7} style={{ padding: '20px', textAlign: 'center' }}>
+                        <tr><td data-label="Status" colSpan={rosterColumnCount} style={{ padding: '20px', textAlign: 'center' }}>
                             {searchTerm ? 'No racers found matching your search.' : 'No racers registered yet.'}
                         </td></tr>
                     ) : isGroupedByRacingGroup ? (
@@ -1674,7 +1695,7 @@ export default function RaceDetails() {
                                 // the table to be valid.
                                 <Fragment key={`group-${group.racingGroupId}`}>
                                     <tr className="group-row" style={{ backgroundColor: 'var(--surface-tint-color)', borderTop: '2px solid var(--border-color)' }}>
-                                        <td colSpan={7} style={{ padding: '12px', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                        <td colSpan={rosterColumnCount} style={{ padding: '12px', fontWeight: 'bold', fontSize: '1.1rem' }}>
                                             <span style={{
                                                 display: 'inline-block',
                                                 width: '12px',
@@ -1732,6 +1753,11 @@ export default function RaceDetails() {
                                                     </span>
                                                 ) : '-'}
                                             </td>
+                                            {anyHomeUnit && (
+                                                <td data-label={homeUnitLabel} style={{ padding: '12px' }}>
+                                                    {racer.home_unit || '-'}
+                                                </td>
+                                            )}
                                             <td data-label="Status/Edit" style={{ padding: '12px', textAlign: 'center' }}>
                                                 <button
                                                     onClick={() => handleCheckInClick(racer)}
@@ -1826,6 +1852,11 @@ export default function RaceDetails() {
                                         ) : '-'}
                                     </span>
                                 </td>
+                                {anyHomeUnit && (
+                                    <td data-label={homeUnitLabel} style={{ padding: '12px' }}>
+                                        <span className="cell-value">{racer.home_unit || '-'}</span>
+                                    </td>
+                                )}
                                 <td data-label="Status/Edit" style={{ padding: '12px', textAlign: 'center' }}>
                                     <span className="cell-value" style={{ display: 'flex', justifyContent: 'center' }}>
                                         <button
@@ -1907,6 +1938,7 @@ export default function RaceDetails() {
             submitLabel={racerFormSubmitLabel}
             checkInMode={racerFormCheckInMode}
             weightLimitOz={data?.race?.weightLimitOz}
+            homeUnitLabel={data?.race?.homeUnitLabel}
             // The roster this page already fetched, threaded down for the
             // duplicate car number warning (#811) — no second query.
             existingRacers={racers}
@@ -1955,6 +1987,7 @@ export default function RaceDetails() {
             onClose={() => setShowImportModal(false)}
             raceId={race.id}
             onImportSuccess={refreshData}
+            homeUnitLabel={homeUnitLabel}
           />
       )}
 

@@ -1113,6 +1113,7 @@ def write_imported_roster(
                     group_ids.get(imported.group) if imported.group else None
                 ),
                 excluded_from_standings=imported.excluded_from_standings,
+                home_unit=imported.home_unit,
                 race_id=race_id,
             ),
         )

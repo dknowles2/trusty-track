@@ -54,6 +54,7 @@ export const RACE_AWARDS_QUERY = gql`
           lastName
           carNumber
           racerImageUrl
+          homeUnit
         }
         voteTally {
           racerId
@@ -107,6 +108,7 @@ export const RACE_AWARDS_QUERY = gql`
         lastName
         carNumber
         carImageUrl
+        homeUnit
       }
     }
   }

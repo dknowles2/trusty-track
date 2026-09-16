@@ -82,6 +82,9 @@ class ImportedRacer:
     passed_inspection: bool = False
     group: str | None = None
     excluded_from_standings: bool = False
+    #: The racer's own unit — "Pack 12" (#1076, stage 1). Absent when the
+    #: source program carries no such field, or the row does not name one.
+    home_unit: str | None = None
     source_id: str | None = None
 
 

@@ -9,7 +9,7 @@
  * Pure. No React, no urql.
  */
 
-export type SortKey = 'car_number' | 'first_name' | 'last_name' | 'racingGroup' | 'status';
+export type SortKey = 'car_number' | 'first_name' | 'last_name' | 'racingGroup' | 'status' | 'home_unit';
 export type SortDirection = 'asc' | 'desc';
 
 export interface SortState {
@@ -33,6 +33,9 @@ export interface SortableRacer {
     car_number?: number | null;
     racing_group_id?: number | null;
     car_passed_inspection: boolean;
+    /** A racer's own unit — "Pack 12" (#1076, stage 1). Absent on every
+     * racer at an ordinary single-pack race. */
+    home_unit?: string | null;
 }
 
 export interface SortableRacingGroup {
@@ -86,6 +89,13 @@ function compare(
             // order: the question this column answers on race morning is who is
             // still to come, not who is already done.
             return Number(a.car_passed_inspection) - Number(b.car_passed_inspection);
+        case 'home_unit': {
+            // Same rule as racingGroup: a racer with no unit set sorts with
+            // the empty string, first ascending.
+            const an = a.home_unit ?? '';
+            const bn = b.home_unit ?? '';
+            return an.localeCompare(bn);
+        }
     }
 }
 

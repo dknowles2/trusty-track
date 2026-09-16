@@ -34,6 +34,7 @@ export const GET_PRINTABLES = gql`
         carWeight
         racingGroupId
         racerImageUrl
+        homeUnit
       }
     }
   }

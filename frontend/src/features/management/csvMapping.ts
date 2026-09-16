@@ -19,7 +19,8 @@ export type Field =
   | 'carNumber'
   | 'carName'
   | 'racingGroup'
-  | 'passedInspection';
+  | 'passedInspection'
+  | 'homeUnit';
 
 export const FIELDS: readonly Field[] = [
   'firstName',
@@ -28,6 +29,7 @@ export const FIELDS: readonly Field[] = [
   'carName',
   'racingGroup',
   'passedInspection',
+  'homeUnit',
 ] as const;
 
 /** The built-in Scouting label for every column — what `ImportRacersModal`
@@ -41,18 +43,28 @@ export const FIELD_LABELS: Record<Field, string> = {
   carName: 'Car Name',
   racingGroup: 'Den',
   passedInspection: 'Passed Inspection',
+  homeUnit: 'Home Pack',
 };
 
 /** `FIELD_LABELS`, with the racing-group and vehicle columns' words swapped
  * for the resolved ones — the field names here that are also configurable
  * terms. `vehicleWord` defaults to the built-in Scouting one so a caller
- * that has not been threaded through yet (#551) sees today's wording. */
-export function fieldLabels(groupWord: string, vehicleWord = 'Car'): Record<Field, string> {
+ * that has not been threaded through yet (#551) sees today's wording.
+ * `homeUnitLabel` (#1076, stage 1) is the race's own "Home {organization}"
+ * wording — always the *organization's* word, never a race's own override
+ * of it (`Race.homeUnitLabel`, resolved server-side), and defaults to
+ * "Home Pack" for the same reason. */
+export function fieldLabels(
+  groupWord: string,
+  vehicleWord = 'Car',
+  homeUnitLabel = 'Home Pack',
+): Record<Field, string> {
   return {
     ...FIELD_LABELS,
     racingGroup: groupWord,
     carNumber: `${vehicleWord} Number`,
     carName: `${vehicleWord} Name`,
+    homeUnit: homeUnitLabel,
   };
 }
 
@@ -64,6 +76,7 @@ const CANONICAL_HEADER: Record<Field, string> = {
   carName: 'car_name',
   racingGroup: 'racing_group',
   passedInspection: 'car_passed_inspection',
+  homeUnit: 'home_unit',
 };
 
 /**
@@ -82,6 +95,13 @@ const HINTS: Record<Field, readonly string[]> = {
   // app calls the concept internally (#496).
   racingGroup: ['den', 'group', 'pack', 'rank', 'unit'],
   passedInspection: ['passedinspection', 'inspection', 'passed', 'inspected'],
+  // "unit"/"pack" also appear in `racingGroup`'s own hints above, since a
+  // pack-derby CSV genuinely does use "Pack" to mean the racing group; the
+  // more specific phrases here win the exact-match pass before the
+  // substring pass ever reaches the ambiguous single words, and `homeUnit`
+  // is ordered after `racingGroup` in `FIELDS` so `racingGroup` claims a
+  // bare "Pack"/"Unit" header first when both fields are still unmapped.
+  homeUnit: ['homeunit', 'homepack', 'troop'],
 };
 
 /** A field with nothing mapped to it. */
@@ -277,6 +297,7 @@ export interface RacerRow {
   carName: string;
   racingGroup: string;
   passedInspection: string;
+  homeUnit: string;
 }
 
 /** The rows as they would import, in file order. */
@@ -293,6 +314,7 @@ export function applyMapping(parsed: ParsedCsv, mapping: Mapping): RacerRow[] {
     carName: read(row, 'carName'),
     racingGroup: read(row, 'racingGroup'),
     passedInspection: read(row, 'passedInspection'),
+    homeUnit: read(row, 'homeUnit'),
   }));
 }
 
