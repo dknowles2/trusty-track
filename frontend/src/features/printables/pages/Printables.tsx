@@ -22,6 +22,7 @@ import DriversLicense from '../components/DriversLicense';
 import PitPass from '../components/PitPass';
 import { GET_PRINTABLES } from '../graphql/queries';
 import { printablesThemeRootProps } from '../printablesTheme';
+import { useSheetScale } from '../useSheetScale';
 import { useTerminology } from '../../../context/TerminologyContext';
 import '../PrintSheet.css';
 
@@ -104,6 +105,13 @@ export default function Printables() {
         variables: { raceId: parsedRaceId },
         pause: !parsedRaceId,
     });
+
+    // The sheet preview is sized in inches to match the printed page exactly
+    // (see `documents.ts`), which is exactly why it does not shrink to fit a
+    // phone on its own — `useSheetScale` measures the gap and hands back how
+    // much to scale it down by (#1142). `@media print` in `PrintSheet.css`
+    // resets both refs' styles, so the printed page is unaffected.
+    const { wrapRef, sheetRef, scale, naturalHeight } = useSheetScale();
 
     const spec = specFor(searchParams.get('kind'));
     // Named rather than tested inline in the JSX below: `terminologyGuard`
@@ -255,53 +263,63 @@ export default function Printables() {
                 </p>
             ) : (
                 <div
-                    className="print-sheets"
-                    style={
-                        {
-                            '--card-w': `${spec.widthIn}in`,
-                            '--card-h': `${spec.heightIn}in`,
-                            '--cols': spec.columns,
-                        } as React.CSSProperties
-                    }
+                    ref={wrapRef}
+                    className="print-sheet-scale-wrap"
+                    style={scale < 1 ? { height: naturalHeight * scale, textAlign: 'left' } : undefined}
                 >
-                    {cards.map((racer) => {
-                        const racingGroup = racingGroups.find((d) => d.id === racer.racing_group_id);
-                        if (spec.kind === 'pit-pass') {
-                            return (
-                                <PitPass
-                                    key={racer.id}
-                                    racer={racer}
-                                    race={race}
-                                    racingGroup={racingGroup}
-                                    nameDisplay={nameDisplay}
-                                />
-                            );
+                    <div
+                        ref={sheetRef}
+                        className="print-sheets"
+                        style={
+                            {
+                                '--card-w': `${spec.widthIn}in`,
+                                '--card-h': `${spec.heightIn}in`,
+                                '--cols': spec.columns,
+                                ...(scale < 1
+                                    ? { transform: `scale(${scale})`, transformOrigin: 'top left' }
+                                    : {}),
+                            } as React.CSSProperties
                         }
-                        if (spec.kind === 'drivers-license') {
-                            return (
-                                <DriversLicense
-                                    key={racer.id}
-                                    racer={racer}
-                                    race={race}
-                                    racingGroup={racingGroup}
-                                    nameDisplay={nameDisplay}
-                                />
-                            );
-                        }
-                        if (isCarLabel) {
-                            return (
-                                <CarSticker
-                                    key={racer.id}
-                                    racer={racer}
-                                    race={race}
-                                    racingGroup={racingGroup}
-                                    nameDisplay={nameDisplay}
-                                    printBeforeCheckIn={printBeforeCheckIn}
-                                />
-                            );
-                        }
-                        return <CheckInCode key={racer.id} racer={racer} race={race} />;
-                    })}
+                    >
+                        {cards.map((racer) => {
+                            const racingGroup = racingGroups.find((d) => d.id === racer.racing_group_id);
+                            if (spec.kind === 'pit-pass') {
+                                return (
+                                    <PitPass
+                                        key={racer.id}
+                                        racer={racer}
+                                        race={race}
+                                        racingGroup={racingGroup}
+                                        nameDisplay={nameDisplay}
+                                    />
+                                );
+                            }
+                            if (spec.kind === 'drivers-license') {
+                                return (
+                                    <DriversLicense
+                                        key={racer.id}
+                                        racer={racer}
+                                        race={race}
+                                        racingGroup={racingGroup}
+                                        nameDisplay={nameDisplay}
+                                    />
+                                );
+                            }
+                            if (isCarLabel) {
+                                return (
+                                    <CarSticker
+                                        key={racer.id}
+                                        racer={racer}
+                                        race={race}
+                                        racingGroup={racingGroup}
+                                        nameDisplay={nameDisplay}
+                                        printBeforeCheckIn={printBeforeCheckIn}
+                                    />
+                                );
+                            }
+                            return <CheckInCode key={racer.id} racer={racer} race={race} />;
+                        })}
+                    </div>
                 </div>
             )}
         </div>

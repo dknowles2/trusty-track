@@ -21,12 +21,19 @@ import { certificatesFor, signerTitleForOrg, type CertificateAward } from '../ce
 import { formatEventDate } from '../documents';
 import { GET_CERTIFICATES } from '../graphql/queries';
 import { printablesThemeRootProps } from '../printablesTheme';
+import { useSheetScale } from '../useSheetScale';
 import { useTerminology } from '../../../context/TerminologyContext';
 import '../PrintSheet.css';
 
 export default function Certificate() {
     const { raceId } = useParams<{ raceId: string }>();
     const parsedRaceId = raceId ? parseInt(raceId) : 0;
+
+    // Same fixed-size-preview problem `Printables.tsx` has, and the same fix
+    // (#1142) — a certificate is 10.5in wide, sized to match the printed
+    // page rather than any screen, so it needs shrinking to fit a phone the
+    // same way a sheet of pit passes does.
+    const { wrapRef, sheetRef, scale, naturalHeight } = useSheetScale();
 
     const [{ data, fetching, error }] = useQuery({
         query: GET_CERTIFICATES,
@@ -103,90 +110,105 @@ export default function Certificate() {
                     No awards to print yet. Add some on the Awards tab first.
                 </p>
             ) : (
-                <div className="certificates" data-testid="certificates">
-                    {certificates.map((certificate) => (
-                        <article
-                            key={certificate.awardId}
-                            className="certificate"
-                            data-testid={`certificate-${certificate.awardId}`}
-                        >
-                            <div className="certificate-main">
-                                <header className="certificate-header-bar">
-                                    <div className="certificate-official-tag">OFFICIAL</div>
-                                    <div className="certificate-champion-title">{certificate.heading}</div>
-                                </header>
+                <div
+                    ref={wrapRef}
+                    className="print-sheet-scale-wrap"
+                    style={scale < 1 ? { height: naturalHeight * scale, textAlign: 'left' } : undefined}
+                >
+                    <div
+                        ref={sheetRef}
+                        className="certificates"
+                        data-testid="certificates"
+                        style={
+                            scale < 1
+                                ? { transform: `scale(${scale})`, transformOrigin: 'top left' }
+                                : undefined
+                        }
+                    >
+                        {certificates.map((certificate) => (
+                            <article
+                                key={certificate.awardId}
+                                className="certificate"
+                                data-testid={`certificate-${certificate.awardId}`}
+                            >
+                                <div className="certificate-main">
+                                    <header className="certificate-header-bar">
+                                        <div className="certificate-official-tag">OFFICIAL</div>
+                                        <div className="certificate-champion-title">{certificate.heading}</div>
+                                    </header>
 
-                                <div className="certificate-body">
-                                    <p className="certificate-intro">THIS CERTIFICATE OF</p>
+                                    <div className="certificate-body">
+                                        <p className="certificate-intro">THIS CERTIFICATE OF</p>
 
-                                    <div className="certificate-award-row">
-                                        {certificate.artworkKey && (
-                                            <div className="certificate-artwork">
-                                                <AwardArtwork
-                                                    artworkKey={certificate.artworkKey}
-                                                    size={44}
-                                                    palette={{
-                                                        line: 'var(--print-primary-color, #003F87)',
-                                                        fill: 'var(--print-accent-color, #FCD116)',
-                                                    }}
-                                                />
+                                        <div className="certificate-award-row">
+                                            {certificate.artworkKey && (
+                                                <div className="certificate-artwork">
+                                                    <AwardArtwork
+                                                        artworkKey={certificate.artworkKey}
+                                                        size={44}
+                                                        palette={{
+                                                            line: 'var(--print-primary-color, #003F87)',
+                                                            fill: 'var(--print-accent-color, #FCD116)',
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+                                            <div className="certificate-award-name-wrap">
+                                                <h1 className="certificate-award-name">{certificate.awardName}</h1>
                                             </div>
-                                        )}
-                                        <div className="certificate-award-name-wrap">
-                                            <h1 className="certificate-award-name">{certificate.awardName}</h1>
+                                        </div>
+
+                                        <p className="certificate-presented-to">IS AWARDED TO</p>
+
+                                        <div className="certificate-recipient-row">
+                                            <p
+                                                className={
+                                                    certificate.recipientName
+                                                        ? 'certificate-recipient'
+                                                        : 'certificate-recipient certificate-recipient-blank'
+                                                }
+                                            >
+                                                {certificate.recipientName ?? 'placeholder'}
+                                            </p>
                                         </div>
                                     </div>
 
-                                    <p className="certificate-presented-to">IS AWARDED TO</p>
+                                    <div className="certificate-lower">
+                                        <div className="certificate-date-block">
+                                            <span className="certificate-date-val">{eventDate || '\u00A0'}</span>
+                                            <div className="certificate-sign-line" />
+                                            <span className="certificate-sign-label">Date</span>
+                                        </div>
 
-                                    <div className="certificate-recipient-row">
-                                        <p
-                                            className={
-                                                certificate.recipientName
-                                                    ? 'certificate-recipient'
-                                                    : 'certificate-recipient certificate-recipient-blank'
-                                            }
-                                        >
-                                            {certificate.recipientName ?? 'placeholder'}
-                                        </p>
+                                        <div className="certificate-car-center">
+                                            <DerbyCarIllustration
+                                                width={310}
+                                                height={138}
+                                                number={defaultNumber}
+                                            />
+                                        </div>
+
+                                        <div className="certificate-signature-block">
+                                            <span className="certificate-signature-val">{'\u00A0'}</span>
+                                            <div className="certificate-sign-line" />
+                                            <span className="certificate-sign-label">{signerTitle}</span>
+                                        </div>
                                     </div>
+
+                                    <footer className="certificate-footer-bar">
+                                        <div className="certificate-seal-badge">
+                                            <PinewoodDerbySeal size={134} year={eventYear} />
+                                        </div>
+                                        <div className="certificate-pack-location">
+                                            {packLocation}
+                                        </div>
+                                    </footer>
                                 </div>
 
-                                <div className="certificate-lower">
-                                    <div className="certificate-date-block">
-                                        <span className="certificate-date-val">{eventDate || '\u00A0'}</span>
-                                        <div className="certificate-sign-line" />
-                                        <span className="certificate-sign-label">Date</span>
-                                    </div>
-
-                                    <div className="certificate-car-center">
-                                        <DerbyCarIllustration
-                                            width={310}
-                                            height={138}
-                                            number={defaultNumber}
-                                        />
-                                    </div>
-
-                                    <div className="certificate-signature-block">
-                                        <span className="certificate-signature-val">{'\u00A0'}</span>
-                                        <div className="certificate-sign-line" />
-                                        <span className="certificate-sign-label">{signerTitle}</span>
-                                    </div>
-                                </div>
-
-                                <footer className="certificate-footer-bar">
-                                    <div className="certificate-seal-badge">
-                                        <PinewoodDerbySeal size={134} year={eventYear} />
-                                    </div>
-                                    <div className="certificate-pack-location">
-                                        {packLocation}
-                                    </div>
-                                </footer>
-                            </div>
-
-                            <div className="certificate-checker-strip" aria-hidden="true" />
-                        </article>
-                    ))}
+                                <div className="certificate-checker-strip" aria-hidden="true" />
+                            </article>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>
