@@ -117,4 +117,53 @@ describe('densityFor', () => {
             expect(densityFor(1024, 768, 2).onDeckDepth).toBe(1);
         });
     });
+
+    // #1143: the projector's own two-column layout leaves Current Standings
+    // partially or entirely off-screen on a portrait tablet — 820×1180 is
+    // the case the issue found (`.projector-right-col`'s own `right`
+    // measured at 978 against an 820px-wide viewport).
+    describe('projectorStacked', () => {
+        it('stacks on a portrait tablet (820×1180, this issue\'s own case)', () => {
+            expect(densityFor(820, 1180, 6).projectorStacked).toBe(true);
+        });
+
+        it('stacks on a smaller portrait tablet (768×1024)', () => {
+            expect(densityFor(768, 1024, 6).projectorStacked).toBe(true);
+        });
+
+        it('does not stack a landscape viewport of the identical width (1180×820) — only 8px away from clipping, not portrait', () => {
+            expect(densityFor(1180, 820, 6).projectorStacked).toBe(false);
+        });
+
+        it('does not stack the tested SVGA floor (800×600), even though 800 < 1000 — its aspect ratio (1.33) is nowhere near portrait', () => {
+            expect(densityFor(800, 600, 6).projectorStacked).toBe(false);
+        });
+
+        it('does not stack any of the other three tested landscape viewports', () => {
+            expect(densityFor(1024, 768, 6).projectorStacked).toBe(false);
+            expect(densityFor(1280, 720, 6).projectorStacked).toBe(false);
+            expect(densityFor(1920, 1080, 6).projectorStacked).toBe(false);
+        });
+
+        it('treats a perfectly square viewport as not stacked — aspect ratio 1 is the boundary, not included', () => {
+            expect(densityFor(900, 900, 6).projectorStacked).toBe(false);
+        });
+    });
+
+    describe('projectorHeatCardsSideBySide', () => {
+        it('keeps Now Racing and On Deck side by side at both of this issue\'s own portrait-tablet widths', () => {
+            expect(densityFor(820, 1180, 6).projectorHeatCardsSideBySide).toBe(true);
+            expect(densityFor(768, 1024, 6).projectorHeatCardsSideBySide).toBe(true);
+        });
+
+        it('stacks them instead below the 700px floor #1144 owns', () => {
+            expect(densityFor(430, 900, 6).projectorHeatCardsSideBySide).toBe(false);
+        });
+    });
+
+    it('projectorHeatCardsMaxHeightVh is a fixed budget, not derived from the viewport', () => {
+        expect(densityFor(820, 1180, 6).projectorHeatCardsMaxHeightVh).toBe(
+            densityFor(768, 1024, 8).projectorHeatCardsMaxHeightVh,
+        );
+    });
 });

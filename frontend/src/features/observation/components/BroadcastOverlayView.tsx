@@ -50,6 +50,7 @@ import LaneBadge from '../../../components/ui/LaneBadge';
 import { colorForLane } from '../../settings/laneColors';
 import { TimerStatusBadge } from '../../racing/components/TimerStatusBadge';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
+import { scoreCell } from '../../stats/scoringStrategyText';
 
 export interface OverlayLaneRacer {
     id: number;
@@ -66,6 +67,11 @@ export interface OverlayLane {
 export interface OverlayStanding {
     racerId: number;
     score: number;
+    /** Guards `formatScore` the same way every other standings surface does
+     * (#1145) — a racer with no completed heat has not produced a real
+     * score, so `scoreCell` prints `NO_SCORE` rather than the aggregate's
+     * unraced starting value. */
+    heatsCompleted: number;
     /** How many of this racer's counted heats were an actual DNF rather
      * than a genuine slow finish (#898). See `dnfAnnotation`. */
     dnfCount?: number;
@@ -211,7 +217,7 @@ export default function BroadcastOverlayView({
                                         fontVariantNumeric: 'tabular-nums',
                                     }}
                                 >
-                                    {formatScore(s.score)}
+                                    {scoreCell(s, formatScore)}
                                     {dnfAnnotation(s.dnfCount ?? 0) && (
                                         <> {dnfAnnotation(s.dnfCount ?? 0)}</>
                                     )}

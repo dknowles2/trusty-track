@@ -10,7 +10,7 @@ import { slowestFirst } from '../slowestFirst';
 import { heatsSummary, racingGroupLabel, shouldShowDivision } from '../racingGroupLabel';
 import { resolutionNote } from '../tiebreakText';
 import { defaultEliminationRound, isEliminationOnlyRace } from '../eliminationScope';
-import { dnfAnnotation, formatScore, scoreLabel } from '../scoringStrategyText';
+import { dnfAnnotation, formatScore, scoreCell, scoreLabel } from '../scoringStrategyText';
 import { Link, useSearchParams } from 'react-router-dom';
 import { downloadCsv, filenameFor } from '../../../utils/csv';
 import { useTerminology } from '../../../context/TerminologyContext';
@@ -298,8 +298,15 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
       : dropWorstNotice(race?.dropWorstRuns ?? 0, leaderboard[0]?.dropWorstRunsApplied ?? false);
 
   const scoreColumnLabel = isEliminationRound ? 'Losses' : scoreLabel(scoringStrategy);
-  const formatScoreCell = (score: number, strategy: string) =>
-    isEliminationRound ? `${Math.round(score)}` : formatScore(score, strategy);
+  // Elimination rounds score losses, not the race's own scoring strategy —
+  // `Math.round` rather than `formatScore` — but a racer with no completed
+  // heat gets the same `NO_SCORE` placeholder either way (#1145), via
+  // `scoreCell`'s own guard rather than a second copy of it here.
+  const formatScoreCell = (entry: { score: number; heatsCompleted: number }, strategy: string) =>
+    scoreCell(
+      entry,
+      isEliminationRound ? (score) => `${Math.round(score)}` : (score) => formatScore(score, strategy),
+    );
 
   const getRankMedal = (rank: number) => {
     if (rank === 1) return '🥇';
@@ -608,10 +615,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                   fontSize: '1.05rem',
                   fontWeight: entry.rank <= 3 ? 'bold' : 'normal'
                 }}>
-                  {entry.heatsCompleted > 0
-                    ? formatScoreCell(entry.score, scoringStrategy)
-                    : '-'
-                  }
+                  {formatScoreCell(entry, scoringStrategy)}
                   {/* A neutral note beside the score, never a label
                       replacing it (#898) — the row still reports what the
                       car scored. Elimination rounds never carry a dnfCount

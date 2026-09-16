@@ -116,6 +116,57 @@ const AFTER_THAT_MAX_LANE_COUNT = 6;
  */
 const HEAT_CARDS_BUDGET_VH = 37;
 
+/**
+ * Below this aspect ratio (`viewportWidth / viewportHeight`), the
+ * projector view's two side-by-side columns (`.projector-left-col` /
+ * `.projector-right-col`, `Observation.tsx`) no longer both fit anything
+ * worth showing (#1143). A portrait tablet propped on the check-in table —
+ * 820×1180 was the case that found this — measured `.projector-right-col`'s
+ * own `right` at 978 against an 820px-wide viewport: the standings column
+ * pushed almost entirely off-screen, because the left column's heat cards
+ * refuse to shrink below their own content width without ever growing past
+ * their allotted 65% share in a viewport actually wide enough to give it.
+ *
+ * `1` (below it is CSS's own `orientation: portrait`) rather than a plain
+ * width threshold. The issue's own suggestion was "below ~1000px wide, or
+ * whenever aspect-ratio < 1" — the "or" matters: taken as a plain width
+ * cutoff on its own, 1000px would also catch 800×600, this file's own
+ * tested SVGA floor for the two-column *landscape* kiosk layout
+ * (`displayResolutions.spec.ts`'s "Projector" test runs it at that size
+ * today, and the 700px phone breakpoint in `index.css` was deliberately
+ * moved down from 800px in the past specifically so it would stop doing
+ * exactly this). 800×600's aspect ratio is 1.33 — nowhere near portrait —
+ * so gating on aspect ratio alone, rather than width, is what keeps that
+ * viewport on its own unchanged two-column layout while still catching a
+ * genuinely narrow-relative-to-tall screen regardless of its absolute size.
+ */
+const PROJECTOR_STACK_MAX_ASPECT_RATIO = 1;
+
+/**
+ * Within the projector's stacked layout (#1143), the width below which Now
+ * Racing and On Deck no longer both fit side by side and stack one above
+ * the other instead. The same 700px floor `index.css`'s own narrow-screen
+ * fallback (a phone held up to preview the projector view) already draws
+ * its line at, so both of this issue's own portrait-tablet cases (768 and
+ * 820px wide) keep the two heat panels side by side, and only a screen in
+ * #1144's own phone tier — deliberately untouched here — stacks them too.
+ */
+const PROJECTOR_HEAT_CARDS_SIDE_BY_SIDE_MIN_WIDTH_PX = 700;
+
+/**
+ * The stacked projector layout's own heat-cards ceiling — the same
+ * "budget, not a target" shape `HEAT_CARDS_BUDGET_VH` gives the standard
+ * mode's Standings tab, so Current Standings underneath it always keeps a
+ * real, CSS-guaranteed remainder (`flex: 1, minHeight: 0, overflow:
+ * hidden`) rather than whatever height Now Racing/On Deck happen to need
+ * for this heat. Wider than the standard mode's own 37vh: this budget
+ * competes with exactly one sibling below it, never a tab's worth of
+ * chrome above both, and a portrait tablet's own generous height (820×1180
+ * measures a projector-grid over 130vmin tall, against a landscape
+ * viewport's fixed 96vmin) has room to spare either way.
+ */
+const PROJECTOR_STACKED_HEAT_CARDS_BUDGET_VH = 52;
+
 export interface DisplayDensity {
     /**
      * Whether a secondary line under a name — a racing-group division on
@@ -146,6 +197,26 @@ export interface DisplayDensity {
      * .tsx`'s `renderHeatCard` is the only reader.
      */
     heatCardCompactness: 0 | 1 | 2 | 3;
+    /**
+     * Whether the projector view (`?projector=true`) stacks Now Racing and
+     * On Deck above Current Standings instead of the ordinary side-by-side
+     * columns (#1143) — a portrait tablet, or a small screen turned on its
+     * side, where the two-column split leaves the standings column
+     * partially or entirely off-screen.
+     */
+    projectorStacked: boolean;
+    /**
+     * Within the projector's stacked layout, whether Now Racing and On
+     * Deck sit side by side (`true`) or one above the other (`false`).
+     * Meaningless when `projectorStacked` is `false` — the ordinary
+     * two-column layout always stacks them vertically in its own left
+     * column regardless of width.
+     */
+    projectorHeatCardsSideBySide: boolean;
+    /** The stacked projector layout's own heat-cards ceiling — the `vh`
+     * counterpart to `heatCardsMaxHeightVh` for that layout. Meaningless
+     * when `projectorStacked` is `false`. */
+    projectorHeatCardsMaxHeightVh: number;
 }
 
 function compactnessForLaneCount(laneCount: number): DisplayDensity['heatCardCompactness'] {
@@ -181,5 +252,8 @@ export function densityFor(viewportWidth: number, viewportHeight: number, laneCo
         onDeckDepth,
         heatCardsMaxHeightVh: HEAT_CARDS_BUDGET_VH,
         heatCardCompactness: compactnessForLaneCount(laneCount),
+        projectorStacked: viewportWidth / viewportHeight < PROJECTOR_STACK_MAX_ASPECT_RATIO,
+        projectorHeatCardsSideBySide: viewportWidth >= PROJECTOR_HEAT_CARDS_SIDE_BY_SIDE_MIN_WIDTH_PX,
+        projectorHeatCardsMaxHeightVh: PROJECTOR_STACKED_HEAT_CARDS_BUDGET_VH,
     };
 }

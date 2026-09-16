@@ -35,6 +35,7 @@ import { formatLaneTime } from '../../racing/lanes';
 import {
   dnfAnnotation as dnfAnnotationShared,
   formatScore as formatScoreShared,
+  scoreCell,
   scoreLabel as scoreLabelFor,
 } from '../../stats/scoringStrategyText';
 import IdentifyPresence from '../IdentifyPresence';
@@ -723,6 +724,44 @@ export default function Observation() {
     // `standingsHeadHeightPx` and `standingsMaxHeightPx` above.
     ...(standingsRowHeightPx !== undefined ? { approxRowHeightPx: standingsRowHeightPx } : {}),
   });
+
+  // The projector's own *stacked* layout (#1143, `density.projectorStacked`)
+  // measures its Current Standings panel the same way the standard mode's
+  // Standings tab does above — a container with `flex: 1, minHeight: 0,
+  // overflow: hidden` gets a real, CSS-guaranteed remainder under the heat
+  // cards' own fixed ceiling (`density.projectorHeatCardsMaxHeightVh`), and
+  // `useMeasuredPages` turns that measured height into a row count. Unlike
+  // the Standings tab, this panel never pages or scrolls through the rest
+  // of the roster — `cycleMs` is set far beyond anything that could elapse
+  // during a race, so `pageForElapsed` always answers page 0, and only
+  // `pageSize` (how many rows fit) is actually read below; `visible`/`page`/
+  // `offset` are unused. A row here is a different, vmin-sized shape than
+  // the Standings tab's own (an avatar plus a two-line name, sized off this
+  // page's own `vmin` units rather than the standard mode's px-based
+  // layout), so it gets its own `approxRowHeightPx` — ~15.5vmin measured
+  // directly against `displayResolutions.spec.ts`'s own 820×1180 and
+  // 768×1024 cases, rounded up to 17 for the DNF-annotation line (#1145)
+  // that can add a third line to a row this guess does not otherwise
+  // account for. `Math.min(window.innerWidth, window.innerHeight)` is this
+  // page's own `1vmin` in pixels; `useDisplayDensity`'s own resize listener
+  // is what makes reading `window` here safe to do plainly rather than
+  // through a second listener of this hook's own.
+  const projectorStandingsWrapperRef = useRef<HTMLDivElement>(null);
+  const projectorStandingsTableRef = useRef<HTMLTableElement>(null);
+  const projectorVminPx =
+    typeof window !== 'undefined' ? Math.min(window.innerWidth, window.innerHeight) / 100 : 8;
+  const PROJECTOR_STANDINGS_ROW_HEIGHT_VMIN = 17;
+  const projectorStandingsPages = useMeasuredPages(
+    projectorStandingsWrapperRef,
+    projectorStandingsTableRef,
+    effectiveStandings,
+    {
+      behavior: 'PAGING',
+      cycleMs: Number.MAX_SAFE_INTEGER,
+      approxRowHeightPx: PROJECTOR_STANDINGS_ROW_HEIGHT_VMIN * projectorVminPx,
+    },
+  );
+
   // The projector layout's own "Current Standings" panel (below) prints the
   // bare number with no unit, same reasoning as `formatProjectorScore`
   // above — an elimination round's own loss count needs the identical
@@ -1605,7 +1644,7 @@ export default function Observation() {
                         </div>
                       </td>
                       <td className="standing-time" style={{ padding: '3px', textAlign: 'right', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', fontSize: '2.4vmin', fontWeight: 'bold' }}>
-                        {effectiveFormatScore(s.score)}
+                        {scoreCell(s, effectiveFormatScore)}
                         {dnfAnnotation(s.dnfCount ?? 0) && (
                           <div className="standing-dnf-note" style={{ fontSize: '1.6vmin', fontWeight: 'normal', fontFamily: 'var(--font-body)', color: 'var(--display-text-muted-color)' }}>
                             {dnfAnnotation(s.dnfCount ?? 0)}
@@ -1786,7 +1825,7 @@ export default function Observation() {
                 worth of these cards, side by side, is the busiest case
                 `.projector-heat-panel`'s own `flex: 2` share of an 800×600
                 screen has to hold without growing past it (#1073). */}
-            <div className="projector-racer-name" style={{ fontWeight: 'bold', fontSize: isNowRacing ? '4.5vmin' : '2.8vmin', color: 'var(--display-text-color)', marginBottom: isNowRacing ? '1.5vmin' : '0.5vmin', lineHeight: 1.1 }}>
+            <div className="projector-racer-name" style={{ fontWeight: 'bold', fontSize: isNowRacing ? '4.5vh' : '2.8vh', color: 'var(--display-text-color)', marginBottom: isNowRacing ? (density.projectorStacked ? '1vmin' : '1.5vmin') : '0.5vmin', lineHeight: 1.1 }}>
               {formatDisplayName(nameDisplay, racer.firstName, racer.lastName)}
             </div>
 
@@ -1812,23 +1851,30 @@ export default function Observation() {
                 // reserves for it, which read as this badge silently
                 // clipping its own text at 800×600 with a busy (six-lane)
                 // heat, even though nothing was visibly cut off.
-                style={{ justifyContent: 'center', lineHeight: 1.3, color: isNowRacing ? 'var(--display-text-dim-color)' : 'var(--display-placeholder-color)', fontSize: isNowRacing ? '2.5vmin' : '1.6vmin', fontWeight: isNowRacing ? 'bold' : 'normal' }}
+                style={{ justifyContent: 'center', lineHeight: 1.3, color: isNowRacing ? 'var(--display-text-dim-color)' : 'var(--display-placeholder-color)', fontSize: isNowRacing ? '2.5vh' : '1.6vh', fontWeight: isNowRacing ? 'bold' : 'normal' }}
               >
                 Lane {lane}
               </LaneBadge>
               {racer.carNumber && (
-                // Never below 2vmin (#1073's own legibility floor is exactly
-                // 2% of viewport height, which every one of this file's four
-                // supported viewports is landscape enough for `vmin` to
-                // equal — see `renderHeatCard`'s comment): a car number is
-                // one of the things this floor exists to protect, even in
-                // On Deck's smaller secondary card.
-                <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2.2vmin' : '2vmin' }}>
+                // Never below 2% of viewport height (#1073's own legibility
+                // floor) — `vh` rather than `vmin`, since #1143's stacked
+                // projector layout (a portrait tablet) is the first caller
+                // where the two units diverge: `vmin` follows whichever
+                // dimension is smaller, which is width in portrait, and a
+                // car number sized off width alone read far below this
+                // floor there even though the identical number sized off
+                // `vh` reads exactly the same in every landscape viewport
+                // this file already tests (`vmin` and `vh` are the same
+                // value whenever width ≥ height, which is every one of
+                // them) — a car number is one of the things this floor
+                // exists to protect, even in On Deck's smaller secondary
+                // card.
+                <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2.2vh' : '2vh' }}>
                   {vehicle} #{racer.carNumber}
                 </div>
               )}
               {racingGroupDivisionFor(racer) && (
-                <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2vmin' : '1.4vmin' }}>
+                <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2vh' : '1.4vh' }}>
                   {racingGroupDivisionFor(racer)}
                 </div>
               )}
@@ -1839,7 +1885,88 @@ export default function Observation() {
     );
   };
 
-  const top5Standings = effectiveStandings.slice(0, 5);
+  // One Current Standings row, shared by the ordinary two-column layout's
+  // own right column and the stacked layout's own standings panel (#1143)
+  // — extracted rather than duplicated so the two can never drift apart on
+  // what a row actually shows.
+  // Font sizes below are `vh`, not `vmin` — see the matching comment on the
+  // heat cards' own car-number div (#1143): `vh` and `vmin` are identical in
+  // every landscape viewport this file tests (width ≥ height), so this is a
+  // no-op there, and it is what keeps a rank/name/score legible once the
+  // stacked layout puts this same row on a portrait screen, where `vmin`
+  // alone would follow the (now much smaller) width instead of the height
+  // the legibility floor is actually measured against.
+  const renderProjectorStandingsRow = (s: Standing, idx: number, total: number) => {
+    const racer = racersMap[s.racerId];
+    return (
+      <tr className="projector-standing-row" key={s.racerId} style={{ borderBottom: idx < total - 1 ? '1px solid var(--display-border-color)' : 'none' }}>
+        <td className="projector-standings-rank-col" style={{ padding: '1.5vmin 0', width: '15%' }}>
+          <span style={{ fontSize: '4vh', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : 'var(--display-text-faintest-color)' }}>
+            {s.rank}
+          </span>
+        </td>
+        <td className="projector-standings-racer-col" style={{ padding: '1.5vmin', width: '55%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5vmin', minWidth: 0 }}>
+            <RacerAvatar
+              racer={{
+                id: s.racerId,
+                first_name: racer?.firstName || '',
+                last_name: racer?.lastName || '',
+                racer_image_url: shouldShowRacerPhoto(nameDisplay) ? racer?.racerImageUrl : null
+              }}
+              size="6vmin"
+              style={{ border: '0.2vmin solid var(--display-border-subtle-color)', flexShrink: 0 }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+              {nameDisplay === 'FULL' ? (
+                <>
+                  <span style={{ fontSize: '2.5vh', fontWeight: 'bold', color: 'var(--display-text-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                    {racer ? `${racer.firstName}` : `Racer`}
+                  </span>
+                  <span style={{ fontSize: '2vh', fontWeight: 'bold', color: 'var(--display-text-subtle-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                    {racer ? `${racer.lastName}` : `#${s.racerId}`}
+                  </span>
+                </>
+              ) : (
+                // Abbreviated: one line, via the one formatter, rather than
+                // splitting first/last across two lines the way FULL does —
+                // a bare last initial reads oddly stacked under a first name.
+                <span style={{ fontSize: '2.5vh', fontWeight: 'bold', color: 'var(--display-text-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                  {racer ? formatDisplayName(nameDisplay, racer.firstName, racer.lastName) : `Racer #${s.racerId}`}
+                </span>
+              )}
+            </div>
+          </div>
+        </td>
+        <td className="projector-standings-time-col" style={{ padding: '1.5vmin 0', width: '30%', textAlign: 'right' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
+            <span style={{ fontSize: '3.5vh', fontWeight: 'bold', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', color: 'var(--display-accent-color)', lineHeight: '1' }}>
+              {scoreCell(s, effectiveFormatProjectorScore)}
+            </span>
+            <span style={{ fontSize: '1.5vmin', color: 'var(--display-text-faintest-color)', textTransform: 'uppercase', letterSpacing: '0.1vmin', marginTop: '0.5vmin' }}>
+              {effectiveScoreLabel}
+            </span>
+            {dnfAnnotation(s.dnfCount ?? 0) && (
+              <span style={{ fontSize: '1.5vmin', color: 'var(--display-text-faintest-color)', marginTop: '0.3vmin' }}>
+                {dnfAnnotation(s.dnfCount ?? 0)}
+              </span>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  // The ordinary two-column layout always shows exactly a Top 5 podium —
+  // unchanged by #1143. The stacked layout (a portrait tablet, generally
+  // taller than the fixed two-column layout's own 96vmin) shows however
+  // many rows the measured remainder actually fits, with no further cap:
+  // "Current Standings", unlike a "Top 5" panel, has no reason to leave
+  // room on the table unused once a portrait screen's own height has more
+  // to give.
+  const top5Standings = density.projectorStacked
+    ? effectiveStandings.slice(0, projectorStandingsPages.pageSize)
+    : effectiveStandings.slice(0, 5);
   const nowRacingHeatInfo = officialCurrentHeat
     ? (runOffAnnouncement(officialCurrentHeat.runOffPlacement) ??
       `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}`)
@@ -1854,6 +1981,84 @@ export default function Observation() {
       {renderResultsOverlay()}
       <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
 
+      {density.projectorStacked ? (
+        // Stacked layout (#1143): a portrait tablet, or a screen turned on
+        // its side, where the ordinary two-column split below pushes
+        // Current Standings partially or entirely off-screen (measured
+        // directly at 820×1180 and 768×1024 in `displayResolutions.spec.ts`
+        // — `displayDensity.ts`'s own `projectorStacked` doc comment has
+        // the exact numbers). Heat cards on top, capped to a fixed `vh`
+        // ceiling; Current Standings underneath gets the CSS-guaranteed
+        // remainder, exactly the "budget, not a target" shape the standard
+        // mode's own Standings tab already uses for the identical reason.
+        <div className="projector-stacked" style={{ display: 'flex', flexDirection: 'column', flex: '1', gap: '2vmin', minHeight: 0 }}>
+          <div
+            className="projector-stacked-heat-cards"
+            style={{
+              display: 'flex',
+              flexDirection: density.projectorHeatCardsSideBySide ? 'row' : 'column',
+              gap: '2vmin',
+              maxHeight: `${density.projectorHeatCardsMaxHeightVh}vh`,
+              flexShrink: 0,
+              minHeight: 0,
+            }}
+          >
+            <div className="projector-heat-panel" style={{ flex: '1', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2vmin', borderTop: '1vmin solid var(--error)', boxSizing: 'border-box', minHeight: 0, minWidth: 0 }}>
+              <h2 style={{ fontSize: '3vmin', margin: 0, paddingBottom: '1.2vmin', display: 'flex', alignItems: 'center', gap: '1.2vmin', borderBottom: '2px solid var(--display-border-color)', marginBottom: '1.5vmin', flexWrap: 'wrap' }}>
+                <Icon path={mdiFire} size="3vmin" color="var(--error)" />
+                Now Racing
+                {nowRacingHeatInfo && <span style={{ color: 'var(--display-text-faintest-color)', fontSize: '2vmin', marginLeft: 'auto', fontWeight: 'normal' }}>({nowRacingHeatInfo})</span>}
+                {isExhibition && <span style={{ background: 'var(--display-accent-color)', color: 'var(--display-on-accent-color)', fontSize: '1.6vmin', padding: '0.4vmin 1.2vmin', borderRadius: '2vmin', marginLeft: 'auto' }}>EXHIBITION</span>}
+                {initialData?.race?.track?.id && (
+                  <TimerStatusBadge trackId={initialData.race.track.id} />
+                )}
+              </h2>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                {renderProjectorRacers(currentHeatRacers, true)}
+              </div>
+            </div>
+
+            <div className="projector-heat-panel" style={{ flex: '1', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2vmin', borderTop: '1vmin solid var(--display-accent-muted-color)', opacity: nextHeatRacers.length === 0 ? 0.7 : 1, boxSizing: 'border-box', minHeight: 0, minWidth: 0 }}>
+              <h2 style={{ fontSize: '2.6vmin', margin: 0, paddingBottom: '1.2vmin', display: 'flex', alignItems: 'center', gap: '1.2vmin', borderBottom: '2px solid var(--display-border-color)', marginBottom: '1.5vmin', color: 'var(--display-text-muted-color)' }}>
+                <Icon path={mdiChevronDoubleRight} size="2.6vmin" color="var(--display-text-muted-color)" />
+                On Deck
+              </h2>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                {renderProjectorRacers(nextHeatRacers, false)}
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="projector-right-col projector-stacked-standings"
+            style={{ flex: '1', minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', overflow: 'hidden', padding: '2.5vmin', borderTop: '1vmin solid var(--display-accent-color)', boxSizing: 'border-box' }}
+          >
+            <h2 style={{ fontSize: '3vmin', margin: 0, paddingBottom: '1.2vmin', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.2vmin', borderBottom: '2px solid var(--display-border-color)', marginBottom: '1.5vmin', flexShrink: 0 }}>
+              <Icon path={mdiTrophy} size="3vmin" color="var(--display-accent-color)" />
+              Current Standings
+            </h2>
+            {/* The measured remainder (#1143) — see the `useMeasuredPages`
+                call above this component's projector-mode return for why
+                `top5Standings` is already capped to `pageSize` here rather
+                than a fixed 5. */}
+            <div ref={projectorStandingsWrapperRef} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              {top5Standings.length > 0 ? (
+                <table ref={projectorStandingsTableRef} style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                  <tbody>
+                    {top5Standings.map((s: Standing, idx: number) =>
+                      renderProjectorStandingsRow(s, idx, top5Standings.length),
+                    )}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--display-placeholder-color)', fontSize: '3vmin' }}>
+                  No results yet.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
       <div className="projector-grid" style={{ display: 'flex', flex: '1', gap: '3vmin', height: '100%', minHeight: 0 }}>
         {/* Left Column: Active and Upcoming Heats.
             `minHeight: 0` down this whole chain (#1073) — a flex item's
@@ -1865,7 +2070,7 @@ export default function Observation() {
             scroll at 800×600 even though `.projector-mode` is `height:
             100vh; overflow: hidden`: the overflow was real, just invisible
             until the root itself was measured. */}
-        <div className="projector-left-col" style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', gap: '2vmin', boxSizing: 'border-box', minHeight: 0 }}>
+        <div className="projector-left-col" style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', gap: '2vmin', boxSizing: 'border-box', minHeight: 0, minWidth: 0 }}>
 
           {/* Now Racing */}
           <div className="projector-heat-panel" style={{ flex: '3', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2vmin', borderTop: '1vmin solid var(--error)', boxSizing: 'border-box', minHeight: 0 }}>
@@ -1905,66 +2110,9 @@ export default function Observation() {
             {top5Standings.length > 0 ? (
               <table style={{ width: '100%', borderCollapse: 'collapse', height: '100%', tableLayout: 'fixed' }}>
                 <tbody>
-                  {top5Standings.map((s: Standing, idx: number) => {
-                    const racer = racersMap[s.racerId];
-                    return (
-                      <tr key={s.racerId} style={{ borderBottom: idx < top5Standings.length - 1 ? '1px solid var(--display-border-color)' : 'none' }}>
-                        <td className="projector-standings-rank-col" style={{ padding: '1.5vmin 0', width: '15%' }}>
-                          <span style={{ fontSize: '4vmin', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : 'var(--display-text-faintest-color)' }}>
-                            {s.rank}
-                          </span>
-                        </td>
-                        <td className="projector-standings-racer-col" style={{ padding: '1.5vmin', width: '55%' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5vmin', minWidth: 0 }}>
-                            <RacerAvatar
-                              racer={{
-                                id: s.racerId,
-                                first_name: racer?.firstName || '',
-                                last_name: racer?.lastName || '',
-                                racer_image_url: shouldShowRacerPhoto(nameDisplay) ? racer?.racerImageUrl : null
-                              }}
-                              size="6vmin"
-                              style={{ border: '0.2vmin solid var(--display-border-subtle-color)', flexShrink: 0 }}
-                            />
-                            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                              {nameDisplay === 'FULL' ? (
-                                <>
-                                  <span style={{ fontSize: '2.5vmin', fontWeight: 'bold', color: 'var(--display-text-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                                    {racer ? `${racer.firstName}` : `Racer`}
-                                  </span>
-                                  <span style={{ fontSize: '2vmin', fontWeight: 'bold', color: 'var(--display-text-subtle-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                                    {racer ? `${racer.lastName}` : `#${s.racerId}`}
-                                  </span>
-                                </>
-                              ) : (
-                                // Abbreviated: one line, via the one formatter, rather than
-                                // splitting first/last across two lines the way FULL does —
-                                // a bare last initial reads oddly stacked under a first name.
-                                <span style={{ fontSize: '2.5vmin', fontWeight: 'bold', color: 'var(--display-text-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                                  {racer ? formatDisplayName(nameDisplay, racer.firstName, racer.lastName) : `Racer #${s.racerId}`}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="projector-standings-time-col" style={{ padding: '1.5vmin 0', width: '30%', textAlign: 'right' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-                            <span style={{ fontSize: '3.5vmin', fontWeight: 'bold', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums', color: 'var(--display-accent-color)', lineHeight: '1' }}>
-                              {effectiveFormatProjectorScore(s.score)}
-                            </span>
-                            <span style={{ fontSize: '1.5vmin', color: 'var(--display-text-faintest-color)', textTransform: 'uppercase', letterSpacing: '0.1vmin', marginTop: '0.5vmin' }}>
-                              {effectiveScoreLabel}
-                            </span>
-                            {dnfAnnotation(s.dnfCount ?? 0) && (
-                              <span style={{ fontSize: '1.5vmin', color: 'var(--display-text-faintest-color)', marginTop: '0.3vmin' }}>
-                                {dnfAnnotation(s.dnfCount ?? 0)}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {top5Standings.map((s: Standing, idx: number) =>
+                    renderProjectorStandingsRow(s, idx, top5Standings.length),
+                  )}
                 </tbody>
               </table>
             ) : (
@@ -1973,13 +2121,16 @@ export default function Observation() {
               </div>
             )}
 
-            {/* Empty rows filler if less than 5 to keep height consistent */}
-            {top5Standings.length > 0 && top5Standings.length < 5 && Array.from({ length: 5 - top5Standings.length }).map((_, i) => (
+            {/* Empty rows filler if less than 5 to keep height consistent —
+                the Top 5 podium's own padding, not applicable to the
+                stacked layout's already-exact-fit row count (#1143). */}
+            {!density.projectorStacked && top5Standings.length > 0 && top5Standings.length < 5 && Array.from({ length: 5 - top5Standings.length }).map((_, i) => (
                <div key={`empty-${i}`} style={{ flex: 1, borderTop: '1px dashed var(--display-border-color)', minHeight: '8vmin' }}></div>
             ))}
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
