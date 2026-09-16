@@ -50,6 +50,15 @@ REFUSED_MUTATIONS = frozenset(
         # them — the demo's single most reachable way to break. It also
         # reconfigures tracks, including the timer type, which is the way back
         # in to the serial probing that `initialize_timer_managers` skips.
+        #
+        # `updateInitialConfig` is also where `keepReplays` (#177 stage 2)
+        # lives — deliberately, rather than in a `setDebugMode`/`setThemes`
+        # -style dedicated mutation (#1079, #1080). Those two were split out
+        # of this bundle precisely so the demo *could* offer them despite
+        # this refusal; `keepReplays` needs the opposite, since turning it
+        # on means a caller-supplied file lands on disk on every future
+        # upload, so staying inside the already-wholesale-refused bundle is
+        # what keeps it refused. No separate entry needed here for it.
         "createInitialConfig",
         "updateInitialConfig",
         # Same door, opened directly: both can set `timerType` /

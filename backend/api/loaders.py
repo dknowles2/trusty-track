@@ -56,6 +56,7 @@ class RequestLoaders:
         self._races: dict[int, models.Race | None] = {}
         self._racer_counts: dict[int, tuple[int, int]] = {}
         self._race_status: dict[int, str] = {}
+        self._heat_replays: dict[int, dict[int, list[models.HeatReplay]]] = {}
 
         event.listen(db, "after_commit", self._on_commit)
 
@@ -81,6 +82,7 @@ class RequestLoaders:
         self._races.clear()
         self._racer_counts.clear()
         self._race_status.clear()
+        self._heat_replays.clear()
 
     # ------------------------------------------------------------------ #
     # Collections, loaded once per race                                    #
@@ -194,6 +196,34 @@ class RequestLoaders:
                 by_heat.setdefault(row.heat_id, []).append(row)
             self._lanes[race_id] = by_heat
         return self._lanes[race_id].get(heat_id, [])
+
+    def replays_for_heat(self, race_id: int, heat_id: int) -> list[models.HeatReplay]:
+        """One heat's stored replay clips (#177 stage 2), off a single
+        query covering the whole race — the same batching shape as
+        `lanes_for_heat` and for the identical reason: `Heat.replays` is a
+        field resolver, and `test_query_counts.py` fails the build if a
+        list of heats costs one query per row rather than one for the page.
+
+        A row only ever exists when `Organization.keep_replays` was on at
+        upload time (`services.replays.record_stored_clip`'s own
+        docstring), so a Schedule-tab ▶ needs no separate check of the
+        setting — an empty list here already means "nothing to play",
+        whether that is because the setting is off or because no camera
+        has uploaded anything yet.
+        """
+        if race_id not in self._heat_replays:
+            rows = (
+                self._db.query(models.HeatReplay)
+                .join(models.Heat, models.Heat.id == models.HeatReplay.heat_id)
+                .filter(models.Heat.race_id == race_id)
+                .order_by(models.HeatReplay.id)
+                .all()
+            )
+            by_heat: dict[int, list[models.HeatReplay]] = {}
+            for row in rows:
+                by_heat.setdefault(row.heat_id, []).append(row)
+            self._heat_replays[race_id] = by_heat
+        return self._heat_replays[race_id].get(heat_id, [])
 
     def lane_values_for_heat(self, race_id: int, heat_id: int) -> list[lanes.Lane]:
         """One heat's lanes as domain values, off the same batched query.

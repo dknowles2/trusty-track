@@ -210,6 +210,17 @@ class InitialConfigCreate(BaseModel):
     # sets directly, and `"FULL"` is itself the reachable "off" state, so
     # there is no clear flag to carry.
     name_display: str | None = None
+    # Accepted and ignored here, like the PINs above: the stored-replay
+    # setting (#177 stage 2) is applied in `schema._apply_replay_retention`
+    # straight onto the ORM row — only from `updateInitialConfig`, never
+    # from this create-time path — not through this pydantic schema.
+    # Declared so `strawberry.asdict(config)` can be handed over whole
+    # without the extra keys raising.
+    keep_replays: bool | None = None
+    replay_retention_heats: int | None = None
+    replay_retention_mb: int | None = None
+    clear_replay_retention_heats: bool = False
+    clear_replay_retention_mb: bool = False
 
     @field_validator(*TERMINOLOGY_WORD_FIELDS)
     @classmethod

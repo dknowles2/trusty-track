@@ -288,6 +288,24 @@ class Heat:
         return _heat_lanes(info, self, self.id)
 
     @strawberry.field
+    def replays(self, info: Info) -> list["ReplayClip"]:
+        """This heat's stored replay clips (#177 stage 2 —
+        `Organization.keepReplays`), oldest first.
+
+        Empty whether the setting is off or nothing has been uploaded
+        yet for this heat — see `models.HeatReplay`'s own docstring for
+        why those are the same fact told two ways, so the Schedule tab's
+        ▶ needs no separate read of the setting. Off the same batched
+        loader `lanes` above uses (`_loaders(info).replays_for_heat`), so
+        a page of heats pays one extra query, not one per heat
+        (`test_query_counts.py`).
+        """
+        return [
+            _stored_replay_clip(row)
+            for row in _loaders(info).replays_for_heat(self.race_id, self.id)
+        ]
+
+    @strawberry.field
     def round_number(self) -> int:
         # `self` is the ORM Heat; the round is eagerly loaded by the resolvers
         # that return heats, so this costs nothing.
@@ -866,6 +884,26 @@ def _name_display_status_kwargs(organization: Any) -> dict[str, Any]:
     }
 
 
+def _replay_status_kwargs(organization: Any) -> dict[str, Any]:
+    """The stored-replay setting and its two bounds, for building an
+    `InitialConfigStatus` (#177 stage 2).
+
+    No layering to resolve — unlike terminology or name-display, this is an
+    install-wide setting with no per-race override — so unlike those two
+    helpers this is just three raw columns, defaulted for the unconfigured
+    branch the same way every other field here is.
+    """
+    return {
+        "keep_replays": bool(organization and organization.keep_replays),
+        "replay_retention_heats": organization.replay_retention_heats
+        if organization
+        else None,
+        "replay_retention_mb": organization.replay_retention_mb
+        if organization
+        else None,
+    }
+
+
 #: The caller's own role (#15), published so the UI can reflect what it may
 #: do rather than every screen offering every control to every role and
 #: discovering the boundary from a refused mutation (#892). Wrapped the same
@@ -963,6 +1001,16 @@ class InitialConfigStatus:
     #: (Home, System Settings) — organization default over `FULL`. See
     #: `Race.resolvedNameDisplay` for the layer a race adds on top.
     resolved_name_display: str = domain_name_display.DEFAULT_NAME_DISPLAY
+    #: Whether a stored replay clip (#177 stage 2) survives longer than
+    #: delete-after-next-heat. Off by default — see
+    #: `models.Organization.keep_replays`.
+    keep_replays: bool = False
+    #: The two independent, optional retention bounds — null means
+    #: unbounded at that dimension. Meaningful only once `keepReplays` is
+    #: on, but served regardless so the settings form can show whatever an
+    #: operator typed before turning the setting back on.
+    replay_retention_heats: int | None = None
+    replay_retention_mb: int | None = None
 
 
 @strawberry.input
@@ -1006,6 +1054,32 @@ class InitialConfigInput:
     #: `"FULL"` — is the new setting, the same `display_theme` shape: `FULL`
     #: is itself the non-null "off" state, so there is no clear flag here.
     name_display: str | None = None
+    #: Whether a stored replay clip (#177 stage 2) survives longer than
+    #: delete-after-next-heat. Absent leaves the column alone — the same
+    #: shape as the PINs above: the settings page resends the whole config
+    #: on every save, and a bare `false` it never meant would silently turn
+    #: stored clips back off on the next unrelated save.
+    #:
+    #: Deliberately **not** split into its own `setDebugMode`/`setThemes`
+    #: -style dedicated mutation (#1079, #1080), even though this is the
+    #: same `updateInitialConfig` bundle those two were split *out* of for
+    #: the demo's sake. Their reason for splitting was letting a demo
+    #: visitor reach a harmless field despite the bundle's own wholesale
+    #: refusal; this field needs the opposite — turning stored clips on
+    #: means a caller-supplied file lands on disk on every future upload —
+    #: so staying inside the bundle that is already wholesale refused on
+    #: the demo is what keeps it refused, with no new entry needed in
+    #: `demo_policy.REFUSED_MUTATIONS`.
+    keep_replays: bool | None = None
+    #: Last-N-heats bound; `None` on this input means leave alone, the same
+    #: absent-means-leave-alone shape as everywhere else on this input — so
+    #: getting back to *unbounded* needs the explicit `clearReplayRetention
+    #: Heats` flag below, following `clearWeightLimit` (#205) and
+    #: `clearTerminology` (#496).
+    replay_retention_heats: int | None = None
+    replay_retention_mb: int | None = None
+    clear_replay_retention_heats: bool = False
+    clear_replay_retention_mb: bool = False
 
 
 @strawberry.input
@@ -3053,6 +3127,21 @@ def _replay_clip(clip: domain_replays.ReplayClip) -> ReplayClip:
     )
 
 
+def _stored_replay_clip(row: "models.HeatReplay") -> ReplayClip:
+    """A persisted `HeatReplay` row (#177 stage 2), in the same shape the
+    live subscription's `_replay_clip` above already produces — one type on
+    the wire either way, since `Heat.replays` and `heatReplay` answer the
+    same question ("what can play for this heat") from two different
+    stores.
+    """
+    return ReplayClip(
+        camera_id=row.camera_id,
+        url=f"/replay/{row.path}",
+        duration_ms=row.duration_ms,
+        t0_offset_ms=row.t0_offset_ms,
+    )
+
+
 def _current_heat_replay(race_id: int) -> HeatReplay | None:
     """The `HeatReplay` a race's `heatReplay` subscription should show right
     now, if any camera has uploaded a clip that has not since been purged.
@@ -3075,14 +3164,16 @@ async def _publish_heat_replay(race_id: int) -> None:
     await pubsub.publish(f"heat_replay:{race_id}", None)
 
 
-async def _purge_older_replays(race_id: int, keep_heat_id: int) -> None:
-    """Discard every other heat's clips for *race_id* (#177 stage 1a).
+async def _purge_older_replays(db: Session, race_id: int, keep_heat_id: int) -> None:
+    """Discard every other heat's clips for *race_id* (#177 stage 1a) —
+    unless stored retention (#177 stage 2) is on, in which case nothing is
+    deleted here at all.
 
     Called both when a heat's result is recorded (an *earlier* heat's clip is
     now stale — this heat's own clip has not been uploaded yet, so it is
     never what this call removes) and when the next heat is armed (the heat
     that just finished has had its turn). See
-    `services.replays.ReplayStore.discard_other_heats`.
+    `services.replays.discard_or_retain`.
 
     Publishes afterward, always — even when nothing was actually removed.
     A connected display's `heatReplay` subscription only re-reads the store
@@ -3092,7 +3183,7 @@ async def _purge_older_replays(race_id: int, keep_heat_id: int) -> None:
     including a `url` for a file that has just been deleted — until some
     unrelated clip upload for the same race happened to wake it.
     """
-    replays_service.store.discard_other_heats(race_id, keep_heat_id)
+    replays_service.discard_or_retain(db, race_id, keep_heat_id)
     await _publish_heat_replay(race_id)
 
 
@@ -3864,6 +3955,7 @@ class Query:
                 else "MATCH_APP",
                 **_terminology_status_kwargs(organization),
                 **_name_display_status_kwargs(organization),
+                **_replay_status_kwargs(organization),
             )
         # Reported on the unconfigured branch too. A demo seeds itself before
         # it serves, so this is only reachable if seeding failed — and a first
@@ -3877,6 +3969,7 @@ class Query:
             demo_refused_mutations=sorted(DEMO_REFUSED_MUTATIONS) if demo_on else [],
             **_terminology_status_kwargs(None),
             **_name_display_status_kwargs(None),
+            **_replay_status_kwargs(None),
         )
 
     @strawberry.field
@@ -4211,6 +4304,38 @@ def _apply_name_display(organization: Any, config: "InitialConfigInput") -> None
     """
     if config.name_display is not None:
         organization.name_display = config.name_display
+
+
+def _apply_replay_retention(organization: Any, config: "InitialConfigInput") -> None:
+    """Store the stored-replay-clips setting and its two bounds (#177 stage 2).
+
+    `keepReplays` follows `_apply_pins`' shape: absent means leave alone.
+    `replayRetentionHeats`/`replayRetentionMb` are each `int | None`, so an
+    absent value on the input already means "leave alone" — getting back to
+    *unbounded* needs the explicit `clearReplayRetentionHeats`/
+    `clearReplayRetentionMb` flags, the same trap `clearWeightLimit` (#205)
+    and `clearTerminology` (#496) already solved.
+
+    Never reached on the demo: `updateInitialConfig` is refused there
+    wholesale (it can also set both PINs and reconfigure tracks), which is
+    exactly the property this setting needs — turning stored clips on
+    writes a caller-supplied file to disk on every future upload, unlike
+    Debugging Mode and the two themes (#1079, #1080), so this was
+    deliberately *not* split into its own demo-reachable mutation. See
+    `InitialConfigInput.keep_replays`'s own docstring.
+    """
+    if config.keep_replays is not None:
+        organization.keep_replays = config.keep_replays
+
+    if config.clear_replay_retention_heats:
+        organization.replay_retention_heats = None
+    elif config.replay_retention_heats is not None:
+        organization.replay_retention_heats = config.replay_retention_heats
+
+    if config.clear_replay_retention_mb:
+        organization.replay_retention_mb = None
+    elif config.replay_retention_mb is not None:
+        organization.replay_retention_mb = config.replay_retention_mb
 
 
 _TERMINOLOGY_FIELDS = (
@@ -4716,6 +4841,11 @@ class Mutation:
     async def delete_race(self, info: Info, id: int) -> bool:
         """Delete a race."""
         db = info.context["db"]
+        # A stored clip's file (#177 stage 2) has to go before the heats
+        # naming it do — `ON DELETE CASCADE` removes the `HeatReplay` rows
+        # at the same moment, leaving nothing in the table to ask
+        # afterward, and SQLite cannot also delete a file for us.
+        replays_service.discard_clips_for_race(db, id)
         deleted = crud.delete_race(db, race_id=id)
         if deleted:
             # Removes every heat of both kinds, which can take the one just
@@ -6078,7 +6208,7 @@ class Mutation:
 
         # This heat is now the one that might get a replay clip; the heat
         # that just finished has had its turn (#177 stage 1a).
-        await _purge_older_replays(race.id, heat_id)
+        await _purge_older_replays(db, race.id, heat_id)
 
         await mgr.prepare_heat(
             heat_id=heat_id,
@@ -6180,7 +6310,7 @@ class Mutation:
             # This heat's own clip has not been uploaded yet — it arrives a
             # second or two after this returns — so it is never what this
             # call removes.
-            await _purge_older_replays(updated_heat.race_id, heat_id)
+            await _purge_older_replays(db, updated_heat.race_id, heat_id)
             await _publish_race_state(
                 updated_heat.race_id,
                 kind=RaceChangeKind.HEAT_RESULT,
@@ -6356,6 +6486,7 @@ class Mutation:
             printables_theme=organization.printables_theme,
             **_terminology_status_kwargs(organization),
             **_name_display_status_kwargs(organization),
+            **_replay_status_kwargs(organization),
         )
 
     @strawberry.mutation
@@ -6487,6 +6618,7 @@ class Mutation:
             _apply_pins(organization, config)
             _apply_terminology(organization, config)
             _apply_name_display(organization, config)
+            _apply_replay_retention(organization, config)
             db.commit()
 
         # Tracks are matched to database rows by id, not by list position
@@ -6638,6 +6770,7 @@ class Mutation:
             else "MATCH_APP",
             **_terminology_status_kwargs(organization),
             **_name_display_status_kwargs(organization),
+            **_replay_status_kwargs(organization),
         )
 
     @strawberry.mutation
@@ -6678,6 +6811,7 @@ class Mutation:
             printables_theme=organization.printables_theme,
             **_terminology_status_kwargs(organization),
             **_name_display_status_kwargs(organization),
+            **_replay_status_kwargs(organization),
         )
 
     @strawberry.mutation
@@ -6724,6 +6858,7 @@ class Mutation:
             printables_theme=organization.printables_theme,
             **_terminology_status_kwargs(organization),
             **_name_display_status_kwargs(organization),
+            **_replay_status_kwargs(organization),
         )
 
     @strawberry.mutation
@@ -7358,7 +7493,7 @@ class Mutation:
             ),
         )
         if updated:
-            await _purge_older_replays(updated.race_id, heat_id)
+            await _purge_older_replays(db, updated.race_id, heat_id)
             await _publish_race_state(updated.race_id)
         return updated
 

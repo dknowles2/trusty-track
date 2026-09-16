@@ -271,11 +271,28 @@ async def lifespan(_app: FastAPI):
     # process's memory (`services/replays.py`'s own docstring) — a clip from
     # before a restart has no index entry pointing at it and nothing left
     # that would ever clean it up otherwise, so the directory is emptied
-    # rather than merely forgotten.
+    # rather than merely forgotten. Stage 2 (#177): when `keep_replays` is
+    # on, every file the `heat_replays` table still names is exactly the
+    # file that should still be on disk, so the index is rebuilt from that
+    # table instead of discarded.
     try:
-        replays_service.store.sweep()
+        # Plain instantiate-then-`finally`, not `with SessionLocal() as
+        # session:` — the test suite substitutes a session factory that
+        # delegates by `__getattr__` (conftest's `timer_session_factory`),
+        # and `with` looks the dunders up on the type, so a context
+        # manager here is unusable from every test that reaches it
+        # (`.claude/rules/timers.md`'s own note on this trap).
+        session = SessionLocal()
+        try:
+            organization = session.query(models.Organization).first()
+            if organization is not None and organization.keep_replays:
+                replays_service.store.rebuild_from_db(session)
+            else:
+                replays_service.store.sweep()
+        finally:
+            session.close()
     except Exception as e:
-        logger.error("Could not sweep the replay clip directory: %s", e)
+        logger.error("Could not initialize the replay clip store: %s", e)
 
     logger.info("Initializing timer managers...")
     try:
@@ -932,6 +949,23 @@ async def restore_backup(
     # not these. Stage 1 keeps no clip across a restart already (see the
     # lifespan's own sweep); a restore replaces the running event exactly
     # the same way (#177 stage 1a).
+    #
+    # Stage 2 (#177): the archive never carries `replays/` (`ops.md`'s
+    # backup section, `services/backup.py` only ever reads `upload_dir` by
+    # name), but the *database* snapshot it does carry can hold
+    # `heat_replays` rows from whenever the backup was taken — rows whose
+    # files never survived the trip. Those rows are purged outright rather
+    # than left to be discovered as broken links the first time a Schedule
+    # tab asks for them; the clips they named are unrecoverable regardless.
+    # Plain instantiate-then-`finally`, not `with SessionLocal() as
+    # session:` — see the lifespan's own note on this a few dozen lines up;
+    # the same trap applies here.
+    session = SessionLocal()
+    try:
+        session.query(models.HeatReplay).delete()
+        session.commit()
+    finally:
+        session.close()
     replays_service.store.sweep()
 
     # Every race in the room just changed underneath whoever is looking at
@@ -1099,10 +1133,29 @@ async def upload_replay_clip(
         race_id=race_id,
         t0_offset_ms=t0_offset_ms,
         duration_ms=duration_ms,
+        size_bytes=len(raw_bytes),
     )
-    replays_service.store.add(
-        domain_replays.ReplayKey(heat_id=heat_id, recorded_at=recorded_at), clip
-    )
+    key = domain_replays.ReplayKey(heat_id=heat_id, recorded_at=recorded_at)
+    replays_service.store.add(key, clip)
+
+    # Stage 2 (#177): a clip only ever gets a `HeatReplay` row when the
+    # setting was on at the moment it landed — see that model's own
+    # docstring for why this single call site is what makes an empty
+    # `Heat.replays` and the setting being off the same fact told two ways.
+    # Retention is applied once per upload, immediately after, rather than
+    # only on the next heat transition (`_purge_older_replays`'s own door):
+    # a bound on the whole stored set is not a rule about which one heat is
+    # current.
+    organization = db.query(models.Organization).first()
+    if organization is not None and organization.keep_replays:
+        replays_service.record_stored_clip(db, key, clip)
+        replays_service.enforce_retention(
+            db,
+            race_id,
+            organization.replay_retention_heats,
+            organization.replay_retention_mb,
+        )
+
     # Best-effort, the same shape `record_clip` documents: a camera the
     # registry has since forgotten still gets its clip stored.
     displays_service.registry.record_clip(camera_id)
@@ -1125,6 +1178,23 @@ async def get_replay_clip(filename: str) -> FileResponse:
     seconds of it being served; a cached copy played back after that would
     be showing the wrong run.
 
+    **Resolved through the store's own index before anything touches the
+    filesystem (#177 stage 2).** Stage 1a's guard was `is_relative_to`
+    plus `is_file()` alone — a working containment check on its own, but
+    (per the review that shipped it) it would serve *any* file that
+    happened to sit in `DATA_DIR/replays/` and passed those two checks,
+    whether or not the store still considered it live. That was
+    unreachable in stage 1a because the upload handler's `store.add()` and
+    `discard_other_heats()`'s own file delete never had a chance to fall
+    out of step with the filesystem. Stage 2's longer retention is exactly
+    the "revisit this" case that review named: a name could otherwise
+    survive on disk (or in a stale in-memory index) after retention or a
+    restore has already forgotten it. `store.known_filename` is checked
+    first — an unknown name is refused with no `stat` call at all — and
+    `is_relative_to` stays as belt-and-braces underneath it.
+    `test_a_file_dropped_into_replays_by_hand_is_not_served` pins this
+    directly: a file placed on disk with no index entry is 404, not 200.
+
     **Registered before the SPA catch-all below, and it must stay that
     way.** `@app.get("/{full_path:path}")` matches any GET path once
     `frontend/dist` exists — the ordinary case for every real deployment
@@ -1137,6 +1207,9 @@ async def get_replay_clip(filename: str) -> FileResponse:
     unmounted test app, so this cannot pass by accident on a CI environment
     that happens to have no built frontend.
     """
+    if not replays_service.store.known_filename(filename):
+        raise HTTPException(status_code=404, detail="No such clip")
+
     directory = replays_service.store.directory.resolve()
     candidate = (directory / filename).resolve()
     if not candidate.is_relative_to(directory) or not candidate.is_file():
