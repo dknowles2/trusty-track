@@ -296,6 +296,57 @@ class TestWizardSeedsTheFinal:
             assert places == [1, 2]
         assert {award.source for award in seeded} == {f"ROUND:{final_id}"}
 
+    def test_each_group_with_also_seed_overall_award_adds_one_more_set(
+        self, db, client
+    ):
+        """#1076 stage 3's "also give one overall trophy" checkbox — the
+        one thing an `EACH_GROUP` final never seeded on its own (a district
+        derby's grand-final champion). Off by default (the test above);
+        this is what the round wizard's own checkbox sends when checked."""
+        race, group_ids, _racers = _race(db, championship_trophies=2)
+        rounds = _run_wizard(
+            client,
+            race.id,
+            [
+                {
+                    "name": "Grand Finals",
+                    "source": "EACH_GROUP",
+                    "numTopRacers": 2,
+                    "alsoSeedOverallAward": True,
+                }
+            ],
+        )
+        final_id = rounds[-1]["id"]
+
+        seeded = _speed_awards(db, race.id)
+        # One set per racing group, same as the plain EACH_GROUP case,
+        # *plus* one race-wide set (racing_group_id is None).
+        assert len(seeded) == 6
+        assert {award.racing_group_id for award in seeded} == {*group_ids, None}
+        overall = [award for award in seeded if award.racing_group_id is None]
+        assert sorted(award.place for award in overall) == [1, 2]
+        assert {award.source for award in seeded} == {f"ROUND:{final_id}"}
+
+    def test_also_seed_overall_award_is_ignored_off_each_group(self, db, client):
+        """Meaningless outside `EACH_GROUP` — an `ALL` final ignores it
+        rather than seeding a second, identical overall set."""
+        race, _groups, _racers = _race(db, championship_trophies=2)
+        _run_wizard(
+            client,
+            race.id,
+            [
+                {
+                    "name": "Finals",
+                    "source": "ALL",
+                    "numTopRacers": 2,
+                    "alsoSeedOverallAward": True,
+                }
+            ],
+        )
+        seeded = _speed_awards(db, race.id)
+        assert len(seeded) == 2
+        assert {award.racing_group_id for award in seeded} == {None}
+
     def test_place_never_exceeds_the_final_s_own_field(self, db, client):
         """`championship_trophies=3` but the final only asks for the top 2
         — the floor relationship in the other direction (`RoundConfigModal`

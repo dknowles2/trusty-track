@@ -306,6 +306,81 @@ describe('RoundWizard Component', () => {
         expect(mockOnCreated).toHaveBeenCalled();
     });
 
+    describe('a district round-plan prefill (#1076 stage 3)', () => {
+        const districtPrefill = {
+            generalType: 'EACH_GROUP' as const,
+            championshipSource: 'EACH_GROUP' as const,
+            numTopRacers: 2,
+            alsoSeedOverallAward: true,
+        };
+
+        it('opens on By Rank qualifying and an Each Rank grand final, floored to the trophy setting', async () => {
+            const user = userEvent.setup();
+            render(
+                <AlertProvider>
+                    <RoundWizard {...defaultProps} prefill={districtPrefill} />
+                </AlertProvider>,
+            );
+
+            // Step 1: "By Den" (the default word — no TerminologyProvider
+            // is in play here) is already checked, not "All Pack".
+            expect(screen.getByLabelText(/By Den/)).toBeChecked();
+            expect(screen.getByLabelText(/All Pack/)).not.toBeChecked();
+            await user.click(screen.getByText('Next'));
+
+            // Step 2: "Each Den" is already selected, and the "also give
+            // one overall trophy" checkbox defaults on.
+            expect(screen.getByDisplayValue('Each Den')).toBeInTheDocument();
+            expect(screen.getByLabelText(/Also give one overall trophy/)).toBeChecked();
+            await user.click(screen.getByText('Next'));
+
+            await user.click(screen.getByText('Generate schedule'));
+
+            expect(mockExecuteMutation).toHaveBeenCalledWith({
+                raceId: 1,
+                config: expect.objectContaining({
+                    generalRound: expect.objectContaining({ type: 'EACH_GROUP' }),
+                    championshipRounds: [
+                        expect.objectContaining({
+                            source: 'EACH_GROUP',
+                            // `defaultProps.championshipTrophies` is 3, above
+                            // the prefill's own N=2 default — the floor wins.
+                            numTopRacers: 3,
+                            alsoSeedOverallAward: true,
+                        }),
+                    ],
+                }),
+            });
+        });
+
+        it('keeps the prefilled N when it is already above the trophy setting', async () => {
+            const user = userEvent.setup();
+            render(
+                <AlertProvider>
+                    <RoundWizard {...defaultProps} championshipTrophies={1} prefill={districtPrefill} />
+                </AlertProvider>,
+            );
+
+            await user.click(screen.getByText('Next'));
+            await user.click(screen.getByText('Next'));
+            await user.click(screen.getByText('Generate schedule'));
+
+            expect(mockExecuteMutation).toHaveBeenCalledWith({
+                raceId: 1,
+                config: expect.objectContaining({
+                    championshipRounds: [expect.objectContaining({ numTopRacers: 2 })],
+                }),
+            });
+        });
+
+        it('every other race gets the ordinary hardcoded defaults — no prefill, no checkbox', async () => {
+            render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+            expect(screen.getByLabelText(/All Pack/)).toBeChecked();
+            expect(screen.queryByLabelText(/Also give one overall trophy/)).not.toBeInTheDocument();
+        });
+    });
+
     it('shows error alert on API failure', async () => {
         const user = userEvent.setup();
         mockExecuteMutation.mockResolvedValue({

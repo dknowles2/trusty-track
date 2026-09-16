@@ -37,6 +37,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { isDistrictWords } from '../../../context/organizationKinds';
 import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
 import { errorText } from '../../../utils/errors';
 import { heatsEstimate } from '../../../utils/duration';
@@ -697,7 +698,24 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   onPinRoundField,
   onUnpinRoundField,
 }) => {
-  const { group, groupLower, orgLower } = useTerminology();
+  const { group, groupLower, org, orgLower } = useTerminology();
+  // District derby round-plan default (#1076 stage 3): the round wizard is
+  // reachable only from the "No rounds yet" empty state below, so this is
+  // always a race's *first* visit here — the one moment a prefill can be
+  // offered with no existing schedule for it to disagree with. Derived from
+  // the race's own resolved words, never stored — the same technique
+  // `organizationKinds.categoryPresetsFor` already uses, since nothing
+  // records which setup-wizard scale answer produced them.
+  const districtPrefill = isDistrictWords({ organizationSingular: org, racingGroupSingular: group })
+    ? {
+        generalType: 'EACH_GROUP' as const,
+        championshipSource: 'EACH_GROUP' as const,
+        // #1076's own "N=2 default", floored to `championshipTrophies` by
+        // `RoundWizard` itself the same way its ordinary default already is.
+        numTopRacers: 2,
+        alsoSeedOverallAward: true,
+      }
+    : undefined;
   // Under 600px, each round's heats render as cards instead of a table
   // (#1139) — the table's Lane 3+/Actions columns run off a phone's width
   // with no scroll cue, and a lane cell's three-line wrap made a 12-heat
@@ -1086,6 +1104,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           laneCount={laneCount}
           championshipTrophies={championshipTrophies}
           minutesPerHeat={pace.minutesPerHeat}
+          prefill={districtPrefill}
           onCreated={async (handPickRoundId) => {
               await onRefetchHeats();
               // "I'll choose who races myself" (#711, #943) — the wizard now

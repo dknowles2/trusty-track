@@ -249,6 +249,11 @@ export interface RacerSeed {
      * exists. `screenshot-checkin.spec.ts` is the one caller that sets this
      * to `false`, to picture check-in still under way. */
     checkedIn?: boolean;
+    /** The racer's own home unit (#1076 stage 1) — absent for every
+     * existing caller, matching an ordinary pack derby where nobody sets
+     * one; `screenshot-district-derby.spec.ts` is the one caller that
+     * does. */
+    homeUnit?: string;
 }
 
 /** The first heat of `raceId` that nothing has recorded a time in. */
@@ -432,6 +437,7 @@ export async function seedRacers(
                     carNumber: racer.car,
                     carName: racer.carName,
                     carPassedInspection: racer.checkedIn ?? true,
+                    homeUnit: racer.homeUnit ?? null,
                     ...(await photosFor(page, index)),
                 },
             },

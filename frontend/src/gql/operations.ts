@@ -249,6 +249,7 @@ export type TrackInput = {
 
 export type WizardChampionshipRoundInput = {
   advancementFromBottom?: boolean;
+  alsoSeedOverallAward?: boolean;
   name?: string;
   numTopRacers?: number;
   runsPerLane?: number;

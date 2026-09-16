@@ -1374,6 +1374,13 @@ class WizardChampionshipRoundInput:
     #: case, every plan the round wizard itself builds by hand) means this
     #: entry has no previous round to remap.
     source_round_id: int | None = None
+    #: "Also give one overall trophy" (#1076 stage 3) — meaningful only
+    #: alongside ``source == "EACH_GROUP"``; ignored otherwise. Off by
+    #: default, so an ordinary `EACH_GROUP` final (a pack's own by-den
+    #: championship, not only a district's) seeds exactly the per-group set
+    #: it always has unless the operator opts in. See `domain.awards.
+    #: championship_award_seed`'s own `also_seed_overall` for what it adds.
+    also_seed_overall_award: bool = False
 
 
 @strawberry.input
@@ -5635,7 +5642,13 @@ class Mutation:
             # just built above, matching #862's "the last championship
             # round" convention rather than `ALL`.
             if config.championship_rounds:
-                crud.seed_championship_awards(db, created_rounds[-1])
+                crud.seed_championship_awards(
+                    db,
+                    created_rounds[-1],
+                    also_seed_overall_award=config.championship_rounds[
+                        -1
+                    ].also_seed_overall_award,
+                )
         except ValueError as e:
             # `create_rounds_from_plan` already rolls back anything it
             # created on its own failure, leaving `created_rounds` at its

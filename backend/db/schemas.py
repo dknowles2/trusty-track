@@ -413,6 +413,9 @@ class WizardChampionshipRoundCreate(BaseModel):
     runs_per_lane: int = 1
     advancement_from_bottom: bool = False
     source_round_id: int | None = None
+    #: "Also give one overall trophy" (#1076 stage 3) — see
+    #: `api.schema.WizardChampionshipRoundInput`'s own field.
+    also_seed_overall_award: bool = False
 
 
 class WizardConfigurationCreate(BaseModel):

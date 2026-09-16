@@ -290,3 +290,31 @@ export function categoryPresetsFor(words: {
     }
     return [];
 }
+
+/**
+ * Whether a resolved word pair is the district/council derby scale
+ * (#1076 stage 3) — the same "derive it, don't store it" technique
+ * `categoryPresetsFor` above already uses, since nothing records which
+ * scale answer a race's words came from.
+ *
+ * Read on a race's first visit to the Schedule tab (no rounds yet) to
+ * decide whether the round wizard opens pre-filled for by-rank qualifying
+ * and an each-rank grand final rather than its ordinary "everyone races
+ * together" defaults — see `RoundWizard`'s `prefill` prop. A race whose
+ * words happen to be "District"/"Rank" without ever having answered this
+ * scale question (typed by hand, or from a future kind that reuses the
+ * words) gets the identical, reasonable prefill; there is no separate flag
+ * to disagree with the words themselves.
+ */
+export function isDistrictWords(words: {
+    organizationSingular: string;
+    racingGroupSingular: string;
+}): boolean {
+    const cubScouts = ORGANIZATION_KINDS.find((k) => k.key === 'cubScouts');
+    const district = cubScouts?.scales?.find((s) => s.key === 'tournament');
+    if (!district) return false;
+    return (
+        words.organizationSingular === district.organizationSingular &&
+        words.racingGroupSingular === district.racingGroupSingular
+    );
+}
