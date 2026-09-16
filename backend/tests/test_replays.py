@@ -997,3 +997,190 @@ def test_a_restore_purges_every_heat_replay_row(client, db, race):
     db.commit()
 
     assert db.query(models.HeatReplay).count() == 0
+
+
+# --------------------------------------------------------------------------- #
+# Stage 2: every heat-deleting path discards the clip along with the heat     #
+#                                                                              #
+# A heat with results is refused by every one of these — so the only way a   #
+# heat holding a stored clip becomes deletable at all is a plain reset       #
+# (`crud.stamp_recorded` clearing `recorded_at` back to `None`, "Re-Run")    #
+# with no new result recorded: the heat then looks never-run to every one of #
+# these functions' refusal checks, while a `HeatReplay` row still names it.  #
+# Each test below reproduces exactly that sequence for one delete path.      #
+# --------------------------------------------------------------------------- #
+
+
+def _assert_clip_gone(client, db, heat_id, path_name):
+    path = replays_service.store.directory / path_name
+    assert (
+        db.query(models.HeatReplay).filter(models.HeatReplay.heat_id == heat_id).count()
+        == 0
+    )
+    assert not path.is_file()
+    assert not replays_service.store.known_filename(path_name)
+    response = client.get(f"/replay/{path_name}")
+    assert response.status_code == 404
+
+
+def test_reset_then_delete_heat_removes_the_orphaned_clip(client, db, race):
+    """The reviewer's own reproduction: a "Re-Run"/Reset Heat clears
+    `recorded_at` back to `None` without touching the `HeatReplay` row
+    already written for the earlier run, which is what makes the heat look
+    never-run and so deletable through the ordinary `deleteHeat` refusal
+    checks — `crud.delete_heat` must not leave the clip behind when that
+    happens."""
+    _, race_obj = race
+    _enable_keep_replays(db, race_obj)
+    heat = _heat(db, race_obj, recorded_at="2026-09-16T12:00:00+00:00")
+    _upload(client, race_id=race_obj.id, heat_id=heat.id, recorded_at=heat.recorded_at)
+    path_name = db.query(models.HeatReplay).one().path
+    assert (replays_service.store.directory / path_name).is_file()
+
+    # The reset: same shape `stamp_recorded` leaves a heat in once its lanes
+    # hold no result any more.
+    heat.recorded_at = None
+    db.commit()
+
+    assert crud.delete_heat(db, heat.id) is True
+    assert db.query(models.Heat).filter(models.Heat.id == heat.id).first() is None
+    _assert_clip_gone(client, db, heat.id, path_name)
+
+
+def test_reset_then_delete_round_removes_every_heats_orphaned_clip(client, db, race):
+    """`delete_round` removes its heats through the ORM's own
+    ``cascade="all, delete-orphan"`` on ``Round.heats`` rather than an
+    explicit per-heat ``db.delete`` — a different mechanism from
+    `delete_heat`'s, and the reason this path needed its own call to
+    `discard_rows_for_deleted_heats`, collecting every one of the round's
+    heat ids before any of them go."""
+    _, race_obj = race
+    _enable_keep_replays(db, race_obj)
+    round_obj = models.Round(
+        race_id=race_obj.id,
+        round_number=1,
+        name="Round 1",
+        scheduling_strategy="GENERAL",
+    )
+    db.add(round_obj)
+    db.flush()
+    heat = models.Heat(
+        race_id=race_obj.id,
+        round_id=round_obj.id,
+        heat_number=1,
+        recorded_at="2026-09-16T12:00:00+00:00",
+    )
+    db.add(heat)
+    db.commit()
+    db.refresh(heat)
+
+    _upload(client, race_id=race_obj.id, heat_id=heat.id, recorded_at=heat.recorded_at)
+    path_name = db.query(models.HeatReplay).one().path
+
+    heat.recorded_at = None
+    db.commit()
+
+    assert crud.delete_round(db, round_obj.id) is True
+    assert db.query(models.Heat).filter(models.Heat.id == heat.id).first() is None
+    _assert_clip_gone(client, db, heat.id, path_name)
+
+
+def test_reset_then_delete_free_race_heat_removes_the_orphaned_clip(client, db, race):
+    _, race_obj = race
+    _enable_keep_replays(db, race_obj)
+    heat = models.Heat(
+        race_id=race_obj.id,
+        kind=models.HeatKind.FREE,
+        heat_number=1,
+        recorded_at="2026-09-16T12:00:00+00:00",
+    )
+    db.add(heat)
+    db.commit()
+    db.refresh(heat)
+
+    _upload(client, race_id=race_obj.id, heat_id=heat.id, recorded_at=heat.recorded_at)
+    path_name = db.query(models.HeatReplay).one().path
+
+    heat.recorded_at = None
+    db.commit()
+
+    assert crud.delete_free_race_heat(db, heat.id) is True
+    assert db.query(models.Heat).filter(models.Heat.id == heat.id).first() is None
+    _assert_clip_gone(client, db, heat.id, path_name)
+
+
+def test_reset_then_delete_run_off_heat_removes_the_orphaned_clip(client, db, race):
+    _, race_obj = race
+    _enable_keep_replays(db, race_obj)
+    heat = models.Heat(
+        race_id=race_obj.id,
+        kind=models.HeatKind.RUN_OFF,
+        heat_number=1,
+        recorded_at="2026-09-16T12:00:00+00:00",
+    )
+    db.add(heat)
+    db.commit()
+    db.refresh(heat)
+
+    _upload(client, race_id=race_obj.id, heat_id=heat.id, recorded_at=heat.recorded_at)
+    path_name = db.query(models.HeatReplay).one().path
+
+    heat.recorded_at = None
+    db.commit()
+
+    assert crud.delete_run_off_heat(db, heat.id) is True
+    assert db.query(models.Heat).filter(models.Heat.id == heat.id).first() is None
+    _assert_clip_gone(client, db, heat.id, path_name)
+
+
+def test_regenerating_a_round_clears_a_reset_heats_orphaned_clip(client, db, race):
+    """`generate_heats_for_round`'s ``clear_existing`` branch deletes heats
+    through its own loop (``for h in existing_heats: db.delete(h)``), a
+    third mechanism distinct from both `delete_heat`'s single delete and
+    `delete_round`'s ORM cascade — an operator's ordinary **Regenerate**
+    reaches it, and a heat reset (never re-recorded) inside the round being
+    regenerated is exactly as orphanable here as through any dedicated
+    delete mutation."""
+    _, race_obj = race
+    _enable_keep_replays(db, race_obj)
+    for i in range(2):
+        crud.create_racer(
+            db,
+            schemas.RacerCreate(
+                first_name=f"R{i}",
+                last_name="Racer",
+                race_id=race_obj.id,
+                car_passed_inspection=True,
+            ),
+        )
+    round_obj = crud.create_round(db, race_id=race_obj.id, round_number=1)
+    heats = crud.generate_heats_for_round(db, round_obj.id)
+    heat = heats[0]
+    heat.recorded_at = "2026-09-16T12:00:00+00:00"
+    db.commit()
+
+    _upload(client, race_id=race_obj.id, heat_id=heat.id, recorded_at=heat.recorded_at)
+    path_name = db.query(models.HeatReplay).one().path
+    heat_id = heat.id
+
+    # The reset — no new result recorded on this heat before the round is
+    # regenerated (`may_rebuild` only permits this when nothing has raced).
+    heat.recorded_at = None
+    db.commit()
+
+    crud.generate_heats_for_round(db, round_obj.id, clear_existing=True)
+
+    # Not asserted: that no `Heat` row still holds `heat_id` — SQLite can
+    # hand a freshly-inserted row the same rowid a delete just freed
+    # (`_reset_heats_in_place`'s own docstring notes the identical trap), so
+    # a *new*, unrelated heat can legitimately reuse this id. What matters
+    # is that nothing named by the old clip survives.
+    _assert_clip_gone(client, db, heat_id, path_name)
+
+
+def test_discard_rows_for_deleted_heats_is_a_no_op_with_no_matching_rows(db):
+    """No heat ids, and heat ids naming no `HeatReplay` row, are both
+    ordinary no-ops — the common case for an install that has never turned
+    `keepReplays` on."""
+    replays_service.discard_rows_for_deleted_heats(db, [])
+    replays_service.discard_rows_for_deleted_heats(db, [999999])

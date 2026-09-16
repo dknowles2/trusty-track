@@ -59,6 +59,7 @@ __all__ = [
     "discard_or_retain",
     "record_stored_clip",
     "enforce_retention",
+    "discard_rows_for_deleted_heats",
     "discard_clips_for_race",
 ]
 
@@ -372,30 +373,77 @@ def enforce_retention(
     store.forget_heats(purge_ids)
 
 
-def discard_clips_for_race(db: Session, race_id: int) -> None:
-    """Delete every stored clip file for *race_id*, and forget them in the
-    live index.
+def discard_rows_for_deleted_heats(db: Session, heat_ids: Iterable[int]) -> None:
+    """Delete every stored clip file for the given heat ids, and forget them
+    in the live index.
 
-    Call this **before** `crud.delete_race` removes the race's heats — `ON
-    DELETE CASCADE` on `HeatReplay.heat_id` takes every row naming them at
-    the same moment the heats go, which is right for the database (#125:
-    deletion is the schema's job) but leaves nothing in the table left to
-    ask afterward, since SQLite cannot also delete a file for us. A no-op
-    when `keep_replays` was never turned on for this race's rows — there is
-    then nothing in the table to find.
+    Call this **before** the heat rows themselves are deleted — `ON DELETE
+    CASCADE` on `HeatReplay.heat_id` (#125: deletion is the schema's job)
+    removes every row naming a deleted heat at the same moment the heat
+    goes, which is right for the database but leaves nothing in the table
+    left to ask afterward, since SQLite cannot also delete a file for us.
+    Every heat-deleting path in `crud.py` — `delete_heat`, `delete_round`
+    (over `round_obj.heats`), `delete_free_race_heat`, `delete_run_off_heat`,
+    and `generate_heats_for_round`'s `clear_existing` branch — calls this
+    with the heat id(s) about to be removed, while they can still be
+    queried. A no-op for a heat with no rows, which is the ordinary case
+    when `keep_replays` has never been turned on. `_reset_heats_in_place`
+    does not call this: it rewrites a championship round's existing heat
+    rows rather than deleting them, so their ids survive and there is
+    nothing here for it to collect.
+
+    **The reset case is deliberately not a call site of this function.**
+    `crud.stamp_recorded` clearing `Heat.recorded_at` back to `None` (a
+    "Re-Run"/reset) leaves any `HeatReplay` row for that heat exactly as it
+    was — a clip stays keyed to the `recorded_at` it was captured under, and
+    a corrected result's earlier clip is history worth keeping alongside the
+    one that replaced it, the same "every run, not just the latest" rule
+    `enforce_retention` already follows. That is also what makes a reset
+    heat's stored clip reachable *at all* once the heat itself is deleted:
+    a reset heat looks unraced (`Heat.recorded_at is None`, no lane has
+    results) and so becomes deletable through the ordinary refusal checks —
+    it is this function, called from the delete path rather than the reset
+    one, that is what stops the now-orphaned clip from outliving the heat.
     """
+    heat_id_set = set(heat_ids)
+    if not heat_id_set:
+        return
     from backend.db import models  # local: avoid a module-level cycle
 
     rows = (
         db.query(models.HeatReplay.heat_id, models.HeatReplay.path)
-        .join(models.Heat, models.Heat.id == models.HeatReplay.heat_id)
-        .filter(models.Heat.race_id == race_id)
+        .filter(models.HeatReplay.heat_id.in_(heat_id_set))
         .all()
     )
     if not rows:
         return
-    heat_ids: set[int] = set()
+    touched_heat_ids: set[int] = set()
     for heat_id, path in rows:
         store._delete_file(path)
-        heat_ids.add(heat_id)
-    store.forget_heats(heat_ids)
+        touched_heat_ids.add(heat_id)
+    store.forget_heats(touched_heat_ids)
+
+
+def discard_clips_for_race(db: Session, race_id: int) -> None:
+    """Delete every stored clip file for *race_id*, and forget them in the
+    live index.
+
+    Call this **before** `crud.delete_race` removes the race's heats — see
+    `discard_rows_for_deleted_heats`, which this delegates to once the
+    race's own heat ids are known; kept as its own name and call site
+    because `delete_race` (unlike the four heat/round-scoped delete paths)
+    has no single heat id or round to collect ids from, only a race.
+    """
+    from backend.db import models  # local: avoid a module-level cycle
+
+    heat_ids = [
+        row[0]
+        for row in (
+            db.query(models.HeatReplay.heat_id)
+            .join(models.Heat, models.Heat.id == models.HeatReplay.heat_id)
+            .filter(models.Heat.race_id == race_id)
+            .distinct()
+            .all()
+        )
+    ]
+    discard_rows_for_deleted_heats(db, heat_ids)

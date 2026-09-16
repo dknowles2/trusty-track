@@ -174,7 +174,10 @@ choice for a short event on a machine with plenty of storage, and one worth
 thinking about on a Raspberry Pi's SD card for a long one. A re-run heat
 keeps *both* its clips (the corrected run and the one it replaced) for as
 long as that heat itself is inside whichever bound is set — a re-run is
-history worth keeping, not a heat that should cost two slots.
+history worth keeping, not a heat that should cost two slots. Deleting a
+heat or a round takes its stored clips with it, the same as the two
+retention limits above — nothing is left behind for a schedule change to
+serve back later.
 
 **Turning this on is not available on the public demo** — it means writing
 a file to disk on every upload, the same reason the demo has no cameras at

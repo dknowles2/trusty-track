@@ -1009,21 +1009,31 @@ class HeatReplay(Base):
 
     ``heat_id`` cascades (`ON DELETE CASCADE`), the same "deletion is the
     schema's job" rule `heat_lanes` follows (#125): a heat gone from the
-    schedule leaves no clip worth keeping, and `crud.delete_heat`/
-    `delete_round`/`delete_race` all remove heats without walking this table
-    themselves. The **file** on disk is not cleaned up by the database
-    constraint, since SQLite cannot touch the filesystem — see
-    `services.replays.discard_rows_for_deleted_heats`, called from the same
-    mutations that already call `_revalidate_timers` for the identical
-    reason (#48: a rule reaching only the obvious call sites reaches only
-    some of them).
+    schedule leaves no clip worth keeping. The **file** on disk is not
+    cleaned up by the database constraint, since SQLite cannot touch the
+    filesystem — every one of `crud.delete_heat`, `delete_round`,
+    `delete_free_race_heat`, `delete_run_off_heat`,
+    `generate_heats_for_round`'s `clear_existing` branch, and (indirectly,
+    via `services.replays.discard_clips_for_race`) `delete_race` calls
+    `services.replays.discard_rows_for_deleted_heats` with the heat id(s)
+    about to be removed *before* the row itself goes, so the file and the
+    live `ReplayStore` index are cleaned up too. Missing any one of those
+    call sites is exactly how a clip becomes an orphan `GET /replay/<name>`
+    would serve forever — see that function's own docstring for the reset
+    case this also has to cover: a "Re-Run" clears `Heat.recorded_at` to
+    `None` without touching this table, which makes the heat look never-run
+    and so deletable, even though a clip still names it.
 
     ``recorded_at`` is the same `ReplayKey.recorded_at` string stage 1a
     already keys a clip by — kept here too (rather than only `heat_id`) so a
     heat re-run while the setting is on can be told apart from the run it
     replaced: both rows survive retention's own heat-level bound (see that
     module's docstring), because a corrected result's own clip is still
-    worth keeping alongside the one it corrected, not in place of it.
+    worth keeping alongside the one it corrected, not in place of it. **A
+    plain reset (`stamp_recorded` clearing `recorded_at` to `None` with no
+    new result recorded) leaves an existing row alone too, for the same
+    reason** — the clip is not re-keyed or purged at reset time, only ever
+    at delete time, via the call sites above.
 
     ``size_bytes`` is the exact byte count read off the upload — needed
     because the MB retention bound sums real sizes, not an estimate, and
