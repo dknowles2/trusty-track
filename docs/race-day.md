@@ -35,19 +35,19 @@ _The Roster page at the start of race day. Every racer has a gold **Check In** b
 ### Checking In a Racer
 
 1. Find the racer in the list. Scroll, or use the search box above the roster — it matches on name, car number, and den.
-2. Click the **Check In** button at the end of their row to open the check-in form. The **Passed Inspection / Checked In** toggle starts **on** — clicking Check In already says what you intend, so the form defaults to matching it. Turn it off only if this particular car fails inspection; the button below relabels itself to **Save without checking in** the moment you do, so it never claims to check in a car it isn't.
-3. Optionally enter or update the **Car Name** if not already provided.
-4. Optionally enter the **Car Weight (oz)**. If the race has a weight limit set, the box turns red and says so when the car is over it.
+2. Click the **Check In** button at the end of their row to open the check-in form. It opens with the **Car Weight (oz)** field already focused — on a phone, the numeric keypad is what comes up, not the letter keyboard.
+3. Enter the car's weight. If the race has a weight limit set, the box turns red and says so when the car is over it.
 
     This is a warning, not a refusal — you can still check the car in. The inspector at the table decides what happens next; the app is only making the rule visible at the moment it matters. There is a small tolerance for the last decimal place, where desk scales disagree — see [the weight check](reference/race-settings.md#the-weight-check) for exactly how close is close enough.
-5. Optionally upload or capture a **Racer Photo** and/or **Car Photo** — each has an **Upload File** button and a **Camera** button.
-6. Click **Save Check-in**.
+4. Check the **Passed Inspection / Checked In** toggle. It starts **on** — clicking Check In already says what you intend, so the form defaults to matching it. Turn it off only if this particular car fails inspection; the button below relabels itself to **Save without checking in** the moment you do, so it never claims to check in a car it isn't.
+5. Click **Save Check-in**. On a phone or a tablet, the weight field, the toggle and this button are all on screen together with nothing to scroll past.
+6. If you also need to change the racer's name, car number or den, update the **Car Name**, or flag the car as "Racing, not ranked", open the **Details** section below the Save button. If you need to upload or capture a **Racer Photo** or **Car Photo**, open **Photos** the same way — each has an **Upload File** button and a **Camera** button. Both sections are already open on a tablet or a laptop and collapsed on a phone, where there usually isn't anything to change there.
 
 ![Check-In Modal — Inspection Toggled On](assets/screenshots/race-day/02-check-in-modal-inspected.png)
-_The check-in modal for a racer, opened from the roster's **Check In** button — "Passed Inspection / Checked In" is on by default._
+_The check-in modal for a racer, opened from the roster's **Check In** button — weight and "Passed Inspection / Checked In" come first, with **Details** and **Photos** below._
 
 ![Check-In Modal — With Photo](assets/screenshots/race-day/03-check-in-modal-with-photo.png)
-_A racer photo loaded in the check-in modal. Photos appear on the live audience display during the race. Once a photo is on file, a **⟳ Rotate / Recrop** button appears beneath it — see below._
+_A racer photo loaded in the check-in modal's **Photos** section. Photos appear on the live audience display during the race. Once a photo is on file, a **⟳ Rotate / Recrop** button appears beneath it — see below._
 
 ![Racer List After Check-In](assets/screenshots/race-day/04-racer-list-after-check-in.png)
 _After saving, that racer's button turns green and reads **Checked In / Edit**. Clicking it again reopens the same form._
