@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, within, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { ScheduleManagement, Heat } from './ScheduleManagement';
@@ -78,8 +79,8 @@ vi.mock('@dnd-kit/utilities', () => ({
 
 describe('ScheduleManagement', () => {
     const mockHeats: Heat[] = [
-        { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' },
-        { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, recordedAt: null, lanes: [], roundName: 'Round 1' }
+        { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' , replays: []},
+        { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, recordedAt: null, lanes: [], roundName: 'Round 1' , replays: []}
     ];
     const mockGetRacerName = vi.fn((id) => `Racer ${id}`);
     const mockOnAddRound = vi.fn();
@@ -246,9 +247,9 @@ describe('ScheduleManagement', () => {
 
     it('displays heats sorted by heat_number', () => {
         const unsortedHeats: Heat[] = [
-            { id: 3, roundNumber: 1, roundId: 1, heatNumber: 3, recordedAt: null, lanes: [], roundName: 'Round 1' },
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' },
-            { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, recordedAt: null, lanes: [], roundName: 'Round 1' },
+            { id: 3, roundNumber: 1, roundId: 1, heatNumber: 3, recordedAt: null, lanes: [], roundName: 'Round 1' , replays: []},
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' , replays: []},
+            { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, recordedAt: null, lanes: [], roundName: 'Round 1' , replays: []},
         ];
 
         render(
@@ -284,8 +285,8 @@ describe('ScheduleManagement', () => {
 
     it('groups heats by round correctly', () => {
         const multiRoundHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' },
-            { id: 3, roundNumber: 2, roundId: 2, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 2' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' , replays: []},
+            { id: 3, roundNumber: 2, roundId: 2, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 2' , replays: []},
         ];
 
         render(
@@ -374,7 +375,7 @@ describe('ScheduleManagement', () => {
 
     it('displays custom round name', () => {
         const namedRoundHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundName: 'Semi-Finals', roundId: 1, heatNumber: 1, recordedAt: null, lanes: [] },
+            { id: 1, roundNumber: 1, roundName: 'Semi-Finals', roundId: 1, heatNumber: 1, recordedAt: null, lanes: [] , replays: []},
         ];
 
         render(
@@ -418,7 +419,7 @@ describe('ScheduleManagement', () => {
         // fail if a name-keyed disable came back.
         const user = (await import('@testing-library/user-event')).default.setup();
         const finalHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Grand Finals' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Grand Finals' , replays: []},
         ];
         render(
             <MemoryRouter>
@@ -454,7 +455,7 @@ describe('ScheduleManagement', () => {
     it('calls onDeleteRound when delete button is clicked', async () => {
         const user = (await import('@testing-library/user-event')).default.setup();
         const roundHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' , replays: []},
         ];
 
         render(
@@ -490,7 +491,7 @@ describe('ScheduleManagement', () => {
 
     it('disables delete button if round has results', () => {
         const heatsWithResults: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [lane({ lane: 1, racerId: 1, time: 3.45 })], roundName: 'Round 1' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [lane({ lane: 1, racerId: 1, time: 3.45 })], roundName: 'Round 1' , replays: []},
         ];
 
         render(
@@ -525,8 +526,8 @@ describe('ScheduleManagement', () => {
 
   it('disables delete button for general round if championship round exists', () => {
     const multiRoundHeats: Heat[] = [
-      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'General' },
-      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Finals' },
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'General' , replays: []},
+      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Finals' , replays: []},
     ];
 
     render(
@@ -561,7 +562,7 @@ describe('ScheduleManagement', () => {
 
   it('disables run button when heat has placeholders', () => {
     const heatsWithPlaceholders: Heat[] = [
-      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [lane({ lane: 1, placeholderSlot: 1 })], roundName: 'Round 1' },
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [lane({ lane: 1, placeholderSlot: 1 })], roundName: 'Round 1' , replays: []},
     ];
 
     render(
@@ -604,6 +605,7 @@ describe('ScheduleManagement', () => {
         recordedAt: null,
         lanes: [lane({ lane: 1, placeholderSlot: 1 }), lane({ lane: 2, placeholderSlot: 2 })],
         roundName: 'Round 1',
+        replays: [],
       },
     ];
 
@@ -639,8 +641,8 @@ describe('ScheduleManagement', () => {
 
   it('disables run button for upcoming rounds', () => {
     const multiRoundHeats: Heat[] = [
-      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' },
-      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 2' },
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' , replays: []},
+      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 2' , replays: []},
     ];
 
     render(
@@ -687,8 +689,9 @@ describe('ScheduleManagement', () => {
         recordedAt: null,
         roundName: 'Round 1',
         lanes: [lane({ lane: 1, skipped: true }), lane({ lane: 2, skipped: true })],
+        replays: [],
       },
-      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 2' },
+      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 2' , replays: []},
     ];
 
     render(
@@ -729,8 +732,8 @@ describe('ScheduleManagement', () => {
     // heat must be runnable while this group's round is still open, or the
     // whole point of the master order (no idle track between dens) is lost.
     const multiRoundHeats: Heat[] = [
-      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 3, recordedAt: null, lanes: [], roundName: 'Lions' },
-      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 4, recordedAt: null, lanes: [], roundName: 'Tigers' },
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 3, recordedAt: null, lanes: [], roundName: 'Lions' , replays: []},
+      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 4, recordedAt: null, lanes: [], roundName: 'Tigers' , replays: []},
     ];
 
     render(
@@ -774,7 +777,7 @@ describe('ScheduleManagement', () => {
         <ScheduleManagement
           raceId={1}
           heats={[
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 3, recordedAt: null, lanes: [], roundName: 'Lions' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 3, recordedAt: null, lanes: [], roundName: 'Lions' , replays: []},
           ]}
           generating={false}
           activeHeatId={null}
@@ -815,6 +818,7 @@ describe('ScheduleManagement', () => {
                 recordedAt: null,
                 roundName: 'Finals',
                 lanes: [lane({ lane: 1, racerId: 1, time: 3.1, place: 1 })],
+                replays: [],
               },
             ]}
             generating={false}
@@ -846,7 +850,7 @@ describe('ScheduleManagement', () => {
           <ScheduleManagement
             raceId={1}
             heats={[
-              { id: 1, roundNumber: 2, roundId: 7, heatNumber: 1, recordedAt: null, roundName: 'Finals', lanes: [] },
+              { id: 1, roundNumber: 2, roundId: 7, heatNumber: 1, recordedAt: null, roundName: 'Finals', lanes: [] , replays: []},
             ]}
             generating={false}
             activeHeatId={null}
@@ -884,6 +888,7 @@ describe('ScheduleManagement', () => {
                 recordedAt: null,
                 roundName: 'Finals',
                 lanes: [lane({ lane: 1, racerId: 1, time: 3.1, place: 1 })],
+                replays: [],
               },
             ]}
             generating={false}
@@ -915,7 +920,7 @@ describe('ScheduleManagement', () => {
           <ScheduleManagement
             raceId={1}
             heats={[
-              { id: 1, roundNumber: 2, roundId: 7, heatNumber: 1, recordedAt: null, roundName: 'Finals', lanes: [] },
+              { id: 1, roundNumber: 2, roundId: 7, heatNumber: 1, recordedAt: null, roundName: 'Finals', lanes: [] , replays: []},
             ]}
             generating={false}
             activeHeatId={null}
@@ -1054,9 +1059,9 @@ describe('ScheduleManagement', () => {
 
   describe('reordering (drag end)', () => {
     const threeHeats: Heat[] = [
-      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' },
-      { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, recordedAt: null, lanes: [], roundName: 'Round 1' },
-      { id: 3, roundNumber: 1, roundId: 1, heatNumber: 3, recordedAt: null, lanes: [], roundName: 'Round 1' },
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Round 1' , replays: []},
+      { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, recordedAt: null, lanes: [], roundName: 'Round 1' , replays: []},
+      { id: 3, roundNumber: 1, roundId: 1, heatNumber: 3, recordedAt: null, lanes: [], roundName: 'Round 1' , replays: []},
     ];
 
     const renderThreeHeats = () =>
@@ -1139,9 +1144,9 @@ describe('ScheduleManagement', () => {
 
   describe('the master running order (#549 stage 4)', () => {
     const twoGroupHeats: Heat[] = [
-      { id: 1, roundNumber: 1, roundId: 10, heatNumber: 2, recordedAt: null, lanes: [], roundName: 'Lions' },
-      { id: 2, roundNumber: 2, roundId: 20, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Tigers' },
-      { id: 3, roundNumber: 1, roundId: 10, heatNumber: 3, recordedAt: null, lanes: [lane({ lane: 1, racerId: 1, time: 3.1 })], roundName: 'Lions' },
+      { id: 1, roundNumber: 1, roundId: 10, heatNumber: 2, recordedAt: null, lanes: [], roundName: 'Lions' , replays: []},
+      { id: 2, roundNumber: 2, roundId: 20, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Tigers' , replays: []},
+      { id: 3, roundNumber: 1, roundId: 10, heatNumber: 3, recordedAt: null, lanes: [lane({ lane: 1, racerId: 1, time: 3.1 })], roundName: 'Lions' , replays: []},
     ];
 
     it('shows nothing extra when the race has not opted in', () => {
@@ -1222,7 +1227,7 @@ describe('ScheduleManagement', () => {
           <AlertProvider>
             <ScheduleManagement
               raceId={1}
-              heats={[{ id: 1, roundNumber: 1, roundId: 10, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Finals' }]}
+              heats={[{ id: 1, roundNumber: 1, roundId: 10, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Finals' , replays: []}]}
               generating={false}
               activeHeatId={null}
               onAddRound={mockOnAddRound}
@@ -1332,7 +1337,7 @@ describe('ScheduleManagement', () => {
     // entry offers the toggle at all.
     const twoRoundHeats: Heat[] = [
       ...mockHeats,
-      { id: 3, roundNumber: 2, roundId: 2, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Elimination' },
+      { id: 3, roundNumber: 2, roundId: 2, heatNumber: 1, recordedAt: null, lanes: [], roundName: 'Elimination' , replays: []},
     ];
     const chart = {
       maxLosses: 2,
@@ -1784,6 +1789,34 @@ describe('heats render as cards under 600px (#1139)', () => {
 
     expect(screen.getByRole('table')).toBeInTheDocument();
     expect(screen.queryByTestId('schedule-heat-card-1')).not.toBeInTheDocument();
+  });
+
+  it('offers a ▶ on the table row only for a heat with a stored clip (#177 stage 2)', async () => {
+    const user = userEvent.setup();
+    resizeTo(1024);
+    const heatWithClip = heat({
+      ...fourLaneHeat,
+      replays: [{ cameraId: 'finish-line', url: '/replay/one.webm', durationMs: 4000, t0OffsetMs: 500 }],
+    });
+    renderNarrow([heatWithClip, pendingHeat]);
+
+    expect(screen.getByTestId(`heat-replay-btn-${heatWithClip.id}`)).toBeInTheDocument();
+    expect(screen.queryByTestId(`heat-replay-btn-${pendingHeat.id}`)).toBeNull();
+
+    await user.click(screen.getByTestId(`heat-replay-btn-${heatWithClip.id}`));
+
+    expect(screen.getByText(`Replay — Heat ${heatWithClip.heatNumber}`)).toBeInTheDocument();
+  });
+
+  it('offers the same ▶ on the phone card (#177 stage 2)', () => {
+    resizeTo(390);
+    const heatWithClip = heat({
+      ...fourLaneHeat,
+      replays: [{ cameraId: 'finish-line', url: '/replay/one.webm', durationMs: 4000, t0OffsetMs: 500 }],
+    });
+    renderNarrow([heatWithClip]);
+
+    expect(screen.getByTestId(`heat-replay-btn-${heatWithClip.id}`)).toBeInTheDocument();
   });
 
   it('the card carries a sortable drag handle wired to the same reorder logic as the row', () => {

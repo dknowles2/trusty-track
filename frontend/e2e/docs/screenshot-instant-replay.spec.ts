@@ -71,6 +71,33 @@ async function prepareAndRunFakeHeat(page: import('@playwright/test').Page, heat
     await runFakeHeat(page, heatId);
 }
 
+/**
+ * The organization name and every existing track, reshaped into
+ * `TrackInput`s — what `updateInitialConfig` needs sent back unchanged
+ * alongside `keepReplays` below. `InitialConfigInput.tracks` is not
+ * optional: an empty list is not "leave tracks alone", it is "delete every
+ * track", which on this shared backend would take out every other spec's
+ * own track along with it. `SystemSettings.tsx`'s own submit handler builds
+ * this identical shape from the same query.
+ */
+async function currentConfigInput(
+    page: import('@playwright/test').Page,
+): Promise<{ organizationName: string; tracks: unknown[] }> {
+    const data = await gql(
+        page,
+        `query IRDocsCurrentConfig {
+            initialConfig {
+                organizationName
+                tracks {
+                    id name laneCount lengthFeet timerType serialPort timerProfile
+                    remoteStartInstalled reverseLanes scaleRatio showScaleSpeed laneColors
+                }
+            }
+        }`,
+    );
+    return { organizationName: data.initialConfig.organizationName, tracks: data.initialConfig.tracks };
+}
+
 test('screenshot instant replay', async ({ page, browser }) => {
     fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -113,8 +140,10 @@ test('screenshot instant replay', async ({ page, browser }) => {
         const heats = (await readHeats(page, raceId))
             .filter((heat) => heat.roundId !== null)
             .sort((a, b) => a.id - b.id);
-        expect(heats.length).toBeGreaterThanOrEqual(3);
-        const [warmUp1, warmUp2, underTest] = heats;
+        // One more than stage 1b needed — the fourth is what stage 2's own
+        // "kept" clip runs on, below, once the setting is switched on.
+        expect(heats.length).toBeGreaterThanOrEqual(4);
+        const [warmUp1, warmUp2, underTest, storedHeat] = heats;
 
         // The camera, in its own browser context — a second device, exactly
         // as it is in a real gym.
@@ -209,9 +238,68 @@ test('screenshot instant replay', async ({ page, browser }) => {
             path: path.join(SCREENSHOT_DIR, '03-race-control-badge.png'),
         });
 
+        // Stage 2 (#177): the "Keep replay clips" setting, and the ▶ it
+        // puts on the Schedule tab. This is the one place in the docs
+        // screenshot suite that turns an install-wide setting on for real
+        // — every other spec in this parallel pool deliberately avoids
+        // that (`screenshot-settings.spec.ts`'s own header comment) — but
+        // stage 2's whole point is a *stored*, `Heat.replays`-backed clip,
+        // which only exists once `keepReplays` was genuinely on at upload
+        // time; the local-unsaved-state trick that captures the setting's
+        // *checkbox* in `screenshot-settings.spec.ts` cannot produce one.
+        // Reset in `finally` below, before any other cleanup, so no later
+        // spec in the pool finds it still on.
+        const configBase = await currentConfigInput(page);
+        await gql(
+            page,
+            `mutation IRDocsKeepReplaysOn($config: InitialConfigInput!) {
+                updateInitialConfig(config: $config) { keepReplays }
+            }`,
+            { config: { ...configBase, keepReplays: true } },
+        );
+
+        const storedClipUpload = cameraPage.waitForResponse(
+            (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+            { timeout: 30000 },
+        );
+        await prepareAndRunFakeHeat(page, storedHeat.id);
+        await storedClipUpload;
+
+        // 06: the ▶ that shows up on the Schedule tab once this heat's clip
+        // is a stored one, not merely a delete-after-next-heat one.
+        await page.goto(`/race/${raceId}/control/schedule`);
+        await page.waitForLoadState('networkidle');
+        const replayButton = page.getByTestId(`heat-replay-btn-${storedHeat.id}`);
+        await expect(replayButton).toBeVisible({ timeout: 15000 });
+        const storedHeatRow = page.locator('tr', { has: replayButton });
+        await screenshotLocator(storedHeatRow, {
+            path: path.join(SCREENSHOT_DIR, '06-schedule-replay-button.png'),
+        });
+
         await cameraContext.close();
         await displayContext.close();
     } finally {
+        // The setting is install-wide; every other spec in this parallel
+        // pool assumes it is off (the same reasoning
+        // `screenshot-settings.spec.ts` states for never saving it there).
+        await currentConfigInput(page)
+            .then((configBase) =>
+                gql(
+                    page,
+                    `mutation IRDocsKeepReplaysOff($config: InitialConfigInput!) {
+                        updateInitialConfig(config: $config) { keepReplays }
+                    }`,
+                    {
+                        config: {
+                            ...configBase,
+                            keepReplays: false,
+                            clearReplayRetentionHeats: true,
+                            clearReplayRetentionMb: true,
+                        },
+                    },
+                ),
+            )
+            .catch(() => {});
         await deleteTrack(page, trackId).catch(() => {});
     }
 });

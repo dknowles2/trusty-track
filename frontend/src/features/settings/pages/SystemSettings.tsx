@@ -60,6 +60,9 @@ const GET_INITIAL_CONFIG = `
       vehiclePlural
       vehicleArtworkKey
       nameDisplay
+      keepReplays
+      replayRetentionHeats
+      replayRetentionMb
       tracks {
         id
         name
@@ -142,6 +145,9 @@ const UPDATE_INITIAL_CONFIG = `
       vehiclePlural
       vehicleArtworkKey
       nameDisplay
+      keepReplays
+      replayRetentionHeats
+      replayRetentionMb
     }
   }
 `;
@@ -291,6 +297,20 @@ export default function SystemConfig() {
   // to send, unlike the terminology words.
   const [nameDisplay, setNameDisplay] = useState<string>('FULL');
 
+  // Stored replay clips (#177 stage 2) — off by default, same shape as
+  // `debugMode` above except this one travels inside `updateInitialConfig`
+  // rather than its own dedicated mutation: turning it on means a
+  // caller-supplied file lands on disk on every future upload, which is
+  // exactly the hazard that mutation's own wholesale demo refusal exists
+  // to block, unlike Debugging Mode or a colour picker.
+  const [keepReplays, setKeepReplays] = useState(false);
+  // Held as strings, like every other optional-number field on this page —
+  // an empty box is what "no bound" looks like while typing, and is sent
+  // back as the explicit `clearReplayRetentionHeats`/`clearReplayRetentionMb`
+  // flag on save (`weight_limit_oz`'s own `clearWeightLimit` shape).
+  const [replayRetentionHeats, setReplayRetentionHeats] = useState('');
+  const [replayRetentionMb, setReplayRetentionMb] = useState('');
+
   const [tracks, setTracks] = useState<TrackFields[]>([blankTrack('Main Track')]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -366,6 +386,13 @@ export default function SystemConfig() {
       setDisplayTheme((data.initialConfig.displayTheme || 'MATCH_APP') as SurfaceThemeSetting);
       setPrintablesTheme((data.initialConfig.printablesTheme || 'MATCH_APP') as SurfaceThemeSetting);
       setNameDisplay(data.initialConfig.nameDisplay || 'FULL');
+      setKeepReplays(!!data.initialConfig.keepReplays);
+      setReplayRetentionHeats(
+        data.initialConfig.replayRetentionHeats != null ? String(data.initialConfig.replayRetentionHeats) : '',
+      );
+      setReplayRetentionMb(
+        data.initialConfig.replayRetentionMb != null ? String(data.initialConfig.replayRetentionMb) : '',
+      );
       // Seeded from the *raw* override fields, not the resolved `terminology`
       // — seeding from the resolved words would show "Den" as this
       // install's own custom word and offer no way to tell it apart from
@@ -499,6 +526,20 @@ export default function SystemConfig() {
           // non-null "off" state, so it is always sent as an ordinary
           // explicit value, never omitted and never needing a clear flag.
           nameDisplay,
+          // Stored replay clips (#177 stage 2) — always sent as an ordinary
+          // explicit boolean, like `nameDisplay` above, since `keepReplays`
+          // has no bare-null ambiguity to resolve. The two bounds do: a
+          // blank box means "no bound", which on the wire is the explicit
+          // `clearReplayRetentionHeats`/`clearReplayRetentionMb` flag
+          // (`weight_limit_oz`'s own `clearWeightLimit` shape) rather than
+          // an omitted field, since omitted already means "leave alone".
+          keepReplays,
+          ...(replayRetentionHeats.trim() === ''
+            ? { clearReplayRetentionHeats: true }
+            : { replayRetentionHeats: Number(replayRetentionHeats) }),
+          ...(replayRetentionMb.trim() === ''
+            ? { clearReplayRetentionMb: true }
+            : { replayRetentionMb: Number(replayRetentionMb) }),
           // Unlike the themes, there is no non-null "off" value here — the
           // built-in Scouting words *are* the null state — so turning the
           // customization off has to be said explicitly (#496 stage 3),
@@ -734,6 +775,74 @@ export default function SystemConfig() {
         displaySetting={displayTheme}
         printablesSetting={printablesTheme}
       />
+
+      {/* Stored replay clips (#177 stage 2) — lives beside the Display
+          theme rather than in Advanced: it is an audience-facing setting
+          about what the wall display and the Schedule tab can show, the
+          same reasoning that puts the theme pickers here rather than
+          beside Debugging Mode. Off keeps stage 1a's exact
+          delete-after-next-heat behaviour byte-for-byte. */}
+      <div data-testid="replay-retention-fields" style={{ marginTop: '2rem' }}>
+        <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem' }}>Replays</p>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+          <input
+            type="checkbox"
+            id="keep_replays"
+            data-testid="keep_replays"
+            checked={keepReplays}
+            onChange={(e) => setKeepReplays(e.target.checked)}
+            style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+          />
+          <span style={{ fontWeight: 'bold', cursor: 'pointer' }}>Keep replay clips</span>
+        </label>
+        <FieldHelp id="keep-replays-help" forceOpen={!sectioned}>
+          Off (the default), a camera's clip is deleted the moment the next
+          heat starts — it only ever exists long enough to play once. On, a
+          clip is kept, and every heat with one gets a ▶ on the Schedule tab
+          and in Race Control's Previous Heats list to play it back later.
+          Stored clips are never included in a backup.
+        </FieldHelp>
+        {keepReplays && (
+          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+            <div>
+              <label htmlFor="replay_retention_heats" style={{ display: 'block', marginBottom: '0.25rem' }}>
+                Keep the last
+              </label>
+              <input
+                type="number"
+                id="replay_retention_heats"
+                min="0"
+                placeholder="no limit"
+                value={replayRetentionHeats}
+                onChange={(e) => setReplayRetentionHeats(e.target.value)}
+                style={{ width: '8rem', padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+              />
+              <FieldHelp id="replay-retention-heats-help" forceOpen={!sectioned}>
+                heats' clips. Leave blank to keep every heat's clips,
+                unbounded.
+              </FieldHelp>
+            </div>
+            <div>
+              <label htmlFor="replay_retention_mb" style={{ display: 'block', marginBottom: '0.25rem' }}>
+                Keep clips under
+              </label>
+              <input
+                type="number"
+                id="replay_retention_mb"
+                min="0"
+                placeholder="no limit"
+                value={replayRetentionMb}
+                onChange={(e) => setReplayRetentionMb(e.target.value)}
+                style={{ width: '8rem', padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+              />
+              <FieldHelp id="replay-retention-mb-help" forceOpen={!sectioned}>
+                MB total. Leave blank for no size limit.
+              </FieldHelp>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div style={{ marginTop: '2rem' }}>
         <SoundSettingsSection />
       </div>

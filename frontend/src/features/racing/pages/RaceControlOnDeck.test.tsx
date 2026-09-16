@@ -54,6 +54,7 @@ const ran = (id: number, heatNumber: number) => ({
   roundNumber: 1,
   heatNumber,
   lanes: [{ lane: 1, racerId: id, placeholderSlot: null, time: 3.5, place: 1, skipped: false }],
+  replays: [],
 });
 const notRun = (id: number, heatNumber: number) => ({
   id,
@@ -61,6 +62,7 @@ const notRun = (id: number, heatNumber: number) => ({
   roundNumber: 1,
   heatNumber,
   lanes: [{ lane: 1, racerId: id, placeholderSlot: null, time: null, place: null, skipped: false }],
+  replays: [],
 });
 
 function withHeats(heats: unknown[]) {

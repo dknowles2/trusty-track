@@ -16,6 +16,7 @@ import {
   mdiHandBackRightOutline,
   mdiUndo,
   mdiPin,
+  mdiPlayCircleOutline,
 } from '@mdi/js';
 import { Link } from 'react-router-dom';
 import {
@@ -52,6 +53,7 @@ import { advancingFromLabel } from '../roundSummaryText';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 import LaneBadge from '../../../components/ui/LaneBadge';
+import HeatReplayModal from '../../observation/components/HeatReplayModal';
 import { colorForLane } from '../../settings/laneColors';
 import type { RacerOption } from '../../management/components/RacerCombobox';
 
@@ -349,8 +351,42 @@ const HeatActions: React.FC<HeatActionsProps> = ({
   onDeleteHeat,
   deleteButtonClassName,
   runButtonStyle,
-}) => (
+}) => {
+  // Stored replay clips (#177 stage 2) — empty whenever the setting is off
+  // or nothing has been uploaded yet, either of which means no ▶ at all
+  // (`models.HeatReplay`'s own docstring is why an empty list already
+  // covers both cases with no separate read of the setting).
+  const [isReplayOpen, setIsReplayOpen] = useState(false);
+  const hasReplay = heat.replays.length > 0;
+
+  return (
   <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+    {hasReplay && (
+      <>
+        <button
+          onClick={() => setIsReplayOpen(true)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--scouting-blue)',
+            cursor: 'pointer',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          title="Play replay"
+          data-testid={`heat-replay-btn-${heat.id}`}
+        >
+          <Icon path={mdiPlayCircleOutline} size={0.9} />
+        </button>
+        <HeatReplayModal
+          isOpen={isReplayOpen}
+          onClose={() => setIsReplayOpen(false)}
+          heatLabel={`Heat ${heat.heatNumber}`}
+          clips={heat.replays}
+        />
+      </>
+    )}
     {!state.isCompleted && !isRunning && !raceLocked && isOperator && (
       <button
         onClick={() => onDeleteHeat(heat.id)}
@@ -379,7 +415,8 @@ const HeatActions: React.FC<HeatActionsProps> = ({
       {state.runLabel}
     </button>
   </div>
-);
+  );
+};
 
 const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   heat,

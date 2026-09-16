@@ -301,6 +301,29 @@ class Organization(Base):
     # screen should actually do — never read directly for display.
     name_display: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # Whether a stored replay clip (#177 stage 2) survives longer than
+    # delete-after-next-heat. Off by default: an install upgrading into this
+    # keeps stage 1's exact behaviour (`services/replays.py`'s own
+    # docstring) until an operator opts in, the same "off means unchanged"
+    # shape `keep_replays`'s neighbours (`debug_mode`, `weight_limit_oz`)
+    # already follow.
+    keep_replays: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
+    # Two independent, optional bounds applied once a clip is uploaded while
+    # `keep_replays` is on (`services/replays.py`'s `enforce_retention`):
+    # the last N *heats* with a clip (reruns of the same heat count once —
+    # see that module's docstring for why), and a total-size cap in
+    # megabytes across every clip this race — any race — currently holds.
+    # Null means unbounded at that one dimension; both null (the default
+    # once `keep_replays` is turned on) means genuinely unbounded, which is
+    # an operator's own choice to make and document, not a default this
+    # column pretends is safe on an SD card. Plain `Integer`, not a fixed
+    # enum of choices, the same reasoning `championship_trophies` already
+    # uses for an operator-typed count.
+    replay_retention_heats: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    replay_retention_mb: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     races: Mapped[list["Race"]] = relationship("Race", back_populates="organization")
 
 
@@ -970,6 +993,77 @@ def scheduled_or_run_off_heats(query):
     falling on whichever side this filter's own wording happened to omit.
     """
     return query.filter(Heat.kind != HeatKind.FREE)
+
+
+class HeatReplay(Base):
+    """One camera's clip for one heat, persisted (#177 stage 2 —
+    Organization.keep_replays).
+
+    Stage 1a's `ReplayStore` (`services/replays.py`) is an in-memory index
+    only; this table is what lets a clip survive the delete-after-next-heat
+    rule and a restart. A row exists **only when `keep_replays` was on at
+    the moment the clip was uploaded** — the upload handler never writes one
+    otherwise — so `Heat.replays` being empty and the setting being off are
+    the same fact told two ways, and a Schedule-tab ▶ needs no extra check
+    of the setting itself.
+
+    ``heat_id`` cascades (`ON DELETE CASCADE`), the same "deletion is the
+    schema's job" rule `heat_lanes` follows (#125): a heat gone from the
+    schedule leaves no clip worth keeping. The **file** on disk is not
+    cleaned up by the database constraint, since SQLite cannot touch the
+    filesystem — every one of `crud.delete_heat`, `delete_round`,
+    `delete_free_race_heat`, `delete_run_off_heat`,
+    `generate_heats_for_round`'s `clear_existing` branch, and (indirectly,
+    via `services.replays.discard_clips_for_race`) `delete_race` calls
+    `services.replays.discard_rows_for_deleted_heats` with the heat id(s)
+    about to be removed *before* the row itself goes, so the file and the
+    live `ReplayStore` index are cleaned up too. Missing any one of those
+    call sites is exactly how a clip becomes an orphan `GET /replay/<name>`
+    would serve forever — see that function's own docstring for the reset
+    case this also has to cover: a "Re-Run" clears `Heat.recorded_at` to
+    `None` without touching this table, which makes the heat look never-run
+    and so deletable, even though a clip still names it.
+
+    ``recorded_at`` is the same `ReplayKey.recorded_at` string stage 1a
+    already keys a clip by — kept here too (rather than only `heat_id`) so a
+    heat re-run while the setting is on can be told apart from the run it
+    replaced: both rows survive retention's own heat-level bound (see that
+    module's docstring), because a corrected result's own clip is still
+    worth keeping alongside the one it corrected, not in place of it. **A
+    plain reset (`stamp_recorded` clearing `recorded_at` to `None` with no
+    new result recorded) leaves an existing row alone too, for the same
+    reason** — the clip is not re-keyed or purged at reset time, only ever
+    at delete time, via the call sites above.
+
+    ``size_bytes`` is the exact byte count read off the upload — needed
+    because the MB retention bound sums real sizes, not an estimate, and
+    because rebuilding `ReplayStore`'s own index from this table at startup
+    (`ReplayStore.rebuild_from_db`) needs it to enforce that bound without
+    re-`stat`-ing every file on disk before the app can start.
+    """
+
+    __tablename__ = "heat_replays"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    heat_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("heats.id", ondelete="CASCADE"), index=True
+    )
+    camera_id: Mapped[str] = mapped_column(String)
+    # The exact string `Heat.recorded_at` held when the clip was captured —
+    # see the class docstring. Indexed alongside `heat_id` since retention
+    # and `Heat.replays` both filter/group by it.
+    recorded_at: Mapped[str] = mapped_column(String, index=True)
+    # Filename under `DATA_DIR/replays/` — a UUID, the same non-enumerable
+    # shape `ReplayClip.path` already uses; the access control is the name
+    # itself (`GET /replay/<name>`), not this row.
+    path: Mapped[str] = mapped_column(String)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    t0_offset_ms: Mapped[int] = mapped_column(Integer, default=0)
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    # ISO 8601 UTC, matching `Heat.recorded_at`'s own reasoning for being a
+    # string rather than a `DateTime` — sorts lexicographically the same as
+    # chronologically, with no timezone-aware/naive comparison trap.
+    created_at: Mapped[str] = mapped_column(String)
 
 
 class HeatLane(Base):

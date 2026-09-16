@@ -60,6 +60,17 @@ RACE_CONTROL_LANES_QUERY = RACE_CONTROL_QUERY.replace(
     "lanes { lane racerId placeholderSlot time place skipped } }",
 )
 
+# The same page asking for every heat's stored replay clips too (#177 stage
+# 2) — `Heat.replays` reads a table exactly like `Heat.lanes` does, so it is
+# the same obvious place for an N+1.
+RACE_CONTROL_REPLAYS_QUERY = RACE_CONTROL_QUERY.replace(
+    "heats { id heatNumber roundNumber roundId roundName\n"
+    "            lanes { lane racerId time place } }",
+    "heats { id heatNumber roundNumber roundId roundName "
+    "lanes { lane racerId time place } "
+    "replays { cameraId url durationMs t0OffsetMs } }",
+)
+
 # The same page also asking for the round plan (#1088). `roundPlan` derives
 # its answer from the same `_loaders(info).rounds_for_race` batch `rounds`
 # above already reads, so asking for it too must not cost an extra query.
@@ -213,6 +224,44 @@ def test_heat_lanes_cost_one_query_for_the_whole_race(client, populated_race):
     assert every_field.count <= fewer_fields.count + 1, (
         f"Selecting every lane field cost {every_field.count} queries against "
         f"{fewer_fields.count} for four of them; the per-race batch is not "
+        f"batching."
+    )
+
+
+def test_heat_replays_cost_one_query_for_the_whole_race(client, db, populated_race):
+    """`Heat.replays` (#177 stage 2) reads a table off the same batched-per-
+    race shape `Heat.lanes` already uses — asking for it alongside lanes
+    must not add more than one query for the whole page, whatever the heat
+    count."""
+    heats = list(populated_race.heats)
+    for heat in heats[:3]:
+        db.add(
+            models.HeatReplay(
+                heat_id=heat.id,
+                camera_id="cam-1",
+                recorded_at="2026-09-16T12:00:00+00:00",
+                path=f"clip-{heat.id}.webm",
+                duration_ms=4000,
+                t0_offset_ms=500,
+                size_bytes=1000,
+                created_at="2026-09-16T12:00:00+00:00",
+            )
+        )
+    db.commit()
+
+    with _QueryCounter() as without_replays:
+        _run(client, RACE_CONTROL_QUERY, populated_race.id)
+    with _QueryCounter() as with_replays:
+        body = _run(client, RACE_CONTROL_REPLAYS_QUERY, populated_race.id)
+
+    returned_heats = body["data"]["race"]["heats"]
+    assert sum(len(h["replays"]) for h in returned_heats) == 3, (
+        "3 heats seeded with one clip each; a cheap query that returns "
+        "nothing proves nothing"
+    )
+    assert with_replays.count <= without_replays.count + 1, (
+        f"Selecting `Heat.replays` cost {with_replays.count} queries against "
+        f"{without_replays.count} without it — the per-race batch is not "
         f"batching."
     )
 

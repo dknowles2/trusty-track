@@ -366,6 +366,35 @@ class TestDebugModeAndThemesAreAllowedOnTheDemo:
         assert db.get(models.Organization, group.id).operator_pin_hash is None
 
 
+class TestStoredReplaysStayRefused:
+    """`keepReplays` (#177 stage 2) rides inside `updateInitialConfig`'s own
+    bundle deliberately, unlike Debugging Mode and the two themes just above
+    — turning it on writes a caller-supplied file to disk on every future
+    upload, so it needs the whole-mutation refusal to keep covering it,
+    not a `setDebugMode`-style carve-out. No new `demo_policy` entry exists
+    for it; this is the regression test proving none is needed.
+    """
+
+    def test_keep_replays_cannot_be_turned_on(self, client, db, group, demo):  # noqa: ARG002
+        response = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                  updateInitialConfig(config: {
+                    organizationName: "Demo Pack", tracks: [], keepReplays: true
+                  }) { keepReplays }
+                }
+                """
+            },
+        )
+        body = response.json()
+        assert "errors" in body, body
+
+        db.expire_all()
+        assert db.get(models.Organization, group.id).keep_replays is False
+
+
 def _populate_mutation(race_id: int, count: int, *, photos: bool = False) -> str:
     return f"""
         mutation {{

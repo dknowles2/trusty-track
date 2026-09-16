@@ -1580,10 +1580,13 @@ class TimerManager:
                 # An earlier heat's replay clip is now stale (#177 stage
                 # 1a) — see `api.schema._purge_older_replays` for the fuller
                 # explanation; this is the timer's own result path, which
-                # never goes through that resolver. A connected display's
-                # `heatReplay` subscription only re-reads the store on a
-                # wake-up, so the purge is silent without this publish.
-                replays_service.store.discard_other_heats(race_id, heat_id)
+                # never goes through that resolver. `discard_or_retain`
+                # (#177 stage 2) is a no-op when stored retention is on for
+                # this install, the same choice that resolver makes. A
+                # connected display's `heatReplay` subscription only
+                # re-reads the store on a wake-up, so the purge (or lack of
+                # one) is silent without this publish.
+                replays_service.discard_or_retain(db, race_id, heat_id)
                 await pubsub.publish(f"heat_replay:{race_id}", None)
             except SQLAlchemyError as e:
                 # A locked SQLite file or an integrity error, most plausibly —

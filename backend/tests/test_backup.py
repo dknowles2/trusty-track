@@ -667,3 +667,104 @@ class TestOtherDevicesLearnOfARestore:
 
         assert response.status_code == 400
         assert publishes == []
+
+
+class TestRestorePurgesStoredReplays:
+    """`replays/` is never archived (`ops.md`'s backup section, unchanged by
+    #177 stage 2), but the *database* snapshot inside an archive can still
+    hold `heat_replays` rows from whenever it was taken — rows that would
+    name files that never made the trip. A restore deletes every one of
+    them outright, right beside the unconditional `ReplayStore.sweep()`
+    stage 1a already ran here. See `test_replays.py`'s own stage 2 section
+    for what a restore does to the in-memory store and index.
+    """
+
+    @pytest.fixture(autouse=True)
+    def isolated_data_dir(self, tmp_path: Path, monkeypatch, source_engine):
+        uploads = tmp_path / "endpoint-uploads"
+        uploads.mkdir()
+        monkeypatch.setattr("backend.api.main.UPLOAD_DIR", str(uploads))
+        monkeypatch.setattr("backend.api.main.DATA_DIR", str(tmp_path))
+        monkeypatch.setattr("backend.api.main.engine", source_engine)
+        monkeypatch.setattr(
+            "backend.api.main.database_path",
+            lambda: Path(source_engine.url.database),
+        )
+        monkeypatch.setattr("backend.api.main.init_db", lambda: None)
+        monkeypatch.setattr("backend.api.main.TIMER_MANAGERS", {})
+        # The suite's own autouse `timer_session_factory` (conftest.py)
+        # points `backend.api.main.SessionLocal` at the *ambient* test
+        # session for every test, process-wide — right for a manager
+        # writing mid-request, wrong here: this class's whole point is a
+        # real, file-backed database at `source_engine`'s own path, and the
+        # purge under test reads and writes through `SessionLocal()`
+        # directly (`api/main.py`'s restore handler, matching how the app's
+        # own lifespan and this same handler already use it elsewhere).
+        # Overriding it back to a real sessionmaker bound to `source_engine`
+        # is what lets this test observe the purge through the same
+        # `sqlite3.connect` read every other assertion in this class uses.
+        from sqlalchemy.orm import sessionmaker
+
+        monkeypatch.setattr(
+            "backend.api.main.SessionLocal", sessionmaker(bind=source_engine)
+        )
+
+    def test_the_row_is_gone_after_a_restore(
+        self, client, data_dir: Path, source_engine
+    ) -> None:
+        from sqlalchemy.orm import Session
+
+        with Session(source_engine) as session:
+            organization = session.query(models.Organization).first()
+            track = models.Track(name="Main", lane_count=2, timer_type="FAKE")
+            session.add(track)
+            session.flush()
+            race = models.Race(
+                name="Archived Derby",
+                organization_id=organization.id,
+                track_id=track.id,
+            )
+            session.add(race)
+            session.flush()
+            heat = models.Heat(
+                race_id=race.id, heat_number=1, recorded_at="2026-09-16T12:00:00+00:00"
+            )
+            session.add(heat)
+            session.flush()
+            session.add(
+                models.HeatReplay(
+                    heat_id=heat.id,
+                    camera_id="cam-1",
+                    recorded_at=heat.recorded_at,
+                    path="whatever.webm",
+                    duration_ms=1000,
+                    t0_offset_ms=0,
+                    size_bytes=10,
+                    created_at="2026-09-16T12:00:00+00:00",
+                )
+            )
+            session.commit()
+
+        archive_path = _make_archive(data_dir, source_engine)
+
+        response = client.post(
+            "/api/backup/restore",
+            files={
+                "file": ("backup.zip", archive_path.read_bytes(), "application/zip")
+            },
+        )
+        assert response.status_code == 200, response.text
+
+        connection = sqlite3.connect(data_dir / "trusty-track.db")
+        try:
+            # The row travelled with the database snapshot (proving this
+            # test actually exercises the purge, not merely a database
+            # that never had one)...
+            count = connection.execute("SELECT COUNT(*) FROM heat_replays").fetchone()[
+                0
+            ]
+        finally:
+            connection.close()
+
+        # ...and the restore handler removed it.
+        assert count == 0

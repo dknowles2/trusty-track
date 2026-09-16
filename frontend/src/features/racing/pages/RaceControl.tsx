@@ -16,6 +16,7 @@ import ReadinessStrip from '../components/ReadinessStrip';
 import { FreeRaceTab } from '../components/FreeRaceTab';
 import EditRaceButton from '../../management/components/EditRaceButton';
 import CameraBadges from '../../observation/components/CameraBadges';
+import HeatReplayModal from '../../observation/components/HeatReplayModal';
 import {
   GET_RACE_CONTROL_DATA,
   HEAT_SESSION_SUBSCRIPTION,
@@ -31,7 +32,7 @@ import {
   UNPIN_ROUND_FIELD_MUTATION,
 } from '../graphql/queries';
 import { Icon } from '@mdi/react';
-import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiChevronDown, mdiChevronRight, mdiDotsHorizontal, mdiPencil } from '@mdi/js';
+import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiChevronDown, mdiChevronRight, mdiDotsHorizontal, mdiPencil, mdiPlayCircleOutline } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane, EliminationChart } from '../types';
 import { hasRun, hasTime, hasTimes, byPlace, cleared, assignPlaces, formatLaneTime, shouldDerivePlaces, skippedHeats } from '../lanes';
 import { executionComparator, isUnfinished } from '../runningOrder';
@@ -72,6 +73,11 @@ export default function RaceControl() {
   // it), which is fine — there is nothing to remember once the row is
   // gone.
   const [expandedPreviousHeatIds, setExpandedPreviousHeatIds] = useState<Set<number>>(new Set());
+  // Which Previous Heats row's ▶ is open, if any (#177 stage 2) — at most
+  // one modal at a time, the same "one open editor" shape the roster and
+  // schedule already use, rather than per-row state nobody but the open
+  // row's own modal ever reads.
+  const [replayModalHeatId, setReplayModalHeatId] = useState<number | null>(null);
   const narrowViewport = useNarrowViewport();
   // #1148: under the same 768px width the bottom tab bar itself keys on
   // (`Navigation.tsx`'s own `MOBILE_BREAKPOINT`), the header's own "Race
@@ -1302,6 +1308,24 @@ export default function RaceControl() {
                             {(!collapsible || isExpanded) && (
                                 <span style={{ color: 'var(--text-subtle-color)', fontSize: '0.85rem' }}>{heat.roundName || `Round ${heat.roundNumber}`}</span>
                             )}
+                            {heat.replays.length > 0 && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setReplayModalHeatId(heat.id); }}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--scouting-blue)',
+                                        cursor: 'pointer',
+                                        padding: '4px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                    }}
+                                    title="Play replay"
+                                    data-testid={`heat-replay-btn-${heat.id}`}
+                                >
+                                    <Icon path={mdiPlayCircleOutline} size={0.8} />
+                                </button>
+                            )}
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleRunHeat(heat); }}
                                 style={{
@@ -1386,6 +1410,17 @@ export default function RaceControl() {
                 </div>
               </div>
             )}
+            {replayModalHeatId !== null && (() => {
+              const replayHeat = completedPreviousHeats.find((h: Heat) => h.id === replayModalHeatId);
+              return (
+                <HeatReplayModal
+                  isOpen
+                  onClose={() => setReplayModalHeatId(null)}
+                  heatLabel={`Heat ${replayHeat?.heatNumber ?? ''}`}
+                  clips={replayHeat?.replays ?? []}
+                />
+              );
+            })()}
           </>
         )
       ) : (

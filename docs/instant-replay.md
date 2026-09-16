@@ -144,6 +144,78 @@ across the room, and a future stage may add operator control over it.
 
 ---
 
+## Keeping Clips Longer
+
+By default a clip only exists long enough to play once, right after its
+heat: the moment the next heat starts, the old clip is gone. That is fine
+for watching the room, but it means nobody can go back and replay heat 12
+after the fact.
+
+**System Settings → Displays → Replays** has a **Keep replay clips**
+checkbox that changes this. Turned on, a clip is kept — and every heat with
+one gets a small **▶** you can click on the **Schedule** tab or in Race
+Control's **Previous Heats** list to play it back, any time during the
+event.
+
+![The Replays setting in System Settings, with the two retention limits](assets/screenshots/settings/10-replays-retention.png)
+_Keep replay clips, and the two ways to bound how many stick around._
+
+Two optional limits go with it, and either, both, or neither can be set:
+
+- **Keep the last _N_ heats' clips** — once more than N heats have a clip,
+  the oldest one's clip (and any camera's clip for it) is deleted to make
+  room. Leave blank for no limit on heat count.
+- **Keep clips under _N_ MB total** — once the stored clips for a race pass
+  this size, the oldest ones are deleted until the total is back under it.
+  Leave blank for no size limit.
+
+Leaving both blank keeps every clip for the whole event, unbounded — a real
+choice for a short event on a machine with plenty of storage, and one worth
+thinking about on a Raspberry Pi's SD card for a long one. A re-run heat
+keeps *both* its clips (the corrected run and the one it replaced) for as
+long as that heat itself is inside whichever bound is set — a re-run is
+history worth keeping, not a heat that should cost two slots. Deleting a
+heat or a round takes its stored clips with it, the same as the two
+retention limits above — nothing is left behind for a schedule change to
+serve back later.
+
+**Turning this on is not available on the public demo** — it means writing
+a file to disk on every upload, the same reason the demo has no cameras at
+all (see [Troubleshooting](#troubleshooting) above).
+
+### Replaying an Earlier Heat
+
+Once the setting is on and a heat has at least one clip, a **▶** appears
+next to it on the **Schedule** tab:
+
+![A ▶ button on a heat row on the Schedule tab](assets/screenshots/instant-replay/06-schedule-replay-button.png)
+_Click it to open that heat's clip — or, with more than one camera,
+choose which one first._
+
+Clicking it opens the same player a display uses, in a small window: muted,
+with a camera picker if more than one camera has a clip for that heat.
+Race Control's **Previous Heats** list offers the identical button for a
+heat that has just finished, without switching tabs.
+
+### A Note on Privacy
+
+A stored clip is served the same way a racer's photograph already is: a
+web address with a long, unguessable name and no other gate on it, on any
+screen in the room including one nobody has typed an operator PIN into
+(see [Roles and Permissions](reference/roles-and-permissions.md)). That is
+deliberate and unchanged from the moment-of-broadcast case above — a video
+of the finish line is a video of children too, the same reasoning behind
+shortening a racer's name on public screens (see
+[Race and track settings](reference/race-settings.md#names-on-public-screens)).
+Keeping a clip longer does not make it any more exposed than it already was
+in the seconds after it played; it just means the address stays live
+longer. Stored clips are never included in a backup — see
+[Backups](reference/backups.md#what-a-backup-does-not-contain) — so
+restoring one starts with no stored clips at all, whatever was kept
+before.
+
+---
+
 ## No Electronic Timer
 
 A track running with **No Timer** (results typed in by hand) has no

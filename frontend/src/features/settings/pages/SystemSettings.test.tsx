@@ -181,6 +181,13 @@ describe('SystemSettings', () => {
                 // sent as an ordinary explicit value the same way the themes
                 // above are.
                 nameDisplay: 'FULL',
+                // Stored replay clips (#177 stage 2) — off, and the
+                // retention boxes were never touched, so both bounds are
+                // "leave alone" said explicitly, the same shape as
+                // `clearTerminology` just below.
+                keepReplays: false,
+                clearReplayRetentionHeats: true,
+                clearReplayRetentionMb: true,
                 // The terminology checkbox was never touched, so this is
                 // "leave it null" said explicitly — the same shape as
                 // `clearWeightLimit` (#496 stage 3).

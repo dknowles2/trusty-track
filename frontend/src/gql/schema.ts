@@ -272,6 +272,7 @@ export type Heat = {
   lanes: Array<HeatLane>;
   raceId: Scalars['Int']['output'];
   recordedAt?: Maybe<Scalars['String']['output']>;
+  replays: Array<ReplayClip>;
   roundId: Scalars['Int']['output'];
   roundName?: Maybe<Scalars['String']['output']>;
   roundNumber: Scalars['Int']['output'];
@@ -369,7 +370,10 @@ export type HistoricalTrackRecordInput = {
 
 export type InitialConfigInput = {
   checkinPin?: InputMaybe<Scalars['String']['input']>;
+  clearReplayRetentionHeats?: Scalars['Boolean']['input'];
+  clearReplayRetentionMb?: Scalars['Boolean']['input'];
   clearTerminology?: Scalars['Boolean']['input'];
+  keepReplays?: InputMaybe<Scalars['Boolean']['input']>;
   nameDisplay?: InputMaybe<Scalars['String']['input']>;
   operatorPin?: InputMaybe<Scalars['String']['input']>;
   organizationName: Scalars['String']['input'];
@@ -377,6 +381,8 @@ export type InitialConfigInput = {
   organizationSingular?: InputMaybe<Scalars['String']['input']>;
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
   racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
+  replayRetentionHeats?: InputMaybe<Scalars['Int']['input']>;
+  replayRetentionMb?: InputMaybe<Scalars['Int']['input']>;
   tracks: Array<TrackInput>;
   vehicleArtworkKey?: InputMaybe<Scalars['String']['input']>;
   vehiclePlural?: InputMaybe<Scalars['String']['input']>;
@@ -392,6 +398,7 @@ export type InitialConfigStatus = {
   displayTheme: Scalars['String']['output'];
   initialized: Scalars['Boolean']['output'];
   isOperator: Scalars['Boolean']['output'];
+  keepReplays: Scalars['Boolean']['output'];
   nameDisplay?: Maybe<Scalars['String']['output']>;
   organizationName?: Maybe<Scalars['String']['output']>;
   organizationPlural?: Maybe<Scalars['String']['output']>;
@@ -400,6 +407,8 @@ export type InitialConfigStatus = {
   printablesTheme: Scalars['String']['output'];
   racingGroupPlural?: Maybe<Scalars['String']['output']>;
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
+  replayRetentionHeats?: Maybe<Scalars['Int']['output']>;
+  replayRetentionMb?: Maybe<Scalars['Int']['output']>;
   resolvedNameDisplay: Scalars['String']['output'];
   role: Role;
   terminology: Terminology;

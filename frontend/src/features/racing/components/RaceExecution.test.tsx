@@ -73,6 +73,7 @@ describe('RaceExecution', () => {
             lane({ lane: 1, racerId: 101, time: 3.5, place: 1 }),
             lane({ lane: 2, racerId: 102, time: 3.6, place: 2 }),
         ],
+        replays: [],
     };
 
     // Shaped to match what the GetRaceControlData query actually returns —
@@ -1375,6 +1376,7 @@ describe('RaceExecution', () => {
             roundName: "Finals",
             recordedAt: null,
             lanes: [lane({ lane: 1, placeholderSlot: 1 })],
+            replays: [],
         };
 
         render(

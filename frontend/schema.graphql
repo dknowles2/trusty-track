@@ -263,6 +263,7 @@ type Heat {
   heatNumber: Int!
   recordedAt: String
   lanes: [HeatLane!]!
+  replays: [ReplayClip!]!
   roundNumber: Int!
   roundName: String
   globalHeatNumber: Int!
@@ -373,6 +374,11 @@ input InitialConfigInput {
   vehicleArtworkKey: String = null
   clearTerminology: Boolean! = false
   nameDisplay: String = null
+  keepReplays: Boolean = null
+  replayRetentionHeats: Int = null
+  replayRetentionMb: Int = null
+  clearReplayRetentionHeats: Boolean! = false
+  clearReplayRetentionMb: Boolean! = false
 }
 
 type InitialConfigStatus {
@@ -400,6 +406,9 @@ type InitialConfigStatus {
   terminology: Terminology!
   nameDisplay: String
   resolvedNameDisplay: String!
+  keepReplays: Boolean!
+  replayRetentionHeats: Int
+  replayRetentionMb: Int
 }
 
 type Intermission {

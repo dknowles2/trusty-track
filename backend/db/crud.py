@@ -1960,6 +1960,19 @@ def delete_round(db: Session, round_id: int) -> bool:
             )
             if champ_rounds:
                 raise ValueError("Cannot delete round: championship rounds scheduled.")
+
+        # Before the heats go: a stored clip's file (#177 stage 2) has to be
+        # collected while its `HeatReplay` row can still be queried — `ON
+        # DELETE CASCADE` (via `Round.heats`' ORM cascade, then the schema's
+        # own FK) removes those rows at the same moment the heats do, and
+        # SQLite cannot also delete a file for us. See
+        # `services.replays.discard_rows_for_deleted_heats`.
+        from backend.services import replays as replays_service
+
+        replays_service.discard_rows_for_deleted_heats(
+            db, [h.id for h in round_obj.heats]
+        )
+
         db.delete(round_obj)
         db.commit()
         return True
@@ -2007,6 +2020,14 @@ def delete_heat(db: Session, heat_id: int) -> bool:
             round_obj and round_obj.race and round_obj.race.master_running_order
         )
         round_id = heat.round_id
+
+        # Before the heat goes: see `delete_round`'s identical call, just
+        # above, for why this has to happen here rather than being left to
+        # `ON DELETE CASCADE` alone.
+        from backend.services import replays as replays_service
+
+        replays_service.discard_rows_for_deleted_heats(db, [heat.id])
+
         db.delete(heat)
         db.flush()
 
@@ -2050,6 +2071,12 @@ def delete_free_race_heat(db: Session, heat_id: int) -> bool:
     if heat:
         if lanes.has_results(heat_lanes_of(db, heat)):
             raise ValueError("Cannot delete free race heat: it has results.")
+
+        # See `delete_round`'s identical call for why.
+        from backend.services import replays as replays_service
+
+        replays_service.discard_rows_for_deleted_heats(db, [heat.id])
+
         db.delete(heat)
         db.commit()
         return True
@@ -2502,7 +2529,17 @@ def generate_heats_for_round(
                 "Cannot regenerate round: some heats already have results."
             )
 
-        # Safe to delete
+        # Safe to delete. Before any of it goes: see `delete_round`'s
+        # identical call — a stale `HeatReplay` row (a heat reset to
+        # unrecorded, then regenerated away by this branch rather than an
+        # explicit delete mutation) is exactly as orphanable here as
+        # through any of the dedicated delete paths.
+        from backend.services import replays as replays_service
+
+        replays_service.discard_rows_for_deleted_heats(
+            db, [h.id for h in existing_heats]
+        )
+
         for h in existing_heats:
             db.delete(h)
         db.flush()  # Ensure deletions are reflected before new generation
@@ -4862,6 +4899,12 @@ def delete_run_off_heat(db: Session, heat_id: int) -> bool:
     if heat:
         if lanes.has_results(heat_lanes_of(db, heat)):
             raise ValueError("Cannot delete run-off heat: it has results.")
+
+        # See `delete_round`'s identical call for why.
+        from backend.services import replays as replays_service
+
+        replays_service.discard_rows_for_deleted_heats(db, [heat.id])
+
         db.delete(heat)
         db.commit()
         return True
