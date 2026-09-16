@@ -25,7 +25,7 @@ When you enter a heat, you will see the **Fake Timer Controls** panel docked bel
 
 ### Workflow
 
-1.  **Prepare the Heat**: Ensure racers are assigned to lanes. The status will show "Waiting for Timer...".
+1.  **Prepare the Heat**: Ensure racers are assigned to lanes. The heat's status line shows **Ready**, with the timer's own state (for example, **Timer: Staged**) as muted text beside it, and **Next Heat** stays disabled until this heat has a result.
 2.  **Start the Timer**: Click the **Start Timer** button (the one with the green arrow) on the control panel.
     *   The race status will change to **"Racing..."** and the elapsed time counter will start running.
     *   This stands in for the real start gate opening.

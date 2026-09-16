@@ -1959,6 +1959,29 @@ describe('RaceExecution', () => {
             expect(screen.getByTestId('auto-advance-toggle')).toBeInTheDocument();
         });
 
+        it('closes on Escape and returns focus to the ⚙ trigger', () => {
+            render(<RaceExecution {...defaultProps} onToggleAutoAdvance={vi.fn()} />);
+
+            openPreferences();
+            expect(screen.getByTestId('race-execution-preferences-popover')).toBeInTheDocument();
+
+            fireEvent.keyDown(document, { key: 'Escape' });
+
+            expect(screen.queryByTestId('race-execution-preferences-popover')).not.toBeInTheDocument();
+            expect(screen.getByTestId('race-execution-preferences-trigger')).toHaveFocus();
+        });
+
+        it('closes when the active heat changes, rather than carrying a stale preferences panel into the next one', () => {
+            const { rerender } = render(<RaceExecution {...defaultProps} onToggleAutoAdvance={vi.fn()} />);
+
+            openPreferences();
+            expect(screen.getByTestId('race-execution-preferences-popover')).toBeInTheDocument();
+
+            rerender(<RaceExecution {...defaultProps} onToggleAutoAdvance={vi.fn()} activeExecutionHeat={{ ...mockHeat, id: 2, heatNumber: 2 }} />);
+
+            expect(screen.queryByTestId('race-execution-preferences-popover')).not.toBeInTheDocument();
+        });
+
         it('Sound options still opens the same sound settings modal from inside the popover', () => {
             render(<RaceExecution {...defaultProps} />);
 

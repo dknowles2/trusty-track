@@ -442,9 +442,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     // The three per-device preferences (car/face photos, sound, auto-advance)
     // behind one ⚙ in the card header (#1157) — set once per event, not
     // something the eye needs to read every heat. Same outside-click-closes
-    // popover shape `IntermissionControl.tsx`'s compact mode already uses.
+    // popover shape `IntermissionControl.tsx`'s compact mode already uses,
+    // plus Escape-to-close and a return of focus to the trigger — a gap
+    // `IntermissionControl.tsx`'s own popover still has, not fixed here
+    // since that component sits outside this issue's scope.
     const [preferencesOpen, setPreferencesOpen] = useState(false);
     const preferencesRef = useRef<HTMLDivElement>(null);
+    const preferencesTriggerRef = useRef<HTMLButtonElement>(null);
     useEffect(() => {
         if (!preferencesOpen) return;
         const handleClickOutside = (event: MouseEvent) => {
@@ -452,9 +456,39 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 setPreferencesOpen(false);
             }
         };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.stopPropagation();
+            setPreferencesOpen(false);
+            preferencesTriggerRef.current?.focus();
+        };
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        // Capture phase: this popover's own Escape is a narrower, more
+        // local concern than the shortcuts effect's Escape (cancels an
+        // auto-advance countdown) — closing the popover shouldn't also
+        // cancel a countdown running underneath it, so this claims the key
+        // first and `stopPropagation` keeps it from reaching that handler.
+        document.addEventListener('keydown', handleKeyDown, true);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown, true);
+        };
     }, [preferencesOpen]);
+
+    // Heat-independent preferences shown in a heat-scoped card — nothing
+    // inside the popover goes stale by staying open, but carrying it open
+    // across Next Heat (or an auto-advance countdown reaching zero) reads
+    // as a leftover rather than a deliberate choice, so it closes with the
+    // heat it opened on. Adjusted during render, the same "converges in one
+    // pass" pattern `RaceControl.tsx` uses to pin `selectedHeatId` — a
+    // `useEffect` here would be a bare `setState` with nothing to
+    // synchronize against an external system, which is exactly what
+    // `react-hooks/set-state-in-effect` flags.
+    const preferencesHeatRef = useRef<number | null>(activeExecutionHeat?.id ?? null);
+    if (preferencesHeatRef.current !== (activeExecutionHeat?.id ?? null)) {
+        preferencesHeatRef.current = activeExecutionHeat?.id ?? null;
+        if (preferencesOpen) setPreferencesOpen(false);
+    }
 
     const narrowViewport = useNarrowViewport();
 
@@ -759,10 +793,12 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 `IntermissionControl.tsx`'s compact mode. */}
                             <div ref={preferencesRef} style={{ position: 'relative', flexShrink: 0 }}>
                                 <button
+                                    ref={preferencesTriggerRef}
                                     type="button"
                                     className="secondary-btn"
                                     data-testid="race-execution-preferences-trigger"
                                     aria-label="Preferences"
+                                    aria-haspopup="dialog"
                                     aria-expanded={preferencesOpen}
                                     onClick={() => setPreferencesOpen((o) => !o)}
                                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0, borderRadius: '8px' }}
@@ -771,6 +807,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 </button>
                                 {preferencesOpen && (
                                     <div
+                                        role="dialog"
+                                        aria-label="Preferences"
                                         data-testid="race-execution-preferences-popover"
                                         style={{
                                             position: 'absolute',
