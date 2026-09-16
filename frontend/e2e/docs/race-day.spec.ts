@@ -339,6 +339,18 @@ test('take screenshots', async ({ page }) => {
     // 07: step 1, the general rounds.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/07-round-wizard-step1.png') });
 
+    // 34: "How heats are built" (#1090, part D) — closed by default, so this
+    // opens the disclosure first. Numbered after the highest existing
+    // `race-day/` image rather than "07b" — new images are appended by
+    // number here, not slotted into the middle of an existing sequence (see
+    // `33-crop-photo-modal.png`, which sits between `03` and `04` in this
+    // same file for the identical reason).
+    await page.getByText('How heats are built').click();
+    await expect(page.getByLabel('Partial Perfect Chart')).toBeVisible();
+    await page.screenshot({
+        path: path.join(screenshotsDir, 'race-day/34-round-wizard-how-heats-are-built.png'),
+    });
+
     await page.getByRole('button', { name: 'Next' }).click();
 
     // 08: step 2, the championships.

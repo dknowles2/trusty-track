@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
-import { useMutation } from 'urql';
-import { CREATE_ROUND_WIZARD } from '../graphql/queries';
+import { useMutation, useQuery } from 'urql';
+import { CREATE_ROUND_WIZARD, SCHEDULING_ALGORITHMS } from '../graphql/queries';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { minutesEstimate } from '../../../utils/duration';
 import { expectedHeatCount } from '../growingRounds';
@@ -12,6 +12,7 @@ import { HowItsRacedFields, type RaceStyle } from './HowItsRacedFields';
 import { WhichCarsRaceFields } from './WhichCarsRaceFields';
 import { PickFieldByHandCheckbox } from './PickFieldByHandCheckbox';
 import { FormatFields } from './FormatFields';
+import { HowHeatsAreBuiltFields } from './HowHeatsAreBuiltFields';
 
 interface RoundWizardProps {
   isOpen: boolean;
@@ -53,6 +54,12 @@ interface GeneralConfig {
   raceStyle: RaceStyle;
   eliminationLosses: number;
   balancedPhases: number;
+  /** "How heats are built" (#1090, part D) — which registered algorithm
+   * schedules a GENERAL round. Meaningless for the other two styles, the
+   * same way `FormatFields`' `type` is — championship rounds always
+   * schedule with PPC, since `WizardChampionshipRoundInput` has no
+   * `algorithm` field of its own. */
+  algorithm: string;
 }
 
 interface ChampionshipConfig {
@@ -111,6 +118,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     raceStyle: 'GENERAL',
     eliminationLosses: 3,
     balancedPhases: Math.max(1, laneCount),
+    algorithm: 'PPC',
   });
   // Opening the wizard starts it over, which is what mounting already does —
   // the caller keys this on `isOpen`, so every open is a fresh component. The
@@ -140,17 +148,50 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   // GraphQL Mutation
   const [, createRoundWizardMutation] = useMutation(CREATE_ROUND_WIZARD);
 
-  /** Heats a GENERAL round of this many racers produces, per run.
+  // Every registered algorithm at this exact field/lane shape (#1090, part
+  // D) — feeds both `HowHeatsAreBuiltFields`' own choice and the step 3
+  // preview's heat count (`generalHeatsPerRun` below), so there is one
+  // fetch behind both rather than the disclosure and the preview
+  // potentially disagreeing about what Perfect-N's own heat count is.
+  const [{ data: schedulingAlgorithmsData }] = useQuery({
+    query: SCHEDULING_ALGORITHMS,
+    variables: { racerCount, laneCount },
+  });
+  const schedulingOptions = schedulingAlgorithmsData?.schedulingAlgorithms ?? [];
+
+  /** Heats *one run* of the general round's chosen algorithm produces for
+   * this many racers.
    *
-   * One heat per racer, not per lane-full of them — `generate_ppc` seeds lane 1
-   * with every racer, and that is what fixes the count. Dividing by the lane
-   * count is the arithmetic for a scheduler that packs racers into heats, which
-   * GENERAL deliberately is not: every racer runs in every lane, so a 19-racer
-   * round on a 3-lane track is 19 heats, not 7 (#140).
+   * PPC and ROTATION always produce one heat per racer, not per lane-full
+   * of them — `generate_ppc` seeds lane 1 with every racer, and that is
+   * what fixes the count. Dividing by the lane count is the arithmetic for
+   * a scheduler that packs racers into heats, which GENERAL deliberately is
+   * not: every racer runs in every lane, so a 19-racer round on a 3-lane
+   * track is 19 heats, not 7 (#140).
    *
-   * This preview is where an operator decides whether their evening fits, and
-   * it feeds the run-time estimate too, so being out by a factor of the lane
-   * count is out by a factor of the lane count on both numbers.
+   * Perfect-N is not that: a chart's own heat count is whatever Pope's
+   * directory lists for this shape, not derivable from the racer count
+   * alone (#1090 part C) — `heatCount` off `schedulingAlgorithms` is the
+   * honest source once it has loaded, and this falls back to `racers` (the
+   * PPC/ROTATION answer, and Perfect-N's own answer before the query
+   * lands) rather than guessing wrong in the meantime.
+   */
+  const generalHeatsPerRun = (racers: number) => {
+    const selected = schedulingOptions.find(
+      (option: { value: string; heatCount: number | null }) => option.value === generalConfig.algorithm
+    );
+    return selected?.heatCount ?? racers;
+  };
+
+  /** Heats a round of this many racers produces, per run — always exactly
+   * one heat per racer, which is every championship round's own case
+   * (`WizardChampionshipRoundInput` carries no `algorithm` of its own, so
+   * every championship round schedules with PPC) and the general round's
+   * case for every algorithm but Perfect-N (`generalHeatsPerRun` above).
+   *
+   * This preview is where an operator decides whether their evening fits,
+   * and it feeds the run-time estimate too, so being out by a factor of the
+   * lane count is out by a factor of the lane count on both numbers.
    *
    * Only GENERAL's heat count is exact. Balanced and elimination heats grow
    * from results as the round is raced (`reference/round-styles.md`'s
@@ -171,7 +212,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     // General Round
     const generalHeats =
       generalConfig.raceStyle === 'GENERAL'
-        ? heatsFor(racerCount, generalConfig.runsPerLane)
+        ? generalHeatsPerRun(racerCount) * generalConfig.runsPerLane
         : expectedHeatCount(
             {
               schedulingStrategy: generalConfig.raceStyle,
@@ -307,6 +348,11 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
           schedulingStrategy: generalConfig.raceStyle,
           eliminationLosses: isElimination ? generalConfig.eliminationLosses : undefined,
           balancedPhases: isBalanced ? generalConfig.balancedPhases : undefined,
+          // Meaningless for ELIMINATION/BALANCED, which build their own
+          // schedules and never read `Round.algorithm` — sent only
+          // alongside GENERAL, the same "nothing on screen can set it
+          // otherwise" belt-and-braces `type` above already follows.
+          algorithm: generalConfig.raceStyle === 'GENERAL' ? generalConfig.algorithm : undefined,
         },
         championshipRounds: championshipRounds.map((r) => ({
           name: r.name,
@@ -472,6 +518,16 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     />
                     <p style={{ fontSize: '0.75rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>How many times does each racer run in each lane? (Standard is 1)</p>
                   </div>
+
+                  {/* How heats are built (#1090, part D) — collapsed by
+                      default; most packs never open it. */}
+                  <HowHeatsAreBuiltFields
+                    algorithm={generalConfig.algorithm}
+                    onChooseAlgorithm={(algorithm) => setGeneralConfig({ ...generalConfig, algorithm })}
+                    options={schedulingOptions}
+                    labelStyle={labelStyle}
+                    mutedColor="var(--wizard-text-muted-color)"
+                  />
                 </>
               )}
             </div>

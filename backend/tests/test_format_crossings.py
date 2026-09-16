@@ -166,7 +166,7 @@ def _setup_race(
     ``racer_count``/``lane_count`` default to the module's own `RACER_COUNT`
     and `LANE_COUNT` (every cell of the 24-cell sweep uses the defaults);
     the PERFECT_N crossing below is the one caller that overrides both, to
-    land on a field size `perfect_n_tables.TABLES` actually covers — a
+    land on a field size `perfect_n_tables.CHARTS` actually covers — a
     Perfect-N chart, unlike PPC and ROTATION, does not degrade to serve an
     arbitrary field.
     """
@@ -582,11 +582,11 @@ def test_format_crossing(
 
 # PERFECT_N joins the algorithm axis on its own field size (#1090, part C):
 # the module's 24-cell sweep is fixed at RACER_COUNT=7 / LANE_COUNT=4, and
-# no Perfect-N chart exists for that shape (`perfect_n_tables.TABLES` has no
+# no Perfect-N chart exists for that shape (`perfect_n_tables.CHARTS` has no
 # `(4, 7)` entry — see that module's docstring for which shapes do). Rather
 # than change the field size every other cell in this file already relies
 # on, this crosses the same 8 GENERAL cells (championship shape × master
-# order) at 5 racers / 4 lanes, matching `TABLES[(4, 5)]`.
+# order) at 5 racers / 4 lanes, matching `CHARTS[(4, 5)]`.
 PERFECT_N_RACER_COUNT = 5
 PERFECT_N_LANE_COUNT = 4
 GENERAL_CELLS = [

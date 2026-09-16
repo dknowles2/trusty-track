@@ -408,6 +408,7 @@ describe('toWizardConfigurationInput', () => {
                 runsPerLane: 2,
                 eliminationLosses: null,
                 balancedPhases: null,
+                algorithm: null,
             },
             championshipRounds: [
                 {
@@ -420,6 +421,13 @@ describe('toWizardConfigurationInput', () => {
                 },
             ],
         });
+    });
+
+    it('carries a non-PPC algorithm along too (#1090, part D)', () => {
+        const plan = sourceRoundPlan({
+            generalRound: { type: 'ALL', schedulingStrategy: 'GENERAL', runsPerLane: 2, algorithm: 'ROTATION' },
+        });
+        expect(toWizardConfigurationInput(plan).generalRound.algorithm).toBe('ROTATION');
     });
 });
 
@@ -449,6 +457,40 @@ describe('roundPlanSummary', () => {
     it('names an Elimination or Balanced general round with no championship round', () => {
         const plan = sourceRoundPlan({
             generalRound: { type: 'ALL', schedulingStrategy: 'ELIMINATION', runsPerLane: 1 },
+            championshipRounds: [],
+        });
+        expect(roundPlanSummary(plan, 'Last Year')).toBe(
+            'Rounds: 1 qualifying (Elimination, 1 run per lane) — from *Last Year*',
+        );
+    });
+
+    // #1090, part D: a non-PPC scheduling algorithm is worth a parent's
+    // attention, so it is named — but only alongside GENERAL, and never
+    // when it is PPC, the default every plan copied before this field
+    // existed carries.
+    it('names a non-PPC algorithm alongside the runs-per-lane clause', () => {
+        const plan = sourceRoundPlan({
+            generalRound: { type: 'ALL', schedulingStrategy: 'GENERAL', runsPerLane: 2, algorithm: 'PERFECT_N' },
+        });
+        expect(roundPlanSummary(plan, 'Pack 12 Derby 2025')).toBe(
+            'Rounds: 1 qualifying (General, 2 runs per lane, Perfect-N) → Finals (top 3) — from *Pack 12 Derby 2025*',
+        );
+    });
+
+    it('says nothing extra for PPC, the default', () => {
+        const plan = sourceRoundPlan({
+            generalRound: { type: 'ALL', schedulingStrategy: 'GENERAL', runsPerLane: 1, algorithm: 'PPC' },
+        });
+        expect(roundPlanSummary(plan, 'Last Year')).toContain('(General, 1 run per lane)');
+    });
+
+    it('never names an algorithm for a non-GENERAL general round, even a non-default one', () => {
+        // Elimination/Balanced build their own schedules and never read
+        // `Round.algorithm` — a plan derived from one still carries
+        // whatever the column happens to hold, and the summary must not
+        // repeat it as though it meant something.
+        const plan = sourceRoundPlan({
+            generalRound: { type: 'ALL', schedulingStrategy: 'ELIMINATION', runsPerLane: 1, algorithm: 'ROTATION' },
             championshipRounds: [],
         });
         expect(roundPlanSummary(plan, 'Last Year')).toBe(

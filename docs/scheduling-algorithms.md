@@ -1,6 +1,16 @@
 # Race Scheduling Algorithm
 
-Trusty Track schedules a general round's heats with the **Partial Perfect Chart (PPC)** algorithm by default. Two more are also available — **Lane rotation**, and now the **Perfect-N chart** — and the round wizard does not offer a choice yet ([part D of #1090](https://github.com/dknowles2/trusty-track/issues/1090) is the wizard step; every one of these algorithms already produces the same shared guarantees — lane neutrality and equal run counts — just with a different opponent pattern.
+Trusty Track schedules a general round's heats with the **Partial Perfect Chart (PPC)** algorithm by default. Two more are also available — **Lane rotation** and **Perfect-N chart** — offered as a collapsed "How heats are built" choice in the round wizard and the Add Round dialog, beneath "How it's raced" ([#1090](https://github.com/dknowles2/trusty-track/issues/1090)). Every one of these algorithms produces the same shared guarantees — lane neutrality and equal run counts — just with a different opponent pattern, so the choice is about *who races whom*, not about fairness within a lane.
+
+## Which should I pick?
+
+| Algorithm | Guarantee | When a pack wants it | Field sizes |
+| --- | --- | --- | --- |
+| **Partial Perfect Chart** (default) | Every car runs every lane once; heats full; opponents vary as much as the field allows | The ordinary choice — scale-free, works for any field size, and is what every race ran before this choice existed | Any |
+| **Lane rotation** | Each car's next heat is its previous lane + 1; simplest to run from a printed sheet; opponents repeat | A pack that ran heats by hand before software, or wants a chart that reads off a printed sheet with no explanation needed | Any |
+| **Perfect-N chart** | Every car meets every other car the same number of times — the fairest chart there is, where one exists | A pack that wants the strongest opponent-fairness guarantee available, and whose field size and lane count happen to have a published chart | The ~41 shapes below — the wizard greys the option out, with the reason, everywhere else |
+
+Read on for what each one actually does; `docs/reference/round-styles.md` covers the three *formats* (General, Elimination, Balanced) this choice sits underneath — a general round's algorithm has no bearing on either of the other two, which build their own schedules.
 
 ## Partial Perfect Chart (PPC)
 
@@ -99,6 +109,12 @@ In a race with 5 racers and 4 lanes (chart `P5-4 (3)`, Pope's directory):
 ### A latecomer
 
 Adding one car to a Perfect-N chart already underway has no answer that keeps every pair meeting the chart's own constant number of times — there is no splice that preserves the guarantee, unlike PPC's per-newcomer appendix. `Round.algorithm`'s `absorbs_latecomer` is `False` for Perfect-N: admission regenerates the round if nothing has raced yet, or refuses (naming the round and why) once something has — the same rule Lane rotation already follows.
+
+---
+
+## The wizard's choice
+
+`schedulingAlgorithms(racerCount, laneCount)` is what the round wizard's (and the Add Round dialog's) "How heats are built" disclosure reads — one entry per registered algorithm, in the order above, each carrying its label, its one-line guarantee, whether *this* exact field/lane shape can use it (`unavailableReason`, null when it can), and how many heats one run produces for the shape when that isn't simply the racer count (`heatCount`, meaningful only for Perfect-N). The choice is collapsed by default and Partial Perfect Chart is preselected — most packs never need to open it.
 
 ---
 

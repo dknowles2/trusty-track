@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useQuery } from 'urql';
 import Modal from '../../../components/ui/Modal';
 import { Icon } from '@mdi/react';
 import { mdiInformation } from '@mdi/js';
@@ -7,6 +8,8 @@ import { HowItsRacedFields, type RaceStyle } from './HowItsRacedFields';
 import { WhichCarsRaceFields } from './WhichCarsRaceFields';
 import { PickFieldByHandCheckbox } from './PickFieldByHandCheckbox';
 import { FormatFields } from './FormatFields';
+import { HowHeatsAreBuiltFields } from './HowHeatsAreBuiltFields';
+import { SCHEDULING_ALGORITHMS } from '../graphql/queries';
 
 interface RoundConfigModalProps {
   isOpen: boolean;
@@ -22,6 +25,9 @@ interface RoundConfigModalProps {
     runsPerLane: number;
     generalType?: string;
     pickFieldByHand?: boolean;
+    /** "How heats are built" (#1090, part D) — meaningless outside GENERAL,
+     * the same as `generalType`; only ever sent alongside it. */
+    algorithm?: string;
   }) => Promise<void>;
   racerCount: number;
   totalRacerCount?: number;
@@ -65,6 +71,9 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   const [raceStyle, setRaceStyle] = useState<RaceStyle>('GENERAL');
   const [eliminationLosses, setEliminationLosses] = useState(3);
   const [balancedPhases, setBalancedPhases] = useState(Math.max(1, laneCount));
+  // "How heats are built" (#1090, part D) — meaningless outside GENERAL,
+  // same as `generalType` above.
+  const [algorithm, setAlgorithm] = useState('PPC');
   const [name, setName] = useState('');
   // Defaults to the elimination round's own survivors when that is the
   // only working answer for this race (#1054) — otherwise "Overall", as
@@ -80,6 +89,14 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   const [pickFieldByHand, setPickFieldByHand] = useState(false);
   const [runsPerLane, setRunsPerLane] = useState(1);
   const [loading, setLoading] = useState(false);
+
+  // Every registered algorithm at this exact field/lane shape (#1090, part
+  // D) — feeds the "How heats are built" disclosure below.
+  const [{ data: schedulingAlgorithmsData }] = useQuery({
+    query: SCHEDULING_ALGORITHMS,
+    variables: { racerCount, laneCount },
+  });
+  const schedulingOptions = schedulingAlgorithmsData?.schedulingAlgorithms ?? [];
 
   /** The modal stays mounted across a close/reopen (it is the parent that
    * toggles `isOpen`), so nothing above resets on its own. A general round
@@ -172,7 +189,8 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
         balancedPhases: isBalanced ? balancedPhases : undefined,
         runsPerLane,
         generalType: effectiveType === 'GENERAL' && !isElimination && !isBalanced ? generalType : undefined,
-        pickFieldByHand: effectiveType === 'CHAMPIONSHIP' ? pickFieldByHand : undefined
+        pickFieldByHand: effectiveType === 'CHAMPIONSHIP' ? pickFieldByHand : undefined,
+        algorithm: effectiveType === 'GENERAL' && !isElimination && !isBalanced ? algorithm : undefined
       });
       onClose();
     } catch (error) {
@@ -285,14 +303,27 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
               />
 
               {raceStyle !== 'GENERAL' ? null : (
-                <FormatFields
-                  type={generalType}
-                  onChooseType={setGeneralType}
-                  racingGroupCount={racingGroupCount}
-                  loading={loading}
-                  labelStyle={labelStyle}
-                  mutedColor="var(--text-muted-color)"
-                />
+                <>
+                  <FormatFields
+                    type={generalType}
+                    onChooseType={setGeneralType}
+                    racingGroupCount={racingGroupCount}
+                    loading={loading}
+                    labelStyle={labelStyle}
+                    mutedColor="var(--text-muted-color)"
+                  />
+
+                  {/* How heats are built (#1090, part D) — collapsed by
+                      default; most packs never open it. */}
+                  <HowHeatsAreBuiltFields
+                    algorithm={algorithm}
+                    onChooseAlgorithm={setAlgorithm}
+                    options={schedulingOptions}
+                    loading={loading}
+                    labelStyle={labelStyle}
+                    mutedColor="var(--text-muted-color)"
+                  />
+                </>
               )}
             </>
           ) : (

@@ -18,6 +18,11 @@ vi.mock('urql', async (importOriginal) => {
     return {
         ...actual,
         useMutation: vi.fn(() => [{ fetching: false }, vi.fn()]),
+        // `RoundConfigModal`/`RoundWizard` both query `schedulingAlgorithms`
+        // for "How heats are built" (#1090, part D) — nothing here exercises
+        // that choice, so an empty result is enough to avoid needing a real
+        // urql client/Provider.
+        useQuery: vi.fn(() => [{ data: undefined, fetching: false, error: undefined }, vi.fn()]),
     };
 });
 
@@ -353,8 +358,16 @@ describe('ScheduleManagement', () => {
             schedulingStrategy: 'GENERAL',
             advancementSource: undefined,
             advancementNumRacers: undefined,
+            advancementFromBottom: undefined,
+            eliminationLosses: undefined,
+            balancedPhases: undefined,
             runsPerLane: 1,
-            generalType: 'ALL'
+            generalType: 'ALL',
+            pickFieldByHand: undefined,
+            // "How heats are built" (#1090, part D) — PPC, the default, is
+            // sent explicitly rather than left absent, matching `generalType`'s
+            // own belt-and-braces rule right above it.
+            algorithm: 'PPC',
         });
     });
 
@@ -1425,6 +1438,7 @@ describe('ScheduleManagement', () => {
       advancementFromBottom: false,
       fieldPinned: false,
       schedulingStrategy: 'GENERAL',
+      algorithm: 'PPC',
       eliminationLosses: null,
       balancedPhases: null,
       racingGroupId: null,
@@ -1441,6 +1455,7 @@ describe('ScheduleManagement', () => {
       advancementFromBottom: false,
       fieldPinned: false,
       schedulingStrategy: 'GENERAL',
+      algorithm: 'PPC',
       eliminationLosses: null,
       balancedPhases: null,
       racingGroupId: null,

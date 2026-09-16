@@ -46,6 +46,7 @@ from backend.domain import terminology as domain_terminology
 from backend.domain import theme as domain_theme
 from backend.domain.scale_speed import DEFAULT_SCALE
 from backend.domain.scale_speed import scale_mph as domain_scale_mph
+from backend.domain.schedulers import SCHEDULERS
 from backend.services import displays as displays_service
 from backend.services import network, scoring
 from backend.services import records as records_service
@@ -736,6 +737,36 @@ class TimerModel:
     data_bits: int
     stop_bits: float
     parity: str
+
+
+@strawberry.type
+class SchedulingAlgorithmOption:
+    """One registered `GENERAL`-round scheduling algorithm, for the round
+    wizard's "How heats are built" choice (#1090, part D).
+
+    `value`/`label`/`absorbsLatecomer` mirror the registry entry directly;
+    `guarantee` is the one-line sentence the wizard shows beside each radio,
+    also from the registry so it cannot drift from `.claude/rules/
+    scheduling.md`'s own account of what each algorithm actually promises.
+    `unavailableReason` and `heatCount` are the two answers that genuinely
+    depend on *this* field/lane shape rather than being fixed per algorithm
+    — see `Query.schedulingAlgorithms`.
+    """
+
+    value: str
+    label: str
+    guarantee: str
+    #: Why this algorithm cannot schedule `racerCount`/`laneCount`, or null
+    #: when it can. Null for PPC and ROTATION at every shape
+    #: `Scheduler.available_for` is ever asked about; Perfect-N's is a real
+    #: refusal outside the ~41 shapes its directory covers.
+    unavailable_reason: str | None
+    absorbs_latecomer: bool
+    #: Heats *one run* produces at this exact shape, when not simply
+    #: `racerCount` — see `Scheduler.heat_count`'s own docstring. Null for
+    #: PPC/ROTATION (always one heat per racer) and for an unavailable
+    #: Perfect-N shape (nothing to count).
+    heat_count: int | None
 
 
 @strawberry.type
@@ -3631,6 +3662,34 @@ class Query:
                 parity=profile.parity,
             )
             for profile in ALL_PROFILES
+        ]
+
+    @strawberry.field
+    def scheduling_algorithms(
+        self, racer_count: int, lane_count: int
+    ) -> list[SchedulingAlgorithmOption]:
+        """Every registered `GENERAL`-round scheduling algorithm, for the
+        wizard's "How heats are built" choice (#1090, part D).
+
+        In registry order — `SCHEDULERS` is `{"PPC": ..., "ROTATION": ...,
+        "PERFECT_N": ...}`, a plain dict, so PPC (the default) is always
+        first without this resolver having to say so again.
+        `unavailableReason`/`heatCount` are both computed against the exact
+        `(racerCount, laneCount)` shape asked for — the wizard already has
+        both (the field it is about to schedule, and the track it is
+        scheduling onto), and re-asks whenever either changes, since only
+        Perfect-N's answer to either actually varies with the shape.
+        """
+        return [
+            SchedulingAlgorithmOption(
+                value=value,
+                label=scheduler.label,
+                guarantee=scheduler.guarantee,
+                unavailable_reason=scheduler.available_for(racer_count, lane_count),
+                absorbs_latecomer=scheduler.absorbs_latecomer,
+                heat_count=scheduler.heat_count(racer_count, lane_count),
+            )
+            for value, scheduler in SCHEDULERS.items()
         ]
 
     @strawberry.field

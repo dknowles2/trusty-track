@@ -379,6 +379,10 @@ export default function RaceControl() {
     runsPerLane?: number;
     generalType?: string;
     pickFieldByHand?: boolean;
+    /** "How heats are built" (#1090, part D) — meaningless outside GENERAL,
+     * the same as `generalType`; `RoundConfigModal` only ever sends it
+     * alongside that style. */
+    algorithm?: string;
   }) => {
     if (!id) return;
     setGenerating(true);
@@ -394,7 +398,8 @@ export default function RaceControl() {
           eliminationLosses: config.eliminationLosses ?? null,
           balancedPhases: config.balancedPhases ?? null,
           runsPerLane: config.runsPerLane || 1,
-          generalType: config.generalType || 'ALL'
+          generalType: config.generalType || 'ALL',
+          algorithm: config.algorithm
         }
       });
 

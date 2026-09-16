@@ -18,6 +18,9 @@ vi.mock('urql', async (importOriginal) => {
     return {
         ...actual,
         useMutation: vi.fn(() => [{ fetching: false }, vi.fn()]),
+        // Same reason as `ScheduleManagement.test.tsx`'s own mock: the "How
+        // heats are built" query needs no real client here.
+        useQuery: vi.fn(() => [{ data: undefined, fetching: false, error: undefined }, vi.fn()]),
     };
 });
 
