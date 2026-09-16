@@ -449,6 +449,14 @@ test('a heat re-run plays its corrected clip; the identical clip does not replay
 });
 
 test.describe.serial('stage 2: stored retention, install-wide, so these three run serially rather than racing each other over the shared keepReplays flag (#177)', () => {
+    // Confined to one worker (serial mode), with a real System Settings
+    // round trip between each of the three tests and two camera uploads
+    // apiece — comfortably inside the file's own 180s default alone, but
+    // this group also raises its own upload waits to 90s (from the file's
+    // usual 45s) for headroom under a busy CI runner, and three tests'
+    // worth of that has to fit under one ceiling.
+    test.describe.configure({ timeout: 300_000 });
+
     test('the Schedule tab offers a ▶ once Keep replay clips is on, playing a decodable clip, and it survives the next heat', async ({
         browser,
         page,
@@ -482,7 +490,7 @@ test.describe.serial('stage 2: stored retention, install-wide, so these three ru
 
             const warmUpload = camera.waitForResponse(
                 (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 45000 },
+                { timeout: 90000 },
             );
             await runHeatToStart(page, displayWarmUp.id);
             await finishHeat(page, displayWarmUp.id);
@@ -490,7 +498,7 @@ test.describe.serial('stage 2: stored retention, install-wide, so these three ru
 
             const uploadResponse = camera.waitForResponse(
                 (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 45000 },
+                { timeout: 90000 },
             );
             await runHeatToStart(page, underTest.id);
             await finishHeat(page, underTest.id);
@@ -547,7 +555,7 @@ test.describe.serial('stage 2: stored retention, install-wide, so these three ru
 
         const uploadResponse = camera.waitForResponse(
             (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-            { timeout: 45000 },
+            { timeout: 90000 },
         );
         await runHeatToStart(page, underTest.id);
         await finishHeat(page, underTest.id);
@@ -589,7 +597,7 @@ test.describe.serial('stage 2: stored retention, install-wide, so these three ru
 
             const firstUpload = camera.waitForResponse(
                 (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 45000 },
+                { timeout: 90000 },
             );
             await runHeatToStart(page, first.id);
             await finishHeat(page, first.id);
@@ -601,7 +609,7 @@ test.describe.serial('stage 2: stored retention, install-wide, so these three ru
 
             const secondUpload = camera.waitForResponse(
                 (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 45000 },
+                { timeout: 90000 },
             );
             await runHeatToStart(page, second.id);
             await finishHeat(page, second.id);
@@ -626,7 +634,7 @@ test.describe.serial('stage 2: stored retention, install-wide, so these three ru
             });
             const thirdUpload = camera2.waitForResponse(
                 (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 45000 },
+                { timeout: 90000 },
             );
             await runHeatToStart(page, third.id);
             await finishHeat(page, third.id);
