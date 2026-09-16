@@ -113,6 +113,13 @@ test('a camera uploads through FakeCamera, and a replays-on display plays the cl
     expect(response.status()).toBe(200);
     await expect(camera.getByTestId('camera-status-line')).toContainText('uploaded', { timeout: 15000 });
 
+    // Nothing further in this test needs the camera capturing — closing its
+    // context here rather than at the test's own end stops the real
+    // VideoEncoder pipeline from burning CPU on a shared CI runner for the
+    // ~60s the playback assertions below can take, freeing that headroom for
+    // whatever else this worker's shard is running alongside it.
+    await cameraContext.close();
+
     // The display, with replays on by default, plays the clip.
     const video = display.getByTestId('replay-video');
     await expect(video).toBeVisible({ timeout: 15000 });
@@ -166,6 +173,9 @@ test('a display with replays off never shows the clip', async ({ browser, page }
     );
     await finishHeat(page, underTest.id);
     await uploadResponse;
+    // Nothing further needs the camera capturing — see the first test's own
+    // comment on why this is closed as soon as it stops being needed.
+    await camera.context().close();
 
     // The clip exists (the camera uploaded it) — this display simply never
     // acts on it.
@@ -200,6 +210,9 @@ test('a reconnecting display does not replay a result from before it reloaded', 
     );
     await finishHeat(page, underTest.id);
     await uploadResponse;
+    // Nothing further needs the camera capturing — see the first test's own
+    // comment on why this is closed as soon as it stops being needed.
+    await camera.context().close();
 
     // Let the clip actually finish uploading and the server settle before
     // reloading — the reconnect has to land *after* the clip already exists,
@@ -288,6 +301,9 @@ test('a clip cut long after the ring has evicted its own opening keyframe still 
     await finishHeat(page, underTest.id);
     const response = await uploadResponse;
     expect(response.status()).toBe(200);
+    // Nothing further needs the camera capturing — see the first test's own
+    // comment on why this is closed as soon as it stops being needed.
+    await camera.context().close();
 
     // Not just "an upload happened" — an upload happens whether or not the
     // file is playable, which is exactly how the original bug shipped with
@@ -377,6 +393,9 @@ test('a heat re-run plays its corrected clip; the identical clip does not replay
     await runHeatToStart(page, underTest.id);
     await finishHeat(page, underTest.id);
     await secondUpload;
+    // Nothing further needs the camera capturing — see the first test's own
+    // comment on why this is closed as soon as it stops being needed.
+    await camera.context().close();
 
     // The corrected clip replays — proving the key is `{heatId,
     // recordedAt}` together, not `heatId` alone (which would have read
