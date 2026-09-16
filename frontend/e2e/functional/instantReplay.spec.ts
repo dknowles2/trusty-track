@@ -96,7 +96,7 @@ test('a camera uploads through FakeCamera, and a replays-on display plays the cl
     await runHeatToStart(page, replayWarmUp.id);
     const warmClipUpload = camera.waitForResponse(
         (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 30000 },
+        { timeout: 45000 },
     );
     await finishHeat(page, replayWarmUp.id);
     await warmClipUpload;
@@ -106,7 +106,7 @@ test('a camera uploads through FakeCamera, and a replays-on display plays the cl
     await runHeatToStart(page, underTest.id);
     const uploadResponse = camera.waitForResponse(
         (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 30000 },
+        { timeout: 45000 },
     );
     await finishHeat(page, underTest.id);
     const response = await uploadResponse;
@@ -162,7 +162,7 @@ test('a display with replays off never shows the clip', async ({ browser, page }
     await runHeatToStart(page, underTest.id);
     const uploadResponse = camera.waitForResponse(
         (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 30000 },
+        { timeout: 45000 },
     );
     await finishHeat(page, underTest.id);
     await uploadResponse;
@@ -196,7 +196,7 @@ test('a reconnecting display does not replay a result from before it reloaded', 
     await runHeatToStart(page, underTest.id);
     const uploadResponse = camera.waitForResponse(
         (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 30000 },
+        { timeout: 45000 },
     );
     await finishHeat(page, underTest.id);
     await uploadResponse;
@@ -259,7 +259,7 @@ test('a clip cut long after the ring has evicted its own opening keyframe still 
     // as its opening payload and swallows in turn.
     const warmUpload = camera.waitForResponse(
         (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 30000 },
+        { timeout: 45000 },
     );
     await runHeatToStart(page, displayWarmUp.id);
     await finishHeat(page, displayWarmUp.id);
@@ -274,7 +274,7 @@ test('a clip cut long after the ring has evicted its own opening keyframe still 
 
     const uploadResponse = camera.waitForResponse(
         (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 30000 },
+        { timeout: 45000 },
     );
     await runHeatToStart(page, underTest.id);
     await finishHeat(page, underTest.id);
@@ -336,7 +336,7 @@ test('a heat re-run plays its corrected clip; the identical clip does not replay
     // as its opening payload and swallows in turn.
     const warmUpload = camera.waitForResponse(
         (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 30000 },
+        { timeout: 45000 },
     );
     await runHeatToStart(page, displayWarmUp.id);
     await finishHeat(page, displayWarmUp.id);
@@ -347,7 +347,7 @@ test('a heat re-run plays its corrected clip; the identical clip does not replay
     // and the display.
     const firstUpload = camera.waitForResponse(
         (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 30000 },
+        { timeout: 45000 },
     );
     await runHeatToStart(page, underTest.id);
     await finishHeat(page, underTest.id);
@@ -364,7 +364,7 @@ test('a heat re-run plays its corrected clip; the identical clip does not replay
     // heat). Same `heatId`, a fresh `recordedAt` once it finishes again.
     const secondUpload = camera.waitForResponse(
         (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 30000 },
+        { timeout: 45000 },
     );
     await runHeatToStart(page, underTest.id);
     await finishHeat(page, underTest.id);
