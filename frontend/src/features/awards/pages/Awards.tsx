@@ -8,18 +8,20 @@
  * know the standings agree with the trophy you are about to hand over.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import {
   mdiArrowDown,
   mdiArrowUp,
+  mdiDotsHorizontal,
   mdiOpenInNew,
   mdiPencil,
   mdiTrashCan,
   mdiTrophyOutline,
 } from '@mdi/js';
+import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
 import Modal from '../../../components/ui/Modal';
 import StatusBanner from '../../../components/ui/StatusBanner';
 import { useAlert } from '../../../context/AlertContext';
@@ -113,6 +115,23 @@ export default function Awards() {
 
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<AwardRow | null>(null);
+  // #1148: under 768px the bottom tab bar already names this page, so the
+  // "Awards" heading is dropped, and Present/Print certificates — used far
+  // less often than Add an award — move into a small overflow so the row
+  // is one compact line rather than three buttons wrapping onto their own.
+  const mobileChrome = useNarrowViewport(768);
+  const [awardsMenuOpen, setAwardsMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!awardsMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (target.closest('.dropdown')) return;
+      setAwardsMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [awardsMenuOpen]);
 
   const race = result.data?.race;
   const awards: AwardRow[] = useMemo(() => race?.awards ?? [], [race]);
@@ -274,6 +293,51 @@ export default function Awards() {
     refetch({ requestPolicy: 'network-only' });
   };
 
+  // Present and Print certificates, shared by the desktop row below and the
+  // mobile overflow (#1148) — both disabled with the identical reason on a
+  // race with no awards yet, rather than offered to disappoint (#790).
+  const presentAction = awards.length > 0 ? (
+    <button
+      type="button"
+      className="secondary-btn"
+      onClick={() => {
+        setAwardsMenuOpen(false);
+        window.open(`/race/${id}/awards/present`, '_blank', 'noopener');
+      }}
+      style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+    >
+      Present
+      <Icon path={mdiOpenInNew} size={0.6} />
+    </button>
+  ) : (
+    <button
+      type="button"
+      className="secondary-btn"
+      disabled
+      title="Add an award first."
+    >
+      Present
+    </button>
+  );
+  const printCertificatesAction = awards.length > 0 ? (
+    <Link
+      to={`/race/${id}/print/certificates`}
+      className="secondary-btn"
+      onClick={() => setAwardsMenuOpen(false)}
+    >
+      Print certificates
+    </Link>
+  ) : (
+    <button
+      type="button"
+      className="secondary-btn"
+      disabled
+      title="Add an award first."
+    >
+      Print certificates
+    </button>
+  );
+
   return (
     <div className="container" style={{ padding: '2rem' }}>
       <div
@@ -283,75 +347,73 @@ export default function Awards() {
           gap: '15px',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '2rem',
+          marginBottom: mobileChrome ? '1rem' : '2rem',
           borderBottom: '1px solid var(--divider-color)',
           paddingBottom: '1rem',
         }}
       >
-        {/* The row held only its buttons once the mode toggle went, so it read
-            as an empty bar with a rule under it. */}
-        <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Awards</h1>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {/* Opens the ceremony in a new tab, the same way Launch Projector
-              Mode does — the docs already tell the operator to run the
-              ceremony on the projector machine, and the chrome-hiding route
-              had no way back from an operator's own tab except the browser's
-              Back button, which a kiosk or a full-screen tablet may not have
-              (#955). It is still an ordinary route underneath, so it is also
-              the address to point a projector at directly. Present opens a
-              ceremony with nothing in it and the certificates page already
-              refuses to print with nothing to print, so both are disabled
-              rather than offered on a race with no awards — the same rule
-              `displayView.viewOptionsFor` already applies to the ceremony as
-              a display view: an option that can only disappoint is worse
-              than one that is absent (#790). */}
-          {awards.length > 0 ? (
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() =>
-                window.open(`/race/${id}/awards/present`, '_blank', 'noopener')
-              }
-              style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-            >
-              Present
-              <Icon path={mdiOpenInNew} size={0.6} />
-            </button>
+        {/* #1148: under 768px the bottom tab bar already names this page
+            ("Awards"), so the heading is dropped, and Present/Print
+            certificates — reached for far less often than Add an award —
+            move into a small overflow so the row is one compact line
+            rather than three buttons, two of which wrapped their labels. */}
+        {!mobileChrome && <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Awards</h1>}
+        <div style={{ display: 'flex', gap: '0.5rem', marginLeft: mobileChrome ? 'auto' : undefined }}>
+          {mobileChrome ? (
+            <>
+              <div className="dropdown" style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setAwardsMenuOpen(o => !o)}
+                  aria-label="More award actions"
+                  aria-expanded={awardsMenuOpen}
+                  data-testid="awards-more-menu"
+                  style={{ display: 'flex', alignItems: 'center', padding: '6px 10px' }}
+                >
+                  <Icon path={mdiDotsHorizontal} size={0.8} />
+                </button>
+                {awardsMenuOpen && (
+                  <div className="dropdown-content" style={{ display: 'block' }}>
+                    {presentAction}
+                    {printCertificatesAction}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => setAdding(true)}
+                disabled={operatorDisabled}
+                title={operatorTitle}
+              >
+                Add an award
+              </button>
+            </>
           ) : (
-            <button
-              type="button"
-              className="secondary-btn"
-              disabled
-              title="Add an award first."
-            >
-              Present
-            </button>
+            <>
+              {/* Opens the ceremony in a new tab, the same way Launch Projector
+                  Mode does — the docs already tell the operator to run the
+                  ceremony on the projector machine, and the chrome-hiding route
+                  had no way back from an operator's own tab except the browser's
+                  Back button, which a kiosk or a full-screen tablet may not have
+                  (#955). It is still an ordinary route underneath, so it is also
+                  the address to point a projector at directly. */}
+              {presentAction}
+              {/* The certificate print page, next to the ceremony route it pairs
+                  with — one is for the room, the other for the wall afterward. */}
+              {printCertificatesAction}
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => setAdding(true)}
+                disabled={operatorDisabled}
+                title={operatorTitle}
+              >
+                Add an award
+              </button>
+            </>
           )}
-          {/* The certificate print page, next to the ceremony route it pairs
-              with — one is for the room, the other for the wall afterward. */}
-          {awards.length > 0 ? (
-            <Link to={`/race/${id}/print/certificates`} className="secondary-btn">
-              Print certificates
-            </Link>
-          ) : (
-            <button
-              type="button"
-              className="secondary-btn"
-              disabled
-              title="Add an award first."
-            >
-              Print certificates
-            </button>
-          )}
-          <button
-            type="button"
-            className="primary-btn"
-            onClick={() => setAdding(true)}
-            disabled={operatorDisabled}
-            title={operatorTitle}
-          >
-            Add an award
-          </button>
         </div>
       </div>
 

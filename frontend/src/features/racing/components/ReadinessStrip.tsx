@@ -34,6 +34,12 @@ interface Props {
     registeredCount: number;
     checkedInCount: number;
     heatCount: number;
+    /** #1148: on a phone, the one-line "Ready to race" summary is chrome
+     * ahead of the heat card the operator actually came here for, where
+     * the list form (something needs attention) is exactly the thing a
+     * phone still needs to show. Defaults to false, so every existing
+     * caller renders exactly as before. */
+    hideWhenReady?: boolean;
 }
 
 const APPEARANCE: Record<ReadinessLevel, { icon: string; colour: string }> = {
@@ -79,6 +85,7 @@ export default function ReadinessStrip({
     registeredCount,
     checkedInCount,
     heatCount,
+    hideWhenReady = false,
 }: Props) {
     const location = useLocation();
     const [timerResult] = useSubscription({
@@ -111,6 +118,8 @@ export default function ReadinessStrip({
     const level = overallLevel(items);
     const compact = isCompact(items);
     const { icon, colour } = APPEARANCE[level];
+
+    if (compact && hideWhenReady) return null;
 
     return (
         <div

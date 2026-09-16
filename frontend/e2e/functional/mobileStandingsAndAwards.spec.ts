@@ -287,6 +287,13 @@ test('an Awards row stacks its name, description, recipient and controls onto se
  * This is the phone-width case; 1280px and 820px were checked by hand
  * against the same markup and are not run here (nothing in this file's
  * existing tests exercises a non-phone width either).
+ *
+ * #1148 moved both buttons off the header row and into a small overflow
+ * (`awards-more-menu`) under 768px, alongside the row-of-three-buttons fix
+ * that issue made — reached for far less often than Add an award, which
+ * stays the one visible primary action. The bug this test pins is about the
+ * button markup itself, not where it lives, so the fix here is just to open
+ * that menu first.
  */
 test('the disabled Present and Print certificates buttons render as real buttons, not a label floating over a box, on a 390px phone (#953)', async ({
     page,
@@ -297,6 +304,7 @@ test('the disabled Present and Print certificates buttons render as real buttons
     await page.setViewportSize(PHONE_VIEWPORT);
     await page.goto(`/race/${raceId}/awards`);
     await page.waitForLoadState('networkidle');
+    await page.getByTestId('awards-more-menu').click();
 
     for (const name of ['Present', 'Print certificates']) {
         const button = page.getByRole('button', { name });
