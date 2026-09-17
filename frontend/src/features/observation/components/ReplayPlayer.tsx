@@ -248,6 +248,7 @@ export default function ReplayPlayer({
 
   return (
     <div
+      data-testid="replay-player-frame"
       style={{ display: 'inline-block' }}
       tabIndex={interactive ? 0 : undefined}
       onKeyDown={interactive ? handleKeyDown : undefined}

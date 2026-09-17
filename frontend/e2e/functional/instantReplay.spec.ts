@@ -1,7 +1,13 @@
 /**
- * Instant replay end to end (#177 stage 1b): a camera captures through
- * `FakeCamera` (`?fake=1`), uploads to `POST /replay/`, and a display with
- * `replays` on plays the clip back after its own results overlay.
+ * Instant replay end to end (#177 stage 1b, extended by stages 2, 3 and 4):
+ * a camera captures through `FakeCamera` (`?fake=1`), uploads to
+ * `POST /replay/`, and a display with `replays` on plays the clip back
+ * after its own results overlay. Stage 4 adds finish-frame markers, the
+ * slow-motion window and multi-camera ordering — its own tests are the
+ * standalone "results-flow overlay shows finish-frame markers" test below
+ * and the last two tests inside the `describe.serial` block, which need a
+ * *stored* clip (Keep replay clips on) to open the ▶ modal from the
+ * Schedule tab.
  *
  * Two browser contexts beside the operator's, the same reason
  * `displays.spec.ts` uses two: a camera and a display are different
@@ -169,6 +175,68 @@ test('a camera uploads through FakeCamera, and a replays-on display plays the cl
     await openObservation(laterDisplay, raceId, 'spec-display-late');
     await laterDisplay.waitForTimeout(2000);
     await expect(laterDisplay.getByTestId('replay-video')).toHaveCount(0);
+});
+
+test('the results-flow overlay shows finish-frame markers, and they are not clickable (#177 stage 4)', async ({
+    browser,
+    page,
+}) => {
+    await ensureConfigured(page);
+    const { raceId, trackId } = await seedRace(page, 'Instant Replay Overlay Markers Race');
+    await scheduleWithSpareHeats(page, raceId, 3);
+    const heats = await officialHeatsInOrder(page, raceId);
+    expect(heats.length).toBeGreaterThanOrEqual(3);
+    const [timingWarmUp, replayWarmUp, underTest] = heats;
+
+    const cameraContext = await browser.newContext();
+    const camera = await cameraContext.newPage();
+    await openCamera(camera, raceId, 'spec-camera-overlay-marks');
+    await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+    await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
+        timeout: 15000,
+    });
+
+    const display = await (await browser.newContext()).newPage();
+    await openObservation(display, raceId, 'spec-display-overlay-marks');
+
+    await runHeatToStart(page, timingWarmUp.id);
+    await finishHeat(page, timingWarmUp.id);
+    await camera.waitForTimeout(2000);
+
+    const warmClipUpload = camera.waitForResponse(
+        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+        { timeout: 45000 },
+    );
+    await runHeatToStart(page, replayWarmUp.id);
+    await finishHeat(page, replayWarmUp.id);
+    await warmClipUpload;
+    await display.waitForTimeout(2000);
+
+    const uploadResponse = camera.waitForResponse(
+        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+        { timeout: 45000 },
+    );
+    await runHeatToStart(page, underTest.id);
+    await finishHeat(page, underTest.id);
+    await uploadResponse;
+    await cameraContext.close();
+
+    const video = display.getByTestId('replay-video');
+    await expect(video).toBeVisible({ timeout: 15000 });
+
+    // The timeline strip renders — one tick per lane that actually
+    // finished inside the clip — but every tick is `disabled`: the
+    // auto-playing overlay is not something anybody is meant to touch
+    // (`ReplayPlayer`'s own `controls` flag is what the modal below sets
+    // and this overlay never does). `disabled` is the assertion itself —
+    // a disabled `<button>` cannot fire a click handler at all, by HTML's
+    // own semantics, so there is nothing further to prove by clicking one;
+    // the clip's own short, twice-through playback (`showings`) makes "is
+    // it still playing a moment later" an inherently racy thing to assert
+    // on instead.
+    const marks = display.locator('[data-testid^="replay-finish-mark-"]');
+    await expect(marks.first()).toBeVisible({ timeout: 15000 });
+    await expect(marks.first()).toBeDisabled();
 });
 
 test('a display with replays off never shows the clip', async ({ browser, page }) => {
@@ -469,7 +537,18 @@ test.describe.serial('stored retention and intermission highlights, install-wide
     // rebalanced shard could have started flaking it at any time. One
     // block, one worker, is what actually serializes them against each
     // other.
-    test.describe.configure({ timeout: 400_000 });
+    //
+    // Raised to 600s from the original 400s once #177 stage 4 added two
+    // more camera-heavy tests to this block (the finish-frame marker test
+    // and the camera-order test): six tests' worth of real WebCodecs
+    // encoding now share this one worker's CPU with whatever the file's
+    // other, parallel-eligible tests are doing on the remaining workers at
+    // the same time, and the marker test in particular measured reliably
+    // under 400s alone but intermittently over it under that full-file
+    // contention — a resource budget, not a logic bug (isolating it, or
+    // running the whole file with fewer tests, always passed well inside
+    // the old ceiling).
+    test.describe.configure({ timeout: 600_000 });
 
     test.afterAll(async ({ browser }) => {
         // Belt and braces beyond each test's own `finally`: whichever test
@@ -791,6 +870,203 @@ test.describe.serial('stored retention and intermission highlights, install-wide
             // (`.claude/rules/timers.md`'s #337).
             await runHeatToStart(page, spare.id);
             await finishHeat(page, spare.id);
+        } finally {
+            await setKeepReplays(page, { on: false });
+        }
+    });
+
+    test('the ▶ modal shows a finish-frame marker per lane; clicking one freezes the clip, and "." steps a frame (#177 stage 4)', async ({
+        browser,
+        page,
+    }) => {
+        await ensureConfigured(page);
+        const { raceId, trackId, laneCount } = await seedRace(page, 'Instant Replay Finish Frames Race');
+        await scheduleWithSpareHeats(page, raceId, 3);
+        const heats = await officialHeatsInOrder(page, raceId);
+        expect(heats.length).toBeGreaterThanOrEqual(4);
+        const [camWarmUp, displayWarmUp, underTest, afterward] = heats;
+
+        await setKeepReplays(page, { on: true });
+
+        try {
+            const camera = await (await browser.newContext()).newPage();
+            await openCamera(camera, raceId, 'spec-camera-finish-frames');
+            await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+            await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
+                timeout: 15000,
+            });
+
+            await runHeatToStart(page, camWarmUp.id);
+            await finishHeat(page, camWarmUp.id);
+            await camera.waitForTimeout(2000);
+
+            const warmUpload = camera.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 90000 },
+            );
+            await runHeatToStart(page, displayWarmUp.id);
+            await finishHeat(page, displayWarmUp.id);
+            await warmUpload;
+
+            const uploadResponse = camera.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 90000 },
+            );
+            await runHeatToStart(page, underTest.id);
+            await finishHeat(page, underTest.id);
+            await uploadResponse;
+            await camera.context().close();
+
+            await page.goto(`/race/${raceId}/control/schedule`);
+            await page.waitForLoadState('networkidle');
+            const replayButton = page.getByTestId(`heat-replay-btn-${underTest.id}`);
+            await expect(replayButton).toBeVisible({ timeout: 15000 });
+            await replayButton.click();
+
+            const dialog = page.getByRole('dialog');
+            const video = dialog.getByTestId('replay-video');
+            await expect(video).toBeVisible({ timeout: 15000 });
+            await expect
+                .poll(async () => video.evaluate((el: HTMLVideoElement) => el.duration), { timeout: 10000 })
+                .toBeGreaterThan(0);
+
+            // One tick per lane the fake timer actually finished — the whole
+            // point of #177 stage 4's wait-for-the-post-roll fix (see
+            // `.claude/rules/displays.md`) is that every lane's own finish
+            // now lands inside the produced clip's own duration.
+            const marks = dialog.locator('[data-testid^="replay-finish-mark-"]');
+            await expect(marks).toHaveCount(laneCount, { timeout: 15000 });
+
+            // Sorted left to right by when each lane crosses — `.first()` is
+            // the fastest lane, whichever one the fake timer happened to make
+            // it.
+            const fastest = marks.first();
+            const ariaLabel = await fastest.getAttribute('aria-label');
+            expect(ariaLabel).toMatch(/^Seek to L\d+ /);
+
+            await fastest.click();
+            await expect
+                .poll(async () => video.evaluate((el: HTMLVideoElement) => el.paused), { timeout: 5000 })
+                .toBe(true);
+            await expect(dialog.getByTestId('replay-finish-caption')).toBeVisible({ timeout: 5000 });
+
+            const frozenAt = await video.evaluate((el: HTMLVideoElement) => el.currentTime);
+
+            // "." steps one frame (1/30s) forward while paused — the keydown
+            // bubbles from whatever the click just focused up to the
+            // player's own frame, which is the element actually listening.
+            await page.keyboard.press('.');
+            await expect
+                .poll(async () => video.evaluate((el: HTMLVideoElement) => el.currentTime), { timeout: 5000 })
+                .toBeGreaterThan(frozenAt);
+            const steppedTo = await video.evaluate((el: HTMLVideoElement) => el.currentTime);
+            expect(steppedTo - frozenAt).toBeCloseTo(1 / 30, 2);
+
+            await page.keyboard.press('Escape');
+
+            // Finish the spare heat so the track is not left with an
+            // armed-and-never-finished heat for whatever runs after this.
+            await runHeatToStart(page, afterward.id);
+            await finishHeat(page, afterward.id);
+        } finally {
+            await setKeepReplays(page, { on: false });
+        }
+    });
+
+    test("two cameras' clips list in the operator's own order in the ▶ modal's camera picker (#177 stage 4)", async ({
+        browser,
+        page,
+    }) => {
+        await ensureConfigured(page);
+        const { raceId, trackId } = await seedRace(page, 'Instant Replay Camera Order Race');
+        await scheduleWithSpareHeats(page, raceId, 3);
+        const heats = await officialHeatsInOrder(page, raceId);
+        expect(heats.length).toBeGreaterThanOrEqual(4);
+        const [warmUp, displayWarmUp, underTest, afterward] = heats;
+
+        await setKeepReplays(page, { on: true });
+
+        try {
+            const cameraA = await (await browser.newContext()).newPage();
+            await openCamera(cameraA, raceId, 'spec-camera-order-a');
+            await cameraA.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+            await expect(cameraA.getByTestId('camera-status-line')).toContainText('Listening to', {
+                timeout: 15000,
+            });
+
+            const cameraB = await (await browser.newContext()).newPage();
+            await openCamera(cameraB, raceId, 'spec-camera-order-b');
+            await cameraB.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+            await expect(cameraB.getByTestId('camera-status-line')).toContainText('Listening to', {
+                timeout: 15000,
+            });
+
+            // Both cameras are registered now — order them before either
+            // uploads a single clip, so this is purely a test of
+            // `setCameraOrder`/`_order_replay_clips`, not of upload timing.
+            await gql(
+                page,
+                `mutation IRSetOrderB($displayId: String!, $order: Int!) {
+                    setCameraOrder(displayId: $displayId, order: $order) { displayId cameraOrder }
+                }`,
+                { displayId: 'spec-camera-order-b', order: 0 },
+            );
+            await gql(
+                page,
+                `mutation IRSetOrderA($displayId: String!, $order: Int!) {
+                    setCameraOrder(displayId: $displayId, order: $order) { displayId cameraOrder }
+                }`,
+                { displayId: 'spec-camera-order-a', order: 1 },
+            );
+
+            await runHeatToStart(page, warmUp.id);
+            await finishHeat(page, warmUp.id);
+            await cameraA.waitForTimeout(2000);
+
+            const warmUploadA = cameraA.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 90000 },
+            );
+            const warmUploadB = cameraB.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 90000 },
+            );
+            await runHeatToStart(page, displayWarmUp.id);
+            await finishHeat(page, displayWarmUp.id);
+            await warmUploadA;
+            await warmUploadB;
+
+            const uploadA = cameraA.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 90000 },
+            );
+            const uploadB = cameraB.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 90000 },
+            );
+            await runHeatToStart(page, underTest.id);
+            await finishHeat(page, underTest.id);
+            await uploadA;
+            await uploadB;
+            await cameraA.context().close();
+            await cameraB.context().close();
+
+            await page.goto(`/race/${raceId}/control/schedule`);
+            await page.waitForLoadState('networkidle');
+            const replayButton = page.getByTestId(`heat-replay-btn-${underTest.id}`);
+            await expect(replayButton).toBeVisible({ timeout: 15000 });
+            await replayButton.click();
+
+            const picker = page.getByTestId('heat-replay-camera-picker');
+            await expect(picker).toBeVisible({ timeout: 15000 });
+            const pickerButtons = picker.locator('button');
+            await expect(pickerButtons).toHaveCount(2);
+            await expect(pickerButtons.nth(0)).toHaveText('spec-camera-order-b');
+            await expect(pickerButtons.nth(1)).toHaveText('spec-camera-order-a');
+            await page.keyboard.press('Escape');
+
+            await runHeatToStart(page, afterward.id);
+            await finishHeat(page, afterward.id);
         } finally {
             await setKeepReplays(page, { on: false });
         }
