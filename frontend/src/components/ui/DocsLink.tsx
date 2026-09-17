@@ -22,12 +22,21 @@ interface DocsLinkProps {
  */
 export default function DocsLink({ docsKey, label, className }: DocsLinkProps) {
   const title = docsTitle(docsKey);
+  // `.docs-link--icon` carries the muted colour and no-underline treatment —
+  // scoped to the icon-only form (a page header's `?`). The labelled form
+  // ("Learn more →" in `FieldHelp`, and the Hardware Timer guide links this
+  // replaced) is meant to read as an ordinary link, so it gets no colour
+  // override here and falls through to the page's own anchor styling, the
+  // same as the plain `<a>` it replaced.
+  const classes = ['docs-link', label == null ? 'docs-link--icon' : null, className]
+    .filter(Boolean)
+    .join(' ');
   return (
     <a
       href={docsHref(docsKey)}
       target="_blank"
       rel="noopener noreferrer"
-      className={className ? `docs-link ${className}` : 'docs-link'}
+      className={classes}
       aria-label={`Help: ${title}`}
       title={title}
       data-testid="docs-link"

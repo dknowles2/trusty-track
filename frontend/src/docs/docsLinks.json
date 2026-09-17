@@ -60,14 +60,14 @@
     "title": "Scoring & Championships"
   },
   "lock-race": {
-    "path": "access-and-network",
-    "anchor": "what-the-risk-actually-is",
-    "title": "Access and your network"
+    "path": "reference/race-settings",
+    "anchor": "locking-a-race",
+    "title": "Race and track settings"
   },
   "weight-limit": {
-    "path": "race-setup",
-    "anchor": "manual-addition",
-    "title": "Race Setup Guide"
+    "path": "reference/race-settings",
+    "anchor": "the-weight-check",
+    "title": "Race and track settings"
   },
   "how-heats-are-built": {
     "path": "scheduling-algorithms",

@@ -18,10 +18,22 @@ describe('DocsLink', () => {
         expect(link).not.toHaveTextContent('Learn more');
     });
 
+    it('carries the muted icon-only styling when there is no label', () => {
+        render(<DocsLink docsKey="awards" />);
+        expect(screen.getByTestId('docs-link')).toHaveClass('docs-link--icon');
+    });
+
     it('renders visible text instead of the icon when a label is given', () => {
         render(<DocsLink docsKey="how-heats-are-built" label="Learn more →" />);
         const link = screen.getByTestId('docs-link');
         expect(link).toHaveTextContent('Learn more →');
         expect(link).toHaveAttribute('href', docsHref('how-heats-are-built'));
+    });
+
+    it('does NOT carry the icon-only styling when labelled — it should read as an ordinary link, not the muted icon form', () => {
+        render(<DocsLink docsKey="timer-check" label="Hardware Timer guide" />);
+        const link = screen.getByTestId('docs-link');
+        expect(link).toHaveClass('docs-link');
+        expect(link).not.toHaveClass('docs-link--icon');
     });
 });
