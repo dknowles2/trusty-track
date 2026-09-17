@@ -12,22 +12,18 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { ensureConfigured } from './support';
+import { ensureConfigured, openSetupWizardAtKind } from './support';
 
 test('the first step pill jumps back to it, and Groups keeps its list', async ({ page }) => {
     await ensureConfigured(page);
-
-    await page.getByRole('button', { name: /Create New Race/i }).click();
-    await expect(page.getByRole('heading', { name: 'Create New Race Event' })).toBeVisible();
 
     // Other specs share this backend and race concurrently, so a previous
     // race may or may not already exist — the start step (scratch vs. copy)
     // only exists once one does (`stepsFor`). Either way scratch is the
     // default, and stepping through with nothing changed reaches Groups.
-    if (await page.getByTestId('setup-step-start').isVisible()) {
-        await page.getByTestId('setup-next').click();
-    }
-    await expect(page.getByTestId('setup-step-kind')).toBeVisible();
+    // `openSetupWizardAtKind` waits for whichever step shows before deciding
+    // whether to step past it (#1199).
+    await openSetupWizardAtKind(page);
     await page.getByTestId('setup-next').click();
     await expect(page.getByTestId('setup-step-groups')).toBeVisible();
     await expect(page.getByLabel('Den 1 name')).toHaveValue('Lion');
@@ -39,8 +35,10 @@ test('the first step pill jumps back to it, and Groups keeps its list', async ({
     // otherwise — is a real button now; clicking it jumps straight back
     // rather than needing Back twice.
     await page.getByTestId('setup-step-pill-0').click();
-    const onStart = await page.getByTestId('setup-step-start').isVisible();
-    await expect(page.getByTestId(onStart ? 'setup-step-start' : 'setup-step-kind')).toBeVisible();
+    const start = page.getByTestId('setup-step-start');
+    const kind = page.getByTestId('setup-step-kind');
+    await expect(start.or(kind)).toBeVisible();
+    const onStart = await start.isVisible();
 
     // Advancing again with nothing changed must land back on Groups with
     // its list intact — `seededFrom` is what stops a needless re-scaffold.

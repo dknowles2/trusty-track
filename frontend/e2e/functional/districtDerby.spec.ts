@@ -26,7 +26,15 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { ensureConfigured, gql, readHeats, readRounds, recordRound, type SeededRacer } from './support';
+import {
+    ensureConfigured,
+    gql,
+    openSetupWizardAtKind,
+    readHeats,
+    readRounds,
+    recordRound,
+    type SeededRacer,
+} from './support';
 
 const RANKS = ['Lion', 'Tiger', 'Wolf'] as const;
 const RACERS_PER_RANK = 5;
@@ -42,16 +50,13 @@ test('a district derby is built through the wizard, the roster, the round wizard
     // (predates #1076; stage 1's `home_unit` and stage 2's round-wizard
     // composition are what is new here). ---
     await page.goto('/');
-    await page.getByRole('button', { name: /Create New Race/i }).click();
-    await expect(page.getByRole('heading', { name: 'Create New Race Event' })).toBeVisible();
 
     // Other specs share this backend and may already have a race, in which
     // case the wizard opens on a scratch-or-copy choice first — scratch is
     // the default, matching `raceSetupWizard.spec.ts`'s own handling.
-    if (await page.getByTestId('setup-step-start').isVisible()) {
-        await page.getByTestId('setup-next').click();
-    }
-    await expect(page.getByTestId('setup-step-kind')).toBeVisible();
+    // `openSetupWizardAtKind` waits for whichever step shows before deciding
+    // whether to step past it (#1199).
+    await openSetupWizardAtKind(page);
     await page.getByRole('radio', { name: /^A district or council derby/ }).check();
     await page.getByTestId('setup-next').click();
 
