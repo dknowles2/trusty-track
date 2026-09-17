@@ -83,6 +83,30 @@ export function trackPoolName(index: number): string {
     return `E2E Track ${index}`;
 }
 
+/**
+ * Open the race setup wizard from Home (or Navigation) and land on "kind of
+ * event" — its first step, unless a previous race exists, in which case a
+ * "scratch or copy" step (`setup-step-start`) comes first
+ * (`raceSetup.ts::stepsFor`, `hasPreviousRaces`).
+ *
+ * The wizard's own `races` query decides which step list it has, and on a
+ * loaded runner the heading can render before that query answers — so this
+ * waits for *whichever* step shows before deciding whether to click past it,
+ * rather than checking with a non-waiting `isVisible()`, which is only ever
+ * green when the query happens to answer before the check runs (#1199).
+ */
+export async function openSetupWizardAtKind(page: Page): Promise<void> {
+    await page.getByRole('button', { name: /Create New Race/i }).click();
+    await expect(page.getByRole('heading', { name: 'Create New Race Event' })).toBeVisible();
+    const start = page.getByTestId('setup-step-start');
+    const kind = page.getByTestId('setup-step-kind');
+    await expect(start.or(kind)).toBeVisible();
+    if (await start.isVisible()) {
+        await page.getByTestId('setup-next').click();
+    }
+    await expect(kind).toBeVisible();
+}
+
 /** Six racers whose ranking is decided by car number.
  *
  * `recordRound` gives car *n* a time of `3.0 + n/100` in every heat it runs, so
