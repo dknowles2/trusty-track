@@ -4,8 +4,9 @@
     "title": "Race Setup Guide"
   },
   "control-schedule": {
-    "path": "scheduling-algorithms",
-    "title": "Race Scheduling Algorithm"
+    "path": "race-day",
+    "anchor": "part-2-scheduling-the-race",
+    "title": "Race Day Operations Guide"
   },
   "control-race": {
     "path": "race-day",

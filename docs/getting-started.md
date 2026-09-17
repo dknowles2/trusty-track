@@ -195,5 +195,5 @@ Now that your race is set up, you can proceed to adding racers and managing the 
 - [Instant Replay Guide](instant-replay.md) — Turning a phone into a finish-line camera
 
 You don't have to keep this page open while you work: every screen carries its
-own **?** icon, top right, that opens the guide for exactly what you're
-looking at.
+own **?** icon, near the top of the page beside its title, that opens the
+guide for exactly what you're looking at.
