@@ -276,14 +276,27 @@ export default function ReplayPlayer({
         onEnded={onEnded}
       />
       {activeMark && (
+        // A small dark pill with fixed white text, deliberately not a
+        // theme token: this component is mounted both inside an ordinary
+        // light modal (`HeatReplayModal`) and over a dark, full-screen
+        // display overlay (`Observation.tsx`) — `--display-text-color`
+        // defaults to white at `:root` regardless of which of those two
+        // it is read in, so using it here read as invisible white-on-white
+        // inside the modal. A caption that supplies its own contrast, the
+        // same broadcast-lower-third approach `BroadcastOverlayView.tsx`
+        // already uses for the identical reason, reads correctly in both.
         <div
           data-testid="replay-finish-caption"
           style={{
             marginTop: '4px',
+            padding: '2px 10px',
+            borderRadius: '6px',
+            background: 'rgba(0, 0, 0, 0.72)',
             fontSize: '0.9rem',
             fontWeight: 600,
             textAlign: 'center',
-            color: 'var(--display-text-color, inherit)',
+            color: '#ffffff',
+            display: 'inline-block',
           }}
         >
           {captionFor(activeMark)}

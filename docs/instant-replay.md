@@ -127,6 +127,18 @@ leaving the heat they are running.
 _"Finish line — connected, last clip 2s ago" — one badge per camera, on the
 operator's own screen._
 
+### Several Cameras
+
+With more than one camera pointed at the same track, each row on the
+Displays panel gets a small **↑ / ↓** beside its track picker — pick which
+camera's clip plays first when a heat has more than one. Both the replay a
+display shows after a result and the camera picker in the ▶ modal (see
+[Keeping Clips Longer](#keeping-clips-longer) below) follow this order.
+Two cameras nobody has ever reordered still play in a fixed, stable order of
+their own (there is always *some* order, never an arbitrary one) — the
+arrows only matter once there is a reason to prefer one camera's angle over
+another's.
+
 ---
 
 ## Turning Replays Off, Per Screen
@@ -144,6 +156,40 @@ There is no setting for *how many* times a clip plays or at what speed yet
 — every screen shows it twice, at half speed. That is a per-device setting
 stored in the browser rather than something the operator can change from
 across the room, and a future stage may add operator control over it.
+
+---
+
+## Finish Frames and Slow Motion
+
+Every replay — the one that plays automatically after a result, and one
+opened on purpose from the ▶ (below) — shows a thin strip under the video
+with a small lane marker for each car's finish. Click one (on a clip opened
+on purpose; the automatic overlay's own strip is for looking at, not
+clicking) and the video jumps to that instant and freezes, with the lane's
+time overlaid — click again, or press the space bar, to keep playing from
+there. While frozen, the **,** and **.** keys step one video frame at a
+time, for lining a car up against the line exactly.
+
+![The ▶ modal, frozen on a lane's finish with its time overlaid](assets/screenshots/instant-replay/12-finish-frame.png)
+_Clicking Lane 3's marker froze the clip there and printed its time — the
+same strip appears under every replay, clickable only on a clip somebody
+opened to look at._
+
+The last second before the first car crosses the line, through a moment
+after the last one does, plays at the display's own slow-motion rate
+automatically — the rest of the clip, including the lead-in, plays at
+normal speed. That is the "slow it down" the automatic replay already
+promised, aimed at the part of the clip actually worth slowing down rather
+than the whole thing.
+
+**These markers are placed from the timer's own times, not read off the
+picture** — the camera's clock is corrected against the timer's to within
+about half a network round trip, and a video frame is roughly 1/30th of a
+second, so expect a marker within a frame or two of where a car actually
+crosses, not to the pixel. A car whose finish falls outside what a
+particular camera's clip actually captured (a second camera with a shorter
+buffer, say) simply gets no marker on that camera's own clip rather than
+one in the wrong place.
 
 ---
 

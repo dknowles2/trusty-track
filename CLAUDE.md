@@ -297,7 +297,7 @@ Defined entirely in `backend/api/schema.py`.
 - Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `startTimerTest`, `fakeTimerStart`, `fakeTimerFinish`
 - Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards`, `seedChampionshipAwards` (the Awards page's empty-state button, #1082 — the same seeding a final round's creation already does)
 - Voting: `castVote` — the one mutation `VIEWER` may run
-- Audience displays: `assignDisplay`, `advanceDisplay`, `identifyDisplay`, `renameDisplay`, `forgetDisplay`, `setCameraTrack` (#177 stage 1a — a camera is a display with a role)
+- Audience displays: `assignDisplay`, `advanceDisplay`, `identifyDisplay`, `renameDisplay`, `forgetDisplay`, `setCameraTrack` (#177 stage 1a — a camera is a display with a role), `setCameraOrder` (#177 stage 4 — which camera's clip plays first when a heat has more than one)
 - Display scenes (#613): `createScene`, `renameScene`, `deleteScene`, `updateSceneDisplay`, `removeSceneDisplay`, `applyScene`, `applyScenePreset`
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 - Run-off: `createRunOffHeat`, `deleteRunOffHeat`
