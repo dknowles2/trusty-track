@@ -7,22 +7,22 @@
  * `seen === null` reconnect rule — is not duplicated here: `Observation.tsx`
  * calls `observeHeatResult` directly against `heatReplay`'s payload, which
  * carries the identical two fields. What lives here is everything *after*
- * that: which order two cameras' clips play in, and the pure step machine
- * for "showings × rate" (this stage's per-display, client-only settings —
- * `showings`/`rate` themselves are `localStorage`, not a server column;
- * only the `replays` on/off toggle is server-stored, on `Assignment`).
+ * that: the pure step machine for "showings × rate" (this stage's
+ * per-display, client-only settings — `showings`/`rate` themselves are
+ * `localStorage`, not a server column; only the `replays` on/off toggle is
+ * server-stored, on `Assignment`).
+ *
+ * **Multiple cameras' clips arrive already ordered, and this module does
+ * not reorder them a second time (#177 stage 4).** Stage 1 had no
+ * operator-facing ordering control, so this file used to export its own
+ * `orderClipsByCameraId` and sort alphabetically on the client; stage 4
+ * replaces that with `setCameraOrder` and a server-side sort
+ * (`api/schema.py`'s `_order_replay_clips`, ties broken by `cameraId` —
+ * the same fallback an untouched multi-camera race always had) applied to
+ * both `heatReplay` and `Heat.replays`. `Observation.tsx` and
+ * `HeatReplayModal.tsx` both play/list `clips` in the array order the
+ * server hands back, with nothing client-side left to disagree with it.
  */
-
-export interface ReplayClipLike {
-  readonly cameraId: string;
-  readonly url: string;
-}
-
-/** Multiple cameras → clips in cameraId order, back to back — the issue's
- * own rule, since there is no operator-facing ordering control in stage 1. */
-export function orderClipsByCameraId<T extends ReplayClipLike>(clips: readonly T[]): T[] {
-  return [...clips].sort((a, b) => a.cameraId.localeCompare(b.cameraId));
-}
 
 export interface PlaybackState {
   readonly clipIndex: number;

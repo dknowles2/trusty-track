@@ -241,6 +241,21 @@ interface RaceExecutionProps {
      * result — the operator can still watch the heat, only not change it.
      */
     raceLocked?: boolean;
+    /**
+     * A `HeatReplayModal` is open somewhere on this tab (#177 stage 4) —
+     * `RaceControl.tsx`'s own `replayModalHeatId !== null`, both for
+     * Previous Heats' own ▶ and the Schedule tab's, which mount alongside
+     * this component on the identical `viewMode === 'EXECUTION'` tab.
+     * Folded into the shortcuts effect's own `modalOpen` check below: that
+     * modal's own `ReplayPlayer` already calls `stopPropagation()` on the
+     * keys it actively handles (Space, `,`, `.`), but a *different* key —
+     * one this component's own shortcuts answer to and the player does not
+     * — would otherwise still reach `window` and fire a race-day action
+     * underneath a modal the operator opened to look at a replay, not to
+     * drive the race. Belt and braces alongside that `stopPropagation()`
+     * fix, not a substitute for it.
+     */
+    replayModalOpen?: boolean;
 }
 
 export const RaceExecution: React.FC<RaceExecutionProps> = ({
@@ -274,6 +289,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     masterRunningOrder,
     debugMode,
     raceLocked = false,
+    replayModalOpen = false,
 }) => {
     const lockedTitle = RACE_LOCKED_MESSAGE;
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -518,7 +534,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     phase,
                     hasNextHeat: !!nextExecutionHeat,
                     countingDown: flow.countdown !== null,
-                    modalOpen: isEditModalOpen || isRoundSummaryOpen,
+                    modalOpen: isEditModalOpen || isRoundSummaryOpen || replayModalOpen,
                     typing: isTypingTarget(event.target),
                 },
             );

@@ -107,6 +107,14 @@ class Display:
     #: GraphQL and a client only ever reads it, never compares it to a clock
     #: on this side.
     last_clip_at: str | None = None
+    #: The operator's own ordering for this camera's clip among several
+    #: (#177 stage 4) — lower plays first. Defaults to `0`, the same as
+    #: every other camera that has never had an order set, so an
+    #: untouched multi-camera race falls back to sorting by `display_id`
+    #: (`api.schema._order_replay_clips`) exactly as stage 1's own
+    #: `orderClipsByCameraId` did before this existed. Meaningless for a
+    #: `DISPLAY` role, the same as `track_id`.
+    camera_order: int = 0
 
     @property
     def connected(self) -> bool:
@@ -265,6 +273,19 @@ class DisplayRegistry:
         if display is None or display.role is not DisplayRole.CAMERA:
             return None
         display.track_id = track_id
+        return display
+
+    def set_camera_order(self, display_id: str, order: int) -> Display | None:
+        """Tell a camera where its clip plays among several (#177 stage 4).
+
+        Same refusal shape as `set_camera_track`: `None` for a display
+        nobody has seen, and for one that is not a `CAMERA` — an order
+        means nothing on an ordinary screen.
+        """
+        display = self._displays.get(display_id)
+        if display is None or display.role is not DisplayRole.CAMERA:
+            return None
+        display.camera_order = order
         return display
 
     def record_clip(self, display_id: str) -> Display | None:

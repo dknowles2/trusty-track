@@ -52,11 +52,17 @@ function winningLane(lanes: readonly HighlightLane[]): HighlightLane | null {
   return lanes.find((lane) => lane.place === 1) ?? null;
 }
 
-/** The first camera's clip, by `cameraId` (#177 stage 3's own choice) —
- * multiple cameras per heat would otherwise multiply the loop's own
- * length, and one representative clip per heat is enough for a break. */
+/** The first camera's clip, in the operator's own camera order (#177 stage
+ * 3's own choice, updated by stage 4) — multiple cameras per heat would
+ * otherwise multiply the loop's own length, and one representative clip
+ * per heat is enough for a break. `replays` arrives already sorted by
+ * `Display.cameraOrder` (`api/schema.py`'s `_order_replay_clips`, ties
+ * broken by `cameraId`) — the same order `setCameraOrder` controls and
+ * the results-flow player and the ▶ modal's own camera picker both
+ * follow, so this is nothing more than "the first one" rather than a
+ * second, alphabetical-only ordering rule of its own. */
 function firstClip(replays: readonly HighlightClipSource[]): HighlightClipSource {
-  return [...replays].sort((a, b) => a.cameraId.localeCompare(b.cameraId))[0];
+  return replays[0];
 }
 
 /**

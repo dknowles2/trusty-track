@@ -1245,6 +1245,7 @@ export default function RaceControl() {
               upcomingRounds={upcomingRounds}
               debugMode={data?.initialConfig?.debugMode ?? false}
               raceLocked={race?.isLocked ?? false}
+              replayModalOpen={replayModalHeatId !== null}
               onToggleAutoAdvance={async (value) => {
                 await updateRaceMutation({ id, race: { autoAdvanceHeat: value } });
                 reExecute({ requestPolicy: 'network-only' });
@@ -1412,12 +1413,23 @@ export default function RaceControl() {
             )}
             {replayModalHeatId !== null && (() => {
               const replayHeat = completedPreviousHeats.find((h: Heat) => h.id === replayModalHeatId);
+              // The finish-frame markers' own lane data (#177 stage 4) —
+              // built the same way this same screen's own Previous Heats
+              // list already reads a lane's name (`laneRacerName`).
+              const replayLanes = (replayHeat?.lanes ?? []).map((lane: Lane) => ({
+                lane: lane.lane,
+                racerName: laneRacerName(lane, slowestRoundIds.has(replayHeat!.roundId)),
+                time: lane.time,
+                skipped: lane.skipped,
+              }));
               return (
                 <HeatReplayModal
                   isOpen
                   onClose={() => setReplayModalHeatId(null)}
                   heatLabel={`Heat ${replayHeat?.heatNumber ?? ''}`}
                   clips={replayHeat?.replays ?? []}
+                  lanes={replayLanes}
+                  laneColor={(lane) => colorForLane(race?.track?.laneColors ?? [], lane)}
                 />
               );
             })()}

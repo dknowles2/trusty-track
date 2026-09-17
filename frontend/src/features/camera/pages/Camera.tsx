@@ -397,6 +397,25 @@ export default function Camera() {
       const trackInfo = videoTrackInfoRef.current;
       if (!trackInfo) return;
 
+      // `bounds.endMs` includes the post-roll — real time that has not
+      // happened yet at the instant a result lands, since a result is
+      // recorded essentially the moment the slowest lane crosses the line
+      // (#177 stage 4). Cutting immediately would silently hand back a
+      // clip with none of its own promised follow-through: the ring can
+      // only ever contain frames up to "now", and the finish-frame markers
+      // this stage adds have nothing to land on if the clip ends at (or
+      // before) the very crossing they are meant to mark. Waiting for the
+      // requested end to actually arrive is what makes both the
+      // post-roll and every mark inside it real footage rather than a
+      // number nobody could ever see. A `NONE`-timer clip's own `endMs`
+      // is already in the past (`noneFallbackBounds` anchors to "now"
+      // minus a skipback), so `waitMs` is `<= 0` there and this is a
+      // no-op for that fallback.
+      const waitMs = bounds.endMs - Date.now();
+      if (waitMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
+
       // The ring's own keyframe-aware cut — see `ring.ts`'s own header for
       // why this, not `bounds.startMs`/`bounds.endMs` verbatim, is what a
       // valid clip actually needs.

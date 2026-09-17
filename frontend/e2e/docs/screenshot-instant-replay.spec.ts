@@ -1,5 +1,6 @@
 /**
- * Screenshots for docs/instant-replay.md (#177 stage 1b).
+ * Screenshots for docs/instant-replay.md (#177 stage 1b, extended by
+ * stages 2, 3 and 4).
  *
  * Run with:
  *   npx playwright test --config=playwright.screenshots.config.ts \
@@ -278,6 +279,24 @@ test('screenshot instant replay', async ({ page, browser }) => {
         await screenshotLocator(storedHeatRow, {
             path: path.join(SCREENSHOT_DIR, '06-schedule-replay-button.png'),
         });
+
+        // 12 (#177 stage 4): the ▶ modal, frozen on a finish-frame tick —
+        // the timeline strip, the lane's caption, and the frozen video.
+        // The fake clip is synthetic (no real finish line in the picture),
+        // so this is the overlay-and-timeline shot promised in the guide,
+        // not a claim about what the video itself shows.
+        await replayButton.click();
+        const replayDialog = page.getByRole('dialog');
+        await expect(replayDialog.getByTestId('replay-video')).toBeVisible({ timeout: 15000 });
+        const firstMark = replayDialog.locator('[data-testid^="replay-finish-mark-"]').first();
+        await expect(firstMark).toBeVisible({ timeout: 15000 });
+        await firstMark.click();
+        await expect(replayDialog.getByTestId('replay-finish-caption')).toBeVisible({ timeout: 15000 });
+        await page.waitForTimeout(300);
+        await screenshotLocator(replayDialog, {
+            path: path.join(SCREENSHOT_DIR, '12-finish-frame.png'),
+        });
+        await replayDialog.getByRole('button', { name: '×' }).click();
 
         // Stage 3 (#177): a second stored clip in the same round, so the
         // highlight reel below has more than one heat to order.

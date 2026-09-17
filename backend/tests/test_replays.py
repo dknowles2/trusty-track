@@ -24,6 +24,7 @@ from backend import demo_mode
 from backend.api import main
 from backend.api.schema import Mutation, Subscription
 from backend.db import crud, models, schemas
+from backend.domain.displays import DisplayRole
 from backend.domain.replays import ReplayClip, ReplayKey, is_stale
 from backend.services import replays as replays_service
 from backend.services.displays import registry
@@ -256,6 +257,73 @@ def test_two_cameras_produce_two_clips_for_one_heat(client, db, race):
     key = ReplayKey(heat_id=heat.id, recorded_at=heat.recorded_at)
     clips = replays_service.store.clips_for(key)
     assert {c.camera_id for c in clips} == {"cam-finish", "cam-side"}
+
+
+async def test_heat_replay_clips_are_ordered_by_camera_order(client, db, race):
+    """#177 stage 4 — `heatReplay` sorts a heat's clips by the operator's
+    own camera order (`_order_replay_clips`), replacing the frontend's
+    former alphabetical `orderClipsByCameraId`.
+    """
+    _, race_obj = race
+    heat = _heat(db, race_obj, recorded_at="2026-09-16T12:00:00+00:00")
+    registry.connect("cam-b", race_id=race_obj.id, role=DisplayRole.CAMERA)
+    registry.connect("cam-a", race_id=race_obj.id, role=DisplayRole.CAMERA)
+    registry.set_camera_order("cam-b", 1)
+    registry.set_camera_order("cam-a", 2)
+
+    _upload(
+        client,
+        race_id=race_obj.id,
+        heat_id=heat.id,
+        recorded_at=heat.recorded_at,
+        camera_id="cam-a",
+    )
+    _upload(
+        client,
+        race_id=race_obj.id,
+        heat_id=heat.id,
+        recorded_at=heat.recorded_at,
+        camera_id="cam-b",
+    )
+
+    stream = Subscription().heat_replay(race_id=race_obj.id)
+    payload = await asyncio.wait_for(stream.__anext__(), timeout=2.0)
+
+    assert [c.camera_id for c in payload.clips] == ["cam-b", "cam-a"]
+    await stream.aclose()
+
+
+async def test_heat_replay_clips_with_no_order_set_fall_back_to_camera_id(
+    client, db, race
+):
+    """A camera that has never had an order set sorts as `0` — ties among
+    untouched cameras break on `cameraId`, matching stage 1's own
+    `orderClipsByCameraId` exactly, so an event with no operator-set order
+    at all is unchanged from before this stage.
+    """
+    _, race_obj = race
+    heat = _heat(db, race_obj, recorded_at="2026-09-16T12:00:00+00:00")
+
+    _upload(
+        client,
+        race_id=race_obj.id,
+        heat_id=heat.id,
+        recorded_at=heat.recorded_at,
+        camera_id="cam-zebra",
+    )
+    _upload(
+        client,
+        race_id=race_obj.id,
+        heat_id=heat.id,
+        recorded_at=heat.recorded_at,
+        camera_id="cam-apple",
+    )
+
+    stream = Subscription().heat_replay(race_id=race_obj.id)
+    payload = await asyncio.wait_for(stream.__anext__(), timeout=2.0)
+
+    assert [c.camera_id for c in payload.clips] == ["cam-apple", "cam-zebra"]
+    await stream.aclose()
 
 
 # --------------------------------------------------------------------------- #

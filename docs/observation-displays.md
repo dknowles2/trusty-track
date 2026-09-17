@@ -197,11 +197,13 @@ open the **Camera** page on it, pick which track it's watching, and every
 heat that track times gets an automatic replay clip, cut to the timer's own
 start and finish so the slow-motion always shows the actual race rather than
 a few seconds of guesswork either side of it. It plays back on every screen
-that has **Replays** turned on, right after that heat's results.
+that has **Replays** turned on, right after that heat's results — with a
+small marker for each car's own finish, clickable on a clip somebody opened
+on purpose, and the last second before the finish automatically slowed down.
 
 See the [Instant Replay Guide](instant-replay.md) for the whole thing —
-aiming the camera, which browsers it needs, and what happens on a track with
-no electronic timer.
+aiming the camera, which browsers it needs, the finish-frame markers, and
+what happens on a track with no electronic timer.
 
 ---
 
@@ -256,7 +258,9 @@ Two things worth knowing:
   it off for a screen that should never show the [instant replay](instant-replay.md),
   the ceremony projector during the trophies, say. A camera registered through
   the Camera page shows a track picker in this spot instead, since a camera has
-  nothing of its own to display.
+  nothing of its own to display — and, once a second camera is watching the
+  same track, a small **↑ / ↓** beside it for which one's clip plays first.
+  See [Several Cameras](instant-replay.md#several-cameras).
 
 The ten views a screen can show, and how assignment behaves, are in
 [Audience display views](reference/displays.md).

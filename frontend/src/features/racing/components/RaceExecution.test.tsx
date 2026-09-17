@@ -1571,6 +1571,39 @@ describe('RaceExecution', () => {
         });
     });
 
+    describe('the Space shortcut respects a replay modal open elsewhere on the tab (#177 stage 4)', () => {
+        // A recorded heat with somewhere to go — Space's own precondition
+        // (`shortcuts.ts`) — auto-advance off so only the keyboard shortcut,
+        // never the countdown, can be what calls `onNextHeat`.
+        const withNextHeat = {
+            ...defaultProps,
+            autoAdvanceHeat: false,
+            nextExecutionHeat: { ...mockHeat, id: 2, heatNumber: 2 },
+        };
+
+        it('advances on Space when no replay modal is open', () => {
+            render(<RaceExecution {...withNextHeat} />);
+            fireEvent.keyDown(window, { key: ' ' });
+            expect(mockOnNextHeat).toHaveBeenCalledTimes(1);
+        });
+
+        it('does nothing on Space while `replayModalOpen` is true', () => {
+            // The bug a PR review reproduced live: `HeatReplayModal` (opened
+            // from Previous Heats or the Schedule tab, `RaceControl.tsx`'s
+            // `replayModalHeatId`) portals to `document.body`, so its own
+            // Space-to-resume keystroke reaches this component's global
+            // `window` listener too unless something says a modal is up.
+            // `RaceControl.tsx` passes `replayModalOpen` for exactly this —
+            // belt and braces alongside `ReplayPlayer`'s own
+            // `stopPropagation()` fix, which this render has no player to
+            // exercise (that half is `instantReplay.spec.ts`'s own new e2e
+            // test, against the real DOM this unit render does not have).
+            render(<RaceExecution {...withNextHeat} replayModalOpen />);
+            fireEvent.keyDown(window, { key: ' ' });
+            expect(mockOnNextHeat).not.toHaveBeenCalled();
+        });
+    });
+
     describe('skipping a heat', () => {
         // #346: this used to go through window.confirm, the one dialog
         // outside the app's own convention.

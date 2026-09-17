@@ -703,21 +703,21 @@ export type DisplayAssignmentSubscriptionVariables = Exact<{
 }>;
 
 
-export type DisplayAssignmentSubscription = { displayAssignment: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, showStandingsTicker: boolean, replays: boolean, role: Types.DisplayRole, trackId: number | null, lastClipAt: string | null, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number, displayThemeSetting: string } };
+export type DisplayAssignmentSubscription = { displayAssignment: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, showStandingsTicker: boolean, replays: boolean, role: Types.DisplayRole, trackId: number | null, lastClipAt: string | null, cameraOrder: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number, displayThemeSetting: string } };
 
 export type DisplaysSubscriptionVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type DisplaysSubscription = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, showStandingsTicker: boolean, replays: boolean, role: Types.DisplayRole, trackId: number | null, lastClipAt: string | null, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
+export type DisplaysSubscription = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, showStandingsTicker: boolean, replays: boolean, role: Types.DisplayRole, trackId: number | null, lastClipAt: string | null, cameraOrder: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
 
 export type GetDisplaysQueryVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type GetDisplaysQuery = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, showStandingsTicker: boolean, replays: boolean, role: Types.DisplayRole, trackId: number | null, lastClipAt: string | null, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
+export type GetDisplaysQuery = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, scrollBehavior: Types.ScrollBehavior, showCheckedIn: boolean, qrTarget: Types.QrTarget, showStandingsTicker: boolean, replays: boolean, role: Types.DisplayRole, trackId: number | null, lastClipAt: string | null, cameraOrder: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
 
 export type ObservationNetworkAddressesQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -760,6 +760,14 @@ export type SetCameraTrackMutationVariables = Exact<{
 
 
 export type SetCameraTrackMutation = { setCameraTrack: { displayId: string, trackId: number | null } | null };
+
+export type SetCameraOrderMutationVariables = Exact<{
+  displayId: string;
+  order: number;
+}>;
+
+
+export type SetCameraOrderMutation = { setCameraOrder: { displayId: string, cameraOrder: number } | null };
 
 export type HeatReplaySubscriptionVariables = Exact<{
   raceId: number;

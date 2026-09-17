@@ -70,16 +70,20 @@ describe('highlightOrder', () => {
     expect(order.map((c) => c.heatId)).toEqual([2, 5]);
   });
 
-  it('picks the first camera by cameraId when a heat has more than one clip', () => {
+  it('picks the first clip in the operator\'s own camera order (#177 stage 4) — the array order the server already sorted, not a second alphabetical rule here', () => {
     const heats = [
       heat({
         heatId: 1,
         lanes: [{ place: 1, time: 3.0, racerId: 10 }],
+        // Deliberately *not* alphabetical — `replays` arrives pre-sorted
+        // by `Display.cameraOrder` (`_order_replay_clips`), and `cam-b`
+        // sorting first here is exactly what proves `firstClip` no longer
+        // re-sorts it by `cameraId` itself.
         replays: [clip('cam-b'), clip('cam-a')],
       }),
     ];
     const order = highlightOrder(heats);
-    expect(order[0].clip.cameraId).toBe('cam-a');
+    expect(order[0].clip.cameraId).toBe('cam-b');
   });
 
   it('bounds to the most recent LAST_N_HEATS by heat number when the round holds more', () => {

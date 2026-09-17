@@ -15,6 +15,8 @@ from sqlalchemy.engine import Engine
 from backend.api.schema import Subscription
 from backend.db import crud, models, schemas
 from backend.domain import lanes as domain_lanes
+from backend.domain.displays import DisplayRole
+from backend.services.displays import registry
 from backend.tests.helpers import as_lanes
 
 # The query RaceControl.tsx actually sends.
@@ -279,6 +281,53 @@ def test_heat_replays_cost_one_query_for_the_whole_race(client, db, populated_ra
         f"Selecting `Heat.replays` cost {with_replays.count} queries against "
         f"{without_replays.count} without it — the per-race batch is not "
         f"batching."
+    )
+
+
+def test_heat_replays_are_ordered_by_camera_order_at_no_extra_cost(
+    client, db, populated_race
+):
+    """`Heat.replays` sorts by the operator's own camera order (#177 stage
+    4, `_order_replay_clips`) — an in-memory registry lookup per clip, not
+    a query, so this must cost exactly what `Heat.replays` alone already
+    does (`test_heat_replays_cost_one_query_for_the_whole_race`).
+    """
+    registry.clear()
+    heat = populated_race.heats[0]
+    for camera_id in ("cam-b", "cam-a"):
+        db.add(
+            models.HeatReplay(
+                heat_id=heat.id,
+                camera_id=camera_id,
+                recorded_at="2026-09-16T12:00:00+00:00",
+                path=f"clip-{heat.id}-{camera_id}.webm",
+                duration_ms=4000,
+                t0_offset_ms=500,
+                size_bytes=1000,
+                created_at="2026-09-16T12:00:00+00:00",
+            )
+        )
+    db.commit()
+    # Registered in the reverse order to the one they should come out in —
+    # if the sort silently fell back to upload/registration order rather
+    # than `camera_order`, this would still pass by accident.
+    registry.connect("cam-b", race_id=populated_race.id, role=DisplayRole.CAMERA)
+    registry.connect("cam-a", race_id=populated_race.id, role=DisplayRole.CAMERA)
+    registry.set_camera_order("cam-b", 2)
+    registry.set_camera_order("cam-a", 1)
+
+    with _QueryCounter() as without_replays:
+        _run(client, RACE_CONTROL_QUERY, populated_race.id)
+    with _QueryCounter() as with_replays:
+        body = _run(client, RACE_CONTROL_REPLAYS_QUERY, populated_race.id)
+
+    registry.clear()
+    returned = next(h for h in body["data"]["race"]["heats"] if h["id"] == heat.id)
+    assert [c["cameraId"] for c in returned["replays"]] == ["cam-a", "cam-b"]
+    assert with_replays.count <= without_replays.count + 1, (
+        f"Ordering `Heat.replays` by camera order cost {with_replays.count} "
+        f"queries against {without_replays.count} without it — the sort is "
+        f"an in-memory registry lookup and must add no query at all."
     )
 
 
