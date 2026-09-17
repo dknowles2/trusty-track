@@ -51,7 +51,7 @@ import { useIdentifyOverlay } from '../useIdentifyOverlay';
 import IntermissionOverlay from '../components/IntermissionOverlay';
 import RaceFinishedOverlay from '../components/RaceFinishedOverlay';
 import ReplayPlayer from '../components/ReplayPlayer';
-import { highlightCaption, highlightReel, type HighlightHeat } from '../highlights';
+import { useIntermissionHighlights } from '../useIntermissionHighlights';
 import { finalChampionshipRound, raceIsFinished } from '../raceFinished';
 import { roundLabel as championshipRoundLabel } from '../../stats/disruptedRounds';
 import { defaultEliminationRound, isEliminationOnlyRace } from '../../stats/eliminationScope';
@@ -670,79 +670,19 @@ export default function Observation() {
   // itself uses on this page.
   const laneColors = initialData?.race?.track?.laneColors ?? [];
 
-  // The break's highlight reel (#177 stage 3) — computed whether or not a
-  // break is currently on, the same "cheap enough to always compute"
-  // choice `raceIsFinished`/`isEliminationOnlyRace` make elsewhere on this
-  // page; only `intermissionActive && intermission.highlights` below
-  // actually renders it. `rounds` carries `roundNumber` for
-  // `highlightRoundId`'s own "no recorded heat yet" fallback; `heats`
-  // carries everything else (`highlights.ts`'s own `HighlightHeat` shape).
-  const roundNumberById = useMemo(() => {
-    const map: Record<number, number> = {};
-    (initialData?.race?.rounds ?? []).forEach((r: { id: number; roundNumber: number }) => {
-      map[r.id] = r.roundNumber;
-    });
-    return map;
-  }, [initialData]);
-  const highlightHeats: HighlightHeat[] = useMemo(
-    () =>
-      (initialData?.race?.heats ?? [])
-        // A heat with no `roundId` on the payload has no room to belong to
-        // a round's own highlight reel — defensive against a caller (a
-        // test fixture, an older cached query result) that has not fetched
-        // the fields this stage added, not something a real GraphQL
-        // response from the current schema ever omits.
-        .filter((h: { roundId?: number | null }) => h.roundId != null)
-        .map(
-          (h: {
-            id: number;
-            heatNumber?: number;
-            roundId: number;
-            recordedAt: string | null;
-            lanes?: { place: number | null; time: number | null; racerId: number | null }[];
-            replays?: { cameraId: string; url: string; durationMs: number; t0OffsetMs: number }[];
-          }) => ({
-            heatId: h.id,
-            heatNumber: h.heatNumber ?? 0,
-            roundId: h.roundId,
-            roundNumber: roundNumberById[h.roundId] ?? 0,
-            recordedAt: h.recordedAt,
-            lanes: h.lanes ?? [],
-            replays: h.replays ?? [],
-          }),
-        ),
-    [initialData, roundNumberById],
-  );
-  const highlightClips = useMemo(() => highlightReel(highlightHeats), [highlightHeats]);
-  const [highlightIndex, setHighlightIndex] = useState(0);
-  // Reset to the first clip each time a break starts (or a fresh reel
-  // arrives mid-break — a heat recorded during the break itself changes
-  // which round/order applies) rather than leaving the index wherever the
-  // previous break's loop happened to stop. Adjusted *during render*, the
-  // same "compare against what was last seen, and correct in one pass"
-  // shape `RaceControl.tsx` pins `selectedHeatId` with (`race-day-ui.md`)
-  // — a `useEffect` doing this would render the stale index for one frame
-  // first, which is the flicker that pattern exists to avoid.
-  const highlightsResetKey = `${intermissionActive}:${highlightClips.length}`;
-  const [seenHighlightsResetKey, setSeenHighlightsResetKey] = useState(highlightsResetKey);
-  if (highlightsResetKey !== seenHighlightsResetKey) {
-    setSeenHighlightsResetKey(highlightsResetKey);
-    setHighlightIndex(0);
-  }
-  const currentHighlight = highlightClips[highlightIndex % Math.max(highlightClips.length, 1)] ?? null;
-  const currentHighlightCaption = currentHighlight
-    ? highlightCaption(
-        currentHighlight.heatNumber,
-        currentHighlight.winnerRacerId != null && racersMap[currentHighlight.winnerRacerId]
-          ? formatDisplayName(
-              nameDisplay,
-              racersMap[currentHighlight.winnerRacerId].firstName,
-              racersMap[currentHighlight.winnerRacerId].lastName,
-            )
-          : null,
-        currentHighlight.winnerTime,
-      )
-    : '';
+  // The break's highlight reel (#177 stage 3) — shared with
+  // `AwardCeremony.tsx` through `useIntermissionHighlights` so the ordering
+  // rule and the loop/reset wiring exist in exactly one place; see that
+  // hook's own docstring and `.claude/rules/displays.md`'s "Intermission
+  // highlights".
+  const { highlightClip, onHighlightEnded } = useIntermissionHighlights({
+    intermission,
+    intermissionActive,
+    heats: initialData?.race?.heats,
+    rounds: initialData?.race?.rounds,
+    racers: initialData?.race?.racers,
+    nameDisplay,
+  });
 
   const scoreLabel = scoreLabelFor(scoringStrategy);
   const formatScore = (score: number) => formatScoreShared(score, scoringStrategy);
@@ -1051,12 +991,8 @@ export default function Observation() {
           }))}
           nextUpInfo={onDeckHeat ? `Round ${onDeckHeat.roundNumber}, Heat ${onDeckHeat.globalHeatNumber ?? onDeckHeat.heatNumber}` : null}
           vehicleLabel={vehicle}
-          highlightClip={
-            intermission.highlights && currentHighlight
-              ? { url: currentHighlight.clip.url, caption: currentHighlightCaption }
-              : null
-          }
-          onHighlightEnded={() => setHighlightIndex((i) => i + 1)}
+          highlightClip={highlightClip}
+          onHighlightEnded={onHighlightEnded}
         />
       </div>
     );

@@ -386,6 +386,38 @@ describe('a break during the ceremony (#1071, #1072)', () => {
 
     expect(screen.getByText('observation page')).toBeInTheDocument();
   });
+
+  it('shows the highlight reel, not the plain overlay, when the break has highlights on (#177 stage 3)', () => {
+    // #1072's own point — a break takes this route over exactly like every
+    // other display — did not originally reach the highlight reel:
+    // `AwardCeremony` rendered `IntermissionOverlay` with no `highlightClip`
+    // at all, so a ceremony screen fell back to the ordinary next-up
+    // preview during a highlights break while every other display looped
+    // the reel. `useIntermissionHighlights` is the shared fix.
+    mockAssignment({ assigned: true, view: 'AWARDS', name: 'Gym Projector' });
+    renderCeremony({
+      ...withBreak(true),
+      intermission: { ...withBreak(true).intermission, highlights: true },
+      rounds: [{ id: 10, name: 'Final', roundNumber: 1, advancementSource: null }],
+      racers: [{ id: 100, firstName: 'Ada', lastName: 'Lovelace', carNumber: 42, carImageUrl: null, homeUnit: null }],
+      heats: [
+        {
+          id: 1,
+          heatNumber: 1,
+          roundId: 10,
+          recordedAt: '2026-01-01T00:00:00Z',
+          lanes: [{ place: 1, time: 3.5, racerId: 100 }],
+          replays: [{ cameraId: 'cam-1', url: '/replay/abc.webm', durationMs: 4000, t0OffsetMs: 500 }],
+        },
+      ],
+    });
+
+    expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+    expect(screen.getByTestId('replay-video')).toHaveAttribute('src', '/replay/abc.webm');
+    expect(screen.getByTestId('intermission-highlight-caption')).toHaveTextContent(
+      'Heat 1 · Ada Lovelace · 3.500 s',
+    );
+  });
 });
 
 describe('the Display theme, pushed live (#586)', () => {

@@ -31,6 +31,30 @@ export const RACE_AWARDS_QUERY = gql`
         paused
         label
         endsAt
+        highlights
+      }
+      # What the break's highlight reel needs (#177 stage 3) — the same
+      # shape Observation.tsx's own GET_INITIAL_DATA carries, read through
+      # the shared useIntermissionHighlights hook so a ceremony screen
+      # shows the identical reel a standard display does rather than
+      # falling back to the next-up preview during a highlights break
+      # (#592, #1072).
+      heats {
+        id
+        heatNumber
+        roundId
+        recordedAt
+        lanes {
+          place
+          time
+          racerId
+        }
+        replays {
+          cameraId
+          url
+          durationMs
+          t0OffsetMs
+        }
       }
       awards {
         id
