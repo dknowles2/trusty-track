@@ -333,6 +333,15 @@ interface HeatActionsProps {
    * the card — which has no hover on a touch screen — shows it plainly. */
   deleteButtonClassName?: string;
   runButtonStyle?: React.CSSProperties;
+  /** For the ▶ modal's finish-frame markers (#177 stage 4) — turning
+   * `heat.lanes`' bare `racerId` into the name `HeatReplayModal` actually
+   * shows. */
+  getRacerName: (id: number) => string;
+  /** This track's configured lane colours, for the modal's own timeline
+   * dots — absent on the table row, which shows no `LaneBadge` in its own
+   * lane cells either (only the card does), so leaving its ticks
+   * uncoloured is consistent with the row's existing style, not a gap. */
+  laneColors?: readonly string[];
 }
 
 /**
@@ -351,6 +360,8 @@ const HeatActions: React.FC<HeatActionsProps> = ({
   onDeleteHeat,
   deleteButtonClassName,
   runButtonStyle,
+  getRacerName,
+  laneColors,
 }) => {
   // Stored replay clips (#177 stage 2) — empty whenever the setting is off
   // or nothing has been uploaded yet, either of which means no ▶ at all
@@ -358,6 +369,16 @@ const HeatActions: React.FC<HeatActionsProps> = ({
   // covers both cases with no separate read of the setting).
   const [isReplayOpen, setIsReplayOpen] = useState(false);
   const hasReplay = heat.replays.length > 0;
+  // This heat's own lanes, in the shape `HeatReplayModal`'s finish-frame
+  // markers need (#177 stage 4) — computed here, not inside the modal,
+  // since only this component already has both `heat.lanes` and
+  // `getRacerName` in scope.
+  const replayLanes = heat.lanes.map((lane) => ({
+    lane: lane.lane,
+    racerName: getDisplayName(lane, getRacerName),
+    time: lane.time,
+    skipped: lane.skipped,
+  }));
 
   return (
   <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
@@ -384,6 +405,8 @@ const HeatActions: React.FC<HeatActionsProps> = ({
           onClose={() => setIsReplayOpen(false)}
           heatLabel={`Heat ${heat.heatNumber}`}
           clips={heat.replays}
+          lanes={replayLanes}
+          laneColor={laneColors ? (lane) => colorForLane(laneColors, lane) : undefined}
         />
       </>
     )}
@@ -525,6 +548,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
           onRunHeat={onRunHeat}
           onDeleteHeat={onDeleteHeat}
           deleteButtonClassName="heat-row-delete-btn"
+          getRacerName={getRacerName}
         />
       </td>
     </tr>
@@ -641,6 +665,8 @@ const SortableHeatCard: React.FC<SortableHeatCardProps> = ({
           isOperator={isOperator}
           onRunHeat={onRunHeat}
           onDeleteHeat={onDeleteHeat}
+          getRacerName={getRacerName}
+          laneColors={laneColors}
           runButtonStyle={{ padding: '4px 10px', minWidth: '56px' }}
         />
       </div>

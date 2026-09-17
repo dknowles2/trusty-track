@@ -134,6 +134,11 @@ export const DisplayAssignmentSubscription = gql`
       role
       trackId
       lastClipAt
+      # A camera's own place among several (#177 stage 4) — read here too,
+      # even though only the operator's Displays panel edits it, so an
+      # already-open camera page's own subscription reflects a reorder made
+      # from another tab without needing a reconnect.
+      cameraOrder
       description
       pacedByAPerson
       connected
@@ -163,6 +168,7 @@ export const DisplaysSubscription = gql`
       role
       trackId
       lastClipAt
+      cameraOrder
       description
       pacedByAPerson
       connected
@@ -190,6 +196,7 @@ export const DISPLAYS_QUERY = gql`
       role
       trackId
       lastClipAt
+      cameraOrder
       description
       pacedByAPerson
       connected
@@ -305,6 +312,22 @@ export const SET_CAMERA_TRACK = gql`
     setCameraTrack(displayId: $displayId, trackId: $trackId) {
       displayId
       trackId
+    }
+  }
+`;
+
+/**
+ * Tell a camera where its clip plays among several (#177 stage 4) —
+ * replacing stage 1's client-only alphabetical `orderClipsByCameraId`
+ * with an operator-controllable order the server itself sorts by
+ * (`heatReplay`/`Heat.replays`, `_order_replay_clips`). The Displays
+ * panel's own ↑/↓ per camera row is the only caller.
+ */
+export const SET_CAMERA_ORDER = gql`
+  mutation SetCameraOrder($displayId: String!, $order: Int!) {
+    setCameraOrder(displayId: $displayId, order: $order) {
+      displayId
+      cameraOrder
     }
   }
 `;

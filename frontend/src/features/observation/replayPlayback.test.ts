@@ -3,28 +3,18 @@ import {
   DEFAULT_REPLAY_SETTINGS,
   INITIAL_PLAYBACK_STATE,
   afterClipEnded,
-  orderClipsByCameraId,
   readReplaySettings,
   writeReplaySettings,
 } from './replayPlayback';
 import { observeHeatResult } from './resultsOverlay';
 
-describe('orderClipsByCameraId', () => {
-  it('orders clips by camera id, back to back', () => {
-    const clips = [
-      { cameraId: 'zebra', url: 'z' },
-      { cameraId: 'apple', url: 'a' },
-    ];
-    expect(orderClipsByCameraId(clips).map((c) => c.cameraId)).toEqual(['apple', 'zebra']);
-  });
-
-  it('does not mutate the input array', () => {
-    const clips = [{ cameraId: 'b', url: '' }, { cameraId: 'a', url: '' }];
-    const copy = [...clips];
-    orderClipsByCameraId(clips);
-    expect(clips).toEqual(copy);
-  });
-});
+// Ordering multiple cameras' clips moved server-side in #177 stage 4
+// (`api/schema.py`'s `_order_replay_clips`) — see this module's own
+// updated header docstring. `test_replays.py`'s
+// `test_heat_replay_clips_are_ordered_by_camera_order` and
+// `test_heat_replay_clips_with_no_order_set_fall_back_to_camera_id` are
+// where that rule is pinned now; there is nothing left to order on this
+// side, so there is no client-side test for it here any more.
 
 describe('afterClipEnded', () => {
   it('replays the same clip until showings is reached', () => {

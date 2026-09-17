@@ -148,6 +148,9 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         # reason — the camera page itself holds no PIN and makes no mutation
         # of its own, so this travels the operator's own Displays panel.
         "setCameraTrack",
+        # A camera's own place among several (#177 stage 4) — the same
+        # bucket as setCameraTrack, for the identical reason.
+        "setCameraOrder",
         # Display scenes (#613). Same bucket and the same reasoning as the
         # display mutations directly above — a scene is a saved way to call
         # several of them at once, not a different kind of authority.

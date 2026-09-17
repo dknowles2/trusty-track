@@ -146,6 +146,7 @@ export type DerbynetImportRacer = {
 
 export type Display = {
   assigned: Scalars['Boolean']['output'];
+  cameraOrder: Scalars['Int']['output'];
   connected: Scalars['Boolean']['output'];
   cycleSeconds: Scalars['Int']['output'];
   description: Scalars['String']['output'];
@@ -544,6 +545,7 @@ export type Mutation = {
   resetTimer: Scalars['Boolean']['output'];
   resumeIntermission: Race;
   seedChampionshipAwards: Array<Award>;
+  setCameraOrder?: Maybe<Display>;
   setCameraTrack?: Maybe<Display>;
   setDebugMode: InitialConfigStatus;
   setLaneOutages: Array<Scalars['Int']['output']>;
@@ -941,6 +943,12 @@ export type MutationResumeIntermissionArgs = {
 
 export type MutationSeedChampionshipAwardsArgs = {
   raceId: Scalars['Int']['input'];
+};
+
+
+export type MutationSetCameraOrderArgs = {
+  displayId: Scalars['String']['input'];
+  order: Scalars['Int']['input'];
 };
 
 

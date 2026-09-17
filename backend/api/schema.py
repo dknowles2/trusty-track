@@ -299,11 +299,18 @@ class Heat:
         loader `lanes` above uses (`_loaders(info).replays_for_heat`), so
         a page of heats pays one extra query, not one per heat
         (`test_query_counts.py`).
+
+        Sorted by the operator's own camera order (#177 stage 4,
+        `_order_replay_clips`) rather than upload order — an in-memory
+        registry lookup per clip, not a query, so this costs nothing extra
+        against the count above.
         """
-        return [
-            _stored_replay_clip(row)
-            for row in _loaders(info).replays_for_heat(self.race_id, self.id)
-        ]
+        return _order_replay_clips(
+            [
+                _stored_replay_clip(row)
+                for row in _loaders(info).replays_for_heat(self.race_id, self.id)
+            ]
+        )
 
     @strawberry.field
     def round_number(self) -> int:
@@ -3103,6 +3110,11 @@ class Display:
     #: until the first one does, and meaningless for an ordinary display.
     #: What Race Control's camera badge reads to say "last clip 2s ago".
     last_clip_at: str | None
+    #: This camera's own place among several, for the results-flow player
+    #: and the Schedule/Race Control ▶ modal's camera picker (#177 stage 4)
+    #: — lower plays first, ties broken by `displayId`. Meaningless for an
+    #: ordinary display; `0` until `setCameraOrder` picks one.
+    camera_order: int
     connected: bool
     #: Whether an operator has told this display anything. False means it is
     #: still following its own URL, which is what every display did before
@@ -3163,6 +3175,7 @@ def _display(
         role=display.role,
         track_id=display.track_id,
         last_clip_at=display.last_clip_at,
+        camera_order=display.camera_order,
         connected=display.connected,
         assigned=display.assigned,
         description=domain_displays.describe(display.assignment),
@@ -3236,6 +3249,30 @@ def _stored_replay_clip(row: "models.HeatReplay") -> ReplayClip:
     )
 
 
+def _order_replay_clips(clips: list[ReplayClip]) -> list[ReplayClip]:
+    """Multiple cameras' clips for one heat, in the operator's own order
+    (#177 stage 4) — replacing stage 1's `orderClipsByCameraId`, which had
+    no operator-facing control and simply sorted by `cameraId`.
+
+    `Display.camera_order` (default `0`) lives on the in-memory registry,
+    not the database — the same place `role`/`track_id` already live, and
+    for the identical reason: it is a fact about a connected device, not
+    about the heat or the race. A camera the registry has since forgotten
+    (a restart, or `forgetDisplay`) sorts as if its order were still `0`,
+    which is exactly where an untouched camera already sorts — nothing
+    breaks by falling back to the default rather than refusing to sort at
+    all. Ties — including two untouched cameras, both at `0` — break on
+    `cameraId`, so the order is always fully determined and stable.
+    """
+
+    def order_key(clip: ReplayClip) -> tuple[int, str]:
+        display = displays_service.registry.get(clip.camera_id)
+        order = display.camera_order if display is not None else 0
+        return (order, clip.camera_id)
+
+    return sorted(clips, key=order_key)
+
+
 def _current_heat_replay(race_id: int) -> HeatReplay | None:
     """The `HeatReplay` a race's `heatReplay` subscription should show right
     now, if any camera has uploaded a clip that has not since been purged.
@@ -3249,7 +3286,7 @@ def _current_heat_replay(race_id: int) -> HeatReplay | None:
     return HeatReplay(
         heat_id=key.heat_id,
         recorded_at=key.recorded_at,
-        clips=[_replay_clip(clip) for clip in clips],
+        clips=_order_replay_clips([_replay_clip(clip) for clip in clips]),
     )
 
 
@@ -5088,6 +5125,27 @@ class Mutation:
         screen.
         """
         display = displays_service.registry.set_camera_track(display_id, track_id)
+        if display is None:
+            return None
+        await pubsub.publish(f"display_assignment:{display_id}", None)
+        await _publish_displays(display.race_id)
+        return _display(display)
+
+    @strawberry.mutation
+    async def set_camera_order(self, display_id: str, order: int) -> Display | None:
+        """Tell a camera where its clip plays among several (#177 stage 4).
+
+        Operator-only, the same bucket as `setCameraTrack` and for the
+        identical reason — a camera holds no PIN and makes no GraphQL call
+        of its own, so this travels the Displays panel's own per-row ↑/↓
+        rather than the camera page choosing for itself. Returns null for a
+        display nobody has seen, or one that is not a `CAMERA`: an order
+        means nothing on an ordinary screen. `heatReplay`/`Heat.replays`
+        both read the new order the moment it is set — see
+        `_order_replay_clips` — so there is nothing else to publish beyond
+        the display's own row.
+        """
+        display = displays_service.registry.set_camera_order(display_id, order)
         if display is None:
             return None
         await pubsub.publish(f"display_assignment:{display_id}", None)

@@ -147,6 +147,7 @@ type Display {
   role: DisplayRole!
   trackId: Int
   lastClipAt: String
+  cameraOrder: Int!
   connected: Boolean!
   assigned: Boolean!
   description: String!
@@ -479,6 +480,7 @@ type Mutation {
   endIntermission(raceId: Int!): Race!
   assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null, scrollBehavior: ScrollBehavior = null, showCheckedIn: Boolean = null, qrTarget: QRTarget = null, showStandingsTicker: Boolean = null, replays: Boolean = null): Display
   setCameraTrack(displayId: String!, trackId: Int!): Display
+  setCameraOrder(displayId: String!, order: Int!): Display
   advanceDisplay(displayId: String!, delta: Int!): Display
   identifyDisplay(displayId: String!): Display
   renameDisplay(displayId: String!, name: String!): Display

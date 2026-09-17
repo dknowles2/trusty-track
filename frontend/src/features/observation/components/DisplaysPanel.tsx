@@ -17,10 +17,12 @@
  * shareable address, before the Awards page's ballot share step ever did.
  */
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useClient, useMutation, useQuery, useSubscription } from 'urql';
 import { Icon } from '@mdi/react';
 import {
+    mdiArrowDown,
+    mdiArrowUp,
     mdiCheckCircle,
     mdiCircleOutline,
     mdiClose,
@@ -39,6 +41,7 @@ import {
     IDENTIFY_DISPLAY,
     RACE_AWARD_COUNT_QUERY,
     RENAME_DISPLAY,
+    SET_CAMERA_ORDER,
     SET_CAMERA_TRACK,
     SUGGEST_DISPLAY_NAME,
 } from '../graphql/queries';
@@ -82,6 +85,9 @@ interface DisplayRow {
     /** ISO 8601 UTC, the last time this camera's clip landed — null until
      * the first one does. */
     lastClipAt: string | null;
+    /** This camera's own place among several (#177 stage 4) — lower plays
+     * first; meaningless for an ordinary display. */
+    cameraOrder: number;
     description: string;
     pacedByAPerson: boolean;
     connected: boolean;
@@ -113,6 +119,12 @@ interface DisplaysPanelProps {
      */
     onDisplaysChange?: (hasDisplays: boolean) => void;
 }
+
+// A stable empty array — `useMemo`'s own dependency check below would
+// otherwise see a fresh `[]` literal on every render neither subscription
+// nor query has answered yet and recompute `cameras` for no reason
+// (`react-hooks/exhaustive-deps`' own warning for exactly this shape).
+const EMPTY_DISPLAYS: DisplayRow[] = [];
 
 export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPanelProps) {
     // Query and subscription both: the query answers on load, the
@@ -158,6 +170,7 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     const [, forgetDisplay] = useMutation(FORGET_DISPLAY);
     const [, identifyDisplay] = useMutation(IDENTIFY_DISPLAY);
     const [, setCameraTrack] = useMutation(SET_CAMERA_TRACK);
+    const [, setCameraOrder] = useMutation(SET_CAMERA_ORDER);
 
     // For a CAMERA row's own track picker (#177 stage 1b) — the same query
     // the race form already reads tracks from.
@@ -187,8 +200,44 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
         }
     };
 
-    const displays: DisplayRow[] = liveResult.data?.displays ?? queryResult.data?.displays ?? [];
+    const displays: DisplayRow[] =
+        liveResult.data?.displays ?? queryResult.data?.displays ?? EMPTY_DISPLAYS;
     const hasDisplays = displays.length > 0;
+
+    // Every camera, in the order its clip actually plays (#177 stage 4) —
+    // `cameraOrder` first, `displayId` as the tiebreak, the identical sort
+    // `_order_replay_clips` applies server-side, so a row's position here
+    // always matches where its clip lands in the results-flow player and
+    // the ▶ modal's own camera picker.
+    const cameras = useMemo(
+        () =>
+            [...displays]
+                .filter((d) => d.role === 'CAMERA')
+                .sort((a, b) => a.cameraOrder - b.cameraOrder || a.displayId.localeCompare(b.displayId)),
+        [displays],
+    );
+
+    /**
+     * Move one camera up or down (#177 stage 4). Rather than swapping the
+     * two rows' raw `cameraOrder` values — a no-op whenever they are tied,
+     * which every untouched camera is, at `0` — this re-derives the whole
+     * sorted list with the move applied and reassigns `0..N-1` across it.
+     * That converges to a real, fully-ordered sequence on the very first
+     * press, regardless of what the stored values were before it.
+     */
+    const moveCameraOrder = (displayId: string, direction: -1 | 1) => {
+        const index = cameras.findIndex((c) => c.displayId === displayId);
+        const swapIndex = index + direction;
+        if (index < 0 || swapIndex < 0 || swapIndex >= cameras.length) return;
+        const reordered = [...cameras];
+        const [moved] = reordered.splice(index, 1);
+        reordered.splice(swapIndex, 0, moved);
+        reordered.forEach((camera, i) => {
+            if (camera.cameraOrder !== i) {
+                setCameraOrder({ displayId: camera.displayId, order: i });
+            }
+        });
+    };
 
     // Held in a ref, the same shape `useRaceFlow.ts` uses for its own
     // handlers: a fresh callback identity on the caller's every render must
@@ -598,6 +647,38 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                                         ? `Last clip ${agoText(display.lastClipAt)}`
                                         : 'No clip yet'}
                                 </span>
+                                {/* Which camera's clip plays first when more
+                                    than one uploads for the same heat (#177
+                                    stage 4) — a no-op control, and hidden,
+                                    until there is a second camera to order
+                                    against. */}
+                                {cameras.length > 1 && (() => {
+                                    const position = cameras.findIndex((c) => c.displayId === display.displayId);
+                                    return (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
+                                            <button
+                                                type="button"
+                                                aria-label={`Play ${display.name}'s clip earlier`}
+                                                disabled={!isOperator || position <= 0}
+                                                title={operatorTitle}
+                                                onClick={() => moveCameraOrder(display.displayId, -1)}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex' }}
+                                            >
+                                                <Icon path={mdiArrowUp} size={0.7} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label={`Play ${display.name}'s clip later`}
+                                                disabled={!isOperator || position >= cameras.length - 1}
+                                                title={operatorTitle}
+                                                onClick={() => moveCameraOrder(display.displayId, 1)}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex' }}
+                                            >
+                                                <Icon path={mdiArrowDown} size={0.7} />
+                                            </button>
+                                        </span>
+                                    );
+                                })()}
                             </>
                         )}
 

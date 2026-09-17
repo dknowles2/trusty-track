@@ -32,10 +32,10 @@ import {
   DEFAULT_REPLAY_SETTINGS,
   INITIAL_PLAYBACK_STATE,
   afterClipEnded,
-  orderClipsByCameraId,
   readReplaySettings,
   type PlaybackState,
 } from '../replayPlayback';
+import { finishMarks } from '../finishFrames';
 import { isSoundEffectEnabled, playFinishSound, playRecordBreakSound } from '../../audio/soundEffects';
 import { formatScaleMph } from '../scaleSpeed';
 import { runOffAnnouncement } from '../../racing/runOff';
@@ -70,6 +70,15 @@ import {
   DisplayAssignmentSubscription,
   HeatReplaySubscription,
 } from '../graphql/queries';
+
+/** A replay's lane data, captured alongside its clips (#177 stage 4) —
+ * `timingStats`' own per-lane shape, kept only for the fields
+ * `finishFrames.finishMarks` reads. */
+interface ReplayLane {
+  laneNumber: number;
+  racerName: string;
+  time: number | null;
+}
 
 /** One camera's clip for the current heat (#177 stage 1b) — mirrors the
  * GraphQL `ReplayClip` type's own field selection below. */
@@ -309,6 +318,11 @@ export default function Observation() {
   // which waits for the results overlay (where one exists) to finish first.
   const [seenReplay, setSeenReplay] = useState<SeenHeatResult>(null);
   const [replayClips, setReplayClips] = useState<HeatReplayClip[] | null>(null);
+  // The captured replay's own lane times (#177 stage 4) — `null` when
+  // nothing matched at capture time (`timingStats` hadn't caught up with
+  // `heatReplay` yet), in which case the player simply shows no
+  // finish-frame markers rather than guessing.
+  const [replayLanes, setReplayLanes] = useState<ReplayLane[] | null>(null);
   const [showReplayPlayer, setShowReplayPlayer] = useState(false);
   const [replayPlaybackState, setReplayPlaybackState] = useState<PlaybackState>(INITIAL_PLAYBACK_STATE);
 
@@ -585,14 +599,28 @@ export default function Observation() {
     if (replayClips !== null || showReplayPlayer) {
       setReplayClips(null);
       setShowReplayPlayer(false);
+      if (replayLanes !== null) setReplayLanes(null);
     }
   } else if (replaysEnabled) {
     const observation = observeHeatResult(seenReplay, heatReplay);
     if (observation.seen !== seenReplay) {
       setSeenReplay(observation.seen);
       if (observation.isNew && heatReplay.clips.length > 0) {
-        setReplayClips(orderClipsByCameraId(heatReplay.clips));
+        // Already in the operator's own camera order — `heatReplay`'s
+        // `clips` are sorted server-side (`_order_replay_clips`, #177
+        // stage 4); nothing left to reorder on this side (see
+        // `replayPlayback.ts`'s own header docstring).
+        setReplayClips(heatReplay.clips);
         setReplayPlaybackState(INITIAL_PLAYBACK_STATE);
+        // The lane data for this exact heat/recordedAt pair, if
+        // `timingStats` has caught up with it yet — the two subscriptions
+        // are independent, so a mismatch (this heat's lanes haven't
+        // arrived, or a *different* heat's have) means no finish-frame
+        // markers this time rather than mislabelling a mark.
+        const stats = timingStatsData?.timingStats;
+        const matches =
+          !!stats && stats.heatId === heatReplay.heatId && stats.recordedAt === heatReplay.recordedAt;
+        setReplayLanes(matches ? stats.lanes : null);
       }
     }
   }
@@ -1352,6 +1380,15 @@ export default function Observation() {
     const clip = replayClips[replayPlaybackState.clipIndex];
     if (!clip) return null;
     const settings = readReplaySettings(thisDisplayId) ?? DEFAULT_REPLAY_SETTINGS;
+    // Finish-frame markers for *this* clip (#177 stage 4) — computed per
+    // clip, not once per replay, since two cameras' clips can have
+    // different `t0OffsetMs`/`durationMs` for the identical heat.
+    const marks = replayLanes
+      ? finishMarks(
+          clip,
+          replayLanes.map((l) => ({ lane: l.laneNumber, racerName: l.racerName, time: l.time })),
+        )
+      : [];
 
     return (
       <div className="replay-player-overlay" data-testid="replay-player">
@@ -1365,6 +1402,9 @@ export default function Observation() {
           key={`${clip.url}-${replayPlaybackState.clipIndex}-${replayPlaybackState.playCount}`}
           url={clip.url}
           rate={settings.rate}
+          marks={marks}
+          durationMs={clip.durationMs}
+          laneColor={(lane) => colorForLane(laneColors, lane)}
           onEnded={() => {
             const step = afterClipEnded(replayPlaybackState, settings.showings, replayClips.length);
             if (step === 'done') {

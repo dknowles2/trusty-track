@@ -29,7 +29,8 @@ Everything not named below, and in particular:
   :func:`is_lock_only_update`;
 * the display mutations (``assignDisplay``, ``advanceDisplay``,
   ``identifyDisplay``, ``renameDisplay``, ``forgetDisplay``,
-  ``setCameraTrack`` — a camera is a display with a role, #177 stage 1a) —
+  ``setCameraTrack`` — a camera is a display with a role, #177 stage 1a —
+  and ``setCameraOrder``, #177 stage 4) —
   they are about which screen shows what, not about the race's own record,
   the same reasoning that puts them outside ``CHECKIN_MUTATIONS`` / needing
   anything beyond an ``OPERATOR`` role in the first place;

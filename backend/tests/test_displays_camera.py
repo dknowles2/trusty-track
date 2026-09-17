@@ -124,6 +124,62 @@ async def test_set_camera_track_refuses_an_unseen_display():
 
 
 # --------------------------------------------------------------------------- #
+# `setCameraOrder` (#177 stage 4)                                             #
+# --------------------------------------------------------------------------- #
+
+
+async def test_set_camera_order_round_trips(db):
+    stream = Subscription().display_assignment(
+        _info(db), display_id="cam-1", race_id=1, role=DisplayRole.CAMERA
+    )
+    await _first(stream)
+
+    result = await Mutation().set_camera_order(display_id="cam-1", order=2)
+
+    assert result is not None
+    assert result.camera_order == 2
+    await stream.aclose()
+
+
+async def test_set_camera_order_shows_up_in_the_displays_list(db):
+    stream = Subscription().display_assignment(
+        _info(db), display_id="cam-1", race_id=1, role=DisplayRole.CAMERA
+    )
+    await _first(stream)
+    await Mutation().set_camera_order(display_id="cam-1", order=3)
+
+    [display] = Query().displays(race_id=1)
+
+    assert display.camera_order == 3
+    await stream.aclose()
+
+
+async def test_set_camera_order_refuses_an_ordinary_display(db):
+    stream = Subscription().display_assignment(_info(db), display_id="scr-1", race_id=1)
+    await _first(stream)
+
+    result = await Mutation().set_camera_order(display_id="scr-1", order=1)
+
+    assert result is None
+    await stream.aclose()
+
+
+async def test_set_camera_order_refuses_an_unseen_display():
+    result = await Mutation().set_camera_order(display_id="ghost", order=1)
+
+    assert result is None
+
+
+def test_camera_order_defaults_to_zero():
+    registry.connect("cam-1", race_id=1, role=DisplayRole.CAMERA)
+
+    display = registry.get("cam-1")
+
+    assert display is not None
+    assert display.camera_order == 0
+
+
+# --------------------------------------------------------------------------- #
 # The `replays` toggle                                                        #
 # --------------------------------------------------------------------------- #
 
