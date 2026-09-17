@@ -194,7 +194,10 @@ test('editing a race keeps it on the track it was on', async ({ page }) => {
 
     await page.getByRole('button', { name: /edit race/i }).click();
     // Preselected on the race's own track, not on the first one in the list.
-    await expect(page.getByLabel(/track/i)).toHaveValue(String(createTrack.id));
+    // Exact label, not the loose /track/i this used to be: the Event
+    // section's Lock race box carries a DocsLink titled "Race and track
+    // settings" (#1194), which the same loose regex also matches.
+    await expect(page.getByLabel('Track / Timer')).toHaveValue(String(createTrack.id));
 
     // Save without touching anything — the operator's "I only changed the name"
     // case, reduced to changing nothing at all.
