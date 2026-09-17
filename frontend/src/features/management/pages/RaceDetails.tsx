@@ -33,6 +33,7 @@ import SortableHeader from '../components/SortableHeader';
 import BulkPhotoUploadModal from '../components/BulkPhotoUploadModal';
 import RacerAvatar from '../components/RacerAvatar';
 import EditRaceButton from '../components/EditRaceButton';
+import DocsLink from '../../../components/ui/DocsLink';
 import { Icon } from '@mdi/react';
 import {
   mdiMagnify, mdiNumeric, mdiPencil,
@@ -1139,12 +1140,15 @@ export default function RaceDetails() {
                       {race?.name}
                       {race?.is_locked && <LockedBadge />}
                   </h1>
-                  <EditRaceButton
-                      onClick={() => setIsEditingRace(true)}
-                      disabled={!isOperator}
-                      title={operatorRoleTitle}
-                      data-testid="edit-race-btn"
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <EditRaceButton
+                          onClick={() => setIsEditingRace(true)}
+                          disabled={!isOperator}
+                          title={operatorRoleTitle}
+                          data-testid="edit-race-btn"
+                      />
+                      <DocsLink docsKey="roster" />
+                  </div>
               </div>
               <p data-testid="race-summary-line" style={{ margin: '0.35rem 0 0', color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
                   {raceSummaryLine(
@@ -1372,6 +1376,7 @@ export default function RaceDetails() {
                         >
                             <Icon path={mdiPencil} size={0.7} /> Edit race
                         </button>
+                        <DocsLink docsKey="roster" label="Roster guide" />
                     </div>
                 )}
               </div>

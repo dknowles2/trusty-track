@@ -33,6 +33,24 @@ import {
   wordsFor,
   type SetupAnswers,
 } from '../../../context/organizationKinds';
+import DocsLink from '../../../components/ui/DocsLink';
+import type { DocsKey } from '../../../docs/docsLink';
+
+/**
+ * Which guide each settings section's own `?` icon opens (#1194) — one per
+ * `SectionId`, read by `SectionHeading` below. `access`/`advanced` fall back
+ * to `access-and-network`, the guide about who may change what; `general`/
+ * `tracks` fall back to `race-setup`, since neither has a reference page of
+ * its own. The three with a better fit override the default.
+ */
+const SECTION_DOCS_KEY: Record<SectionId, DocsKey> = {
+  general: 'settings-general',
+  appearance: 'settings-appearance',
+  access: 'settings-access',
+  tracks: 'settings-tracks',
+  advanced: 'settings-advanced',
+  backup: 'settings-backup',
+};
 import { NAME_DISPLAY_OPTIONS } from '../../core/displayName';
 import BackLink from '../../core/components/BackLink';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
@@ -214,7 +232,10 @@ function SectionHeading({ id, sectioned }: { id: SectionId; sectioned: boolean }
   if (!sectioned || !meta) return null;
   return (
     <>
-      <h2 style={{ marginTop: 0, marginBottom: '0.25rem' }}>{meta.label}</h2>
+      <h2 style={{ marginTop: 0, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {meta.label}
+        <DocsLink docsKey={SECTION_DOCS_KEY[id]} />
+      </h2>
       <p style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem', marginTop: 0, marginBottom: '1.5rem' }}>
         {meta.blurb}
       </p>
@@ -783,7 +804,10 @@ export default function SystemConfig() {
           beside Debugging Mode. Off keeps stage 1a's exact
           delete-after-next-heat behaviour byte-for-byte. */}
       <div data-testid="replay-retention-fields" style={{ marginTop: '2rem' }}>
-        <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem' }}>Replays</p>
+        <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          Replays
+          <DocsLink docsKey="settings-replays" />
+        </p>
         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
           <input
             type="checkbox"

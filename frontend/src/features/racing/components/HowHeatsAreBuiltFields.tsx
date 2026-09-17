@@ -1,5 +1,6 @@
 import React from 'react';
 import type { SchedulingAlgorithmsQuery } from '../../../gql/operations';
+import FieldHelp from '../../../components/ui/FieldHelp';
 
 export type SchedulingAlgorithmOption = SchedulingAlgorithmsQuery['schedulingAlgorithms'][number];
 
@@ -46,6 +47,14 @@ export const HowHeatsAreBuiltFields: React.FC<HowHeatsAreBuiltFieldsProps> = ({
       <summary style={{ ...labelStyle, display: 'list-item', cursor: 'pointer' }}>
         How heats are built
       </summary>
+      <FieldHelp
+        id="how-heats-are-built-intro-help"
+        as="small"
+        style={{ color: mutedColor, display: 'block', marginTop: '4px' }}
+        docs="how-heats-are-built"
+      >
+        Which algorithm decides who races whom, and how many times.
+      </FieldHelp>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
         {options.map((option) => {
           const disabled = loading || option.unavailableReason != null;

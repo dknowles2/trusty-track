@@ -459,6 +459,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                         id="race-is-locked-help"
                                         style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', margin: 0 }}
                                         summary="Guards a finished race against accidental edits; it can still be deleted."
+                                        docs="lock-race"
                                     >
                                         While locked, scheduling, results, racer registrations and awards cannot be
                                         changed — a stray tap on a shared machine, not a step you have to remember to
@@ -621,6 +622,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                 Ties (#540) uses just below. */}
                             <fieldset style={fieldsetStyle}>
                                 <legend style={legendStyle}>Scoring</legend>
+                                <FieldHelp id="race-scoring-strategy-help" as="small" style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: '0.6rem' }} docs="scoring-methods">
+                                    Which method fits depends on your timer and how you want ties handled.
+                                </FieldHelp>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                                     {SCORING_STRATEGY_OPTIONS.map(option => (
                                         <label key={option.value} style={{ display: 'block', cursor: 'pointer' }}>
@@ -773,7 +777,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                         />
                                         <span>At most one trophy per racer</span>
                                     </label>
-                                    <FieldHelp id="race-one-trophy-per-racer-help" style={helpStyle}>
+                                    <FieldHelp id="race-one-trophy-per-racer-help" style={helpStyle} docs="awards-one-trophy">
                                         A {vehicleLower} that already holds an award is skipped for a later one — so the
                                         {' '}{groupLower} trophy rolls down to the next-fastest {vehicleLower} once its own
                                         winner has already taken the overall trophy. Set up which award comes first on the
@@ -862,7 +866,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                         />
                                     </>
                                 )}
-                                <FieldHelp id="race-check-weights-help" style={helpStyle}>
+                                <FieldHelp id="race-check-weights-help" style={helpStyle} docs="weight-limit">
                                     Check-in warns when a {vehicleLower} is over this. It is a warning, not a
                                     refusal — the inspector decides.
                                 </FieldHelp>

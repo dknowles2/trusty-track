@@ -24,6 +24,7 @@ This is the same reasoning as `test_docs_stay_current.py`, one directory out: a
 rule nobody enforces accumulates debt in files nobody opens.
 """
 
+import json
 import re
 from pathlib import Path
 
@@ -31,6 +32,7 @@ import pytest
 
 from backend.services.timer.devices import ALL_PROFILES
 
+from .test_docs_stay_current import _headings_of
 from .test_timer_recordings import RECORDED_PROFILES
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -260,3 +262,59 @@ def test_the_favicon_is_square():
 
     with Image.open(DOCS_DIR / _mkdocs_favicon()) as image:
         assert image.width == image.height, f"favicon is {image.size}"
+
+
+# ---------------------------------------------------------------------------
+# The app's own links into the docs (#1194)
+# ---------------------------------------------------------------------------
+
+DOCS_LINKS_JSON = REPO_ROOT / "frontend" / "src" / "docs" / "docsLinks.json"
+
+
+def _ui_docs_links() -> dict:
+    """`frontend/src/docs/docsLinks.json` — the app-side key to docs-page map.
+
+    One file both languages can read: `docsLink.ts` builds a URL from it at
+    runtime, and this reads the same JSON to prove every entry actually
+    resolves. A key changing what it points at needs no change here; a page
+    or heading being renamed out from under a key is exactly what this
+    catches.
+    """
+    return json.loads(DOCS_LINKS_JSON.read_text())
+
+
+UI_DOCS_LINKS = _ui_docs_links()
+
+
+@pytest.mark.parametrize("key", sorted(UI_DOCS_LINKS))
+def test_every_ui_docs_link_lands_on_a_page_and_heading(key: str):
+    """Every entry in `docsLinks.json` names a real page, and a real heading
+    on it if it names one at all.
+
+    `docsHref` turns `{"path": "awards", "anchor": "at-most-one-trophy-per-racer"}`
+    into `https://trusty-track.com/docs/awards/#at-most-one-trophy-per-racer`;
+    this is what proves that page exists and that heading is on it, the same
+    way `test_every_link_into_the_docs_lands_on_a_page` above proves it for
+    the landing page's own links, and `test_docs_stay_current.py`'s anchor
+    test proves it for links *within* the docs. A `?`/"Learn more" icon that
+    opens a page with no such heading strands the operator it was meant to
+    help, silently — nothing else in the tree would catch it.
+    """
+    entry = UI_DOCS_LINKS[key]
+    link = f"/docs/{entry['path']}/"
+    pages = _docs_pages_for(link)
+    matches = [page for page in pages if page.is_file()]
+    assert matches, (
+        f"docsLinks.json[{key!r}] points at {link}, which resolves to "
+        + " or ".join(str(page.relative_to(REPO_ROOT)) for page in pages)
+        + ", neither of which exists"
+    )
+    anchor = entry.get("anchor")
+    if anchor:
+        page = matches[0]
+        headings = _headings_of(page)
+        assert anchor in headings, (
+            f"docsLinks.json[{key!r}] links to {link}#{anchor}, but "
+            f"{page.relative_to(REPO_ROOT)} has no heading with that id "
+            f"(has: {sorted(headings)})"
+        )

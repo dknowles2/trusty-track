@@ -193,3 +193,7 @@ Now that your race is set up, you can proceed to adding racers and managing the 
 - [Race Day Operations Guide](race-day.md) — Check-in and running the race
 - [Observation & Audience Displays Guide](observation-displays.md) — Setting up kiosks and displays
 - [Instant Replay Guide](instant-replay.md) — Turning a phone into a finish-line camera
+
+You don't have to keep this page open while you work: every screen carries its
+own **?** icon, top right, that opens the guide for exactly what you're
+looking at.

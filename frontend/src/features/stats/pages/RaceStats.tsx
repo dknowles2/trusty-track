@@ -21,6 +21,7 @@ import { groupScoreDomain } from '../groupScoreDomain';
 import { strategyLabel } from '../scoringStrategyText';
 import { hideRaceColumn } from '../trackRecordColumns';
 import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
+import DocsLink from '../../../components/ui/DocsLink';
 import './RaceStats.css';
 
 // ---- Types ----
@@ -238,6 +239,9 @@ export default function RaceStats() {
 
   return (
     <div className="container race-stats" style={{ padding: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <DocsLink docsKey="stats" />
+      </div>
       {/* Overview Cards */}
       <div className="race-stats__overview-cards">
         <div className="race-stats__overview-card race-stats__overview-card--badge">

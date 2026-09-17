@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import DisplaysPanel from '../components/DisplaysPanel';
 import ScenesPanel from '../components/ScenesPanel';
+import DocsLink from '../../../components/ui/DocsLink';
 
 export default function DisplaysPage() {
   const { raceId } = useParams<{ raceId: string }>();
@@ -27,7 +28,10 @@ export default function DisplaysPage() {
 
   return (
     <div className="container" style={{ padding: '20px' }}>
-      <h1 style={{ margin: '0 0 20px' }}>Displays</h1>
+      <h1 style={{ margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        Displays
+        <DocsLink docsKey="displays" />
+      </h1>
       {/* Displays leads (#850): it is the thing that is actually there — the
           operator's live list of screens, and the address to give a screen
           that has not connected yet — where Scenes is a power tool for

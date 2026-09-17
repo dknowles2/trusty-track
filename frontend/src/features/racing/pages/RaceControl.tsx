@@ -15,6 +15,8 @@ import { colorForLane } from '../../settings/laneColors';
 import ReadinessStrip from '../components/ReadinessStrip';
 import { FreeRaceTab } from '../components/FreeRaceTab';
 import EditRaceButton from '../../management/components/EditRaceButton';
+import DocsLink from '../../../components/ui/DocsLink';
+import type { DocsKey } from '../../../docs/docsLink';
 import CameraBadges from '../../observation/components/CameraBadges';
 import HeatReplayModal from '../../observation/components/HeatReplayModal';
 import {
@@ -1061,6 +1063,15 @@ export default function RaceControl() {
     </div>
   );
 
+  // Which guide this tab's own ? icon opens (#1194) — the active tab, since
+  // Schedule/Race/Free Race are different enough questions to want different
+  // pages.
+  const docsKeyForTab: Record<'SCHEDULE' | 'EXECUTION' | 'FREE_RACE', DocsKey> = {
+    SCHEDULE: 'control-schedule',
+    EXECUTION: 'control-race',
+    FREE_RACE: 'control-free-race',
+  };
+
   // The "Edit race" action, shared by the desktop pill and the mobile
   // overflow entry below — both navigate to the roster's own edit modal
   // (`RaceDetails.tsx`'s `?edit=true` handling), never a settings route of
@@ -1103,6 +1114,7 @@ export default function RaceControl() {
             >
               <Icon path={mdiPencil} size={0.7} /> Edit race
             </button>
+            <DocsLink docsKey={docsKeyForTab[viewMode]} label="Learn more" />
           </div>
         )}
       </div>
@@ -1123,13 +1135,14 @@ export default function RaceControl() {
           the same modal there rather than inventing a settings page of
           its own; the spacer this replaced existed only to balance the
           centered tab group against the title on the left. */}
-      <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px' }}>
         <EditRaceButton
           onClick={goToEditRace}
           disabled={!isOperator}
           title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
           data-testid="race-control-edit-race"
         />
+        <DocsLink docsKey={docsKeyForTab[viewMode]} />
       </div>
     </div>
   );

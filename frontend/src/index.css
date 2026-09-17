@@ -1855,3 +1855,21 @@ input:checked + .slider:before {
 .field-help-detail[hidden] {
   display: none;
 }
+
+/* DocsLink (#1194): one `?`/"Learn more" affordance, opening the docs page
+ * that explains the screen it sits on. Icon-only in a page header, text in
+ * `FieldHelp`'s "Learn more →" form — `DocsLink.tsx` decides which; this is
+ * only its appearance. */
+.docs-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--text-muted-color);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.docs-link:hover,
+.docs-link:focus-visible {
+  color: var(--scouting-blue);
+}
