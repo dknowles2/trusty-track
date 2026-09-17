@@ -22,6 +22,9 @@ export interface IntermissionData {
   readonly paused: boolean;
   readonly label?: string | null;
   readonly endsAt?: string | null;
+  /** Whether this break is showing the current round's stored replay
+   * clips instead of the ordinary next-up preview (#177 stage 3). */
+  readonly highlights?: boolean;
 }
 
 /** No break — the shape `Race.intermission` reports when nothing is on. */
@@ -31,6 +34,7 @@ export const NONE: IntermissionData = {
   paused: false,
   label: null,
   endsAt: null,
+  highlights: false,
 };
 
 /**

@@ -225,6 +225,16 @@ class RequestLoaders:
             self._heat_replays[race_id] = by_heat
         return self._heat_replays[race_id].get(heat_id, [])
 
+    def replay_count_for_race(self, race_id: int) -> int:
+        """Total stored replay clips across a whole race (#177 stage 3) —
+        `Race.replayCount`, off the identical per-race query
+        `replays_for_heat` already runs and caches in `_heat_replays`, so
+        asking this costs nothing beyond that one query, whichever of the
+        two a caller reaches first.
+        """
+        self.replays_for_heat(race_id, -1)
+        return sum(len(rows) for rows in self._heat_replays[race_id].values())
+
     def lane_values_for_heat(self, race_id: int, heat_id: int) -> list[lanes.Lane]:
         """One heat's lanes as domain values, off the same batched query.
 

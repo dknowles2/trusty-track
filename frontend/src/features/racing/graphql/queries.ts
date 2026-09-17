@@ -472,11 +472,17 @@ export const GET_RUN_OFF_HEATS = gql`
 // same fields also arrive on `raceStateChanged`'s `intermission` payload for
 // a screen that only holds the subscription (see `Observation.tsx`).
 export const START_INTERMISSION_MUTATION = gql`
-  mutation StartIntermission($raceId: Int!, $durationSeconds: Int!, $label: String) {
+  mutation StartIntermission(
+    $raceId: Int!
+    $durationSeconds: Int!
+    $label: String
+    $highlights: Boolean
+  ) {
     startIntermission(
       raceId: $raceId
       durationSeconds: $durationSeconds
       label: $label
+      highlights: $highlights
     ) {
       id
       intermission {
@@ -485,6 +491,7 @@ export const START_INTERMISSION_MUTATION = gql`
         paused
         label
         endsAt
+        highlights
       }
     }
   }
@@ -500,6 +507,7 @@ export const EXTEND_INTERMISSION_MUTATION = gql`
         paused
         label
         endsAt
+        highlights
       }
     }
   }
@@ -515,6 +523,7 @@ export const PAUSE_INTERMISSION_MUTATION = gql`
         paused
         label
         endsAt
+        highlights
       }
     }
   }
@@ -530,6 +539,7 @@ export const RESUME_INTERMISSION_MUTATION = gql`
         paused
         label
         endsAt
+        highlights
       }
     }
   }
@@ -545,6 +555,7 @@ export const END_INTERMISSION_MUTATION = gql`
         paused
         label
         endsAt
+        highlights
       }
     }
   }
@@ -554,17 +565,32 @@ export const END_INTERMISSION_MUTATION = gql`
 // intermission this way rather than waiting on a `raceStateChanged` event —
 // it needs to render correctly on first load too (an operator who reloads
 // mid-break).
+// `replayCount`/`initialConfig.keepReplays` are what
+// `IntermissionControl.tsx` reads to decide whether "Show replay
+// highlights" is worth offering at all (#177 stage 3) — the same two
+// conditions `crud.start_intermission` checks server-side, so the checkbox
+// and the mutation's own refusal cannot drift apart.
 export const GET_RACE_INTERMISSION = gql`
   query GetRaceIntermission($raceId: Int!) {
     race(raceId: $raceId) {
       id
+      replayCount
       intermission {
         active
         remainingSeconds
         paused
         label
         endsAt
+        highlights
       }
+      highlightsSummary {
+        clipCount
+        roundNumber
+        roundName
+      }
+    }
+    initialConfig {
+      keepReplays
     }
   }
 `;

@@ -54,3 +54,53 @@ describe('IntermissionOverlay', () => {
     expect(screen.queryByText(/Up next/)).toBeNull();
   });
 });
+
+describe('highlights mode (#177 stage 3)', () => {
+  it('plays the given clip with its caption, and moves the countdown to a corner badge', () => {
+    render(
+      <IntermissionOverlay
+        intermission={running}
+        highlightClip={{ url: '/replay/abc.webm', caption: 'Heat 7 · Dash Tire · 3.148 s' }}
+      />,
+    );
+
+    const video = screen.getByTestId('replay-video');
+    expect(video).toHaveAttribute('src', '/replay/abc.webm');
+    expect(screen.getByTestId('intermission-highlight-caption')).toHaveTextContent(
+      'Heat 7 · Dash Tire · 3.148 s',
+    );
+    // The countdown is still visible, but in the corner badge rather than
+    // the big centered number — the same testid either way, so a caller
+    // watching for "still counting down" does not have to know which
+    // layout is active.
+    expect(screen.getByTestId('intermission-overlay-countdown')).toHaveTextContent('4:3');
+    expect(screen.getByTestId('intermission-overlay-countdown-corner')).toBeInTheDocument();
+  });
+
+  it('does not render the next-up preview while a clip is playing', () => {
+    render(
+      <IntermissionOverlay
+        intermission={running}
+        nextUpRacers={[{ lane: 1, firstName: 'Jordan', lastName: 'Mitchell', carNumber: 7 }]}
+        highlightClip={{ url: '/replay/abc.webm', caption: 'Heat 7 · 3.148 s' }}
+      />,
+    );
+
+    expect(screen.queryByText('Jordan Mitchell')).toBeNull();
+  });
+
+  it('falls back to the ordinary layout when there is no clip to show', () => {
+    render(<IntermissionOverlay intermission={running} highlightClip={null} />);
+
+    expect(screen.queryByTestId('replay-video')).toBeNull();
+    expect(screen.queryByTestId('intermission-overlay-countdown-corner')).toBeNull();
+    expect(screen.queryByTestId('intermission-highlight-caption')).toBeNull();
+  });
+
+  it('is unchanged when the prop is simply omitted', () => {
+    render(<IntermissionOverlay intermission={running} />);
+
+    expect(screen.queryByTestId('replay-video')).toBeNull();
+    expect(screen.getByTestId('intermission-overlay-countdown')).toBeInTheDocument();
+  });
+});

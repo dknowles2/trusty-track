@@ -31,6 +31,7 @@ import { DisplayAssignmentSubscription } from '../../observation/graphql/queries
 import IdentifyPresence from '../../observation/IdentifyPresence';
 import { useIdentifyOverlay } from '../../observation/useIdentifyOverlay';
 import IntermissionOverlay from '../../observation/components/IntermissionOverlay';
+import { useIntermissionHighlights } from '../../observation/useIntermissionHighlights';
 import { NONE as NO_INTERMISSION, type IntermissionData } from '../../racing/intermission';
 import { useLiveIntermission } from '../../core/hooks/useLiveIntermission';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
@@ -98,6 +99,12 @@ export default function AwardCeremony() {
   const rounds = race?.rounds ?? [];
   const racingGroups = race?.racingGroups ?? [];
 
+  // Resolved server-side (#552); the ceremony is an audience surface, so
+  // the winner's name and photo go through it — the operator's own award
+  // screens do not. Read here, ahead of the early return below, since the
+  // highlight reel's own captions (`useIntermissionHighlights`) need it too.
+  const nameDisplay = race?.resolvedNameDisplay ?? 'FULL';
+
   // A break takes this screen over exactly like every other display (#592,
   // #1072) — this route had no intermission handling at all before, so a
   // ceremony assigned during a break never showed one, and applying the
@@ -108,6 +115,20 @@ export default function AwardCeremony() {
   useRaceStateChanged(id, () => reExecute({ requestPolicy: 'network-only' }));
   const intermission: IntermissionData = race?.intermission ?? NO_INTERMISSION;
   const intermissionActive = useLiveIntermission(intermission);
+
+  // The break's highlight reel (#177 stage 3) — shared with `Observation.tsx`
+  // through `useIntermissionHighlights` so this route shows the identical
+  // reel rather than falling back to the ordinary next-up preview during a
+  // highlights break (#592, #1072's own point: a break takes this route
+  // over exactly like every other display, with no exceptions).
+  const { highlightClip, onHighlightEnded } = useIntermissionHighlights({
+    intermission,
+    intermissionActive,
+    heats: race?.heats,
+    rounds,
+    racers: race?.racers,
+    nameDisplay,
+  });
 
   useEffect(() => {
     // `assigned`, not merely a payload: every connected screen receives one
@@ -275,15 +296,16 @@ export default function AwardCeremony() {
     return (
       <div className="container projector-mode" data-theme={displayThemeKey} style={displayThemeStyle}>
         <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
-        <IntermissionOverlay intermission={intermission} vehicleLabel={vehicle} />
+        <IntermissionOverlay
+          intermission={intermission}
+          vehicleLabel={vehicle}
+          highlightClip={highlightClip}
+          onHighlightEnded={onHighlightEnded}
+        />
       </div>
     );
   }
 
-  // Resolved server-side (#552); the ceremony is an audience surface, so the
-  // winner's name and photo go through it — the operator's own award screens
-  // do not.
-  const nameDisplay = race?.resolvedNameDisplay ?? 'FULL';
   const slide = slideFor(awards, index, rounds, racingGroups, groupLower, nameDisplay);
 
   return (

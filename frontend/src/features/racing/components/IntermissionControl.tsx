@@ -56,12 +56,25 @@ export default function IntermissionControl({ raceId, compact = false }: Intermi
   const { showAlert } = useAlert();
   const [customOpen, setCustomOpen] = useState(false);
   const [customMinutes, setCustomMinutes] = useState('15');
+  // Local to this control, not persisted (#177 stage 3) — unlike the
+  // duration presets, nothing else about a break is remembered across
+  // sessions either (`customMinutes` resets to '15' on every mount), so
+  // there is no existing per-race storage this would be joining. Defaults
+  // on whenever it is offered at all: an operator who turned on stored
+  // clips and has one to show most likely wants the checkbox already
+  // ticked rather than one more click every time.
+  const [highlightsWanted, setHighlightsWanted] = useState(true);
 
   const [{ data }, reExecute] = useQuery<GetRaceIntermissionQuery>({
     query: GET_RACE_INTERMISSION,
     variables: { raceId },
     pause: !raceId,
   });
+
+  // Offered only when there is something for it to show — the same two
+  // conditions `crud.start_intermission` refuses on the server, checked
+  // here first so the checkbox never invites a click that would fail.
+  const highlightsAvailable = Boolean(data?.initialConfig?.keepReplays) && (data?.race?.replayCount ?? 0) > 0;
 
   // Another tab — or another mutation on this one — can change the break;
   // this is the display's own leash reused rather than a bespoke poll (see
@@ -102,7 +115,13 @@ export default function IntermissionControl({ raceId, compact = false }: Intermi
   const handleStart = (seconds: number) => {
     setCustomOpen(false);
     return run(
-      () => startIntermission({ raceId, durationSeconds: seconds, label: null }),
+      () =>
+        startIntermission({
+          raceId,
+          durationSeconds: seconds,
+          label: null,
+          highlights: highlightsAvailable && highlightsWanted,
+        }),
       'The intermission could not be started.',
     );
   };
@@ -143,6 +162,32 @@ export default function IntermissionControl({ raceId, compact = false }: Intermi
   const now = new Date();
   const active = isLiveActive(intermission, now);
   const remainingForCompact = active ? liveRemainingSeconds(intermission, now) : 0;
+
+  // Shown beside the duration presets, in both layouts, only while there
+  // is something highlights could show (#177 stage 3) — a checkbox that
+  // always disappoints ("Show replay highlights" with nothing stored) is
+  // worse than no checkbox at all, the same reasoning the ceremony's own
+  // view option follows (`.claude/rules/displays.md`'s "offered only when
+  // the race has an award"). When it is absent, a one-line note says why,
+  // so an operator who wants it knows where to turn it on rather than
+  // wondering whether the feature exists at all.
+  const highlightsToggle = highlightsAvailable ? (
+    <label
+      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+    >
+      <input
+        type="checkbox"
+        data-testid="intermission-highlights-checkbox"
+        checked={highlightsWanted}
+        onChange={(e) => setHighlightsWanted(e.target.checked)}
+      />
+      Show replay highlights
+    </label>
+  ) : (
+    <span style={{ fontSize: '0.75rem', color: 'var(--muted-text-color)' }}>
+      Turn on stored clips in Settings to show highlights
+    </span>
+  );
 
   // The popover closes on an outside click, the same pattern
   // `RaceDetails.tsx`'s overflow menu uses — only wired up in compact mode,
@@ -216,6 +261,13 @@ export default function IntermissionControl({ raceId, compact = false }: Intermi
             {active ? (
               <>
                 <span style={{ fontWeight: 'bold' }}>{intermission.label || 'Intermission'}</span>
+                {intermission.highlights && data?.race?.highlightsSummary && (
+                  <span data-testid="intermission-highlights-summary" style={{ fontSize: '0.8rem' }}>
+                    Highlights: {data.race.highlightsSummary.clipCount} clip
+                    {data.race.highlightsSummary.clipCount === 1 ? '' : 's'} from{' '}
+                    {data.race.highlightsSummary.roundName || `Round ${data.race.highlightsSummary.roundNumber}`}
+                  </span>
+                )}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   <button
                     type="button"
@@ -293,6 +345,7 @@ export default function IntermissionControl({ raceId, compact = false }: Intermi
                     Custom
                   </button>
                 )}
+                {highlightsToggle}
               </>
             )}
           </div>
@@ -364,6 +417,7 @@ export default function IntermissionControl({ raceId, compact = false }: Intermi
             Custom
           </button>
         )}
+        {highlightsToggle}
       </div>
     );
   }
@@ -387,6 +441,13 @@ export default function IntermissionControl({ raceId, compact = false }: Intermi
     >
       <Icon path={mdiCoffee} size={1} />
       <span style={{ fontWeight: 'bold' }}>{intermission.label || 'Intermission'}</span>
+      {intermission.highlights && data?.race?.highlightsSummary && (
+        <span data-testid="intermission-highlights-summary" style={{ fontSize: '0.8rem' }}>
+          Highlights: {data.race.highlightsSummary.clipCount} clip
+          {data.race.highlightsSummary.clipCount === 1 ? '' : 's'} from{' '}
+          {data.race.highlightsSummary.roundName || `Round ${data.race.highlightsSummary.roundNumber}`}
+        </span>
+      )}
       {/* Not a system `monospace` (#821) — see `.overlay-time` in
           `index.css`. */}
       <span

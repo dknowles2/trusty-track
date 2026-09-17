@@ -4,10 +4,12 @@ Race day includes real breaks — a snack table, a stuck sprinkler, the gap
 between the qualifying heats and the championship — and until now Race
 Control had no way to say so beyond a shrug and a paused schedule screen the
 audience never sees. This module is the rule for what an intermission *is*:
-three plain stored fields (`Race.intermission_ends_at`,
-`Race.intermission_label`, `Race.intermission_paused_remaining_seconds`) and
-a set of pure functions turning them, plus the current time, into what the
-operator screen and the audience display both need.
+four plain stored fields (`Race.intermission_ends_at`,
+`Race.intermission_label`, `Race.intermission_paused_remaining_seconds`,
+`Race.intermission_highlights` — #177 stage 3, whether the break is showing
+the current round's stored replay clips) and a set of pure functions turning
+them, plus the current time, into what the operator screen and the audience
+display both need.
 
 Race-scoped and stored, not in-memory
 --------------------------------------
@@ -17,7 +19,7 @@ browser tab that is open right now and nothing would ever clean up a row for
 a screen unplugged mid-event. An intermission is different: it describes the
 *race*, not a screen, and every screen watching that race has to agree on it
 after a refresh — the operator's own laptop included, if it reloads
-mid-break. So it is three columns on `Race`, not a registry, and it rides on
+mid-break. So it is four columns on `Race`, not a registry, and it rides on
 the same `race_state:{race_id}` channel every other race-level change
 already publishes on (see `_publish_race_state` in `api/schema.py`) — no new
 pub/sub channel for a fourth kind of change.
@@ -92,6 +94,11 @@ class State:
     ends_at: str | None = None
     paused_remaining_seconds: int | None = None
     label: str | None = None
+    #: Whether this break is showing the current round's stored replay
+    #: clips instead of the ordinary next-up preview (#177 stage 3). Cleared
+    #: by `end`, the same as `label` — a fresh `start` decides again rather
+    #: than a stale "on" surviving into an unrelated later break.
+    highlights: bool = False
 
 
 @dataclass(frozen=True)
@@ -112,6 +119,9 @@ class Intermission:
     paused: bool
     label: str | None
     ends_at: str | None
+    #: See `State.highlights`. Follows `label`'s own "cleared once inactive"
+    #: rule below — an expired-but-unended countdown reports neither.
+    highlights: bool = False
 
 
 #: No intermission — every race starts here, and `end` returns here too.
@@ -135,6 +145,7 @@ def resolve(state: State, now: datetime) -> Intermission:
             paused=True,
             label=state.label,
             ends_at=None,
+            highlights=state.highlights,
         )
     if state.ends_at is not None:
         remaining = max(0, _seconds_until(state.ends_at, now))
@@ -144,19 +155,36 @@ def resolve(state: State, now: datetime) -> Intermission:
             paused=False,
             label=state.label if remaining > 0 else None,
             ends_at=state.ends_at,
+            highlights=state.highlights if remaining > 0 else False,
         )
     return Intermission(
-        active=False, remaining_seconds=0, paused=False, label=None, ends_at=None
+        active=False,
+        remaining_seconds=0,
+        paused=False,
+        label=None,
+        ends_at=None,
+        highlights=False,
     )
 
 
-def start(duration_seconds: int, label: str | None, now: datetime) -> State:
+def start(
+    duration_seconds: int,
+    label: str | None,
+    now: datetime,
+    highlights: bool = False,
+) -> State:
     """Begin (or restart) an intermission running for ``duration_seconds``.
 
     Deliberately has no precondition on the current state — restarting a
     break already in progress with a fresh duration or a new label (the
     operator changing their mind about how long, or a second "Take a break"
     click from the round-summary modal) is an ordinary use, not an error.
+
+    ``highlights`` is whether this break should show the current round's
+    stored replay clips instead of the ordinary next-up preview (#177 stage
+    3) — the caller (`crud.start_intermission`) is the one place that knows
+    whether that is actually available (`Organization.keep_replays` on, and
+    at least one stored clip), since this module has no database to ask.
     """
     if duration_seconds <= 0:
         raise ValueError("duration_seconds must be positive")
@@ -166,6 +194,7 @@ def start(duration_seconds: int, label: str | None, now: datetime) -> State:
         ends_at=(now + timedelta(seconds=duration_seconds)).isoformat(),
         paused_remaining_seconds=None,
         label=label,
+        highlights=highlights,
     )
 
 
@@ -206,7 +235,12 @@ def pause(state: State, now: datetime) -> State:
     if state.ends_at is None or not resolve(state, now).active:
         raise ValueError("no active intermission to pause")
     remaining = max(0, _seconds_until(state.ends_at, now))
-    return State(ends_at=None, paused_remaining_seconds=remaining, label=state.label)
+    return State(
+        ends_at=None,
+        paused_remaining_seconds=remaining,
+        label=state.label,
+        highlights=state.highlights,
+    )
 
 
 def resume(state: State, now: datetime) -> State:
@@ -223,6 +257,7 @@ def resume(state: State, now: datetime) -> State:
         ends_at=(now + timedelta(seconds=state.paused_remaining_seconds)).isoformat(),
         paused_remaining_seconds=None,
         label=state.label,
+        highlights=state.highlights,
     )
 
 

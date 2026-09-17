@@ -83,6 +83,22 @@ RACE_CONTROL_WITH_ROUND_PLAN_QUERY = RACE_CONTROL_QUERY.replace(
     "    rounds {",
 )
 
+# `Race.replayCount` (#177 stage 3) reads off the same per-race
+# `replays_for_heat` batch `Heat.replays` already uses — asking for it
+# alongside the ordinary page must not cost an extra query.
+RACE_CONTROL_WITH_REPLAY_COUNT_QUERY = RACE_CONTROL_QUERY.replace(
+    "    rounds {",
+    "    replayCount\n    rounds {",
+)
+
+# `Race.highlightsSummary` (#177 stage 3) reads off the same per-race
+# `heats_for_race`/`replays_for_heat` batches — asking for it too must not
+# cost an extra query either.
+RACE_CONTROL_WITH_HIGHLIGHTS_SUMMARY_QUERY = RACE_CONTROL_QUERY.replace(
+    "    rounds {",
+    "    highlightsSummary { clipCount roundNumber roundName }\n    rounds {",
+)
+
 OBSERVATION_QUERY = """
 query($id: Int!) {
   race(raceId: $id) {
@@ -263,6 +279,78 @@ def test_heat_replays_cost_one_query_for_the_whole_race(client, db, populated_ra
         f"Selecting `Heat.replays` cost {with_replays.count} queries against "
         f"{without_replays.count} without it — the per-race batch is not "
         f"batching."
+    )
+
+
+def test_replay_count_costs_no_extra_query(client, db, populated_race):
+    """`Race.replayCount` (#177 stage 3) — what `IntermissionControl.tsx`
+    reads alongside `keepReplays` to decide whether to offer the highlights
+    checkbox — is off the same per-race batch `Heat.replays` uses, so
+    asking for both together must cost the same as `Heat.replays` alone.
+    """
+    heats = list(populated_race.heats)
+    for heat in heats[:2]:
+        db.add(
+            models.HeatReplay(
+                heat_id=heat.id,
+                camera_id="cam-1",
+                recorded_at="2026-09-16T12:00:00+00:00",
+                path=f"clip-{heat.id}.webm",
+                duration_ms=4000,
+                t0_offset_ms=500,
+                size_bytes=1000,
+                created_at="2026-09-16T12:00:00+00:00",
+            )
+        )
+    db.commit()
+
+    with _QueryCounter() as without_count:
+        _run(client, RACE_CONTROL_REPLAYS_QUERY, populated_race.id)
+    with _QueryCounter() as with_count:
+        body = _run(client, RACE_CONTROL_WITH_REPLAY_COUNT_QUERY, populated_race.id)
+
+    assert body["data"]["race"]["replayCount"] == 2
+    assert with_count.count <= without_count.count + 1, (
+        f"Asking for replayCount cost {with_count.count} queries against "
+        f"{without_count.count} without it — it should read off the same "
+        f"per-race replays batch `Heat.replays` already uses."
+    )
+
+
+def test_highlights_summary_costs_no_extra_query(client, db, populated_race):
+    """`Race.highlightsSummary` (#177 stage 3) reads off the same per-race
+    `heats_for_race`/`replays_for_heat` batches `Heat.replays` and
+    `Race.replayCount` already use — asking for it alongside the ordinary
+    page must not cost an extra query.
+    """
+    heats = list(populated_race.heats)
+    for heat in heats[:2]:
+        db.add(
+            models.HeatReplay(
+                heat_id=heat.id,
+                camera_id="cam-1",
+                recorded_at="2026-09-16T12:00:00+00:00",
+                path=f"clip-{heat.id}.webm",
+                duration_ms=4000,
+                t0_offset_ms=500,
+                size_bytes=1000,
+                created_at="2026-09-16T12:00:00+00:00",
+            )
+        )
+    db.commit()
+
+    with _QueryCounter() as without_summary:
+        _run(client, RACE_CONTROL_REPLAYS_QUERY, populated_race.id)
+    with _QueryCounter() as with_summary:
+        body = _run(
+            client, RACE_CONTROL_WITH_HIGHLIGHTS_SUMMARY_QUERY, populated_race.id
+        )
+
+    assert body["data"]["race"]["highlightsSummary"] is not None
+    assert with_summary.count <= without_summary.count + 1, (
+        f"Asking for highlightsSummary cost {with_summary.count} queries "
+        f"against {without_summary.count} without it — it should read off "
+        f"the same per-race heats/replays batches already used elsewhere."
     )
 
 

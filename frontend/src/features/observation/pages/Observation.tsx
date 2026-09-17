@@ -51,6 +51,7 @@ import { useIdentifyOverlay } from '../useIdentifyOverlay';
 import IntermissionOverlay from '../components/IntermissionOverlay';
 import RaceFinishedOverlay from '../components/RaceFinishedOverlay';
 import ReplayPlayer from '../components/ReplayPlayer';
+import { useIntermissionHighlights } from '../useIntermissionHighlights';
 import { finalChampionshipRound, raceIsFinished } from '../raceFinished';
 import { roundLabel as championshipRoundLabel } from '../../stats/disruptedRounds';
 import { defaultEliminationRound, isEliminationOnlyRace } from '../../stats/eliminationScope';
@@ -93,6 +94,7 @@ const GET_INITIAL_DATA = `
         paused
         label
         endsAt
+        highlights
       }
       track {
         id
@@ -115,6 +117,26 @@ const GET_INITIAL_DATA = `
       heats {
         id
         recordedAt
+        # The rest of this block is what an intermission's highlights mode
+        # needs (#177 stage 3, features/observation/highlights.ts) — the
+        # round it belongs to, its lanes (to find the winner) and any
+        # stored clips. Read off the same batched per-race loaders
+        # Heat.lanes / Heat.replays already use elsewhere, so asking for
+        # them here costs this page two more queries total, not one per
+        # heat (test_query_counts.py).
+        heatNumber
+        roundId
+        lanes {
+          place
+          time
+          racerId
+        }
+        replays {
+          cameraId
+          url
+          durationMs
+          t0OffsetMs
+        }
       }
       rounds {
         id
@@ -647,6 +669,21 @@ export default function Observation() {
   // re-deriving it, the same "resolve once, pass down" shape `nameDisplay`
   // itself uses on this page.
   const laneColors = initialData?.race?.track?.laneColors ?? [];
+
+  // The break's highlight reel (#177 stage 3) — shared with
+  // `AwardCeremony.tsx` through `useIntermissionHighlights` so the ordering
+  // rule and the loop/reset wiring exist in exactly one place; see that
+  // hook's own docstring and `.claude/rules/displays.md`'s "Intermission
+  // highlights".
+  const { highlightClip, onHighlightEnded } = useIntermissionHighlights({
+    intermission,
+    intermissionActive,
+    heats: initialData?.race?.heats,
+    rounds: initialData?.race?.rounds,
+    racers: initialData?.race?.racers,
+    nameDisplay,
+  });
+
   const scoreLabel = scoreLabelFor(scoringStrategy);
   const formatScore = (score: number) => formatScoreShared(score, scoringStrategy);
   // The projector's own row already carries `scoreLabel` as a second line
@@ -954,6 +991,8 @@ export default function Observation() {
           }))}
           nextUpInfo={onDeckHeat ? `Round ${onDeckHeat.roundNumber}, Heat ${onDeckHeat.globalHeatNumber ?? onDeckHeat.heatNumber}` : null}
           vehicleLabel={vehicle}
+          highlightClip={highlightClip}
+          onHighlightEnded={onHighlightEnded}
         />
       </div>
     );

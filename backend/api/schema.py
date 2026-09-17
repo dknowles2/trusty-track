@@ -2127,6 +2127,78 @@ class Intermission:
     paused: bool
     label: str | None
     ends_at: str | None
+    #: Whether this break is showing the current round's stored replay
+    #: clips instead of the ordinary next-up preview (#177 stage 3) — see
+    #: `startIntermission`'s own docstring for how it gets set, and
+    #: `.claude/rules/displays.md`'s "Intermission highlights" for what a
+    #: display does with it.
+    highlights: bool = False
+
+
+@strawberry.type
+class HighlightsSummary:
+    """What Race Control's intermission card names while a highlights break
+    runs — "Highlights: 8 clips from Round 2" (#177 stage 3).
+
+    Deliberately a **separate**, much smaller implementation from
+    `features/observation/highlights.ts`'s own `highlightRoundId` —
+    ordering, captions and which camera to use all stay frontend-only, pure
+    and unit-tested there; this only has to name *which* round and *how
+    many* clips, the two facts `IntermissionControl.tsx` shows before a
+    break even has a reel to play. Re-deriving that from a full
+    heats+lanes+replays query in three separate `IntermissionControl`
+    mounts (`RaceExecution.tsx` renders one per screen state) was measured
+    against this and rejected — the same "a rule split across two
+    languages has no single file either can import" tradeoff
+    `domain.name_display.format_display_name` documents for its own
+    Python/TypeScript split, applied to a much smaller rule than that one.
+    """
+
+    clip_count: int
+    round_number: int
+    round_name: str | None
+
+
+def _highlights_summary(info: Info, race_id: int) -> HighlightsSummary | None:
+    """The round-selection half of `highlightRoundId` (the current round is
+    the last recorded heat's round, or — nothing recorded yet — the latest
+    round with any stored clip), plus a count of that round's heats that
+    hold one. `None` when nothing in the race has a clip. Off the same
+    batched `heats_for_race`/`replays_for_heat` loaders `Heat.replays` and
+    `Race.replayCount` already use, so this costs no extra query beyond
+    whichever of those a caller reaches first.
+    """
+    loaders = _loaders(info)
+    heats = loaders.heats_for_race(race_id)
+    if not heats:
+        return None
+
+    recorded = [h for h in heats if h.recorded_at is not None]
+    target: models.Heat | None
+    if recorded:
+        target = max(recorded, key=lambda h: h.recorded_at or "")
+    else:
+        with_clips = [
+            h for h in heats if loaders.replays_for_heat(race_id, h.id) and h.round
+        ]
+        target = (
+            max(with_clips, key=lambda h: h.round.round_number) if with_clips else None
+        )
+    if target is None or target.round is None:
+        return None
+
+    clip_count = sum(
+        1
+        for h in heats
+        if h.round_id == target.round_id and loaders.replays_for_heat(race_id, h.id)
+    )
+    if clip_count == 0:
+        return None
+    return HighlightsSummary(
+        clip_count=clip_count,
+        round_number=target.round.round_number,
+        round_name=target.round.name,
+    )
 
 
 def _intermission_type(race: models.Race, now: datetime) -> Intermission:
@@ -2135,6 +2207,7 @@ def _intermission_type(race: models.Race, now: datetime) -> Intermission:
             ends_at=race.intermission_ends_at,
             paused_remaining_seconds=race.intermission_paused_remaining_seconds,
             label=race.intermission_label,
+            highlights=race.intermission_highlights,
         ),
         now,
     )
@@ -2144,6 +2217,7 @@ def _intermission_type(race: models.Race, now: datetime) -> Intermission:
         paused=resolved.paused,
         label=resolved.label,
         ends_at=resolved.ends_at,
+        highlights=resolved.highlights,
     )
 
 
@@ -2247,6 +2321,26 @@ class Race:
         return _intermission_type(
             typing.cast(models.Race, self), datetime.now(timezone.utc)
         )
+
+    @strawberry.field
+    def replay_count(self, info: Info) -> int:
+        """How many stored replay clips this race holds in total (#177
+        stage 3) — what `IntermissionControl.tsx` reads, alongside
+        `initialConfig.keepReplays`, to decide whether "Show replay
+        highlights" is worth offering at all. Batched the same way
+        `Heat.replays` is (`RequestLoaders.replay_count_for_race`), so
+        asking this alongside a page of heats costs one query, not one
+        per heat.
+        """
+        return _loaders(info).replay_count_for_race(self.id)
+
+    @strawberry.field
+    def highlights_summary(self, info: Info) -> HighlightsSummary | None:
+        """ "Highlights: 8 clips from Round 2" — what `IntermissionControl.tsx`
+        shows in the intermission card while a highlights break runs. See
+        `_highlights_summary`.
+        """
+        return _highlights_summary(info, self.id)
 
     @strawberry.field
     def resolved_name_display(self, info: Info) -> str:
@@ -4872,6 +4966,7 @@ class Mutation:
         race_id: int,
         duration_seconds: int,
         label: str | None = None,
+        highlights: bool = False,
     ) -> Race:
         """Begin (or restart) a break.
 
@@ -4880,9 +4975,20 @@ class Mutation:
         covers both an on-the-fly change of mind and the round-summary
         modal's "Take a break" row offering the same presets after a round
         finishes.
+
+        ``highlights`` asks for the current round's stored replay clips
+        (#177 stage 3) instead of the ordinary next-up preview. Refused —
+        not silently downgraded — unless `Organization.keepReplays` is on
+        and this race already has at least one stored clip
+        (`crud.start_intermission`): `IntermissionControl.tsx` only offers
+        the checkbox under those same two conditions, so a caller reaching
+        this with `highlights: true` outside them is a client that has
+        drifted from the server's own rule, and failing loudly is what
+        catches that rather than quietly serving a break with nothing to
+        play.
         """
         db = info.context["db"]
-        race = crud.start_intermission(db, race_id, duration_seconds, label)
+        race = crud.start_intermission(db, race_id, duration_seconds, label, highlights)
         await _publish_race_state(
             race_id, kind=RaceChangeKind.INTERMISSION, intermission_race=race
         )

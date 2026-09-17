@@ -135,7 +135,10 @@ Every ordinary display has its own **Replays** checkbox on the Displays
 panel, on by default. Turn it off for a screen that should never show the
 replay — a check-in kiosk at the door, say, or a screen dedicated to the
 awards ceremony. It has no effect on a camera row, which has nothing of its
-own to play back.
+own to play back, and it has no effect on [highlights during a
+break](#highlights-during-a-break) either — that is the operator's own
+explicit choice for the break, not the ordinary after-heat replay this
+checkbox controls.
 
 There is no setting for *how many* times a clip plays or at what speed yet
 — every screen shows it twice, at half speed. That is a per-device setting
@@ -213,6 +216,37 @@ longer. Stored clips are never included in a backup — see
 [Backups](reference/backups.md#what-a-backup-does-not-contain) — so
 restoring one starts with no stored clips at all, whatever was kept
 before.
+
+---
+
+## Highlights During a Break
+
+Once [stored clips](#keeping-clips-longer) are turned on and the race has at
+least one, [taking a break](race-day.md#taking-a-break) offers a second
+option beside the duration and the label: **Show replay highlights**. Turn
+it on and every screen showing this race — not only the ones with their own
+**Replays** setting turned on — spends the break looping the current
+round's clips instead of the usual quiet preview of who races next.
+
+![A break's overlay, playing a highlight clip with its caption and the countdown moved to a corner badge](assets/screenshots/instant-replay/11-intermission-highlights.png)
+_"Show replay highlights" is ticked by default whenever there is something
+for it to play; the note underneath the checkbox says where to turn stored
+clips on when there isn't._
+
+The clips play fastest time first, muted, at normal speed, one after
+another until the break ends — the same round-progress countdown stays in
+the corner the whole time, so the room still knows when racing picks back
+up. Each clip is captioned with the heat number, the winning car, and its
+time. A round with more than ten heats plays only the ten most recent
+rather than the whole afternoon.
+
+If nothing has been stored for the current round yet — a break called
+before its first heat's clip has landed — the checkbox is still there, but
+the screen falls back to the ordinary next-up preview until a clip exists.
+
+Race Control names what is playing on the break's own card ("Highlights: 8
+clips from Round 2"), so the operator can tell at a glance whether the
+reel is worth the wait.
 
 ---
 

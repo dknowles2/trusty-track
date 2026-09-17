@@ -703,6 +703,7 @@ def _intermission_state(race: models.Race) -> intermission.State:
         ends_at=race.intermission_ends_at,
         paused_remaining_seconds=race.intermission_paused_remaining_seconds,
         label=race.intermission_label,
+        highlights=race.intermission_highlights,
     )
 
 
@@ -710,18 +711,64 @@ def _write_intermission_state(race: models.Race, state: intermission.State) -> N
     race.intermission_ends_at = state.ends_at
     race.intermission_paused_remaining_seconds = state.paused_remaining_seconds
     race.intermission_label = state.label
+    race.intermission_highlights = state.highlights
+
+
+def race_has_stored_replays(db: Session, race_id: int) -> bool:
+    """Whether any heat in this race holds a stored replay clip (#177
+    stage 3) — what `start_intermission` checks before it will let a break
+    turn `highlights` on, so the checkbox in `IntermissionControl.tsx` and
+    the mutation's own refusal can never disagree. A plain `EXISTS`-shaped
+    query rather than reading every row: this only needs one answer, not
+    the rows `RequestLoaders.replays_for_heat` batches for actually
+    rendering a Schedule-tab ▶.
+    """
+    return (
+        db.query(models.HeatReplay.id)
+        .join(models.Heat, models.Heat.id == models.HeatReplay.heat_id)
+        .filter(models.Heat.race_id == race_id)
+        .first()
+        is not None
+    )
 
 
 def start_intermission(
-    db: Session, race_id: int, duration_seconds: int, label: str | None
+    db: Session,
+    race_id: int,
+    duration_seconds: int,
+    label: str | None,
+    highlights: bool = False,
 ) -> models.Race:
-    """Begin (or restart) a break. See `domain.intermission.start`."""
+    """Begin (or restart) a break. See `domain.intermission.start`.
+
+    Refuses `highlights=True` outright rather than silently downgrading it
+    to `False` — see this issue's own docstring in `api/schema.py` for why
+    a refusal is the right shape here, unlike most of this module's
+    "absent means leave alone" fields: a checkbox the frontend already
+    hides whenever it is not eligible reaching the server anyway means the
+    two sides have drifted, and downgrading quietly would hide exactly that.
+    """
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if race is None:
         raise ValueError("Race not found")
+    if highlights:
+        organization = (
+            db.query(models.Organization)
+            .filter(models.Organization.id == race.organization_id)
+            .first()
+        )
+        if organization is None or not organization.keep_replays:
+            raise ValueError(
+                "Highlights need stored clips: turn on Keep Replay Clips in "
+                "Settings first."
+            )
+        if not race_has_stored_replays(db, race_id):
+            raise ValueError("Highlights need at least one stored clip from this race.")
     _write_intermission_state(
         race,
-        intermission.start(duration_seconds, label, datetime.now(timezone.utc)),
+        intermission.start(
+            duration_seconds, label, datetime.now(timezone.utc), highlights
+        ),
     )
     db.commit()
     db.refresh(race)
