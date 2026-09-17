@@ -141,6 +141,65 @@ describe('clicking a tick', () => {
   });
 });
 
+describe('a key this component handles does not reach the page underneath it', () => {
+  // `fireEvent` dispatches a real, bubbling `KeyboardEvent` (jsdom's DOM,
+  // not React's own simulated tree) — the same path a portaled modal's
+  // keydown takes to `window` in a real browser, which is exactly what let
+  // `HeatReplayModal`'s Space-to-resume also fire `RaceExecution.tsx`'s own
+  // global Space shortcut underneath it (a PR review reproduced this live).
+  // `stopPropagation()` is what has to stop it, and this is the direct,
+  // no-DOM-portal-required proof that it does.
+  it('stops Space, ",", and "." from bubbling to a window listener while interactive', async () => {
+    const user = userEvent.setup();
+    const windowSpy = vi.fn();
+    window.addEventListener('keydown', windowSpy);
+    try {
+      render(<ReplayPlayer url="/replay/a.webm" controls marks={MARKS} durationMs={DURATION_MS} />);
+      const video = getVideo();
+      await user.click(screen.getByTestId('replay-finish-mark-1'));
+      windowSpy.mockClear();
+
+      fireEvent.keyDown(video.parentElement!, { key: ' ' });
+      fireEvent.keyDown(video.parentElement!, { key: ',' });
+      fireEvent.keyDown(video.parentElement!, { key: '.' });
+
+      expect(windowSpy).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('keydown', windowSpy);
+    }
+  });
+
+  it('lets an unrelated key bubble normally, proving propagation is not broken outright', () => {
+    const windowSpy = vi.fn();
+    window.addEventListener('keydown', windowSpy);
+    try {
+      render(<ReplayPlayer url="/replay/a.webm" controls marks={MARKS} durationMs={DURATION_MS} />);
+      const video = getVideo();
+
+      fireEvent.keyDown(video.parentElement!, { key: 'a' });
+
+      expect(windowSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener('keydown', windowSpy);
+    }
+  });
+
+  it('does not stop propagation on the non-interactive overlay, which has no keys of its own to claim', () => {
+    const windowSpy = vi.fn();
+    window.addEventListener('keydown', windowSpy);
+    try {
+      render(<ReplayPlayer url="/replay/a.webm" controls={false} marks={MARKS} durationMs={DURATION_MS} />);
+      const video = getVideo();
+
+      fireEvent.keyDown(video.parentElement!, { key: ' ' });
+
+      expect(windowSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener('keydown', windowSpy);
+    }
+  });
+});
+
 describe('resuming', () => {
   it('space resumes playback after a freeze', async () => {
     const user = userEvent.setup();

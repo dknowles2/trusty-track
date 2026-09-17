@@ -1071,4 +1071,126 @@ test.describe.serial('stored retention and intermission highlights, install-wide
             await setKeepReplays(page, { on: false });
         }
     });
+
+    test('pressing Space to resume a frozen earlier-heat replay does not also advance the active heat (#177 stage 4, PR review)', async ({
+        browser,
+        page,
+    }) => {
+        // A PR review reproduced this live: `HeatReplayModal` portals to
+        // `document.body` (`Modal.tsx`), so its own Space-to-resume keydown
+        // used to bubble past this component's place in the React tree and
+        // reach `RaceExecution.tsx`'s global `window` shortcut listener too
+        // — pressing Space to resume a *frozen, earlier* heat's replay
+        // (opened from Previous Heats, not the Schedule tab) silently
+        // advanced the *active*, just-recorded heat underneath the modal.
+        // Fixed two ways: `ReplayPlayer`'s own `handleKeyDown` now calls
+        // `stopPropagation()` on every key it handles, and `RaceExecution`
+        // gets a `replayModalOpen` prop (`RaceControl.tsx`'s
+        // `replayModalHeatId !== null`) folded into its own `modalOpen`
+        // shortcut gate as a second, independent guard.
+        await ensureConfigured(page);
+        const { raceId, trackId } = await seedRace(page, 'Instant Replay Space Collision Race');
+        await scheduleWithSpareHeats(page, raceId, 3);
+        const heats = await officialHeatsInOrder(page, raceId);
+        expect(heats.length).toBeGreaterThanOrEqual(5);
+        const [camWarmUp, displayWarmUp, target, activeHeat, spareNext] = heats;
+
+        await setKeepReplays(page, { on: true });
+
+        try {
+            const camera = await (await browser.newContext()).newPage();
+            await openCamera(camera, raceId, 'spec-camera-space-collision');
+            await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+            await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
+                timeout: 15000,
+            });
+
+            await runHeatToStart(page, camWarmUp.id);
+            await finishHeat(page, camWarmUp.id);
+            await camera.waitForTimeout(2000);
+
+            const warmUpload = camera.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 90000 },
+            );
+            await runHeatToStart(page, displayWarmUp.id);
+            await finishHeat(page, displayWarmUp.id);
+            await warmUpload;
+
+            // `target` is the heat whose replay gets frozen and resumed —
+            // it has to be recorded (and its clip stored) *before* Race
+            // Control's Race tab is ever opened, so the tab's own
+            // first-render pin (`RaceControl.tsx`'s "the first heat still
+            // to be run") lands on `activeHeat`, not on `target`.
+            const uploadResponse = camera.waitForResponse(
+                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
+                { timeout: 90000 },
+            );
+            await runHeatToStart(page, target.id);
+            await finishHeat(page, target.id);
+            await uploadResponse;
+            await camera.context().close();
+
+            await page.goto(`/race/${raceId}/control/race`);
+            await page.waitForLoadState('networkidle');
+            await expect(
+                page.getByRole('heading', { level: 2, name: `Heat ${activeHeat.heatNumber}` }),
+            ).toBeVisible({ timeout: 15000 });
+
+            // Record the pinned heat while the page stays open — no
+            // reload. The live `raceStateChanged`/`heatSession`
+            // subscriptions catch the page up, and `RaceControl.tsx`'s own
+            // pin (#130) keeps the screen on `activeHeat` rather than
+            // sliding forward to `spareNext` the instant it is recorded —
+            // exactly the "just recorded, haven't clicked Next Heat yet"
+            // state the review's own reproduction needs.
+            await runHeatToStart(page, activeHeat.id);
+            await finishHeat(page, activeHeat.id);
+            await expect(page.getByTestId('heat-phase-badge')).toContainText('Recorded', {
+                timeout: 15000,
+            });
+            await expect(page.getByTestId('next-heat-button')).toBeEnabled({ timeout: 15000 });
+
+            // Open the *earlier* heat's replay from Previous Heats — the
+            // review's own reproduction path, not the Schedule tab's ▶.
+            const replayButton = page.getByTestId(`heat-replay-btn-${target.id}`);
+            await expect(replayButton).toBeVisible({ timeout: 15000 });
+            await replayButton.click();
+
+            const dialog = page.getByRole('dialog');
+            const video = dialog.getByTestId('replay-video');
+            await expect(video).toBeVisible({ timeout: 15000 });
+            const firstMark = dialog.locator('[data-testid^="replay-finish-mark-"]').first();
+            await expect(firstMark).toBeVisible({ timeout: 15000 });
+            await firstMark.click();
+            await expect
+                .poll(async () => video.evaluate((el: HTMLVideoElement) => el.paused), { timeout: 5000 })
+                .toBe(true);
+
+            // The collision: Space is meant to resume *this* video, not
+            // advance the heat behind the modal.
+            await page.keyboard.press(' ');
+            await expect
+                .poll(async () => video.evaluate((el: HTMLVideoElement) => el.paused), { timeout: 5000 })
+                .toBe(false);
+
+            // The active heat must still be the one the operator was
+            // watching, not the one Space would otherwise have advanced to.
+            await expect(
+                page.getByRole('heading', { level: 2, name: `Heat ${activeHeat.heatNumber}` }),
+            ).toBeVisible();
+            await expect(
+                page.getByRole('heading', { level: 2, name: `Heat ${spareNext.heatNumber}` }),
+            ).toHaveCount(0);
+
+            await dialog.getByRole('button', { name: '×' }).click();
+
+            // Finish the spare heat so the track is not left with an
+            // armed-and-never-finished heat for whatever runs after this.
+            await runHeatToStart(page, spareNext.id);
+            await finishHeat(page, spareNext.id);
+        } finally {
+            await setKeepReplays(page, { on: false });
+        }
+    });
 });

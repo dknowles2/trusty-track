@@ -1245,6 +1245,7 @@ export default function RaceControl() {
               upcomingRounds={upcomingRounds}
               debugMode={data?.initialConfig?.debugMode ?? false}
               raceLocked={race?.isLocked ?? false}
+              replayModalOpen={replayModalHeatId !== null}
               onToggleAutoAdvance={async (value) => {
                 await updateRaceMutation({ id, race: { autoAdvanceHeat: value } });
                 reExecute({ requestPolicy: 'network-only' });

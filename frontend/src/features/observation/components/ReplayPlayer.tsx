@@ -232,14 +232,28 @@ export default function ReplayPlayer({
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!interactive) return;
+    if (e.key !== ' ' && e.key !== ',' && e.key !== '.') return;
+    // These three are the only keys this component claims. `preventDefault`
+    // alone is not enough: `Modal` portals to `document.body`
+    // (`ReactDOM.createPortal`), so the native keydown still bubbles from
+    // there past this element's own place in the React tree and reaches
+    // `window` — where `RaceExecution.tsx`'s own race-day shortcuts also
+    // listen for Space. Reproduced live in review: freezing an earlier
+    // heat's replay from Previous Heats and pressing Space to resume it
+    // also silently advanced the *active* heat underneath the modal.
+    // `stopPropagation()` is what actually stops that — the same fix
+    // `RaceExecution.tsx`'s own preferences popover already uses for its
+    // Escape key, for the identical reason (a narrower, local concern
+    // claiming a key before the shortcuts effect underneath it can see
+    // it). `RaceExecution`'s own `replayModalOpen` prop is belt and
+    // braces on top, for a key this component does not itself handle.
+    e.preventDefault();
+    e.stopPropagation();
     if (e.key === ' ') {
-      e.preventDefault();
       resume();
     } else if (e.key === ',') {
-      e.preventDefault();
       stepFrame(-1);
-    } else if (e.key === '.') {
-      e.preventDefault();
+    } else {
       stepFrame(1);
     }
   };

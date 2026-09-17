@@ -20,7 +20,9 @@ export interface ShortcutContext {
     hasNextHeat: boolean;
     /** Whether an auto-advance countdown is running. */
     countingDown: boolean;
-    /** Whether a dialog is up — the edit modal, or the round summary. */
+    /** Whether a dialog is up — the edit modal, the round summary, or a
+     * `HeatReplayModal` opened from Previous Heats or the Schedule tab
+     * (#177 stage 4, `RaceExecutionProps.replayModalOpen`). */
     modalOpen: boolean;
     /** Whether the keystroke landed in a text field, a select, or similar. */
     typing: boolean;

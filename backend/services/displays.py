@@ -111,7 +111,7 @@ class Display:
     #: (#177 stage 4) — lower plays first. Defaults to `0`, the same as
     #: every other camera that has never had an order set, so an
     #: untouched multi-camera race falls back to sorting by `display_id`
-    #: (`services.replays.order_clips`) exactly as stage 1's own
+    #: (`api.schema._order_replay_clips`) exactly as stage 1's own
     #: `orderClipsByCameraId` did before this existed. Meaningless for a
     #: `DISPLAY` role, the same as `track_id`.
     camera_order: int = 0
