@@ -47,9 +47,21 @@ import { join } from 'node:path';
  *      variable is reused elsewhere (passed to `ownTrack`, read back into a
  *      caption, or both) — is resolved one level, to that identifier's own
  *      `const`/`let` declaration, and *that* is checked for the wrap.
+ *   5. A top-level `...ident` spread inside one of these objects — `seedRace(page,
+ *      { ...overrides, dateTime })`, `race: { ...base, trackId }` — which would
+ *      otherwise hide a `name:` from shapes 1/2 entirely: the key search only
+ *      looks for a literal `name:` token, and a spread has none. Resolved the
+ *      same one level as shape 4 (`overrides`'s own `const` declaration); if
+ *      that resolves to an object with its own top-level `name:`, that name is
+ *      checked for the wrap. If it can't be resolved — a spread of a call
+ *      result, a function parameter, or a declaration two levels away — this is
+ *      reported rather than silently passed, since a future spec is exactly as
+ *      likely to reach for this shape as for shape 4, and an unresolvable
+ *      spread might easily be hiding an unwrapped `name:`.
  *
  * A `name:`/positional value that is none of "wrapped in `attemptName(`" or
- * "an identifier whose own declaration is" is reported.
+ * "an identifier whose own declaration is" is reported. So is a spread whose
+ * source either hides an unwrapped name or can't be resolved at all.
  */
 
 const DOCS_DIR = join(process.cwd(), 'e2e', 'docs');
@@ -94,20 +106,33 @@ function matchingBrace(text: string, openIndex: number): string | null {
     return null;
 }
 
+interface ObjectCheck {
+    /** A literal `name:` key, or a `...ident` spread that might hide one. */
+    kind: 'literal' | 'spread';
+    /** For `literal`: the raw text right after the colon. For `spread`: the identifier. */
+    text: string;
+}
+
 /**
- * Every `name: …` sitting directly inside `obj` (curly depth 1 relative to
- * `obj`'s own opening brace, square depth 0 — i.e. not inside a nested array),
- * with the raw text immediately following the colon.
+ * Every `name: …` key and every `...ident` spread sitting directly inside
+ * `obj` (curly depth 1 relative to `obj`'s own opening brace, square depth 0
+ * — i.e. not inside a nested array).
  */
-function topLevelNameValues(obj: string): string[] {
-    const values: string[] = [];
+function topLevelChecks(obj: string): ObjectCheck[] {
+    const checks: ObjectCheck[] = [];
     for (const m of obj.matchAll(/\bname\s*:\s*/g)) {
         const { curly, square } = depthAt(obj, m.index!);
         if (curly === 1 && square === 0) {
-            values.push(obj.slice(m.index! + m[0].length));
+            checks.push({ kind: 'literal', text: obj.slice(m.index! + m[0].length) });
         }
     }
-    return values;
+    for (const m of obj.matchAll(/\.\.\.\s*([A-Za-z_$][\w$]*)/g)) {
+        const { curly, square } = depthAt(obj, m.index!);
+        if (curly === 1 && square === 0) {
+            checks.push({ kind: 'spread', text: m[1] });
+        }
+    }
+    return checks;
 }
 
 /** The token — a quoted literal or a bare identifier — starting at the front of `s`. */
@@ -134,19 +159,74 @@ function isAttemptNamed(value: string, stripped: string): boolean {
     return /^attemptName\s*\(/.test(rhs);
 }
 
+/**
+ * Resolves a top-level `...ident` spread (shape 5) one level, the same reach
+ * as `isAttemptNamed`'s own identifier indirection: find `ident`'s own
+ * `const`/`let` declaration, and if it is an object literal with its own
+ * top-level `name:`, report whether *that* is wrapped. `status` is:
+ *
+ * - `'ok'` — resolved, and either carries no `name:` of its own (nothing to
+ *   check — the spread is for other fields, e.g. `trackId`) or carries one
+ *   that is wrapped.
+ * - `'unwrapped'` — resolved to an object whose own `name:` is a raw literal
+ *   or an unwrapped identifier.
+ * - `'unresolvable'` — no declaration found, the declaration isn't a plain
+ *   object literal, or the object's own `name:` is itself hidden behind
+ *   *another* spread (two levels deep, past what this guard reaches).
+ */
+function resolveSpreadName(
+    ident: string,
+    stripped: string,
+): { status: 'ok' | 'unwrapped' | 'unresolvable'; token?: string } {
+    const decl = new RegExp(`\\b(?:const|let)\\s+${ident}\\s*=\\s*`).exec(stripped);
+    if (!decl) return { status: 'unresolvable' };
+    const rhs = stripped.slice(decl.index! + decl[0].length).replace(/^\s+/, '');
+    if (!rhs.startsWith('{')) return { status: 'unresolvable' };
+    const objText = matchingBrace(rhs, 0);
+    if (!objText) return { status: 'unresolvable' };
+
+    const nested = topLevelChecks(objText);
+    const nameCheck = nested.find((c) => c.kind === 'literal');
+    if (!nameCheck) {
+        // No name: of its own — but if what it has *instead* is another
+        // spread, the real name (if any) is two levels away and unverifiable.
+        return nested.some((c) => c.kind === 'spread') ? { status: 'unresolvable' } : { status: 'ok' };
+    }
+    if (isAttemptNamed(nameCheck.text, stripped)) return { status: 'ok' };
+    return { status: 'unwrapped', token: leadingToken(nameCheck.text) };
+}
+
 function findingsIn(src: string): Finding[] {
     const stripped = stripComments(src);
     const findings: Finding[] = [];
 
-    // Shape 1 & 2: `race: {…}` / `track: {…}` / `seedRace(page, {…}`.
+    // Shape 1, 2 & 5: `race: {…}` / `track: {…}` / `seedRace(page, {…}`,
+    // including a top-level `...ident` spread inside any of them.
     for (const m of stripped.matchAll(/\b(?:race|track)\s*:\s*\{|\bseedRace\(\s*page\s*,\s*\{/g)) {
         const openIndex = m.index! + m[0].length - 1; // the '{' itself
         const obj = matchingBrace(stripped, openIndex);
         if (!obj) continue;
-        for (const value of topLevelNameValues(obj)) {
-            if (!isAttemptNamed(value, stripped)) {
+        for (const check of topLevelChecks(obj)) {
+            if (check.kind === 'literal') {
+                if (!isAttemptNamed(check.text, stripped)) {
+                    findings.push({
+                        description: `${m[0].trim()} … name: ${leadingToken(check.text)}`,
+                    });
+                }
+                continue;
+            }
+            const resolved = resolveSpreadName(check.text, stripped);
+            if (resolved.status === 'unwrapped') {
                 findings.push({
-                    description: `${m[0].trim()} … name: ${leadingToken(value)}`,
+                    description:
+                        `${m[0].trim()} … ...${check.text} (name: ${resolved.token}) — ` +
+                        'spread hides the name — pass the name through attemptName() explicitly',
+                });
+            } else if (resolved.status === 'unresolvable') {
+                findings.push({
+                    description:
+                        `${m[0].trim()} … ...${check.text} — ` +
+                        'spread hides the name — pass the name through attemptName() explicitly',
                 });
             }
         }
@@ -290,5 +370,28 @@ describe('findingsIn', () => {
                 const race = { race: { name: attemptName('Real Name') } };
             `),
         ).toEqual([]);
+    });
+
+    it('passes a name reached through a spread whose source is wrapped', () => {
+        const src = `
+            const overrides = { name: attemptName('Silent Track'), trackId };
+            const id = await seedRace(page, { ...overrides, dateTime: '2026-01-01' });
+        `;
+        expect(findingsIn(src)).toEqual([]);
+    });
+
+    it('flags a name reached through a spread whose source is unwrapped', () => {
+        const src = `
+            const overrides = { name: 'Silent Track', trackId };
+            const id = await seedRace(page, { ...overrides, dateTime: '2026-01-01' });
+        `;
+        expect(findingsIn(src).length).toBeGreaterThan(0);
+    });
+
+    it('flags an unresolvable spread rather than passing it silently', () => {
+        const src = `
+            const id = await seedRace(page, { ...RACE_DEFAULTS, dateTime: '2026-01-01' });
+        `;
+        expect(findingsIn(src).length).toBeGreaterThan(0);
     });
 });
