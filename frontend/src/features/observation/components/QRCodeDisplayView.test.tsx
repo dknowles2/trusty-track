@@ -83,13 +83,29 @@ describe('QRCodeDisplayView (#614)', () => {
         );
     });
 
-    it('points the code at the ballot for the vote target', () => {
+    // #1182: this is the actual code a parent's phone scans, so its payload
+    // — the same text the line above already renders on screen — has to
+    // carry the spectator flag, not just the path.
+    it('carries the spectator flag in both the rendered address and the encoded QR payload (#1182)', () => {
+        stubOrigin('http://localhost:8000');
+        mockNetworkAddresses(['192.168.1.42']);
+
+        render(<QRCodeDisplayView raceId={7} target="STANDINGS" />);
+
+        expect(screen.getByText(/192\.168\.1\.42:8000\/race\/7\/observation\?spectator=1$/)).toBeInTheDocument();
+        const image = screen.getByAltText(/qr code/i);
+        expect(decodeURIComponent(image.getAttribute('src')!)).toContain(
+            'http://192.168.1.42:8000/race/7/observation?spectator=1',
+        );
+    });
+
+    it('points the code at the ballot for the vote target, with no spectator flag', () => {
         stubOrigin('http://localhost:8000');
         mockNetworkAddresses(['192.168.1.42']);
 
         render(<QRCodeDisplayView raceId={7} target="VOTE" />);
 
-        expect(screen.getByText(/192\.168\.1\.42:8000\/race\/7\/vote/)).toBeInTheDocument();
+        expect(screen.getByText(/192\.168\.1\.42:8000\/race\/7\/vote$/)).toBeInTheDocument();
     });
 
     it('substitutes a LAN address for a localhost origin', () => {

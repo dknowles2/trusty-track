@@ -1174,6 +1174,79 @@ describe('Observation Page', () => {
         });
     });
 
+    describe('spectator mode (#1182)', () => {
+        // A phone that reached this page by scanning the wall's QR code
+        // (`qrCode.ts`'s `?spectator=1`) must not register as a display.
+        // The real urql client never delivers data on a subscription while
+        // `pause` is true — that is what actually keeps the phone out of
+        // the operator's Displays list — so this mock has to honour `pause`
+        // too, or the test would pass regardless of whether the page ever
+        // paused anything.
+        const setupMocksHonoringPause = (displayAssignment: any) => {
+            (useQuery as any).mockReturnValue([{ data: mockRacersData, fetching: false, error: null }]);
+            (useSubscription as any).mockImplementation(({ query, pause }: { query: any; pause?: boolean }) => {
+                if (query === LeaderboardSubscription) return [{ data: { leaderboard: [] } }];
+                if (query === OnDeckSubscription) return [{ data: { onDeck: [] } }];
+                if (query === CurrentlyRacingSubscription) return [{ data: { currentlyRacing: null } }];
+                if (query === TimingStatsSubscription) return [{ data: { timingStats: null } }];
+                if (query === ActiveFreeRaceHeatSubscription) return [{ data: { activeFreeRaceHeat: null } }];
+                if (query === TIMER_STATUS_SUBSCRIPTION) return [{ data: { timerStatus: { status: { activeHeatId: null } } } }];
+                if (query === DisplayAssignmentSubscription) {
+                    return [{ data: pause ? undefined : { displayAssignment } }];
+                }
+                return [{ data: null }];
+            });
+        };
+
+        const renderTree = (search = '') => (
+            <MemoryRouter initialEntries={[`/race/1/observation${search}`]}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        it('marks the page as a spectator and never registers as a display', async () => {
+            setupMocksHonoringPause({
+                name: 'Plucky Puffin',
+                identifySeq: 3,
+                assigned: false,
+                view: 'STANDINGS',
+                cycleSeconds: 10,
+            });
+
+            render(renderTree('?spectator=1'));
+
+            await waitFor(() => {
+                expect(screen.getByText('Now Racing')).toBeInTheDocument();
+            });
+
+            expect(document.querySelector('[data-spectator="true"]')).toBeInTheDocument();
+            // The subscription was paused, so this tab never received a name
+            // to show — no connect badge, no flash, exactly as an unassigned
+            // display that never connected would look.
+            expect(screen.queryByTestId('identify-connect-badge')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('identify-flash')).not.toBeInTheDocument();
+        });
+
+        it('registers normally, with no spectator marker, when opened with no flag', async () => {
+            setupMocksHonoringPause({
+                name: 'Plucky Puffin',
+                identifySeq: 3,
+                assigned: false,
+                view: 'STANDINGS',
+                cycleSeconds: 10,
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('identify-connect-badge')).toHaveTextContent('Plucky Puffin');
+            });
+            expect(document.querySelector('[data-spectator="true"]')).not.toBeInTheDocument();
+        });
+    });
+
     describe('an assignment change during a break (#1072)', () => {
         const renderTreeWithCeremony = () => (
             <MemoryRouter initialEntries={['/race/1/observation']}>

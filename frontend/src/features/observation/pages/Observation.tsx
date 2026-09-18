@@ -248,11 +248,31 @@ export default function Observation() {
   // rather than sharing this computer's single stored one.
   const displayIdParam = searchParams.get('displayId');
   const thisDisplayId = useMemo(() => displayId(displayIdParam), [displayIdParam]);
-  useEffect(() => startDeviceClaimHeartbeat(thisDisplayId), [thisDisplayId]);
+
+  // `?spectator=1` ([#1182](https://github.com/dknowles2/trusty-track/issues/1182)): a phone
+  // that reached this page by scanning the wall's QR code (`qrCode.ts`'s
+  // `qrTargetPath`) is a spectator, not a screen the operator meant to add.
+  // Keyed on *how the tab arrived*, not on viewport width — #1144's own phone
+  // tier deliberately left this undecided, since an operator may genuinely
+  // want a phone as a real display, and a width check cannot tell the two
+  // apart. Below, this only ever suppresses registration; every subscription
+  // that actually renders live results (leaderboard, onDeck, currentlyRacing,
+  // timingStats, heatReplay) is untouched, so the page still shows racing.
+  const spectator = searchParams.get('spectator') === '1';
+
+  useEffect(() => {
+    if (spectator) return;
+    return startDeviceClaimHeartbeat(thisDisplayId);
+  }, [thisDisplayId, spectator]);
   const [assignmentResult] = useSubscription({
     query: DisplayAssignmentSubscription,
     variables: { displayId: thisDisplayId, raceId: id },
-    pause: !id,
+    // Not subscribing is what actually keeps a spectator's phone out of the
+    // operator's Displays list — `displayAssignment` is both how a display
+    // registers and the only way it is ever told anything (`displays.md`'s
+    // "A display registers by subscribing, and that is forced rather than
+    // chosen").
+    pause: !id || spectator,
   });
   const assignment = assignmentResult.data?.displayAssignment ?? null;
 
@@ -1007,7 +1027,12 @@ export default function Observation() {
       // at 800×600. `IntermissionOverlay` and `RaceFinishedOverlay` below
       // both paint themselves full-bleed (`position: fixed; inset: 0`), so
       // this wrapper needs no padding of its own at all.
-      <div className="container projector-mode" data-theme={displayThemeKey} style={{ padding: 0, ...displayThemeStyle }}>
+      <div
+        className="container projector-mode"
+        data-theme={displayThemeKey}
+        data-spectator={spectator || undefined}
+        style={{ padding: 0, ...displayThemeStyle }}
+      >
         <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
         <IntermissionOverlay
           intermission={intermission}
@@ -1428,6 +1453,7 @@ export default function Observation() {
       <div
         className="container projector-mode"
         data-theme={displayThemeKey}
+        data-spectator={spectator || undefined}
         style={{ maxWidth: '100%', padding: 0, background: 'var(--display-surface-alt-color)', ...displayThemeStyle }}
       >
         <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
@@ -1452,6 +1478,7 @@ export default function Observation() {
       <div
         className="container projector-mode"
         data-theme={displayThemeKey}
+        data-spectator={spectator || undefined}
         style={{
           maxWidth: '100%',
           padding: 0,
@@ -1498,6 +1525,7 @@ export default function Observation() {
       <div
         className="container projector-mode"
         data-theme={displayThemeKey}
+        data-spectator={spectator || undefined}
         style={{
           maxWidth: '100%',
           padding: 0,
@@ -1544,6 +1572,7 @@ export default function Observation() {
       <div
         className="container projector-mode"
         data-theme={displayThemeKey}
+        data-spectator={spectator || undefined}
         style={{
           maxWidth: '100%',
           padding: 0,
@@ -1584,6 +1613,7 @@ export default function Observation() {
       <div
         className="container projector-mode"
         data-theme={displayThemeKey}
+        data-spectator={spectator || undefined}
         style={{
           maxWidth: '100%',
           padding: 0,
@@ -1626,7 +1656,12 @@ export default function Observation() {
   // shows the panels this replaces.
   if (finished) {
     return (
-      <div className="container projector-mode" data-theme={displayThemeKey} style={{ padding: 0, ...displayThemeStyle }}>
+      <div
+        className="container projector-mode"
+        data-theme={displayThemeKey}
+        data-spectator={spectator || undefined}
+        style={{ padding: 0, ...displayThemeStyle }}
+      >
         <RaceFinishedOverlay
           roundLabel={finishedRoundLabel}
           standings={finishedStandings}
@@ -1659,6 +1694,7 @@ export default function Observation() {
           className="container observation-phone"
           data-theme={displayThemeKey}
           data-testid="observation-standard-phone"
+          data-spectator={spectator || undefined}
           style={{
             maxWidth: '100%',
             padding: '1rem',
@@ -1788,6 +1824,7 @@ export default function Observation() {
       <div
         className="container"
         data-theme={displayThemeKey}
+        data-spectator={spectator || undefined}
         style={{
           maxWidth: '100%',
           // Tightened from 20px (#1073 part 2) — one of several small, purely
@@ -2438,6 +2475,7 @@ export default function Observation() {
     <div
       className="container projector-mode"
       data-theme={displayThemeKey}
+      data-spectator={spectator || undefined}
       style={{ maxWidth: '100%', padding: '2vmin', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box', ...displayThemeStyle }}
     >
       {renderResultsOverlay()}

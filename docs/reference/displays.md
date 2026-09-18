@@ -205,6 +205,12 @@ for anyone whose camera cannot read it.
 — so a screen at the entrance can invite people to follow along, and the
 same screen (or a second one) can be switched over once judging opens.
 
+**A phone that scans this code is a spectator, not a screen you set up.**
+Unlike the address you type or scan from the **Displays** panel itself to
+connect a wall screen or a tablet on purpose (see [How assignment
+works](#how-assignment-works)), the Live page a scan opens never appears in
+your Displays list and cannot be assigned anything — it just shows the race.
+
 **The address is worked out the same way the Awards page's ballot share
 step already does it.** The browser running Trusty Track usually shows
 `localhost`, which means nothing to a phone on the venue wifi — Trusty Track
@@ -316,7 +322,9 @@ to it.
 
 - **A screen registers itself** by having the Live page open. There is
   nothing to add and nothing to install; every open screen appears in the
-  Displays list on its own.
+  Displays list on its own — **except a phone that got there by scanning the
+  QR code view** (above). That phone is a spectator, not a screen you set
+  up, so it never appears in the list and cannot be assigned anything.
 - **An assignment wins over the screen's URL** — that is the point, since
   the operator is across the room. Until one arrives, the screen shows
   whatever its URL asks for.
