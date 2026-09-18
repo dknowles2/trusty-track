@@ -210,11 +210,16 @@ test('screenshot the settings panels', async ({ page }) => {
     // The Replays block (#177 stage 2), inside the same Appearance section
     // as the three theme pickers above — same "unsaved local state only"
     // rule: the checkbox is ticked (which is what reveals the two retention
-    // boxes) and never saved, so the install's own `keepReplays` stays off
-    // for every other spec in this pool. `screenshot-instant-replay.spec.ts`
-    // is the one place a *saved*, real "on" setting is exercised, on its own
-    // track with its own cleanup — see that file for why.
-    await page.getByTestId('keep_replays').click();
+    // boxes) and never saved by this spec. `screenshot-instant-replay.spec.ts`
+    // is the one place a *saved*, real "on" setting is exercised, and its
+    // save is install-wide, not per track: in the unsharded regen workflow
+    // (one backend, files in parallel) that spec can be mid-run when this
+    // page loads, so the box may already be checked. `check()` rather than
+    // `click()` — a click would *untick* it and hide the very fields the
+    // next line waits for, which is how every regen run failed after #1201
+    // while the sharded CI job, with a backend per shard, never saw it
+    // (#1208). The picture is of the revealed fields either way.
+    await page.getByTestId('keep_replays').check();
     const replayRetentionFields = page.getByTestId('replay-retention-fields');
     await expect(replayRetentionFields.getByLabel('Keep the last')).toBeVisible();
     await page.waitForTimeout(200);
