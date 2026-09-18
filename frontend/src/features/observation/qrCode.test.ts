@@ -2,12 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { defaultQrHeadline, qrTargetPath, resolveQrHeadline } from './qrCode';
 
 describe('qrTargetPath', () => {
-    it('points a standings target at this races own audience display', () => {
-        expect(qrTargetPath('STANDINGS', 7)).toBe('/race/7/observation');
+    it('flags a standings target as a spectator when asked (QRCodeDisplayView.tsx\'s own case)', () => {
+        // #1182: a phone that arrived via the QR code must not register as a
+        // display — the flag is how `Observation.tsx` tells the difference.
+        expect(qrTargetPath('STANDINGS', 7, { spectator: true })).toBe('/race/7/observation?spectator=1');
     });
 
-    it('points a vote target at the ballot', () => {
-        expect(qrTargetPath('VOTE', 7)).toBe('/race/7/vote');
+    it('drops the spectator flag when asked not to (ConnectDisplayAddress.tsx\'s own case)', () => {
+        // An operator connecting a genuinely new display must not be
+        // flagged as a spectator.
+        expect(qrTargetPath('STANDINGS', 7, { spectator: false })).toBe('/race/7/observation');
+    });
+
+    it('points a vote target at the ballot regardless of the spectator argument', () => {
+        expect(qrTargetPath('VOTE', 7, { spectator: true })).toBe('/race/7/vote');
+        expect(qrTargetPath('VOTE', 7, { spectator: false })).toBe('/race/7/vote');
     });
 });
 

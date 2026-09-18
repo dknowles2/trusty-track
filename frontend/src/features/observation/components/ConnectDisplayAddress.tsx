@@ -15,6 +15,13 @@
  * default target) — a tablet with a camera but no comfortable way to type a
  * URL can scan it directly rather than being handed an address to key in by
  * hand, the same shape a phone joining the ballot already uses.
+ *
+ * `qrTargetPath`'s `spectator` argument is required, not defaulted, and this
+ * is the one caller that passes `false` ([#1182](https://github.com/dknowles2/trusty-track/issues/1182)):
+ * scanning or typing this address is how an operator connects a new wall
+ * display or check-in tablet on purpose, so it has to register — the
+ * opposite of the audience-facing QR code (`QRCodeDisplayView.tsx`), which
+ * passes `true`.
  */
 
 import { useState } from 'react';
@@ -38,7 +45,7 @@ export default function ConnectDisplayAddress({ raceId }: { raceId: number }) {
     const mdnsHostname = result.data?.mdnsHostname ?? null;
     const { url, reachable } = shareUrl(
         window.location.origin,
-        qrTargetPath('STANDINGS', raceId),
+        qrTargetPath('STANDINGS', raceId, { spectator: false }),
         networkAddresses,
         mdnsHostname,
     );

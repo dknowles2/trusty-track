@@ -154,7 +154,9 @@ switches to a single-column, scrolling layout sized for a phone rather than
 the wall-display one, so nothing on it reads as the tiny text a wall display
 uses from across a room; switch its row in **Displays** to **Voting
 ballot** and it opens the [voting page](awards.md#letting-people-vote)
-instead.
+instead. A phone that arrives this way is a spectator, not a screen you set
+up — it never appears in your **Displays** list, unlike a screen you connect
+yourself by typing or scanning the address from step 3 above.
 
 ![The QR code display view](assets/screenshots/observation/13-qrcode.png)
 _A large code, the address printed underneath, and an optional headline and Wi-Fi line set on the race's edit form._

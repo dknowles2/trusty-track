@@ -226,7 +226,9 @@ already ran, widened to ask for the new field too.
 **Race Control → Displays gets the same address, not only the ballot** —
 `ConnectDisplayAddress.tsx` (`features/observation/components/`) is the
 same Copy-button-and-QR-code shape as `BallotShare.tsx`, pointed at this
-race's own Live view (`qrTargetPath('STANDINGS', raceId)`) rather than the
+race's own Live view (`qrTargetPath('STANDINGS', raceId, { spectator: false })`
+— see `displays.md`'s own spectator-flag paragraph for why this caller passes
+`false`) rather than the
 voting ballot, since setting up a wall display or a check-in tablet is the
 *first* thing an operator reaches for a shareable address, before the
 ballot's share step. It is a sibling component rather than a shared one
