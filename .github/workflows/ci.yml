@@ -210,6 +210,22 @@ jobs:
         # checkout, `npm ci`, the Playwright browser and its system libraries —
         # is around fifty seconds whatever else happens, and parallelism alone
         # cannot touch it.
+        #
+        # `instantReplay.spec.ts` runs on its own single-worker Playwright
+        # project (`playwright.config.ts`'s `replay`), not the shared
+        # `chromium` pool, whichever shard its file lands on (#1205). Its
+        # tests do real WebCodecs capture, encode and a multi-MB `POST
+        # /replay/` upload — on this runner's two cores, that contended for
+        # CPU and for the one Vite dev server every spec's requests share,
+        # and PR #1203's run (35286523323) measured the fallout twice: both
+        # of that file's 90s upload waits stalled their full ceiling, the
+        # dev server logged continuous `ECONNRESET`/`EPIPE` while they did,
+        # and unrelated specs on other workers of the same shard failed on
+        # ordinary clicks and GraphQL posts. Confining the file to one
+        # worker caps how much of that encoding work can ever be in flight
+        # at once — see `playwright.config.ts`'s own comment for why it does
+        # not also run strictly after `chromium` (a `dependencies` edge for
+        # that broke `--shard` outright, measured, not assumed).
         shard: [1, 2]
     steps:
       - uses: actions/checkout@v7
