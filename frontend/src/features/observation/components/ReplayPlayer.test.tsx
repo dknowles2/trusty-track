@@ -17,6 +17,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ReplayPlayer, { type FinishMarkLike } from './ReplayPlayer';
+import { useElementWidth } from '../../core/hooks/useElementWidth';
+
+// The strip's real measured width decides `minGapPct` (#1218's review) —
+// `null` here (unmeasured) is what every test in this file except the
+// "minGapPct is derived..." describe block below wants, since it is the
+// same effective 5% fallback jsdom's own unmocked `useElementWidth` would
+// give anyway (jsdom lays out nothing, so a real, unmocked strip always
+// measures `0`). Mocked at the module level, rather than only stubbing
+// `ResizeObserver`, because the width itself — not just whether a resize
+// fires — is what this component now derives `minGapPct` from.
+vi.mock('../../core/hooks/useElementWidth', () => ({
+  useElementWidth: vi.fn(() => [() => {}, null] as const),
+}));
 
 const MARKS: FinishMarkLike[] = [
   { lane: 2, racerName: 'Xander Brake', timeS: 3.076, atMs: 2000 + 3076 },
@@ -31,6 +44,10 @@ beforeEach(() => {
   // uses.
   vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+  // Explicit, rather than relying on `vi.restoreAllMocks()` below to put a
+  // plain `vi.fn()` (not a `vi.spyOn` of a real implementation) back to a
+  // known state — every test starts unmeasured unless it says otherwise.
+  vi.mocked(useElementWidth).mockReturnValue([() => {}, null]);
 });
 
 afterEach(() => {
@@ -78,13 +95,15 @@ describe('the finish-frame timeline', () => {
 
 describe('overlapping marks stack onto separate rows (#1218)', () => {
   // Two lanes finishing 10ms apart on a 5s clip — well inside the
-  // MIN_GAP_PCT band `ReplayPlayer.tsx` lays the strip out with — used to
-  // render both buttons on the same row, in DOM order, with no `z-index`:
-  // the later lane's badge covered the earlier lane's own hit area
-  // entirely, exactly as the issue's own Playwright trace found ("subtree
-  // intercepts pointer events", retried forever). This is the seam test:
-  // it must fail on `main`, where every mark renders at `top: 0` on one
-  // shared row regardless of how close two of them land.
+  // minGapPct band `ReplayPlayer.tsx` lays the strip out with (the module
+  // mock above leaves the strip unmeasured for this describe block, so
+  // that band is the 5% fallback). This used to render both buttons on
+  // the same row, in DOM order, with no `z-index`: the later lane's badge
+  // covered the earlier lane's own hit area entirely, exactly as the
+  // issue's own Playwright trace found ("subtree intercepts pointer
+  // events", retried forever). This is the seam test: it must fail on
+  // `main`, where every mark renders at `top: 0` on one shared row
+  // regardless of how close two of them land.
   const CLOSE_MARKS: FinishMarkLike[] = [
     { lane: 1, racerName: 'Early Bird', timeS: 3.4, atMs: 3400 },
     { lane: 2, racerName: 'Close Second', timeS: 3.41, atMs: 3410 },
@@ -120,6 +139,92 @@ describe('overlapping marks stack onto separate rows (#1218)', () => {
     expect(screen.getByTestId('replay-finish-caption')).toHaveTextContent(
       'L2 Close Second 3.410 s',
     );
+  });
+});
+
+describe('the strip height grows with the row count', () => {
+  it('is 28px (one row) when nothing collides', () => {
+    render(<ReplayPlayer url="/replay/a.webm" controls marks={MARKS} durationMs={DURATION_MS} />);
+
+    expect(screen.getByTestId('replay-finish-timeline').style.height).toBe('28px');
+  });
+
+  it('is 84px (three rows) for a three-way collision', () => {
+    // Three lanes within a millisecond of each other on a 5s clip — well
+    // inside the 5% fallback band — forces all three onto separate rows
+    // (`finishMarkLayout.ts`'s `MAX_ROWS` is 3), so the strip's own height
+    // has to grow to `3 * MARK_ROW_HEIGHT_PX` rather than staying at the
+    // single-row 28px every other test in this file renders.
+    const threeWay: FinishMarkLike[] = [
+      { lane: 1, racerName: 'A', timeS: 3.4, atMs: 3400 },
+      { lane: 2, racerName: 'B', timeS: 3.401, atMs: 3401 },
+      { lane: 3, racerName: 'C', timeS: 3.402, atMs: 3402 },
+    ];
+    render(<ReplayPlayer url="/replay/a.webm" controls marks={threeWay} durationMs={5000} />);
+
+    const strip = screen.getByTestId('replay-finish-timeline');
+    expect(strip.style.height).toBe('84px');
+    const rows = ['1', '2', '3'].map(
+      (lane) => screen.getByTestId(`replay-finish-mark-${lane}`).getAttribute('data-row'),
+    );
+    expect(new Set(rows).size).toBe(3);
+  });
+});
+
+describe('minGapPct is derived from the strip\'s measured width (#1218 review)', () => {
+  // A first pass sized `minGapPct` as a flat 5%, reasoned from the ▶
+  // modal's own ~640px reference frame — a review caught that this badly
+  // understates the audience overlay's narrowest real size (~312px at the
+  // phone tier, `OVERLAY_STYLE`'s `width: 80vmin; maxWidth: 90vw`), where
+  // two marks the old flat rule called "not colliding" could still
+  // visually overlap. These two marks sit 4% of the clip's duration apart
+  // — inside the ~7.05% a 312px-wide strip's real `minGapPct` computes to
+  // (`22 / 312 * 100`), outside the ~3.44% a 640px-wide strip's does
+  // (`22 / 640 * 100`) — so the same pair of marks has to land on
+  // different rows at one width and share a row at the other, proving
+  // `minGapPct` is actually a function of the measured width rather than
+  // a constant.
+  const DURATION = 10000;
+  const MARKS_4PCT_APART: FinishMarkLike[] = [
+    { lane: 1, racerName: 'A', timeS: 4.0, atMs: 4000 },
+    { lane: 2, racerName: 'B', timeS: 4.4, atMs: 4400 },
+  ];
+
+  it('at 312px (the audience overlay\'s own phone-tier width), the pair collides onto separate rows', () => {
+    vi.mocked(useElementWidth).mockReturnValue([() => {}, 312]);
+    render(
+      <ReplayPlayer url="/replay/a.webm" controls marks={MARKS_4PCT_APART} durationMs={DURATION} />,
+    );
+
+    const laneOne = screen.getByTestId('replay-finish-mark-1');
+    const laneTwo = screen.getByTestId('replay-finish-mark-2');
+    expect(laneOne.getAttribute('data-row')).not.toBe(laneTwo.getAttribute('data-row'));
+  });
+
+  it('at 640px (the ▶ modal\'s own reference width), the identical pair shares row 0', () => {
+    vi.mocked(useElementWidth).mockReturnValue([() => {}, 640]);
+    render(
+      <ReplayPlayer url="/replay/a.webm" controls marks={MARKS_4PCT_APART} durationMs={DURATION} />,
+    );
+
+    const laneOne = screen.getByTestId('replay-finish-mark-1');
+    const laneTwo = screen.getByTestId('replay-finish-mark-2');
+    expect(laneOne.getAttribute('data-row')).toBe('0');
+    expect(laneTwo.getAttribute('data-row')).toBe('0');
+  });
+
+  it('falls back to the 5% constant when unmeasured (null width)', () => {
+    vi.mocked(useElementWidth).mockReturnValue([() => {}, null]);
+    render(
+      <ReplayPlayer url="/replay/a.webm" controls marks={MARKS_4PCT_APART} durationMs={DURATION} />,
+    );
+
+    // 4% apart is inside the 5% fallback band, so this still collides —
+    // matching the pre-measurement (first paint) and jsdom (no
+    // ResizeObserver) cases, both of which stay on the fallback forever.
+    const laneOne = screen.getByTestId('replay-finish-mark-1');
+    const laneTwo = screen.getByTestId('replay-finish-mark-2');
+    expect(laneOne.getAttribute('data-row')).not.toBe(laneTwo.getAttribute('data-row'));
   });
 });
 
