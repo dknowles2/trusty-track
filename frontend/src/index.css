@@ -1879,3 +1879,31 @@ input:checked + .slider:before {
 .docs-link--icon:focus-visible {
   color: var(--scouting-blue);
 }
+
+/* Replay timeline finish marks (#1218). `finishMarkLayout.ts`'s row split
+ * already keeps two close finishes off the same row, which is what
+ * actually guarantees every mark has its own clickable hit area — this
+ * rule is a second, smaller tie-break on top of that, for the ▶ modal
+ * only: a badge can still sit visually close enough to a neighbour on an
+ * adjacent row to look partly covered, and raising `z-index` on hover/
+ * focus lets an operator bring whichever one they are aiming at to the
+ * front rather than depending on DOM order (ascending `atMs`, unchanged)
+ * to have picked the one they meant.
+ *
+ * **This cannot help the audience overlay**, which is the one surface
+ * `ReplayPlayer.tsx`'s own review found real overlap risk on (a narrow
+ * strip, `minGapPct` too coarse to reach it before that review) — every
+ * mark there renders `disabled` (`!interactive`), and a disabled
+ * `<button>` neither receives keyboard focus nor reliably triggers
+ * `:hover`. The overlay's actual defence is the row split plus a
+ * `minGapPct` measured against the strip's own real width
+ * (`useElementWidth`, `ReplayPlayer.tsx`), not this rule. No colour token
+ * involved here either way — `z-index` is not a themed property. */
+.replay-finish-mark {
+  z-index: 0;
+}
+
+.replay-finish-mark:hover,
+.replay-finish-mark:focus-visible {
+  z-index: 1;
+}

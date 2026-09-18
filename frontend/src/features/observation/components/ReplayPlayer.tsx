@@ -8,7 +8,9 @@ import {
   type KeyboardEvent,
 } from 'react';
 import LaneBadge from '../../../components/ui/LaneBadge';
+import { useElementWidth } from '../../core/hooks/useElementWidth';
 import { isWithinSlowMotionWindow, slowMotionWindow, type FinishMark } from '../finishFrames';
+import { layoutFinishMarks, rowCount } from '../finishMarkLayout';
 
 /**
  * The one place a replay clip becomes a `<video>` element (#177 stage 2),
@@ -93,6 +95,32 @@ export interface ReplayPlayerProps {
  * (`docs/instant-replay.md`, the FakeCamera fixture), not a guess. */
 const FRAME_SECONDS = 1 / 30;
 
+/** `LaneBadge` at `0.75rem` text — its own approximate rendered width in
+ * pixels, used below to size `minGapPct` against the strip's *actual*
+ * measured width rather than a constant tuned for one caller's reference
+ * frame. See `useElementWidth`'s own doc comment for why a fixed
+ * percentage first shipped for this and turned out not to be safe: ~640px
+ * in the ▶ modal is not what the audience overlay renders at everywhere —
+ * `OVERLAY_STYLE`'s `width: 80vmin; maxWidth: 90vw` resolves to ~312px at
+ * `displays.md`'s own documented phone tier (<600px), where a percentage
+ * derived from the modal's width would let two badges overlap while the
+ * layout still calls them "not colliding". */
+const BADGE_PX = 22;
+
+/** `minGapPct` before the strip has actually been measured — the first
+ * paint, or a `ResizeObserver`-less environment (jsdom; see
+ * `useElementWidth`) where no measurement past `0` ever arrives. This is
+ * the same ~640px-modal-derived value (22 / 640 ≈ 3.4%, rounded up for
+ * margin) the whole strip used unconditionally before #1218's review —
+ * kept as the fallback so an unmeasured render looks exactly as it did
+ * before this correction, rather than picking a different unmeasured
+ * guess. */
+const FALLBACK_MIN_GAP_PCT = 5;
+
+/** The strip's existing per-row height, unchanged by #1218 — a second row
+ * (or third) simply repeats it. */
+const MARK_ROW_HEIGHT_PX = 28;
+
 /** The auto-playing overlay's own sizing — unchanged from what
  * `Observation.tsx` inlined before this was extracted, so the display
  * surfaces this already ships on are pixel-identical. A caller that wants a
@@ -143,6 +171,28 @@ export default function ReplayPlayer({
   const interactive = controls;
 
   const sortedMarks = useMemo(() => [...marks].sort((a, b) => a.atMs - b.atMs), [marks]);
+  // The strip's own rendered width — `null`/`0` until it has actually been
+  // measured (see `useElementWidth`), in which case `minGapPct` below
+  // falls back to `FALLBACK_MIN_GAP_PCT`.
+  const [stripRef, stripWidth] = useElementWidth();
+  // A badge is a fixed number of pixels regardless of how wide the strip
+  // is, so the *percentage* it takes up — the unit `layoutFinishMarks`
+  // actually compares against `leftPct` in — has to be derived from the
+  // strip's real width, not assumed. Falls back to the pre-measurement
+  // constant on the first render and in any environment with no
+  // `ResizeObserver` (jsdom).
+  const minGapPct =
+    stripWidth != null && stripWidth > 0 ? (BADGE_PX / stripWidth) * 100 : FALLBACK_MIN_GAP_PCT;
+  // Where each mark actually draws — not just `left%` (unchanged) but
+  // which row, so two marks close enough to overlap stay independently
+  // clickable rather than the later one silently covering the earlier
+  // one's hit area (#1218). `durationMs` may be undefined when there is no
+  // strip at all; `layoutFinishMarks` is safe against `0` either way.
+  const laidOutMarks = useMemo(
+    () => layoutFinishMarks(sortedMarks, durationMs ?? 0, minGapPct),
+    [sortedMarks, durationMs, minGapPct],
+  );
+  const markRows = useMemo(() => rowCount(laidOutMarks), [laidOutMarks]);
   const slowWindow = useMemo(
     () => (durationMs != null ? slowMotionWindow(sortedMarks, durationMs) : null),
     [sortedMarks, durationMs],
@@ -319,17 +369,18 @@ export default function ReplayPlayer({
       )}
       {hasStrip && (
         <div
+          ref={stripRef}
           data-testid="replay-finish-timeline"
           title={FINISH_MARK_PRECISION_NOTE}
           style={{
             position: 'relative',
-            height: '28px',
+            height: `${markRows * MARK_ROW_HEIGHT_PX}px`,
             marginTop: '4px',
             borderRadius: '6px',
             background: 'rgba(128, 128, 128, 0.25)',
           }}
         >
-          {sortedMarks.map((mark) => (
+          {laidOutMarks.map((mark) => (
             <button
               key={mark.lane}
               type="button"
@@ -341,6 +392,20 @@ export default function ReplayPlayer({
               disabled={!interactive}
               aria-label={`Seek to ${captionFor(mark)}`}
               data-testid={`replay-finish-mark-${mark.lane}`}
+              data-row={mark.row}
+              // `replay-finish-mark` (index.css) raises this button's
+              // `z-index` on hover/focus — a tie-break for the ▶ modal
+              // only, where a mark's own row can still sit visually close
+              // enough to a neighbour on an adjacent row to look partly
+              // covered, on top of the row split above doing the actual
+              // separating (#1218). It cannot help the audience overlay:
+              // every mark there renders `disabled` (`!interactive`,
+              // below), and a disabled `<button>` neither receives focus
+              // nor reliably triggers `:hover` — the row split, plus the
+              // measured `minGapPct` above, is that surface's *only*
+              // defence, which is exactly why `minGapPct` has to be right
+              // there rather than merely "close enough" in the modal.
+              className="replay-finish-mark"
               onClick={
                 interactive
                   ? (e) => {
@@ -351,9 +416,9 @@ export default function ReplayPlayer({
               }
               style={{
                 position: 'absolute',
-                left: `${(mark.atMs / durationMs!) * 100}%`,
-                top: 0,
-                bottom: 0,
+                left: `${mark.leftPct}%`,
+                top: `${mark.row * MARK_ROW_HEIGHT_PX}px`,
+                height: `${MARK_ROW_HEIGHT_PX}px`,
                 transform: 'translateX(-50%)',
                 background: 'none',
                 border: 'none',

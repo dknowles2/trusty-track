@@ -168,7 +168,10 @@ on purpose; the automatic overlay's own strip is for looking at, not
 clicking) and the video jumps to that instant and freezes, with the lane's
 time overlaid — click again, or press the space bar, to keep playing from
 there. While frozen, the **,** and **.** keys step one video frame at a
-time, for lining a car up against the line exactly.
+time, for lining a car up against the line exactly. Two cars that finish
+close enough together stack their markers onto a second row of the strip
+rather than overlapping, so every lane stays its own, separately clickable
+marker.
 
 ![The ▶ modal, frozen on a lane's finish with its time overlaid](assets/screenshots/instant-replay/12-finish-frame.png)
 _Clicking Lane 3's marker froze the clip there and printed its time — the
