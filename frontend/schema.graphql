@@ -619,6 +619,7 @@ type Query {
   randomFreeRaceLanes(raceId: Int!, shuffle: Int! = 0, enabledLanes: [Int!] = null): [FreeRaceLaneAssignment!]!
   timerStatus(trackId: Int!): TimerStatus
   heatSession(trackId: Int!, heatId: Int = null): HeatSession!
+  heatReplay(raceId: Int!): HeatReplay
   raceStats(raceId: Int!): RaceStats
 }
 
