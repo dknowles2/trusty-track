@@ -73,6 +73,60 @@ async function prepareAndRunFakeHeat(page: import('@playwright/test').Page, heat
 }
 
 /**
+ * Pauses an autoplaying `<video>` (the results overlay on 04, the highlight
+ * reel on 11) and seeks it to a fixed, repeatable point roughly halfway
+ * through the clip, waiting for the seek to actually land before returning
+ * (#1204).
+ *
+ * Before this, both screenshots were taken 300ms after the element became
+ * *visible* while it was still playing — so which frame was on screen
+ * depended on WebCodecs' own decode timing, not on anything committed.
+ * Measured on two runs of this identical spec, seconds apart, on one
+ * machine: 04 differed by 2173–28503 px (0.24–3.09%), 11 by 2097–28774 px
+ * (2.40–3.12%). Neither picture's caption in `docs/instant-replay.md`
+ * promises a *particular* instant of the clip — 04's says only "muted,
+ * full-screen"; 11's only "playing a highlight clip with its caption" — so
+ * any fixed, in-bounds frame is an equally honest picture of what the
+ * overlay looks like; this one is simply the same frame every time.
+ *
+ * `el.duration` can read `Infinity` on a still-buffering WebM (see this
+ * component's own note on `ReplayPlayer`'s `durationMs` prop for why), so
+ * this waits for a finite one rather than trusting whatever is there the
+ * instant the element became visible.
+ *
+ * Deliberately does not resume playback afterwards: `Observation.tsx`
+ * renders the intermission branch ahead of the results-overlay/replay-player
+ * markup whenever a break is active (`.claude/rules/displays.md`'s "a break
+ * takes it over exactly like every other view"), so leaving 04's clip frozen
+ * does not block the later intermission highlight from taking over the
+ * screen, and nothing after 11's own screenshot reads `displayPage` again
+ * before its context closes.
+ */
+async function pauseAndSeekToFixedFrame(video: import('@playwright/test').Locator): Promise<void> {
+    await video.evaluate(async (el: HTMLVideoElement) => {
+        el.pause();
+        if (!isFinite(el.duration) || el.duration <= 0) {
+            await new Promise<void>((resolve) => {
+                el.addEventListener('loadedmetadata', () => resolve(), { once: true });
+            });
+        }
+        // Halfway through the clip — comfortably inside its bounds whatever
+        // its exact duration turns out to be, and away from the lead-in/
+        // post-roll margins `clipBounds.ts` pads around the timed race
+        // itself, where a keyframe boundary or the very first/last decoded
+        // frame would be more likely to behave unusually.
+        const target = Math.max(0.1, Math.min(el.duration - 0.1, el.duration / 2));
+        if (!el.seeking && Math.abs(el.currentTime - target) < 0.001) {
+            return;
+        }
+        await new Promise<void>((resolve) => {
+            el.addEventListener('seeked', () => resolve(), { once: true });
+            el.currentTime = target;
+        });
+    });
+}
+
+/**
  * The organization name and every existing track, reshaped into
  * `TrackInput`s — what `updateInitialConfig` needs sent back unchanged
  * alongside `keepReplays` below. `InitialConfigInput.tracks` is not
@@ -214,10 +268,12 @@ test('screenshot instant replay', async ({ page, browser }) => {
         });
 
         // 04: the replay, playing on the audience display right after its
-        // own results overlay.
+        // own results overlay. Paused and seeked to a fixed frame first
+        // (#1204) — see `pauseAndSeekToFixedFrame`'s own docstring for why.
         const video = displayPage.getByTestId('replay-video');
         await expect(video).toBeVisible({ timeout: 15000 });
-        await displayPage.waitForTimeout(300);
+        await pauseAndSeekToFixedFrame(video);
+        await displayPage.waitForTimeout(100);
         await displayPage.screenshot({ path: path.join(SCREENSHOT_DIR, '04-replay-playback.png') });
 
         // 02: the Displays panel, with the camera's row showing its track
@@ -287,12 +343,29 @@ test('screenshot instant replay', async ({ page, browser }) => {
         // not a claim about what the video itself shows.
         await replayButton.click();
         const replayDialog = page.getByRole('dialog');
-        await expect(replayDialog.getByTestId('replay-video')).toBeVisible({ timeout: 15000 });
+        const finishVideo = replayDialog.getByTestId('replay-video');
+        await expect(finishVideo).toBeVisible({ timeout: 15000 });
         const firstMark = replayDialog.locator('[data-testid^="replay-finish-mark-"]').first();
         await expect(firstMark).toBeVisible({ timeout: 15000 });
         await firstMark.click();
         await expect(replayDialog.getByTestId('replay-finish-caption')).toBeVisible({ timeout: 15000 });
-        await page.waitForTimeout(300);
+        // `seekAndFreeze` (`ReplayPlayer.tsx`) sets `currentTime` and calls
+        // `pause()` synchronously from the click handler, but a seek itself
+        // is asynchronous — the frame actually on screen depends on when the
+        // browser finishes decoding to that point, not on when the click
+        // handler returned. Wait for the seek to genuinely land (`seeking`
+        // false — already the case if it settled before this round trip
+        // reached the browser, awaited via `seeked` otherwise) rather than a
+        // fixed sleep guessing how long that takes (#1204: measured
+        // 221–491 px, 0.08–0.18%, drifting between two runs under the old
+        // `waitForTimeout(300)`).
+        await finishVideo.evaluate((el: HTMLVideoElement) => {
+            if (!el.seeking) return Promise.resolve();
+            return new Promise<void>((resolve) => {
+                el.addEventListener('seeked', () => resolve(), { once: true });
+            });
+        });
+        await page.waitForTimeout(100);
         await screenshotLocator(replayDialog, {
             path: path.join(SCREENSHOT_DIR, '12-finish-frame.png'),
         });
@@ -329,7 +402,10 @@ test('screenshot instant replay', async ({ page, browser }) => {
             timeout: 15000,
         });
         await expect(displayPage.getByTestId('intermission-overlay-countdown-corner')).toBeVisible();
-        await displayPage.waitForTimeout(300);
+        // Paused and seeked to a fixed frame first (#1204) — same reasoning
+        // as 04's own call, above.
+        await pauseAndSeekToFixedFrame(highlightVideo);
+        await displayPage.waitForTimeout(100);
         await displayPage.screenshot({
             path: path.join(SCREENSHOT_DIR, '11-intermission-highlights.png'),
         });
