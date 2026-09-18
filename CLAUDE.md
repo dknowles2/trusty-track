@@ -283,7 +283,7 @@ Databases created before Alembic are detected at startup (app tables present, no
 
 Defined entirely in `backend/api/schema.py`.
 
-**Queries:** `auditLog`, `races`, `race`, `racers`, `racer`, `tracks`, `organizations`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `timerModels`, `schedulingAlgorithms`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `displays`, `suggestDisplayName`, `scenes`, `scenePresets`, `version`, `networkAddresses`, `mdnsHostname`, `practiceRace`
+**Queries:** `auditLog`, `races`, `race`, `racers`, `racer`, `tracks`, `organizations`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `timerModels`, `schedulingAlgorithms`, `heatSession`, `heatReplay` (a one-shot read of the same answer the `heatReplay` subscription gives, added for #1205's functional e2e specs to poll rather than hold a socket open), `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `displays`, `suggestDisplayName`, `scenes`, `scenePresets`, `version`, `networkAddresses`, `mdnsHostname`, `practiceRace`
 
 **Mutations:**
 

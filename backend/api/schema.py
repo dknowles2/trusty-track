@@ -4213,6 +4213,18 @@ class Query:
         )
 
     @strawberry.field
+    def heat_replay(self, race_id: int) -> HeatReplay | None:
+        """A one-shot read of the same answer the `heatReplay` subscription
+        gives, for a caller that wants to poll rather than hold a socket
+        open (#1205's functional e2e specs, which need to know a clip has
+        landed server-side without registering on the Vite dev proxy every
+        upload already shares). Shells straight out to
+        `_current_heat_replay` — one function, whether the caller is a
+        subscription's wake-up or an ordinary query.
+        """
+        return _current_heat_replay(race_id)
+
+    @strawberry.field
     def race_stats(self, info: Info, race_id: int) -> RaceStats | None:
         """Get racer stats, lane fairness, and highlights for a race."""
         from backend.services import stats as race_stats_module

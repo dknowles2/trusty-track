@@ -1104,6 +1104,7 @@ export type Query = {
   auditLog: Array<AuditLogEntry>;
   displays: Array<Display>;
   freeRaceHeats: Array<FreeRaceHeat>;
+  heatReplay?: Maybe<HeatReplay>;
   heatSession: HeatSession;
   initialConfig: InitialConfigStatus;
   mdnsHostname?: Maybe<Scalars['String']['output']>;
@@ -1153,6 +1154,11 @@ export type QueryDisplaysArgs = {
 
 export type QueryFreeRaceHeatsArgs = {
   limit?: Scalars['Int']['input'];
+  raceId: Scalars['Int']['input'];
+};
+
+
+export type QueryHeatReplayArgs = {
   raceId: Scalars['Int']['input'];
 };
 
