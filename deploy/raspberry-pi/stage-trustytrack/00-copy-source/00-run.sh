@@ -21,6 +21,16 @@
 # tree is never served, so whether a stray README ships inside
 # `/opt/trustytrack` does not matter the way it would in a container image
 # whose build context is also its cache key.
+#
+# `docs/` is anchored with a leading slash, unlike the rest of this list —
+# rsync matches an unanchored pattern against every path component, not just
+# the source root the way a bare `.dockerignore` entry does, and this repo
+# has two more directories literally named `docs`: `frontend/src/docs/`
+# (real application source — `docsLink.ts`, the module every "Learn more"
+# link resolves through) and `frontend/e2e/docs/`. An unanchored
+# `--exclude='docs/'` silently dropped both, and the frontend build failed
+# with `docsLink.ts` missing (dknowles2/trusty-track#1234) — the mkdocs site
+# this line means to exclude only ever lives at the repository root.
 if [ ! -d /trustytrack-src ]; then
 	echo "stage-trustytrack: /trustytrack-src is not mounted — see deploy/raspberry-pi/build.sh" >&2
 	exit 1
@@ -39,7 +49,7 @@ rsync -a \
 	--exclude='*.db' \
 	--exclude='*.db-wal' \
 	--exclude='*.db-shm' \
-	--exclude='docs/' \
+	--exclude='/docs/' \
 	--exclude='uploads/' \
 	/trustytrack-src/ "${ROOTFS_DIR}/opt/trustytrack/"
 
