@@ -49,6 +49,41 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/instant-replay');
 
+/**
+ * A frozen, single-frame stand-in for `frontend/public/fake-camera.webm`,
+ * routed to this spec's camera page only (below) — never the shipped asset
+ * itself, which stays animated (#1204's PR review).
+ *
+ * `frontend/public/fake-camera.webm` is what an operator's own browser
+ * plays when they try replay through `/camera?fake=1` with no hardware
+ * camera — freezing *that* file would make a genuine feature look broken to
+ * anyone trying it out. This spec doesn't need the motion, though: its
+ * three screenshots only want a picture, and the shipped clip's `testsrc`
+ * pattern moves a gradient bar and a frame counter as a function of decode
+ * position, which `fakeCameraTrack` (`capture.ts`) captures from a real,
+ * continuously-looping `<video>` — so the frame index landing inside a *cut*
+ * clip depends on real wall-clock timing between test runs, and two
+ * otherwise-identical runs produce clips with genuinely different decoded
+ * content, not merely a different frame chosen from identical content. No
+ * seek inside the spec can fix that; regenerating the *content itself* as
+ * unmoving can.
+ *
+ * Regenerate with:
+ *   ffmpeg -f lavfi -i "testsrc=size=320x220:rate=15:duration=3" \
+ *     -vf "select='eq(n\,0)'" -frames:v 1 first_frame.png
+ *   ffmpeg -loop 1 -i first_frame.png -t 3 -r 15 \
+ *     -c:v libvpx -b:v 50k -crf 30 fake-camera-still.webm
+ *
+ * Same dimensions (320×220), duration (3s) and frame rate (15fps) as
+ * `frontend/public/fake-camera.webm`, so `capture.ts`'s pipeline and
+ * `frontend/e2e/functional/instantReplay.spec.ts` (which asserts only
+ * `duration`/`readyState`/`currentTime`, never pixel content — confirmed by
+ * `grep -n "getImageData\|toMatchSnapshot\|pixel\|color"` finding nothing)
+ * see nothing different about it. Smaller than the shipped clip (about
+ * 7.6 KB against 21.9 KB) simply because a held frame compresses further.
+ */
+const FROZEN_CAMERA_FIXTURE = path.resolve(__dirname, 'fixtures/fake-camera-still.webm');
+
 /** `displayIdentity.ts`'s own storage key — mirrored here, same as
  * `screenshot-observation.spec.ts`'s copy, since this file runs outside the
  * app's build and cannot import it. Fixed ids so the whimsical name each
@@ -212,6 +247,15 @@ test('screenshot instant replay', async ({ page, browser }) => {
             ([key, value]) => window.localStorage.setItem(key, value),
             [DISPLAY_ID_KEY, CAMERA_DISPLAY_ID],
         );
+        // Routed on this page only, before it ever loads — `Camera.tsx`
+        // calls `fakeCameraTrack()` with its own default URL
+        // (`/fake-camera.webm`), so this intercepts the request with no
+        // production code touched and no effect on the shipped asset real
+        // operators see. See `FROZEN_CAMERA_FIXTURE`'s own comment for why
+        // only this spec needs the picture held still.
+        await cameraPage.route('**/fake-camera.webm', (route) =>
+            route.fulfill({ path: FROZEN_CAMERA_FIXTURE, contentType: 'video/webm' }),
+        );
         await cameraPage.goto(`/race/${raceId}/camera?fake=1`);
         await cameraPage.waitForLoadState('networkidle');
         await cameraPage.getByLabel('Which track this camera listens to').selectOption(String(trackId));
@@ -345,6 +389,20 @@ test('screenshot instant replay', async ({ page, browser }) => {
         const replayDialog = page.getByRole('dialog');
         const finishVideo = replayDialog.getByTestId('replay-video');
         await expect(finishVideo).toBeVisible({ timeout: 15000 });
+        // Chromium's native `controls` bar paints its own current-time/
+        // duration text from the video's *decoded* duration, which — even
+        // with the frozen fixture above pinning every other pixel — can
+        // still read a frame or two differently between two muxed clips
+        // (#1204). Nothing else in this app can draw over that text (it is
+        // inside the browser's own UA shadow root), so this is the one place
+        // this spec reaches into it directly; these two pseudo-elements are
+        // Chromium-specific and stylable only there, which is fine — the
+        // whole doc-screenshot suite already pins to one browser.
+        await page.addStyleTag({
+            content:
+                'video::-webkit-media-controls-current-time-display, ' +
+                'video::-webkit-media-controls-time-remaining-display { display: none !important; }',
+        });
         const firstMark = replayDialog.locator('[data-testid^="replay-finish-mark-"]').first();
         await expect(firstMark).toBeVisible({ timeout: 15000 });
         await firstMark.click();
