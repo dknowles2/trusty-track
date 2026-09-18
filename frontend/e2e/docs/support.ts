@@ -28,6 +28,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { SCREENSHOT_BACKEND_URL } from '../environment';
+import { test } from './screenshots-setup';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -38,6 +39,32 @@ export const ORGANIZATION = 'Pack 42';
 
 /** The track the first-run wizard creates, by the name its form defaults to. */
 export const DOCS_TRACK_NAME = 'Main Track';
+
+/**
+ * `base` on the first attempt; `${base} (retry N)` on every attempt after.
+ *
+ * These specs run in parallel against one shared backend (see the module doc
+ * comment above), and `races.name` is unique on it — so a retry that re-seeds
+ * a race under the same name it used on the failed attempt is guaranteed to
+ * fail with a constraint violation rather than getting the recovery a retry
+ * exists to provide (#1219). `tracks.name` carries no database constraint,
+ * but several specs find "their own" track back by this exact string
+ * (`ownTrack`'s callers, `screenshot-timers.spec.ts`'s card lookup), so a
+ * leaked, uncleaned first attempt with the same name is exactly as much a
+ * problem as a collision would be (#829, which fixed this for tracks alone —
+ * #1219 is every other unique name a docs spec creates).
+ *
+ * The same convention `seedRace` in `e2e/functional/support.ts` already uses
+ * for `races.name`, moved here as a shared helper rather than re-derived by
+ * every spec that needs it (four specs had each hand-rolled their own
+ * `retry > 0 ? … : …` ternary before this existed). First attempts — every
+ * run, in practice — keep the plain name, so an ordinary regeneration
+ * produces the same picture as before.
+ */
+export function attemptName(base: string): string {
+    const retry = test.info().retry;
+    return retry > 0 ? `${base} (retry ${retry})` : base;
+}
 
 export interface Lane {
     lane: number;
@@ -195,7 +222,11 @@ export interface RaceSeed {
     qrWifiNote?: string;
 }
 
-/** A race of this spec's own. `races.name` is unique — never reuse one. */
+/**
+ * A race of this spec's own. `races.name` is unique — never reuse one, and
+ * wrap a caller-supplied name in `attemptName` so a retry does not collide
+ * with what the failed first attempt left behind (#1219).
+ */
 export async function seedRace(page: Page, race: RaceSeed): Promise<number> {
     const created = await gql<{ createRace: { id: number } }>(
         page,

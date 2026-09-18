@@ -24,7 +24,7 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { docsTrackId, ensureConfigured, seedRace, seedRacers, seedRacingGroups } from './support';
+import { attemptName, docsTrackId, ensureConfigured, seedRace, seedRacers, seedRacingGroups } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/observation');
@@ -37,7 +37,7 @@ test('screenshot check-in progress', async ({ page }) => {
     const trackId = await docsTrackId(page);
 
     const raceId = await seedRace(page, {
-        name: 'Check-In Display Screenshot Race',
+        name: attemptName('Check-In Display Screenshot Race'),
         trackId,
         dateTime: '2026-04-18T09:00:00',
         location: 'Fellowship Hall',

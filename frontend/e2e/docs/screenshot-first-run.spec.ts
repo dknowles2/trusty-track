@@ -35,7 +35,7 @@ import type { Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { ORGANIZATION, docsTrackId, gql, organizationId } from './support';
+import { ORGANIZATION, attemptName, docsTrackId, gql, organizationId } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GETTING_STARTED_DIR = path.resolve(
@@ -133,7 +133,11 @@ test('screenshot the first run', async ({ page }) => {
         `mutation FirstRunLastYear($race: RaceInput!) { createRace(race: $race) { id } }`,
         {
             race: {
-                name: '2025 Pinewood Derby',
+                // Suffixed on retry (#1219): `races.name` is unique on this
+                // shared backend, so a retry that re-seeds under the same
+                // name a failed first attempt used — before it got to the
+                // `deleteRace` below — is guaranteed to fail.
+                name: attemptName('2025 Pinewood Derby'),
                 dateTime: '2025-03-07T18:00',
                 location: 'School Gym',
                 trackId: await docsTrackId(page),
@@ -242,7 +246,11 @@ test('screenshot the first run', async ({ page }) => {
         `mutation ActivityShotRace($race: RaceInput!) { createRace(race: $race) { id } }`,
         {
             race: {
-                name: 'Activity Shot Derby',
+                // Suffixed on retry (#1219): `races.name` is unique on this
+                // shared backend, and this race is never deleted, so a retry
+                // that re-seeds under the same name a failed first attempt
+                // used is guaranteed to fail.
+                name: attemptName('Activity Shot Derby'),
                 organizationId: await organizationId(page),
                 trackId: await docsTrackId(page),
                 carNumberingStrategy: 'GLOBAL',

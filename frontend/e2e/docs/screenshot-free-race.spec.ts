@@ -13,7 +13,7 @@ import { test, expect, screenshotLocator } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { activeFreeRaceHeatId, ensureConfigured, gql, organizationId, ownTrack, photosFor, runFakeHeat } from './support';
+import { activeFreeRaceHeatId, attemptName, ensureConfigured, gql, organizationId, ownTrack, photosFor, runFakeHeat } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/free-race');
@@ -36,10 +36,9 @@ test('screenshot free race', async ({ page }) => {
     const raceOrganizationId = await organizationId(page);
     // Its own track, created through the API so the backend spins up a timer
     // manager for it — that is what puts the fake timer mole on screen.
-    // Suffixed on retry (#829) so a retry does not collide on track name if
-    // attempt 1 leaked before cleanup.
-    const retry = test.info().retry;
-    const trackName = retry > 0 ? `Free Race Track (retry ${retry})` : 'Free Race Track';
+    // Suffixed on retry (#829, #1219) so a retry does not collide on track
+    // name if attempt 1 leaked before cleanup.
+    const trackName = attemptName('Free Race Track');
     const trackId = await ownTrack(page, trackName, 4, 'FAKE');
 
     const race = await gql(
@@ -50,7 +49,8 @@ test('screenshot free race', async ({ page }) => {
                 // Not the same name the printables spec uses: `races.name` is
                 // unique, and running every docs spec in one go shares one
                 // backend, so a shared name makes whichever runs second fail.
-                name: 'Pack 42 Free Race Night',
+                // `attemptName` covers the same collision on a retry (#1219).
+                name: attemptName('Pack 42 Free Race Night'),
                 dateTime: '2026-03-14T09:30:00',
                 location: 'St Anne’s Parish Hall',
                 organizationId: raceOrganizationId,

@@ -30,6 +30,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import {
+    attemptName,
     collapseFakeTimer,
     dismissRoundSummary,
     docsTrackId,
@@ -77,12 +78,12 @@ test('take screenshots', async ({ page }) => {
     await expect(page.getByText('Loading tracks...')).toBeHidden();
     await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/03-new-race-form.png') });
 
-    // Suffixed on retry (#829) so a retry does not collide on the race name
-    // if attempt 1 leaked before cleanup — `races.name` is unique, and this
-    // whole spec is one long chain built through the browser, so there is no
-    // seeding helper here to carry the convention for it.
-    const retry = test.info().retry;
-    const raceName = retry > 0 ? `2026 Pinewood Derby (retry ${retry})` : '2026 Pinewood Derby';
+    // Suffixed on retry (#829, #1219) so a retry does not collide on the race
+    // name if attempt 1 leaked before cleanup — `races.name` is unique, and
+    // this whole spec is one long chain built through the browser, so there
+    // is no seeding helper here to carry the convention for it; `attemptName`
+    // is the shared one.
+    const raceName = attemptName('2026 Pinewood Derby');
     await page.getByPlaceholder('e.g. 2024 Pinewood Derby').fill(raceName);
     await page.locator('input[type="datetime-local"]').fill('2026-03-01T10:00');
     await page.getByPlaceholder('e.g. School Gym').fill('School Gym');

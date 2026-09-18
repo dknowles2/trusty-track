@@ -27,6 +27,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import {
     type Heat,
+    attemptName,
     ensureConfigured,
     gql,
     ownTrack,
@@ -89,13 +90,12 @@ test('screenshot the race stats page', async ({ page }) => {
     // A configured length (#610) — `ownTrack` otherwise leaves it null, and
     // the "Top scale speed" line beside the Fastest Heat card would have
     // nothing to compute from.
-    // Suffixed on retry (#829) so a retry does not collide on track name if
-    // attempt 1 leaked before cleanup.
-    const retry = test.info().retry;
-    const trackName = retry > 0 ? `Race Stats Track (retry ${retry})` : 'Race Stats Track';
+    // Suffixed on retry (#829, #1219) so a retry does not collide on track
+    // name if attempt 1 leaked before cleanup.
+    const trackName = attemptName('Race Stats Track');
     const trackId = await ownTrack(page, trackName, 4, 'FAKE', 40);
     const raceId = await seedRace(page, {
-        name: 'Pack 42 Stats Derby',
+        name: attemptName('Pack 42 Stats Derby'),
         trackId,
         dateTime: '2026-03-21T10:00:00',
         location: 'School Gym',

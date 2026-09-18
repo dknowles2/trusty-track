@@ -32,7 +32,7 @@ import type { Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { BACKEND_URL, deleteTrack, ensureConfigured, gql } from './support';
+import { attemptName, BACKEND_URL, deleteTrack, ensureConfigured, gql } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/timers');
@@ -130,12 +130,9 @@ test('screenshot the timer pages', async ({ page }) => {
     // cannot collide with it: two tracks named identically is exactly what
     // turned a retried flake into a hard failure (a `getByTestId(/track-card-
     // \d+/)` locator resolving to two elements) rather than the recovery a
-    // retry is supposed to be. Same convention `seedRace` in
-    // `e2e/functional/support.ts` already uses for `races.name`. First
-    // attempts keep the plain name, so the ordinary, non-retried run — every
-    // run, in practice — produces the same picture as before this change.
-    const retry = test.info().retry;
-    const trackName = retry > 0 ? `Timer Demo Track (retry ${retry})` : 'Timer Demo Track';
+    // retry is supposed to be. `attemptName` (#1219) is that convention,
+    // shared now rather than hand-rolled per spec.
+    const trackName = attemptName('Timer Demo Track');
 
     // A two-lane proxy-mode track of our own. Two lanes, so the bench test
     // finishes with two hand-tripped results rather than needing six.

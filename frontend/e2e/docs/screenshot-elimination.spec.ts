@@ -15,7 +15,7 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { docsTrackId, ensureConfigured, gql, organizationId, photosFor } from './support';
+import { attemptName, docsTrackId, ensureConfigured, gql, organizationId, photosFor } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/race-day');
@@ -51,7 +51,10 @@ test('screenshot elimination racing', async ({ page }) => {
         `mutation Create($race: RaceInput!) { createRace(race: $race) { id } }`,
         {
             race: {
-                name: 'Pack 42 Elimination Night',
+                // Suffixed on retry (#1219): `races.name` is unique on this
+                // shared backend, so a retry that re-seeds under the same
+                // name a failed first attempt used is guaranteed to fail.
+                name: attemptName('Pack 42 Elimination Night'),
                 dateTime: '2026-03-14T09:30:00',
                 location: 'St Anne’s Parish Hall',
                 organizationId: raceOrganizationId,
