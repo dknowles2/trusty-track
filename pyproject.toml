@@ -141,6 +141,14 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["backend*"]
+# `backend.tests` has an `__init__.py`, so `packages.find` discovers it as a
+# real subpackage same as `backend.api`/`backend.db` — but it is 219 files of
+# dev-only test code, never imported by the app itself, and a real (non-editable)
+# install has no business shipping the whole suite. Caught by dknowles2/trusty-track#1236's
+# own review: the packages.find fix below stopped the module-not-found bug,
+# but nothing had checked what else `include = ["backend*"]` swept in along
+# with it.
+exclude = ["backend.tests", "backend.tests.*"]
 
 # `backend/migrations/` (env.py, versions/*.py) has no `__init__.py` — Alembic
 # locates it by filesystem path off `database.py`'s own location
@@ -158,5 +166,21 @@ include = ["backend*"]
 # incomplete copy on `sys.path`. The pi-gen image's layer A check
 # (`stage-trustytrack/04-verify`) is the first thing to import the installed
 # package from a cwd with no such shadow, which is exactly what caught this.
+#
+# `backend/assets/defaults/{racers,cars}/*.png` (populate.py's demo photos)
+# has the identical shape: no `__init__.py`, located the same
+# `Path(__file__).resolve().parent.parent`-off-the-installed-file way
+# `_migrations_dir()` is. Masked today by the same two shadows as the
+# migrations gap was — nobody has installed this non-editably with no raw
+# source tree sitting next to it yet — but it is the same bug waiting for
+# the same trigger, so it gets the same fix rather than waiting for its own
+# `ModuleNotFoundError`-shaped report.
 [tool.setuptools.package-data]
-backend = ["migrations/env.py", "migrations/script.py.mako", "migrations/README", "migrations/versions/*.py"]
+backend = [
+    "migrations/env.py",
+    "migrations/script.py.mako",
+    "migrations/README",
+    "migrations/versions/*.py",
+    "assets/defaults/racers/*.png",
+    "assets/defaults/cars/*.png",
+]
