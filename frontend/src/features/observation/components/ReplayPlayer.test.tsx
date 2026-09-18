@@ -76,6 +76,53 @@ describe('the finish-frame timeline', () => {
   });
 });
 
+describe('overlapping marks stack onto separate rows (#1218)', () => {
+  // Two lanes finishing 10ms apart on a 5s clip — well inside the
+  // MIN_GAP_PCT band `ReplayPlayer.tsx` lays the strip out with — used to
+  // render both buttons on the same row, in DOM order, with no `z-index`:
+  // the later lane's badge covered the earlier lane's own hit area
+  // entirely, exactly as the issue's own Playwright trace found ("subtree
+  // intercepts pointer events", retried forever). This is the seam test:
+  // it must fail on `main`, where every mark renders at `top: 0` on one
+  // shared row regardless of how close two of them land.
+  const CLOSE_MARKS: FinishMarkLike[] = [
+    { lane: 1, racerName: 'Early Bird', timeS: 3.4, atMs: 3400 },
+    { lane: 2, racerName: 'Close Second', timeS: 3.41, atMs: 3410 },
+  ];
+  const CLOSE_DURATION_MS = 5000;
+
+  it('renders both marks, on different rows', () => {
+    render(
+      <ReplayPlayer url="/replay/a.webm" controls marks={CLOSE_MARKS} durationMs={CLOSE_DURATION_MS} />,
+    );
+
+    const laneOne = screen.getByTestId('replay-finish-mark-1');
+    const laneTwo = screen.getByTestId('replay-finish-mark-2');
+    expect(laneOne).toBeVisible();
+    expect(laneTwo).toBeVisible();
+    expect(laneOne.getAttribute('data-row')).not.toBe(laneTwo.getAttribute('data-row'));
+  });
+
+  it('clicking each mark seeks and freezes on its own lane, not its neighbour', () => {
+    render(
+      <ReplayPlayer url="/replay/a.webm" controls marks={CLOSE_MARKS} durationMs={CLOSE_DURATION_MS} />,
+    );
+    const video = getVideo();
+
+    fireEvent.click(screen.getByTestId('replay-finish-mark-1'));
+    expect(video.currentTime).toBeCloseTo(3.4, 5);
+    expect(screen.getByTestId('replay-finish-caption')).toHaveTextContent(
+      'L1 Early Bird 3.400 s',
+    );
+
+    fireEvent.click(screen.getByTestId('replay-finish-mark-2'));
+    expect(video.currentTime).toBeCloseTo(3.41, 5);
+    expect(screen.getByTestId('replay-finish-caption')).toHaveTextContent(
+      'L2 Close Second 3.410 s',
+    );
+  });
+});
+
 describe('the finish caption', () => {
   it('shows the most recently crossed mark, formatted as "Lx Name t.tt s"', () => {
     render(<ReplayPlayer url="/replay/a.webm" controls marks={MARKS} durationMs={DURATION_MS} />);

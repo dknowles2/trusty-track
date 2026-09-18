@@ -9,6 +9,7 @@ import {
 } from 'react';
 import LaneBadge from '../../../components/ui/LaneBadge';
 import { isWithinSlowMotionWindow, slowMotionWindow, type FinishMark } from '../finishFrames';
+import { layoutFinishMarks, rowCount } from '../finishMarkLayout';
 
 /**
  * The one place a replay clip becomes a `<video>` element (#177 stage 2),
@@ -93,6 +94,20 @@ export interface ReplayPlayerProps {
  * (`docs/instant-replay.md`, the FakeCamera fixture), not a guess. */
 const FRAME_SECONDS = 1 / 30;
 
+/** How close two marks' `leftPct` have to be before the later one is
+ * pushed to a second row (#1218) — a percentage of the strip's own width,
+ * not a pixel count, since the strip's rendered width varies (~640px in
+ * the ▶ modal, narrower on the audience overlay) and `finishMarkLayout.ts`
+ * is deliberately DOM-free. `LaneBadge` renders at `0.75rem` text, about
+ * 22px wide; 22 / 640 is roughly 3.4%, and `5` gives that a little margin
+ * rather than sizing to the exact pixel of the widest badge on the
+ * narrowest strip this renders on. */
+const MIN_GAP_PCT = 5;
+
+/** The strip's existing per-row height, unchanged by #1218 — a second row
+ * (or third) simply repeats it. */
+const MARK_ROW_HEIGHT_PX = 28;
+
 /** The auto-playing overlay's own sizing — unchanged from what
  * `Observation.tsx` inlined before this was extracted, so the display
  * surfaces this already ships on are pixel-identical. A caller that wants a
@@ -143,6 +158,16 @@ export default function ReplayPlayer({
   const interactive = controls;
 
   const sortedMarks = useMemo(() => [...marks].sort((a, b) => a.atMs - b.atMs), [marks]);
+  // Where each mark actually draws — not just `left%` (unchanged) but
+  // which row, so two marks close enough to overlap stay independently
+  // clickable rather than the later one silently covering the earlier
+  // one's hit area (#1218). `durationMs` may be undefined when there is no
+  // strip at all; `layoutFinishMarks` is safe against `0` either way.
+  const laidOutMarks = useMemo(
+    () => layoutFinishMarks(sortedMarks, durationMs ?? 0, MIN_GAP_PCT),
+    [sortedMarks, durationMs],
+  );
+  const markRows = useMemo(() => rowCount(laidOutMarks), [laidOutMarks]);
   const slowWindow = useMemo(
     () => (durationMs != null ? slowMotionWindow(sortedMarks, durationMs) : null),
     [sortedMarks, durationMs],
@@ -323,13 +348,13 @@ export default function ReplayPlayer({
           title={FINISH_MARK_PRECISION_NOTE}
           style={{
             position: 'relative',
-            height: '28px',
+            height: `${markRows * MARK_ROW_HEIGHT_PX}px`,
             marginTop: '4px',
             borderRadius: '6px',
             background: 'rgba(128, 128, 128, 0.25)',
           }}
         >
-          {sortedMarks.map((mark) => (
+          {laidOutMarks.map((mark) => (
             <button
               key={mark.lane}
               type="button"
@@ -341,6 +366,15 @@ export default function ReplayPlayer({
               disabled={!interactive}
               aria-label={`Seek to ${captionFor(mark)}`}
               data-testid={`replay-finish-mark-${mark.lane}`}
+              data-row={mark.row}
+              // `replay-finish-mark` (index.css) raises this button's
+              // `z-index` on hover/focus — a mark whose own row still
+              // happens to sit under a neighbour's badge (the badge is
+              // wider than the row's own hit column at some zoom levels)
+              // can still be brought to the front deliberately, on top of
+              // the DOM-order/row layout below doing the actual
+              // separating (#1218).
+              className="replay-finish-mark"
               onClick={
                 interactive
                   ? (e) => {
@@ -351,9 +385,9 @@ export default function ReplayPlayer({
               }
               style={{
                 position: 'absolute',
-                left: `${(mark.atMs / durationMs!) * 100}%`,
-                top: 0,
-                bottom: 0,
+                left: `${mark.leftPct}%`,
+                top: `${mark.row * MARK_ROW_HEIGHT_PX}px`,
+                height: `${MARK_ROW_HEIGHT_PX}px`,
                 transform: 'translateX(-50%)',
                 background: 'none',
                 border: 'none',

@@ -1879,3 +1879,22 @@ input:checked + .slider:before {
 .docs-link--icon:focus-visible {
   color: var(--scouting-blue);
 }
+
+/* Replay timeline finish marks (#1218). `finishMarkLayout.ts` already keeps
+ * two close finishes off the same row, which is what actually guarantees
+ * every mark has its own clickable hit area — this rule is a second,
+ * smaller line of defence on top of that: a badge is wider than the
+ * layout's own `minGapPct` band at some zoom levels, so a mark can still
+ * sit visually close enough to a neighbour on an adjacent row to look
+ * partly covered. Raising `z-index` on hover/focus lets an operator bring
+ * whichever one they are aiming at to the front rather than depending on
+ * DOM order (ascending `atMs`, unchanged) to have picked the one they
+ * meant. No colour token involved — `z-index` is not a themed property. */
+.replay-finish-mark {
+  z-index: 0;
+}
+
+.replay-finish-mark:hover,
+.replay-finish-mark:focus-visible {
+  z-index: 1;
+}
