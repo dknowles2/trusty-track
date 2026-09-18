@@ -755,7 +755,12 @@ describe('editing a race that is not on the first track', () => {
 
         await user.click(screen.getByRole('button', { name: /edit race/i }));
 
-        const trackSelect = await screen.findByLabelText(/track/i);
+        // Exact text, not the loose /track/i this used to be: the Event
+        // section's Lock race box now carries a DocsLink whose title is
+        // "Race and track settings" (#1194's `lock-race` docs entry), and a
+        // fuzzy regex matches that too — "Found multiple elements" — so this
+        // has to name the field's own label precisely.
+        const trackSelect = await screen.findByLabelText('Track / Timer');
         expect((trackSelect as HTMLSelectElement).value).toBe('2');
     });
 

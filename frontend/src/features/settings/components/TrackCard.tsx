@@ -26,6 +26,7 @@ import { useTerminology } from '../../../context/TerminologyContext';
 import { lanesOf } from '../laneOutages';
 import { colorForLane, presetColors, presetForLaneCount, presetNameForColor, setLaneColor } from '../laneColors';
 import { TIMER_TYPE_LABELS } from '../timerTypeText';
+import DocsLink from '../../../components/ui/DocsLink';
 
 export interface TrackFields {
   // Absent until the track has been saved, which is also when it can first
@@ -453,13 +454,7 @@ export default function TrackCard({
             {chosen
               ? chosen.provenance
               : 'Leave this alone and the app asks each timer it knows about who it is. Pick a model if yours is not found, or to stop it asking.'}{' '}
-            <a
-              href="https://trusty-track.com/docs/hardware-timer/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Hardware Timer guide
-            </a>
+            <DocsLink docsKey="timer-check" label="Hardware Timer guide" />
           </small>
           {chosen && !chosen.detectable && (
             <small style={{ color: 'var(--warning-color)', display: 'block', marginTop: '0.25rem' }}>

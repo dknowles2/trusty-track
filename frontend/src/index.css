@@ -1855,3 +1855,27 @@ input:checked + .slider:before {
 .field-help-detail[hidden] {
   display: none;
 }
+
+/* DocsLink (#1194): one `?`/"Learn more" affordance, opening the docs page
+ * that explains the screen it sits on. `.docs-link` alone is layout only —
+ * shared by both the icon-only page-header form and the labelled
+ * ("Learn more →") form `FieldHelp` and the replaced Hardware Timer guide
+ * links use. The muted colour and no-underline treatment are scoped to
+ * `.docs-link--icon` only: a labelled link is meant to read as an ordinary
+ * link (the page's own default anchor styling), not a de-emphasised icon. */
+.docs-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+}
+
+.docs-link--icon {
+  color: var(--text-muted-color);
+  text-decoration: none;
+}
+
+.docs-link--icon:hover,
+.docs-link--icon:focus-visible {
+  color: var(--scouting-blue);
+}

@@ -112,6 +112,36 @@ describe('FieldHelp', () => {
     });
   });
 
+  describe('docs — a "Learn more" link into the guides (#1194)', () => {
+    it('appends a DocsLink after the children when docs is given, uncollapsed', () => {
+      render(
+        <FieldHelp id="the-help" docs="how-heats-are-built">
+          Guards against an accidental edit.
+        </FieldHelp>,
+      );
+      const link = screen.getByTestId('docs-link');
+      expect(link).toHaveAttribute('data-docs-key', 'how-heats-are-built');
+      expect(link).toHaveTextContent('Learn more →');
+    });
+
+    it('renders nothing extra when docs is omitted', () => {
+      render(<FieldHelp id="the-help">Guards against an accidental edit.</FieldHelp>);
+      expect(screen.queryByTestId('docs-link')).toBeNull();
+    });
+
+    it('still renders the link inside the collapsed detail under 600px', async () => {
+      resizeTo(390);
+      const user = userEvent.setup();
+      render(
+        <FieldHelp id="the-help" docs="how-heats-are-built">
+          Guards against an accidental edit.
+        </FieldHelp>,
+      );
+      await user.click(screen.getByRole('button', { name: 'More about this' }));
+      expect(screen.getByTestId('docs-link')).toBeVisible();
+    });
+  });
+
   describe('forceOpen — the first-run wizard', () => {
     it('ignores width and renders everything expanded, with no toggle', () => {
       resizeTo(390);

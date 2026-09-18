@@ -1,5 +1,7 @@
 import { useState, type CSSProperties, type ElementType, type ReactNode } from 'react';
 import { useNarrowViewport } from '../../features/core/hooks/useNarrowViewport';
+import DocsLink from './DocsLink';
+import type { DocsKey } from '../../docs/docsLink';
 
 /**
  * A control's helper sentence, collapsed to a disclosure on a phone
@@ -49,6 +51,14 @@ export interface FieldHelpProps {
   forceOpen?: boolean;
   /** The toggle button's accessible name. */
   toggleLabel?: string;
+  /**
+   * A docs page/section this control's own guide covers (#1194) — when set,
+   * the helper text ends with a "Learn more →" link to it. Omitted by every
+   * existing call site, which is what keeps "with no `summary`, an
+   * uncollapsed render must be the exact old markup" true: adding the link
+   * only when `docs` is given touches nothing already relying on that.
+   */
+  docs?: DocsKey;
 }
 
 export default function FieldHelp({
@@ -60,6 +70,7 @@ export default function FieldHelp({
   summary,
   forceOpen = false,
   toggleLabel = 'More about this',
+  docs,
 }: FieldHelpProps) {
   const narrow = useNarrowViewport();
   const [open, setOpen] = useState(false);
@@ -83,6 +94,12 @@ export default function FieldHelp({
           </>
         ) : null}
         {children}
+        {docs ? (
+          <>
+            {' '}
+            <DocsLink docsKey={docs} label="Learn more →" />
+          </>
+        ) : null}
       </Tag>
     );
   }
@@ -107,6 +124,12 @@ export default function FieldHelp({
       </button>
       <span id={id} className="field-help-detail" hidden={!open}>
         {children}
+        {docs ? (
+          <>
+            {' '}
+            <DocsLink docsKey={docs} label="Learn more →" />
+          </>
+        ) : null}
       </span>
     </Tag>
   );

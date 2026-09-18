@@ -43,6 +43,7 @@ import {
 } from '../graphql/queries';
 import { readAppTheme } from '../../../theming/appTheme';
 import { themeByKey } from '../../../theming/themes';
+import DocsLink from '../../../components/ui/DocsLink';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 import { useRole } from '../../core/hooks/useRole';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
@@ -357,7 +358,12 @@ export default function Awards() {
             certificates — reached for far less often than Add an award —
             move into a small overflow so the row is one compact line
             rather than three buttons, two of which wrapped their labels. */}
-        {!mobileChrome && <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Awards</h1>}
+        {!mobileChrome && (
+          <h1 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            Awards
+            <DocsLink docsKey="awards" />
+          </h1>
+        )}
         <div style={{ display: 'flex', gap: '0.5rem', marginLeft: mobileChrome ? 'auto' : undefined }}>
           {mobileChrome ? (
             <>
@@ -377,6 +383,7 @@ export default function Awards() {
                   <div className="dropdown-content" style={{ display: 'block' }}>
                     {presentAction}
                     {printCertificatesAction}
+                    <DocsLink docsKey="awards" label="Awards guide" />
                   </div>
                 )}
               </div>

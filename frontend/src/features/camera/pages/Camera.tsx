@@ -48,6 +48,7 @@ import IdentifyPresence from '../../observation/IdentifyPresence';
 import { useIdentifyOverlay } from '../../observation/useIdentifyOverlay';
 import { observeHeatResult, type SeenHeatResult } from '../../observation/resultsOverlay';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
+import DocsLink from '../../../components/ui/DocsLink';
 
 import {
   cameraSupport,
@@ -507,6 +508,7 @@ export default function Camera() {
       <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
       <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         {assignment?.name ?? 'Camera'}
+        <DocsLink docsKey="camera" />
       </h1>
 
       <label style={{ display: 'block', marginBottom: '1rem' }}>

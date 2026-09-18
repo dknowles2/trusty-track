@@ -17,6 +17,7 @@ import { Icon } from '@mdi/react';
 import { mdiAlertCircleOutline, mdiRefresh } from '@mdi/js';
 
 import BackLink from '../../core/components/BackLink';
+import DocsLink from '../../../components/ui/DocsLink';
 import { GET_RACES_NAV } from '../../core/graphql/queries';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { ACTIVITY_LOG_LIVE_QUERY, ACTIVITY_LOG_QUERY } from '../graphql/queries';
@@ -240,7 +241,10 @@ export default function ActivityLog() {
                     gap: '1rem',
                 }}
             >
-                <h2 style={{ margin: 0 }}>Activity log</h2>
+                <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    Activity log
+                    <DocsLink docsKey="activity-log" />
+                </h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <label
                         style={{

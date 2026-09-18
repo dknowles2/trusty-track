@@ -26,6 +26,7 @@ import { claimedCapabilities } from '../timerCapabilities';
 import { useRole } from '../../core/hooks/useRole';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 import BackLink from '../../core/components/BackLink';
+import DocsLink from '../../../components/ui/DocsLink';
 
 const DIAGNOSTIC_TRACKS = gql`
   query DiagnosticTracks {
@@ -700,17 +701,14 @@ const TimerDiagnostics: React.FC = () => {
     return (
         <div style={{ padding: '1.5rem', maxWidth: '820px', margin: '0 auto' }}>
             <BackLink destination={backDestination} />
-            <h1 style={{ marginTop: 0 }}>Timer check</h1>
+            <h1 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                Timer check
+                <DocsLink docsKey="timer-check" />
+            </h1>
             <p style={{ color: 'var(--text-strong-muted-color)' }}>
                 Live view of every track's timer. Use this before the event to confirm the timer is
                 plugged in and talking, without setting up a race first. The{' '}
-                <a
-                    href="https://trusty-track.com/docs/hardware-timer/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    Hardware Timer guide
-                </a>{' '}
+                <DocsLink docsKey="timer-check" label="Hardware Timer guide" />{' '}
                 covers connecting one, what each state means, and how to send us a test report.
             </p>
 

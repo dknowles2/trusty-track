@@ -24,6 +24,7 @@ import { GET_PRINTABLES } from '../graphql/queries';
 import { printablesThemeRootProps } from '../printablesTheme';
 import { useSheetScale } from '../useSheetScale';
 import { useTerminology } from '../../../context/TerminologyContext';
+import DocsLink from '../../../components/ui/DocsLink';
 import '../PrintSheet.css';
 
 interface GQLRacer {
@@ -193,7 +194,10 @@ export default function Printables() {
                     >
                         <Icon path={mdiArrowLeft} size={0.7} /> Back to roster
                     </Link>
-                    <h2 style={{ margin: 0 }}>Print</h2>
+                    <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        Print
+                        <DocsLink docsKey="printables" />
+                    </h2>
                 </div>
 
                 <div className="printables-groups">

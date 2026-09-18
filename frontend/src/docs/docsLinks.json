@@ -1,0 +1,105 @@
+{
+  "roster": {
+    "path": "race-setup",
+    "title": "Race Setup Guide"
+  },
+  "control-schedule": {
+    "path": "race-day",
+    "anchor": "part-2-scheduling-the-race",
+    "title": "Race Day Operations Guide"
+  },
+  "control-race": {
+    "path": "race-day",
+    "title": "Race Day Operations Guide"
+  },
+  "control-free-race": {
+    "path": "free-race",
+    "title": "Free Race"
+  },
+  "standings": {
+    "path": "scoring-and-championships",
+    "anchor": "what-the-standings-page-shows",
+    "title": "Scoring & Championships"
+  },
+  "awards": {
+    "path": "awards",
+    "title": "Awards"
+  },
+  "awards-one-trophy": {
+    "path": "awards",
+    "anchor": "at-most-one-trophy-per-racer",
+    "title": "Awards"
+  },
+  "stats": {
+    "path": "race-stats",
+    "title": "Race Stats Guide"
+  },
+  "printables": {
+    "path": "printables",
+    "title": "Printables"
+  },
+  "displays": {
+    "path": "observation-displays",
+    "title": "Observation & Audience Displays Guide"
+  },
+  "timer-check": {
+    "path": "hardware-timer",
+    "title": "Connecting a Hardware Timer"
+  },
+  "activity-log": {
+    "path": "access-and-network",
+    "anchor": "the-activity-log",
+    "title": "Access and your network"
+  },
+  "camera": {
+    "path": "instant-replay",
+    "title": "Instant Replay Guide"
+  },
+  "scoring-methods": {
+    "path": "scoring-and-championships",
+    "anchor": "choosing-how-to-score",
+    "title": "Scoring & Championships"
+  },
+  "lock-race": {
+    "path": "reference/race-settings",
+    "anchor": "locking-a-race",
+    "title": "Race and track settings"
+  },
+  "weight-limit": {
+    "path": "reference/race-settings",
+    "anchor": "the-weight-check",
+    "title": "Race and track settings"
+  },
+  "how-heats-are-built": {
+    "path": "scheduling-algorithms",
+    "title": "Race Scheduling Algorithm"
+  },
+  "settings-general": {
+    "path": "race-setup",
+    "title": "Race Setup Guide"
+  },
+  "settings-appearance": {
+    "path": "reference/themes",
+    "title": "Themes"
+  },
+  "settings-access": {
+    "path": "access-and-network",
+    "title": "Access and your network"
+  },
+  "settings-tracks": {
+    "path": "race-setup",
+    "title": "Race Setup Guide"
+  },
+  "settings-advanced": {
+    "path": "access-and-network",
+    "title": "Access and your network"
+  },
+  "settings-backup": {
+    "path": "backup-and-restore",
+    "title": "Backup and restore"
+  },
+  "settings-replays": {
+    "path": "instant-replay",
+    "title": "Instant Replay Guide"
+  }
+}
