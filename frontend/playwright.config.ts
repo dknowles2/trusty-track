@@ -73,25 +73,40 @@ export default defineConfig({
   // can ever have in flight at once, from as many as `workers` in parallel
   // down to one.
   //
-  // What this does **not** do is make `replay` run strictly after `chromium`
-  // finishes. The natural way to ask for that is `dependencies: ['setup',
-  // 'chromium']` — tried first, and reverted after measuring it against
-  // `--shard`: Playwright resolves a project's full dependency chain before
-  // sharding the result, so every `chromium` test (the whole dependency
-  // `replay` names) plus every `replay` test landed in shard 1 alone, and
-  // shard 2 listed zero tests (`npx playwright test --list --shard=1/2` vs
-  // `--shard=2/2`, both against this exact tree). `.claude/rules/
-  // documentation.md`'s own screenshot section already recorded this same
-  // failure for the doc-screenshots timers spec — "Playwright pulls a
-  // project's whole dependency chain into the shard that runs it" — and it
-  // reproduces here identically. So `replay` depends only on `setup`, the
-  // same as `chromium`; on CI it is scheduled onto its own worker
-  // (`workers: 4`, three projects) and can start alongside `chromium`'s
-  // tests rather than strictly after them. The single-worker, one-at-a-time
-  // constraint above is what actually carries the fix: at most one heavy
-  // encode-and-upload runs at any moment instead of up to four, which is
-  // most of the contention this issue measured. See `.claude/rules/ci.md`'s
-  // "What CI checks" for how this composes with `--shard`.
+  // What this config does **not** do is make `replay` run strictly after
+  // `chromium` finishes. The natural way to ask for that is `dependencies:
+  // ['setup', 'chromium']` — tried first, and reverted after measuring it
+  // against `--shard`: Playwright resolves a project's full dependency chain
+  // before sharding the result, so every `chromium` test (the whole
+  // dependency `replay` names) plus every `replay` test landed in shard 1
+  // alone, and shard 2 listed zero tests (`npx playwright test --list
+  // --shard=1/2` vs `--shard=2/2`, both against this exact tree).
+  // `.claude/rules/documentation.md`'s own screenshot section already
+  // recorded this same failure for the doc-screenshots timers spec —
+  // "Playwright pulls a project's whole dependency chain into the shard that
+  // runs it" — and it reproduces here identically. So `replay` depends only
+  // on `setup`, the same as `chromium`.
+  //
+  // On an unsharded, single-machine run — `npx playwright test` with no
+  // `--shard` — that puts `replay` on its own worker and lets it start
+  // alongside `chromium`'s tests, which is fine: they no longer share a CPU
+  // budget once `workers` gives each project its own core, and the
+  // single-worker, one-at-a-time constraint above is what actually caps how
+  // much heavy encode-and-upload work `replay` itself can ever have in
+  // flight. **On CI it is not fine** (#1212): `chromium` runs across three
+  // other workers on a 2-core runner, and even with `replay` capped to one
+  // worker, saturating the other three still starves the single Vite dev
+  // server every project's page requests share — including `replay`'s own
+  // operator page and its live GraphQL-WS subscription, which is what
+  // stalled silent for the block's full 600s ceiling in two of three CI runs
+  // (see the issue). Ordering `replay` strictly after `chromium` on CI is
+  // done in `ci.yml` instead of here — a second `npx playwright test
+  // --project=replay` step run after the sharded `--project=chromium` step
+  // on the one shard that carries the file, not through `dependencies` (see
+  // the measurement above) and not through a config change, since a config
+  // change can't tell CI's sharded, multi-runner shape from a single
+  // developer machine's. See `.claude/rules/ci.md`'s "What CI checks" for
+  // how the two steps compose with `--shard` and what pins the shard number.
   projects: [
     {
       name: 'setup',

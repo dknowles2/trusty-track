@@ -632,17 +632,36 @@ test.describe.serial('stored retention and intermission highlights, install-wide
     // block, one worker, is what actually serializes them against each
     // other.
     //
-    // Raised to 600s from the original 400s once #177 stage 4 added two
-    // more camera-heavy tests to this block (the finish-frame marker test
-    // and the camera-order test): six tests' worth of real WebCodecs
-    // encoding now share this one worker's CPU with whatever the file's
-    // other, parallel-eligible tests are doing on the remaining workers at
-    // the same time, and the marker test in particular measured reliably
-    // under 400s alone but intermittently over it under that full-file
-    // contention — a resource budget, not a logic bug (isolating it, or
-    // running the whole file with fewer tests, always passed well inside
-    // the old ceiling).
-    test.describe.configure({ timeout: 600_000 });
+    // Was raised to 600s from an original 400s once #177 stage 4 added two
+    // more camera-heavy tests to this block, back when this whole file still
+    // shared the `chromium` worker pool: six tests' worth of real WebCodecs
+    // encoding on this block's own worker, contending with whatever else of
+    // the file was running on the *other* workers at the same time. That
+    // contention is gone twice over since: #1205 put the whole file on one
+    // single, continuous `replay` worker, so nothing in this file ever runs
+    // concurrently with another part of it any more; and #1212 orders `replay`
+    // strictly after `chromium` in CI (`ci.yml`'s `e2e` job), so nothing
+    // outside this file is driving the shared Vite dev server while this
+    // block runs either. 600s was sized for a contention model that no
+    // longer applies — but lowering it is only a mitigation (a stall still
+    // costs whatever the new ceiling is, once, before a retry clears it), and
+    // the real fix is the ordering above, so this stays evidence-driven
+    // rather than guessed down.
+    //
+    // Measured against two green CI runs on this tree (35303267590,
+    // 35309685831), from the `[replay]` list-reporter timestamps: every test
+    // in this block completes in 12–29s, the slowest being "retention keeps
+    // only the last N heats' clips" (28.3s and 29.0s) — the one test here
+    // making three sequential `waitForClipUpload` calls, each independently
+    // capped at 90s. 300_000 keeps better than 10x margin over that observed
+    // max (300s / 29s ≈ 10.3x, comfortably past the 3x floor) while still
+    // covering that same test's three 90s upload-wait ceilings stacked to
+    // their full extent (270s) plus headroom for its surrounding 15s
+    // assertions, in the pathological case where every one of them is
+    // genuinely just slow rather than stalled outright. A real stall — the
+    // kind #1212 found, silent for the entire ceiling with an `ECONNRESET` in
+    // the Vite log — now surfaces in half the time instead of ten minutes.
+    test.describe.configure({ timeout: 300_000 });
 
     test.afterAll(async ({ browser }) => {
         // Belt and braces beyond each test's own `finally`: whichever test

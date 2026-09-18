@@ -223,9 +223,10 @@ jobs:
         # and unrelated specs on other workers of the same shard failed on
         # ordinary clicks and GraphQL posts. Confining the file to one
         # worker caps how much of that encoding work can ever be in flight
-        # at once — see `playwright.config.ts`'s own comment for why it does
-        # not also run strictly after `chromium` (a `dependencies` edge for
-        # that broke `--shard` outright, measured, not assumed).
+        # at once, but it does not stop `chromium`'s three other workers on
+        # this same two-core runner from starving the one Vite dev server
+        # `replay`'s own operator page depends on too — see the two-step
+        # run below and `.claude/rules/ci.md`'s "What CI checks" (#1212).
         shard: [1, 2]
     steps:
       - uses: actions/checkout@v7
@@ -295,8 +296,63 @@ jobs:
 
       # The only test that exercises the served page, the GraphQL round trip and
       # the normalized cache together. The unit suites all stub one of the three.
-      - name: Run functional end-to-end tests
-        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
+      #
+      # Two steps, not one, so `replay` runs only once `chromium`'s own
+      # workers on this runner have gone quiet (#1212) — see
+      # `playwright.config.ts`'s comment on `projects` and
+      # `.claude/rules/ci.md`'s "What CI checks" for why this lives here
+      # rather than as a Playwright `dependencies` edge (that broke `--shard`
+      # outright, measured on #1205's branch) or a config change (a config
+      # can't tell this sharded, multi-runner shape from an unsharded
+      # developer machine, where `replay` starting alongside `chromium` is
+      # fine).
+      #
+      # `--project=chromium` and `--project=replay` each pull in their
+      # `setup` dependency automatically — Playwright includes a matched
+      # project's dependencies without needing `--project=setup` spelled out
+      # too (verified against this tree: `--project=chromium --list` and
+      # `--project=replay --list` each list exactly one `[setup]` test
+      # alongside their own). `--output` gives each step its own
+      # subdirectory under `test-results/`: Playwright clears only the
+      # `outputDir` of the projects *it is running* at the start of a run
+      # (`createRemoveOutputDirsTask` in its own runner), so the second
+      # invocation does not delete the first's artifacts, and the existing
+      # "Upload trace on failure" step below — `path: frontend/test-results/`
+      # — still picks up both.
+      - name: Run functional end-to-end tests (chromium)
+        run: npx playwright test --project=chromium --shard=${{ matrix.shard }}/2 --output=test-results/chromium
+        working-directory: frontend
+
+      # Unsharded: the file is one project, one worker
+      # (`fullyParallel: false` on `replay`), so sharding it is meaningless —
+      # it either all runs here or not at all. `matrix.shard == 2` is pinned
+      # by hand rather than computed, because there is no way to derive "the
+      # shard that carries `instantReplay.spec.ts`" at run time short of a
+      # `--list` step of its own; it was checked against this tree with
+      # `npx playwright test --project=chromium --shard=2/2 --list | grep -c
+      # instantReplay` (0, confirming shard 2's `chromium` half carries none
+      # of it) and `npx playwright test --project=replay --list` (13, all of
+      # it). If a rebalance ever moves the file to the other shard, this
+      # condition has to move with it.
+      #
+      # `if: always()`, not `if: success()`: a `chromium` failure above must
+      # still let `replay` run and report, rather than leaving
+      # `instantReplay.spec.ts` silently unexercised on a red run — the same
+      # reasoning `doc-screenshots`' own steps already use for a comparison
+      # that must run independently of an earlier failure. The job still
+      # fails overall if either step fails; `always()` only decides whether
+      # this step itself gets a chance to run.
+      #
+      # `webServer` starts fresh for this invocation too — both entries are
+      # already `reuseExistingServer: false`, so this was never going to try
+      # to reuse the chromium step's server, whose processes Playwright tears
+      # down as that step's run completes. Measured on this tree: the second
+      # start (backend health check plus Vite ready) costs a few seconds, not
+      # the fifty-second `Install Playwright browser`-sized cost that only
+      # happens once per job.
+      - name: Run functional end-to-end tests (replay, after chromium)
+        if: always() && matrix.shard == 2
+        run: npx playwright test --project=replay --output=test-results/replay
         working-directory: frontend
 
       - name: Upload trace on failure
