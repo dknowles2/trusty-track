@@ -52,10 +52,16 @@
 #     the Broadcom mini-UART a real Pi has to be told about via a device
 #     tree overlay.
 #
-# The Raspberry Pi kernel carries VIRTIO_BLK, VIRTIO_NET and
-# SERIAL_AMBA_PL011 built directly into kernel8.img rather than as loadable
-# modules, which is what makes this work with no initramfs and no
-# Pi-specific device tree at all — Raspberry Pi OS ships neither.
+# SERIAL_AMBA_PL011 is built directly into kernel8.img, which is what gets
+# the console above with no initramfs and no Pi-specific device tree at all
+# — Raspberry Pi OS ships neither. VIRTIO_BLK and VIRTIO_NET are a different
+# story: this file used to claim they were built in too, reasoned from
+# documented behaviour rather than a real run. The first real run
+# (dknowles2/trusty-track#1234) found that wrong — `kernel8.img`
+# (raspberrypi/linux's `bcm2711_defconfig`) carries no CONFIG_VIRTIO_* at
+# all, not even as a module — and the boot stalls forever at "Waiting for
+# root device /dev/vda2...". See dknowles2/trusty-track#1235 for what was
+# tried and what might work instead of virtio-blk.
 set -euo pipefail
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
