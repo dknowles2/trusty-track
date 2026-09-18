@@ -24,44 +24,89 @@
 # the server would still answer *something*, and only checking the version
 # catches it.
 #
-# It proves nothing about real Pi hardware. Boot firmware, GPIO, USB serial
-# timers, the touchscreen and SD card behaviour are all completely untouched
-# by a generic QEMU `virt` machine, which shares no silicon with a real Pi.
-# The image ships smoke-tested, not hardware-tested — the same footing this
-# project already states plainly for the DerbyNet timer profiles (CLAUDE.md,
-# "Timer integration") rather than implying support.
+# It proves very little about real Pi hardware. `-M raspi3b` (below) models
+# a real Broadcom BCM2837 closely enough that this kernel's own SD and USB
+# drivers bind to it, but it is still not the Pi 4 this image actually
+# targets, and QEMU's own documentation calls its peripheral model
+# incomplete even for what it does implement (no PWM; `-M raspi4b` — not
+# used here — additionally lacks PCIe and its GENET Ethernet controller).
+# Boot firmware, GPIO, the touchscreen, real USB serial timers and actual SD
+# card timing are all untested. The image ships smoke-tested, not
+# hardware-tested — the same footing this project already states plainly
+# for the DerbyNet timer profiles (CLAUDE.md, "Timer integration") rather
+# than implying support.
 #
 # How this boots a Raspberry Pi OS image with no Raspberry Pi
 # --------------------------------------------------------------
-# QEMU's `virt` machine is a generic aarch64 board with its own synthesised
-# device tree — nothing Broadcom about it — so the two hardware-specific
-# halves of a Pi boot are swapped out rather than emulated:
+# The first real run of this script (dknowles2/trusty-track#1234) found
+# that QEMU's generic `virt` machine cannot boot this kernel at all:
+# `kernel8.img` (raspberrypi/linux's `bcm2711_defconfig`, the kernel
+# `scripts/install-pi.sh`'s own target — Raspberry Pi OS Lite 64-bit,
+# Bookworm — actually ships) carries no `CONFIG_VIRTIO_*` support whatsoever,
+# not even as a module, so a virtio-blk root device can never appear
+# (dknowles2/trusty-track#1235). Worse, `virt`'s PCIe bus (the generic ECAM
+# host bridge QEMU calls `gpex`) has no driver in this kernel either —
+# `CONFIG_PCI_HOST_GENERIC` is absent, and the only PCIe host bridge driver
+# actually built in is `CONFIG_PCIE_BRCMSTB`, which matches only the real
+# Broadcom SoC's own PCIe controller, never `virt`'s synthesised one. So
+# every PCI-attached alternative (`qemu-xhci`, `e1000`, …) is a dead end on
+# `virt` too: the bus a Pi kernel would need a driver for to find them is
+# never even probed. `virt` cannot boot this exact kernel by any device
+# short of shipping a non-stock one, which is the one option this project
+# should avoid (see #1235's own reasoning).
+#
+# So this now uses `-M raspi3b` instead — a QEMU machine type that models
+# real Raspberry Pi 3B hardware rather than swapping in virtio, and boots
+# the *actual* built image with no kernel or initramfs changes:
 #
 #   - Storage: the *whole* raw image (not just the root partition, unlike
-#     verify-image.sh) is handed to the guest as a virtio-blk device, so the
+#     verify-image.sh) is handed to the guest as an SD card (`-sd`), so the
 #     guest sees the same partition table and the same PARTUUIDs already
-#     baked into /etc/fstab. It comes up as /dev/vda1 (boot) and /dev/vda2
-#     (root) — same disk, different transport.
+#     baked into /etc/fstab and cmdline.txt. `CONFIG_MMC_SDHCI_IPROC` and
+#     `CONFIG_MMC_BCM2835_MMC` are both built into this kernel — the same
+#     driver a real Pi's SD slot uses — matching QEMU's own documented
+#     raspi3b/raspi4b peripheral list ("SD/MMC host controller").
+#   - Network: a USB Ethernet adapter (`-device usb-net`, CDC-ECM) on the
+#     guest's emulated DWC2 USB host controller — QEMU's raspi3b *and*
+#     raspi4b both implement DWC2, but raspi4b's own peripheral list
+#     explicitly calls out "PCIE Root Port" and "GENET Ethernet Controller"
+#     as *not* implemented, which is the only network path real Pi4
+#     hardware actually has. raspi3b's Ethernet is a USB device behind an
+#     internal hub on real hardware too (the LAN7515 chip), so this is not
+#     a QEMU shortcut — it is the same path a real Pi 3B takes, and DWC2 is
+#     genuinely present on both machine types. `CONFIG_USB_DWC2=y` and
+#     `CONFIG_USB_NET_CDCETHER=m` are both present in this kernel — a
+#     module is fine here, unlike for the root device itself, since it
+#     loads from the already-mounted rootfs rather than needing to exist
+#     before mounting can happen at all. See RPi-Distro/pi-gen#827, whose
+#     contributors independently landed on this same combination for the
+#     same reason.
 #   - Boot path: a real Pi's firmware reads config.txt/cmdline.txt itself;
-#     QEMU has no such firmware. `-kernel`/`-append` load the arm64 kernel
-#     straight out of the boot partition (kernel8.img, extracted below) and
-#     supply the kernel command line directly, so cmdline.txt's own contents
-#     (Pi-firmware-only concerns like which serial device is "serial0") are
-#     never consulted at all.
-#   - Console: PL011 (`ttyAMA0`), the ARM-standard UART `virt` provides, not
-#     the Broadcom mini-UART a real Pi has to be told about via a device
-#     tree overlay.
+#     QEMU has no such firmware. `-kernel`/`-dtb`/`-append` load the arm64
+#     kernel and a matching Broadcom device tree straight out of the boot
+#     partition (kernel8.img and bcm2710-rpi-3-b(-plus).dtb, extracted
+#     below), and supply the kernel command line directly. Unlike the old
+#     `virt` invocation, the `root=`/`rootfstype=`/`fsck.repair=` tokens are
+#     read out of the image's own cmdline.txt rather than asserted here —
+#     pi-gen already stamps a `root=PARTUUID=…` there that names this exact
+#     disk, so reusing it is both less to keep in sync and immune to
+#     whichever `/dev/mmcblk*` number a given QEMU machine type happens to
+#     enumerate the SD card as (raspi3b and raspi4b do not agree — see
+#     RPi-Distro/pi-gen#827 — PARTUUID does not care). `console=` is
+#     overridden to `ttyAMA0,115200` (cmdline.txt's own `console=serial0` is
+#     a firmware-only alias QEMU never resolves) and `dwc_otg.lpm_enable=0`
+#     is added — a known-necessary workaround for QEMU's DWC2 model, per
+#     every working raspi3b example found while fixing this.
+#   - Console: PL011 (`ttyAMA0`) again — raspi3b wires the same ARM-standard
+#     UART real Pi hardware's `ttyAMA0` is, and `SERIAL_AMBA_PL011` is built
+#     directly into kernel8.img with no initramfs and no device-tree
+#     overlay needed.
 #
-# SERIAL_AMBA_PL011 is built directly into kernel8.img, which is what gets
-# the console above with no initramfs and no Pi-specific device tree at all
-# — Raspberry Pi OS ships neither. VIRTIO_BLK and VIRTIO_NET are a different
-# story: this file used to claim they were built in too, reasoned from
-# documented behaviour rather than a real run. The first real run
-# (dknowles2/trusty-track#1234) found that wrong — `kernel8.img`
-# (raspberrypi/linux's `bcm2711_defconfig`) carries no CONFIG_VIRTIO_* at
-# all, not even as a module — and the boot stalls forever at "Waiting for
-# root device /dev/vda2...". See dknowles2/trusty-track#1235 for what was
-# tried and what might work instead of virtio-blk.
+# What layer C does not, and cannot, prove is unchanged by this switch:
+# raspi3b is still not real Pi 4 hardware — the machine this image is
+# actually meant to run on — and QEMU's own documentation lists its
+# peripheral model as incomplete (no PWM, and raspi4b specifically lacks
+# PCIe/GENET). See CLAUDE.md's ops.md for the full caveat.
 set -euo pipefail
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
@@ -120,7 +165,7 @@ case "$IMAGE_PATH" in
 	;;
 esac
 
-echo "qemu-boot-smoke-test.sh: extracting the kernel from the boot partition..."
+echo "qemu-boot-smoke-test.sh: extracting the kernel, device tree and cmdline.txt from the boot partition..."
 mkdir -p "$BOOT_MOUNT"
 LOOP_DEV=$(losetup -f --show -P "$RAW_IMAGE")
 BOOT_PART="${LOOP_DEV}p1"
@@ -131,29 +176,65 @@ fi
 mount -o ro "$BOOT_PART" "$BOOT_MOUNT"
 KERNEL="$WORK/kernel8.img"
 cp "$BOOT_MOUNT/kernel8.img" "$KERNEL"
+
+# raspi3b models the real Broadcom BCM2837, so it needs that board's own
+# device tree — the same file real Pi 3B firmware would pick — rather than
+# QEMU synthesising one the way `virt` did. Raspberry Pi OS ships DTBs for
+# every board it supports side by side in the boot partition; try the 3B+
+# name first (what current examples in RPi-Distro/pi-gen#827 use), falling
+# back to the plain 3B name, and fail with the actual directory listing
+# rather than a confusing QEMU error if neither is there.
+DTB="$WORK/board.dtb"
+if [[ -f "$BOOT_MOUNT/bcm2710-rpi-3-b-plus.dtb" ]]; then
+	cp "$BOOT_MOUNT/bcm2710-rpi-3-b-plus.dtb" "$DTB"
+elif [[ -f "$BOOT_MOUNT/bcm2710-rpi-3-b.dtb" ]]; then
+	cp "$BOOT_MOUNT/bcm2710-rpi-3-b.dtb" "$DTB"
+else
+	echo "FAIL: no bcm2710-rpi-3-b(-plus).dtb in the boot partition" >&2
+	ls -la "$BOOT_MOUNT" >&2 || true
+	umount "$BOOT_MOUNT"
+	losetup -d "$LOOP_DEV"
+	LOOP_DEV=""
+	exit 1
+fi
+
+# Reuse the image's own root=/rootfstype=/fsck.repair= tokens rather than
+# asserting a device name — see the header comment for why PARTUUID beats
+# guessing which /dev/mmcblk* number this machine type enumerates the SD
+# card as. cmdline.txt is one line; grab each token by name so token order
+# in it doesn't matter.
+IMAGE_CMDLINE=$(cat "$BOOT_MOUNT/cmdline.txt")
 umount "$BOOT_MOUNT"
 losetup -d "$LOOP_DEV"
 LOOP_DEV=""
 
-# The disk is handed to the guest whole, so root=/dev/vda2 is that same
-# disk's own second partition — same PARTUUID /etc/fstab already names,
-# just a different transport getting it there. This command line is QEMU's
-# own boot path and has nothing to do with cmdline.txt on the boot
-# partition; see the header comment.
-CMDLINE="console=ttyAMA0,115200 root=/dev/vda2 rootfstype=ext4 rw rootwait fsck.repair=yes"
+ROOT_TOKEN=$(printf '%s\n' "$IMAGE_CMDLINE" | grep -oE 'root=[^ ]+' || true)
+ROOTFSTYPE_TOKEN=$(printf '%s\n' "$IMAGE_CMDLINE" | grep -oE 'rootfstype=[^ ]+' || true)
+FSCK_TOKEN=$(printf '%s\n' "$IMAGE_CMDLINE" | grep -oE 'fsck\.repair=[^ ]+' || true)
+if [[ -z "$ROOT_TOKEN" ]]; then
+	echo "FAIL: cmdline.txt has no root= token: $IMAGE_CMDLINE" >&2
+	exit 1
+fi
+
+# console=serial0 in cmdline.txt is a firmware-only alias a real Pi's own
+# bootloader resolves; QEMU never reads cmdline.txt at all (see the header
+# comment), so it is overridden here to the PL011 name raspi3b actually
+# wires up. dwc_otg.lpm_enable=0 works around a known QEMU DWC2 emulation
+# issue — every working raspi3b boot example found while fixing #1235
+# carries it.
+CMDLINE="console=ttyAMA0,115200 ${ROOT_TOKEN} ${ROOTFSTYPE_TOKEN:-rootfstype=ext4} rw rootwait ${FSCK_TOKEN:-fsck.repair=yes} dwc_otg.lpm_enable=0"
 
 echo "qemu-boot-smoke-test.sh: booting under QEMU (this can take several minutes under emulation)..."
 qemu-system-aarch64 \
-	-M virt \
-	-cpu cortex-a72 \
-	-smp 2 \
+	-M raspi3b \
+	-smp 4 \
 	-m "$QEMU_MEMORY_MB" \
 	-kernel "$KERNEL" \
+	-dtb "$DTB" \
 	-append "$CMDLINE" \
-	-drive "file=${RAW_IMAGE},if=none,format=raw,id=hd0" \
-	-device virtio-blk-device,drive=hd0 \
+	-sd "$RAW_IMAGE" \
+	-device usb-net,netdev=net0 \
 	-netdev "user,id=net0,hostfwd=tcp::${HOST_HEALTH_PORT}-:8000" \
-	-device virtio-net-device,netdev=net0 \
 	-display none \
 	-monitor none \
 	-serial "file:${SERIAL_LOG}" \
