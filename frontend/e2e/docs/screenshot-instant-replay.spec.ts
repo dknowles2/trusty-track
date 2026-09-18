@@ -49,6 +49,41 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/instant-replay');
 
+/**
+ * A frozen, single-frame stand-in for `frontend/public/fake-camera.webm`,
+ * routed to this spec's camera page only (below) — never the shipped asset
+ * itself, which stays animated (#1204's PR review).
+ *
+ * `frontend/public/fake-camera.webm` is what an operator's own browser
+ * plays when they try replay through `/camera?fake=1` with no hardware
+ * camera — freezing *that* file would make a genuine feature look broken to
+ * anyone trying it out. This spec doesn't need the motion, though: its
+ * three screenshots only want a picture, and the shipped clip's `testsrc`
+ * pattern moves a gradient bar and a frame counter as a function of decode
+ * position, which `fakeCameraTrack` (`capture.ts`) captures from a real,
+ * continuously-looping `<video>` — so the frame index landing inside a *cut*
+ * clip depends on real wall-clock timing between test runs, and two
+ * otherwise-identical runs produce clips with genuinely different decoded
+ * content, not merely a different frame chosen from identical content. No
+ * seek inside the spec can fix that; regenerating the *content itself* as
+ * unmoving can.
+ *
+ * Regenerate with:
+ *   ffmpeg -f lavfi -i "testsrc=size=320x220:rate=15:duration=3" \
+ *     -vf "select='eq(n\,0)'" -frames:v 1 first_frame.png
+ *   ffmpeg -loop 1 -i first_frame.png -t 3 -r 15 \
+ *     -c:v libvpx -b:v 50k -crf 30 fake-camera-still.webm
+ *
+ * Same dimensions (320×220), duration (3s) and frame rate (15fps) as
+ * `frontend/public/fake-camera.webm`, so `capture.ts`'s pipeline and
+ * `frontend/e2e/functional/instantReplay.spec.ts` (which asserts only
+ * `duration`/`readyState`/`currentTime`, never pixel content — confirmed by
+ * `grep -n "getImageData\|toMatchSnapshot\|pixel\|color"` finding nothing)
+ * see nothing different about it. Smaller than the shipped clip (about
+ * 7.6 KB against 21.9 KB) simply because a held frame compresses further.
+ */
+const FROZEN_CAMERA_FIXTURE = path.resolve(__dirname, 'fixtures/fake-camera-still.webm');
+
 /** `displayIdentity.ts`'s own storage key — mirrored here, same as
  * `screenshot-observation.spec.ts`'s copy, since this file runs outside the
  * app's build and cannot import it. Fixed ids so the whimsical name each
@@ -70,6 +105,60 @@ const AUDIENCE_DISPLAY_ID = 'trustytrack-docs-screenshot-replay-display';
 async function prepareAndRunFakeHeat(page: import('@playwright/test').Page, heatId: number): Promise<void> {
     await gql(page, `mutation IRDocsPrep($heatId: Int!) { prepareHeat(heatId: $heatId) }`, { heatId });
     await runFakeHeat(page, heatId);
+}
+
+/**
+ * Pauses an autoplaying `<video>` (the results overlay on 04, the highlight
+ * reel on 11) and seeks it to a fixed, repeatable point roughly halfway
+ * through the clip, waiting for the seek to actually land before returning
+ * (#1204).
+ *
+ * Before this, both screenshots were taken 300ms after the element became
+ * *visible* while it was still playing — so which frame was on screen
+ * depended on WebCodecs' own decode timing, not on anything committed.
+ * Measured on two runs of this identical spec, seconds apart, on one
+ * machine: 04 differed by 2173–28503 px (0.24–3.09%), 11 by 2097–28774 px
+ * (2.40–3.12%). Neither picture's caption in `docs/instant-replay.md`
+ * promises a *particular* instant of the clip — 04's says only "muted,
+ * full-screen"; 11's only "playing a highlight clip with its caption" — so
+ * any fixed, in-bounds frame is an equally honest picture of what the
+ * overlay looks like; this one is simply the same frame every time.
+ *
+ * `el.duration` can read `Infinity` on a still-buffering WebM (see this
+ * component's own note on `ReplayPlayer`'s `durationMs` prop for why), so
+ * this waits for a finite one rather than trusting whatever is there the
+ * instant the element became visible.
+ *
+ * Deliberately does not resume playback afterwards: `Observation.tsx`
+ * renders the intermission branch ahead of the results-overlay/replay-player
+ * markup whenever a break is active (`.claude/rules/displays.md`'s "a break
+ * takes it over exactly like every other view"), so leaving 04's clip frozen
+ * does not block the later intermission highlight from taking over the
+ * screen, and nothing after 11's own screenshot reads `displayPage` again
+ * before its context closes.
+ */
+async function pauseAndSeekToFixedFrame(video: import('@playwright/test').Locator): Promise<void> {
+    await video.evaluate(async (el: HTMLVideoElement) => {
+        el.pause();
+        if (!isFinite(el.duration) || el.duration <= 0) {
+            await new Promise<void>((resolve) => {
+                el.addEventListener('loadedmetadata', () => resolve(), { once: true });
+            });
+        }
+        // Halfway through the clip — comfortably inside its bounds whatever
+        // its exact duration turns out to be, and away from the lead-in/
+        // post-roll margins `clipBounds.ts` pads around the timed race
+        // itself, where a keyframe boundary or the very first/last decoded
+        // frame would be more likely to behave unusually.
+        const target = Math.max(0.1, Math.min(el.duration - 0.1, el.duration / 2));
+        if (!el.seeking && Math.abs(el.currentTime - target) < 0.001) {
+            return;
+        }
+        await new Promise<void>((resolve) => {
+            el.addEventListener('seeked', () => resolve(), { once: true });
+            el.currentTime = target;
+        });
+    });
 }
 
 /**
@@ -158,6 +247,15 @@ test('screenshot instant replay', async ({ page, browser }) => {
             ([key, value]) => window.localStorage.setItem(key, value),
             [DISPLAY_ID_KEY, CAMERA_DISPLAY_ID],
         );
+        // Routed on this page only, before it ever loads — `Camera.tsx`
+        // calls `fakeCameraTrack()` with its own default URL
+        // (`/fake-camera.webm`), so this intercepts the request with no
+        // production code touched and no effect on the shipped asset real
+        // operators see. See `FROZEN_CAMERA_FIXTURE`'s own comment for why
+        // only this spec needs the picture held still.
+        await cameraPage.route('**/fake-camera.webm', (route) =>
+            route.fulfill({ path: FROZEN_CAMERA_FIXTURE, contentType: 'video/webm' }),
+        );
         await cameraPage.goto(`/race/${raceId}/camera?fake=1`);
         await cameraPage.waitForLoadState('networkidle');
         await cameraPage.getByLabel('Which track this camera listens to').selectOption(String(trackId));
@@ -214,10 +312,12 @@ test('screenshot instant replay', async ({ page, browser }) => {
         });
 
         // 04: the replay, playing on the audience display right after its
-        // own results overlay.
+        // own results overlay. Paused and seeked to a fixed frame first
+        // (#1204) — see `pauseAndSeekToFixedFrame`'s own docstring for why.
         const video = displayPage.getByTestId('replay-video');
         await expect(video).toBeVisible({ timeout: 15000 });
-        await displayPage.waitForTimeout(300);
+        await pauseAndSeekToFixedFrame(video);
+        await displayPage.waitForTimeout(100);
         await displayPage.screenshot({ path: path.join(SCREENSHOT_DIR, '04-replay-playback.png') });
 
         // 02: the Displays panel, with the camera's row showing its track
@@ -287,12 +387,43 @@ test('screenshot instant replay', async ({ page, browser }) => {
         // not a claim about what the video itself shows.
         await replayButton.click();
         const replayDialog = page.getByRole('dialog');
-        await expect(replayDialog.getByTestId('replay-video')).toBeVisible({ timeout: 15000 });
+        const finishVideo = replayDialog.getByTestId('replay-video');
+        await expect(finishVideo).toBeVisible({ timeout: 15000 });
+        // Chromium's native `controls` bar paints its own current-time/
+        // duration text from the video's *decoded* duration, which — even
+        // with the frozen fixture above pinning every other pixel — can
+        // still read a frame or two differently between two muxed clips
+        // (#1204). Nothing else in this app can draw over that text (it is
+        // inside the browser's own UA shadow root), so this is the one place
+        // this spec reaches into it directly; these two pseudo-elements are
+        // Chromium-specific and stylable only there, which is fine — the
+        // whole doc-screenshot suite already pins to one browser.
+        await page.addStyleTag({
+            content:
+                'video::-webkit-media-controls-current-time-display, ' +
+                'video::-webkit-media-controls-time-remaining-display { display: none !important; }',
+        });
         const firstMark = replayDialog.locator('[data-testid^="replay-finish-mark-"]').first();
         await expect(firstMark).toBeVisible({ timeout: 15000 });
         await firstMark.click();
         await expect(replayDialog.getByTestId('replay-finish-caption')).toBeVisible({ timeout: 15000 });
-        await page.waitForTimeout(300);
+        // `seekAndFreeze` (`ReplayPlayer.tsx`) sets `currentTime` and calls
+        // `pause()` synchronously from the click handler, but a seek itself
+        // is asynchronous — the frame actually on screen depends on when the
+        // browser finishes decoding to that point, not on when the click
+        // handler returned. Wait for the seek to genuinely land (`seeking`
+        // false — already the case if it settled before this round trip
+        // reached the browser, awaited via `seeked` otherwise) rather than a
+        // fixed sleep guessing how long that takes (#1204: measured
+        // 221–491 px, 0.08–0.18%, drifting between two runs under the old
+        // `waitForTimeout(300)`).
+        await finishVideo.evaluate((el: HTMLVideoElement) => {
+            if (!el.seeking) return Promise.resolve();
+            return new Promise<void>((resolve) => {
+                el.addEventListener('seeked', () => resolve(), { once: true });
+            });
+        });
+        await page.waitForTimeout(100);
         await screenshotLocator(replayDialog, {
             path: path.join(SCREENSHOT_DIR, '12-finish-frame.png'),
         });
@@ -329,7 +460,10 @@ test('screenshot instant replay', async ({ page, browser }) => {
             timeout: 15000,
         });
         await expect(displayPage.getByTestId('intermission-overlay-countdown-corner')).toBeVisible();
-        await displayPage.waitForTimeout(300);
+        // Paused and seeked to a fixed frame first (#1204) — same reasoning
+        // as 04's own call, above.
+        await pauseAndSeekToFixedFrame(highlightVideo);
+        await displayPage.waitForTimeout(100);
         await displayPage.screenshot({
             path: path.join(SCREENSHOT_DIR, '11-intermission-highlights.png'),
         });
