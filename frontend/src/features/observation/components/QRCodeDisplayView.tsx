@@ -47,7 +47,10 @@ export default function QRCodeDisplayView({ raceId, target, headline, wifiNote }
     // client-side in practice, but the type is worth being honest about).
     if (typeof window === 'undefined') return null;
 
-    const path = qrTargetPath(target, raceId);
+    // This is the code a parent's phone actually scans — the spectator case
+    // `qrTargetPath`'s flag exists for (#1182). `ConnectDisplayAddress.tsx`
+    // is the one caller that passes `false`, for the opposite reason.
+    const path = qrTargetPath(target, raceId, { spectator: true });
     const { url, reachable } = shareUrl(window.location.origin, path, networkAddresses, mdnsHostname);
     const line = resolveQrHeadline(headline, target);
     const showQr = reachable && !qrFailed;

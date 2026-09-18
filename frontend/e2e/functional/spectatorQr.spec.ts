@@ -3,7 +3,8 @@
  * register as a display (#1182).
  *
  * `qrCode.ts`'s `qrTargetPath` carries `?spectator=1` on the `STANDINGS`
- * target by default; `Observation.tsx` reads it to skip the
+ * target when called with `{ spectator: true }` — the audience-facing QR
+ * code's own case; `Observation.tsx` reads it to skip the
  * `displayAssignment` subscription, which is both how a display registers
  * and the only way it is ever told anything (`displays.spec.ts`'s own
  * header comment). No unit test can see the actual consequence — that the

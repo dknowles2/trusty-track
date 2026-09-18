@@ -133,12 +133,13 @@ describe('ConnectDisplayAddress', () => {
     ).toBeInTheDocument();
   });
 
-  // #1182: `qrTargetPath`'s `STANDINGS` target carries `?spectator=1` by
-  // default, for the audience-facing QR code (`QRCodeDisplayView.tsx`).
-  // This component's own address is the opposite case — an operator
-  // connecting a genuinely new wall display or check-in tablet — and has
-  // to opt back out, or scanning/typing it would silently stop that screen
-  // from ever registering.
+  // #1182: `qrTargetPath`'s `STANDINGS` target carries `?spectator=1` when
+  // passed `{ spectator: true }`, for the audience-facing QR code
+  // (`QRCodeDisplayView.tsx`). This component's own address is the
+  // opposite case — an operator connecting a genuinely new wall display or
+  // check-in tablet — and has to pass `{ spectator: false }` explicitly
+  // (the argument is required, not defaulted), or scanning/typing it would
+  // silently stop that screen from ever registering.
   it('does not carry the spectator flag — this address is for connecting a real display', () => {
     stubOrigin('http://localhost:8000');
     mockNetworkAddresses(['192.168.1.42']);

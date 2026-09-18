@@ -16,7 +16,7 @@ import type { QRTarget } from './displayView';
  * `backend/api/main.py::voting_qr`'s allowed-paths list gives: a display
  * holds no PIN (#15), and this is not a way to point a kiosk at anything.
  *
- * The `STANDINGS` (Live) target carries `?spectator=1` by default
+ * The `STANDINGS` (Live) target can carry `?spectator=1`
  * ([#1182](https://github.com/dknowles2/trusty-track/issues/1182)): a phone
  * that reached this page by scanning the wall's code is a spectator, not a
  * screen the operator meant to register — `Observation.tsx` reads the flag
@@ -24,20 +24,23 @@ import type { QRTarget } from './displayView';
  * a tab appear in the Displays list. The vote target is untouched; a ballot
  * has no such registration to opt out of.
  *
- * `opts.spectator` exists for `ConnectDisplayAddress.tsx`'s own call, which
- * has to opt back *out*: that component's Copy button and embedded QR code
- * are the documented way an operator connects a genuinely new wall display
- * or check-in tablet (`ops.md`'s "Race Control → Displays gets the same
- * address"), not a spectator's phone — flagging it too would silently break
- * the one thing it exists to do. Everything else wants the default. */
+ * `spectator` is **required**, not defaulted, deliberately: this path has
+ * exactly two callers today with opposite answers — `QRCodeDisplayView.tsx`
+ * (`true`, the audience-facing code a parent's phone scans) and
+ * `ConnectDisplayAddress.tsx` (`false`, the Displays panel's own "connect a
+ * genuinely new wall display or check-in tablet" address, `ops.md`'s "Race
+ * Control → Displays gets the same address") — and a default silently
+ * handing a third, future caller one of those two answers is exactly the
+ * shape of bug ConnectDisplayAddress's own call was caught needing to avoid
+ * by hand. Forcing the choice turns a silent behaviour change into a type
+ * error instead. */
 export function qrTargetPath(
   target: QRTarget,
   raceId: number,
-  opts: { spectator?: boolean } = {},
+  opts: { spectator: boolean },
 ): string {
   if (target === 'VOTE') return `/race/${raceId}/vote`;
-  const { spectator = true } = opts;
-  return spectator ? `/race/${raceId}/observation?spectator=1` : `/race/${raceId}/observation`;
+  return opts.spectator ? `/race/${raceId}/observation?spectator=1` : `/race/${raceId}/observation`;
 }
 
 /** The call-to-action shown above the code when the race has not set its

@@ -323,7 +323,7 @@ to it.
 - **A screen registers itself** by having the Live page open. There is
   nothing to add and nothing to install; every open screen appears in the
   Displays list on its own — **except a phone that got there by scanning the
-  QR code view** (below). That phone is a spectator, not a screen you set
+  QR code view** (above). That phone is a spectator, not a screen you set
   up, so it never appears in the list and cannot be assigned anything.
 - **An assignment wins over the screen's URL** — that is the point, since
   the operator is across the room. Until one arrives, the screen shows

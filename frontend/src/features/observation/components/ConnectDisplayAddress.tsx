@@ -16,12 +16,12 @@
  * URL can scan it directly rather than being handed an address to key in by
  * hand, the same shape a phone joining the ballot already uses.
  *
- * This is the one caller that opts `qrTargetPath` *out* of its own
- * `?spectator=1` default ([#1182](https://github.com/dknowles2/trusty-track/issues/1182)):
+ * `qrTargetPath`'s `spectator` argument is required, not defaulted, and this
+ * is the one caller that passes `false` ([#1182](https://github.com/dknowles2/trusty-track/issues/1182)):
  * scanning or typing this address is how an operator connects a new wall
  * display or check-in tablet on purpose, so it has to register — the
- * opposite of the audience-facing QR code (`QRCodeDisplayView.tsx`) that
- * flag exists for.
+ * opposite of the audience-facing QR code (`QRCodeDisplayView.tsx`), which
+ * passes `true`.
  */
 
 import { useState } from 'react';
