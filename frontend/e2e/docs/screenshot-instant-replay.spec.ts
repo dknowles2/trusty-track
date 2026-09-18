@@ -328,6 +328,30 @@ test('screenshot instant replay', async ({ page, browser }) => {
             has: page.getByLabel(/Which track .* listens to/),
         });
         await expect(cameraRow.getByText(/Last clip/)).toBeVisible({ timeout: 15000 });
+
+        // The track <select> lists every track in the whole install
+        // (`GET_TRACKS`, not race-scoped), and an unstyled <select>'s own
+        // rendered width follows the widest *option* text present, not just
+        // the one selected — so how many tracks (and how long their names
+        // are) happen to exist elsewhere on the shared backend at this
+        // instant moves this picture's pixels even though the visible
+        // value ("Instant Replay Track") never does. #1227's own diff of
+        // this file's output against a sharded run (a separate, near-empty
+        // backend) confirmed exactly this: 586 px / 0.94%, every one of
+        // them inside the select's own box and nowhere else in the row —
+        // an ordinary content diff, not antialiasing, and not the
+        // "another display's own row" cause the issue first guessed before
+        // the diff was actually read. Trimmed to the selected option alone
+        // — the same #841 pattern `screenshot-settings.spec.ts` uses to
+        // remove a sibling track card's influence on a page's layout,
+        // applied here to a sibling track's influence on one select's
+        // width instead of to a sibling row's presence.
+        await cameraRow.getByLabel(/Which track .* listens to/).evaluate((select: HTMLSelectElement) => {
+            for (const option of Array.from(select.options)) {
+                if (!option.selected) option.remove();
+            }
+        });
+
         await screenshotLocator(cameraRow, {
             path: path.join(SCREENSHOT_DIR, '02-displays-panel-camera.png'),
         });
