@@ -25,7 +25,7 @@
  * actually shows a picture of.
  */
 
-import { test, expect } from './screenshots-setup';
+import { test, expect, screenshotLocator } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -60,15 +60,25 @@ test('screenshot a district derby', async ({ page }) => {
     // district/council scale chosen. The scale itself predates this stage
     // (`context/organizationKinds.ts`); what is new is that choosing it now
     // means something further into the wizard too, which the guide explains
-    // from this picture. ---
+    // from this picture.
+    //
+    // Scoped to the wizard's own dialog rather than a full-page capture
+    // (#1230): a full-page shot also captures Home's dimmed race list behind
+    // the modal, whose row count and content depend on which other specs
+    // have created races on the shared backend by this point in the run —
+    // confirmed by diffing an unsharded run against a sharded one, where the
+    // only pixels that moved sat in that background, never inside the
+    // dialog itself. The caption is about the wizard's own question, which
+    // the dialog alone already satisfies. ---
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: /Create New Race/i }).click();
-    await expect(page.getByRole('heading', { name: 'Create New Race Event' })).toBeVisible();
+    const wizardDialog = page.getByRole('dialog', { name: 'Create New Race Event' });
+    await expect(wizardDialog.getByRole('heading', { name: 'Create New Race Event' })).toBeVisible();
     await passSetupStart(page);
     await page.getByRole('radio', { name: /^A district or council derby/ }).check();
     await expect(page.getByTestId('setup-words-summary')).toContainText('District');
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '01-district-scale.png') });
+    await screenshotLocator(wizardDialog, { path: path.join(SCREENSHOT_DIR, '01-district-scale.png') });
 
     // Groups step: the six ranks are pre-scaffolded under a District.
     // Tonight only three of them are racing — Bear, Webelos and Arrow of
