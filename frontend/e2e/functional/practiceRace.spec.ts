@@ -19,6 +19,42 @@ import { ensureConfigured, gql } from './support';
 // together. Serial trades a few seconds of wall clock for that determinism.
 test.describe.configure({ mode: 'serial' });
 
+// A retry resumes whatever rehearsal the failed attempt left behind
+// (`crud.existing_practice_race` — "resuming beats duplicating", CLAUDE.md's
+// "The practice race" section via #588), heat and all, rather than starting
+// fresh — the shape #1224 found: attempt 0 armed and ran a heat, its own
+// read-back then died with `ECONNRESET`, and the retry's click resumed that
+// same race, so a "no times yet" assertion saw the heat attempt 0 had
+// already recorded. Clearing every race this naming scheme owns before each
+// attempt (not just each test — `beforeEach` re-runs on a retry the same as
+// on a first attempt) puts every attempt back at "no rehearsal yet", the
+// state the first test's assertions describe.
+//
+// "Practice Race" is `PRACTICE_RACE_NAME` (`backend/domain/practice.py`) —
+// matched here as a literal prefix rather than imported, since an e2e spec
+// has no route to a backend module.
+//
+// The reused fake-timer track (`crud.practice_track`) is deliberately left
+// alone: it is global state shared with the whole install — the same fact
+// `.claude/rules/roster.md`'s "The practice race" (#201) and this file's own
+// header comment already turn on — and it is one of the pool tracks
+// `configure.setup.ts` built for every other spec in this suite to share.
+test.beforeEach(async ({ page }) => {
+    await ensureConfigured(page);
+
+    const { races } = await gql<{ races: { id: number; name: string }[] }>(
+        page,
+        `query PracticeRaceCleanupList { races { id name } }`,
+    );
+    for (const race of races) {
+        if (race.name.startsWith('Practice Race')) {
+            await gql(page, `mutation PracticeRaceCleanup($id: Int!) { deleteRace(id: $id) }`, {
+                id: race.id,
+            });
+        }
+    }
+});
+
 test('one click reaches a heat that can be run', async ({ page }) => {
     await ensureConfigured(page);
 
@@ -37,8 +73,21 @@ test('one click reaches a heat that can be run', async ({ page }) => {
     await expect(page).toHaveURL(/\/race\/\d+\/control\/race/, { timeout: 30000 });
     await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
 
+    // A positive assertion that this is genuinely the *first* heat of a
+    // fresh rehearsal, armed and rendered — not merely that no times are
+    // visible yet, which is also what a page that never rendered the heat
+    // looks like (#428's "e2e read-backs that accept any answer"), and would
+    // not by itself catch a retry that resumed a rehearsal a previous
+    // attempt already ran a heat of: `RaceExecution.tsx` auto-arms whichever
+    // heat is next, and an unraced heat 2 is just as "ready to start" as
+    // heat 1 — the `beforeEach` above is what actually guarantees this is
+    // heat 1. The Start Timer button is only enabled once the fake timer
+    // reports ARMED (`FakeTimerMole`).
     const times = page.getByText(/^\d+\.\d{3}s$/);
-    await expect(times).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('button', { name: 'Start Timer' })).toBeEnabled({
+        timeout: 30000,
+    });
 
     await page.getByRole('button', { name: 'Start Timer' }).click();
     await page.getByRole('button', { name: 'Finish Heat' }).click();
