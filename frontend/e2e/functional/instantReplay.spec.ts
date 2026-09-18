@@ -23,6 +23,29 @@
  * recording a heat "while the projector tab is watching." A warm-up heat
  * moves `seenHeatResult`/`seenReplay` off `null` before anything under
  * test is recorded.
+ *
+ * **Every extra `browser.newContext()` this file opens gets an explicit
+ * `.close()` before its test returns — cameras always did; displays now
+ * do too (#1205).** Playwright's own `page`/`context` fixtures are
+ * test-scoped and close themselves; a context opened by hand inside a test
+ * body is not, and `browser` itself is worker-scoped, so a context nobody
+ * closes lives on into whichever test this worker runs next. This file's
+ * own twelve tests used to be spread across up to four workers, each
+ * running only a few of them, interleaved with dozens of unrelated, light
+ * specs — so a leaked display context or two rarely accumulated far
+ * before Playwright recycled the worker. Now that the whole file runs on
+ * one worker's single, continuous browser session
+ * (`playwright.config.ts`'s `replay` project), every leaked context from
+ * every earlier test in the file is still open — a live WebSocket
+ * subscription, a rendering `<video>` — when a later test starts, and
+ * ten of them (every `display`/`displayOn`/`displayOff`/`ceremonyDisplay`/
+ * `laterDisplay` this file ever opened, across six tests, none of them
+ * closed) reliably wedged whichever test happened to run last: not the
+ * *same* test each time, which is what pointed at cumulative resource
+ * exhaustion rather than a bug in any one test's own logic. Reproduced
+ * directly — the last test in the file hung for its own describe block's
+ * full 600s ceiling in three separate runs, and running the same tests
+ * without whatever ran before them passed in seconds every time.
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -74,6 +97,93 @@ async function runHeatToStart(page: Page, heatId: number): Promise<void> {
 
 async function finishHeat(page: Page, heatId: number): Promise<void> {
     await gql(page, `mutation IRFinish($heatId: Int!) { fakeTimerFinish(heatId: $heatId) }`, { heatId });
+}
+
+/**
+ * Waits for one camera's clip to actually exist server-side for the given
+ * heat's *current* run — call this any time after `finishHeat`, not before.
+ *
+ * Replaces `camera.waitForResponse` watching the upload's own `POST
+ * /replay/` (#1205). That wait sat on the camera page's own network
+ * listener for up to 90s, which is a listener on the Vite dev proxy every
+ * other spec's clicks and GraphQL calls share on this shard — under CI
+ * contention the proxy itself started dropping connections
+ * (`ECONNRESET`/`EPIPE`) while a slow WebCodecs encode-and-upload held that
+ * wait open, and unrelated specs on other workers failed on ordinary clicks
+ * and GraphQL posts while it did. `gql()` (used here, as it already is for
+ * every other piece of setup in this file) talks straight to the backend
+ * — it never touches the proxy at all — so polling `heatReplay(raceId)`
+ * through it adds no load to the one resource every worker on this shard
+ * was contending for. The assertion strength is the same: the clip must
+ * actually be in the server's live replay store, keyed on the exact
+ * `(heatId, recordedAt)` pair this run just produced — not merely "some
+ * earlier clip from this camera exists," which a bare `cameraId` check
+ * would have let a stale warm-up (or, for a re-run, the *previous* run's)
+ * clip satisfy.
+ *
+ * `heat.recordedAt` and the camera's own clip are read in the same poll
+ * rather than the heat's `recordedAt` being fetched once up front: a fresh
+ * `fakeTimerFinish` GraphQL round trip completing does not guarantee a
+ * *separate* request immediately afterward already sees the committed
+ * result (`TimerManager` writes through its own session outside the
+ * request lifecycle — `.claude/rules/timers.md`'s "`TimerManager` writes to
+ * the DB via its own `SessionLocal()`, outside the request lifecycle").
+ * Measured directly: a single up-front read threw "heat N has not been
+ * recorded yet" on six of twelve tests in one run, immediately after
+ * `finishHeat` had already resolved. Folding both reads into the one poll
+ * tolerates that gap the same way the 90s ceiling already tolerates a slow
+ * encode, rather than treating a heat not yet visible as a hard failure.
+ *
+ * `previousRecordedAt`, when given, excludes a `recordedAt` this camera
+ * already satisfied — the one case where the *same* heat is waited on
+ * twice (a re-run): without it, the second wait would be satisfied
+ * instantly by the first run's own clip, never actually waiting for the
+ * correction to land. Returns the `recordedAt` it matched, so a caller
+ * re-running the same heat can pass it back in as the next call's
+ * `previousRecordedAt`.
+ */
+async function waitForClipUpload(
+    page: Page,
+    raceId: number,
+    heatId: number,
+    cameraId: string,
+    previousRecordedAt: string | null = null,
+): Promise<string> {
+    let matchedRecordedAt: string | null = null;
+    await expect
+        .poll(
+            async () => {
+                const data = await gql<{
+                    race: { heats: { id: number; recordedAt: string | null }[] };
+                    heatReplay: { heatId: number; recordedAt: string; clips: { cameraId: string }[] } | null;
+                }>(
+                    page,
+                    `query IRPollReplay($raceId: Int!) {
+                        race(raceId: $raceId) { heats { id recordedAt } }
+                        heatReplay(raceId: $raceId) { heatId recordedAt clips { cameraId } }
+                    }`,
+                    { raceId },
+                );
+                const heat = data.race.heats.find((h) => h.id === heatId);
+                if (!heat || heat.recordedAt === null || heat.recordedAt === previousRecordedAt) {
+                    return false;
+                }
+                const current = data.heatReplay;
+                const matched =
+                    current !== null &&
+                    current.heatId === heatId &&
+                    current.recordedAt === heat.recordedAt &&
+                    current.clips.some((c) => c.cameraId === cameraId);
+                if (matched) matchedRecordedAt = heat.recordedAt;
+                return matched;
+            },
+            { timeout: 90000, message: `no clip from ${cameraId} landed for heat ${heatId}` },
+        )
+        .toBe(true);
+    // `expect.poll` only returns once its predicate is `true`, which is the
+    // one path `matchedRecordedAt` is ever left unset by — this satisfies
+    // the type checker without weakening the assertion above.
+    return matchedRecordedAt ?? previousRecordedAt ?? '';
 }
 
 /**
@@ -143,23 +253,14 @@ test('a camera uploads through FakeCamera, and a replays-on display plays the cl
     // opening payload would be, so the *display*'s copy of the same rule
     // swallows it too. Needed once, for the display's own `seenReplay`.
     await runHeatToStart(page, replayWarmUp.id);
-    const warmClipUpload = camera.waitForResponse(
-        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 90000 },
-    );
     await finishHeat(page, replayWarmUp.id);
-    await warmClipUpload;
+    await waitForClipUpload(page, raceId, replayWarmUp.id, 'spec-camera-playback');
     await display.waitForTimeout(2000);
 
     // The heat under test.
     await runHeatToStart(page, underTest.id);
-    const uploadResponse = camera.waitForResponse(
-        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 90000 },
-    );
     await finishHeat(page, underTest.id);
-    const response = await uploadResponse;
-    expect(response.status()).toBe(200);
+    await waitForClipUpload(page, raceId, underTest.id, 'spec-camera-playback');
     await expect(camera.getByTestId('camera-status-line')).toContainText('uploaded', { timeout: 15000 });
 
     // Nothing further in this test needs the camera capturing — closing its
@@ -184,6 +285,19 @@ test('a camera uploads through FakeCamera, and a replays-on display plays the cl
     await openObservation(laterDisplay, raceId, 'spec-display-late');
     await laterDisplay.waitForTimeout(2000);
     await expect(laterDisplay.getByTestId('replay-video')).toHaveCount(0);
+
+    // Finish the spare heat so the track is not left with an
+    // armed-and-never-finished heat for whatever runs after this
+    // (`.claude/rules/timers.md`'s #337) — this file now runs its own
+    // twelve tests one after another on one worker's single track (#1205),
+    // so a heat left RUNNING here is no longer a rare adjacency, it is the
+    // very next test, every time. Confirmed the hard way: without this, the
+    // next test's own `prepareHeat` never gets a chance to run and every
+    // heat after this one in the file goes unrecorded.
+    await finishHeat(page, afterward.id);
+    // See this file's own header docs — every extra context gets closed now.
+    await display.context().close();
+    await laterDisplay.context().close();
 });
 
 test('the results-flow overlay shows finish-frame markers, and they are not clickable (#177 stage 4)', async ({
@@ -212,22 +326,14 @@ test('the results-flow overlay shows finish-frame markers, and they are not clic
     await finishHeat(page, timingWarmUp.id);
     await camera.waitForTimeout(2000);
 
-    const warmClipUpload = camera.waitForResponse(
-        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 90000 },
-    );
     await runHeatToStart(page, replayWarmUp.id);
     await finishHeat(page, replayWarmUp.id);
-    await warmClipUpload;
+    await waitForClipUpload(page, raceId, replayWarmUp.id, 'spec-camera-overlay-marks');
     await display.waitForTimeout(2000);
 
-    const uploadResponse = camera.waitForResponse(
-        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 90000 },
-    );
     await runHeatToStart(page, underTest.id);
     await finishHeat(page, underTest.id);
-    await uploadResponse;
+    await waitForClipUpload(page, raceId, underTest.id, 'spec-camera-overlay-marks');
     await cameraContext.close();
 
     const video = display.getByTestId('replay-video');
@@ -246,6 +352,7 @@ test('the results-flow overlay shows finish-frame markers, and they are not clic
     const marks = display.locator('[data-testid^="replay-finish-mark-"]');
     await expect(marks.first()).toBeVisible({ timeout: 15000 });
     await expect(marks.first()).toBeDisabled();
+    await display.context().close();
 });
 
 test('a display with replays off never shows the clip', async ({ browser, page }) => {
@@ -278,12 +385,8 @@ test('a display with replays off never shows the clip', async ({ browser, page }
     await camera.waitForTimeout(2000);
 
     await runHeatToStart(page, underTest.id);
-    const uploadResponse = camera.waitForResponse(
-        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 90000 },
-    );
     await finishHeat(page, underTest.id);
-    await uploadResponse;
+    await waitForClipUpload(page, raceId, underTest.id, 'spec-camera-off');
     // Nothing further needs the camera capturing — see the first test's own
     // comment on why this is closed as soon as it stops being needed.
     await camera.context().close();
@@ -292,6 +395,7 @@ test('a display with replays off never shows the clip', async ({ browser, page }
     // acts on it.
     await display.waitForTimeout(3000);
     await expect(display.getByTestId('replay-video')).toHaveCount(0);
+    await display.context().close();
 });
 
 test('a reconnecting display does not replay a result from before it reloaded', async ({ browser, page }) => {
@@ -315,12 +419,8 @@ test('a reconnecting display does not replay a result from before it reloaded', 
     await camera.waitForTimeout(2000);
 
     await runHeatToStart(page, underTest.id);
-    const uploadResponse = camera.waitForResponse(
-        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 90000 },
-    );
     await finishHeat(page, underTest.id);
-    await uploadResponse;
+    await waitForClipUpload(page, raceId, underTest.id, 'spec-camera-reconnect');
     // Nothing further needs the camera capturing — see the first test's own
     // comment on why this is closed as soon as it stops being needed.
     await camera.context().close();
@@ -337,6 +437,7 @@ test('a reconnecting display does not replay a result from before it reloaded', 
     await display.waitForLoadState('networkidle');
     await display.waitForTimeout(3000);
     await expect(display.getByTestId('replay-video')).toHaveCount(0);
+    await display.context().close();
 });
 
 test('a clip cut long after the ring has evicted its own opening keyframe still plays', async ({ browser, page }) => {
@@ -389,13 +490,9 @@ test('a clip cut long after the ring has evicted its own opening keyframe still 
     // Warm-up 2: the camera now captures — this race's first clip, which is
     // exactly what the display's own fresh `heatReplay` subscription reads
     // as its opening payload and swallows in turn.
-    const warmUpload = camera.waitForResponse(
-        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 90000 },
-    );
     await runHeatToStart(page, displayWarmUp.id);
     await finishHeat(page, displayWarmUp.id);
-    await warmUpload;
+    await waitForClipUpload(page, raceId, displayWarmUp.id, 'spec-camera-eviction');
     await display.waitForTimeout(1000);
 
     // Sit past the shrunk 3s ring — several keyframe cycles beyond it — before
@@ -404,14 +501,9 @@ test('a clip cut long after the ring has evicted its own opening keyframe still 
     // running well past it, which is every real capture.
     await camera.waitForTimeout(4500);
 
-    const uploadResponse = camera.waitForResponse(
-        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 90000 },
-    );
     await runHeatToStart(page, underTest.id);
     await finishHeat(page, underTest.id);
-    const response = await uploadResponse;
-    expect(response.status()).toBe(200);
+    await waitForClipUpload(page, raceId, underTest.id, 'spec-camera-eviction');
     // Nothing further needs the camera capturing — see the first test's own
     // comment on why this is closed as soon as it stops being needed.
     await camera.context().close();
@@ -427,6 +519,7 @@ test('a clip cut long after the ring has evicted its own opening keyframe still 
     const duration = await video.evaluate((el: HTMLVideoElement) => el.duration);
     expect(Number.isFinite(duration)).toBe(true);
     expect(duration).toBeGreaterThan(0);
+    await display.context().close();
 });
 
 test('a heat re-run plays its corrected clip; the identical clip does not replay a second time on reconnect', async ({
@@ -469,24 +562,16 @@ test('a heat re-run plays its corrected clip; the identical clip does not replay
     // Warm-up 2: the camera now captures — this race's first clip, which is
     // exactly what the display's own fresh `heatReplay` subscription reads
     // as its opening payload and swallows in turn.
-    const warmUpload = camera.waitForResponse(
-        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 90000 },
-    );
     await runHeatToStart(page, displayWarmUp.id);
     await finishHeat(page, displayWarmUp.id);
-    await warmUpload;
+    await waitForClipUpload(page, raceId, displayWarmUp.id, 'spec-camera-rerun');
     await display.waitForTimeout(1000);
 
     // First run of the heat under test — genuinely new to both the camera
     // and the display.
-    const firstUpload = camera.waitForResponse(
-        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 90000 },
-    );
     await runHeatToStart(page, underTest.id);
     await finishHeat(page, underTest.id);
-    await firstUpload;
+    const firstRecordedAt = await waitForClipUpload(page, raceId, underTest.id, 'spec-camera-rerun');
     await expect(display.getByTestId('replay-video')).toBeVisible({ timeout: 15000 });
     const firstSrc = await display.getByTestId('replay-video').getAttribute('src');
     // Let it finish its two showings and disappear, so the re-run's own
@@ -496,14 +581,13 @@ test('a heat re-run plays its corrected clip; the identical clip does not replay
 
     // Re-run the *same* heat — "Reset Heat," the operator's own way to
     // abandon a run and retry it (`prepareHeat` on an already-recorded
-    // heat). Same `heatId`, a fresh `recordedAt` once it finishes again.
-    const secondUpload = camera.waitForResponse(
-        (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-        { timeout: 90000 },
-    );
+    // heat). Same `heatId`, a fresh `recordedAt` once it finishes again —
+    // passing the first run's own `recordedAt` as `previousRecordedAt` is
+    // what tells this second wait apart from the first, rather than being
+    // satisfied instantly by the clip that already landed above.
     await runHeatToStart(page, underTest.id);
     await finishHeat(page, underTest.id);
-    await secondUpload;
+    await waitForClipUpload(page, raceId, underTest.id, 'spec-camera-rerun', firstRecordedAt);
     // Nothing further needs the camera capturing — see the first test's own
     // comment on why this is closed as soon as it stops being needed.
     await camera.context().close();
@@ -523,6 +607,7 @@ test('a heat re-run plays its corrected clip; the identical clip does not replay
     await display.waitForLoadState('networkidle');
     await display.waitForTimeout(3000);
     await expect(display.getByTestId('replay-video')).toHaveCount(0);
+    await display.context().close();
 });
 
 test.describe.serial('stored retention and intermission highlights, install-wide, so these four run serially rather than racing each other over the shared keepReplays flag (#177 stages 2 and 3)', () => {
@@ -601,21 +686,13 @@ test.describe.serial('stored retention and intermission highlights, install-wide
             await finishHeat(page, camWarmUp.id);
             await camera.waitForTimeout(2000);
 
-            const warmUpload = camera.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
             await runHeatToStart(page, displayWarmUp.id);
             await finishHeat(page, displayWarmUp.id);
-            await warmUpload;
+            await waitForClipUpload(page, raceId, displayWarmUp.id, 'spec-camera-stored');
 
-            const uploadResponse = camera.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
             await runHeatToStart(page, underTest.id);
             await finishHeat(page, underTest.id);
-            await uploadResponse;
+            await waitForClipUpload(page, raceId, underTest.id, 'spec-camera-stored');
             await camera.context().close();
 
             await page.goto(`/race/${raceId}/control/schedule`);
@@ -666,13 +743,9 @@ test.describe.serial('stored retention and intermission highlights, install-wide
         await finishHeat(page, warmUp.id);
         await camera.waitForTimeout(2000);
 
-        const uploadResponse = camera.waitForResponse(
-            (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-            { timeout: 90000 },
-        );
         await runHeatToStart(page, underTest.id);
         await finishHeat(page, underTest.id);
-        await uploadResponse;
+        await waitForClipUpload(page, raceId, underTest.id, 'spec-camera-no-storage');
         await camera.context().close();
 
         // The clip exists (the camera uploaded it, and it plays on a display
@@ -708,25 +781,17 @@ test.describe.serial('stored retention and intermission highlights, install-wide
             await finishHeat(page, camWarmUp.id);
             await camera.waitForTimeout(2000);
 
-            const firstUpload = camera.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
             await runHeatToStart(page, first.id);
             await finishHeat(page, first.id);
-            await firstUpload;
+            await waitForClipUpload(page, raceId, first.id, 'spec-camera-retention');
 
             await page.goto(`/race/${raceId}/control/schedule`);
             await page.waitForLoadState('networkidle');
             await expect(page.getByTestId(`heat-replay-btn-${first.id}`)).toBeVisible({ timeout: 15000 });
 
-            const secondUpload = camera.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
             await runHeatToStart(page, second.id);
             await finishHeat(page, second.id);
-            await secondUpload;
+            await waitForClipUpload(page, raceId, second.id, 'spec-camera-retention');
             await camera.context().close();
 
             // N=1 purged the first heat's clip the moment the second's landed.
@@ -745,13 +810,9 @@ test.describe.serial('stored retention and intermission highlights, install-wide
             await expect(camera2.getByTestId('camera-status-line')).toContainText('Listening to', {
                 timeout: 15000,
             });
-            const thirdUpload = camera2.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
             await runHeatToStart(page, third.id);
             await finishHeat(page, third.id);
-            await thirdUpload;
+            await waitForClipUpload(page, raceId, third.id, 'spec-camera-retention-2');
             await camera2.context().close();
 
             await page.goto(`/race/${raceId}/control/schedule`);
@@ -788,21 +849,13 @@ test.describe.serial('stored retention and intermission highlights, install-wide
             await finishHeat(page, camWarmUp.id);
             await camera.waitForTimeout(2000);
 
-            const firstUpload = camera.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
             await runHeatToStart(page, first.id);
             await finishHeat(page, first.id);
-            await firstUpload;
+            await waitForClipUpload(page, raceId, first.id, 'spec-camera-highlights');
 
-            const secondUpload = camera.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
             await runHeatToStart(page, second.id);
             await finishHeat(page, second.id);
-            await secondUpload;
+            await waitForClipUpload(page, raceId, second.id, 'spec-camera-highlights');
             await camera.context().close();
 
             // The fake timer's own results are random (3.0-4.0s) — read the
@@ -873,6 +926,11 @@ test.describe.serial('stored retention and intermission highlights, install-wide
             for (const display of [displayOn, displayOff, ceremonyDisplay]) {
                 await expect(display.getByTestId('replay-video')).toHaveCount(0, { timeout: 15000 });
             }
+            // See this file's own header docs — every extra context gets
+            // closed now, three of them here rather than one.
+            for (const display of [displayOn, displayOff, ceremonyDisplay]) {
+                await display.context().close();
+            }
 
             // Finish the round's last heat so the track is not left with an
             // armed-and-never-finished heat for whatever runs after this
@@ -909,21 +967,13 @@ test.describe.serial('stored retention and intermission highlights, install-wide
             await finishHeat(page, camWarmUp.id);
             await camera.waitForTimeout(2000);
 
-            const warmUpload = camera.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
             await runHeatToStart(page, displayWarmUp.id);
             await finishHeat(page, displayWarmUp.id);
-            await warmUpload;
+            await waitForClipUpload(page, raceId, displayWarmUp.id, 'spec-camera-finish-frames');
 
-            const uploadResponse = camera.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
             await runHeatToStart(page, underTest.id);
             await finishHeat(page, underTest.id);
-            await uploadResponse;
+            await waitForClipUpload(page, raceId, underTest.id, 'spec-camera-finish-frames');
             await camera.context().close();
 
             await page.goto(`/race/${raceId}/control/schedule`);
@@ -1032,31 +1082,19 @@ test.describe.serial('stored retention and intermission highlights, install-wide
             await finishHeat(page, warmUp.id);
             await cameraA.waitForTimeout(2000);
 
-            const warmUploadA = cameraA.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
-            const warmUploadB = cameraB.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
             await runHeatToStart(page, displayWarmUp.id);
             await finishHeat(page, displayWarmUp.id);
-            await warmUploadA;
-            await warmUploadB;
+            await Promise.all([
+                waitForClipUpload(page, raceId, displayWarmUp.id, 'spec-camera-order-a'),
+                waitForClipUpload(page, raceId, displayWarmUp.id, 'spec-camera-order-b'),
+            ]);
 
-            const uploadA = cameraA.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
-            const uploadB = cameraB.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
             await runHeatToStart(page, underTest.id);
             await finishHeat(page, underTest.id);
-            await uploadA;
-            await uploadB;
+            await Promise.all([
+                waitForClipUpload(page, raceId, underTest.id, 'spec-camera-order-a'),
+                waitForClipUpload(page, raceId, underTest.id, 'spec-camera-order-b'),
+            ]);
             await cameraA.context().close();
             await cameraB.context().close();
 
@@ -1118,26 +1156,18 @@ test.describe.serial('stored retention and intermission highlights, install-wide
             await finishHeat(page, camWarmUp.id);
             await camera.waitForTimeout(2000);
 
-            const warmUpload = camera.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
             await runHeatToStart(page, displayWarmUp.id);
             await finishHeat(page, displayWarmUp.id);
-            await warmUpload;
+            await waitForClipUpload(page, raceId, displayWarmUp.id, 'spec-camera-space-collision');
 
             // `target` is the heat whose replay gets frozen and resumed —
             // it has to be recorded (and its clip stored) *before* Race
             // Control's Race tab is ever opened, so the tab's own
             // first-render pin (`RaceControl.tsx`'s "the first heat still
             // to be run") lands on `activeHeat`, not on `target`.
-            const uploadResponse = camera.waitForResponse(
-                (r) => r.url().includes('/replay/') && r.request().method() === 'POST',
-                { timeout: 90000 },
-            );
             await runHeatToStart(page, target.id);
             await finishHeat(page, target.id);
-            await uploadResponse;
+            await waitForClipUpload(page, raceId, target.id, 'spec-camera-space-collision');
             await camera.context().close();
 
             await page.goto(`/race/${raceId}/control/race`);
