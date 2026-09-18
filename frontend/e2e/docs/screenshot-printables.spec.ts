@@ -14,7 +14,7 @@ import { test, expect, screenshotLocator } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { docsTrackId, ensureConfigured, gql, organizationId, photosFor } from './support';
+import { attemptName, docsTrackId, ensureConfigured, gql, organizationId, photosFor } from './support';
 import { FONT_RENDERING_ARGS } from '../../playwright.screenshots.config';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -58,7 +58,10 @@ test('screenshot the print sheets', async ({ page }) => {
         `mutation Create($race: RaceInput!) { createRace(race: $race) { id } }`,
         {
             race: {
-                name: 'Pack 42 Pinewood Derby',
+                // Suffixed on retry (#1219): `races.name` is unique on this
+                // shared backend, so a retry that re-seeds under the same
+                // name a failed first attempt used is guaranteed to fail.
+                name: attemptName('Pack 42 Pinewood Derby'),
                 dateTime: '2026-03-14T09:30:00',
                 location: 'St Anne’s Parish Hall',
                 organizationId: raceOrganizationId,

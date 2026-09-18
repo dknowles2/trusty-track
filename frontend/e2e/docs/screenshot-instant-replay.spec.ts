@@ -36,6 +36,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import {
+    attemptName,
     deleteTrack,
     ensureConfigured,
     gql,
@@ -193,13 +194,12 @@ test('screenshot instant replay', async ({ page, browser }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await ensureConfigured(page);
 
-    const retry = test.info().retry;
-    const trackName = retry > 0 ? `Instant Replay Track (retry ${retry})` : 'Instant Replay Track';
+    const trackName = attemptName('Instant Replay Track');
     const trackId = await ownTrack(page, trackName, 4, 'FAKE');
 
     try {
         const raceId = await seedRace(page, {
-            name: 'Instant Replay Docs Derby',
+            name: attemptName('Instant Replay Docs Derby'),
             trackId,
             dateTime: '2026-04-18T10:00:00',
             location: 'School Gym',

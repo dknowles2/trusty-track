@@ -30,6 +30,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import {
+    attemptName,
     ensureConfigured,
     gql,
     passSetupStart,
@@ -85,7 +86,12 @@ test('screenshot a district derby', async ({ page }) => {
     // Details step: the flat create form. Two trophies, so the round
     // wizard's own "N=2 default" (below) is visibly the race's real
     // configured floor, not just a coincidence of the default.
-    const raceName = `District Derby Screenshot ${Date.now()}`;
+    // `Date.now()` used to be this spec's own way of dodging the collision
+    // `attemptName` (#1219) now covers for the whole suite — it worked, but
+    // meant every regeneration, retried or not, produced a race named
+    // something new, which the roster heading below (02) renders. `attemptName`
+    // keeps attempt 0's name fixed, the same as every other spec's.
+    const raceName = attemptName('District Derby Screenshot');
     await expect(page.getByLabel('Event Name')).toBeVisible();
     await page.getByLabel('Event Name').fill(raceName);
     await page.getByLabel('Championship Trophies').fill('2');

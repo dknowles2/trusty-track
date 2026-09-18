@@ -28,6 +28,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import {
+    attemptName,
     ensureConfigured,
     gql,
     ownTrack,
@@ -155,15 +156,14 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     // A configured length (#610) — `ownTrack` otherwise leaves it null, and
     // with no length there is nothing for scale speed to compute from, so
     // the results overlay and timing view would show no speed at all.
-    // Suffixed on retry (#829) so a retry does not collide on track name if
-    // attempt 1 leaked before cleanup.
-    const retry = test.info().retry;
-    const trackName = retry > 0 ? `Audience Display Track (retry ${retry})` : 'Audience Display Track';
+    // Suffixed on retry (#829, #1219) so a retry does not collide on track
+    // name if attempt 1 leaked before cleanup.
+    const trackName = attemptName('Audience Display Track');
     const trackId = await ownTrack(page, trackName, 4, 'FAKE', 40);
     await seedHistoricalRecord(page, trackId, PREVIOUS_RECORD);
 
     const raceId = await seedRace(page, {
-        name: 'Pack 42 Display Derby',
+        name: attemptName('Pack 42 Display Derby'),
         trackId,
         dateTime: '2026-03-07T10:00:00',
         location: 'School Gym',

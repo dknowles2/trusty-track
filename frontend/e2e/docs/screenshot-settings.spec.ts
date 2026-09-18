@@ -26,7 +26,7 @@ import { test, expect, screenshotLocator, settleTransitions } from './screenshot
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { ensureConfigured, ownTrack } from './support';
+import { attemptName, ensureConfigured, ownTrack } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/settings');
@@ -44,10 +44,9 @@ test('screenshot the settings panels', async ({ page }) => {
     // collides on name with whatever the failed first attempt left behind:
     // the same `getByTestId(/track-card-\d+/).filter(...)` locator that
     // `screenshot-timers.spec.ts`'s leaked track once turned into "resolved
-    // to 2 elements" rather than a clean retry. Same convention `seedRace`
-    // in `e2e/functional/support.ts` uses for `races.name`.
-    const retry = test.info().retry;
-    const TRACK_NAME = retry > 0 ? `Gym Track (retry ${retry})` : 'Gym Track';
+    // to 2 elements" rather than a clean retry. `attemptName` (#1219) is
+    // that convention, shared now rather than hand-rolled per spec.
+    const TRACK_NAME = attemptName('Gym Track');
     await ownTrack(page, TRACK_NAME, 3);
 
     await page.goto('/system-settings');

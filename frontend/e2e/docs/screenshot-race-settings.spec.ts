@@ -51,7 +51,7 @@ import { test, expect, screenshotLocator } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { docsTrackId, ensureConfigured, seedRace } from './support';
+import { attemptName, docsTrackId, ensureConfigured, seedRace } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/race-setup');
@@ -62,7 +62,7 @@ test('screenshot the race settings form', async ({ page }) => {
 
     await ensureConfigured(page);
     const raceId = await seedRace(page, {
-        name: 'Pack 42 Settings Derby',
+        name: attemptName('Pack 42 Settings Derby'),
         trackId: await docsTrackId(page),
         dateTime: '2026-03-14T09:30:00',
         location: 'School Gym',
