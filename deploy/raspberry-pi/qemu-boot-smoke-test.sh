@@ -7,9 +7,10 @@
 # Usage: qemu-boot-smoke-test.sh <path-to-image.img|image.img.xz> [expected-version]
 #
 # Needs root (loop devices, the same requirement verify-image.sh already
-# has) and `qemu-system-aarch64` on PATH (Debian/Ubuntu:
+# has) and `qemu-system-aarch64`/`qemu-img` on PATH (Debian/Ubuntu:
 # apt-get install qemu-system-arm, which despite the name provides both the
-# 32- and 64-bit ARM system emulators).
+# 32- and 64-bit ARM system emulators and pulls in qemu-utils, which is
+# where qemu-img lives).
 #
 # What this proves, and what it does not
 # ----------------------------------------
@@ -127,6 +128,11 @@ if ! command -v qemu-system-aarch64 >/dev/null 2>&1; then
 	exit 1
 fi
 
+if ! command -v qemu-img >/dev/null 2>&1; then
+	echo "qemu-img is required (Debian/Ubuntu: apt-get install qemu-utils, pulled in already by qemu-system-arm)" >&2
+	exit 1
+fi
+
 # Generous on purpose: this runs under TCG (no nested KVM on a hosted
 # runner), and first boot also generates a 4096-bit RSA TLS certificate
 # (scripts/pi-firstboot.sh) on an emulated CPU with no hardware RNG.
@@ -156,14 +162,40 @@ cleanup() {
 }
 trap cleanup EXIT
 
-RAW_IMAGE="$IMAGE_PATH"
+# Always a private copy in $WORK, never the caller's own file — the padding
+# below (and anything future) needs to mutate this image, and a plain .img
+# argument (not just the ordinary .xz case) must not come back a different
+# size than it went in.
+RAW_IMAGE="$WORK/image.img"
 case "$IMAGE_PATH" in
 *.xz)
 	echo "qemu-boot-smoke-test.sh: decompressing..."
-	RAW_IMAGE="$WORK/image.img"
 	unxz -k -c "$IMAGE_PATH" >"$RAW_IMAGE"
 	;;
+*)
+	cp "$IMAGE_PATH" "$RAW_IMAGE"
+	;;
 esac
+
+# QEMU's `-sd` models real SD card protocol closely enough to enforce a
+# real SD card's own constraint: capacity has to be a power of two bytes.
+# pi-gen's own image is sized to fit its partitions plus a little slack
+# (3.02 GiB, last seen), which QEMU rejects outright ("Invalid SD card
+# size ... has to be a power of 2") rather than rounding — found on the
+# first real run of this machine type (dknowles2/trusty-track#1235).
+# Padding the raw file up to the next power of two only grows unpartitioned
+# space at the end of the disk; the partition table and every filesystem in
+# it are untouched, so this loses nothing (the same reasoning `qemu-img
+# resize`'s own docs give for growing, as opposed to shrinking, an image).
+IMAGE_BYTES=$(stat -c%s "$RAW_IMAGE")
+SD_BYTES=1
+while [[ "$SD_BYTES" -lt "$IMAGE_BYTES" ]]; do
+	SD_BYTES=$((SD_BYTES * 2))
+done
+if [[ "$SD_BYTES" -ne "$IMAGE_BYTES" ]]; then
+	echo "qemu-boot-smoke-test.sh: padding the image from $IMAGE_BYTES to $SD_BYTES bytes (QEMU's -sd requires a power-of-two size)..."
+	qemu-img resize -f raw "$RAW_IMAGE" "$SD_BYTES" >/dev/null
+fi
 
 echo "qemu-boot-smoke-test.sh: extracting the kernel, device tree and cmdline.txt from the boot partition..."
 mkdir -p "$BOOT_MOUNT"
