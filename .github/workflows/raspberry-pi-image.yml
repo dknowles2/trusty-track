@@ -115,20 +115,29 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       # pi-gen's own build runs arm64 binaries (apt, dpkg, npm, python) on
-      # this x86 runner via binfmt — the identical mechanism release.yml's
-      # docker job already sets up for its arm64 layer; jobs don't share a
-      # runner, so it has to be registered again here.
+      # this x86 runner via binfmt — the same mechanism release.yml's docker
+      # job already sets up for its arm64 layer; jobs don't share a runner,
+      # so it has to be registered again here. This is NOT the same thing as
+      # the qemu-user-static package installed below: setup-qemu-action
+      # registers binfmt_misc handlers from inside a container, which is
+      # enough for `docker build --platform arm64`, but it never puts
+      # `qemu-aarch64-static` on this runner's own PATH. pi-gen's
+      # build-docker.sh (build-docker.sh:110 at the pinned ref) runs `which
+      # qemu-aarch64-static` on the host itself, to bind-mount that binary
+      # into the container it builds — a check the binfmt registration alone
+      # cannot satisfy (dknowles2/trusty-track#1234).
       - name: Set up QEMU (binfmt, for the emulated pi-gen build)
         uses: docker/setup-qemu-action@v4
 
       # A second, unrelated QEMU: the full-system emulator that boots the
       # finished image below. docker/setup-qemu-action only registers
       # binfmt handlers for running foreign-architecture *binaries* inside
-      # containers; it does not install `qemu-system-aarch64`.
+      # containers; it does not install `qemu-system-aarch64`, nor the
+      # `qemu-aarch64-static` host binary build-docker.sh checks for above.
       - name: Install qemu-system-aarch64
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-arm
+          sudo apt-get install -y qemu-system-arm qemu-user-static
 
       - name: Build the image
         env:
