@@ -104,9 +104,20 @@ it('still reports the ordinary permissions message when the origin is secure', a
 describe('the crop step', () => {
     it('opens after Capture, and confirming it hands onCapture the cropped result, the raw frame, and the edit (#1241)', async () => {
         vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(fakeContext());
-        vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(
-            'data:image/jpeg;base64,QUJD',
-        );
+        // Two *distinguishable* canvases produce the two uploads this flow
+        // sends — the raw-frame capture canvas in `handleCapture`, then
+        // `ImageCropModal`'s own confirm canvas — called in that order, and
+        // exactly once each, over the course of this test. A single shared
+        // mock return value (the original shape of this test) made
+        // `result.original`/`result.file` differ only by filename: a bug
+        // that uploaded the *cropped* result as both `original` and `file`
+        // — discarding the raw frame entirely — passed every assertion
+        // here, because nothing checked the bytes. `mockReturnValueOnce`
+        // twice, in call order, is what a content-based assertion needs.
+        const toDataURL = vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL');
+        toDataURL.mockReturnValueOnce('data:image/jpeg;base64,UkFXRlJBTUU='); // "RAWFRAME"
+        toDataURL.mockReturnValueOnce('data:image/jpeg;base64,Q1JPUFBFRA=='); // "CROPPED"
+
         const { onCapture, onClose } = await renderWithCamera(CAR_ASPECT);
 
         fireEvent.click(screen.getByRole('button', { name: /^capture$/i }));
@@ -138,7 +149,10 @@ describe('the crop step', () => {
         expect(result.file).toBeInstanceOf(File);
         expect(result.file.type).toBe('image/jpeg');
         expect(result.file.name).toMatch(/^capture-\d+\.jpg$/);
-        await expect(result.file.text()).resolves.toBe('ABC');
+        // The *content*, not just the filename — this is the assertion
+        // that actually distinguishes "uploaded the cropped result" from
+        // "uploaded the raw frame a second time" (#1241 review, finding 2).
+        await expect(result.file.text()).resolves.toBe('CROPPED');
 
         // The raw frame — the original — is a *separate* file from the
         // cropped result, not the same bytes twice (#1241): a caller that
@@ -147,6 +161,7 @@ describe('the crop step', () => {
         expect(result.original).toBeInstanceOf(File);
         expect(result.original.name).toMatch(/^capture-original-\d+\.jpg$/);
         expect(result.original).not.toBe(result.file);
+        await expect(result.original.text()).resolves.toBe('RAWFRAME');
 
         expect(result.edit.rotation).toBe(0);
         expect(result.edit.crop).toBeTruthy();
