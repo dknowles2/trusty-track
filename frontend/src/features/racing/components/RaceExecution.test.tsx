@@ -2325,6 +2325,85 @@ describe('RaceExecution', () => {
             expect(screen.queryByTestId('timer-transitions-panel')).not.toBeInTheDocument();
             expect(screen.queryByTestId('hardware-timer-mole')).not.toBeInTheDocument();
         });
+
+        // #1244: the panel followed the byte mole into the right column when
+        // it was added, even for FAKE — where the mole it should have sat
+        // beside is `FakeTimerMole`, under the lane list on the *left*. The
+        // fix places it by which control surface it reports on, decided by
+        // timer type, rather than by a fixed column.
+        describe('placement follows the timer control surface (#1244)', () => {
+            it('docks the panel in the left column, directly under the fake timer controls', () => {
+                render(
+                    <RaceExecution
+                        {...defaultProps}
+                        timerType="FAKE"
+                        debugMode
+                        activeExecutionHeat={{ ...mockHeat, lanes: [lane({ lane: 1, racerId: 101 })] }}
+                    />
+                );
+
+                const activeCard = screen.getByTestId('race-execution-active-card');
+                const rightCol = screen.getByTestId('race-execution-right-column');
+                const mole = screen.getByTestId('fake-timer-mole');
+                const panel = screen.getByTestId('timer-transitions-panel');
+
+                // Same container as the controls it reports on...
+                expect(activeCard).toContainElement(mole);
+                expect(activeCard).toContainElement(panel);
+                // ...and never the right column.
+                expect(rightCol).not.toContainElement(panel);
+
+                // The mole precedes the panel: DOCUMENT_POSITION_FOLLOWING (4)
+                // means `panel` comes after `mole` in document order.
+                expect(mole.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+            });
+
+            it('leaves the panel in the right column, under the hardware mole, for a real timer', () => {
+                render(
+                    <RaceExecution
+                        {...defaultProps}
+                        timerType="AUTO_DETECT_BACKEND"
+                        debugMode
+                    />
+                );
+
+                const activeCard = screen.getByTestId('race-execution-active-card');
+                const rightCol = screen.getByTestId('race-execution-right-column');
+                const mole = screen.getByTestId('hardware-timer-mole');
+                const panel = screen.getByTestId('timer-transitions-panel');
+
+                expect(rightCol).toContainElement(mole);
+                expect(rightCol).toContainElement(panel);
+                expect(activeCard).not.toContainElement(panel);
+
+                expect(mole.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+            });
+
+            it('renders the panel exactly once for a FAKE timer', () => {
+                render(
+                    <RaceExecution
+                        {...defaultProps}
+                        timerType="FAKE"
+                        debugMode
+                        activeExecutionHeat={{ ...mockHeat, lanes: [lane({ lane: 1, racerId: 101 })] }}
+                    />
+                );
+
+                expect(screen.getAllByTestId('timer-transitions-panel')).toHaveLength(1);
+            });
+
+            it('renders the panel exactly once for a real timer', () => {
+                render(
+                    <RaceExecution
+                        {...defaultProps}
+                        timerType="AUTO_DETECT_BACKEND"
+                        debugMode
+                    />
+                );
+
+                expect(screen.getAllByTestId('timer-transitions-panel')).toHaveLength(1);
+            });
+        });
     });
 });
 

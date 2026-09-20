@@ -769,6 +769,17 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     // the mole to tail (#1079). This is what makes Debugging Mode show
     // something on the public demo, whose track is always FAKE.
     const showTransitionsPanel = hasTimer && debugMode;
+    // Placement follows the timer's control surface, not a fixed column
+    // (#1244). For a FAKE timer the panel is the readout for the Start
+    // Timer/Finish Heat buttons directly above it — #940's "controls under
+    // the thing they act on", carried one step further to the thing that
+    // shows what the controls did — so it docks in the left column, right
+    // under `FakeTimerMole`. For a real timer nothing moves: `HardwareTimerMole`
+    // already bundles its byte log with its own reconnect/release controls,
+    // so the panel beside it in the right column is a second, higher-level
+    // view of the same device, not a split. One boolean, one render site:
+    // never both columns at once.
+    const transitionsPanelInLeftColumn = showFakeControls;
 
     return (
         <>
@@ -1351,6 +1362,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             trackId={trackId ?? 0}
                             docked={true}
                         />
+
+                        {/* The state machine sits directly under the controls
+                            it reports on (#1244) — for a FAKE timer, that's
+                            here, not the right column under On Deck. */}
+                        {showTransitionsPanel && transitionsPanelInLeftColumn && trackId != null && (
+                            <TimerTransitionsPanel trackId={trackId} docked={true} />
+                        )}
                     </div>
                 </div>
 
@@ -1495,7 +1513,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     {showHardwareMole && trackId != null && (
                         <HardwareTimerMole trackId={trackId} timerType={timerType} docked={true} />
                     )}
-                    {showTransitionsPanel && trackId != null && (
+                    {/* Unchanged for a real timer (#1244): the state machine
+                        stays beside the hardware mole, which already owns
+                        the device's own reconnect/release controls. */}
+                    {showTransitionsPanel && !transitionsPanelInLeftColumn && trackId != null && (
                         <TimerTransitionsPanel trackId={trackId} docked={true} />
                     )}
                 </div>

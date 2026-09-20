@@ -21,7 +21,7 @@ _The timer section of a track's card in System Settings, with **Fake Timer (Manu
 
 With the Fake Timer chosen, open the **Race Control** page for a race and switch to the **Race** view.
 
-When you enter a heat, you will see the **Fake Timer Controls** panel docked below the current heat.
+When you enter a heat, you will see the **Fake Timer Controls** panel docked below the current heat. If **Debugging Mode** is on (System Settings → Advanced), the **Timer State Machine** panel — a live history of the timer's own state changes — docks directly beneath those controls, since a fake timer has no wire for a serial log to tail.
 
 ### Workflow
 
