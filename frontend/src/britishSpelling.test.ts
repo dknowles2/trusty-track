@@ -69,9 +69,27 @@ const WORD_PATTERN_G = new RegExp(`\\b(${WORDS.join('|')})\\b`, 'gi');
  */
 const ALLOWLIST: Record<string, string> = {};
 
+/** 1-based line number of a character offset — comments are blanked out
+ * in place (see `stripComments`/`stripNonProse` below), never removed, so
+ * an offset into the stripped string is still an offset into the original
+ * file and a reported line number lands on the real line. */
+function lineOf(src: string, index: number): number {
+    let line = 1;
+    for (let i = 0; i < index; i++) if (src.charCodeAt(i) === 10) line++;
+    return line;
+}
+
+/**
+ * Unlike `terminologyGuard.test.ts`'s own `stripComments`, this one blanks
+ * a `//` comment to spaces rather than deleting it outright — this guard's
+ * `findingsInTsx` reports a line number computed from an offset into this
+ * function's *output*, and deleting characters (as opposed to `/* … *\/`'s
+ * own same-length blanking two lines up) would shift every match after the
+ * first line comment away from its real line.
+ */
 function stripComments(src: string): string {
     src = src.replace(/\/\*[\s\S]*?\*\//g, (m) => ' '.repeat(m.length));
-    src = src.replace(/(^|\s)\/\/.*$/gm, '');
+    src = src.replace(/(^|\s)\/\/.*$/gm, (m) => ' '.repeat(m.length));
     return src;
 }
 
@@ -82,12 +100,19 @@ function stripComments(src: string): string {
  * `ThemePicker` `blurb` prop is exactly this kind of reader-facing text
  * and #1255 found British spelling living in it. */
 function findingsInTsx(src: string): string[] {
+    // `stripComments` replaces each comment's content with spaces of the
+    // same length, never removing characters, so an index into `stripped`
+    // is the identical offset into `src` — `lineOf(src, ...)` below reports
+    // against the real file rather than undercounting the newlines a
+    // multi-line comment's own blanking absorbed.
     const stripped = stripComments(src);
     const hits: string[] = [];
 
     for (const m of stripped.matchAll(/>([^<>]*)</g)) {
         const text = m[1].replace(/\s+/g, ' ').trim();
-        if (text && WORD_PATTERN.test(text)) hits.push(text.slice(0, 100));
+        if (text && WORD_PATTERN.test(text)) {
+            hits.push(`line ${lineOf(src, m.index!)}: ${text.slice(0, 100)}`);
+        }
     }
 
     for (const quote of ['"', "'"] as const) {
@@ -96,7 +121,9 @@ function findingsInTsx(src: string): string[] {
             'g',
         );
         for (const m of stripped.matchAll(re)) {
-            if (WORD_PATTERN.test(m[2])) hits.push(`${m[1]}="${m[2]}"`);
+            if (WORD_PATTERN.test(m[2])) {
+                hits.push(`line ${lineOf(src, m.index!)}: ${m[1]}="${m[2]}"`);
+            }
         }
     }
 
@@ -104,7 +131,9 @@ function findingsInTsx(src: string): string[] {
         /\b(label|placeholder|title|aria-label|blurb)\s*=\s*\{([^{}]*)\}/g,
     )) {
         const value = m[2].replace(/\s+/g, ' ').trim();
-        if (WORD_PATTERN.test(value)) hits.push(`${m[1]}={${value.slice(0, 100)}}`);
+        if (WORD_PATTERN.test(value)) {
+            hits.push(`line ${lineOf(src, m.index!)}: ${m[1]}={${value.slice(0, 100)}}`);
+        }
     }
 
     return hits;
@@ -158,12 +187,14 @@ function stripNonProse(src: string): string {
 }
 
 function findingsInProse(src: string): string[] {
+    // Length-preserving, same reasoning as `findingsInTsx`'s own comment.
     const stripped = stripNonProse(src);
     const hits: string[] = [];
     for (const m of stripped.matchAll(WORD_PATTERN_G)) {
         const start = Math.max(0, m.index! - 30);
         const end = Math.min(stripped.length, m.index! + m[0].length + 30);
-        hits.push(stripped.slice(start, end).replace(/\s+/g, ' ').trim());
+        const snippet = stripped.slice(start, end).replace(/\s+/g, ' ').trim();
+        hits.push(`line ${lineOf(src, m.index!)}: ${snippet}`);
     }
     return hits;
 }
@@ -243,19 +274,33 @@ describe('the landing page and README read American spelling (#1255)', () => {
  */
 describe('findingsInTsx and findingsInProse catch every shape this guard claims to', () => {
     it('plain JSX text', () => {
-        expect(findingsInTsx('<span>Lane Colour</span>')).toEqual(['Lane Colour']);
+        expect(findingsInTsx('<span>Lane Colour</span>')).toEqual(['line 1: Lane Colour']);
     });
 
     it('a label prop', () => {
         expect(findingsInTsx('<input label="Favourite colour" />')).toEqual([
-            'label="Favourite colour"',
+            'line 1: label="Favourite colour"',
         ]);
     });
 
     it('a blurb prop in braces', () => {
         expect(
             findingsInTsx('<ThemePicker blurb={`Pit passes and licences`} />'),
-        ).toEqual(['blurb={`Pit passes and licences`}']);
+        ).toEqual(['line 1: blurb={`Pit passes and licences`}']);
+    });
+
+    it('reports the real line number past a multi-line comment', () => {
+        const src = '/* a\nmulti\nline\ncomment */\n<span>Lane Colour</span>';
+        expect(findingsInTsx(src)).toEqual(['line 5: Lane Colour']);
+    });
+
+    it('reports the real line number past a // comment naming the word itself', () => {
+        // `// colour` used to be deleted rather than blanked, which shifted
+        // every match after it off by the deleted comment's own length —
+        // caught by the mutation test in the PR body, not by a planted case
+        // here first.
+        const src = '// this comment says colour on purpose\n\n\n<span>Lane Colour</span>';
+        expect(findingsInTsx(src)).toEqual(['line 4: Lane Colour']);
     });
 
     it('does not fire on an ordinary American screen', () => {
