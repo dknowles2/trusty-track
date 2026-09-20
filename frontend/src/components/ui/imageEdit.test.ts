@@ -7,10 +7,13 @@ import {
     deriveScale,
     fitInitialCrop,
     outputSize,
+    parseImageEdit,
+    serializeImageEdit,
     PORTRAIT_ASPECT,
     CAR_ASPECT,
     MIN_CROP_SIZE,
     type CropRect,
+    type ImageEdit,
     type Quarter,
 } from './imageEdit';
 
@@ -242,6 +245,59 @@ describe('outputSize', () => {
         const size = outputSize(crop, 100);
         expect(Number.isInteger(size.width)).toBe(true);
         expect(Number.isInteger(size.height)).toBe(true);
+    });
+});
+
+describe('serializeImageEdit / parseImageEdit', () => {
+    const edit: ImageEdit = { rotation: 90, crop: { x: 1, y: 2, width: 3, height: 4 } };
+
+    it('round-trips exactly', () => {
+        expect(parseImageEdit(serializeImageEdit(edit))).toEqual(edit);
+    });
+
+    it('is null for nothing on file', () => {
+        expect(parseImageEdit(null)).toBeNull();
+        expect(parseImageEdit(undefined)).toBeNull();
+        expect(parseImageEdit('')).toBeNull();
+    });
+
+    it('is null for a value that is not JSON at all', () => {
+        expect(parseImageEdit('not json')).toBeNull();
+        expect(parseImageEdit('{"rotation": 90,')).toBeNull();
+    });
+
+    it('is null for JSON that does not parse to an object', () => {
+        expect(parseImageEdit('42')).toBeNull();
+        expect(parseImageEdit('"a string"')).toBeNull();
+        expect(parseImageEdit('null')).toBeNull();
+        expect(parseImageEdit('[1, 2, 3]')).toBeNull();
+    });
+
+    it('is null when rotation is not one of the four quarters', () => {
+        expect(
+            parseImageEdit(JSON.stringify({ rotation: 45, crop: edit.crop })),
+        ).toBeNull();
+        expect(
+            parseImageEdit(JSON.stringify({ crop: edit.crop })),
+        ).toBeNull();
+    });
+
+    it('is null when crop is missing or malformed', () => {
+        expect(parseImageEdit(JSON.stringify({ rotation: 0 }))).toBeNull();
+        expect(
+            parseImageEdit(JSON.stringify({ rotation: 0, crop: { x: 1, y: 2 } })),
+        ).toBeNull();
+        expect(
+            parseImageEdit(
+                JSON.stringify({ rotation: 0, crop: { x: '1', y: 2, width: 3, height: 4 } }),
+            ),
+        ).toBeNull();
+    });
+
+    it('never throws on a malformed value, however it is malformed', () => {
+        for (const bad of ['{', '{}', 'undefined', '{"rotation":90,"crop":null}']) {
+            expect(() => parseImageEdit(bad)).not.toThrow();
+        }
     });
 });
 

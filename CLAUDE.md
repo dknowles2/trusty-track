@@ -198,7 +198,9 @@ RacingGroup     id, race_id, name, color, division?,
 
 Racer           id, race_id, racing_group_id?,
                 first_name, last_name, car_number, car_name, car_weight,
-                car_passed_inspection, racer_image_url, car_image_url
+                car_passed_inspection, racer_image_url, car_image_url,
+                racer_image_original_url?, car_image_original_url?,
+                racer_image_edit?, car_image_edit?
 
 Round           id, race_id, round_number, name, scheduling_strategy,
                 advancement_source, advancement_num_racers, racing_group_id?,

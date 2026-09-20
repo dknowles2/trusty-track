@@ -158,7 +158,7 @@ describe('ImageCropModal', () => {
         expect(afterLeft.height).toBeCloseTo(nudged.height, 0);
     });
 
-    it('confirm draws to a canvas and calls onConfirm with a JPEG data URL', () => {
+    it('confirm draws to a canvas and calls onConfirm with a JPEG data URL and the edit that produced it', () => {
         const ctx = fakeContext();
         vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx);
         const toDataURL = vi
@@ -182,7 +182,80 @@ describe('ImageCropModal', () => {
         expect(ctx.drawImage).toHaveBeenCalled();
         expect(toDataURL).toHaveBeenCalledWith('image/jpeg', 0.85);
         expect(onConfirm).toHaveBeenCalledTimes(1);
-        expect(onConfirm).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/jpeg/));
+        expect(onConfirm).toHaveBeenCalledWith(
+            expect.stringMatching(/^data:image\/jpeg/),
+            { rotation: 0, crop: expect.objectContaining({ width: expect.any(Number) }) },
+        );
+    });
+
+    describe('seeding from a stored edit (#1241)', () => {
+        it('applies the given rotation and crop once the photo loads, rather than the default centred crop', () => {
+            render(
+                <ImageCropModal
+                    open
+                    src={DATA_URL}
+                    aspect={PORTRAIT_ASPECT}
+                    initialRotation={90}
+                    initialCrop={{ x: 50, y: 25, width: 300, height: 300 }}
+                    onCancel={vi.fn()}
+                    onConfirm={vi.fn()}
+                />,
+            );
+            const img = loadImage(800, 600);
+
+            // 90° of an 800x600 photo rotates the stage to 600x800 — the
+            // image itself shows that rotation.
+            expect(img.style.transform).toContain('rotate(90deg)');
+
+            const cropBox = screen.getByRole('group', { name: /crop area/i });
+            const applied = readCropRect(cropBox);
+            expect(applied.x).toBeCloseTo(50, 0);
+            expect(applied.y).toBeCloseTo(25, 0);
+            expect(applied.width).toBeCloseTo(300, 0);
+            expect(applied.height).toBeCloseTo(300, 0);
+        });
+
+        it('clamps a seeded crop that no longer fits — the original on disk might have been replaced', () => {
+            render(
+                <ImageCropModal
+                    open
+                    src={DATA_URL}
+                    aspect={PORTRAIT_ASPECT}
+                    initialRotation={0}
+                    // Wildly out of bounds for the 800x600 photo this loads.
+                    initialCrop={{ x: 10000, y: 10000, width: 50, height: 50 }}
+                    onCancel={vi.fn()}
+                    onConfirm={vi.fn()}
+                />,
+            );
+            loadImage(800, 600);
+
+            const cropBox = screen.getByRole('group', { name: /crop area/i });
+            const applied = readCropRect(cropBox);
+            // Pulled back inside the 800x600 frame — never outside it —
+            // and grown to at least the minimum crop size, same as
+            // `clampCrop` guarantees anywhere else it's called.
+            expect(applied.x).toBeGreaterThanOrEqual(0);
+            expect(applied.y).toBeGreaterThanOrEqual(0);
+            expect(applied.x + applied.width).toBeLessThanOrEqual(800 + 1);
+            expect(applied.y + applied.height).toBeLessThanOrEqual(600 + 1);
+        });
+
+        it('with no seed given, falls back to the ordinary default centred crop', () => {
+            render(
+                <ImageCropModal
+                    open
+                    src={DATA_URL}
+                    aspect={PORTRAIT_ASPECT}
+                    onCancel={vi.fn()}
+                    onConfirm={vi.fn()}
+                />,
+            );
+            loadImage(800, 600);
+
+            const cropBox = screen.getByRole('group', { name: /crop area/i });
+            expect(cropBox).toHaveStyle({ width: '315px', height: '315px' });
+        });
     });
 
     it('cancel calls onCancel without confirming anything', () => {

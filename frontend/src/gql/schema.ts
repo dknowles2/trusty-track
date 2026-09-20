@@ -1391,6 +1391,8 @@ export type RaceUpdateInput = {
 };
 
 export type Racer = {
+  carImageEdit?: Maybe<Scalars['String']['output']>;
+  carImageOriginalUrl?: Maybe<Scalars['String']['output']>;
   carImageUrl?: Maybe<Scalars['String']['output']>;
   carName?: Maybe<Scalars['String']['output']>;
   carNumber?: Maybe<Scalars['Int']['output']>;
@@ -1402,12 +1404,16 @@ export type Racer = {
   id: Scalars['Int']['output'];
   lastName: Scalars['String']['output'];
   raceId: Scalars['Int']['output'];
+  racerImageEdit?: Maybe<Scalars['String']['output']>;
+  racerImageOriginalUrl?: Maybe<Scalars['String']['output']>;
   racerImageUrl?: Maybe<Scalars['String']['output']>;
   racingGroup?: Maybe<RacingGroup>;
   racingGroupId?: Maybe<Scalars['Int']['output']>;
 };
 
 export type RacerInput = {
+  carImageEdit?: InputMaybe<Scalars['String']['input']>;
+  carImageOriginalUrl?: InputMaybe<Scalars['String']['input']>;
   carImageUrl?: InputMaybe<Scalars['String']['input']>;
   carName?: InputMaybe<Scalars['String']['input']>;
   carNumber?: InputMaybe<Scalars['Int']['input']>;
@@ -1425,6 +1431,8 @@ export type RacerInput = {
   homeUnit?: InputMaybe<Scalars['String']['input']>;
   lastName: Scalars['String']['input'];
   raceId?: InputMaybe<Scalars['Int']['input']>;
+  racerImageEdit?: InputMaybe<Scalars['String']['input']>;
+  racerImageOriginalUrl?: InputMaybe<Scalars['String']['input']>;
   racerImageUrl?: InputMaybe<Scalars['String']['input']>;
   racingGroupId?: InputMaybe<Scalars['Int']['input']>;
 };

@@ -1168,10 +1168,18 @@ def write_imported_roster(
     return count
 
 
-#: The two photo fields `update_racer` validates against the racer's own
+#: The photo fields `update_racer` validates against the racer's own
 #: current value rather than unconditionally (#879) — see
-#: `_validate_photo_url_change` below.
-_PHOTO_URL_FIELDS = ("racer_image_url", "car_image_url")
+#: `_validate_photo_url_change` below. The original pair (#1241) gets the
+#: identical treatment for the identical reason: an old racer's stored
+#: original predates this validator too, and re-sending it unchanged on
+#: every save must not refuse the save.
+_PHOTO_URL_FIELDS = (
+    "racer_image_url",
+    "car_image_url",
+    "racer_image_original_url",
+    "car_image_original_url",
+)
 
 
 def _validate_photo_url_change(
@@ -1241,6 +1249,14 @@ def bulk_assign_racer_photos(
     on `updateRacer`: it is rendered on public, unauthenticated audience
     surfaces, and only a path this app's own upload endpoint produced
     belongs there.
+
+    An assigned photo was never cropped through this app — it is a file the
+    operator picked off disk for this racer, the same shape as an ordinary
+    file-picker upload — so the derived URL is the only thing set; the
+    matching original and edit are explicitly nulled (#1241), in case this
+    assignment is replacing a photo that *had* crop history. Leaving a stale
+    original in place would let a later Rotate / Recrop reopen on a photo
+    that has nothing to do with the one just assigned.
     """
     count = 0
     for a in assignments:
@@ -1250,9 +1266,17 @@ def bulk_assign_racer_photos(
         if not racer_id or not url or not is_valid_photo_url(url):
             continue
         if photo_type == "racer":
-            update = schemas.RacerUpdate(racer_image_url=url)
+            update = schemas.RacerUpdate(
+                racer_image_url=url,
+                racer_image_original_url=None,
+                racer_image_edit=None,
+            )
         elif photo_type == "car":
-            update = schemas.RacerUpdate(car_image_url=url)
+            update = schemas.RacerUpdate(
+                car_image_url=url,
+                car_image_original_url=None,
+                car_image_edit=None,
+            )
         else:
             continue
         if update_racer(db, racer_id, update):

@@ -67,6 +67,50 @@ def test_the_default_photo_type_is_the_racer(db):
     assert racer.racer_image_url == "/static/face.png"
 
 
+def test_assigning_a_photo_clears_any_prior_crop_history_on_that_side(db):
+    """An assigned photo was never cropped through this app (#1241) — if it
+    is replacing a photo that *had* crop history, the stale original and
+    edit must not survive, or a later Rotate / Recrop would reopen on a
+    photo unrelated to the one just assigned."""
+    _, (racer, _) = _race_with_racers(db)
+    racer.racer_image_url = "/static/old-cropped.png"
+    racer.racer_image_original_url = "/static/old-original.png"
+    racer.racer_image_edit = (
+        '{"rotation": 180, "crop": {"x": 0, "y": 0, "width": 1, "height": 1}}'
+    )
+    racer.car_image_url = "/static/old-car-cropped.png"
+    racer.car_image_original_url = "/static/old-car-original.png"
+    racer.car_image_edit = (
+        '{"rotation": 90, "crop": {"x": 0, "y": 0, "width": 1, "height": 1}}'
+    )
+    db.commit()
+
+    count = crud.bulk_assign_racer_photos(
+        db,
+        [
+            {
+                "racer_id": racer.id,
+                "url": "/static/assigned-face.png",
+                "photo_type": "racer",
+            },
+            {
+                "racer_id": racer.id,
+                "url": "/static/assigned-car.png",
+                "photo_type": "car",
+            },
+        ],
+    )
+
+    assert count == 2
+    db.refresh(racer)
+    assert racer.racer_image_url == "/static/assigned-face.png"
+    assert racer.racer_image_original_url is None
+    assert racer.racer_image_edit is None
+    assert racer.car_image_url == "/static/assigned-car.png"
+    assert racer.car_image_original_url is None
+    assert racer.car_image_edit is None
+
+
 def test_malformed_entries_are_skipped_not_counted(db):
     """The count is what the screen reports back to the operator — an entry
     that changed nothing must not inflate it."""

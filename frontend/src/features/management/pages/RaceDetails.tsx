@@ -182,6 +182,10 @@ export default function RaceDetails() {
       car_weight: r.carWeight ?? undefined,
       racer_image_url: r.racerImageUrl ?? undefined,
       car_image_url: r.carImageUrl ?? undefined,
+      racer_image_original_url: r.racerImageOriginalUrl ?? undefined,
+      car_image_original_url: r.carImageOriginalUrl ?? undefined,
+      racer_image_edit: r.racerImageEdit ?? undefined,
+      car_image_edit: r.carImageEdit ?? undefined,
       excluded_from_standings: r.excludedFromStandings,
       home_unit: r.homeUnit ?? undefined,
     }));
@@ -583,6 +587,16 @@ export default function RaceDetails() {
           carWeight: formData.car_weight ?? null,
           racerImageUrl: formData.racer_image_url || null,
           carImageUrl: formData.car_image_url || null,
+          // The original and the crop that produced the current image
+          // (#1241). Sent whenever the image URL is, because the resolver
+          // treats an image URL arriving *without* its pairing as a plain
+          // upload and resets the pairing; absent means "leave alone" for
+          // these exactly as for every other field here, so a caller that
+          // sends neither the image nor its pairing touches none of them.
+          racerImageOriginalUrl: formData.racer_image_original_url || null,
+          carImageOriginalUrl: formData.car_image_original_url || null,
+          racerImageEdit: formData.racer_image_edit || null,
+          carImageEdit: formData.car_image_edit || null,
           excludedFromStandings: formData.excluded_from_standings,
           homeUnit: formData.home_unit || null,
           raceId: parsedRaceId,

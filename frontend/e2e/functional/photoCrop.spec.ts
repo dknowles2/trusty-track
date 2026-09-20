@@ -355,5 +355,133 @@ for (const viewport of [
                 'rotating back left should return the crop to the left edge',
             ).toBeLessThanOrEqual(5);
         });
+
+        test('a saved crop is non-destructive: reopening shows the original, pre-cropped at the same place, and a loosened crop persists too (#1241)', async ({ page }) => {
+            const { raceId } = await seedRacerWithPhoto(page, `Crop Loosen ${viewport.width}`);
+            const form = page.getByRole('dialog', { name: 'Racer Check In' });
+            const preview = form.getByAltText('Racer');
+
+            const modal = await openCropModal(page, raceId);
+            const box = modal.getByRole('group', { name: /crop area/i });
+            const stage = modal.getByTestId('image-crop-stage');
+            await expect(box).toBeVisible();
+
+            // Crop tightly: drag the SE handle a long way in toward the
+            // fixed (nw) corner, the same technique the resize test above
+            // uses.
+            const beforeTighten = await settledBoundingBox(box);
+            let seHandle = box.locator('> div').nth(3);
+            let handleBox = await seHandle.boundingBox();
+            if (!handleBox) throw new Error('se handle has no layout');
+            await dragBy(page, handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2, -120, -120);
+
+            const tight = await settledBoundingBox(box);
+            expect(tight.width, 'the SE drag should have shrunk the box well below its start').toBeLessThan(
+                beforeTighten.width - 40,
+            );
+            const stageAtTighten = await stage.boundingBox();
+            if (!stageAtTighten) throw new Error('stage has no layout');
+            // Recorded relative to the stage, not the viewport — `Modal.tsx`
+            // centres its content, so the stage itself can sit at a
+            // different screen position once it reopens (the box's own
+            // bounding box does not have to be at the identical viewport
+            // coordinates, only the identical position *within the photo*).
+            const tightRelative = {
+                x: tight.x - stageAtTighten.x,
+                y: tight.y - stageAtTighten.y,
+                width: tight.width,
+                height: tight.height,
+            };
+
+            const originalPreviewSrc = await preview.getAttribute('src');
+            await modal.getByRole('button', { name: 'Save changes' }).click();
+            await expect(modal).not.toBeVisible();
+            // The recrop upload is asynchronous (`recropUpload` in
+            // `RacerForm.tsx`) — the roster preview's own `src` is what
+            // confirms it has landed, the same signal
+            // `RacerFormRotate.test.tsx` waits on at the unit level.
+            await expect(preview).not.toHaveAttribute('src', originalPreviewSrc ?? '');
+
+            // Reopen — same button, same still-open Check In form, no
+            // navigation in between.
+            await form.getByRole('button', { name: /rotate \/ recrop/i }).click();
+            const reopened = page.getByRole('dialog', { name: /rotate \/ recrop photo/i });
+            await expect(reopened).toBeVisible();
+            await reopened.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+
+            // The stage shows the *original* 900x600 photo, not the tightly
+            // cropped derived image — a browser decodes the real file here,
+            // so its natural size is the actual evidence, not a claim about
+            // which URL loaded.
+            const stagePhoto = reopened.locator('img[alt="Photo being cropped"]');
+            await expect(stagePhoto).toBeVisible();
+            const naturalSize = await stagePhoto.evaluate((img: HTMLImageElement) => [
+                img.naturalWidth,
+                img.naturalHeight,
+            ]);
+            expect(naturalSize, 'the stage should be showing the original, not the cropped result').toEqual([
+                900, 600,
+            ]);
+
+            const reopenedBox = reopened.getByRole('group', { name: /crop area/i });
+            const reopenedStage = reopened.getByTestId('image-crop-stage');
+            await expect(reopenedBox).toBeVisible();
+            const preApplied = await settledBoundingBox(reopenedBox);
+            const reopenedStageBox = await reopenedStage.boundingBox();
+            if (!reopenedStageBox) throw new Error('stage has no layout');
+            const preAppliedRelative = {
+                x: preApplied.x - reopenedStageBox.x,
+                y: preApplied.y - reopenedStageBox.y,
+                width: preApplied.width,
+                height: preApplied.height,
+            };
+            expect(
+                Math.abs(preAppliedRelative.x - tightRelative.x),
+                'the crop box should reopen at the same left offset it was left at',
+            ).toBeLessThanOrEqual(5);
+            expect(
+                Math.abs(preAppliedRelative.y - tightRelative.y),
+                'the crop box should reopen at the same top offset it was left at',
+            ).toBeLessThanOrEqual(5);
+            expect(
+                Math.abs(preAppliedRelative.width - tightRelative.width),
+                'the crop box should reopen at the same width it was left at',
+            ).toBeLessThanOrEqual(5);
+
+            // Now loosen it — drag the SE handle back out, recovering some
+            // of what the tight crop above cut off. This is the whole
+            // point: a crop that was too tight the first time can be
+            // undone, which was impossible before #1241 (the modal used to
+            // reopen on the already-cropped result, with nothing outside
+            // its edges left to drag back into view).
+            seHandle = reopenedBox.locator('> div').nth(3);
+            handleBox = await seHandle.boundingBox();
+            if (!handleBox) throw new Error('se handle has no layout');
+            await dragBy(page, handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2, 150, 150);
+            const loosened = await settledBoundingBox(reopenedBox);
+            expect(loosened.width, 'dragging the SE handle out should grow the box past the tight crop').toBeGreaterThan(
+                preAppliedRelative.width + 40,
+            );
+
+            const previewSrcBeforeSecondSave = await preview.getAttribute('src');
+            await reopened.getByRole('button', { name: 'Save changes' }).click();
+            await expect(reopened).not.toBeVisible();
+            await expect(preview).not.toHaveAttribute('src', previewSrcBeforeSecondSave ?? '');
+
+            // Reopen a third time — the loosened size is what comes back,
+            // not the tight one from the first save.
+            await form.getByRole('button', { name: /rotate \/ recrop/i }).click();
+            const reopenedAgain = page.getByRole('dialog', { name: /rotate \/ recrop photo/i });
+            await expect(reopenedAgain).toBeVisible();
+            await reopenedAgain.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+
+            const finalBox = reopenedAgain.getByRole('group', { name: /crop area/i });
+            await expect(finalBox).toBeVisible();
+            const finalCrop = await settledBoundingBox(finalBox);
+            expect(
+                finalCrop.width,
+                'the loosened crop should be what reopens, not the original tight one',
+            ).toBeGreaterThan(tight.width + 30);
+        });
     });
 }

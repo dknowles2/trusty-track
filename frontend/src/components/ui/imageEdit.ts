@@ -25,6 +25,67 @@ export type Quarter = 0 | 90 | 180 | 270;
 
 export type RotationDirection = 'left' | 'right';
 
+/**
+ * What a crop *is* — a rotation plus the crop rectangle it was applied
+ * with, in the rotated image's own pixel space (#1241). This is exactly the
+ * state {@link ../ImageCropModal.tsx | ImageCropModal} already holds in
+ * `rotation`/`crop`, so it needs no conversion on the way in (seeding the
+ * modal from a stored edit) or out (`onConfirm` reporting one): "set
+ * rotation, then set crop" reproduces the modal's own state exactly.
+ *
+ * Stored server-side as JSON the server never interprets
+ * (`Racer.racerImageEdit`/`carImageEdit`) — {@link serializeImageEdit} and
+ * {@link parseImageEdit} are the only two functions that read or write that
+ * shape, so there is one place to change it.
+ */
+export interface ImageEdit {
+    rotation: Quarter;
+    crop: CropRect;
+}
+
+function isQuarter(value: unknown): value is Quarter {
+    return value === 0 || value === 90 || value === 180 || value === 270;
+}
+
+function isCropRect(value: unknown): value is CropRect {
+    if (typeof value !== 'object' || value === null) return false;
+    const rect = value as Record<string, unknown>;
+    return (
+        typeof rect.x === 'number' &&
+        typeof rect.y === 'number' &&
+        typeof rect.width === 'number' &&
+        typeof rect.height === 'number'
+    );
+}
+
+/**
+ * Read a stored `racerImageEdit`/`carImageEdit` value back into an
+ * {@link ImageEdit} — tolerant of everything that is not one, since a
+ * malformed or unrecognised value must never stop the crop modal from
+ * opening. `null`/`undefined` (nothing on file yet, or a racer that
+ * predates #1241), a parse failure, and a value that parses but is not
+ * shaped like an `ImageEdit` all answer `null` alike; nothing here throws.
+ */
+export function parseImageEdit(json: string | null | undefined): ImageEdit | null {
+    if (!json) return null;
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(json);
+    } catch {
+        return null;
+    }
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const candidate = parsed as Record<string, unknown>;
+    if (!isQuarter(candidate.rotation) || !isCropRect(candidate.crop)) return null;
+    return { rotation: candidate.rotation, crop: candidate.crop };
+}
+
+/** The inverse of {@link parseImageEdit} — a plain `JSON.stringify`, kept
+ * as its own function so nothing else in the tree hand-rolls the shape. */
+export function serializeImageEdit(edit: ImageEdit): string {
+    return JSON.stringify(edit);
+}
+
 /** Square — fits every avatar and the pit pass's circular portrait. */
 export const PORTRAIT_ASPECT = 1;
 
