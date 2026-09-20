@@ -155,7 +155,7 @@ itself is numbered on the wall, every result lands on the wrong car — lane
 1's time is reported for the car in lane 4, and so on.
 
 Tick **The timer's cable is wired backwards** on the track's card, under
-**The timer**, instead of rewiring the timer or renumbering the track. It
+**Timer**, instead of rewiring the timer or renumbering the track. It
 flips every result the timer reports for that track, so lane 1 on the wall
 matches lane 1 on the results the moment it is turned on — no need to
 re-run anything already recorded correctly. Off by default; existing

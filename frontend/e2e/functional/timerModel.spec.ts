@@ -106,3 +106,46 @@ test('a timer model can be chosen, and the undetectable one is marked', async ({
         // undetectable one, would still satisfy toBeTruthy().
         .toBe(chosen.value);
 });
+
+test('a newly added track is titled Track N until named, and retitles live as you type (#1251)', async ({ page }) => {
+    await ensureConfigured(page);
+
+    await page.goto('/system-settings');
+    await page.waitForLoadState('networkidle');
+    await page.getByTestId('settings-nav-tracks').click();
+
+    // Tracks are global state, so the shared backend can already hold any
+    // number of them by the time this runs beside other specs — the new
+    // card's fallback title is `Track ${n}` where `n` is its own 1-based
+    // position, not literally "Track 2". Read the count that is actually
+    // there rather than assuming one.
+    const cards = page.getByTestId(/track-card-\d+/);
+    const countBefore = await cards.count();
+
+    await page.getByRole('button', { name: '+ Add Another Track' }).click();
+    await expect(cards).toHaveCount(countBefore + 1);
+
+    // The newly added card is the last one on the page — `addTrack` appends
+    // rather than inserting — and `TrackCard`'s own fallback (`track.name.
+    // trim() || \`Track ${index + 1}\``) agrees with the same number
+    // `addTrack` itself pre-fills the Track Name box with, so the two never
+    // disagree in practice; this test still reads the title through its own
+    // testid, not the input, so it fails if that ever stops being true.
+    const newCard = cards.nth(countBefore);
+    const title = newCard.getByTestId(/track-card-title-\d+/);
+    const expectedFallback = `Track ${countBefore + 1}`;
+    await expect(title).toHaveText(expectedFallback);
+
+    // Typing a name retitles the card live — it is derived from the same
+    // state the Track Name input holds, no separate mutation or round trip.
+    const nameInput = newCard.locator('input[id^="track-name-"]');
+    await nameInput.fill('Regatta Lane');
+    await expect(title).toHaveText('Regatta Lane');
+
+    // Clearing the name back to blank falls back to the same Track N text.
+    await nameInput.fill('');
+    await expect(title).toHaveText(expectedFallback);
+
+    // Never saved — this track never reaches the database, so it leaves
+    // nothing behind for another spec's shared-track assumptions to trip on.
+});

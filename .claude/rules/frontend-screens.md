@@ -191,11 +191,22 @@ not exist until the tracks query has answered. The nav's general link stays:
 before the first save a track has no id to point at, and the docs name that
 route in two places.
 
-A track's card is `TrackCard.tsx`, split under **The track** and **The timer** —
-it was 200 lines of JSX inside a `.map()` with nothing saying which controls
-were about the track and which about the device at the end of it. Lanes in
-service and track records still save on click rather than on **Save Settings**,
-and still say so.
+A track's card is `TrackCard.tsx`. It used to open with two subheadings,
+"The track" and "The timer", splitting 200 lines of JSX that had been inside a
+`.map()` with nothing saying which controls were about the track and which
+about the device at the end of it — the split was right, but the first
+subheading was doing two jobs at once: labelling a group of fields *and*
+standing in for the card's own identity, and with two tracks both cards said
+"The track", so nothing told them apart until you had scrolled past the
+heading to read the name box underneath it ([#1251](https://github.com/dknowles2/trusty-track/issues/1251)).
+The card's first line is now its own title — the track's own name, live from
+the Track Name input, falling back to **Track {n}** (1-based, `track-card-
+title-{index}`) while that box is blank — and everything from Track Name down
+to lanes in service follows with no subheading of its own, since a titled
+card no longer needs one to say what it's about. One divider is left,
+**Timer** (still `track-timer`), ahead of the transport, model, serial port,
+remote start and historical records. Lanes in service and track records still
+save on click rather than on **Save Settings**, and still say so.
 
 **Advanced is the last form section, not folded into Backup** ([#659](https://github.com/dknowles2/trusty-track/issues/659)).
 Debugging Mode used to sit at the foot of General, which put it near the
