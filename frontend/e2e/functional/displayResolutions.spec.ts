@@ -33,9 +33,19 @@
  * own test for why that one is scoped to 800×600):
  *   1. No horizontal overflow — `document.documentElement.scrollWidth <=
  *      clientWidth`.
- *   2. No element clipped or silently overflowing where it should not be —
- *      swept generically across every element on the page, with one named
- *      exemption (see `STANDINGS_SCROLLER_SELECTOR` below).
+ *   2. No element clips a descendant — swept generically across every
+ *      element on the page, with one named exemption (see
+ *      `STANDINGS_SCROLLER_SELECTOR` below). Decided by geometry, not by
+ *      `scrollHeight` vs `clientHeight`: those two numbers only flag a
+ *      *candidate*, confirmed only when some descendant's own rendered box
+ *      actually falls outside the element's border box (`getBoundingClientRect`; no measured wrapper carries a bottom or right border, so the two coincide) by more than 1px
+ *      (`verticalOverflowFailures`). A `scrollHeight` a pixel or two past
+ *      `clientHeight` with every child still fully inside is sub-pixel
+ *      accumulation of table-row line boxes, not a clip — see that
+ *      function's own comment and [#1273](https://github.com/dknowles2/trusty-track/issues/1273)
+ *      for the CI run this was found on (a Standings wrapper measured
+ *      scrollHeight=404/clientHeight=402, failed 3/3 on one runner, then
+ *      passed 109/109 on a re-run of the identical commit).
  *   3. No two sibling cards/rows overlapping, per view.
  *   4. Every element whose *own* text is a racer's name, a car number, a
  *      place, or a time renders at a computed `font-size` of at least 2% of
@@ -75,6 +85,93 @@ const VIEWPORTS = [
  * whole mechanism, not a bug.
  */
 const STANDINGS_SCROLLER_SELECTOR = '[data-testid="standings-only-view"]';
+
+/**
+ * "Clips its content" is decided by geometry, not by `scrollHeight`
+ * exceeding `clientHeight` — that comparison is only a cheap candidate
+ * filter, kept so the (more expensive) geometry walk below only runs on
+ * elements it flags. `scrollHeight` is the height of an element's own *line
+ * boxes*, and a browser can round those independently of the *rendered*
+ * position of the child that produced them, so the two scalars can disagree
+ * by a pixel or two with every child still fully inside the box — invisible
+ * on screen, because nothing is actually being cropped. That is exactly
+ * what happened on CI for [#1273](https://github.com/dknowles2/trusty-track/issues/1273):
+ * a `.standings-table-wrapper` holding nothing but table rows of bare text
+ * measured `scrollHeight=404 clientHeight=402` — one pixel past the old
+ * tolerance — failed 3/3 on one runner (the initial attempt and both
+ * Playwright retries, same two numbers each time), then passed 109/109 on a
+ * re-run of the byte-identical commit on a different runner. The confirming
+ * question this function actually asks is "does any descendant's own
+ * rendered box fall outside this element's border box" — the literal
+ * meaning of "clips its content" — via `getBoundingClientRect()` on the
+ * element and every descendant, comparing the child's `bottom`/`right`
+ * against the parent's own, rather than trusting `scrollHeight` to answer
+ * that on its own.
+ *
+ * Module-level (not nested in the main `test.describe` below) so the
+ * synthetic cases at the bottom of this file — a fresh `page.setContent`
+ * page, not the seeded race — can call the exact function under test
+ * rather than a hand-copied stand-in that could quietly drift from it.
+ */
+async function verticalOverflowFailures(page: Page): Promise<string[]> {
+    return page.evaluate(({ exemptSelector }) => {
+        const bad: string[] = [];
+        document.querySelectorAll<HTMLElement>('body *').forEach((el) => {
+            if (el.closest(exemptSelector)) return;
+            if (el.scrollHeight <= el.clientHeight + 1) return;
+            if (el.clientHeight === 0) return;
+            const style = getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden') return;
+            // `scrollHeight` exceeding `clientHeight` only means content is
+            // a *candidate* for being clipped when this element's own
+            // overflow is restrictive (`hidden`/`auto`/`scroll`/`clip`).
+            // With the default `visible`, nothing is cropped regardless of
+            // what the geometry walk below would find.
+            const restrictiveY = /(hidden|auto|scroll|clip)/.test(style.overflowY);
+            const restrictiveX = /(hidden|auto|scroll|clip)/.test(style.overflowX);
+            if (!restrictiveY && !restrictiveX) return;
+
+            // Confirm the candidate by geometry: walk every descendant and
+            // find the worst one actually poking outside this element's own
+            // box, on whichever axis is restrictive here. Skips
+            // `display: none` and zero-size descendants — neither occupies
+            // any rendered box to fall outside of anything.
+            const box = el.getBoundingClientRect();
+            let worstOvershoot = 0;
+            let worstDescriptor = '';
+            el.querySelectorAll<HTMLElement>('*').forEach((child) => {
+                const childStyle = getComputedStyle(child);
+                if (childStyle.display === 'none') return;
+                const childBox = child.getBoundingClientRect();
+                if (childBox.width === 0 && childBox.height === 0) return;
+                const childLabel = `${child.tagName}.${String(child.className).replace(/\s+/g, '.')}`;
+                if (restrictiveY) {
+                    const overshoot = childBox.bottom - box.bottom;
+                    if (overshoot > worstOvershoot) {
+                        worstOvershoot = overshoot;
+                        worstDescriptor = `${childLabel} overshoots the bottom edge by ${overshoot.toFixed(1)}px`;
+                    }
+                }
+                if (restrictiveX) {
+                    const overshoot = childBox.right - box.right;
+                    if (overshoot > worstOvershoot) {
+                        worstOvershoot = overshoot;
+                        worstDescriptor = `${childLabel} overshoots the right edge by ${overshoot.toFixed(1)}px`;
+                    }
+                }
+            });
+            // A 1px tolerance here too — the same sub-pixel rounding that
+            // produces the scrollHeight/clientHeight mismatch also shows up
+            // directly in a rect comparison occasionally.
+            if (worstOvershoot <= 1) return;
+
+            bad.push(
+                `${el.tagName}.${String(el.className).replace(/\s+/g, '.')} clips its content: scrollHeight=${el.scrollHeight} clientHeight=${el.clientHeight} — ${worstDescriptor}`,
+            );
+        });
+        return bad;
+    }, { exemptSelector: STANDINGS_SCROLLER_SELECTOR });
+}
 
 /** Elements exempt from the legibility floor — see this file's own header
  * comment for why each one is operator-only rather than audience-facing. */
@@ -415,34 +512,6 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
         );
     }
 
-    async function verticalOverflowFailures(page: Page): Promise<string[]> {
-        return page.evaluate(({ exemptSelector }) => {
-            const bad: string[] = [];
-            document.querySelectorAll<HTMLElement>('body *').forEach((el) => {
-                if (el.closest(exemptSelector)) return;
-                if (el.scrollHeight <= el.clientHeight + 1) return;
-                if (el.clientHeight === 0) return;
-                const style = getComputedStyle(el);
-                if (style.display === 'none' || style.visibility === 'hidden') return;
-                // `scrollHeight` exceeding `clientHeight` only means content
-                // is actually being *clipped* when this element's own
-                // overflow is restrictive (`hidden`/`auto`/`scroll`/`clip`).
-                // With the default `visible`, nothing is cropped — the two
-                // numbers can still disagree for a flex/table box holding
-                // nothing but a short text run (a rounding artifact of how a
-                // browser computes a flex item's content height for bare
-                // text versus the line box `scrollHeight` reports), and that
-                // mismatch is invisible on screen because there is no clip
-                // region to fall outside of.
-                if (!/(hidden|auto|scroll|clip)/.test(style.overflowY) && !/(hidden|auto|scroll|clip)/.test(style.overflowX)) return;
-                bad.push(
-                    `${el.tagName}.${String(el.className).replace(/\s+/g, '.')} clips its content: scrollHeight=${el.scrollHeight} clientHeight=${el.clientHeight}`,
-                );
-            });
-            return bad;
-        }, { exemptSelector: STANDINGS_SCROLLER_SELECTOR });
-    }
-
     async function overlapFailures(page: Page, selector: string): Promise<string[]> {
         const boxes = await page.locator(selector).evaluateAll((els) =>
             els.map((el) => {
@@ -474,6 +543,25 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
         page: Page,
         opts: { fullScreen: boolean; overlapSelectors?: readonly string[]; racerNames?: readonly string[] },
     ): Promise<void> {
+        // Wait for the bundled webfonts to finish their `font-display: swap`
+        // swap before measuring anything below — found chasing #1273 itself.
+        // The geometric confirmation in `verticalOverflowFailures` is
+        // correct as far as it goes, but reproducing the flake locally (see
+        // the PR this landed in) turned up a *second*, genuine cause behind
+        // the same 404/402 numbers: while the Standings table is still
+        // showing its fallback system font, its rows measure taller than
+        // they do once the real font swaps in, which can push the table's
+        // own rendered box a couple of pixels past the wrapper's clip box —
+        // a real, if momentary and self-correcting, overshoot the new check
+        // is right to catch in that instant. `documentation.md`'s "The font
+        // wait closed the one gap that made the *machine* matter" already
+        // diagnosed this exact class of bug for the doc screenshots (#821);
+        // this spec measures layout instead of pixels, but the underlying
+        // race — a browser that has never fetched this font before losing
+        // the swap on a cold run — is the same one, and `document.fonts.ready`
+        // is the same fix. Reproduced 2 failures in 6 full-file local runs
+        // without this wait and 0 in 6 with it.
+        await page.evaluate(() => document.fonts.ready);
         const overflow = await page.evaluate(() => ({
             scrollWidth: document.documentElement.scrollWidth,
             clientWidth: document.documentElement.clientWidth,
@@ -910,5 +998,62 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             await expect(page.getByTestId('race-finished-overlay')).toBeVisible({ timeout: 10000 });
             await assertCleanRender(page, { fullScreen: true });
         });
+    });
+});
+
+/**
+ * Pins the geometric check in `verticalOverflowFailures` directly, against
+ * a synthetic `page.setContent` page rather than the seeded race — this is
+ * the gate that survives the real observation views changing shape, and
+ * the three cases the #1273 mutation-test paragraph asks for. Fixed pixel
+ * heights throughout, no text, so nothing here depends on font rasterising
+ * differently between machines the way the original flake did.
+ *
+ * Case 1 reproduces the #1273 shape exactly: a `::after` pseudo-element
+ * (rendered, so it inflates `scrollHeight`, but never reachable by
+ * `querySelectorAll('*')`, so the geometry walk finds no real descendant to
+ * blame) pushes `scrollHeight` 2px past `clientHeight` while the one real
+ * child stays fully inside — the old `scrollHeight <= clientHeight + 1`
+ * check alone would have passed this at 1px of tolerance and failed it at
+ * 2px; the new check passes it regardless, because nothing is clipped.
+ */
+test.describe('verticalOverflowFailures — synthetic cases (#1273)', () => {
+    test('a scrollHeight/clientHeight mismatch with every child inside is not a clip', async ({ page }) => {
+        await page.setContent(`
+            <style>
+                .wrap { width: 200px; height: 50px; overflow: hidden; }
+                .wrap::after { content: ''; display: block; height: 4px; }
+                .child { height: 48px; }
+            </style>
+            <div class="wrap"><div class="child"></div></div>
+        `);
+        const bad = await verticalOverflowFailures(page);
+        expect(bad, bad.join('\n')).toEqual([]);
+    });
+
+    test('a child genuinely outside an overflow:hidden box is flagged, naming it', async ({ page }) => {
+        await page.setContent(`
+            <style>
+                .wrap { width: 200px; height: 50px; overflow: hidden; }
+                .offender { height: 55px; }
+            </style>
+            <div class="wrap"><div class="offender"></div></div>
+        `);
+        const bad = await verticalOverflowFailures(page);
+        expect(bad.length, bad.join('\n')).toBe(1);
+        expect(bad[0]).toContain('DIV.wrap clips its content');
+        expect(bad[0]).toContain('DIV.offender overshoots the bottom edge by 5.0px');
+    });
+
+    test('the identical child inside an overflow:visible box is not a clip', async ({ page }) => {
+        await page.setContent(`
+            <style>
+                .wrap { width: 200px; height: 50px; overflow: visible; }
+                .offender { height: 55px; }
+            </style>
+            <div class="wrap"><div class="offender"></div></div>
+        `);
+        const bad = await verticalOverflowFailures(page);
+        expect(bad, bad.join('\n')).toEqual([]);
     });
 });
