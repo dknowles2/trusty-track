@@ -278,5 +278,70 @@ for (const viewport of [
             expect(after.x).toBe(before.x);
             expect(after.y).toBe(before.y);
         });
+
+        test('rotating carries the crop with the photo instead of resetting it (#1240)', async ({ page }) => {
+            const { raceId } = await seedRacerWithPhoto(page, `Crop Rotate ${viewport.width}`);
+            const modal = await openCropModal(page, raceId);
+            const box = modal.getByRole('group', { name: /crop area/i });
+            const stage = modal.getByTestId('image-crop-stage');
+            await expect(box).toBeVisible();
+
+            // The square racer crop against this 900x600 photo already
+            // fills the stage's full height (`fitInitialCrop` maximizes it,
+            // same reasoning as the move test above) — the only room to
+            // drag is horizontal, so "a corner" here is the left or right
+            // edge, flush top to bottom, rather than a single point.
+            const beforeDrag = await settledBoundingBox(box);
+            const startX = beforeDrag.x + beforeDrag.width / 2;
+            const startY = beforeDrag.y + beforeDrag.height / 2;
+            // The natural 300px of horizontal room is exactly half the
+            // natural 600px crop width — dragging by more than half the
+            // box's own (scaled) width overshoots the available slack in
+            // either viewport, and `clampCrop` pins the box at the wall
+            // rather than letting it run off the stage.
+            await dragBy(page, startX, startY, -beforeDrag.width * 0.6, 0);
+
+            const leftFlush = await settledBoundingBox(box);
+            const stageAfterDrag = await stage.boundingBox();
+            if (!stageAfterDrag) throw new Error('stage has no layout');
+            expect(
+                leftFlush.x - stageAfterDrag.x,
+                'dragged fully left should sit flush against the left edge',
+            ).toBeLessThanOrEqual(5);
+
+            await modal.getByRole('button', { name: /rotate right/i }).click();
+
+            // Position is read relative to the stage, not the viewport:
+            // rotating swaps the stage's own displayed width and height
+            // (900x600 becomes 600x900), and `Modal.tsx` centres its
+            // content in the viewport, so the stage itself moves on screen
+            // even though nothing about the crop selection has.
+            const afterRight = await settledBoundingBox(box);
+            const stageAfterRight = await stage.boundingBox();
+            if (!stageAfterRight) throw new Error('stage has no layout');
+            // A clockwise turn maps "flush left" to "flush top" — see
+            // `rotateCrop`'s own doc comment in `imageEdit.ts` for the
+            // centre-mapping formula. The mutation this guards against
+            // (`fitInitialCrop` on rotate) would centre the box instead —
+            // at roughly half the stage's remaining slack, well past the
+            // threshold below.
+            const slackAfterRight = stageAfterRight.height - afterRight.height;
+            const offsetAfterRight = afterRight.y - stageAfterRight.y;
+            expect(
+                offsetAfterRight,
+                'rotating right should carry the drag to the top edge, not reset to centred',
+            ).toBeLessThanOrEqual(slackAfterRight * 0.4);
+
+            // Rotate back: the crop should return to the left edge it was
+            // dragged to, not the (now landscape-again) default centre.
+            await modal.getByRole('button', { name: /rotate left/i }).click();
+            const afterLeft = await settledBoundingBox(box);
+            const stageAfterLeft = await stage.boundingBox();
+            if (!stageAfterLeft) throw new Error('stage has no layout');
+            expect(
+                afterLeft.x - stageAfterLeft.x,
+                'rotating back left should return the crop to the left edge',
+            ).toBeLessThanOrEqual(5);
+        });
     });
 }

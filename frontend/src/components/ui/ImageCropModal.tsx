@@ -5,6 +5,7 @@ import {
     deriveScale,
     fitInitialCrop,
     outputSize,
+    rotateCrop,
     rotateQuarter,
     rotatedSize,
     MIN_CROP_SIZE,
@@ -192,10 +193,14 @@ export default function ImageCropModal({
     };
 
     const handleRotate = (direction: RotationDirection) => {
-        if (!imageSize) return;
+        if (!imageSize || !rotated || !crop) return;
         const next = rotateQuarter(rotation, direction);
         setRotation(next);
-        setCrop(fitInitialCrop(rotatedSize(imageSize, next), aspect));
+        // `rotated` is the size `crop` is currently expressed in — the
+        // display size at the rotation on screen right now, not the
+        // original photo — which is what `rotateCrop` needs to turn the
+        // existing selection rather than resetting it (#1240).
+        setCrop(rotateCrop(crop, rotated, direction, aspect));
     };
 
     const toNatural = useCallback(
@@ -346,6 +351,7 @@ export default function ImageCropModal({
         <Modal isOpen={open} onClose={onCancel} title={title} maxWidth="500px">
             <div
                 ref={containerRef}
+                data-testid="image-crop-stage"
                 style={{
                     position: 'relative',
                     width: displayW,
