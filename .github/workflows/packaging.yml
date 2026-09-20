@@ -57,10 +57,22 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
 
-      # Unsigned: the signing identity is a release secret, and the point here
-      # is that the bundle builds and contains what it should.
+      # Signed with the real Developer ID when the secrets are present (a pull
+      # request from this repository), ad-hoc when they are not (a fork). This
+      # is the only place the hardened-runtime signature is exercised before a
+      # tag: build-mac.sh --app-only never builds the DMG, so nothing here
+      # reaches Apple's notarization service.
+      - name: Import the signing certificate
+        run: ./packaging/import-signing-cert.sh
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+
       - name: Build the app bundle
         run: ./packaging/build-mac.sh --app-only
+        env:
+          APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
 
       - name: Check the bundle is what the installer expects
         run: |
@@ -91,6 +103,17 @@ jobs:
             echo "Info.plist is not covered by the signature" >&2
             exit 1
           fi
+          # With an identity available, the bundle must actually carry it, with
+          # the hardened runtime notarization insists on -- a silent fall back
+          # to ad-hoc would only be noticed by the next release's users.
+          if [[ -n "$APPLE_SIGN_IDENTITY" ]]; then
+            grep -q "^Authority=$APPLE_SIGN_IDENTITY\$" /tmp/codesign.txt \
+              || { echo "Bundle is not signed by $APPLE_SIGN_IDENTITY" >&2; exit 1; }
+            grep -q "flags=.*(runtime)" /tmp/codesign.txt \
+              || { echo "Bundle is signed without the hardened runtime" >&2; exit 1; }
+          fi
+        env:
+          APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
 
   windows:
     name: Windows Installer
