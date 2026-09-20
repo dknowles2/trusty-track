@@ -1501,6 +1501,49 @@ input:checked + .slider:before {
 }
 
 /*
+ * The lane-pictures preference is a two-way choice, not an on/off switch
+ * (#1245) — a radiogroup of two buttons in a rounded track, the same look
+ * as the free-race mode control (`.free-race-mode-control` /
+ * `.free-race-mode-btn` in `FreeRaceLaneSetup.tsx`). Scoped to its own
+ * classes rather than shared with that control: `FreeRaceLaneSetup.tsx`'s
+ * own comment on `.free-race-mode-control` explains that its *base* look is
+ * kept as inline styles on purpose, with only its ≤599px response classed,
+ * because an earlier draft that classed the base look too made an
+ * unconditional `flex: 1 1 0` easy to reach for and that turned three
+ * unequal-width tabs into three equal ones at every width (caught by a
+ * docs screenshot diff, not a test). This control only ever has two
+ * options and needs no such override, but lifting a shared base class
+ * would mean either reintroducing that inline-styles-only convention here
+ * too (which buys nothing over a scoped pair) or refactoring the free-race
+ * control's own screenshot-pinned layout, which is a bigger change than
+ * this fix's one control.
+ */
+.lane-photo-picker {
+  display: flex;
+  background: var(--surface-strong-color);
+  padding: 4px;
+  border-radius: 20px;
+  gap: 4px;
+}
+
+.lane-photo-picker-btn {
+  padding: 6px 14px;
+  border-radius: 16px;
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  color: var(--text-strong-muted-color);
+  cursor: pointer;
+}
+
+.lane-photo-picker-btn[aria-checked='true'] {
+  background: var(--surface-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-weight: bold;
+  color: var(--text-color);
+}
+
+/*
  * The action row's own buttons never wrap their label onto a second line
  * (#1157) — the bug the footer redesign fixes was five controls squeezed by
  * `justify-content: space-between` to their minimum width, so "Skip Heat"
@@ -1735,7 +1778,20 @@ input:checked + .slider:before {
  * than the roster's own 768px. "Your Races" gets its own line, and the
  * rehearsal/create buttons stack full-width below it rather than wrapping
  * onto a third line each, which is what the flat row did at 390px before
- * this.
+ * this. No `order` is set here, so the column keeps the DOM order
+ * `Home.tsx` already renders its two controls in: the practice-race split
+ * button (or its plain-button form before one exists), then Create.
+ *
+ * The practice-race control folded "Start new" into a split button on
+ * Resume rather than a `.tertiary-btn` control of its own (#1238) —
+ * `.split-btn-container` / `.split-btn-main` / `.split-btn-arrow` is an
+ * existing pattern (the roster's own Add Racer button), so it needs no new
+ * class here either: the *container* stretches to `width: 100%` like
+ * `.primary-btn` does, `.split-btn-main` grows to fill it (`flex: 1`) so
+ * the chevron isn't dragged along, and `.split-btn-arrow` keeps its own
+ * content-sized width — excluded from the plain `.secondary-btn` rule
+ * below, which would otherwise stretch each half of the split button to
+ * 100% independently and double the row's width.
  */
 @media screen and (max-width: 900px) {
   .home-races-header {
@@ -1749,9 +1805,18 @@ input:checked + .slider:before {
     width: 100%;
   }
 
-  .home-races-header-actions .secondary-btn,
+  .home-races-header-actions .secondary-btn:not(.split-btn-main):not(.split-btn-arrow),
   .home-races-header-actions .primary-btn {
     width: 100%;
+    justify-content: center;
+  }
+
+  .home-races-header-actions .split-btn-container {
+    width: 100%;
+  }
+
+  .home-races-header-actions .split-btn-main {
+    flex: 1;
     justify-content: center;
   }
 }

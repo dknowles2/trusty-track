@@ -145,10 +145,10 @@ describe('RaceExecution', () => {
     const liveLane = (overrides: any) => ({ ...lane(overrides), pending: false, ...overrides });
 
     /**
-     * Show car photos, Sound options and Auto-advance all moved behind one
-     * ⚙ in the card header (#1157) — a popover, not always-on-screen
-     * controls. Every test that used to click one of those three directly
-     * opens the popover first now.
+     * The Cars/Faces lane-picture picker, Sound options and Auto-advance all
+     * moved behind one ⚙ in the card header (#1157) — a popover, not
+     * always-on-screen controls. Every test that used to click one of those
+     * three directly opens the popover first now.
      */
     function openPreferences() {
         fireEvent.click(screen.getByTestId('race-execution-preferences-trigger'));
@@ -1359,7 +1359,7 @@ describe('RaceExecution', () => {
             );
 
             openPreferences();
-            fireEvent.click(screen.getByText(/Show .* photos/));
+            fireEvent.click(screen.getByTestId('lane-photo-option-portrait'));
 
             const portraits = document.querySelectorAll('img[src="http://example.com/portrait103.jpg"]');
             expect(portraits).toHaveLength(2);
@@ -1906,13 +1906,10 @@ describe('RaceExecution', () => {
         expect(queryByTestId('fake-timer-mole')).not.toBeInTheDocument();
     });
 
-    describe('the Auto-advance and lane-photo labels toggle their controls (#998)', () => {
-        // Both used to be a `<span>` beside a `<label>` wrapping only the
-        // 44px pill itself, so clicking the *word* did nothing — only the
-        // small control did. The fix wraps the whole row in one `<label>`;
-        // the lane-photo toggle (#1075) is built the same way from the
-        // start, and is pinned here alongside Auto-advance so a future edit
-        // cannot separate either one's text from its control.
+    describe('the Auto-advance label toggles its switch (#998)', () => {
+        // Used to be a `<span>` beside a `<label>` wrapping only the 44px
+        // pill itself, so clicking the *word* did nothing — only the small
+        // control did. The fix wraps the whole row in one `<label>`.
 
         it('clicking the word "Auto-advance" toggles the switch', () => {
             const onToggle = vi.fn();
@@ -1932,8 +1929,10 @@ describe('RaceExecution', () => {
 
             expect(onToggle).toHaveBeenCalledWith(true);
         });
+    });
 
-        it('clicking the words "Show car photos" toggles the lane-photo preference', () => {
+    describe('the lane-photo picker is a two-button choice, not a switch (#1245)', () => {
+        it('clicking Faces writes \'portrait\' and flips aria-checked', () => {
             render(
                 <RaceExecution
                     {...defaultProps}
@@ -1942,12 +1941,94 @@ describe('RaceExecution', () => {
             );
 
             openPreferences();
-            const toggle = screen.getByTestId('lane-photo-toggle') as HTMLInputElement;
-            expect(toggle.checked).toBe(true); // Car by default (#1075).
+            const carOption = screen.getByTestId('lane-photo-option-car');
+            const portraitOption = screen.getByTestId('lane-photo-option-portrait');
+            expect(carOption).toHaveAttribute('aria-checked', 'true'); // Car by default (#1075).
+            expect(portraitOption).toHaveAttribute('aria-checked', 'false');
 
-            fireEvent.click(screen.getByText(/Show .* photos/));
+            fireEvent.click(screen.getByText('Faces'));
 
-            expect(toggle.checked).toBe(false);
+            expect(portraitOption).toHaveAttribute('aria-checked', 'true');
+            expect(carOption).toHaveAttribute('aria-checked', 'false');
+            expect(window.localStorage.getItem('trustytrack.lanePhoto')).toBe('portrait');
+        });
+
+        it('clicking Cars afterwards writes \'car\' back', () => {
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    onToggleAutoAdvance={vi.fn()}
+                />
+            );
+
+            openPreferences();
+            fireEvent.click(screen.getByText('Faces'));
+            expect(window.localStorage.getItem('trustytrack.lanePhoto')).toBe('portrait');
+
+            fireEvent.click(screen.getByText('Cars'));
+
+            const carOption = screen.getByTestId('lane-photo-option-car');
+            const portraitOption = screen.getByTestId('lane-photo-option-portrait');
+            expect(carOption).toHaveAttribute('aria-checked', 'true');
+            expect(portraitOption).toHaveAttribute('aria-checked', 'false');
+            expect(window.localStorage.getItem('trustytrack.lanePhoto')).toBe('car');
+        });
+
+        it('an arrow key moves focus to the other option and selects it, with a roving tabIndex', () => {
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    onToggleAutoAdvance={vi.fn()}
+                />
+            );
+
+            openPreferences();
+            const carOption = screen.getByTestId('lane-photo-option-car');
+            const portraitOption = screen.getByTestId('lane-photo-option-portrait');
+            carOption.focus();
+            expect(carOption).toHaveAttribute('tabIndex', '0');
+            expect(portraitOption).toHaveAttribute('tabIndex', '-1');
+
+            fireEvent.keyDown(carOption, { key: 'ArrowRight' });
+
+            expect(document.activeElement).toBe(portraitOption);
+            expect(portraitOption).toHaveAttribute('aria-checked', 'true');
+            expect(carOption).toHaveAttribute('aria-checked', 'false');
+            expect(portraitOption).toHaveAttribute('tabIndex', '0');
+            expect(carOption).toHaveAttribute('tabIndex', '-1');
+            expect(window.localStorage.getItem('trustytrack.lanePhoto')).toBe('portrait');
+
+            fireEvent.keyDown(portraitOption, { key: 'ArrowLeft' });
+
+            expect(document.activeElement).toBe(carOption);
+            expect(carOption).toHaveAttribute('aria-checked', 'true');
+            expect(portraitOption).toHaveAttribute('aria-checked', 'false');
+            expect(carOption).toHaveAttribute('tabIndex', '0');
+            expect(portraitOption).toHaveAttribute('tabIndex', '-1');
+            expect(window.localStorage.getItem('trustytrack.lanePhoto')).toBe('car');
+        });
+
+        it('reads the vehicle option from terminology, but keeps the generic test ids (#532)', () => {
+            render(
+                <TerminologyProvider
+                    value={{
+                        racingGroupSingular: 'Den',
+                        racingGroupPlural: 'Dens',
+                        organizationSingular: 'Pack',
+                        organizationPlural: 'Packs',
+                        vehicleSingular: 'Rocket',
+                        vehiclePlural: 'Rockets',
+                        vehicleArtworkKey: 'rocket',
+                    }}
+                >
+                    <RaceExecution {...defaultProps} onToggleAutoAdvance={vi.fn()} />
+                </TerminologyProvider>
+            );
+
+            openPreferences();
+            const carOption = screen.getByTestId('lane-photo-option-car');
+            expect(carOption).toHaveTextContent('Rockets');
+            expect(screen.getByTestId('lane-photo-option-portrait')).toHaveTextContent('Faces');
         });
     });
 
@@ -1983,13 +2064,13 @@ describe('RaceExecution', () => {
         it('the popover is closed until the ⚙ is clicked, and holds all three preferences', () => {
             render(<RaceExecution {...defaultProps} onToggleAutoAdvance={vi.fn()} />);
 
-            expect(screen.queryByTestId('lane-photo-toggle')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('lane-photo-picker')).not.toBeInTheDocument();
             expect(screen.queryByTestId('sound-effects-modal-trigger')).not.toBeInTheDocument();
             expect(screen.queryByTestId('auto-advance-toggle')).not.toBeInTheDocument();
 
             openPreferences();
 
-            expect(screen.getByTestId('lane-photo-toggle')).toBeInTheDocument();
+            expect(screen.getByTestId('lane-photo-picker')).toBeInTheDocument();
             expect(screen.getByTestId('sound-effects-modal-trigger')).toBeInTheDocument();
             expect(screen.getByTestId('auto-advance-toggle')).toBeInTheDocument();
         });

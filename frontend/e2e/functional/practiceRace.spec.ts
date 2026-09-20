@@ -189,6 +189,9 @@ test('start new builds a genuinely fresh rehearsal instead', async ({ page }) =>
     ).race.name;
 
     await page.goto('/');
+    // Resume is now a split button and "Start new" folded into its chevron's
+    // one entry (#1238), so it has to be opened before it can be clicked.
+    await page.getByRole('button', { name: 'More practice race options' }).click();
     await page.getByTestId('practice-race-start-new').click();
     await expect(page).toHaveURL(/\/race\/\d+\/control\/race/, { timeout: 30000 });
     const secondId = Number(page.url().match(/\/race\/(\d+)\//)![1]);
@@ -205,4 +208,83 @@ test('start new builds a genuinely fresh rehearsal instead', async ({ page }) =>
     // and compare id and name, the way the track lookup above does.
     expect(secondId).not.toBe(firstId);
     expect(secondName).not.toBe(firstName);
+});
+
+test('the split button and Create New Race share a row wide, and stack narrow (#1238)', async ({
+    page,
+}) => {
+    // "Start new" used to be a plain underlined word beside two real
+    // buttons — the odd one out, and dropped from the phone-stacking rule
+    // entirely since it carried neither `.secondary-btn` nor `.primary-btn`.
+    // It is folded into Resume's own chevron now, the same split-button
+    // shape the roster's Add Racer button already uses, so the header row
+    // is back to two controls: the split button and Create New Race.
+    await ensureConfigured(page);
+
+    await page.goto('/');
+    await page.getByTestId('practice-race').click();
+    await expect(page).toHaveURL(/\/race\/\d+\/control\/race/, { timeout: 30000 });
+
+    // Back on Home, the split button is on screen now that a practice race
+    // exists.
+    await page.goto('/');
+    const splitContainer = page.locator('.split-btn-container');
+    const create = page.getByRole('button', { name: /Create New Race/i });
+    await expect(splitContainer).toBeVisible();
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const splitWide = await splitContainer.boundingBox();
+    const createWide = await create.boundingBox();
+    if (!splitWide || !createWide) {
+        throw new Error('the split button or Create New Race has no bounding box');
+    }
+
+    // Same row: level tops, and the whole split button the same height as
+    // its neighbour.
+    expect(Math.abs(splitWide.y - createWide.y)).toBeLessThanOrEqual(2);
+    expect(Math.abs(splitWide.height - createWide.height)).toBeLessThanOrEqual(2);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const actions = page.locator('.home-races-header-actions');
+    const actionsBox = await actions.boundingBox();
+    const splitNarrow = await splitContainer.boundingBox();
+    const createNarrow = await create.boundingBox();
+    if (!actionsBox || !splitNarrow || !createNarrow) {
+        throw new Error('the split button or Create New Race has no bounding box');
+    }
+
+    // Full-width, same as Create New Race — before #1238 "Start new" had
+    // neither class and stayed at its natural (narrow) width beside them.
+    expect(Math.abs(splitNarrow.width - actionsBox.width)).toBeLessThanOrEqual(2);
+    expect(Math.abs(createNarrow.width - actionsBox.width)).toBeLessThanOrEqual(2);
+
+    // Stacked, split button first, in DOM order.
+    expect(createNarrow.y).toBeGreaterThan(splitNarrow.y);
+
+    // The chevron keeps its own content-sized width rather than being
+    // stretched along with the container — the `:not(.split-btn-main):not(
+    // .split-btn-arrow)` exclusion on the plain `.secondary-btn` full-width
+    // rule is what keeps it out of that rule. Without it both halves of the
+    // split button would each try to fill the container's width
+    // independently: measured directly by removing the exclusion, the arrow
+    // ballooned from ~37px to ~201px and the row nearly doubled in height
+    // (41px to 77px) — a real, visible regression this bound catches.
+    const mainNarrow = await page.locator('.split-btn-main').boundingBox();
+    const arrowNarrow = await page.locator('.split-btn-arrow').boundingBox();
+    if (!mainNarrow || !arrowNarrow) {
+        throw new Error('the split button\'s own halves have no bounding box');
+    }
+    expect(arrowNarrow.width).toBeLessThanOrEqual(60);
+    expect(mainNarrow.height).toBeLessThanOrEqual(50);
+
+    // The chevron still opens the menu at this width, and it does not push
+    // the page wider than the viewport — the dropdown hangs from the right
+    // edge of a full-width container, which is exactly the geometry that
+    // could overflow.
+    await page.getByRole('button', { name: 'More practice race options' }).click();
+    await expect(page.getByTestId('practice-race-start-new')).toBeVisible();
+    const overflows = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth,
+    );
+    expect(overflows).toBe(false);
 });
