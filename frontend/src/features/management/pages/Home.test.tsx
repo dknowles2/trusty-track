@@ -287,6 +287,79 @@ describe('Home Page', () => {
                 expect(practiceFn).toHaveBeenCalledWith({ startNew: true });
             });
         });
+
+        // Second-round review on #1238: the outside-click/Escape effect and
+        // its `.split-btn-arrow` special case are behaviour this PR adds,
+        // and nothing above exercised any of it — the effect could be
+        // deleted whole and every test up to this point would still pass.
+        describe('closing the chevron menu', () => {
+            it('closes on Escape, removing the entry and flipping aria-expanded', async () => {
+                mockPracticeMutation();
+                renderHome({
+                    races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
+                    practiceRace: { id: 5, name: 'Practice Race' },
+                });
+
+                await screen.findByTestId('practice-race');
+                const chevron = screen.getByRole('button', { name: /More practice race options/ });
+                fireEvent.click(chevron);
+                expect(await screen.findByTestId('practice-race-start-new')).toBeInTheDocument();
+
+                fireEvent.keyDown(document, { key: 'Escape' });
+
+                await waitFor(() => {
+                    expect(screen.queryByTestId('practice-race-start-new')).not.toBeInTheDocument();
+                });
+                expect(chevron).toHaveAttribute('aria-expanded', 'false');
+            });
+
+            it('closes on a click outside the dropdown', async () => {
+                mockPracticeMutation();
+                renderHome({
+                    races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
+                    practiceRace: { id: 5, name: 'Practice Race' },
+                });
+
+                await screen.findByTestId('practice-race');
+                fireEvent.click(screen.getByRole('button', { name: /More practice race options/ }));
+                expect(await screen.findByTestId('practice-race-start-new')).toBeInTheDocument();
+
+                fireEvent.mouseDown(document.body);
+
+                await waitFor(() => {
+                    expect(screen.queryByTestId('practice-race-start-new')).not.toBeInTheDocument();
+                });
+            });
+
+            // A real click is mousedown-then-click. The mousedown half must
+            // not let the outside-click handler close the menu ahead of the
+            // chevron's own onClick toggle — if it did, the toggle would
+            // read the now-false state and flip it back to true, leaving a
+            // second click on the chevron re-opening the menu instead of
+            // closing it. This is the `.split-btn-arrow` exclusion
+            // `RaceDetails.tsx`'s own Add Racer split button already relies
+            // on, mirrored here.
+            it('a second click on the chevron toggles closed rather than being reopened by its own mousedown', async () => {
+                mockPracticeMutation();
+                renderHome({
+                    races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
+                    practiceRace: { id: 5, name: 'Practice Race' },
+                });
+
+                await screen.findByTestId('practice-race');
+                const chevron = screen.getByRole('button', { name: /More practice race options/ });
+                fireEvent.click(chevron);
+                expect(await screen.findByTestId('practice-race-start-new')).toBeInTheDocument();
+
+                fireEvent.mouseDown(chevron);
+                fireEvent.click(chevron);
+
+                await waitFor(() => {
+                    expect(screen.queryByTestId('practice-race-start-new')).not.toBeInTheDocument();
+                });
+                expect(chevron).toHaveAttribute('aria-expanded', 'false');
+            });
+        });
     });
 
     describe('race row navigation (#589)', () => {
