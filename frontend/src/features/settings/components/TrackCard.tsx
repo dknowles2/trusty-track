@@ -31,6 +31,21 @@
  * changes mid-event the way a connector coming loose does — so they save
  * with the rest of this card, beside the scale ratio and reverse-lanes
  * checkbox.
+ *
+ * The order below the title is Track Name, then Lanes (how many), then
+ * `<TrackLanes>` — Lanes in service, which of them work — directly under
+ * it, then Length (Feet), Lane colours and scale speed (the track's
+ * physical configuration), then Track records, then the Timer divider
+ * (#1252; see TrackLanes' own docstring for how it drifted away from
+ * directly-under-the-lane-count and how this restored it). Lanes in
+ * service and Lane colours are both a chip per lane and can look like the
+ * same control at a glance, but they stay two controls with two save
+ * models — one urgent and click-through, one batched with the rest of the
+ * card — rather than merging into one that would have to juggle both. To
+ * keep that legible before either has any state to show, the two rows are
+ * drawn differently too: Lanes in service is squared, checkbox-first chips
+ * (`.lane-service-chip`); Lane colours is a bare swatch per lane
+ * (`.lane-colour-swatch`), no pill around the pair.
  */
 
 import { Link } from 'react-router-dom';
@@ -227,32 +242,46 @@ export default function TrackCard({
         />
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-        <div style={{ flex: 1 }}>
-          <label htmlFor={`track-lanes-${index}`} style={fieldLabel}>Lanes</label>
-          <input
-            type="number"
-            id={`track-lanes-${index}`}
-            value={track.laneCount}
-            onChange={(e) => onChange('laneCount', parseInt(e.target.value) || 0)}
-            min="1"
-            max="8"
-            required
-            style={textInput}
-          />
-        </div>
-        <div style={{ flex: 1 }}>
-          <label htmlFor={`track-length-${index}`} style={fieldLabel}>Length (Feet)</label>
-          <input
-            type="number"
-            id={`track-length-${index}`}
-            value={track.lengthFeet}
-            onChange={(e) => onChange('lengthFeet', parseInt(e.target.value) || 0)}
-            min="10"
-            required
-            style={textInput}
-          />
-        </div>
+      <div style={{ marginBottom: '1rem' }}>
+        <label htmlFor={`track-lanes-${index}`} style={fieldLabel}>Lanes</label>
+        <input
+          type="number"
+          id={`track-lanes-${index}`}
+          value={track.laneCount}
+          onChange={(e) => onChange('laneCount', parseInt(e.target.value) || 0)}
+          min="1"
+          max="8"
+          required
+          style={textInput}
+        />
+      </div>
+
+      {/* Directly under the lane count, because "how many lanes" and "which
+          of them work" are the same question asked twice — see TrackLanes'
+          own docstring for how this drifted away from here and #1252's fix
+          putting it back. Only once the track exists: a track added but not
+          yet saved cannot have a broken lane. */}
+      {track.id !== undefined && (
+        <TrackLanes
+          trackId={track.id}
+          laneCount={track.laneCount}
+          outages={track.laneOutages ?? []}
+          onChange={onLaneOutages}
+          isOperator={isOperator}
+        />
+      )}
+
+      <div style={{ marginBottom: '1rem' }}>
+        <label htmlFor={`track-length-${index}`} style={fieldLabel}>Length (Feet)</label>
+        <input
+          type="number"
+          id={`track-length-${index}`}
+          value={track.lengthFeet}
+          onChange={(e) => onChange('lengthFeet', parseInt(e.target.value) || 0)}
+          min="10"
+          required
+          style={textInput}
+        />
       </div>
 
       {/* Matching a lane's colour on screen to the paint on the physical
@@ -261,7 +290,11 @@ export default function TrackCard({
           colours are indexed by the track's own lane number and do not
           shift when a lane goes out of service or the count is lowered
           (see `../laneColors`'s docstring). Optional throughout — with
-          nothing set here every lane renders exactly as it always has. */}
+          nothing set here every lane renders exactly as it always has.
+          Drawn as a swatch, not a pill (#1252): a filled circle with the
+          lane number beside it, and no bordered pair around the two, so
+          this row reads as "colours" and not as the checkbox-shaped chips
+          in Lanes in service above. */}
       <div style={{ marginBottom: '1rem' }}>
         <span style={fieldLabel}>Lane colours (optional)</span>
         <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -275,13 +308,11 @@ export default function TrackCard({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.35rem',
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '20px',
-                  border: '1px solid var(--input-border-color)',
                 }}
               >
                 <input
                   type="color"
+                  className="lane-colour-swatch"
                   id={`track-lane-color-${index}-${lane}`}
                   value={hex ?? '#ffffff'}
                   title={name ? `Lane ${lane}: ${name}` : `Lane ${lane} colour`}
@@ -289,7 +320,6 @@ export default function TrackCard({
                   onChange={(e) =>
                     onLaneColors(setLaneColor(track.laneColors ?? [], lane, e.target.value))
                   }
-                  style={{ width: '1.75rem', height: '1.75rem', padding: 0, border: 'none', background: 'none' }}
                 />
                 <span style={{ fontSize: '0.9rem' }}>{lane}</span>
                 {hex && (
@@ -379,19 +409,6 @@ export default function TrackCard({
           </div>
         )}
       </div>
-
-      {/* Under the lane count, because "how many lanes" and "which of them
-          work" are the same question asked twice. Only once the track exists:
-          a track added but not yet saved cannot have a broken lane. */}
-      {track.id !== undefined && (
-        <TrackLanes
-          trackId={track.id}
-          laneCount={track.laneCount}
-          outages={track.laneOutages ?? []}
-          onChange={onLaneOutages}
-          isOperator={isOperator}
-        />
-      )}
 
       {/* Like the lanes control: only once the track exists, because a track
           added but not yet saved has no id to hang a record on. */}

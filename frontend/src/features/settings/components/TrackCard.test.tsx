@@ -339,6 +339,44 @@ describe('TrackCard', () => {
         });
     });
 
+    describe('lanes in service placement and look (#1252)', () => {
+        // compareDocumentPosition returns a bitmask; DOCUMENT_POSITION_FOLLOWING
+        // (4) is set when the node passed in comes *after* the node it was
+        // called on, i.e. `before.compareDocumentPosition(after) & FOLLOWING`
+        // is truthy.
+        function isBefore(before: Node, after: Node) {
+            return Boolean(before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING);
+        }
+
+        it('sits directly under the lane count, ahead of length and lane colours', () => {
+            renderCard({ id: 12, laneCount: 3, laneOutages: [] });
+
+            const lanesInput = screen.getByLabelText('Lanes');
+            const lanesInService = screen.getByText('Lanes in service');
+            const lengthInput = screen.getByLabelText('Length (Feet)');
+            const laneColours = screen.getByText('Lane colours (optional)');
+
+            expect(isBefore(lanesInput, lanesInService)).toBe(true);
+            expect(isBefore(lanesInService, lengthInput)).toBe(true);
+            expect(isBefore(lengthInput, laneColours)).toBe(true);
+        });
+
+        it('gives the in-service chip a checkbox class, and the colour chip a swatch class', () => {
+            // jsdom applies no stylesheet, so this only pins the class names
+            // each chip carries — that the two classes actually draw
+            // different shapes (squared checkbox chip vs. circular swatch)
+            // is asserted against computed style in
+            // `e2e/functional/timerModel.spec.ts`, in a real browser.
+            renderCard({ id: 12, laneCount: 2, laneOutages: [], laneColors: [] });
+
+            const laneWorks = screen.getByLabelText('Lane 1 works');
+            expect(laneWorks.closest('.lane-service-chip')).not.toBeNull();
+
+            const laneColour = screen.getByLabelText('Lane 1 colour');
+            expect(laneColour).toHaveClass('lane-colour-swatch');
+        });
+    });
+
     describe('"Check this timer" link', () => {
         it('is absent for a track that has not been saved yet (no id)', () => {
             renderCard();

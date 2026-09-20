@@ -6,10 +6,23 @@
  * the foot of the page, which meant repeating the track's name to say which
  * track it meant — a good sign it was in the wrong place.
  *
+ * That placement drifted: Length, Lane colours and scale speed were each
+ * inserted between this and the lane count over several releases, so this
+ * sentence stopped being true while it still said it. [#1252](https://github.com/dknowles2/trusty-track/issues/1252)
+ * moved it back to directly under the lane count and made it look
+ * different from Lane colours' own chip row (both are a chip per lane, and
+ * used to be the same 20px-radius pill with only a lane's colour or the
+ * out-of-service red tint to tell them apart) — this one is squared
+ * (`.lane-service-chip`, 6px corners) and checkbox-first, reading as a row
+ * of toggles rather than a row of swatches.
+ *
  * Unlike the rest of the card it saves on click rather than on **Save
  * Settings**, and says so. A lane going out of service is a race-day event —
  * a connector comes loose between rounds — not configuration you would batch
- * with renaming a track.
+ * with renaming a track. That is also why it stays a separate control from
+ * Lane colours rather than merging with it: one is an urgent, save-on-click
+ * action and the other is a one-time setup fact saved with the rest of the
+ * card, and a merged control would have to force one save model on both.
  */
 
 import { useState } from 'react';
@@ -70,12 +83,12 @@ export default function TrackLanes({ trackId, laneCount, outages, onChange, isOp
           return (
             <label
               key={lane}
+              className="lane-service-chip"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.3rem',
                 padding: '0.25rem 0.55rem',
-                borderRadius: '20px',
                 border: '1px solid var(--input-border-color)',
                 background: out ? 'var(--danger-soft-bg-color)' : 'var(--surface-color)',
                 fontSize: '0.9rem',
