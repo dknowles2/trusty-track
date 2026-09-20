@@ -348,15 +348,24 @@ both.
 | --- | --- |
 | **Track Name** | Names it in race forms and settings |
 | **Lanes** | How many lanes the track has. Schedules are built for this — lowering it mid-event brings existing heats into line, see [turning down a track's lane count](mid-race-changes.md#turning-down-a-tracks-lane-count) |
+| **Lanes in service** | Sits directly under Lanes, since "how many lanes" and "which of them work" are the same question asked twice. Untick a lane that has stopped working. Unlike the rest of the card, this **saves the moment you click it** — see [a lane stops working](mid-race-changes.md#a-lane-stops-working) |
 | **Length (Feet)** | How far a car travels down the track — used to work out [scale speed](#scale-speed), if that's turned on |
 | **Timer Type** | Fake, plugged into this machine, plugged into the laptop running the browser, or no timer at all — see [Timers](timers.md#the-four-timer-types) and [No timer](#no-timer) below |
 | **Serial Port** | Almost always blank. Fill it only to force a specific port; it is then used exactly as typed |
 | **Timer Model** | Almost always *Detect automatically*. See [the model picker](timers.md#the-timer-model-picker) |
 | **This track has a remote start gate** | Enables the on-screen gate release, if the timer supports it — see [the remote start gate](timers.md#the-remote-start-gate) |
 | **The timer's cable is wired backwards** | Flips every result so the timer's lane 1 matches the track's highest lane, instead of rewiring the timer or renumbering the track — see [reverse lane numbering](timers.md#reverse-lane-numbering) |
-| **Lanes in service** | Untick a lane that has stopped working. Unlike the rest of the card, this **saves the moment you click it** — see [a lane stops working](mid-race-changes.md#a-lane-stops-working) |
 | **Lane colours (optional)** | Match each lane to the colour painted or taped on the physical track — see [Lane colours](#lane-colours) below |
 | **Track records from past years** | Records from before Trusty Track, entered by hand for the Stats page's record board. Saves as soon as you add one — see [the track record](stats-and-exports.md#the-track-record) |
+
+Lanes in service and Lane colours are both a chip per lane, but they are two
+separate controls with two different save models rather than one merged
+control: lanes in service is an urgent, race-day change that has to apply the
+moment you click it, and lane colours are a one-time setup fact that batches
+with the rest of this card's **Save Settings**. Forcing both onto one save
+model would make one of the two worse, so the two rows are drawn
+differently too — lanes in service as squared checkbox chips, lane colours as
+round swatches — rather than as two rows of the same-looking pill.
 
 ### Lane colours
 

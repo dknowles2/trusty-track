@@ -208,6 +208,29 @@ card no longer needs one to say what it's about. One divider is left,
 remote start and historical records. Lanes in service and track records still
 save on click rather than on **Save Settings**, and still say so.
 
+**The card's order is Track Name → Lanes → Lanes in service → Length (Feet)
+→ Lane colours → scale speed → Track records → Timer**
+([#1252](https://github.com/dknowles2/trusty-track/issues/1252)) — "which
+lanes exist and which of them work" sit together, directly under the lane
+count, and the track's physical configuration (length, colour, scale) follows
+it. `TrackLanes.tsx`'s own docstring had said "directly under the lane count"
+the whole time, but Length, Lane colours and scale speed were each inserted
+between the two over several releases, so the sentence stopped being true
+while it still said it — #1252 is what put the panel back where its own
+docstring claimed it was. Lanes in service and Lane colours are **deliberately
+two controls, not one merged control**, even though both are a chip per lane:
+lanes in service is an urgent, save-on-click, mid-event action (a connector
+comes loose between rounds) and lane colours are a one-time setup fact that
+batches with the rest of the card's **Save Settings** — forcing one save
+model onto both would make one of the two worse, and juggling two feedback
+models inside one row (some clicks instant, others pending) is more confusing
+than two honest rows. To keep the two legible as different tools *before*
+either has any state to show — not only once a lane goes out of service and
+gets its red tint — they are drawn differently too: lanes in service is
+squared, checkbox-first chips (`.lane-service-chip`, 6px corners), and lane
+colours is a bare circular swatch per lane (`.lane-colour-swatch`), with no
+pill border around the pair.
+
 **Advanced is the last form section, not folded into Backup** ([#659](https://github.com/dknowles2/trusty-track/issues/659)).
 Debugging Mode used to sit at the foot of General, which put it near the
 *top* of the page once the page was sectioned — the opposite of what an
