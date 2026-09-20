@@ -449,3 +449,183 @@ class TestWhoMayRead:
         )
 
         assert "errors" not in response.json()
+
+
+QUERY_WITH_FILTERS = """
+query(
+  $categories: [AuditCategory!]
+  $noteworthy: Boolean
+  $beforeId: Int
+  $limit: Int
+) {
+  auditLog(
+    categories: $categories
+    noteworthy: $noteworthy
+    beforeId: $beforeId
+    limit: $limit
+  ) {
+    id
+    action
+    category
+    noteworthy
+  }
+}
+"""
+
+
+class TestCategoryAndNoteworthyFilters:
+    """Applied server-side, before `LIMIT`/`beforeId` (#1253) — see
+    `.claude/rules/auth-and-demo.md`'s "The activity log" for why: paging is
+    cursor-based because the corpus is thousands of rows, and a client-side
+    filter over only the loaded page would silently miss everything not yet
+    paged in.
+    """
+
+    def _seed(self, db):
+        # One action from each of a few categories, plus a REFUSED row so a
+        # filter that quietly ignored `outcome` would still be caught by the
+        # noteworthy tests below.
+        crud.record_audit(db, "createRacer", role=audit.ActorRole.OPERATOR.value)
+        crud.record_audit(db, "createRound", role=audit.ActorRole.OPERATOR.value)
+        crud.record_audit(db, "updateHeatResult", role=audit.ActorRole.OPERATOR.value)
+        crud.record_audit(db, "deleteRound", role=audit.ActorRole.OPERATOR.value)
+        crud.record_audit(
+            db,
+            "createRacer",
+            role=audit.ActorRole.CHECKIN.value,
+            outcome=audit.Outcome.REFUSED.value,
+        )
+
+    def test_filtering_by_one_category(self, client, db):
+        self._seed(db)
+
+        response = client.post(
+            "/graphql",
+            json={"query": QUERY_WITH_FILTERS, "variables": {"categories": ["ROSTER"]}},
+        )
+
+        rows = response.json()["data"]["auditLog"]
+        assert rows, "expected the two ROSTER rows"
+        assert {row["action"] for row in rows} == {"createRacer"}
+        assert all(row["category"] == "ROSTER" for row in rows)
+
+    def test_filtering_by_two_categories(self, client, db):
+        self._seed(db)
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": QUERY_WITH_FILTERS,
+                "variables": {"categories": ["ROSTER", "SCHEDULE"]},
+            },
+        )
+
+        rows = response.json()["data"]["auditLog"]
+        assert {row["action"] for row in rows} == {
+            "createRacer",
+            "createRound",
+            "deleteRound",
+        }
+
+    def test_noteworthy_only(self, client, db):
+        self._seed(db)
+
+        response = client.post(
+            "/graphql",
+            json={"query": QUERY_WITH_FILTERS, "variables": {"noteworthy": True}},
+        )
+
+        rows = response.json()["data"]["auditLog"]
+        actions = {row["action"] for row in rows}
+        # `deleteRound` is noteworthy by action; the REFUSED `createRacer` is
+        # noteworthy by outcome even though `createRacer` itself is not in
+        # `NOTEWORTHY_ACTIONS` — the two clauses of the filter, both exercised.
+        assert actions == {"deleteRound", "createRacer"}
+        assert all(row["noteworthy"] for row in rows)
+
+    def test_category_and_noteworthy_together(self, client, db):
+        self._seed(db)
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": QUERY_WITH_FILTERS,
+                "variables": {"categories": ["SCHEDULE"], "noteworthy": True},
+            },
+        )
+
+        rows = response.json()["data"]["auditLog"]
+        assert {row["action"] for row in rows} == {"deleteRound"}
+
+    def test_all_six_categories_is_the_same_as_no_filter(self, client, db):
+        self._seed(db)
+        all_categories = [c.value for c in audit.AuditCategory]
+
+        with_all = client.post(
+            "/graphql",
+            json={
+                "query": QUERY_WITH_FILTERS,
+                "variables": {"categories": all_categories},
+            },
+        ).json()["data"]["auditLog"]
+        with_none = client.post(
+            "/graphql",
+            json={"query": QUERY_WITH_FILTERS, "variables": {}},
+        ).json()["data"]["auditLog"]
+
+        assert {row["id"] for row in with_all} == {row["id"] for row in with_none}
+
+    def test_paging_under_a_filter_stays_within_it(self, client, db):
+        """Page 2 under a SCHEDULE filter holds only SCHEDULE rows — the
+        cursor is filter-scoped, not a plain offset over everything."""
+        crud.record_audit(db, "createRound", role=audit.ActorRole.OPERATOR.value)
+        crud.record_audit(db, "createRacer", role=audit.ActorRole.OPERATOR.value)
+        crud.record_audit(db, "regenerateRound", role=audit.ActorRole.OPERATOR.value)
+        crud.record_audit(db, "createRacer", role=audit.ActorRole.OPERATOR.value)
+        crud.record_audit(db, "deleteRound", role=audit.ActorRole.OPERATOR.value)
+
+        first_page = client.post(
+            "/graphql",
+            json={
+                "query": QUERY_WITH_FILTERS,
+                "variables": {"categories": ["SCHEDULE"], "limit": 1},
+            },
+        ).json()["data"]["auditLog"]
+        assert [row["action"] for row in first_page] == ["deleteRound"]
+
+        second_page = client.post(
+            "/graphql",
+            json={
+                "query": QUERY_WITH_FILTERS,
+                "variables": {
+                    "categories": ["SCHEDULE"],
+                    "limit": 1,
+                    "beforeId": first_page[0]["id"],
+                },
+            },
+        ).json()["data"]["auditLog"]
+        assert [row["action"] for row in second_page] == ["regenerateRound"]
+
+        third_page = client.post(
+            "/graphql",
+            json={
+                "query": QUERY_WITH_FILTERS,
+                "variables": {
+                    "categories": ["SCHEDULE"],
+                    "limit": 1,
+                    "beforeId": second_page[0]["id"],
+                },
+            },
+        ).json()["data"]["auditLog"]
+        assert [row["action"] for row in third_page] == ["createRound"]
+
+    def test_the_category_field_matches_the_domain_lookup(self, client, db):
+        crud.record_audit(db, "createRacer", role=audit.ActorRole.OPERATOR.value)
+
+        response = client.post(
+            "/graphql",
+            json={"query": "{ auditLog(limit: 1) { action category } }"},
+        )
+
+        row = response.json()["data"]["auditLog"][0]
+        assert row["category"] == audit.category_of(row["action"]).value

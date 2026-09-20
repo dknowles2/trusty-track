@@ -171,7 +171,7 @@ describe('a race_state event while Live is on', () => {
 
         expect(clientQuery).toHaveBeenCalledWith(
             ACTIVITY_LOG_LIVE_QUERY,
-            { raceId: 1, limit: 200, beforeId: null },
+            { raceId: 1, limit: 200, beforeId: null, categories: undefined, noteworthy: false },
             { requestPolicy: 'network-only' },
         );
     });
@@ -270,8 +270,113 @@ describe('filters', () => {
 
         expect(clientQuery).toHaveBeenCalledWith(
             ACTIVITY_LOG_LIVE_QUERY,
-            { raceId: 42, limit: 200, beforeId: null },
+            { raceId: 42, limit: 200, beforeId: null, categories: undefined, noteworthy: false },
             { requestPolicy: 'network-only' },
         );
+    });
+});
+
+describe('the category chips and Noteworthy checkbox (#1253)', () => {
+    /** The variables of the most recent `ACTIVITY_LOG_QUERY` call — the
+     * visible page's own query, not the live poll's. */
+    function latestMainQueryVariables() {
+        const calls = vi.mocked(useQuery).mock.calls as unknown as [
+            { query: unknown; variables: Record<string, unknown> },
+        ][];
+        for (let i = calls.length - 1; i >= 0; i--) {
+            if (calls[i][0].query === ACTIVITY_LOG_QUERY) return calls[i][0].variables;
+        }
+        throw new Error('ACTIVITY_LOG_QUERY was never called');
+    }
+
+    it('starts with every chip pressed and sends no categories variable', () => {
+        renderPage();
+
+        for (const id of [
+            'activity-category-results',
+            'activity-category-schedule',
+            'activity-category-roster',
+            'activity-category-awards',
+            'activity-category-displays',
+            'activity-category-setup',
+        ]) {
+            expect(screen.getByTestId(id)).toHaveAttribute('aria-pressed', 'true');
+        }
+        expect(latestMainQueryVariables().categories).toBeUndefined();
+        expect(latestMainQueryVariables().noteworthy).toBe(false);
+    });
+
+    it('deselecting one chip sends the other five', () => {
+        renderPage();
+
+        fireEvent.click(screen.getByTestId('activity-category-results'));
+
+        expect(screen.getByTestId('activity-category-results')).toHaveAttribute(
+            'aria-pressed',
+            'false',
+        );
+        const sent = latestMainQueryVariables().categories as string[];
+        expect([...sent].sort()).toEqual(['AWARDS', 'DISPLAYS', 'ROSTER', 'SCHEDULE', 'SETUP']);
+    });
+
+    it('does not let the last remaining chip be deselected', () => {
+        renderPage();
+
+        const all = [
+            'activity-category-results',
+            'activity-category-schedule',
+            'activity-category-roster',
+            'activity-category-awards',
+            'activity-category-displays',
+        ];
+        for (const id of all) fireEvent.click(screen.getByTestId(id));
+
+        // Five deselected; SETUP is the only one left. Clicking it too must
+        // not empty the selection outright.
+        fireEvent.click(screen.getByTestId('activity-category-setup'));
+
+        expect(screen.getByTestId('activity-category-setup')).toHaveAttribute(
+            'aria-pressed',
+            'true',
+        );
+        expect(latestMainQueryVariables().categories).toEqual(['SETUP']);
+    });
+
+    it('Noteworthy only sends noteworthy: true', () => {
+        renderPage();
+
+        fireEvent.click(screen.getByTestId('activity-noteworthy-only'));
+
+        expect(screen.getByTestId('activity-noteworthy-only')).toBeChecked();
+        expect(latestMainQueryVariables().noteworthy).toBe(true);
+    });
+
+    it('a category change resets paging to page one, exactly like a race filter change', () => {
+        // Get to page two first, the same way `handleLoadMore` does — a full
+        // page (`PAGE_SIZE` entries) is what makes "Load older" appear at
+        // all (`hasAnotherPage`).
+        const { rerenderSame } = renderPage();
+        mainQueryData = { auditLog: Array.from({ length: 200 }, (_, i) => entry(200 - i)) };
+        rerenderSame();
+
+        fireEvent.click(screen.getByTestId('load-older-activity'));
+        expect(latestMainQueryVariables().beforeId).toBe(1);
+
+        fireEvent.click(screen.getByTestId('activity-category-results'));
+
+        expect(latestMainQueryVariables().beforeId).toBeNull();
+    });
+
+    it('a Noteworthy toggle resets paging to page one too', () => {
+        const { rerenderSame } = renderPage();
+        mainQueryData = { auditLog: Array.from({ length: 200 }, (_, i) => entry(200 - i)) };
+        rerenderSame();
+
+        fireEvent.click(screen.getByTestId('load-older-activity'));
+        expect(latestMainQueryVariables().beforeId).toBe(1);
+
+        fireEvent.click(screen.getByTestId('activity-noteworthy-only'));
+
+        expect(latestMainQueryVariables().beforeId).toBeNull();
     });
 });

@@ -5709,6 +5709,8 @@ def get_audit_entries(
     race_id: int | None = None,
     limit: int = 200,
     before_id: int | None = None,
+    categories: list[audit.AuditCategory] | None = None,
+    noteworthy: bool = False,
 ) -> list[models.AuditEntry]:
     """The most recent entries first, newest page first.
 
@@ -5716,10 +5718,31 @@ def get_audit_entries(
     particular race — setting up a track, restoring a backup — out of the way.
     Paging is by id rather than by timestamp because two entries can share a
     timestamp and an offset would skip rows as new ones arrive at the head.
+
+    ``categories`` and ``noteworthy`` (#1253) are both applied here, before
+    ``LIMIT``/``before_id`` — the cursor has to be filter-scoped, or paging
+    "older" under a filter would skip rows the filter excludes rather than
+    genuinely older matching ones. Both are indexable on ``action``, the
+    column every branch below reads.
     """
     query = db.query(models.AuditEntry)
     if race_id is not None:
         query = query.filter(models.AuditEntry.race_id == race_id)
+    if categories:
+        # All six selected is the same as none selected — no clause — since
+        # `ACTIONS_BY_CATEGORY` between them cover every action this table
+        # will ever hold; skipping the `IN` there is not an optimisation
+        # this needs to special-case for either the query plan or the
+        # client, only worth stating why there is no `len() == 6` branch.
+        actions: set[str] = set()
+        for category in categories:
+            actions |= audit.ACTIONS_BY_CATEGORY.get(category, frozenset())
+        query = query.filter(models.AuditEntry.action.in_(actions))
+    if noteworthy:
+        query = query.filter(
+            (models.AuditEntry.outcome != audit.Outcome.OK.value)
+            | (models.AuditEntry.action.in_(audit.NOTEWORTHY_ACTIONS))
+        )
     if before_id is not None:
         query = query.filter(models.AuditEntry.id < before_id)
     return query.order_by(models.AuditEntry.id.desc()).limit(limit).all()

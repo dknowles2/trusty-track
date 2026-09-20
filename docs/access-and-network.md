@@ -237,7 +237,19 @@ in another tab.
 ![The activity log](assets/screenshots/settings/04-activity-log.png)
 _The timeline, newest first. Each line carries the time, what was done, and which role did it; the details beneath name what it was done to._
 
-Four things worth knowing:
+**Six chips narrow the timeline to one subject** — Results, Schedule,
+Roster & check-in, Awards & voting, Displays & room, Setup & system — all
+selected by default, so nothing is hidden until you deselect one. A
+**Noteworthy only** checkbox beside them keeps destructive or wide-reaching
+actions and anything that did not succeed, and drops the rest — the same
+"scanning for what went wrong" case the red refusals below already serve,
+narrowed further. Both filters are applied on the server, over the whole
+log rather than only the page already on screen, so **Load older entries**
+keeps paging through matching rows rather than running out early. Changing
+either chip or the checkbox starts the timeline back at its first page, the
+same as switching which race you are filtered to.
+
+Five things worth knowing:
 
 - **Heat results say how they arrived** — *recorded by the timer*, or
   *entered by hand*. That is the distinction a disputed time turns on.
@@ -246,13 +258,19 @@ Four things worth knowing:
   locked race, though nothing was deleted any of the three ways.
 - **No PIN is ever written down.**
 - **Load older entries** at the foot of the page reaches further back than
-  what is shown at first.
+  what is shown at first, honouring whatever chips or the Noteworthy
+  checkbox are currently on.
+- **A category comes from the action alone** — the same lookup the chips
+  themselves read from — so old entries categorise retroactively, with
+  nothing to re-run.
 
 **Live** keeps the page current on its own, for watching a race in progress
 on a second screen. It is off by default and remembered on this device — flip
 it on and new entries appear as a **N new entries** chip rather than the page
 jumping while you are reading, so scrolling down or loading older entries is
-never disturbed; click the chip to bring them in. Filtered to one race, Live
+never disturbed; click the chip to bring them in. The count only ever
+includes entries the current chips and Noteworthy checkbox would actually
+show — an entry filtered out never inflates it. Filtered to one race, Live
 watches that race; with no race filter it watches every race on the install.
 Off, the page is exactly what it always was — click **Refresh** for anything
 that happened since you opened it.

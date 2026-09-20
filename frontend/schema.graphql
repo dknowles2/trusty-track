@@ -29,6 +29,15 @@ type ApplySceneResult {
   skippedCount: Int!
 }
 
+enum AuditCategory {
+  RESULTS
+  SCHEDULE
+  ROSTER
+  AWARDS
+  DISPLAYS
+  SETUP
+}
+
 type AuditLogEntry {
   id: Int!
   at: String!
@@ -40,6 +49,7 @@ type AuditLogEntry {
   sourceIp: String
   summary: String!
   noteworthy: Boolean!
+  category: AuditCategory
 }
 
 type Award {
@@ -598,7 +608,7 @@ type Query {
   scenes(raceId: Int!): [Scene!]!
   scenePresets: [ScenePresetInfo!]!
   suggestDisplayName(displayId: String!, avoid: String = null): String!
-  auditLog(raceId: Int = null, limit: Int! = 200, beforeId: Int = null): [AuditLogEntry!]!
+  auditLog(raceId: Int = null, limit: Int! = 200, beforeId: Int = null, categories: [AuditCategory!] = null, noteworthy: Boolean! = false): [AuditLogEntry!]!
   races(skip: Int! = 0, limit: Int! = 1000): [Race!]!
   practiceRace: Race
   timerModels: [TimerModel!]!
