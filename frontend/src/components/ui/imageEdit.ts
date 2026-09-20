@@ -59,6 +59,59 @@ export function rotatedSize(size: ImageSize, rotation: Quarter): ImageSize {
 }
 
 /**
+ * Turn a crop rectangle through the same quarter-turn the photo is about to
+ * take, so rotating the photo keeps the operator's own selection instead of
+ * discarding it back to {@link fitInitialCrop}'s default.
+ *
+ * The rectangle itself is not rotated in place — a `width`x`height` box
+ * turned 90° becomes a `height`x`width` one, which the aspect lock
+ * (`PORTRAIT_ASPECT`, `CAR_ASPECT`) forbids for anything but a square crop.
+ * What is carried across the turn instead is the rectangle's **centre**
+ * and its **size**: the centre maps to wherever that point lands in the
+ * newly rotated image (`imageSize.width × imageSize.height`, clockwise,
+ * becomes `imageSize.height × imageSize.width`), the size is kept exactly
+ * as it was, and {@link clampCrop} — already documented as centre-preserving
+ * and safe to call after any move — pulls the rebuilt rectangle back to one
+ * locked to `aspect` inside the rotated bounds.
+ *
+ * That is why a square crop (`PORTRAIT_ASPECT`) survives a turn exactly:
+ * `clampCrop` has nothing left to correct once the centre has moved, so the
+ * same natural pixels stay selected. A 4:3 crop (`CAR_ASPECT`) cannot be
+ * exact — no aspect-locked rectangle rotated a quarter turn stays the same
+ * shape — but it comes back centred on the same point at the same size,
+ * which is the closest the lock allows and is a world away from resetting
+ * to the default. A half turn (two calls in opposite directions, or four in
+ * the same one) is exact for both, since neither the centre nor the size
+ * changes shape on a turn that doesn't swap width and height.
+ *
+ * `imageSize` is the size the crop is *currently* expressed in — the
+ * rotated display size (`rotatedSize`'s own output), not the original,
+ * unrotated photo — because `crop`'s coordinates are already in that space.
+ */
+export function rotateCrop(
+    crop: CropRect,
+    imageSize: ImageSize,
+    direction: RotationDirection,
+    aspect: number,
+): CropRect {
+    const { width: w, height: h } = imageSize;
+    const cx = crop.x + crop.width / 2;
+    const cy = crop.y + crop.height / 2;
+
+    const [newCx, newCy] = direction === 'right' ? [h - cy, cx] : [cy, w - cx];
+
+    const rect: CropRect = {
+        x: newCx - crop.width / 2,
+        y: newCy - crop.height / 2,
+        width: crop.width,
+        height: crop.height,
+    };
+    // Either direction swaps width and height — `rotatedSize` only cares
+    // whether the turn is a quarter or a half, not which quarter.
+    return clampCrop(rect, rotatedSize(imageSize, 90), aspect);
+}
+
+/**
  * Pull a crop rectangle back to a valid one: locked to `aspect` (derived off
  * the requested width), no smaller than {@link MIN_CROP_SIZE} on either edge
  * unless the image itself is smaller, and never outside `imageSize`. The

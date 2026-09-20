@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+    rotateCrop,
     rotateQuarter,
     rotatedSize,
     clampCrop,
@@ -9,6 +10,7 @@ import {
     PORTRAIT_ASPECT,
     CAR_ASPECT,
     MIN_CROP_SIZE,
+    type CropRect,
     type Quarter,
 } from './imageEdit';
 
@@ -48,6 +50,89 @@ describe('rotatedSize', () => {
     it('leaves the edges alone on a half turn or none', () => {
         expect(rotatedSize(size, 0)).toEqual({ width: 800, height: 600 });
         expect(rotatedSize(size, 180)).toEqual({ width: 800, height: 600 });
+    });
+});
+
+describe('rotateCrop', () => {
+    it('is the identity after four turns in the same direction', () => {
+        const original: CropRect = { x: 120, y: 80, width: 200, height: 200 };
+        let size = { width: 800, height: 600 };
+        let crop = original;
+        for (let i = 0; i < 4; i++) {
+            crop = rotateCrop(crop, size, 'right', PORTRAIT_ASPECT);
+            size = rotatedSize(size, 90);
+        }
+        expect(crop.x).toBeCloseTo(original.x, 5);
+        expect(crop.y).toBeCloseTo(original.y, 5);
+        expect(crop.width).toBeCloseTo(original.width, 5);
+        expect(crop.height).toBeCloseTo(original.height, 5);
+    });
+
+    it('is the identity after a right turn undone by a left turn', () => {
+        const imageSize = { width: 800, height: 600 };
+        const original: CropRect = { x: 120, y: 80, width: 200, height: 200 };
+        const afterRight = rotateCrop(original, imageSize, 'right', PORTRAIT_ASPECT);
+        const afterLeft = rotateCrop(afterRight, rotatedSize(imageSize, 90), 'left', PORTRAIT_ASPECT);
+        expect(afterLeft.x).toBeCloseTo(original.x, 5);
+        expect(afterLeft.y).toBeCloseTo(original.y, 5);
+        expect(afterLeft.width).toBeCloseTo(original.width, 5);
+        expect(afterLeft.height).toBeCloseTo(original.height, 5);
+    });
+
+    it('carries a square crop from the top-left corner to the top-right on a clockwise turn', () => {
+        const imageSize = { width: 800, height: 600 };
+        const topLeft: CropRect = { x: 0, y: 0, width: 100, height: 100 };
+        const result = rotateCrop(topLeft, imageSize, 'right', PORTRAIT_ASPECT);
+        // Rotated bounds are 600x800 — top-right means x pinned to the far
+        // edge, y still at 0.
+        expect(result.x).toBeCloseTo(500, 5);
+        expect(result.y).toBeCloseTo(0, 5);
+        expect(result.width).toBeCloseTo(100, 5);
+        expect(result.height).toBeCloseTo(100, 5);
+    });
+
+    it('carries a square crop from the bottom-left corner to the top-left on a clockwise turn', () => {
+        const imageSize = { width: 800, height: 600 };
+        const bottomLeft: CropRect = { x: 0, y: 500, width: 100, height: 100 };
+        const result = rotateCrop(bottomLeft, imageSize, 'right', PORTRAIT_ASPECT);
+        expect(result.x).toBeCloseTo(0, 5);
+        expect(result.y).toBeCloseTo(0, 5);
+        expect(result.width).toBeCloseTo(100, 5);
+        expect(result.height).toBeCloseTo(100, 5);
+    });
+
+    it('keeps a 4:3 crop the same size and maps its centre through the turn', () => {
+        const imageSize = { width: 800, height: 600 };
+        const crop: CropRect = { x: 50, y: 50, width: 200, height: 150 };
+        const result = rotateCrop(crop, imageSize, 'right', CAR_ASPECT);
+
+        expect(result.width).toBeCloseTo(crop.width, 5);
+        expect(result.height).toBeCloseTo(crop.height, 5);
+
+        const expectedCenterX = imageSize.height - (crop.y + crop.height / 2);
+        const expectedCenterY = crop.x + crop.width / 2;
+        expect(result.x + result.width / 2).toBeCloseTo(expectedCenterX, 5);
+        expect(result.y + result.height / 2).toBeCloseTo(expectedCenterY, 5);
+    });
+
+    it('stays within the rotated bounds when the mapped centre would otherwise push it out (clampCrop)', () => {
+        const imageSize = { width: 800, height: 600 };
+        // Valid in the original 800x600 frame (y is at the very top edge),
+        // but a landscape crop's width is wider than its height, so mapping
+        // its centre straight across pushes its far edge past the rotated
+        // frame's 600px width — this is exactly the case `clampCrop` exists
+        // to pull back.
+        const nearEdge: CropRect = { x: 300, y: 0, width: 200, height: 150 };
+        const result = rotateCrop(nearEdge, imageSize, 'right', CAR_ASPECT);
+
+        expect(result.x).toBeGreaterThanOrEqual(0);
+        expect(result.y).toBeGreaterThanOrEqual(0);
+        const rotated = rotatedSize(imageSize, 90);
+        expect(result.x + result.width).toBeLessThanOrEqual(rotated.width + 1e-9);
+        expect(result.y + result.height).toBeLessThanOrEqual(rotated.height + 1e-9);
+        // The size survives — only the position was out of bounds.
+        expect(result.width).toBeCloseTo(200, 5);
+        expect(result.height).toBeCloseTo(150, 5);
     });
 });
 
