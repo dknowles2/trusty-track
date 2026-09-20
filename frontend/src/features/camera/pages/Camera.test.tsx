@@ -9,12 +9,13 @@
  */
 import '../../../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { useQuery } from 'urql';
+import { useMutation, useQuery, useSubscription } from 'urql';
 import Camera from './Camera';
 import { INITIAL_CONFIG_QUERY } from '../../core/graphql/queries';
 import { GET_TRACKS } from '../../core/graphql/queries';
+import { DisplayAssignmentSubscription, SET_CAMERA_TRACK } from '../../observation/graphql/queries';
 
 vi.mock('urql', async (importOriginal) => {
     const actual = await importOriginal<typeof import('urql')>();
@@ -27,22 +28,48 @@ vi.mock('urql', async (importOriginal) => {
     };
 });
 
-function mockConfig(demoMode: boolean) {
+function mockConfig(demoMode: boolean, tracks: { id: number; name: string; timerType: string }[] = []) {
     (vi.mocked(useQuery) as ReturnType<typeof vi.fn>).mockImplementation((args: unknown) => {
         const query = (args as { query?: unknown })?.query;
         if (query === INITIAL_CONFIG_QUERY) {
             return [{ data: { initialConfig: { demoMode } }, fetching: false, error: null }, vi.fn()];
         }
         if (query === GET_TRACKS) {
-            return [{ data: { tracks: [] }, fetching: false, error: null }, vi.fn()];
+            return [{ data: { tracks }, fetching: false, error: null }, vi.fn()];
         }
         return [{ data: undefined, fetching: false, error: null }, vi.fn()];
     });
 }
 
-function renderCamera(fake = false) {
-    const path = fake ? '/race/1/camera?fake=1' : '/race/1/camera';
-    render(
+/** Discriminates `useSubscription` by document, so a test can hand the
+ * camera page a specific `displayAssignment` payload (in particular, its
+ * own `trackId`) while every other subscription answers nothing — the same
+ * shape `mockConfig` already gives `useQuery`. */
+function mockAssignment(trackId: number | null | undefined) {
+    (vi.mocked(useSubscription) as ReturnType<typeof vi.fn>).mockImplementation((args: unknown) => {
+        const query = (args as { query?: unknown })?.query;
+        if (query === DisplayAssignmentSubscription) {
+            return [
+                { data: { displayAssignment: { displayId: 'cam-1', name: 'Camera', trackId: trackId ?? null, identifySeq: null } } },
+                vi.fn(),
+            ];
+        }
+        return [{ data: undefined }, vi.fn()];
+    });
+}
+
+function mockSetCameraTrack() {
+    const spy = vi.fn().mockResolvedValue({ data: {} });
+    (vi.mocked(useMutation) as ReturnType<typeof vi.fn>).mockImplementation((query: unknown) => {
+        if (query === SET_CAMERA_TRACK) return [{ fetching: false }, spy];
+        return [{ fetching: false }, vi.fn()];
+    });
+    return spy;
+}
+
+function renderCamera(fake = false, extraParams = '') {
+    const path = fake ? `/race/1/camera?fake=1${extraParams}` : `/race/1/camera${extraParams}`;
+    return render(
         <MemoryRouter initialEntries={[path]}>
             <Routes>
                 <Route path="/race/:raceId/camera" element={<Camera />} />
@@ -120,5 +147,97 @@ describe('browser support gating', () => {
         expect(screen.getByLabelText('Which track this camera listens to')).toBeInTheDocument();
         expect(screen.queryByText(/Use Chrome, Edge or Safari/)).toBeNull();
         Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+    });
+});
+
+describe('the ?trackId= preset (#1254)', () => {
+    // Every test here needs its own `useSubscription`/`useMutation`
+    // implementation (to hand the page a specific `displayAssignment` and to
+    // spy on `setCameraTrack`) — restored to the file's own plain defaults
+    // afterward so a later test in this file (none currently follow, but a
+    // future one might) is not left reading this block's own mocks.
+    afterEach(() => {
+        (vi.mocked(useSubscription) as ReturnType<typeof vi.fn>).mockImplementation(() => [
+            { data: undefined },
+            vi.fn(),
+        ]);
+        (vi.mocked(useMutation) as ReturnType<typeof vi.fn>).mockImplementation(() => [
+            { fetching: false },
+            vi.fn(),
+        ]);
+    });
+
+    it('applies the preset once, after connect, when the assignment has no track yet', async () => {
+        mockConfig(false, [{ id: 5, name: 'Blue Track', timerType: 'FAKE' }]);
+        const setCameraTrack = mockSetCameraTrack();
+        mockAssignment(null);
+
+        renderCamera(true, '&trackId=5');
+
+        await waitFor(() => {
+            expect(setCameraTrack).toHaveBeenCalledWith({ displayId: expect.any(String), trackId: 5 });
+        });
+        expect(setCameraTrack).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not apply the preset when the assignment already carries a track', async () => {
+        mockConfig(false, [{ id: 5, name: 'Blue Track', timerType: 'FAKE' }]);
+        const setCameraTrack = mockSetCameraTrack();
+        mockAssignment(7);
+
+        renderCamera(true, '&trackId=5');
+
+        await waitFor(() => {
+            expect(screen.getByLabelText('Which track this camera listens to')).toBeInTheDocument();
+        });
+        expect(setCameraTrack).not.toHaveBeenCalled();
+    });
+
+    it('ignores an unknown track id in the URL', async () => {
+        mockConfig(false, [{ id: 5, name: 'Blue Track', timerType: 'FAKE' }]);
+        const setCameraTrack = mockSetCameraTrack();
+        mockAssignment(null);
+
+        renderCamera(true, '&trackId=999');
+
+        await waitFor(() => {
+            expect(screen.getByLabelText('Which track this camera listens to')).toBeInTheDocument();
+        });
+        expect(setCameraTrack).not.toHaveBeenCalled();
+    });
+
+    it('never re-applies on a later render of the same page', async () => {
+        mockConfig(false, [{ id: 5, name: 'Blue Track', timerType: 'FAKE' }]);
+        const setCameraTrack = mockSetCameraTrack();
+        mockAssignment(null);
+
+        const { rerender } = renderCamera(true, '&trackId=5');
+        await waitFor(() => expect(setCameraTrack).toHaveBeenCalledTimes(1));
+
+        // The same tree, at the same route — the ordinary case a re-render
+        // is provoked by (a subscription tick, another query answering),
+        // not a fresh mount.
+        rerender(
+            <MemoryRouter initialEntries={['/race/1/camera?fake=1&trackId=5']}>
+                <Routes>
+                    <Route path="/race/:raceId/camera" element={<Camera />} />
+                </Routes>
+            </MemoryRouter>,
+        );
+
+        expect(setCameraTrack).toHaveBeenCalledTimes(1);
+    });
+
+    it('does nothing when the URL carries no trackId', async () => {
+        mockConfig(false, [{ id: 5, name: 'Blue Track', timerType: 'FAKE' }]);
+        const setCameraTrack = mockSetCameraTrack();
+        mockAssignment(null);
+
+        renderCamera(true);
+
+        await waitFor(() => {
+            expect(screen.getByLabelText('Which track this camera listens to')).toBeInTheDocument();
+        });
+        expect(setCameraTrack).not.toHaveBeenCalled();
     });
 });

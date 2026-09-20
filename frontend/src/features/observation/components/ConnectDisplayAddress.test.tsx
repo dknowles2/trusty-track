@@ -182,4 +182,97 @@ describe('ConnectDisplayAddress', () => {
     expect(() => render(<ConnectDisplayAddress raceId={1} />)).not.toThrow();
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
+
+  // #1254: `path` lets a second caller (the "Connect a camera" block) point
+  // this same address/Copy/QR machinery somewhere other than the Live page.
+  describe('the path prop (#1254)', () => {
+    it('defaults to this races own Live page, unchanged', () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+
+      render(<ConnectDisplayAddress raceId={1} />);
+
+      expect(
+        screen.getByText(/http:\/\/192\.168\.1\.42:8000\/race\/1\/observation$/),
+      ).toBeInTheDocument();
+    });
+
+    it('drives the shown address when supplied', () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+
+      render(<ConnectDisplayAddress raceId={1} path="/race/1/camera?displayId=abc&trackId=9" />);
+
+      expect(
+        screen.getByText(/http:\/\/192\.168\.1\.42:8000\/race\/1\/camera\?displayId=abc&trackId=9/),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/\/observation/)).toBeNull();
+    });
+
+    it('drives the Copy button', async () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+      vi.mocked(clipboard.copyText).mockResolvedValue(true);
+
+      render(<ConnectDisplayAddress raceId={1} path="/race/1/camera?displayId=abc" />);
+      await userEvent.click(screen.getByRole('button', { name: /copy/i }));
+
+      expect(clipboard.copyText).toHaveBeenCalledWith(
+        'http://192.168.1.42:8000/race/1/camera?displayId=abc',
+      );
+    });
+
+    it('drives the QR code src', () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+
+      render(<ConnectDisplayAddress raceId={1} path="/race/1/camera?displayId=abc" />);
+
+      const image = screen.getByAltText(/qr code/i);
+      expect(decodeURIComponent(image.getAttribute('src')!)).toContain(
+        'http://192.168.1.42:8000/race/1/camera?displayId=abc',
+      );
+    });
+  });
+
+  describe('heading, caption and testId (#1254)', () => {
+    it('renders no heading or caption by default', () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+
+      render(<ConnectDisplayAddress raceId={1} />);
+
+      expect(screen.queryByRole('heading')).toBeNull();
+    });
+
+    it('renders a supplied heading and caption', () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+
+      render(
+        <ConnectDisplayAddress
+          raceId={1}
+          heading="Connect a camera"
+          caption="For the finish line — scan on the phone that will film it."
+        />,
+      );
+
+      expect(screen.getByRole('heading', { name: 'Connect a camera' })).toBeInTheDocument();
+      expect(
+        screen.getByText('For the finish line — scan on the phone that will film it.'),
+      ).toBeInTheDocument();
+    });
+
+    it('defaults the testId to connect-screen-address, and a caller may override it', () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+
+      const { rerender } = render(<ConnectDisplayAddress raceId={1} />);
+      expect(screen.getByTestId('connect-screen-address')).toBeInTheDocument();
+
+      rerender(<ConnectDisplayAddress raceId={1} testId="connect-camera-address" />);
+      expect(screen.getByTestId('connect-camera-address')).toBeInTheDocument();
+      expect(screen.queryByTestId('connect-screen-address')).toBeNull();
+    });
+  });
 });
