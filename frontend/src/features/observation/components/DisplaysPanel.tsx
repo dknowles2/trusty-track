@@ -297,7 +297,7 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     const launchSection = (
         <div style={{ display: 'grid', gap: '1.25rem' }}>
             <div>
-                <h3 style={{ margin: '0 0 0.6rem' }}>This computer</h3>
+                <h2 style={{ margin: '0 0 0.6rem' }}>This computer</h2>
                 <div style={{ display: 'grid', gap: '0.85rem' }}>
                     <div>
                         <button type="button" onClick={openLive} className="primary-btn" style={launchButtonStyle}>
@@ -321,7 +321,7 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                 </div>
             </div>
             <div>
-                <h3 style={{ margin: '0 0 0.6rem' }}>Other devices</h3>
+                <h2 style={{ margin: '0 0 0.6rem' }}>Other devices</h2>
                 {/* On a screen this laptop cannot open a browser window on —
                     the wall-mounted display or the check-in tablet a new
                     display window would open on *this* machine instead — an

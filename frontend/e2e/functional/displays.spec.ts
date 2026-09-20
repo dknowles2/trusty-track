@@ -236,8 +236,12 @@ test('the launch area keeps its two headings and fits a phone screen with no hor
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/race/${raceId}/displays`);
 
-    await expect(page.getByRole('heading', { name: 'This computer' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Other devices' })).toBeVisible();
+    // <h2>: DisplaysPage.tsx has no <h2> of its own between its <h1> and
+    // this panel, matching the level SystemSettings.tsx/RaceDetails.tsx use
+    // for a section under a page <h1> — pinned so a future edit can't
+    // quietly drop back a level.
+    await expect(page.getByRole('heading', { name: 'This computer', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Other devices', level: 2 })).toBeVisible();
 
     const fitsWithoutOverflow = await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,

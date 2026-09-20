@@ -619,16 +619,20 @@ describe('putting this screen on air (#958, #1249)', () => {
 });
 
 describe('the two headings over the launch area (#1249)', () => {
-    it('names "This computer" and "Other devices" as real headings', () => {
+    // <h2>, not <h3>: DisplaysPage.tsx has no <h2> of its own between its
+    // <h1> and this panel, and that's the level SystemSettings.tsx and
+    // RaceDetails.tsx already use for a section under a page <h1> — pinned
+    // here so a future edit can't quietly drop back a level.
+    it('names "This computer" and "Other devices" as real level-2 headings', () => {
         renderPanel('STANDINGS');
-        expect(screen.getByRole('heading', { name: 'This computer' })).toBeInTheDocument();
-        expect(screen.getByRole('heading', { name: 'Other devices' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'This computer', level: 2 })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Other devices', level: 2 })).toBeInTheDocument();
     });
 
     it('shows both headings before any display has opened too', () => {
         renderPanel('STANDINGS', 10, true, 2, false);
-        expect(screen.getByRole('heading', { name: 'This computer' })).toBeInTheDocument();
-        expect(screen.getByRole('heading', { name: 'Other devices' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'This computer', level: 2 })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Other devices', level: 2 })).toBeInTheDocument();
     });
 });
 
