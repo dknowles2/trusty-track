@@ -1104,6 +1104,15 @@ class RacerInput:
     car_weight: float | None = None
     racer_image_url: str | None = None
     car_image_url: str | None = None
+    #: The photo `racer_image_url`/`car_image_url` was cropped from, if any
+    #: (#1241) — same "absent means leave alone" shape as everything else
+    #: on this input. Null for a racer with no crop history yet.
+    racer_image_original_url: str | None = None
+    car_image_original_url: str | None = None
+    #: JSON the server never interprets — see `models.Racer.
+    #: racer_image_edit`'s own docstring for the shape (#1241).
+    racer_image_edit: str | None = None
+    car_image_edit: str | None = None
     race_id: int | None = None
     #: Races, but is not ranked (#548) — a sibling or parent's car, an
     #: outlaw-class entry, a demonstration run. Read in exactly one place,
@@ -1900,6 +1909,15 @@ class Racer:
     car_weight: float | None
     racer_image_url: str | None
     car_image_url: str | None
+    #: The photo `racer_image_url`/`car_image_url` was cropped from, if any
+    #: (#1241). Null for every racer until the first Rotate / Recrop,
+    #: camera capture, or bulk photo assignment on that side.
+    racer_image_original_url: str | None
+    car_image_original_url: str | None
+    #: JSON the server never interprets — see `models.Racer.
+    #: racer_image_edit`'s own docstring for the shape (#1241).
+    racer_image_edit: str | None
+    car_image_edit: str | None
     racing_group_id: int | None
     race_id: int
     #: Races, but is not ranked (#548). `services/scoring.get_leaderboard`
@@ -5467,7 +5485,25 @@ class Mutation:
         clear_racer_image = data.pop("clear_racer_image", False)
         clear_car_image = data.pop("clear_car_image", False)
         clear_home_unit = data.pop("clear_home_unit", False)
+        # The original and the crop that produced the current image move in
+        # lockstep with it, not with "absent means leave alone" (#1241):
+        # `RacerForm` always knows the correct current value for these four,
+        # including null (a fresh file upload has no original yet; a racer
+        # with no crop history has no edit), because unlike every other
+        # field on this input there is no partial update that only ever
+        # touches the image and leaves its own metadata stale on purpose.
+        # Popped and reapplied unconditionally, ahead of the `is not None`
+        # filter below, so a null here is not dropped as "not sent" the way
+        # it would be for `car_name` or `car_weight`.
+        racer_image_original_url = data.pop("racer_image_original_url", None)
+        car_image_original_url = data.pop("car_image_original_url", None)
+        racer_image_edit = data.pop("racer_image_edit", None)
+        car_image_edit = data.pop("car_image_edit", None)
         filtered_data = {k: v for k, v in data.items() if v is not None}
+        filtered_data["racer_image_original_url"] = racer_image_original_url
+        filtered_data["car_image_original_url"] = car_image_original_url
+        filtered_data["racer_image_edit"] = racer_image_edit
+        filtered_data["car_image_edit"] = car_image_edit
         if clear_racing_group:
             filtered_data["racing_group_id"] = None
         if clear_car_number:
@@ -5477,9 +5513,17 @@ class Mutation:
         if clear_car_weight:
             filtered_data["car_weight"] = None
         if clear_racer_image:
+            # The original and the crop that produced it are cleared with
+            # the derived image (#1241) — a stray original left behind
+            # would let a later Rotate / Recrop reopen on a photo the
+            # operator just cleared.
             filtered_data["racer_image_url"] = None
+            filtered_data["racer_image_original_url"] = None
+            filtered_data["racer_image_edit"] = None
         if clear_car_image:
             filtered_data["car_image_url"] = None
+            filtered_data["car_image_original_url"] = None
+            filtered_data["car_image_edit"] = None
         if clear_home_unit:
             filtered_data["home_unit"] = None
         racer_update = schemas.RacerUpdate(**typing.cast(Any, filtered_data))

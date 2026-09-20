@@ -302,6 +302,17 @@ class RacerBase(BaseModel):
     car_weight: float | None = None
     racer_image_url: str | None = None
     car_image_url: str | None = None
+    #: The photo `racer_image_url`/`car_image_url` was cropped from, if any
+    #: (#1241) — same shape and same validator as the derived pair above,
+    #: since this is also a path `uploadImage` produced. Null for a racer
+    #: created with no crop history — the ordinary case, since a first
+    #: upload has nothing to be an "original" of yet.
+    racer_image_original_url: str | None = None
+    car_image_original_url: str | None = None
+    #: JSON the server never interprets (#1241) — see
+    #: `models.Racer.racer_image_edit`'s own docstring for the shape.
+    racer_image_edit: str | None = None
+    car_image_edit: str | None = None
     #: Races, but is not ranked (#548). Off by default, same as
     #: `car_passed_inspection` above.
     excluded_from_standings: bool = False
@@ -309,7 +320,12 @@ class RacerBase(BaseModel):
     #: from `racing_group_id` (the rank).
     home_unit: str | None = None
 
-    @field_validator("racer_image_url", "car_image_url")
+    @field_validator(
+        "racer_image_url",
+        "car_image_url",
+        "racer_image_original_url",
+        "car_image_original_url",
+    )
     @classmethod
     def photo_url_is_one_uploadimage_produced(
         cls, value: str | None, info: ValidationInfo
@@ -335,6 +351,15 @@ class RacerUpdate(BaseModel):
     #: stored value instead, which this model has no way to see.
     racer_image_url: str | None = None
     car_image_url: str | None = None
+    #: Same shape and same reason as the derived pair above (#1241) —
+    #: validated against the racer's current stored value in
+    #: `crud.update_racer`, not here.
+    racer_image_original_url: str | None = None
+    car_image_original_url: str | None = None
+    #: JSON the server never interprets (#1241); see
+    #: `models.Racer.racer_image_edit`.
+    racer_image_edit: str | None = None
+    car_image_edit: str | None = None
     excluded_from_standings: bool | None = None
     #: A racer's own unit — "Pack 12" (#1076, stage 1). Absent leaves it
     #: alone; `api.schema`'s `RacerInput.clear_home_unit` is the explicit
