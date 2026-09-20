@@ -170,10 +170,11 @@ export function startDeviceClaimHeartbeat(id: string): () => void {
 
 /**
  * The address of a brand-new screen on this computer, for Race Control's
- * "Open a new display window" button (#590). A fresh id is baked into the
- * query string rather than left for the new tab to work out for itself —
- * that is what lets it become a second screen immediately, with nothing to
- * contest, instead of racing this tab's own claim on the shared device id.
+ * "Add a second screen on this computer" button (#590, renamed by #1249). A
+ * fresh id is baked into the query string rather than left for the new tab
+ * to work out for itself — that is what lets it become a second screen
+ * immediately, with nothing to contest, instead of racing this tab's own
+ * claim on the shared device id.
  */
 export function newDisplayWindowUrl(raceId: number): string {
     return `/race/${raceId}/observation?displayId=${encodeURIComponent(randomId())}`;

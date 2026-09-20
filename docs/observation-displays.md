@@ -27,7 +27,7 @@ _The Observation page in standard view, showing the "Now Racing", "On Deck" and 
 Any device on the same network as the machine running Trusty Track can open the Observation page. You do not need to use the same device running race control.
 
 1. On your own machine, open a race and click **Displays** in the top navigation bar.
-2. Click **Open Live on this screen** — it opens in a new tab, so your own screen stays where it is.
+2. Click **Open Live here** — it opens in a new tab, so your own screen stays where it is.
 3. On another device, open the same **Displays** panel and share the address shown there (type it in, scan the QR code, or copy it) — it connects the same way, and the page begins showing live data automatically.
 
 ![Observation URL in Browser](assets/screenshots/observation/02-observation-url.png)
@@ -226,16 +226,17 @@ After — and a line underneath names what the chosen view actually shows, so
 **Standings** and **Standings only** and **Projector** don't have to be told
 apart by walking to the screen.
 
-At the top of the page, **Open Live on this screen** and **Launch
-projector** put the Live page (or straight into Projector Mode) on *your own*
-screen, each in a new tab — this laptop stays on the Displays page, and the
-new tab is the one that joins the list below. **Open a new display window**
-sits beside them for a genuinely second screen on this computer — two
-monitors, or a projector next to your own — so assigning one never moves the
-other by mistake.
+At the top of the page, under **This computer**, **Open Live here** puts the
+Live page on *your own* screen, in a new tab — this laptop stays on the
+Displays page, and the new tab is the one that joins the list below. Choose
+what it shows, Projector Mode included, from the view dropdown once it
+appears in that list. Underneath it, **Add a second screen on this
+computer** is for the one case a shared identity gets wrong: two monitors on
+this same computer, or a projector next to your own preview tab, where
+assigning one screen must not move the other.
 
-Below them is the address to open on a screen that has not found its way
-here yet — see [Finding this machine's
+Under **Other devices** is the address to open on a screen that has not
+found its way here yet — see [Finding this machine's
 address](access-and-network.md#finding-this-machines-address) — with a
 **Copy** button and a QR code a tablet can scan directly.
 
@@ -269,9 +270,9 @@ The ten views a screen can show, and how assignment behaves, are in
 
 > [!TIP]
 > **Two monitors on the same computer** used to report as a single screen —
-> assigning one moved both. The **Open a new display window** button above
-> the list opens a second window that is its own screen from the start, with
-> nothing to type. See [Two screens, one computer](reference/displays.md#two-screens-one-computer).
+> assigning one moved both. The **Add a second screen on this computer**
+> button above the list opens a second window that is its own screen from
+> the start, with nothing to type. See [Two screens, one computer](reference/displays.md#two-screens-one-computer).
 
 > [!NOTE]
 > **Awards ceremony** is in the dropdown once the race has awards — set them

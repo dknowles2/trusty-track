@@ -132,7 +132,7 @@ describe('the displays panel reflects the caller role', () => {
         expect(screen.getByLabelText('Identify Gym north')).toBeEnabled();
     });
 
-    it('does not disable "Open a new display window", which is not a mutation', async () => {
+    it('does not disable "Add a second screen on this computer", which is not a mutation', async () => {
         mockQueries('VIEWER');
         renderPanel();
 
@@ -140,6 +140,8 @@ describe('the displays panel reflects the caller role', () => {
             expect(screen.getByText('Gym north')).toBeInTheDocument();
         });
 
-        expect(screen.getByRole('button', { name: 'Open a new display window' })).toBeEnabled();
+        expect(
+            screen.getByRole('button', { name: 'Add a second screen on this computer' }),
+        ).toBeEnabled();
     });
 });

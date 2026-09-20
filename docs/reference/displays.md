@@ -397,7 +397,7 @@ on the same computer used to report the identical screen twice, because every
 browser tab on one machine shares that machine's stored identity: assigning a
 view to one moved both windows at once.
 
-- **The Displays page has an Open a new display window button.**
+- **The Displays page has an Add a second screen on this computer button.**
   It opens a second window that is already its own screen — nothing to type,
   and nothing for it to contend with the tab that opened it.
 - **Reloading a display window keeps its identity.** A genuinely new tab or

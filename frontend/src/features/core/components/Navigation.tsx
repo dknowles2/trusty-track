@@ -182,9 +182,9 @@ export default function Navigation() {
         // page with the audience display, still wearing the operator's
         // chrome, which is a launch point behaving like a destination
         // (#958). Displays takes its place: the operator's own page for
-        // "which screen shows what", with "Open Live on this screen" as one
-        // of its own buttons, opening in a new tab rather than taking this
-        // one over.
+        // "which screen shows what", with "Open Live here" as one of its
+        // own buttons, opening in a new tab rather than taking this one
+        // over.
         { to: `/race/${raceId}/displays`, label: 'Displays', icon: mdiMonitorMultiple }
       );
   }
