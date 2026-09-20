@@ -708,7 +708,7 @@ describe('the two connect blocks under Other devices (#1254)', () => {
             vi.fn(),
         ]);
         (vi.mocked(useClient) as ReturnType<typeof vi.fn>).mockReturnValue({ query: vi.fn() });
-        render(<DisplaysPanel raceId={1} />);
+        return render(<DisplaysPanel raceId={1} />);
     }
 
     it('renders both blocks as a labelled pair', () => {
@@ -760,6 +760,112 @@ describe('the two connect blocks under Other devices (#1254)', () => {
         expect(picker.value).toBe('9');
         const cameraBlock = screen.getByTestId('connect-camera-address');
         expect(within(cameraBlock).getByText(/trackId=9/)).toBeInTheDocument();
+    });
+
+    it('shows no camera URL while the race track query is still pending, and never falls back to tracks[0] before it answers', () => {
+        // The reported bug: GET_TRACKS is asked for elsewhere on this page
+        // too and is often already warm, where RACE_TRACK_QUERY is new here
+        // and genuinely has to go over the wire — so a default computed the
+        // instant GET_TRACKS answers, before this race's own track query
+        // has, can land on the *wrong* track (tracks[0]) with the same
+        // confidence as a right one.
+        let raceTrackPending = true;
+        type QueryArgs = { query: { definitions: { name?: { value?: string } }[] } };
+        const tracks = [
+            { id: 9, name: 'North' },
+            { id: 11, name: 'South' },
+        ];
+        const implementation = (args: QueryArgs) => {
+            const name = args.query.definitions.find((d) => d.name?.value)?.name?.value;
+            if (name === 'RaceAwardCount') {
+                return [
+                    { data: { race: { id: 1, awards: [] } }, fetching: false, error: null },
+                    vi.fn(),
+                ];
+            }
+            if (name === 'GetTracks') {
+                // Warm — already answered.
+                return [{ data: { tracks }, fetching: false, error: null }, vi.fn()];
+            }
+            if (name === 'RaceTrackForCameraPreset') {
+                return raceTrackPending
+                    ? [{ data: undefined, fetching: true, error: null }, vi.fn()]
+                    : [
+                          { data: { race: { id: 1, trackId: 11 } }, fetching: false, error: null },
+                          vi.fn(),
+                      ];
+            }
+            if (name === 'ObservationNetworkAddresses') {
+                return [
+                    { data: { networkAddresses: [], mdnsHostname: null }, fetching: false, error: null },
+                    vi.fn(),
+                ];
+            }
+            // GetDisplays
+            return [
+                {
+                    data: {
+                        displays: [
+                            {
+                                displayId: 'd-1',
+                                name: 'Gym north',
+                                view: 'STANDINGS',
+                                cycleSeconds: 10,
+                                scrollBehavior: 'PAGING',
+                                showCheckedIn: true,
+                                qrTarget: 'STANDINGS',
+                                showStandingsTicker: true,
+                                description: 'Standings',
+                                pacedByAPerson: false,
+                                connected: true,
+                                role: 'DISPLAY',
+                            },
+                        ],
+                    },
+                    fetching: false,
+                    error: null,
+                },
+                vi.fn(),
+            ];
+        };
+        (vi.mocked(useQuery) as ReturnType<typeof vi.fn>).mockImplementation(implementation);
+        (vi.mocked(useMutation) as ReturnType<typeof vi.fn>).mockImplementation(() => [
+            { fetching: false },
+            vi.fn(),
+        ]);
+        (vi.mocked(useClient) as ReturnType<typeof vi.fn>).mockReturnValue({ query: vi.fn() });
+
+        const { rerender } = render(<DisplaysPanel raceId={1} />);
+
+        expect(screen.queryByTestId('connect-camera-address')).toBeNull();
+        expect(screen.getByText(/Preparing the camera address/)).toBeInTheDocument();
+
+        raceTrackPending = false;
+        rerender(<DisplaysPanel raceId={1} />);
+
+        expect(screen.queryByText(/Preparing the camera address/)).toBeNull();
+        const cameraBlock = screen.getByTestId('connect-camera-address');
+        expect(within(cameraBlock).getByText(/trackId=11/)).toBeInTheDocument();
+    });
+
+    it('mints the camera identity once, and a later render of the same instance keeps the same displayId', () => {
+        const { rerender } = renderConnectBlocks();
+        const readDisplayId = () =>
+            screen
+                .getByTestId('connect-camera-address')
+                .textContent?.match(/displayId=([^&\s]+)/)?.[1];
+
+        const firstId = readDisplayId();
+        expect(firstId).toBeTruthy();
+
+        // Re-render the *same* mounted instance — the ordinary case this
+        // panel sees constantly (a subscription tick, another row's
+        // rename), not a fresh mount. Passing a new, unrelated prop
+        // (`onDisplaysChange`) forces React to actually re-run the
+        // component body rather than bail out early on identical props.
+        rerender(<DisplaysPanel raceId={1} onDisplaysChange={() => {}} />);
+
+        expect(readDisplayId()).toBe(firstId);
     });
 
     it('shows the empty-state line while no camera has connected', () => {

@@ -190,8 +190,17 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     // itself follows for the picker's own presence.
     const [raceTrackResult] = useQuery({ query: RACE_TRACK_QUERY, variables: { raceId }, pause: !raceId });
     const raceTrackId: number | null = raceTrackResult.data?.race?.trackId ?? null;
+    // Neither query is guaranteed to answer before the other — `GET_TRACKS`
+    // is asked for elsewhere on this page too and is often already warm in
+    // the cache, where `RACE_TRACK_QUERY` is new here and genuinely has to
+    // go over the wire. A default computed from `tracks[0]` before this
+    // race's own track answers is a *wrong* preset shown with the same
+    // confidence as a right one — a code scanned in that window sends the
+    // camera to whichever track happened to load first, not this race's
+    // own — so the default (and the block that shows it) waits for both.
+    const cameraPresetSettled = tracksResult.data !== undefined && (!raceId || raceTrackResult.data !== undefined);
     const defaultCameraTrackId: number | undefined =
-        tracks.length === 0
+        !cameraPresetSettled || tracks.length === 0
             ? undefined
             : raceTrackId && tracks.some((t) => t.id === raceTrackId)
               ? raceTrackId
@@ -373,33 +382,44 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                         />
                     </div>
                     <div style={{ flex: '1 1 300px', minWidth: '260px' }}>
-                        {tracks.length > 1 && (
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
-                                Camera for:{' '}
-                                <select
-                                    data-testid="connect-camera-track"
-                                    aria-label="Which track the camera code presets"
-                                    value={effectiveCameraTrackId ?? ''}
-                                    onChange={(e) => setManualCameraTrackId(Number(e.target.value))}
-                                    style={{ padding: '0.3rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
-                                >
-                                    {tracks.map((t) => (
-                                        <option key={t.id} value={t.id}>
-                                            {t.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                        )}
-                        <ConnectDisplayAddress
-                            raceId={raceId}
-                            path={cameraPath}
-                            heading="Connect a camera"
-                            caption="For the finish line — scan on the phone that will film it."
-                            testId="connect-camera-address"
-                        />
-                        {cameras.length === 0 && (
-                            <p style={captionStyle}>No cameras yet — scan the code above to connect one.</p>
+                        {cameraPresetSettled ? (
+                            <>
+                                {tracks.length > 1 && (
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
+                                        Camera for:{' '}
+                                        <select
+                                            data-testid="connect-camera-track"
+                                            aria-label="Which track the camera code presets"
+                                            value={effectiveCameraTrackId ?? ''}
+                                            onChange={(e) => setManualCameraTrackId(Number(e.target.value))}
+                                            style={{ padding: '0.3rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
+                                        >
+                                            {tracks.map((t) => (
+                                                <option key={t.id} value={t.id}>
+                                                    {t.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                )}
+                                <ConnectDisplayAddress
+                                    raceId={raceId}
+                                    path={cameraPath}
+                                    heading="Connect a camera"
+                                    caption="For the finish line — scan on the phone that will film it."
+                                    testId="connect-camera-address"
+                                />
+                                {cameras.length === 0 && (
+                                    <p style={captionStyle}>No cameras yet — scan the code above to connect one.</p>
+                                )}
+                            </>
+                        ) : (
+                            // Neither the picker nor the address is shown until
+                            // both queries above have answered — see this
+                            // block's own comment on `cameraPresetSettled` for
+                            // why a URL built before then would be wrong, not
+                            // just early.
+                            <p style={captionStyle}>Preparing the camera address…</p>
                         )}
                     </div>
                 </div>
