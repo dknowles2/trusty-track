@@ -40,9 +40,18 @@ export type ApplySceneResult = {
   skippedCount: Scalars['Int']['output'];
 };
 
+export type AuditCategory =
+  | 'AWARDS'
+  | 'DISPLAYS'
+  | 'RESULTS'
+  | 'ROSTER'
+  | 'SCHEDULE'
+  | 'SETUP';
+
 export type AuditLogEntry = {
   action: Scalars['String']['output'];
   at: Scalars['String']['output'];
+  category?: Maybe<AuditCategory>;
   details?: Maybe<Scalars['String']['output']>;
   id: Scalars['Int']['output'];
   noteworthy: Scalars['Boolean']['output'];
@@ -1142,7 +1151,9 @@ export type QueryAdvancementStatusArgs = {
 
 export type QueryAuditLogArgs = {
   beforeId?: InputMaybe<Scalars['Int']['input']>;
+  categories?: InputMaybe<Array<AuditCategory>>;
   limit?: Scalars['Int']['input'];
+  noteworthy?: Scalars['Boolean']['input'];
   raceId?: InputMaybe<Scalars['Int']['input']>;
 };
 

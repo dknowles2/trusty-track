@@ -82,6 +82,19 @@ describe('pendingSince', () => {
     it('is the whole fetched page the first time, when nothing is loaded yet', () => {
         expect(pendingSince([], [entry(2), entry(1)])).toEqual([entry(2), entry(1)]);
     });
+
+    it('honours a matchesFilter predicate (#1253), excluding entries the current filter would not show', () => {
+        const loaded = [entry(1)];
+        const fetched = [entry(4), entry(3), entry(2), entry(1)];
+        const onlyEven = (candidate: LogEntry) => candidate.id % 2 === 0;
+        expect(pendingSince(loaded, fetched, onlyEven)).toEqual([entry(4), entry(2)]);
+    });
+
+    it('defaults to "everything matches" when no predicate is given', () => {
+        const loaded: LogEntry[] = [];
+        const fetched = [entry(2), entry(1)];
+        expect(pendingSince(loaded, fetched)).toEqual(pendingSince(loaded, fetched, () => true));
+    });
 });
 
 describe('applyPendingEntries', () => {

@@ -3049,6 +3049,13 @@ DisplayRoleEnum = strawberry.enum(domain_displays.DisplayRole, name="DisplayRole
 #: `DisplayViewEnum` above.
 ScenePresetEnum = strawberry.enum(domain_scenes.ScenePreset, name="ScenePreset")
 
+#: One of the six subjects an activity-log entry can be about (#1253) —
+#: wrapped for the same reason as `DisplayViewEnum` above: the vocabulary and
+#: `ACTIONS_BY_CATEGORY` live once, in `domain/audit.py`, and the client
+#: renders the chip row from the category the server hands back on each
+#: entry rather than a second copy of the action lists.
+AuditCategoryEnum = strawberry.enum(audit.AuditCategory, name="AuditCategory")
+
 
 def _require_operator_role(info: Info) -> None:
     """Refuse anything but an operator.
@@ -3132,6 +3139,20 @@ class AuditLogEntry:
     def noteworthy(self) -> bool:
         """Whether this one deserves attention rather than merely a line."""
         return audit.is_noteworthy(_audit_entry(self))
+
+    @strawberry.field
+    def category(self) -> AuditCategoryEnum | None:  # type: ignore[valid-type]
+        """Which of the six subjects this entry is about (#1253), or `None`
+        for an action `ACTIONS_BY_CATEGORY` has not caught up with yet.
+
+        Resolved from `action` alone via `domain.audit.category_of`, the same
+        table the server-side `categories` filter on `Query.auditLog` builds
+        its `WHERE` clause from — so the chip the client renders next to a
+        row can never disagree with which chip would have filtered it in.
+        """
+        # `self` is the ORM row, not this class — see `_require_operator_role`
+        # and `summary` above for the same shape.
+        return audit.category_of(self.action)  # type: ignore[attr-defined,no-any-return]
 
 
 @strawberry.type
@@ -3906,6 +3927,8 @@ class Query:
         race_id: int | None = None,
         limit: int = 200,
         before_id: int | None = None,
+        categories: list[AuditCategoryEnum] | None = None,  # type: ignore[valid-type]
+        noteworthy: bool = False,
     ) -> list[AuditLogEntry]:
         """The timeline, newest first (#219).
 
@@ -3916,6 +3939,17 @@ class Query:
         ``raceId`` narrows to one race. Entries that concern no particular race
         — setting up a track, restoring a backup — are then out of the way,
         which is what makes a race filter useful rather than merely a filter.
+
+        ``categories`` and ``noteworthy`` (#1253) are applied in ``crud``
+        *before* ``limit``/``beforeId``, not after: paging is cursor-based
+        because the corpus is thousands of rows, and filtering only the page
+        already fetched would silently miss everything not yet paged in —
+        exactly wrong for "scanning a thousand rows for what went wrong".
+        ``categories`` omitted or ``None`` means no filter, same as every
+        category being selected; an empty list is likewise no filter, since a
+        client that has deselected every chip means "show nothing" by
+        collapsing the list to a page with no rows, not by asking the server
+        for one, and the chip row itself never lets every chip go unselected.
 
         **A query and not a subscription**, which is a departure from every
         other live view here and is about layering rather than taste. Half the
@@ -3938,6 +3972,11 @@ class Query:
                 # negative number should ever mean here.
                 limit=max(0, min(limit, 500)),
                 before_id=before_id,
+                # `strawberry.enum` decorates `audit.AuditCategory` in place
+                # (see `HeatPhase`'s own comment above) rather than minting a
+                # second type, so each `c` here already is one.
+                categories=list(categories) if categories else None,
+                noteworthy=noteworthy,
             ),
         )
 

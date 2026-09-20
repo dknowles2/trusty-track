@@ -50,13 +50,24 @@ export function writeLiveSetting(
  * straight against what is actually on screen is both simpler and
  * self-correcting if an earlier live refresh was missed or arrived out of
  * order — accumulating deltas could not recover from either.
+ *
+ * `matchesFilter` (#1253) is checked too, so the "N new entries" chip counts
+ * only what the current category/noteworthy filter would show. The live
+ * poll's own query already narrows `fetched` to that filter server-side
+ * (`ACTIVITY_LOG_LIVE_QUERY`), which is the ordinary case; this is the
+ * defence for the one it does not cover — a poll already in flight when the
+ * operator changes the filter is answered against the filter it was *sent*
+ * under, and by the time it lands the filter on screen may have moved on.
+ * Defaults to "everything matches" so a caller with no filter of its own
+ * (there is none today outside `ActivityLog.tsx`) is unaffected.
  */
 export function pendingSince(
     loaded: readonly LogEntry[],
     fetched: readonly LogEntry[],
+    matchesFilter: (entry: LogEntry) => boolean = () => true,
 ): LogEntry[] {
     const known = new Set(loaded.map((entry) => entry.id));
-    return fetched.filter((entry) => !known.has(entry.id));
+    return fetched.filter((entry) => !known.has(entry.id) && matchesFilter(entry));
 }
 
 /**
