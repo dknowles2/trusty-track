@@ -595,7 +595,7 @@ input:checked + .slider:before {
    full-width, borderless, left-aligned row, colour and hover included — for
    a button that reads as a menu entry without being inside a `.dropdown-
    content` container (e.g. the preferences popover's Sound options… row,
-   #1247). One rule, two selectors, so the two cannot drift apart. */
+   #1247). One rule, two selectors, so a change to one is a change to both — nothing tests it, so a later split into two rules would go unnoticed; keep them together. */
 .dropdown-content button,
 .menu-row-btn {
   color: var(--text-emphasis-color);
