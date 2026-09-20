@@ -24,9 +24,16 @@
  *
  * The display id matters because #495's default name is *derived* from it
  * (`domain/display_names.whimsical_name`) — deterministic given the id, but
- * the id itself is not, so `observation/08-displays-panel.png` and
- * `11-ceremony-controls.png` would show a different animal every run without
- * this.
+ * the id itself is not, so any spec whose own `page` fixture lands on
+ * `/observation` (`race-day.spec.ts`'s `observation/04-on-deck-panel.png`,
+ * `screenshot-checkin.spec.ts`, `screenshot-qrcode.spec.ts`) would register
+ * a display with a different default name every run without this.
+ * `screenshot-observation.spec.ts`'s own `08-displays-panel.png` and
+ * `11-ceremony-controls.png` are a separate case — they photograph two
+ * *other* browser contexts, which do not inherit this fixture's
+ * `addInitScript` at all, and are seeded with their own fixed
+ * `?displayId=` values instead (#1259, `.claude/rules/documentation.md`'s
+ * 08 paragraph).
  *
  * Import `test` and `expect` from this file rather than from `@playwright/test`.
  */

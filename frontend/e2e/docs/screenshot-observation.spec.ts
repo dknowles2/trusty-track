@@ -49,13 +49,6 @@ const SCREENSHOT_DIR = path.resolve(
 );
 
 /**
- * `displayIdentity.ts`'s storage key, mirrored here rather than imported —
- * same reason as `screenshots-setup.ts`'s copy: this file runs outside the
- * app's build.
- */
-const DISPLAY_ID_KEY = 'trustytrack.displayId';
-
-/**
  * One of the app's own sample images, as a data URL.
  *
  * Read from disk rather than inlined: these are the illustrations
@@ -273,23 +266,29 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     // automatically. Left un-renamed on purpose (#522): a screen that vanished
     // before anyone got to it is exactly the one still showing the whimsical
     // name it gave itself, and the picture is the only place that claim is
-    // ever illustrated. Seeded with its own fixed id, the same way the `page`
-    // fixture's is seeded in `screenshots-setup.ts`, so the animal it lands on
-    // is stable between runs rather than a fresh one every time.
+    // ever illustrated. `whimsical_name` (`backend/domain/display_names.py`)
+    // seeds its draw from the display's own id, so a fixed `?displayId=` —
+    // honoured by `displayIdentity.ts`'s `displayId(urlDisplayId)`, the same
+    // way `newDisplayWindowUrl` bakes one in for a real second screen — is
+    // what makes the animal it lands on stable between runs rather than a
+    // fresh one every time (#1259). Namespaced to this spec so no other docs
+    // spec's own fixed id collides with it.
     const goneContext = await browser.newContext();
     const goneScreen = await goneContext.newPage();
-    await goneScreen.addInitScript(
-        ([key, value]) => window.localStorage.setItem(key, value),
-        [DISPLAY_ID_KEY, 'trustytrack-docs-screenshot-display-gone'],
-    );
-    await goneScreen.goto(`/race/${raceId}/observation`);
+    await goneScreen.goto(`/race/${raceId}/observation?displayId=docs-observation-gone`);
     await goneScreen.waitForLoadState('networkidle');
     await expect(goneScreen.locator('.heat-card').first()).toBeVisible();
     await goneContext.close();
 
+    // The one that stays connected and gets renamed below. Its whimsical
+    // default is overwritten by that rename, so it does not need a fixed id
+    // for *this* picture's own sake — but a random id here is otherwise
+    // exactly the shape #1259 found, so it is fixed too rather than leaving a
+    // second, merely-currently-harmless source of the same nondeterminism in
+    // the file.
     const displayContext = await browser.newContext();
     const audienceScreen = await displayContext.newPage();
-    await audienceScreen.goto(`/race/${raceId}/observation`);
+    await audienceScreen.goto(`/race/${raceId}/observation?displayId=docs-observation-second`);
     await audienceScreen.waitForLoadState('networkidle');
     await expect(audienceScreen.locator('.heat-card').first()).toBeVisible();
 
@@ -330,7 +329,17 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     await page.reload();
     await page.waitForLoadState('networkidle');
     await expect(page.locator('[data-testid^="display-"]').first().getByText('Gym north')).toBeVisible();
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '08-displays-panel.png') });
+    // Scoped to the display list itself (#1259), not a full-page capture —
+    // the caption is a claim about these two rows, and the "Other devices"
+    // address blocks above them embed a fresh, unseedable `displayId` in
+    // both the camera address's own text and (were the backend's QR guard
+    // ever widened to allow `/camera`, which it does not yet) its QR code —
+    // see `.claude/rules/documentation.md`'s 08 paragraph for the measured
+    // drift this scoping closes off, the same #1230 shape as
+    // `district-derby/01-district-scale.png`'s own modal-only crop.
+    await screenshotLocator(page.getByTestId('displays-list'), {
+        path: path.join(SCREENSHOT_DIR, '08-displays-panel.png'),
+    });
 
     // 11: the ceremony controls on a display row. Taken after 08 rather than
     // instead of it — 08 is the panel's ordinary look, and a row parked on the
@@ -429,6 +438,13 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     // the race picker. The row holding the Displays tab is a `<div
     // data-testid="race-nav">` underneath it (Navigation.tsx), so that lookup
     // always captured the header and never the tabs the caption points at.
+    // `screenshotLocator` (08's and 11's own captures, above) scrolls its
+    // target into view and leaves the page there — `displays-list` sits
+    // below both "This computer" and "Other devices", so 08's capture alone
+    // is enough to carry the scroll position (#1259) past this point unless
+    // it is reset, which put `race-nav` off the top of the viewport (a
+    // negative `y`) and made `navBox.height` compute negative below.
+    await page.evaluate(() => window.scrollTo(0, 0));
     const raceNav = page.getByTestId('race-nav');
     await expect(raceNav.getByRole('link', { name: /Displays/i })).toBeVisible();
     const navBox = await raceNav.boundingBox();

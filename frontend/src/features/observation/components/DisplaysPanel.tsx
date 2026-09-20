@@ -445,6 +445,13 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     return (
         <div style={{ display: 'grid', gap: '0.75rem' }}>
             {launchSection}
+            {/* Its own testid (#1259) — separate from `launchSection` above,
+                which the operator's list is not: a caption illustrating "the
+                operator's list of audience displays" is a claim about these
+                rows, not about the launch buttons or the two "Connect a…"
+                address blocks sitting above them, and a docs screenshot
+                scoped here can no longer see either. */}
+            <div data-testid="displays-list" style={{ display: 'grid', gap: '0.75rem' }}>
             {displays.map((display) => {
                 const currentOption = VIEW_OPTIONS.find((option) => option.view === display.view);
                 return (
@@ -873,6 +880,7 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                     </div>
                 );
             })}
+            </div>
         </div>
     );
 }
