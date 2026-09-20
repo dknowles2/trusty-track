@@ -209,6 +209,12 @@ for (const viewport of [
             const box = modal.getByRole('group', { name: /crop area/i });
             await expect(box).toBeVisible();
 
+            // The recrop path edits a photo already on file, so its footer
+            // carries #1242's own vocabulary rather than the camera capture
+            // path's "Cancel" / "Use this photo".
+            await expect(modal.getByRole('button', { name: 'Keep original' })).toBeVisible();
+            await expect(modal.getByRole('button', { name: 'Save changes' })).toBeVisible();
+
             // The square racer crop against this landscape photo fills the
             // stage's full height (`fitInitialCrop` maximizes it) and has
             // slack only on the sides — enough to prove a rightward drag

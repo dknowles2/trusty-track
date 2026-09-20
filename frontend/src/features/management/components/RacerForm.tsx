@@ -703,6 +703,11 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
             open
             src={cropTarget === 'car' ? formData.car_image_url ?? '' : formData.racer_image_url ?? ''}
             title="Rotate / recrop photo"
+            // The photo is already on file — the real choice is keeping it
+            // or replacing it with this edit, not "use this photo" (which
+            // reads as though some other photo were the alternative) (#1242).
+            cancelLabel="Keep original"
+            confirmLabel="Save changes"
             // Same rule as the camera's own crop step: a racer's portrait
             // is square, a car photo is landscape (#619).
             aspect={cropTarget === 'car' ? CAR_ASPECT : PORTRAIT_ASPECT}
