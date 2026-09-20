@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ImageCropModal from './ImageCropModal';
-import { PORTRAIT_ASPECT } from './imageEdit';
+import { PORTRAIT_ASPECT, rotateCrop, type CropRect } from './imageEdit';
 
 /**
  * Issue #619, stage 1. The modal is standalone here — nothing wires it into
@@ -28,6 +28,26 @@ function fakeContext() {
         rotate: vi.fn(),
         drawImage: vi.fn(),
     } as unknown as CanvasRenderingContext2D;
+}
+
+// `deriveScale`'s fallback is `DISPLAY_MAX / longest edge` — jsdom never
+// measures a real container width, so every crop-box style in this file is
+// drawn at that constant scale. 420 / 800 matches the 315px width the first
+// test below already pins for the 600-natural-pixel default crop
+// (315 / 600 = 0.525 = 420 / 800), and it stays the same after a quarter
+// turn too: an 800x600 photo's longest edge is 800 whichever way round it
+// is displayed, so nothing here has to track the rotation to know it.
+const SCALE = 420 / 800;
+
+/** Read a crop box's rendered style back into the natural-pixel `CropRect`
+ * it was drawn from, undoing `SCALE` the same way `toNatural` would. */
+function readCropRect(box: HTMLElement): CropRect {
+    return {
+        x: parseFloat(box.style.left) / SCALE,
+        y: parseFloat(box.style.top) / SCALE,
+        width: parseFloat(box.style.width) / SCALE,
+        height: parseFloat(box.style.height) / SCALE,
+    };
 }
 
 function loadImage(width = 800, height = 600) {
@@ -88,6 +108,54 @@ describe('ImageCropModal', () => {
 
         fireEvent.click(screen.getByRole('button', { name: /rotate left/i }));
         expect(img.style.transform).toContain('rotate(90deg)');
+    });
+
+    it('rotating carries an existing crop through the turn instead of resetting it (#1240)', () => {
+        render(
+            <ImageCropModal
+                open
+                src={DATA_URL}
+                aspect={PORTRAIT_ASPECT}
+                onCancel={vi.fn()}
+                onConfirm={vi.fn()}
+            />,
+        );
+        loadImage(800, 600);
+        const cropBox = screen.getByRole('group', { name: /crop area/i });
+        const defaultCrop = readCropRect(cropBox);
+
+        // Nudge the crop off its default — arrow keys are the only keyboard
+        // path there is (`handleKeyDown`/`handleCropKeyDown`). The default
+        // crop is a 600x600 square inside an 800x600 image, so it already
+        // touches the top and bottom edges (`clampCrop` holds `y` at 0) —
+        // only `x` has room to move.
+        fireEvent.keyDown(cropBox, { key: 'ArrowRight' });
+        fireEvent.keyDown(cropBox, { key: 'ArrowRight' });
+        const nudged = readCropRect(cropBox);
+        expect(nudged.x).not.toBeCloseTo(defaultCrop.x, 1);
+
+        // Rotation is still 0 at this point, so the crop is expressed in
+        // the original, unrotated 800x600 image size.
+        const imageSize = { width: 800, height: 600 };
+        fireEvent.click(screen.getByRole('button', { name: /rotate right/i }));
+        const afterRight = readCropRect(cropBox);
+        const expected = rotateCrop(nudged, imageSize, 'right', PORTRAIT_ASPECT);
+        expect(afterRight.x).toBeCloseTo(expected.x, 0);
+        expect(afterRight.y).toBeCloseTo(expected.y, 0);
+        expect(afterRight.width).toBeCloseTo(expected.width, 0);
+        expect(afterRight.height).toBeCloseTo(expected.height, 0);
+        // The mutation this guards against: `fitInitialCrop` would have put
+        // the crop straight back at the default, regardless of rotation.
+        expect(afterRight.x).not.toBeCloseTo(defaultCrop.x, 0);
+
+        // Rotating the opposite way undoes it — back to the nudged crop,
+        // not the default.
+        fireEvent.click(screen.getByRole('button', { name: /rotate left/i }));
+        const afterLeft = readCropRect(cropBox);
+        expect(afterLeft.x).toBeCloseTo(nudged.x, 0);
+        expect(afterLeft.y).toBeCloseTo(nudged.y, 0);
+        expect(afterLeft.width).toBeCloseTo(nudged.width, 0);
+        expect(afterLeft.height).toBeCloseTo(nudged.height, 0);
     });
 
     it('confirm draws to a canvas and calls onConfirm with a JPEG data URL', () => {
