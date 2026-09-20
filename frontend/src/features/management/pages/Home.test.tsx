@@ -195,7 +195,7 @@ describe('Home Page', () => {
         expect(emptyCell).toHaveAttribute('colSpan', '6');
     });
 
-    it('offers a rehearsal from the empty state', async () => {
+    it('offers a rehearsal from the empty state, with no chevron to open', async () => {
         // The night before an event is when a volunteer wants this, and an
         // empty Home page is exactly where they are standing.
         (useQuery as any).mockReturnValue([{
@@ -215,13 +215,18 @@ describe('Home Page', () => {
         await waitFor(() => {
             expect(screen.getByTestId('practice-race-empty')).toBeInTheDocument();
         });
-        expect(screen.getByTestId('practice-race')).toBeInTheDocument();
-        // Nothing to resume yet, so there is nothing to "start over" from.
+        const button = screen.getByTestId('practice-race');
+        expect(button).toBeInTheDocument();
+        // With no practice race there is nothing to be an alternative to
+        // (#1238), so it's a plain button — no split-button chevron, and
+        // therefore no "Start new" entry to find anywhere on the page.
+        expect(button).not.toHaveClass('split-btn-main');
+        expect(screen.queryByRole('button', { name: /More practice race options/ })).not.toBeInTheDocument();
         expect(screen.queryByTestId('practice-race-start-new')).not.toBeInTheDocument();
     });
 
     describe('resuming an existing practice race (#588)', () => {
-        it('offers to resume rather than inviting a fresh one', async () => {
+        it('offers to resume, as the main click of a split button', async () => {
             mockPracticeMutation();
             renderHome({
                 races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
@@ -230,31 +235,30 @@ describe('Home Page', () => {
 
             const button = await screen.findByTestId('practice-race');
             expect(button).toHaveTextContent('Resume practice race');
-            expect(screen.getByTestId('practice-race-start-new')).toBeInTheDocument();
+            expect(button).toHaveClass('split-btn-main');
+            expect(screen.getByRole('button', { name: /More practice race options/ })).toBeInTheDocument();
         });
 
-        // #1238: "Start new" used to be a plain underlined word with an
-        // inline style stripping every button affordance (no background, no
-        // border, no padding, `textDecoration: 'underline'`) — invisible to
-        // `tokenSystem.test.ts`'s colour guard since none of it was a class,
-        // and dropped from the phone-stacking rule since it carried neither
-        // `.secondary-btn` nor `.primary-btn`. It is a real button class now,
-        // `.tertiary-btn`, with no inline style at all — a restyle back to
-        // the old inline literals should fail this.
-        it('is a real button class, not an inline-styled text link', async () => {
+        // #1238: "Start new" folded into the chevron of a split button on
+        // Resume, mirroring the roster's own Add Racer split button — the
+        // entry is not in the document until the chevron opens it, the same
+        // shape Add Racer's own bulk-action menu tests already exercise.
+        it('keeps the Start new entry off the page until the chevron opens it', async () => {
             mockPracticeMutation();
             renderHome({
                 races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
                 practiceRace: { id: 5, name: 'Practice Race' },
             });
 
-            const button = await screen.findByTestId('practice-race-start-new');
-            expect(button).toHaveClass('tertiary-btn');
-            expect(button).not.toHaveStyle({ textDecoration: 'underline' });
-            expect(button).not.toHaveStyle({ background: 'none' });
+            await screen.findByTestId('practice-race');
+            expect(screen.queryByTestId('practice-race-start-new')).not.toBeInTheDocument();
+
+            fireEvent.click(screen.getByRole('button', { name: /More practice race options/ }));
+
+            expect(await screen.findByTestId('practice-race-start-new')).toBeInTheDocument();
         });
 
-        it('resumes without asking to start a new one', async () => {
+        it('resumes without opening the chevron', async () => {
             const { practiceFn } = mockPracticeMutation();
             renderHome({
                 races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
@@ -268,13 +272,15 @@ describe('Home Page', () => {
             });
         });
 
-        it('lets the operator deliberately start a fresh rehearsal', async () => {
+        it('lets the operator deliberately start a fresh rehearsal from the chevron', async () => {
             const { practiceFn } = mockPracticeMutation();
             renderHome({
                 races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
                 practiceRace: { id: 5, name: 'Practice Race' },
             });
 
+            await screen.findByTestId('practice-race');
+            fireEvent.click(screen.getByRole('button', { name: /More practice race options/ }));
             fireEvent.click(await screen.findByTestId('practice-race-start-new'));
 
             await waitFor(() => {

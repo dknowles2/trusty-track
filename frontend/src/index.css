@@ -376,33 +376,6 @@ button:disabled {
 }
 
 /*
- * A subordinate third action beside two real buttons — Home's "Start new"
- * next to Resume practice race and Create New Race (#1238). It used to be
- * an inline-styled 0.85rem underlined word with no border, no background
- * and no padding: no hit target to speak of, and invisible to
- * `tokenSystem.test.ts`'s colour guard since nothing about it was a class.
- * `button`'s own rule above already gives this the same padding, radius and
- * font as `.secondary-btn` — including the `@media (pointer: coarse)`
- * `min-height: 44px` a plain, unclassed `button` already carries — so this
- * only has to say how it recedes: no fill, no border, and text in the link
- * token rather than a hardcoded `--scouting-blue` (the theme leak the issue
- * names — `--link-color` is the one already used for this exact shape, the
- * text-only control in `RacingGroupManager.tsx`'s den menu). Hover gets the
- * same subtle fill `.racer-row:hover` uses; disabled and keyboard focus
- * fall through to the app-wide `button:disabled` and `:focus-visible` rules
- * above rather than repeating either.
- */
-.tertiary-btn {
-  background-color: transparent;
-  border: 1px solid transparent;
-  color: var(--link-color);
-}
-
-.tertiary-btn:hover:not(:disabled) {
-  background-color: var(--surface-hover-color);
-}
-
-/*
  * A small status pill beside a roster row's Check In button — "Not ranked"
  * (ExcludedFromStandingsBadge) and "No heats" (NoHeatsBadge) (#1093). Both
  * were `inline-block` at 0.75rem beside an `inline-flex; align-items:
@@ -1762,11 +1735,20 @@ input:checked + .slider:before {
  * than the roster's own 768px. "Your Races" gets its own line, and the
  * rehearsal/create buttons stack full-width below it rather than wrapping
  * onto a third line each, which is what the flat row did at 390px before
- * this. Once "Start new" became a real `.tertiary-btn` (#1238) it joined
- * the same rule — before that it carried neither class and stayed at its
- * natural width, a stray underlined word between two full-width buttons.
- * No `order` is set here or on any of the three, so the column keeps the
- * DOM order `Home.tsx` already renders them in: Resume, Start new, Create.
+ * this. No `order` is set here, so the column keeps the DOM order
+ * `Home.tsx` already renders its two controls in: the practice-race split
+ * button (or its plain-button form before one exists), then Create.
+ *
+ * The practice-race control folded "Start new" into a split button on
+ * Resume rather than a `.tertiary-btn` control of its own (#1238) —
+ * `.split-btn-container` / `.split-btn-main` / `.split-btn-arrow` is an
+ * existing pattern (the roster's own Add Racer button), so it needs no new
+ * class here either: the *container* stretches to `width: 100%` like
+ * `.primary-btn` does, `.split-btn-main` grows to fill it (`flex: 1`) so
+ * the chevron isn't dragged along, and `.split-btn-arrow` keeps its own
+ * content-sized width — excluded from the plain `.secondary-btn` rule
+ * below, which would otherwise stretch each half of the split button to
+ * 100% independently and double the row's width.
  */
 @media screen and (max-width: 900px) {
   .home-races-header {
@@ -1780,10 +1762,18 @@ input:checked + .slider:before {
     width: 100%;
   }
 
-  .home-races-header-actions .secondary-btn,
-  .home-races-header-actions .primary-btn,
-  .home-races-header-actions .tertiary-btn {
+  .home-races-header-actions .secondary-btn:not(.split-btn-main):not(.split-btn-arrow),
+  .home-races-header-actions .primary-btn {
     width: 100%;
+    justify-content: center;
+  }
+
+  .home-races-header-actions .split-btn-container {
+    width: 100%;
+  }
+
+  .home-races-header-actions .split-btn-main {
+    flex: 1;
     justify-content: center;
   }
 }
