@@ -4,6 +4,14 @@ type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 import * as Types from './schema';
 
+export type AuditCategory =
+  | 'AWARDS'
+  | 'DISPLAYS'
+  | 'RESULTS'
+  | 'ROSTER'
+  | 'SCHEDULE'
+  | 'SETUP';
+
 export type AwardCopyInput = {
   artworkKey?: string | null | undefined;
   copiedFromRoundId?: number | null | undefined;
@@ -1188,19 +1196,23 @@ export type ActivityLogQueryVariables = Exact<{
   raceId?: number | null | undefined;
   limit: number;
   beforeId?: number | null | undefined;
+  categories?: Array<Types.AuditCategory> | Types.AuditCategory | null | undefined;
+  noteworthy?: boolean | null | undefined;
 }>;
 
 
-export type ActivityLogQuery = { auditLog: Array<{ id: number, at: string, action: string, role: string, outcome: string, summary: string, noteworthy: boolean, raceId: number | null, sourceIp: string | null, details: string | null }> };
+export type ActivityLogQuery = { auditLog: Array<{ id: number, at: string, action: string, role: string, outcome: string, summary: string, noteworthy: boolean, category: Types.AuditCategory | null, raceId: number | null, sourceIp: string | null, details: string | null }> };
 
 export type ActivityLogLiveQueryVariables = Exact<{
   raceId?: number | null | undefined;
   limit: number;
   beforeId?: number | null | undefined;
+  categories?: Array<Types.AuditCategory> | Types.AuditCategory | null | undefined;
+  noteworthy?: boolean | null | undefined;
 }>;
 
 
-export type ActivityLogLiveQuery = { auditLog: Array<{ id: number, at: string, action: string, role: string, outcome: string, summary: string, noteworthy: boolean, raceId: number | null, sourceIp: string | null, details: string | null }> };
+export type ActivityLogLiveQuery = { auditLog: Array<{ id: number, at: string, action: string, role: string, outcome: string, summary: string, noteworthy: boolean, category: Types.AuditCategory | null, raceId: number | null, sourceIp: string | null, details: string | null }> };
 
 export type DiagnosticTracksQueryVariables = Exact<{ [key: string]: never; }>;
 

@@ -184,6 +184,12 @@ one event, not a setting anybody has to think about to get HTTPS.
   it on the same line.
 - **No PIN is ever written down.** Setting or changing one appears as an
   action; the PIN itself does not, under any spelling.
+- **Six category chips and a Noteworthy-only checkbox narrow the
+  timeline**, applied on the server rather than only to whatever page is
+  already on screen — so **Load older entries** under a filter keeps
+  turning up matching rows rather than running dry early. A category comes
+  from the action alone, the same lookup table the chips render from, so an
+  entry recorded before this existed still sorts into one.
 - The log is trimmed to its most recent 50,000 entries when the app starts
   — many events' worth. It travels inside a
   [backup](backups.md), and deleting a race does **not** delete its

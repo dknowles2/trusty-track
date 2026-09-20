@@ -344,16 +344,14 @@ def describe(entry: Entry) -> str:
     return phrase
 
 
-def is_noteworthy(entry: Entry) -> bool:
-    """Whether an entry deserves attention rather than merely a line.
-
-    Destructive or wide-reaching things, and anything that did not succeed. The
-    timeline marks these so an operator scanning a thousand rows for "what went
-    wrong" is not reading every one of them.
-    """
-    if entry.outcome is not Outcome.OK:
-        return True
-    return entry.action in {
+#: Destructive or wide-reaching actions, regardless of outcome.
+#:
+#: A module constant rather than a literal inside `is_noteworthy` so the
+#: server-side "Noteworthy only" filter (`crud.get_audit_entries`) can build
+#: its `WHERE` clause from the same set `is_noteworthy` checks — two readings
+#: of one table, never two copies of it (#1253).
+NOTEWORTHY_ACTIONS = frozenset(
+    {
         "deleteRace",
         "deleteRound",
         "deleteHeat",
@@ -363,3 +361,218 @@ def is_noteworthy(entry: Entry) -> bool:
         "setLaneOutages",
         "updateInitialConfig",
     }
+)
+
+
+def is_noteworthy(entry: Entry) -> bool:
+    """Whether an entry deserves attention rather than merely a line.
+
+    Destructive or wide-reaching things, and anything that did not succeed. The
+    timeline marks these so an operator scanning a thousand rows for "what went
+    wrong" is not reading every one of them.
+    """
+    if entry.outcome is not Outcome.OK:
+        return True
+    return entry.action in NOTEWORTHY_ACTIONS
+
+
+class AuditCategory(str, Enum):
+    """The six subjects a timeline entry can be about (#1253).
+
+    Derived from `action` alone, by the one lookup table below — never a
+    second guess client-side. The two questions the log exists to answer
+    (#219) are narrow ("who deleted that round", "did the timer record that
+    time or did somebody type it"), and scrolling past display assignments
+    and votes to find either is what these exist to shorten.
+
+    Names equal values, the same convention every other domain enum here
+    uses, so a category crosses the GraphQL boundary as a plain string with
+    no second copy of the vocabulary (see `CLAUDE.md`'s "The domain layer").
+    """
+
+    RESULTS = "RESULTS"
+    SCHEDULE = "SCHEDULE"
+    ROSTER = "ROSTER"
+    AWARDS = "AWARDS"
+    DISPLAYS = "DISPLAYS"
+    SETUP = "SETUP"
+
+
+#: The chip label for each category.
+CATEGORY_LABELS: dict[AuditCategory, str] = {
+    AuditCategory.RESULTS: "Results",
+    AuditCategory.SCHEDULE: "Schedule",
+    AuditCategory.ROSTER: "Roster & check-in",
+    AuditCategory.AWARDS: "Awards & voting",
+    AuditCategory.DISPLAYS: "Displays & room",
+    AuditCategory.SETUP: "Setup & system",
+}
+
+#: The one-line meaning shown under a category's chip.
+CATEGORY_HINTS: dict[AuditCategory, str] = {
+    AuditCategory.RESULTS: "Heat results: timer vs typed, overrides, re-runs",
+    AuditCategory.SCHEDULE: (
+        "Rounds and heats: created, regenerated, deleted, reordered"
+    ),
+    AuditCategory.ROSTER: "Racers and groups: added, checked in, numbered, imported",
+    AuditCategory.AWARDS: "Trophies and the judged-award vote",
+    AuditCategory.DISPLAYS: "What the screens show, breaks, cameras, scenes",
+    AuditCategory.SETUP: "Races, tracks, settings, backups, test data",
+}
+
+#: Every action, grouped by the one category it belongs to (#1253).
+#:
+#: Exactly the issue's own lists: every `@strawberry.mutation` name plus the
+#: three non-mutation actions (`heatResultRecorded`, `backupDownloaded`,
+#: `backupRestored`) that `ACTION_PHRASES` above already treats as first-class
+#: actions. `test_audit_categories.py::test_every_action_is_in_exactly_one_category`
+#: is the one-direction test that keeps this from going stale in either
+#: direction — an uncategorised mutation, or a category naming one the schema
+#: no longer has, both fail the build.
+#:
+#: `setLaneOutages` sits in `SCHEDULE`, not `SETUP`: it changes every round
+#: generated from then on, which is why `NOTEWORTHY_ACTIONS` above already
+#: lists it beside the round/heat actions rather than the track ones.
+#:
+#: `bulkAssignPhotos` sits in `ROSTER` with its `bulk*` siblings, as the issue's
+#: table has it. A first draft put it beside `uploadImage` in `SETUP`, borrowing
+#: the pairing the demo denylist draws (`.claude/rules/auth-and-demo.md`, "The
+#: public demo") — but that list groups by exposure, and these chips group by
+#: the subject an operator is scanning for: assigning photos to racers is a
+#: roster action, and `SETUP`'s own hint ("races, tracks, settings, backups,
+#: test data") never mentions racers.
+ACTIONS_BY_CATEGORY: dict[AuditCategory, frozenset[str]] = {
+    AuditCategory.RESULTS: frozenset(
+        {
+            "heatResultRecorded",
+            "updateHeatResult",
+            "forceResults",
+            "prepareHeat",
+            "abortHeat",
+            "resetTimer",
+            "reconnectTimer",
+            "releaseStartGate",
+            "startTimerTest",
+            "fakeTimerStart",
+            "fakeTimerFinish",
+            "recordFreeRaceResult",
+            "createRunOffHeat",
+            "deleteRunOffHeat",
+            "advanceRound",
+            "pinRoundField",
+            "unpinRoundField",
+        }
+    ),
+    AuditCategory.SCHEDULE: frozenset(
+        {
+            "createRoundWizard",
+            "createRound",
+            "regenerateRound",
+            "deleteRound",
+            "deleteHeat",
+            "reorderHeats",
+            "applyMasterRunningOrder",
+            "startFreeRaceHeat",
+            "deleteFreeRaceHeat",
+            "setLaneOutages",
+        }
+    ),
+    AuditCategory.ROSTER: frozenset(
+        {
+            "bulkAssignPhotos",
+            "createRacer",
+            "updateRacer",
+            "deleteRacer",
+            "checkInRacer",
+            "bulkAutoNumber",
+            "bulkClearNumbers",
+            "bulkCheckIn",
+            "bulkSetExcludedFromStandings",
+            "bulkMoveToRacingGroup",
+            "bulkDeleteRacers",
+            "createRacingGroup",
+            "updateRacingGroup",
+            "deleteRacingGroup",
+            "importRacers",
+            "previewGprmImport",
+            "confirmGprmImport",
+            "previewDerbynetImport",
+            "confirmDerbynetImport",
+        }
+    ),
+    AuditCategory.AWARDS: frozenset(
+        {
+            "createAward",
+            "updateAward",
+            "deleteAward",
+            "reorderAwards",
+            "seedChampionshipAwards",
+            "castVote",
+        }
+    ),
+    AuditCategory.DISPLAYS: frozenset(
+        {
+            "assignDisplay",
+            "advanceDisplay",
+            "identifyDisplay",
+            "renameDisplay",
+            "forgetDisplay",
+            "setCameraTrack",
+            "setCameraOrder",
+            "createScene",
+            "renameScene",
+            "deleteScene",
+            "updateSceneDisplay",
+            "removeSceneDisplay",
+            "applyScene",
+            "applyScenePreset",
+            "startIntermission",
+            "extendIntermission",
+            "pauseIntermission",
+            "resumeIntermission",
+            "endIntermission",
+        }
+    ),
+    AuditCategory.SETUP: frozenset(
+        {
+            "createRace",
+            "updateRace",
+            "deleteRace",
+            "createTrack",
+            "updateTrack",
+            "deleteTrack",
+            "createTrackRecord",
+            "updateTrackRecord",
+            "deleteTrackRecord",
+            "createInitialConfig",
+            "updateInitialConfig",
+            "setDebugMode",
+            "setThemes",
+            "uploadImage",
+            "populateRace",
+            "createPracticeRace",
+            "backupDownloaded",
+            "backupRestored",
+        }
+    ),
+}
+
+#: Reverse index, built once — `action` -> the one category it belongs to.
+_CATEGORY_BY_ACTION: dict[str, AuditCategory] = {
+    action: category
+    for category, actions in ACTIONS_BY_CATEGORY.items()
+    for action in actions
+}
+
+
+def category_of(action: str) -> AuditCategory | None:
+    """Which of the six categories `action` belongs to, or `None`.
+
+    `None` covers an action this table has not caught up with yet — the same
+    "fails the build, not the app" split every other table in this module
+    draws: `test_audit_categories.py` is what turns a gap here into a red
+    build, so a caller of this function (the `category` field on an entry, the
+    server-side filter) can treat `None` as "uncategorised" without also
+    having to handle "the app crashed because a new mutation shipped".
+    """
+    return _CATEGORY_BY_ACTION.get(action)

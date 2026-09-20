@@ -23,6 +23,14 @@ import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { ACTIVITY_LOG_LIVE_QUERY, ACTIVITY_LOG_QUERY } from '../graphql/queries';
 import { applyPendingEntries, pendingSince, readLiveSetting, writeLiveSetting } from '../activityLive';
 import {
+    AUDIT_CATEGORIES,
+    AUDIT_CATEGORY_LABELS,
+    AUDIT_CATEGORY_HINTS,
+    categoryTestId,
+    matchesActivityFilter,
+} from '../activityCategories';
+import type { AuditCategory } from '../../../gql/schema';
+import {
     appendPage,
     byDay,
     detailPairs,
@@ -31,6 +39,9 @@ import {
     timeOfDay,
     type LogEntry,
 } from '../activityLog';
+
+/** All six selected — the default, and what "no filter" means to the server. */
+const ALL_CATEGORIES = new Set<AuditCategory>(AUDIT_CATEGORIES);
 
 const PAGE_SIZE = 200;
 
@@ -75,6 +86,20 @@ export default function ActivityLog() {
     const [loaded, setLoaded] = useState<LogEntry[]>([]);
     const [previousRaceId, setPreviousRaceId] = useState(raceId);
 
+    // The category chips (#1253) — all six selected by default, which the
+    // server (and `matchesActivityFilter`) both treat the same as no filter
+    // at all. And the Noteworthy-only checkbox beside them. Unlike the race
+    // filter (which arrives from the URL, outside this component's own event
+    // handlers), both of these are only ever changed by a click *in* this
+    // component — `handleToggleCategory`/`handleToggleNoteworthyOnly` below
+    // reset `beforeId`/`pending` right there, the same event-handler shape
+    // `handleToggleLive` already uses, rather than a second render-time
+    // comparison alongside the race-filter one.
+    const [selectedCategories, setSelectedCategories] = useState<Set<AuditCategory>>(
+        () => new Set(ALL_CATEGORIES),
+    );
+    const [noteworthyOnly, setNoteworthyOnly] = useState(false);
+
     // Live (#1078): off by default, remembered per device, the same shape as
     // the finish chime. New entries wait in `pending` — a chip below the
     // filter line — rather than landing straight in `loaded`, so an operator
@@ -89,9 +114,21 @@ export default function ActivityLog() {
         if (pending.length !== 0) setPending([]);
     }
 
+    // Omitted (rather than the full six) once every chip is selected — that
+    // is what the server itself treats as "no filter", and it is one fewer
+    // thing for `crud.get_audit_entries` to have to special-case.
+    const categoriesVariable =
+        selectedCategories.size >= AUDIT_CATEGORIES.length ? undefined : [...selectedCategories];
+
     const [{ data, fetching, error }, refetch] = useQuery({
         query: ACTIVITY_LOG_QUERY,
-        variables: { raceId, limit: PAGE_SIZE, beforeId },
+        variables: {
+            raceId,
+            limit: PAGE_SIZE,
+            beforeId,
+            categories: categoriesVariable,
+            noteworthy: noteworthyOnly,
+        },
         requestPolicy: 'network-only',
     });
 
@@ -140,6 +177,11 @@ export default function ActivityLog() {
     // callbacks, never from the render body itself, so it carries none of
     // the "ref touched during render" trap `loaded` is deliberately closed
     // over by value for elsewhere in this file.
+    //
+    // A category/Noteworthy change (#1253) bumps it too, for the same
+    // reason: a poll already in flight when the operator changes the filter
+    // was sent under the *old* filter, and a late `.then` acting on it would
+    // resurrect `pending` right after the filter-change handler cleared it.
     const liveEpochRef = useRef(0);
 
     const handleToggleLive = (enabled: boolean) => {
@@ -157,6 +199,34 @@ export default function ActivityLog() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    // A chip toggle never lets the last remaining category go unselected —
+    // an empty selection would mean "show nothing" client-side while the
+    // server (and every other reader of `ACTIONS_BY_CATEGORY`) treats an
+    // empty list as "no filter", the same ambiguity `crud.get_audit_entries`
+    // sidesteps by never being asked to resolve it.
+    const handleToggleCategory = (category: AuditCategory) => {
+        setSelectedCategories((prev) => {
+            const next = new Set(prev);
+            if (next.has(category)) {
+                if (next.size === 1) return prev;
+                next.delete(category);
+            } else {
+                next.add(category);
+            }
+            return next;
+        });
+        liveEpochRef.current += 1;
+        if (beforeId !== null) setBeforeId(null);
+        if (pending.length !== 0) setPending([]);
+    };
+
+    const handleToggleNoteworthyOnly = (enabled: boolean) => {
+        setNoteworthyOnly(enabled);
+        liveEpochRef.current += 1;
+        if (beforeId !== null) setBeforeId(null);
+        if (pending.length !== 0) setPending([]);
+    };
+
     // Live's own poll: always the newest page for the current filter,
     // through `ACTIVITY_LOG_LIVE_QUERY` rather than the visible query above —
     // see that document's own comment for why a shared key would matter here.
@@ -169,21 +239,37 @@ export default function ActivityLog() {
     const client = useClient();
     const handleLiveEvent = () => {
         const epoch = liveEpochRef.current;
+        const filterAtRequestTime = { selected: selectedCategories, noteworthy: noteworthyOnly };
         client
             .query(
                 ACTIVITY_LOG_LIVE_QUERY,
-                { raceId, limit: PAGE_SIZE, beforeId: null },
+                {
+                    raceId,
+                    limit: PAGE_SIZE,
+                    beforeId: null,
+                    categories: categoriesVariable,
+                    noteworthy: noteworthyOnly,
+                },
                 { requestPolicy: 'network-only' },
             )
             .toPromise()
             .then((result) => {
-                // Live may have been switched off (or the race filter
-                // changed and switched back on) while this was in flight —
-                // `handleToggleLive` bumped the epoch, so a stale response
-                // here is dropped rather than resurrecting the chip.
+                // Live may have been switched off, or the race/category/
+                // Noteworthy filter changed, while this was in flight — each
+                // of those bumps the epoch, so a stale response here is
+                // dropped rather than resurrecting the chip against a filter
+                // that is no longer on screen.
                 if (epoch !== liveEpochRef.current) return;
                 const fresh: LogEntry[] = result.data?.auditLog ?? [];
-                setPending(pendingSince(loaded, fresh));
+                setPending(
+                    pendingSince(loaded, fresh, (entry) =>
+                        matchesActivityFilter(
+                            entry,
+                            filterAtRequestTime.selected,
+                            filterAtRequestTime.noteworthy,
+                        ),
+                    ),
+                );
             })
             .catch(() => {
                 // Best-effort: a failed live refresh leaves the operator no
@@ -245,52 +331,6 @@ export default function ActivityLog() {
                     Activity log
                     <DocsLink docsKey="activity-log" />
                 </h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <label
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontSize: '0.85rem',
-                            color: 'var(--text-strong-muted-color)',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        <input
-                            type="checkbox"
-                            data-testid="live-activity"
-                            checked={live}
-                            onChange={(e) => handleToggleLive(e.target.checked)}
-                        />
-                        Live
-                    </label>
-                    <label
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontSize: '0.85rem',
-                            color: 'var(--text-strong-muted-color)',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        <input
-                            type="checkbox"
-                            data-testid="show-addresses"
-                            checked={showAddresses}
-                            onChange={(e) => setShowAddresses(e.target.checked)}
-                        />
-                        Show device addresses
-                    </label>
-                    <button
-                        className="secondary-btn"
-                        data-testid="refresh-activity"
-                        onClick={handleRefresh}
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 12px', fontSize: '0.85rem' }}
-                    >
-                        <Icon path={mdiRefresh} size={0.7} /> Refresh
-                    </button>
-                </div>
             </div>
 
             <p style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
@@ -320,6 +360,117 @@ export default function ActivityLog() {
                     </>
                 )}
             </p>
+
+            <div
+                style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    marginTop: '0.75rem',
+                }}
+            >
+                {AUDIT_CATEGORIES.map((category) => {
+                    const pressed = selectedCategories.has(category);
+                    return (
+                        <button
+                            key={category}
+                            type="button"
+                            aria-pressed={pressed}
+                            data-testid={categoryTestId(category)}
+                            title={AUDIT_CATEGORY_HINTS[category]}
+                            onClick={() => handleToggleCategory(category)}
+                            style={{
+                                border: `1px solid ${pressed ? 'var(--scouting-blue)' : 'var(--border-faint-color)'}`,
+                                borderRadius: '999px',
+                                padding: '4px 12px',
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                                background: pressed ? 'var(--scouting-blue)' : 'transparent',
+                                color: pressed
+                                    ? 'var(--on-primary-color, var(--white))'
+                                    : 'var(--text-strong-muted-color)',
+                            }}
+                        >
+                            {AUDIT_CATEGORY_LABELS[category]}
+                        </button>
+                    );
+                })}
+                <label
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '0.85rem',
+                        color: 'var(--text-strong-muted-color)',
+                        cursor: 'pointer',
+                        marginLeft: '0.25rem',
+                    }}
+                >
+                    <input
+                        type="checkbox"
+                        data-testid="activity-noteworthy-only"
+                        checked={noteworthyOnly}
+                        onChange={(e) => handleToggleNoteworthyOnly(e.target.checked)}
+                    />
+                    Noteworthy only
+                </label>
+            </div>
+
+            <div
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    flexWrap: 'wrap',
+                    marginTop: '0.75rem',
+                }}
+            >
+                <label
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '0.85rem',
+                        color: 'var(--text-strong-muted-color)',
+                        cursor: 'pointer',
+                    }}
+                >
+                    <input
+                        type="checkbox"
+                        data-testid="live-activity"
+                        checked={live}
+                        onChange={(e) => handleToggleLive(e.target.checked)}
+                    />
+                    Live
+                </label>
+                <label
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '0.85rem',
+                        color: 'var(--text-strong-muted-color)',
+                        cursor: 'pointer',
+                    }}
+                >
+                    <input
+                        type="checkbox"
+                        data-testid="show-addresses"
+                        checked={showAddresses}
+                        onChange={(e) => setShowAddresses(e.target.checked)}
+                    />
+                    Show device addresses
+                </label>
+                <button
+                    className="secondary-btn"
+                    data-testid="refresh-activity"
+                    onClick={handleRefresh}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 12px', fontSize: '0.85rem' }}
+                >
+                    <Icon path={mdiRefresh} size={0.7} /> Refresh
+                </button>
+            </div>
 
             {pending.length > 0 && (
                 <p style={{ marginTop: '0.5rem' }}>

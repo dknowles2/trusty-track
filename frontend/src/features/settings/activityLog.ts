@@ -10,6 +10,7 @@
  * Pure. No React, no urql.
  */
 
+import type { AuditCategory } from '../../gql/schema';
 import { describeValue } from './describeValue';
 
 export interface LogEntry {
@@ -20,6 +21,10 @@ export interface LogEntry {
     outcome: string;
     summary: string;
     noteworthy: boolean;
+    /** Which of the six subjects this is about (#1253), resolved server-side
+     * from `action` alone — `null` for an action the server's own category
+     * table has not caught up with yet. */
+    category?: AuditCategory | null;
     raceId?: number | null;
     sourceIp?: string | null;
     details?: string | null;
