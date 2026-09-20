@@ -204,17 +204,17 @@ test('two windows on the same computer register as two distinct displays', async
 });
 
 test('the operator can open a second display window with one click', async ({ page, context }) => {
-    // The Displays panel's own launcher (#590): a fresh id baked into the URL, so
-    // the new window is a distinct screen from the moment it opens rather
-    // than briefly contending with this tab's own claim on the shared
-    // device id.
+    // The Displays panel's own launcher (#590, renamed by #1249): a fresh id
+    // baked into the URL, so the new window is a distinct screen from the
+    // moment it opens rather than briefly contending with this tab's own
+    // claim on the shared device id.
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Open New Display Race');
 
     await page.goto(`/race/${raceId}/displays`);
     const [popup] = await Promise.all([
         context.waitForEvent('page'),
-        page.getByRole('button', { name: 'Open a new display window' }).click(),
+        page.getByRole('button', { name: 'Add a second screen on this computer' }).click(),
     ]);
     await popup.waitForLoadState('networkidle');
     expect(popup.url()).toContain(`/race/${raceId}/observation?displayId=`);
@@ -222,6 +222,27 @@ test('the operator can open a second display window with one click', async ({ pa
     await expect(page.locator('[data-testid^="display-"]')).toHaveCount(1, { timeout: 10000 });
 
     await popup.close();
+});
+
+test('the launch area keeps its two headings and fits a phone screen with no horizontal overflow (#1249)', async ({ page }) => {
+    // #1249 replaced three look-alike buttons with two headed sections —
+    // "This computer" (Open Live here, plus the second-screen escape hatch)
+    // and "Other devices" (the shareable address) — specifically so the
+    // panel reads correctly on the narrow screen a volunteer is likely
+    // reading it on at the check-in table.
+    await ensureConfigured(page);
+    const { raceId } = await seedRace(page, 'Displays Heading Race');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/race/${raceId}/displays`);
+
+    await expect(page.getByRole('heading', { name: 'This computer' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Other devices' })).toBeVisible();
+
+    const fitsWithoutOverflow = await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+    );
+    expect(fitsWithoutOverflow).toBe(true);
 });
 
 /*

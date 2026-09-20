@@ -151,8 +151,8 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     // PIN by design and registers by *subscribing*, never by calling one of
     // these itself (see ".claude/rules/displays.md"), so a check-in tablet
     // opening the Displays page used to see every control here
-    // fully enabled. "Open a new display window" is untouched: it is a
-    // plain `window.open`, not a mutation.
+    // fully enabled. "Add a second screen on this computer" is untouched: it
+    // is a plain `window.open`, not a mutation.
     const { isOperator } = useRole();
     const operatorTitle = !isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined;
 
@@ -260,18 +260,19 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     // contend with the tab that opened it.
     const openNewDisplay = () => window.open(newDisplayWindowUrl(raceId), '_blank', 'noopener');
 
-    // Live itself, and the shortcut straight to Projector Mode (#958) —
-    // both open a new tab, `noopener`, the same as `openNewDisplay` above and
-    // "Launch Projector Mode" on the Live page itself. Neither carries a
-    // fresh `displayId`: unlike a deliberate *second* screen, clicking one of
-    // these from the operator's own machine is meant to put *this* computer's
-    // own display on air, the same identity a `?displayId=` would otherwise
-    // contend with. This is what "Live" used to do by replacing the
-    // operator's own page — the race row now points here instead, and this
-    // is where opening it lives.
+    // Live itself (#958) — opens a new tab, `noopener`, the same as
+    // `openNewDisplay` above and "Launch Projector Mode" on the Live page
+    // itself. Carries no fresh `displayId`: unlike a deliberate *second*
+    // screen, clicking this from the operator's own machine is meant to put
+    // *this* computer's own display on air, the same identity a
+    // `?displayId=` would otherwise contend with. This is what "Live" used
+    // to do by replacing the operator's own page — the race row now points
+    // here instead, and this is where opening it lives. Projector Mode is
+    // one click away from here too, through the view select below, and
+    // straight from the Live page's own "Launch Projector Mode" button — a
+    // third button offering the identical `window.open` with one of ten
+    // views pre-picked was the subtle-difference cost #1249 removed.
     const openLive = () => window.open(`/race/${raceId}/observation`, '_blank', 'noopener');
-    const launchProjector = () =>
-        window.open(`/race/${raceId}/observation?projector=true`, '_blank', 'noopener');
 
     const launchButtonStyle: CSSProperties = {
         padding: '0.4rem 0.8rem',
@@ -280,20 +281,53 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
         gap: '0.4rem',
     };
 
-    const launchButtons = (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <button type="button" onClick={openLive} className="secondary-btn" style={launchButtonStyle}>
-                <Icon path={mdiOpenInNew} size={0.7} />
-                Open Live on this screen
-            </button>
-            <button type="button" onClick={launchProjector} className="secondary-btn" style={launchButtonStyle}>
-                <Icon path={mdiOpenInNew} size={0.7} />
-                Launch projector
-            </button>
-            <button type="button" onClick={openNewDisplay} className="secondary-btn" style={launchButtonStyle}>
-                <Icon path={mdiOpenInNew} size={0.7} />
-                Open a new display window
-            </button>
+    // The same one-line-under-the-control caption style (#948) `currentOption`
+    // uses below, under each row's own view select.
+    const captionStyle: CSSProperties = {
+        margin: '0.25rem 0 0',
+        fontSize: '0.8rem',
+        color: 'var(--text-muted-color)',
+    };
+
+    // Two headings, not three flat buttons (#1249): "This computer" is
+    // unequal weight — one primary action (put this screen on air) and one
+    // quieter escape hatch for the one rarer setup (two monitors on one
+    // machine) that a fresh identity actually matters for — and "Other
+    // devices" is everything reached by an address instead of a click.
+    const launchSection = (
+        <div style={{ display: 'grid', gap: '1.25rem' }}>
+            <div>
+                <h3 style={{ margin: '0 0 0.6rem' }}>This computer</h3>
+                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                    <div>
+                        <button type="button" onClick={openLive} className="primary-btn" style={launchButtonStyle}>
+                            <Icon path={mdiOpenInNew} size={0.7} />
+                            Open Live here
+                        </button>
+                        <p style={captionStyle}>
+                            Turns this computer into a screen. Choose what it shows from the
+                            list below.
+                        </p>
+                    </div>
+                    <div>
+                        <button type="button" onClick={openNewDisplay} className="secondary-btn" style={launchButtonStyle}>
+                            Add a second screen on this computer
+                        </button>
+                        <p style={captionStyle}>
+                            For a computer plugged into two monitors, so assigning one
+                            doesn't move the other.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <h3 style={{ margin: '0 0 0.6rem' }}>Other devices</h3>
+                {/* On a screen this laptop cannot open a browser window on —
+                    the wall-mounted display or the check-in tablet a new
+                    display window would open on *this* machine instead — an
+                    address to type or scan is the only way in (#723). */}
+                <ConnectDisplayAddress raceId={raceId} />
+            </div>
         </div>
     );
 
@@ -303,25 +337,18 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                 <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted-color)' }}>
                     <p style={{ margin: 0 }}>No audience displays are open yet.</p>
                     <p style={{ margin: '0.5rem 0 1rem', fontSize: '0.9rem' }}>
-                        Click <strong>Open Live on this screen</strong>, or open it on another
-                        device using the address below — either way it appears here, with
-                        nothing to set up first.
+                        Open Live here to turn this computer into a screen, or scan the
+                        code below to connect a phone, tablet or another computer.
                     </p>
-                    <div style={{ display: 'flex', justifyContent: 'center' }}>{launchButtons}</div>
                 </div>
-                {/* On a screen this laptop cannot open a browser window on —
-                    the wall-mounted display or the check-in tablet a new
-                    display window would open on *this* machine instead — an
-                    address to type or scan is the only way in (#723). */}
-                <ConnectDisplayAddress raceId={raceId} />
+                {launchSection}
             </div>
         );
     }
 
     return (
         <div style={{ display: 'grid', gap: '0.75rem' }}>
-            {launchButtons}
-            <ConnectDisplayAddress raceId={raceId} />
+            {launchSection}
             {displays.map((display) => {
                 const currentOption = VIEW_OPTIONS.find((option) => option.view === display.view);
                 return (
