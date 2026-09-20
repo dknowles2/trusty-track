@@ -40,6 +40,33 @@ describe('TrackLanes', () => {
         expect(screen.getByLabelText('Lane 4 works')).toBeChecked();
     });
 
+    it('puts the checkbox before the lane number inside a chip, not after (#1252)', () => {
+        // A reviewer on #1269 swapped this order by hand and nothing here
+        // failed — this pins it. The chip's own docstring and TrackCard's
+        // both describe it as "checkbox-first"; a chip whose visible order
+        // doesn't match no longer reads as a row of checkboxes.
+        renderLanes([], 4);
+
+        const checkbox = screen.getByLabelText('Lane 1 works');
+        const chip = checkbox.closest('.lane-service-chip');
+        expect(chip).not.toBeNull();
+
+        // The lane number is a bare text node, a sibling of the checkbox
+        // inside the chip — not its own element — so it's found by content
+        // rather than by role or label.
+        const numberNode = Array.from(chip!.childNodes).find(
+            (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim() === '1',
+        );
+        expect(numberNode).toBeDefined();
+
+        // compareDocumentPosition returns a bitmask; DOCUMENT_POSITION_FOLLOWING
+        // (4) is set when the node passed in comes *after* the node it was
+        // called on — so this asserts the checkbox precedes the number.
+        expect(
+            checkbox.compareDocumentPosition(numberNode!) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+    });
+
     it('summarizes how many lanes remain and which are out', () => {
         renderLanes([2], 4);
         expect(

@@ -149,3 +149,49 @@ test('a newly added track is titled Track N until named, and retitles live as yo
     // Never saved — this track never reaches the database, so it leaves
     // nothing behind for another spec's shared-track assumptions to trip on.
 });
+
+test('lanes in service sits under the lane count, and looks different from lane colours (#1252)', async ({ page }) => {
+    await ensureConfigured(page);
+
+    await page.goto('/system-settings');
+    await page.waitForLoadState('networkidle');
+    await page.getByTestId('settings-nav-tracks').click();
+
+    // The same track the first test in this file uses — found by name, not
+    // position, same as every other lookup here.
+    const card = page
+        .getByTestId(/track-card-\d+/)
+        .filter({ has: page.locator(`input[value="${TRACK_NAME}"]`) });
+    await expect(card).toHaveCount(1);
+
+    // Order: the "Lanes in service" panel's own top edge sits below the lane
+    // count input and above Length (Feet) — a real layout assertion a unit
+    // test's jsdom cannot make, since jsdom lays nothing out.
+    const lanesInput = card.locator('input[id^="track-lanes-"]');
+    const lanesInService = card.getByText('Lanes in service');
+    const lengthInput = card.locator('input[id^="track-length-"]');
+
+    const [lanesBox, serviceBox, lengthBox] = await Promise.all([
+        lanesInput.boundingBox(),
+        lanesInService.boundingBox(),
+        lengthInput.boundingBox(),
+    ]);
+    expect(lanesBox).not.toBeNull();
+    expect(serviceBox).not.toBeNull();
+    expect(lengthBox).not.toBeNull();
+    expect(serviceBox!.y).toBeGreaterThan(lanesBox!.y);
+    expect(lengthBox!.y).toBeGreaterThan(serviceBox!.y);
+
+    // Look: the two chip rows read as different tools before any state
+    // changes — a squared checkbox chip for lanes in service, a circular
+    // swatch for lane colours — not the same bordered pill twice over.
+    const serviceChip = card.locator('.lane-service-chip').first();
+    const colourSwatch = card.locator('.lane-colour-swatch').first();
+    await expect(serviceChip).toBeVisible();
+    await expect(colourSwatch).toBeVisible();
+    const [serviceRadius, swatchRadius] = await Promise.all([
+        serviceChip.evaluate((el) => getComputedStyle(el).borderRadius),
+        colourSwatch.evaluate((el) => getComputedStyle(el).borderRadius),
+    ]);
+    expect(serviceRadius).not.toBe(swatchRadius);
+});
