@@ -124,7 +124,7 @@ test('the finish sound is offered, through Sound options, and remembered', async
     await expect(page.getByTestId('sound-effect-finish')).toBeChecked();
 });
 
-test('the car-or-face photo preference is remembered on this device (#1075)', async ({ page }) => {
+test('the car-or-face photo preference is remembered on this device (#1075, #1245)', async ({ page }) => {
     // Per-device, the same shape as the sound settings above — this is the
     // one behaviour a unit test can't see: that the choice survives a
     // reload of this browser.
@@ -138,18 +138,22 @@ test('the car-or-face photo preference is remembered on this device (#1075)', as
     // Behind the ⚙ popover (#1157).
     await page.getByTestId('race-execution-preferences-trigger').click();
 
-    // The checkbox is visually hidden behind the pill, same as
-    // `auto-advance-toggle` — click what the operator clicks.
-    const photoToggle = page.getByTestId('lane-photo-toggle');
+    // A two-button radiogroup, not a switch (#1245) — click the option that
+    // names what you want, not a checkbox.
+    const carOption = page.getByTestId('lane-photo-option-car');
+    const portraitOption = page.getByTestId('lane-photo-option-portrait');
     // Car is the default (#1075) — the operator staging heats compares a
     // car in hand against a picture of a car, not a face.
-    await expect(photoToggle).toBeChecked();
+    await expect(carOption).toHaveAttribute('aria-checked', 'true');
+    await expect(portraitOption).toHaveAttribute('aria-checked', 'false');
 
-    await page.locator('label').filter({ has: photoToggle }).click();
-    await expect(photoToggle).not.toBeChecked();
+    await portraitOption.click();
+    await expect(portraitOption).toHaveAttribute('aria-checked', 'true');
+    await expect(carOption).toHaveAttribute('aria-checked', 'false');
     await page.reload();
 
     await expect(page.getByTestId('race-execution-preferences-trigger')).toBeVisible({ timeout: 30000 });
     await page.getByTestId('race-execution-preferences-trigger').click();
-    await expect(page.getByTestId('lane-photo-toggle')).not.toBeChecked();
+    await expect(page.getByTestId('lane-photo-option-portrait')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('lane-photo-option-car')).toHaveAttribute('aria-checked', 'false');
 });

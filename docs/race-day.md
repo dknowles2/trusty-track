@@ -438,11 +438,11 @@ Switch to the **Race** tab in Race Control to enter the race execution view. Thi
 
 The view is split into two columns:
 
-- **Left (main area)**: The current heat. Its header shows the heat number and one status line — the heat's own phase (Ready, Racing…, Recorded) with the timer's state as muted text beside it — and a **⚙** button for this device's own preferences (a car-or-face photo toggle, **Sound options**, **Auto-advance**); see [Sound Options](#sound-options) and [Cars or Faces](#cars-or-faces) below. Racer names, lane assignments and results follow underneath, one line per lane. Below that, a footer holds the controls that act on *this* heat: **Skip Heat** and **Override** (or **Enter Results** on a track with no timer) before it runs, **Edit** and **Re-Run** after — and, on the right, **Next Heat**, always there but only clickable once a result has landed. Before a heat runs on a track with a timer, **Override** is a small, deliberately understated text link rather than a button, for the rare case a result needs correcting by hand — overriding a timer's result is the exception, not the ordinary way a heat gets recorded.
+- **Left (main area)**: The current heat. Its header shows the heat number and one status line — the heat's own phase (Ready, Racing…, Recorded) with the timer's state as muted text beside it — and a **⚙** button for this device's own preferences (a Cars/Faces picture picker, **Sound options**, **Auto-advance**); see [Sound Options](#sound-options) and [Cars or Faces](#cars-or-faces) below. Racer names, lane assignments and results follow underneath, one line per lane. Below that, a footer holds the controls that act on *this* heat: **Skip Heat** and **Override** (or **Enter Results** on a track with no timer) before it runs, **Edit** and **Re-Run** after — and, on the right, **Next Heat**, always there but only clickable once a result has landed. Before a heat runs on a track with a timer, **Override** is a small, deliberately understated text link rather than a button, for the rare case a result needs correcting by hand — overriding a timer's result is the exception, not the ordinary way a heat gets recorded.
 - **Right (sidebar)**: **On Deck** — the next heat's lane-up, so those cars can be staged — with the round's progress below it and any later rounds after that. The progress panel shows an estimated finish time and pace for the round, which starts as a rough guess and gets more accurate as heats are actually recorded — it learns this event's own rhythm rather than assuming a fixed time per heat. **Take a break** sits in that panel's header — see [Taking a Break](#taking-a-break) below.
 
 Both panels show the same kind of picture beside each lane — a car photo by
-default, or the racer's own portrait if you switch it — see [Cars or
+default, or the racer's own portrait if you pick Faces — see [Cars or
 faces](#cars-or-faces) below.
 
 ![Race Execution View](assets/screenshots/race-day/12-race-execution-current-heat.png)
@@ -546,15 +546,15 @@ sound is on for this device.
 
 The current heat and **On Deck** both show a small picture beside each
 lane — either the car's own photo or the racer's portrait, whichever you've
-told this device to show. A **Show car photos** toggle in the same **⚙**
-menu as **Sound options** switches between them; the two panels always show
-the same kind of picture, so switching it changes what that kind is
-everywhere on the screen at once.
+told this device to show. A **Lane pictures** picker in the same **⚙**
+menu as **Sound options** offers two buttons, **Cars** and **Faces**; the
+two panels always show the same kind of picture, so picking one changes
+what that kind is everywhere on the screen at once.
 
 **Cars is the default.** Staging heats out of parc fermé is a job done by
 matching a car in your hand to a picture, not a face — an announcer calling
 racers to the line wants faces instead, so if that's who is at this laptop,
-switch it. The setting is remembered on this device only, the same as the
+pick **Faces**. The setting is remembered on this device only, the same as the
 sound settings above: the operator's laptop and an announcer's tablet on the
 same race can each show what its own reader needs.
 
