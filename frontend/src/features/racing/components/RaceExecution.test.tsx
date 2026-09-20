@@ -682,20 +682,30 @@ describe('RaceExecution', () => {
         });
     });
 
-    // #1074: Override is the exception path (a false trip, a lane mix-up),
-    // not the ordinary way a heat gets a result, so it is demoted off the
-    // button weights every other header control carries and loses the
-    // inline keyboard hint — the shortcut still works, named in its `title`
-    // instead. Edit (the post-heat correction button) is untouched.
-    describe('Override reads as the exception it is (#1074)', () => {
-        it('carries no inline keyboard hint and no primary/secondary button weight', () => {
+    // #1246 reverses #1074's "text link" styling: Override is the exception
+    // path (a false trip, a lane mix-up), not the ordinary way a heat gets a
+    // result, so it still carries no inline keyboard hint and no icon — but
+    // a link sitting in a row of buttons read as "not one of these", not as
+    // a quieter one of them, and understated text was easy to miss entirely
+    // in the moment an operator actually needs it. It is `secondary-btn`
+    // now — a real, findable button, deliberately not `primary-btn` so it
+    // never competes with Next Heat. Edit (the post-heat correction button)
+    // is untouched.
+    describe('Override is a quieter button, not a text link (#1246)', () => {
+        it('carries secondary-btn, no inline text-link styling, and no keyboard hint', () => {
             const untimed = { ...mockHeat, lanes: mockHeat.lanes.map((l) => ({ ...l, time: null, place: null, skipped: false })) };
             render(<RaceExecution {...defaultProps} activeExecutionHeat={untimed} timerType="FAKE" />);
 
             const button = screen.getByRole('button', { name: 'Override' });
             expect(button.querySelector('kbd')).toBeNull();
+            expect(button).toHaveClass('secondary-btn');
+            // Never primary-btn on a timer track — that would let it
+            // compete with Next Heat, which #1074's original intent (kept
+            // by #1246) still forbids.
             expect(button).not.toHaveClass('primary-btn');
-            expect(button).not.toHaveClass('secondary-btn');
+            expect(button.style.textDecoration).toBe('');
+            expect(button.style.background).not.toBe('none');
+            expect(button.style.border).not.toBe('none');
         });
 
         it('still opens the result editor, and still responds to the shortcut named in its title', () => {
