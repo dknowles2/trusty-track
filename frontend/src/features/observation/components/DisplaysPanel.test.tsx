@@ -515,7 +515,7 @@ describe("the rename form's new-name reroll (#521)", () => {
     });
 });
 
-describe('opening a new display window (#590)', () => {
+describe('adding a second screen on this computer (#590)', () => {
     // A second monitor on the operator's own computer used to share this
     // computer's single stored id with every other tab; this button hands a
     // freshly opened one an id of its own, baked into the URL, so it never
@@ -524,7 +524,7 @@ describe('opening a new display window (#590)', () => {
         renderPanel('STANDINGS');
         const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
-        fireEvent.click(screen.getByRole('button', { name: 'Open a new display window' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Add a second screen on this computer' }));
 
         expect(openSpy).toHaveBeenCalledTimes(1);
         const [url, target, features] = openSpy.mock.calls[0];
@@ -541,7 +541,7 @@ describe('opening a new display window (#590)', () => {
         renderPanel('STANDINGS');
         const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
-        const button = screen.getByRole('button', { name: 'Open a new display window' });
+        const button = screen.getByRole('button', { name: 'Add a second screen on this computer' });
         fireEvent.click(button);
         fireEvent.click(button);
 
@@ -556,41 +556,83 @@ describe('opening a new display window (#590)', () => {
         renderPanel('STANDINGS', 10, true, 2, false);
         expect(screen.getByText('No audience displays are open yet.')).toBeInTheDocument();
         expect(
-            screen.getByRole('button', { name: 'Open a new display window' }),
+            screen.getByRole('button', { name: 'Add a second screen on this computer' }),
         ).toBeInTheDocument();
+    });
+
+    // #1249: the second-screen button is deliberately quieter than Open Live
+    // here — no icon, so it stops reading as a peer.
+    it('carries no icon, unlike Open Live here', () => {
+        renderPanel('STANDINGS');
+        const button = screen.getByRole('button', { name: 'Add a second screen on this computer' });
+        expect(button.querySelector('svg')).toBeNull();
     });
 });
 
-describe('putting this screen on air (#958)', () => {
+describe('putting this screen on air (#958, #1249)', () => {
     // Live used to be a race-row destination that replaced the operator's
-    // own page; these two buttons are where opening it moved to. Neither
-    // carries a fresh `displayId` the way "Open a new display window" does
+    // own page; this button is where opening it moved to. It carries no
+    // fresh `displayId` the way "Add a second screen on this computer" does
     // — the point is putting *this* computer's own screen on air, not a
     // deliberate second one.
-    it('opens Live on this screen, new tab, noopener, no displayId', () => {
+    it('opens Live here, new tab, noopener, no displayId', () => {
         renderPanel('STANDINGS');
         const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
-        fireEvent.click(screen.getByRole('button', { name: 'Open Live on this screen' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Open Live here' }));
 
         expect(openSpy).toHaveBeenCalledWith('/race/1/observation', '_blank', 'noopener');
         openSpy.mockRestore();
     });
 
-    it('launches projector mode the same way', () => {
-        renderPanel('STANDINGS');
-        const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-
-        fireEvent.click(screen.getByRole('button', { name: 'Launch projector' }));
-
-        expect(openSpy).toHaveBeenCalledWith('/race/1/observation?projector=true', '_blank', 'noopener');
-        openSpy.mockRestore();
-    });
-
     it('is offered even before any display has opened', () => {
         renderPanel('STANDINGS', 10, true, 2, false);
-        expect(screen.getByRole('button', { name: 'Open Live on this screen' })).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Launch projector' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Open Live here' })).toBeInTheDocument();
+    });
+
+    // #1249: no button offers the projector URL fallback anymore — Projector
+    // is one of the view dropdown's own entries, and the Live page's own
+    // "Launch Projector Mode" button is untouched by this change.
+    it('offers no button that opens the projector URL fallback', () => {
+        renderPanel('STANDINGS');
+        const buttons = screen.getAllByRole('button');
+        expect(
+            buttons.some((button) => /projector/i.test(button.textContent ?? '')),
+        ).toBe(false);
+    });
+
+    it('is the one primary-btn in the launch area', () => {
+        renderPanel('STANDINGS');
+        const openLive = screen.getByRole('button', { name: 'Open Live here' });
+        expect(openLive.className).toContain('primary-btn');
+
+        const secondScreen = screen.getByRole('button', {
+            name: 'Add a second screen on this computer',
+        });
+        expect(secondScreen.className).not.toContain('primary-btn');
+
+        const allPrimary = screen
+            .getAllByRole('button')
+            .filter((button) => button.className.includes('primary-btn'));
+        expect(allPrimary).toEqual([openLive]);
+    });
+});
+
+describe('the two headings over the launch area (#1249)', () => {
+    // <h2>, not <h3>: DisplaysPage.tsx has no <h2> of its own between its
+    // <h1> and this panel, and that's the level SystemSettings.tsx and
+    // RaceDetails.tsx already use for a section under a page <h1> — pinned
+    // here so a future edit can't quietly drop back a level.
+    it('names "This computer" and "Other devices" as real level-2 headings', () => {
+        renderPanel('STANDINGS');
+        expect(screen.getByRole('heading', { name: 'This computer', level: 2 })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Other devices', level: 2 })).toBeInTheDocument();
+    });
+
+    it('shows both headings before any display has opened too', () => {
+        renderPanel('STANDINGS', 10, true, 2, false);
+        expect(screen.getByRole('heading', { name: 'This computer', level: 2 })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Other devices', level: 2 })).toBeInTheDocument();
     });
 });
 
