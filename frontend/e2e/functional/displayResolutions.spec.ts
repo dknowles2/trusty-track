@@ -38,7 +38,7 @@
  *      `STANDINGS_SCROLLER_SELECTOR` below). Decided by geometry, not by
  *      `scrollHeight` vs `clientHeight`: those two numbers only flag a
  *      *candidate*, confirmed only when some descendant's own rendered box
- *      actually falls outside the element's padding box by more than 1px
+ *      actually falls outside the element's border box (`getBoundingClientRect`; no measured wrapper carries a bottom or right border, so the two coincide) by more than 1px
  *      (`verticalOverflowFailures`). A `scrollHeight` a pixel or two past
  *      `clientHeight` with every child still fully inside is sub-pixel
  *      accumulation of table-row line boxes, not a clip — see that
@@ -102,7 +102,7 @@ const STANDINGS_SCROLLER_SELECTOR = '[data-testid="standings-only-view"]';
  * Playwright retries, same two numbers each time), then passed 109/109 on a
  * re-run of the byte-identical commit on a different runner. The confirming
  * question this function actually asks is "does any descendant's own
- * rendered box fall outside this element's padding box" — the literal
+ * rendered box fall outside this element's border box" — the literal
  * meaning of "clips its content" — via `getBoundingClientRect()` on the
  * element and every descendant, comparing the child's `bottom`/`right`
  * against the parent's own, rather than trusting `scrollHeight` to answer
