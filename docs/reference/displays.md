@@ -54,7 +54,7 @@ listening cannot be told anything.
 
 When a heat [breaks the track record](stats-and-exports.md#the-track-record),
 the Projector view's results overlay and the Last heat's times view both
-carry a banner, in the [theme](themes.md)'s own accent colour, naming the new
+carry a banner, in the [theme](themes.md)'s own accent color, naming the new
 time and the record it beat. It fires only for a record that stood before
 today's race.
 
@@ -64,10 +64,10 @@ too — a rough real-world MPH beside each recorded time, worked out from the
 track's own length and scale ratio. A track with no length recorded, or
 with scale speed turned off, shows the time alone.
 
-### Lane colours
+### Lane colors
 
-Set [lane colours](race-settings.md#lane-colours) on the track's own card in
-System Settings and a small coloured dot appears beside every "Lane N" label
+Set [lane colors](race-settings.md#lane-colors) on the track's own card in
+System Settings and a small colored dot appears beside every "Lane N" label
 on these screens — the Standings view's Now Racing / On Deck / After That
 cards, and the Projector view's own line-up. It matches whatever a lane is
 called in the app, not the timer's own wiring: on a track whose timer cable
@@ -76,10 +76,10 @@ track's own lane number, the one painted on the ground.
 
 The dot is always beside the lane number, never a fill behind it — a filled
 badge would fight whichever [theme](themes.md) a screen is set to, so the
-number stays readable either way. A track with no colours configured shows
+number stays readable either way. A track with no colors configured shows
 the lane number alone, exactly as every track always has.
 
-The colours every screen here uses — including the projector's high-contrast
+The colors every screen here uses — including the projector's high-contrast
 dark background — come from whichever [theme](themes.md) Display is set to
 in System Settings, not a fixed palette.
 
@@ -247,7 +247,7 @@ setup instructions are in
 this section is what the overlay actually shows.
 
 **Its background is transparent, not merely dark.** Every other full-screen
-view paints a solid colour behind everything it draws; this one does not
+view paints a solid color behind everything it draws; this one does not
 paint anything behind its own panels at all, so whatever your streaming
 software is compositing underneath it — the track, the crowd, a starting
 gate camera — shows through everywhere the overlay itself is not actively
@@ -302,7 +302,7 @@ usable before anyone has typed anything.
 
 Each row has an **Identify** button. Press it and that screen's name flashes
 across it in large type for a few seconds — press it, look up, and see which
-physical screen just lit up. It is dead (greyed out) while the row says *Not
+physical screen just lit up. It is dead (grayed out) while the row says *Not
 connected*, since there is no screen to flash a name on.
 
 This works on the awards ceremony too, even though it is its own page rather
@@ -345,7 +345,7 @@ to it.
   the row stays until you clear it with the ✕.
 - **Assignments and a hand-typed name do not survive a restart** of the
   machine running Trusty Track. Screens fall back to their URLs — the same
-  behaviour as before they were assigned — and can be renamed and
+  behavior as before they were assigned — and can be renamed and
   re-assigned from the list. A screen's **default** name is the exception:
   it comes back the same, because it is derived from the screen itself
   rather than stored (see [Names, and telling one screen from
@@ -414,7 +414,7 @@ view to one moved both windows at once.
   is what the button's new window carries — useful if you ever want to bookmark
   a particular monitor's address rather than opening it fresh each time.
 
-## Connection behaviour
+## Connection behavior
 
 Displays hold a live connection and update themselves; nobody refreshes
 anything. If the wifi drops they reconnect on their own and catch up,

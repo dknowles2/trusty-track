@@ -8,7 +8,7 @@ Trusty Track schedules a general round's heats with the **Partial Perfect Chart 
 | --- | --- | --- | --- |
 | **Partial Perfect Chart** (default) | Every car runs every lane once; heats full; opponents vary as much as the field allows | The ordinary choice — scale-free, works for any field size, and is what every race ran before this choice existed | Any |
 | **Lane rotation** | Each car's next heat is its previous lane + 1; simplest to run from a printed sheet; opponents repeat | A pack that ran heats by hand before software, or wants a chart that reads off a printed sheet with no explanation needed | Any |
-| **Perfect-N chart** | Every car meets every other car the same number of times — the fairest chart there is, where one exists | A pack that wants the strongest opponent-fairness guarantee available, and whose field size and lane count happen to have a published chart | The ~41 shapes below — the wizard greys the option out, with the reason, everywhere else |
+| **Perfect-N chart** | Every car meets every other car the same number of times — the fairest chart there is, where one exists | A pack that wants the strongest opponent-fairness guarantee available, and whose field size and lane count happen to have a published chart | The ~41 shapes below — the wizard grays the option out, with the reason, everywhere else |
 
 Read on for what each one actually does; `docs/reference/round-styles.md` covers the three *formats* (General, Elimination, Balanced) this choice sits underneath — a general round's algorithm has no bearing on either of the other two, which build their own schedules.
 

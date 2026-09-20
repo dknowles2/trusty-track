@@ -22,7 +22,7 @@
 - **Set up your race** — name, date, location, and racing groups (dens).
 - **Register racers** individually or by bulk-importing a CSV from your pack's roster.
 - **Assign car numbers** automatically or manually, with flexible numbering strategies (global, per-den, or fully manual).
-- **Print pit passes, driver's licences and check-in codes** — a sheet at a time, on a normal printer.
+- **Print pit passes, driver's licenses and check-in codes** — a sheet at a time, on a normal printer.
 
 ### On Race Day
 
@@ -62,7 +62,7 @@ For the full documentation and user guides, visit: **[https://trusty-track.com/d
 | [Race Day Operations](https://trusty-track.com/docs/race-day/)              | Check-in, scheduling heats, running the race, and final standings |
 | [Scoring & Championships](https://trusty-track.com/docs/scoring-and-championships/) | How scores are worked out, and how championship rounds pick their field |
 | [Awards](https://trusty-track.com/docs/awards/)                             | Speed trophies, and the judged ones the timer cannot decide       |
-| [Printables](https://trusty-track.com/docs/printables/)                     | Pit passes, driver's licences, and scannable check-in codes       |
+| [Printables](https://trusty-track.com/docs/printables/)                     | Pit passes, driver's licenses, and scannable check-in codes       |
 | [Free Race](https://trusty-track.com/docs/free-race/)                       | Practice and exhibition heats that count for nothing              |
 | [Hardware Timer](https://trusty-track.com/docs/hardware-timer/)             | Connecting an electronic finish line, checking it works, and sending us a test report |
 | [Fake Timer](https://trusty-track.com/docs/fake-timer/)                      | Running the whole thing without a track, for practice             |

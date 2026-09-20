@@ -12,7 +12,7 @@ Trusty Track has three surfaces, and each has its own theme:
 | --- | --- | --- |
 | **App** | Your own screen — Race Control, the roster, this settings page | You, on this device |
 | **Display** | The wall display and the projector | The operator, for every screen in the room |
-| **Printables** | Pit passes, licences, heat sheets, certificates, results sheets | The operator, for every printer |
+| **Printables** | Pit passes, licenses, heat sheets, certificates, results sheets | The operator, for every printer |
 
 **App is per device.** It is a preference about the screen in front of you,
 saved on this laptop or tablet only — it never touches another screen, and
@@ -43,7 +43,7 @@ per-device, exactly as above.
 
 **"Field Uniform (default)."** The Display and Printables pickers offer this
 first, selected by default. It is not a fourth look of its own — it is Field
-Uniform's own Display (or Printables) colours, so an install that has never
+Uniform's own Display (or Printables) colors, so an install that has never
 opened this page looks exactly as it always has. This option used to be
 called "Match App theme," which suggested it would follow whichever theme
 your own screen is set to; it never did, on either surface — the App theme
@@ -93,8 +93,8 @@ the pickers — nothing here is saved until **Save Settings** is clicked._
 
 ## Printing and ink
 
-Most themes print the pit passes, licences, heat sheets and certificates
-**as they appear on screen** — a coloured header band costs about the same
+Most themes print the pit passes, licenses, heat sheets and certificates
+**as they appear on screen** — a colored header band costs about the same
 ink whichever theme it is.
 
 Two themes are the exception:
@@ -102,44 +102,44 @@ Two themes are the exception:
 - **Under the Lights** prints **lightened**. A dark screen and a dark
   projector do not argue for a dark pit pass — the paper stays light, with
   a cooler palette so it still reads as "the same event, at night."
-- **Newsprint** prints in a **deliberately ink-minimal** way: one ink colour
+- **Newsprint** prints in a **deliberately ink-minimal** way: one ink color
   instead of two, a thin rule in place of a filled header band, and the
-  decorative textures (the chequered band, the security wash, the
+  decorative textures (the checkered band, the security wash, the
   certificate's background pattern) faded to a fraction of their usual
   weight. It is the theme to pick if a pack is printing sixty pit passes on
   a home inkjet that is already running low.
 
 Every theme's printed pages stay legible photocopied in black and white,
 and Clear Sight and Newsprint are the two built to survive that
-specifically — neither leans on a shade of grey to carry meaning.
+specifically — neither leans on a shade of gray to carry meaning.
 
 ## What is not themed
 
 - **Layout, spacing, and rounded corners never change.** A theme changes
-  colour, weight, and decoration — never where anything sits on the page or
+  color, weight, and decoration — never where anything sits on the page or
   how big it is.
-- **Timer status colours, the error colour, and medal colours** (second and
+- **Timer status colors, the error color, and medal colors** (second and
   third place) stay the same in every theme — they carry a fixed meaning
   (armed, fault, second place) that a brand palette should not be free to
-  recolour.
-- **Only Trail Colors' hue changes; per-den colours are untouched.** Each
-  den already has its own colour chip on the roster, independent of any
-  theme, and no theme pulls den colours into more of the screen than that.
+  recolor.
+- **Only Trail Colors' hue changes; per-den colors are untouched.** Each
+  den already has its own color chip on the roster, independent of any
+  theme, and no theme pulls den colors into more of the screen than that.
 - **No custom or uploaded themes.** All seven are fixed, reviewed, and
-  shipped with the app — there is no colour picker for building your own.
+  shipped with the app — there is no color picker for building your own.
 
 ## Every screen themes now
 
-Trusty Track's colours come from one shared set of names ("the primary
-colour," "the accent colour") instead of being written out fresh on every
+Trusty Track's colors come from one shared set of names ("the primary
+color," "the accent color") instead of being written out fresh on every
 screen, and that conversion is finished — every screen in the app, the
 wall display, and the printed pages now picks up a theme change.
 
-A few more colours stay fixed, for a different reason than the ones listed
+A few more colors stay fixed, for a different reason than the ones listed
 above: they are not standing in for something a theme should be free to
-recolour — they are just what the object actually is.
+recolor — they are just what the object actually is.
 
-- **A car's avatar** keeps the same colour under every theme, the same way
+- **A car's avatar** keeps the same color under every theme, the same way
   a name is spelled the same way twice. It is how you recognise a car at a
   glance across a busy roster.
 - **The paintbrush and gavel icons** on the Awards page keep their

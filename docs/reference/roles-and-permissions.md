@@ -27,12 +27,12 @@ who is using it:
 
 ### What a screen shows for its own role
 
-Every screen that mutates something greys out the buttons a device's
+Every screen that mutates something grays out the buttons a device's
 current role cannot use, rather than only saying so once one is pressed:
 the roster (**Roster**), **Race Control**'s schedule, **Awards**, **System
 Settings** (including the per-track lanes-in-service and track-records
 panels, and Backup), the **Timer check** page, and Race Control's
-**Displays** tab (both the display list and Scenes). Hovering a greyed-out
+**Displays** tab (both the display list and Scenes). Hovering a grayed-out
 control explains which PIN would unlock it.
 
 **Stats** and **Standings** make no change to the race at all, so there is

@@ -9,7 +9,7 @@ Everything Trusty Track puts on paper. All of it comes off a normal printer
 | Document | Where | What it is |
 | --- | --- | --- |
 | **Pit passes** | Roster → ⋯ → Print… | Lanyard-sized, six per sheet: photo, name, den, car, a small vehicle picture, event details |
-| **Driver's licences** | Roster → ⋯ → Print… | Business-card sized, ten per sheet — the same size as stationery-shop card stock. The car number is the biggest thing on it, and there is a line for the scout to sign |
+| **Driver's licenses** | Roster → ⋯ → Print… | Business-card sized, ten per sheet — the same size as stationery-shop card stock. The car number is the biggest thing on it, and there is a line for the scout to sign |
 | **Check-in codes** | Roster → ⋯ → Print… | A QR code per racer, twelve per sheet, name and car number underneath |
 | **Car labels** | Roster → ⋯ → Print… | Avery 5163 shipping-label sized, ten per sheet: car number, name, racing group, inspected weight, and a scan code — for the underside of the car or the impound box |
 | **Heat sheet** | Race Control → Schedule → Heat sheet | The running order: a table per round, a row per heat, a column per lane, and an empty **Result** column to write into. Its masthead carries the same small vehicle picture as the pit pass |
@@ -37,7 +37,7 @@ certificates are cards that link to the pages above.
 
 ## Names on paper
 
-Pit passes, driver's licences, car labels, the heat sheet, the results sheet
+Pit passes, driver's licenses, car labels, the heat sheet, the results sheet
 and certificates all print a racer's full name by default. **Names on public
 screens**, in System Settings (with a per-race override on the race's edit
 form), can shorten it to "Jordan M." or "Jordan" everywhere on this list
@@ -94,7 +94,7 @@ is the loudest thing on it; the racing group, the name and the inspected
 weight are secondary, and the same check-in QR code every other printable
 draws from is there too, so a wrangler with a phone can confirm a car
 without reading anything at all. Unlike the pit pass and the driver's
-licence it carries no photo.
+license it carries no photo.
 
 Impound labels are usually printed twice — once before the scale opens, and
 again once every car has a weight on file. Tick **Leave the weight blank
@@ -120,7 +120,7 @@ laptop runs flat, and the announcer still has to know which cars are next.
   sheet still prints a column for the highest lane that race's own heats
   hold, marked **not on this track**, rather than clipping that lane's
   result off the page.
-- A lane header prints its [colour](race-settings.md#lane-colours) as a
+- A lane header prints its [color](race-settings.md#lane-colors) as a
   small dot beside the number, when one is configured — the lane number
   itself is always there too, since a dot alone means nothing on a
   black-and-white printout.
@@ -182,13 +182,13 @@ stack matches the order they get handed out in.
   to record who signed one, and a certificate is signed as it is handed over.
 - Artwork ships inside the app itself. Nothing is fetched or generated when
   you print, which matters on the venue's own network — and the same goes for
-  the borders, seals and the chequered flag band on the cards.
+  the borders, seals and the checkered flag band on the cards.
 
 ## Printer settings worth setting once
 
 - Turn on **Background graphics** (Chrome) / **Print backgrounds** (Safari,
   Firefox) under the print dialogue's More settings — without it the blue
-  headers, the den colours, the chequered band and the certificate's border
+  headers, the den colors, the checkered band and the certificate's border
   wash all print white. It is the one setting worth checking before a long
   run.
 - Set margins to **Default**, not None. The sheets are laid out for a

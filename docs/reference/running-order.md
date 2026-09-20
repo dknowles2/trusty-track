@@ -55,7 +55,7 @@ While the setting is on:
   staged. The audience displays' Now Racing and On Deck follow the same
   order, so the wall always agrees with the operator's screen.
 - **Any pending heat can be run from the Schedule tab.** Rounds progress
-  side by side, so **Run** is no longer greyed out on a round that is
+  side by side, so **Run** is no longer grayed out on a round that is
   waiting for an earlier one to finish.
 - **Dragging heats within a round is switched off**, and the drag handle
   says so. A hand-reorder renumbers the round from 1, which would silently

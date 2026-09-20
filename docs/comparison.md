@@ -41,7 +41,7 @@ which is a couple of steps more than a double-click. Their
 instance for a few hours if you want a look first.
 
 Eleven of Trusty Track's thirteen timer profiles are adapted from DerbyNet's
-protocol notes, under its licence and credited in the source. A pack with an
+protocol notes, under its license and credited in the source. A pack with an
 unusual timer has Jeff Piazza to thank for that, not us.
 
 [**Derby Magic Race Manager**](https://derbymagic.com/race-management/) costs $65
@@ -75,7 +75,7 @@ and a stopwatch it is a perfectly good answer.
 | | **Trusty Track** | **GrandPrix RM** | **DerbyNet** | **Derby Magic** | **Derby Day!** | **Derby Pulse** |
 | --- | --- | --- | --- | --- | --- | --- |
 | **Cost** | Free | $60 Lite, $80 Pro | Free | $65 | Free | Free, $15/event premium |
-| **Licence** | Apache 2.0 | Proprietary | MIT | Proprietary | Proprietary | Proprietary |
+| **License** | Apache 2.0 | Proprietary | MIT | Proprietary | Proprietary | Proprietary |
 | **Runs on** | Windows, macOS, Pi, Docker | Windows, macOS | Windows, macOS, Linux, Pi | Windows | Windows | Web only |
 | **What you install** | One app | One app | A zip holding a bundled web server | One app | One app | Nothing — free account |
 | **Other screens** | Any browser on the network | Single machine | Any browser on the network | Single machine | Single machine | Any browser with internet |
@@ -126,7 +126,7 @@ own wifi. The operator can change what any screen is showing without getting up.
 
 It expects the day to go wrong. A racer turning up after the round has started, a
 lane whose sensor dies mid-event, a car withdrawn between rounds, a time typed in
-wrong and corrected later: each of those has a defined behaviour rather than a
+wrong and corrected later: each of those has a defined behavior rather than a
 workaround, and [Mid-race changes](reference/mid-race-changes.md) lists what
 happens in each case.
 

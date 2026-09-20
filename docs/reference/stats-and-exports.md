@@ -50,7 +50,7 @@ count once everyone has run at least one heat.
 
 ### Dens comparison
 
-Each den's average score as a bar in the den's colour, with racer count and
+Each den's average score as a bar in the den's color, with racer count and
 the den's best performer in the table. The chart's scale is padded tightly
 around the dens' actual scores rather than starting at zero, so a small real
 difference between two dens still shows as a visible gap in bar length.

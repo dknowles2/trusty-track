@@ -33,7 +33,7 @@ stuck in a lane, or to test one lane at a time on the bench.
 _Lane 2 clicked off for this session — it turns white and drops out of every
 mode below until it is clicked back on._
 
-A lane the track itself has taken out of service shows here too, greyed out
+A lane the track itself has taken out of service shows here too, grayed out
 and already off — this toggle cannot turn that lane back on, only take a
 *working* one out temporarily. See
 [a lane stops working](reference/mid-race-changes.md#a-lane-stops-working) to

@@ -160,7 +160,7 @@ standings shows it that way. What happens beyond that is up to the race's
 [Ties](race-settings.md#ties) in Race and Track Settings — because how a tie
 should be settled is the pack's call, not one Trusty Track can guess.
 
-The default, **Leave it shared**, is today's behaviour and nothing more:
+The default, **Leave it shared**, is today's behavior and nothing more:
 tied cars share the place — two 1sts, then 3rd — and you settle it yourself
 with a **Run-off** from the standings, or by
 [correcting a time](#settling-a-tie-with-a-race-off). Choose one of the

@@ -38,7 +38,7 @@ The overflow menu holds the things you do once before an event — managing dens
 1. Click **+ Add New Den**.
 2. Enter the **Name** (e.g., "Lions").
 3. Check the **Start Number** and **End Number**. They arrive filled in with a block of a hundred that no other den is using, and **Auto number** hands out numbers from that block when the race is set to Per Den numbering. Clear them if you number cars some other way.
-4. Select a **Color** to identify the den. It is the colour of the den's tag in the roster, on printed pit passes and licences, and in the den comparison on the Stats page.
+4. Select a **Color** to identify the den. It is the color of the den's tag in the roster, on printed pit passes and licenses, and in the den comparison on the Stats page.
 5. (Optional) Set the den's **Category** — for the built-in Cub Scout words, a dropdown offers the traditional ranks (Lion, Tiger, Wolf, Bear, Webelos, Arrow of Light) to fill the box; a race using different words is offered its own list, or none, and you can always type anything you like (see [The words on screen](reference/race-settings.md#the-words-on-screen)). It is shown beside the den's name in the list and beneath a racer's name on the audience displays, where their den is not otherwise shown. On the Standings page's Den column it is shown beside the den's name too, unless it is just the den's own name again — the setup wizard's ready-made dens start that way, and a den named "Bear" with Category "Bear" prints as plain "Bear", not "Bear (Bear)".
 6. Click **Add Den**.
 
@@ -171,5 +171,5 @@ Before moving to the "Control" phase, review your roster to ensure every racer i
 ## Printing for Race Day
 
 With the roster settled, print the paperwork before doors open — pit passes,
-driver's licences, and the check-in codes an operator can scan. See the
+driver's licenses, and the check-in codes an operator can scan. See the
 [Printables guide](printables.md).

@@ -38,7 +38,7 @@ the last one.
 | --- | --- |
 | **Start** | Only once a race already exists: **Start from scratch**, or **Copy settings from a previous race** (below). |
 | **Kind of event** | What is being raced — **Pinewood Derby** (cars), **Space Derby** (rockets) or **Raingutter Regatta** (boats). Who is holding it — **Cub Scouts**, **Awana**, **A school**, or **Something else**. For Cub Scouts, whether it is **one pack's own derby** or **a district or council derby**. The line at the bottom says which three words the race will use. |
-| **Dens** | A ready-made list from those answers, to adjust: the six Cub Scout ranks (Lion through Arrow of Light, each in its rank colour, each with a Category to match) for a pack or a district; Awana's Cubbies, Sparks, T&T, Trek and Journey; nothing yet for a school or anyone else, since their groups are their own. Rename, recolour, add or remove; each is offered the next free block of a hundred car numbers, which you can clear. An empty list is fine for a race that does not group racers. |
+| **Dens** | A ready-made list from those answers, to adjust: the six Cub Scout ranks (Lion through Arrow of Light, each in its rank color, each with a Category to match) for a pack or a district; Awana's Cubbies, Sparks, T&T, Trek and Journey; nothing yet for a school or anyone else, since their groups are their own. Rename, recolor, add or remove; each is offered the next free block of a hundred car numbers, which you can clear. An empty list is fine for a race that does not group racers. |
 | **Details** | The race form — everything under [The race](#the-race) above. |
 
 **The answers become words, and only the words that differ are stored.** A
@@ -71,7 +71,7 @@ previous race**. Pick one from the list and the questions are skipped — the
 previous race is the answer — and you go straight to its dens, with its
 settings filled in on the form.
 
-**Copied:** every den, with its name, colour, Category and car number range;
+**Copied:** every den, with its name, color, Category and car number range;
 the scoring method, **Drop worst run(s)**, **Ties** and **Championship
 Trophies**; the car numbering strategy and start number; the weight limit (or
 no weight check, if it had none); the race's own words, if it had any; the
@@ -175,7 +175,7 @@ default, and there is nothing to override until the race exists.
 | Field | What it does |
 | --- | --- |
 | **Display theme** | Overrides System Settings' own Display theme for this race's wall screens and projector — see [Themes](themes.md#three-screens-three-choices) |
-| **Printables theme** | Overrides System Settings' own Printables theme for this race's pit passes, licences, heat sheets and certificates — see [Themes](themes.md#three-screens-three-choices) |
+| **Printables theme** | Overrides System Settings' own Printables theme for this race's pit passes, licenses, heat sheets and certificates — see [Themes](themes.md#three-screens-three-choices) |
 
 "Use the install's setting" keeps this race following whatever System
 Settings is set to, including a later change — that is the default for a
@@ -355,51 +355,51 @@ both.
 | **Timer Model** | Almost always *Detect automatically*. See [the model picker](timers.md#the-timer-model-picker) |
 | **This track has a remote start gate** | Enables the on-screen gate release, if the timer supports it — see [the remote start gate](timers.md#the-remote-start-gate) |
 | **The timer's cable is wired backwards** | Flips every result so the timer's lane 1 matches the track's highest lane, instead of rewiring the timer or renumbering the track — see [reverse lane numbering](timers.md#reverse-lane-numbering) |
-| **Lane colours (optional)** | Match each lane to the colour painted or taped on the physical track — see [Lane colours](#lane-colours) below |
+| **Lane colors (optional)** | Match each lane to the color painted or taped on the physical track — see [Lane colors](#lane-colors) below |
 | **Track records from past years** | Records from before Trusty Track, entered by hand for the Stats page's record board. Saves as soon as you add one — see [the track record](stats-and-exports.md#the-track-record) |
 
-Lanes in service and Lane colours are both a chip per lane, but they are two
+Lanes in service and Lane colors are both a chip per lane, but they are two
 separate controls with two different save models rather than one merged
 control: lanes in service is an urgent, race-day change that has to apply the
-moment you click it, and lane colours are a one-time setup fact that batches
+moment you click it, and lane colors are a one-time setup fact that batches
 with the rest of this card's **Save Settings**. Forcing both onto one save
 model would make one of the two worse, so the two rows are drawn
-differently too — lanes in service as squared checkbox chips, lane colours as
+differently too — lanes in service as squared checkbox chips, lane colors as
 round swatches — rather than as two rows of the same-looking pill.
 
-### Lane colours
+### Lane colors
 
 Most physical pinewood derby tracks — aluminum, wood, or a kit like BestTrack
-or Freedom Track — paint or sleeve each lane a different colour, and the
+or Freedom Track — paint or sleeve each lane a different color, and the
 wranglers, staging crew and even the announcer end up calling cars by it:
 "put car #12 in the blue lane." Trusty Track only ever knew lanes by number,
 so nothing on screen matched what was painted on the ground.
 
-A small colour picker sits under **Lane colours** on the track's own card,
+A small color picker sits under **Lane colors** on the track's own card,
 one per physical lane — not just the lanes currently in service, since a
-colour is a fact about the physical lane and does not move when one goes out
-of service or the lane count is turned down. **Use standard colours** fills
+color is a fact about the physical lane and does not move when one goes out
+of service or the lane count is turned down. **Use standard colors** fills
 in the usual red/white/blue/yellow (and green/orange for a six-lane track) as
-a starting point; pick any lane's own colour afterwards to match your track
+a starting point; pick any lane's own color afterwards to match your track
 exactly, or **Clear all** to go back to plain numbers. This is an ordinary
 field on the track's card, like Length (Feet) — it saves with the page's
 **Save Settings** button, not on click the way Lanes in service does.
 
 Leave every lane blank and nothing changes: this is entirely optional, and a
-track with no colours configured looks exactly as it always has.
+track with no colors configured looks exactly as it always has.
 
-Once set, a small coloured dot appears beside the lane number wherever a lane
+Once set, a small colored dot appears beside the lane number wherever a lane
 is shown — the Race screen, On Deck, the audience displays, and the printed
-heat sheet. It is always a dot beside the number, never a colour filled in
+heat sheet. It is always a dot beside the number, never a color filled in
 behind it: a filled badge would fight whichever [theme](themes.md) is active,
 and the lane number itself is always there too, since a dot alone means
 nothing on a black-and-white printout or to someone who cannot tell two hues
-apart. See [Audience display views](displays.md#lane-colours) for what a
+apart. See [Audience display views](displays.md#lane-colors) for what a
 screen shows, and [Printed documents](printing.md#the-heat-sheet) for the
 heat sheet.
 
-If the timer's cable is wired backwards (see the row above), lane colours
-still follow the track's own numbering, not the timer's — a colour is
+If the timer's cable is wired backwards (see the row above), lane colors
+still follow the track's own numbering, not the timer's — a color is
 painted on the ground, and correcting the cable does not move the paint.
 
 ### Scale speed
@@ -468,12 +468,12 @@ it has no reason to see a child's full name. Three choices:
 
 | Choice | Shows | For |
 | --- | --- | --- |
-| Full name | Jordan Mitchell | The default — today's behaviour, unchanged. |
+| Full name | Jordan Mitchell | The default — today's behavior, unchanged. |
 | First name and last initial | Jordan M. | The common choice for a screen the public can see. |
 | First name only | Jordan | A pack whose own policy says no surname on a public screen at all. |
 
 **It reaches the projector, the slideshow and the award ceremony; the pit
-passes, driver's licences, heat sheet, results sheet and certificates; and
+passes, driver's licenses, heat sheet, results sheet and certificates; and
 the standings CSV export.** It does not touch the roster, check-in, Race
 Control, or the activity log — the people running those screens need the
 whole name to find the right child in a queue, and all four sit behind a PIN

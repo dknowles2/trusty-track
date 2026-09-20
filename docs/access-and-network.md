@@ -28,7 +28,7 @@ is using it. There are three:
 
 A display needs no setup at all. Point a browser at
 [the address](#finding-this-machines-address) and it works, which is the
-behaviour you want on a screen taped to a wall. Exactly what each role can and
+behavior you want on a screen taped to a wall. Exactly what each role can and
 cannot do is in [Roles and permissions](reference/roles-and-permissions.md).
 
 ## Setting the PINs
@@ -46,7 +46,7 @@ cannot do is in [Roles and permissions](reference/roles-and-permissions.md).
 > Pick something you will not have to think about at 8am. It is protecting the
 > race from a bored ten-year-old, not from an attacker.
 
-Leaving both blank keeps the old behaviour: no PIN, no restrictions. That is
+Leaving both blank keeps the old behavior: no PIN, no restrictions. That is
 deliberate, so upgrading between events never locks you out of your own race.
 
 ## Entering a PIN on a device
@@ -73,7 +73,7 @@ not need the old one, and leaving the box blank keeps whatever is set rather
 than clearing it.
 
 To turn a PIN off, click **Remove** beside it and then **Save Settings**. The
-box greys out and says what will happen; **Keep** puts it back if you change
+box grays out and says what will happen; **Keep** puts it back if you change
 your mind before saving.
 
 ### If you forget the operator PIN

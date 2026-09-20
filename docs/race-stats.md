@@ -37,7 +37,7 @@ _The three overview cards at the top of the Stats page show scoring strategy, ra
 
 Pinewood Derby tracks sometimes have lanes that are slightly faster or slower due to small variations in the track surface or construction. The Lane Fairness section helps you see if any lane has a consistent advantage or disadvantage.
 
-- The **bar chart** shows each lane's performance relative to the overall average. A bar above the centre line (blue) means that lane runs faster than average; a bar below it (gold) means slower than average.
+- The **bar chart** shows each lane's performance relative to the overall average. A bar above the center line (blue) means that lane runs faster than average; a bar below it (gold) means slower than average.
 - The **table** below shows each lane's average finish time, how many heats were run in that lane, and the percentage advantage or disadvantage.
 
 A small difference (less than 1%) between lanes is completely normal. A larger difference may be worth noting for future track maintenance.

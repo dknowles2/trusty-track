@@ -1,6 +1,6 @@
 # Printables
 
-Trusty Track prints four things: **pit passes**, **driver's licences**,
+Trusty Track prints four things: **pit passes**, **driver's licenses**,
 **check-in codes**, and **car labels** for the impound pit. All four come off
 a normal printer on plain paper, card, or adhesive label sheets — there is
 nothing to install and no PDF to download.
@@ -56,19 +56,19 @@ printed *before* check-in, which is exactly when the photos are missing.
 
 ![A single pit pass](assets/screenshots/printables/pit-pass-card.png){ width=260 }
 
-### Driver's licences
+### Driver's licenses
 
 Business-card sized, ten to a sheet — the same size as stationery-shop business
 card stock, if you want to print them on card rather than cut them out.
 
-![A sheet of driver's licences](assets/screenshots/printables/drivers-license-sheet.png)
+![A sheet of driver's licenses](assets/screenshots/printables/drivers-license-sheet.png)
 
 The car number is the biggest thing on it, because that is what gets called out
 at the track. There is a blank line along the bottom for the scout to sign,
 which is worth having them do at the check-in table — it is the bit that makes
-it feel like a licence.
+it feel like a license.
 
-![A single driver's licence](assets/screenshots/printables/drivers-license-card.png){ width=260 }
+![A single driver's license](assets/screenshots/printables/drivers-license-card.png){ width=260 }
 
 ### Check-in codes
 
@@ -147,7 +147,7 @@ setting the first time:
 
     In the print dialogue, under **More settings**, tick **Background
     graphics** (Chrome) or **Print backgrounds** (Safari, Firefox). Without it
-    the header bars and den colours print white. (The header colour itself
+    the header bars and den colors print white. (The header color itself
     depends on which [theme](reference/themes.md) is set for Printables —
     blue is only Field Uniform's own.)
 
