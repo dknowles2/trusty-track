@@ -42,22 +42,22 @@ interface Props {
     hideWhenReady?: boolean;
 }
 
-const APPEARANCE: Record<ReadinessLevel, { icon: string; colour: string }> = {
-    BLOCKED: { icon: mdiAlertCircle, colour: 'var(--danger-strong-color)' },
-    ATTENTION: { icon: mdiAlertOutline, colour: 'var(--attention-accent-color)' },
-    OK: { icon: mdiCheckCircle, colour: 'var(--success-color)' },
-    INFO: { icon: mdiInformationOutline, colour: 'var(--neutral-info-color)' },
+const APPEARANCE: Record<ReadinessLevel, { icon: string; color: string }> = {
+    BLOCKED: { icon: mdiAlertCircle, color: 'var(--danger-strong-color)' },
+    ATTENTION: { icon: mdiAlertOutline, color: 'var(--attention-accent-color)' },
+    OK: { icon: mdiCheckCircle, color: 'var(--success-color)' },
+    INFO: { icon: mdiInformationOutline, color: 'var(--neutral-info-color)' },
 };
 
 function Row({ item, from }: { item: ReadinessItem; from: string }) {
-    const { icon, colour } = APPEARANCE[item.level];
+    const { icon, color } = APPEARANCE[item.level];
     return (
         <li
             data-testid={`readiness-${item.key}`}
             data-level={item.level}
             style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}
         >
-            <Icon path={icon} size={0.7} color={colour} style={{ alignSelf: 'center' }} />
+            <Icon path={icon} size={0.7} color={color} style={{ alignSelf: 'center' }} />
             <strong style={{ minWidth: '5.5rem' }}>{item.label}</strong>
             <span style={{ color: 'var(--text-heading-alt-color)' }}>{item.detail}</span>
             {item.href && (
@@ -117,7 +117,7 @@ export default function ReadinessStrip({
 
     const level = overallLevel(items);
     const compact = isCompact(items);
-    const { icon, colour } = APPEARANCE[level];
+    const { icon, color } = APPEARANCE[level];
 
     if (compact && hideWhenReady) return null;
 
@@ -132,7 +132,7 @@ export default function ReadinessStrip({
                 width: '100%',
                 background: 'var(--surface-color)',
                 border: '1px solid var(--border-faint-color)',
-                borderLeft: `4px solid ${colour}`,
+                borderLeft: `4px solid ${color}`,
                 borderRadius: '12px',
                 padding: compact ? '0.6rem 1rem' : '0.9rem 1.15rem',
                 fontSize: '0.95rem',
@@ -140,14 +140,14 @@ export default function ReadinessStrip({
         >
             {compact ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <Icon path={icon} size={0.75} color={colour} />
+                    <Icon path={icon} size={0.75} color={color} />
                     <strong>Ready to race</strong>
                     <span style={{ color: 'var(--text-muted-color)' }}>{summaryLine(items)}</span>
                 </div>
             ) : (
                 <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
-                        <Icon path={icon} size={0.8} color={colour} />
+                        <Icon path={icon} size={0.8} color={color} />
                         <strong>
                             {level === 'BLOCKED' ? 'Not ready to race yet' : 'Nearly ready'}
                         </strong>
