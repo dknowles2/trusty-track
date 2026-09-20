@@ -1243,12 +1243,15 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             </div>
           </div>
         ) : (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '40px',
-            paddingBottom: '40px',
-          }}>
+          <div
+            data-testid="schedule-round-list"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '40px',
+              paddingBottom: '40px',
+            }}
+          >
             {sortedRoundIds.map(roundId => {
               const roundHeats = [...(rounds[roundId] || [])].sort((a, b) => a.heatNumber - b.heatNumber);
               const roundNum = roundHeats[0]?.roundNumber || 0;

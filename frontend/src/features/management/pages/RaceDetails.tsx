@@ -1664,7 +1664,7 @@ export default function RaceDetails() {
       </div>
       )}
 
-      <div style={{ overflowX: 'auto' }} className="desktop-only-table">
+      <div style={{ overflowX: 'auto' }} className="desktop-only-table" data-testid="roster-table">
             <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }} className="responsive-table">
                 <thead style={{ backgroundColor: 'var(--scouting-blue)', color: 'var(--on-primary-color)' }}>
                     <tr>

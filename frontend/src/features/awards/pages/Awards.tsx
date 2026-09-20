@@ -497,7 +497,10 @@ export default function Awards() {
         </div>
       )}
 
-      <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.75rem' }}>
+      <ol
+        data-testid="awards-list"
+        style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.75rem' }}
+      >
         {awards.map((award, index) => (
           <li
             key={award.id}
