@@ -131,6 +131,42 @@ for (const viewport of DESKTOP_VIEWPORTS) {
             await expect(portraitOption).toHaveAttribute('aria-checked', 'true');
             await expect(carOption).toHaveAttribute('aria-checked', 'false');
         });
+
+        // #1246 reverses #1074: Override used to be muted, underlined text
+        // with no border or background — a link between two buttons rather
+        // than one of the row's own actions. It is `secondary-btn` now, the
+        // same shape Skip Heat beside it already carries.
+        test('Override reads as a button beside Skip Heat, not a text link (#1246)', async ({ page }) => {
+            await ensureConfigured(page);
+            const { raceId } = await seedRace(page, `Action Row Override ${viewport.name} ${Date.now()}`);
+            await createSchedule(page, raceId);
+
+            await page.goto(`/race/${raceId}/control/race`);
+            await expect(page.getByTestId('race-execution-action-row')).toBeVisible({ timeout: 30000 });
+
+            const override = page.getByRole('button', { name: 'Override', exact: true });
+            const skipHeat = page.getByRole('button', { name: /Skip Heat/ });
+            await expect(override).toBeVisible();
+            await expect(skipHeat).toBeVisible();
+
+            const [overrideBox, skipBox] = await Promise.all([override.boundingBox(), skipHeat.boundingBox()]);
+            expect(overrideBox).not.toBeNull();
+            expect(skipBox).not.toBeNull();
+            expect(Math.abs(overrideBox!.height - skipBox!.height)).toBeLessThanOrEqual(2);
+
+            const style = await override.evaluate((el) => {
+                const computed = getComputedStyle(el);
+                return {
+                    textDecorationLine: computed.textDecorationLine,
+                    backgroundColor: computed.backgroundColor,
+                    borderWidth: computed.borderTopWidth,
+                };
+            });
+            expect(style.textDecorationLine).toBe('none');
+            const hasVisibleBackground = style.backgroundColor !== 'rgba(0, 0, 0, 0)' && style.backgroundColor !== 'transparent';
+            const hasVisibleBorder = parseFloat(style.borderWidth) > 0;
+            expect(hasVisibleBackground || hasVisibleBorder, `Override's computed style had neither a visible background nor a visible border: ${JSON.stringify(style)}`).toBe(true);
+        });
     });
 }
 
@@ -166,4 +202,41 @@ test('the lane-photo picker fits inside the ⚙ popover on a 390px phone (#1245)
 
     const overflow = await popover.evaluate((el) => el.scrollWidth > el.clientWidth);
     expect(overflow).toBe(false);
+});
+
+// #1246: Override picked up `secondary-btn`, so it now carries the same
+// width/wrap rules as every other classed button in this row at the phone
+// width — reusing this file's own text-node-rects technique (see the
+// header comment) rather than `boundingBox().height`.
+test('Override does not wrap its label on a 390px phone, and the action row does not overflow (#1246)', async ({ page }) => {
+    await page.setViewportSize(PHONE_VIEWPORT);
+    await ensureConfigured(page);
+    const { raceId } = await seedRace(page, `Action Row Override Phone ${Date.now()}`);
+    await createSchedule(page, raceId);
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByTestId('race-execution-action-row')).toBeVisible({ timeout: 30000 });
+
+    const override = page.getByRole('button', { name: 'Override', exact: true });
+    await expect(override).toBeVisible();
+
+    const wrapped = await override.evaluate((el) => {
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            if (!node.textContent || !node.textContent.trim()) continue;
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            const tops = new Set(
+                Array.from(range.getClientRects())
+                    .filter((r) => r.width > 0 && r.height > 0)
+                    .map((r) => Math.round(r.top)),
+            );
+            if (tops.size > 1) return true;
+        }
+        return false;
+    });
+    expect(wrapped, "Override wrapped its label at 390px").toBe(false);
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    expect(overflow, 'the action row overflowed horizontally at 390px').toBe(false);
 });

@@ -1095,17 +1095,25 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             worth teaching.
                                             On a track with a timer, this same handler is "Override" —
                                             a false trip, a car that jumped a lane, a missed finish — an
-                                            exception rather than a heat's ordinary path to a result, so
-                                            it reads as a text link rather than a button and carries no
-                                            inline hint; the shortcut still works, named in the `title`
-                                            instead (#1074). */}
+                                            exception rather than a heat's ordinary path to a result.
+                                            #1074 made it read as a text link rather than a button, on
+                                            the theory that looking rare would read as being rare.
+                                            #1246 reverses that: a link sitting in a row of buttons
+                                            reads as "not one of these" rather than "a quieter one of
+                                            these" (the same shape #1238 found on Home), and understated
+                                            text beside a red-bordered Skip Heat and a blue Next Heat is
+                                            easy to miss entirely — exactly wrong for the stressed moment
+                                            an operator actually reaches for it. It is `secondary-btn`
+                                            now, at the row's ordinary 36px height, still with no icon
+                                            and no inline `kbd` hint so it does not compete with Next
+                                            Heat; the shortcut still works, named in the `title` instead. */}
                                         <button
                                             onClick={handleEditOpen}
-                                            className={hasTimer ? undefined : 'primary-btn'}
+                                            className={hasTimer ? 'secondary-btn' : 'primary-btn'}
                                             disabled={raceLocked}
                                             title={raceLocked ? lockedTitle : hasTimer ? `Override this heat's result — for a false trip, a missed finish, or a lane mix-up (press ${SHORTCUT_HINTS.EDIT})` : undefined}
                                             style={hasTimer ? {
-                                                padding: '6px 4px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: 'var(--text-muted-color)', textDecoration: 'underline', cursor: 'pointer', height: '36px'
+                                                padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px'
                                             } : {
                                                 padding: '6px 14px', fontSize: '0.9rem', background: 'var(--cub-scouting-gold)', color: 'var(--text-emphasis-color)', border: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px'
                                             }}
