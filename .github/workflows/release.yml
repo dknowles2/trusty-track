@@ -226,6 +226,17 @@ jobs:
       - name: Set version in version.py
         run: echo "__version__ = \"${{ steps.version.outputs.version }}\"" > backend/version.py
 
+      # A fresh runner has no keychain entries, so the identity named in
+      # APPLE_SIGN_IDENTITY has to be imported before codesign can use it.
+      # No-op without the certificate secret, in which case the build signs
+      # ad-hoc as it always has.
+      - name: Import the signing certificate
+        run: ./packaging/import-signing-cert.sh
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+
       - name: Build macOS app
         run: uv run bash packaging/build-mac.sh
         env:

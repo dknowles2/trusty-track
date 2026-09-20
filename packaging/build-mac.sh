@@ -11,8 +11,12 @@
 #   - create-dmg (brew install create-dmg)  -- not needed with --app-only
 #
 # Optional (code signing):
-#   - Set APPLE_SIGN_IDENTITY to your Developer ID Application name
-#   - Set APPLE_TEAM_ID and APPLE_NOTARIZATION_PASSWORD for notarization
+#   - Set APPLE_SIGN_IDENTITY to your Developer ID Application name, e.g.
+#     "Developer ID Application: Jane Doe (ABCDE12345)" -- the identity must
+#     already be in a keychain codesign searches; on a CI runner that is what
+#     packaging/import-signing-cert.sh does first
+#   - Set APPLE_ID, APPLE_TEAM_ID and APPLE_NOTARIZATION_PASSWORD for
+#     notarization, which only runs when a DMG is built (not with --app-only)
 
 set -euo pipefail
 
@@ -133,11 +137,18 @@ echo "Stamping version $VERSION into Info.plist..."
 # ad-hoc when there is not. Stamping the version before signing rather than
 # re-signing after would work too, and is the wrong shape -- it would leave the
 # next edit to the bundle free to break it again in the same silent way.
+#
+# The Developer ID branch signs with the hardened runtime, which notarization
+# requires, a secure timestamp, which it also requires, and the entitlements
+# in packaging/entitlements.plist, without which the hardened runtime kills a
+# PyInstaller bundle's Python at launch -- see that file for the two it grants.
 if [[ -n "${APPLE_SIGN_IDENTITY:-}" ]]; then
-    echo "Code signing..."
+    echo "Code signing with $APPLE_SIGN_IDENTITY..."
     codesign --deep --force --verify --verbose \
         --sign "$APPLE_SIGN_IDENTITY" \
         --options runtime \
+        --timestamp \
+        --entitlements "$SCRIPT_DIR/entitlements.plist" \
         "$APP_DIR"
 else
     echo "No APPLE_SIGN_IDENTITY; re-signing ad-hoc so the bundle verifies..."
@@ -188,10 +199,14 @@ else
 fi
 
 # 8. Optional notarization
-if [[ -n "${APPLE_NOTARIZATION_PASSWORD:-}" && -n "${APPLE_TEAM_ID:-}" ]]; then
+#
+# Apple's service scans the DMG and everything in it, and `--wait` blocks
+# until it answers -- usually a few minutes. The staple afterwards attaches
+# the ticket to the DMG so Gatekeeper can check it offline.
+if [[ -n "${APPLE_NOTARIZATION_PASSWORD:-}" && -n "${APPLE_TEAM_ID:-}" && -n "${APPLE_ID:-}" ]]; then
     echo "Notarizing..."
     xcrun notarytool submit "$OUTPUT_DMG" \
-        --apple-id "${APPLE_ID:-}" \
+        --apple-id "$APPLE_ID" \
         --password "$APPLE_NOTARIZATION_PASSWORD" \
         --team-id "$APPLE_TEAM_ID" \
         --wait

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for the Developer ID signature, applied by packaging/build-mac.sh
+  alongside the hardened-runtime option codesign is given there. Notarization requires the hardened
+  runtime, and the hardened runtime's defaults are written for an app compiled
+  from Swift or Objective-C, not for a PyInstaller bundle carrying a Python
+  interpreter. These two are the ones PyInstaller's own signing recipe names
+  as needed; the ad-hoc signature (no Developer ID) does not use this file.
+-->
+<plist version="1.0">
+<dict>
+  <!-- ctypes and PyObjC go through libffi, which builds call trampolines in
+       memory at runtime; the hardened runtime kills a process that executes
+       memory it did not load from a signed image unless this is granted. -->
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <!-- Every extension module and dylib in the bundle is re-signed under the
+       same Team ID by the deep re-sign, but a wheel's own bundled copy of a
+       library can carry its original signature; library validation would
+       refuse to load one signed by anybody else. -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+</dict>
+</plist>
