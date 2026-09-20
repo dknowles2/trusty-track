@@ -145,10 +145,10 @@ describe('RaceExecution', () => {
     const liveLane = (overrides: any) => ({ ...lane(overrides), pending: false, ...overrides });
 
     /**
-     * Show car photos, Sound options and Auto-advance all moved behind one
-     * ⚙ in the card header (#1157) — a popover, not always-on-screen
-     * controls. Every test that used to click one of those three directly
-     * opens the popover first now.
+     * The Cars/Faces lane-picture picker, Sound options and Auto-advance all
+     * moved behind one ⚙ in the card header (#1157) — a popover, not
+     * always-on-screen controls. Every test that used to click one of those
+     * three directly opens the popover first now.
      */
     function openPreferences() {
         fireEvent.click(screen.getByTestId('race-execution-preferences-trigger'));
@@ -1971,6 +1971,40 @@ describe('RaceExecution', () => {
             const portraitOption = screen.getByTestId('lane-photo-option-portrait');
             expect(carOption).toHaveAttribute('aria-checked', 'true');
             expect(portraitOption).toHaveAttribute('aria-checked', 'false');
+            expect(window.localStorage.getItem('trustytrack.lanePhoto')).toBe('car');
+        });
+
+        it('an arrow key moves focus to the other option and selects it, with a roving tabIndex', () => {
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    onToggleAutoAdvance={vi.fn()}
+                />
+            );
+
+            openPreferences();
+            const carOption = screen.getByTestId('lane-photo-option-car');
+            const portraitOption = screen.getByTestId('lane-photo-option-portrait');
+            carOption.focus();
+            expect(carOption).toHaveAttribute('tabIndex', '0');
+            expect(portraitOption).toHaveAttribute('tabIndex', '-1');
+
+            fireEvent.keyDown(carOption, { key: 'ArrowRight' });
+
+            expect(document.activeElement).toBe(portraitOption);
+            expect(portraitOption).toHaveAttribute('aria-checked', 'true');
+            expect(carOption).toHaveAttribute('aria-checked', 'false');
+            expect(portraitOption).toHaveAttribute('tabIndex', '0');
+            expect(carOption).toHaveAttribute('tabIndex', '-1');
+            expect(window.localStorage.getItem('trustytrack.lanePhoto')).toBe('portrait');
+
+            fireEvent.keyDown(portraitOption, { key: 'ArrowLeft' });
+
+            expect(document.activeElement).toBe(carOption);
+            expect(carOption).toHaveAttribute('aria-checked', 'true');
+            expect(portraitOption).toHaveAttribute('aria-checked', 'false');
+            expect(carOption).toHaveAttribute('tabIndex', '0');
+            expect(portraitOption).toHaveAttribute('tabIndex', '-1');
             expect(window.localStorage.getItem('trustytrack.lanePhoto')).toBe('car');
         });
 
