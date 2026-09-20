@@ -40,6 +40,14 @@ export function carryOver(previous: RacerData): RacerData {
         car_weight: undefined,
         racer_image_url: undefined,
         car_image_url: undefined,
+        // The original and the crop that produced it (#1241) go with the
+        // image — carrying one forward for a photo that no longer exists
+        // would let the next racer's first Rotate / Recrop reopen on a
+        // stranger's photo.
+        racer_image_original_url: undefined,
+        car_image_original_url: undefined,
+        racer_image_edit: undefined,
+        car_image_edit: undefined,
         car_passed_inspection: false,
         excluded_from_standings: false,
         racing_group_id: previous.racing_group_id,

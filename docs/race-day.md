@@ -61,6 +61,8 @@ Photos taken at the check-in table are rarely framed well — snapped sideways, 
 - **A photo taken with the Camera button** goes straight into this step after you tap **Capture** — straighten and crop it before it is ever attached to the racer.
 - **A photo already on file** — uploaded from disk, or captured earlier — gets a **⟳ Rotate / Recrop** button beneath it. Click it to reopen the same tool on the existing photo.
 
+**Cropping keeps what it cuts off, so a tight crop can always be loosened later.** The app keeps the original photo alongside whatever you crop it down to — clicking **⟳ Rotate / Recrop** reopens the tool on that original, with your last crop and rotation already in place, rather than on the already-cropped result. Drag the box back out and the parts you cropped away the first time are right there, waiting. The one exception: a photo uploaded before this existed has no original on file yet, so its first recrop starts from the picture as it is today — from that point on, it has one too.
+
 ![Crop and Rotate Tool](assets/screenshots/race-day/33-crop-photo-modal.png)
 _The crop tool open on a car photo already on file. The blue box is the crop, with a gold handle at each corner to resize it; everything outside it is dimmed. Drag the box to reposition it. The two rotate buttons and the Keep original / Save changes buttons sit below._
 

@@ -8,6 +8,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     false,
     true,
@@ -734,6 +735,25 @@ class Racer(Base):
     car_weight: Mapped[float | None] = mapped_column(Float, nullable=True)
     racer_image_url: Mapped[str | None] = mapped_column(String, nullable=True)
     car_image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: The photo `racer_image_url` was cropped from, if any (#1241). Null
+    #: for every racer until the first Rotate / Recrop, camera capture, or
+    #: bulk photo assignment on that side — cropping used to be destructive,
+    #: throwing away everything outside the crop box, so recrop could only
+    #: ever tighten a crop and never recover from one that was too tight.
+    #: A racer with no original behaves exactly as before: recrop opens on
+    #: the current (only) image and starts from a fresh centred crop.
+    racer_image_original_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    car_image_original_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: JSON the server never interprets — `{"rotation": 0|90|180|270,
+    #: "crop": {"x", "y", "width", "height"}}`, the crop expressed in the
+    #: *rotated* image's own pixel space, i.e. exactly the state
+    #: `ImageCropModal` already holds (`frontend/src/components/ui/
+    #: imageEdit.ts`'s `ImageEdit`) — so reseeding the modal from a stored
+    #: edit is "set rotation, then set crop," with no coordinate conversion
+    #: on either end. Null alongside a null `*_original_url` means no edit
+    #: is on file; the two are always cleared together.
+    racer_image_edit: Mapped[str | None] = mapped_column(Text, nullable=True)
+    car_image_edit: Mapped[str | None] = mapped_column(Text, nullable=True)
     racing_group_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("racing_groups.id"), nullable=True
     )

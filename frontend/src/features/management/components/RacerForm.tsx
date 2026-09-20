@@ -1,7 +1,13 @@
 import { useRef, useState } from 'react';
-import CameraCapture, { dataUrlToFile } from '../../../components/ui/CameraCapture';
+import CameraCapture, { type CaptureResult } from '../../../components/ui/CameraCapture';
 import ImageCropModal from '../../../components/ui/ImageCropModal';
-import { CAR_ASPECT, PORTRAIT_ASPECT } from '../../../components/ui/imageEdit';
+import {
+  CAR_ASPECT,
+  PORTRAIT_ASPECT,
+  parseImageEdit,
+  serializeImageEdit,
+  type ImageEdit,
+} from '../../../components/ui/imageEdit';
 import { useQuery, useMutation } from 'urql';
 import { GET_RACE_RACING_GROUPS, UPLOAD_IMAGE } from '../graphql/queries';
 import { carryOver } from '../racerEntry';
@@ -36,6 +42,17 @@ export interface RacerData {
   car_weight?: number;
   racer_image_url?: string;
   car_image_url?: string;
+  /** The photo `racer_image_url`/`car_image_url` was cropped from, if any
+   * (#1241). Absent for a racer with no crop history yet — recrop then
+   * opens on the current image itself, same as before this existed. */
+  racer_image_original_url?: string;
+  car_image_original_url?: string;
+  /** The rotation and crop that produced `racer_image_url`/`car_image_url`
+   * from the matching original, serialized (#1241) — `imageEdit.ts`'s
+   * `parseImageEdit`/`serializeImageEdit` are the only two functions that
+   * read or write this shape. */
+  racer_image_edit?: string;
+  car_image_edit?: string;
   /** Races, but is not ranked (#548) — a sibling or parent's car, a
    * demonstration run, an outlaw-class entry. Check-in is unaffected. */
   excluded_from_standings: boolean;
@@ -194,6 +211,35 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
     }));
   };
 
+  const readFileAsDataUrl = (file: File): Promise<string> =>
+      new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+      });
+
+  const uploadDataUrl = async (dataUrl: string): Promise<string> => {
+      const result = await uploadImageMutation({ dataUrl });
+      if (result.error) throw result.error;
+      const url = result.data?.uploadImage;
+      if (!url) throw new Error('Upload did not return a URL');
+      return url;
+  };
+
+  const imageField = (type: 'racer' | 'car') =>
+      type === 'racer' ? 'racer_image_url' : 'car_image_url';
+  const originalField = (type: 'racer' | 'car') =>
+      type === 'racer' ? 'racer_image_original_url' : 'car_image_original_url';
+  const editField = (type: 'racer' | 'car') =>
+      type === 'racer' ? 'racer_image_edit' : 'car_image_edit';
+
+  // A file chosen from disk (or dropped in some future extension of this
+  // control) is the image, full stop — it has no crop history of its own,
+  // so the original and any stored edit for that side are cleared rather
+  // than left pointing at whatever photo used to be there (#1241). The
+  // first Rotate / Recrop on *this* photo is what promotes it to being its
+  // own original — see `recropUpload` below.
   const uploadFile = async (file: File, type: 'racer' | 'car') => {
       // Belt and braces alongside the disabled controls below: even a
       // caller that reached this function some other way (a drag-and-drop
@@ -204,35 +250,91 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
           showAlert(PHOTOS_REFUSED_ON_DEMO_MESSAGE, 'Error');
           return;
       }
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-          const dataUrl = e.target?.result as string;
-          try {
-              const result = await uploadImageMutation({ dataUrl });
-              if (result.error) throw result.error;
-              const url = result.data?.uploadImage;
-              setFormData(prev => ({
-                  ...prev,
-                  [type === 'racer' ? 'racer_image_url' : 'car_image_url']: url
-              }));
-          } catch (error) {
-              console.error('Upload failed', error);
-              showAlert(errorText(error, 'Failed to upload photo. Please try again.'), 'Error');
-          }
-      };
-      reader.readAsDataURL(file);
+      try {
+          const dataUrl = await readFileAsDataUrl(file);
+          const url = await uploadDataUrl(dataUrl);
+          setFormData(prev => ({
+              ...prev,
+              [imageField(type)]: url,
+              [originalField(type)]: undefined,
+              [editField(type)]: undefined,
+          }));
+      } catch (error) {
+          console.error('Upload failed', error);
+          showAlert(errorText(error, 'Failed to upload photo. Please try again.'), 'Error');
+      }
   };
 
-  // A straightened photo goes through the same door a newly chosen one
-  // does — `uploadFile` — rather than replacing the stored URL in place.
-  // The old upload is not edited on the server; a new one is made and
-  // `formData` is pointed at it, exactly as picking a new file or retaking
-  // a camera shot already does. `cropTarget` (not `showCamera`, which the
-  // crop modal here never opens) says which field the result belongs to.
-  const handleCropConfirm = (dataUrl: string) => {
+  // A capture hands back the raw frame *and* the cropped result (#1241) —
+  // both are uploaded, sequentially rather than with `Promise.all` (the two
+  // data URLs differ, so a collision on identical variables is not the risk
+  // here, but there is no reason to open a second upload pattern alongside
+  // the sequential one `recropUpload` already needs — CLAUDE.md's "Two
+  // concurrent mutations with identical variables" note is the shape to
+  // avoid regardless). The raw frame becomes the original; the cropped
+  // result stays the image, exactly as it always has.
+  const uploadCapture = async (type: 'racer' | 'car', capture: CaptureResult) => {
+      if (photosRefused) {
+          showAlert(PHOTOS_REFUSED_ON_DEMO_MESSAGE, 'Error');
+          return;
+      }
+      try {
+          const originalDataUrl = await readFileAsDataUrl(capture.original);
+          const originalUrl = await uploadDataUrl(originalDataUrl);
+          const dataUrl = await readFileAsDataUrl(capture.file);
+          const url = await uploadDataUrl(dataUrl);
+          setFormData(prev => ({
+              ...prev,
+              [imageField(type)]: url,
+              [originalField(type)]: originalUrl,
+              [editField(type)]: serializeImageEdit(capture.edit),
+          }));
+      } catch (error) {
+          console.error('Upload failed', error);
+          showAlert(errorText(error, 'Failed to upload photo. Please try again.'), 'Error');
+      }
+  };
+
+  // Rotate / Recrop reopens the modal on the *original* (falling back to
+  // the current image for a racer with no original on file yet, below) and
+  // uploads only the new derived result — the original pointer is kept,
+  // never re-uploaded, and the new edit replaces the old one (#1241). This
+  // is what makes a tight crop loosenable: the parts cut off the first time
+  // are still sitting in the original, waiting for the next recrop to ask
+  // for them back.
+  const recropUpload = async (type: 'racer' | 'car', dataUrl: string, edit: ImageEdit) => {
+      if (photosRefused) {
+          showAlert(PHOTOS_REFUSED_ON_DEMO_MESSAGE, 'Error');
+          return;
+      }
+      try {
+          const url = await uploadDataUrl(dataUrl);
+          setFormData(prev => {
+              const currentOriginal = prev[originalField(type)];
+              const currentImage = prev[imageField(type)];
+              // Promote the image the modal opened on to be the original,
+              // if there was not one already — an old racer's single
+              // stored photo becomes recoverable starting with its first
+              // recrop under this feature (#1241).
+              const original = currentOriginal ?? currentImage;
+              return {
+                  ...prev,
+                  [imageField(type)]: url,
+                  [originalField(type)]: original,
+                  [editField(type)]: serializeImageEdit(edit),
+              };
+          });
+      } catch (error) {
+          console.error('Upload failed', error);
+          showAlert(errorText(error, 'Failed to upload photo. Please try again.'), 'Error');
+      }
+  };
+
+  const handleCropConfirm = (dataUrl: string, edit: ImageEdit) => {
       if (cropTarget === 'none') return;
-      uploadFile(dataUrlToFile(dataUrl, `edited-${Date.now()}.jpg`), cropTarget);
+      const type = cropTarget;
       setCropTarget('none');
+      void recropUpload(type, dataUrl, edit);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -687,8 +789,8 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
       {showCamera !== 'none' && (
           <CameraCapture
             onClose={() => setShowCamera('none')}
-            onCapture={(file) => {
-                uploadFile(file, showCamera as 'racer' | 'car');
+            onCapture={(result) => {
+                void uploadCapture(showCamera as 'racer' | 'car', result);
                 setShowCamera('none');
             }}
             // A racer's own portrait crops to a square — `RacerAvatar` and
@@ -701,7 +803,15 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
       {cropTarget !== 'none' && (
           <ImageCropModal
             open
-            src={cropTarget === 'car' ? formData.car_image_url ?? '' : formData.racer_image_url ?? ''}
+            // Reopen on the *original* when one is on file, so a tight
+            // crop can be loosened (#1241) — a racer with no original yet
+            // (never recropped, or a photo assigned before this feature
+            // existed) falls back to the current image, exactly as before.
+            src={
+                cropTarget === 'car'
+                    ? formData.car_image_original_url ?? formData.car_image_url ?? ''
+                    : formData.racer_image_original_url ?? formData.racer_image_url ?? ''
+            }
             title="Rotate / recrop photo"
             // The photo is already on file — the real choice is keeping it
             // or replacing it with this edit, not "use this photo" (which
@@ -711,6 +821,20 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
             // Same rule as the camera's own crop step: a racer's portrait
             // is square, a car photo is landscape (#619).
             aspect={cropTarget === 'car' ? CAR_ASPECT : PORTRAIT_ASPECT}
+            // Seeded from whatever crop produced the current image, if any
+            // (#1241) — `parseImageEdit` is tolerant of a missing or
+            // malformed value, so a racer with no edit on file (every
+            // racer before this feature, or one whose photo was assigned
+            // rather than cropped) gets `undefined` back and the modal
+            // falls back to its own default centred crop.
+            initialRotation={
+                parseImageEdit(cropTarget === 'car' ? formData.car_image_edit : formData.racer_image_edit)
+                    ?.rotation
+            }
+            initialCrop={
+                parseImageEdit(cropTarget === 'car' ? formData.car_image_edit : formData.racer_image_edit)
+                    ?.crop
+            }
             onCancel={() => setCropTarget('none')}
             onConfirm={handleCropConfirm}
           />
