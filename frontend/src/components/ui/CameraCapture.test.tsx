@@ -102,7 +102,7 @@ it('still reports the ordinary permissions message when the origin is secure', a
 });
 
 describe('the crop step', () => {
-    it('opens after Capture, and confirming it hands onCapture a File rather than the raw frame', async () => {
+    it('opens after Capture, and confirming it hands onCapture the cropped result, the raw frame, and the edit (#1241)', async () => {
         vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(fakeContext());
         vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(
             'data:image/jpeg;base64,QUJD',
@@ -129,11 +129,27 @@ describe('the crop step', () => {
         fireEvent.click(screen.getByRole('button', { name: /use this photo/i }));
 
         expect(onCapture).toHaveBeenCalledTimes(1);
-        const file = onCapture.mock.calls[0][0] as File;
-        expect(file).toBeInstanceOf(File);
-        expect(file.type).toBe('image/jpeg');
-        expect(file.name).toMatch(/^capture-\d+\.jpg$/);
-        await expect(file.text()).resolves.toBe('ABC');
+        const result = onCapture.mock.calls[0][0] as {
+            file: File;
+            original: File;
+            edit: { rotation: number; crop: unknown };
+        };
+
+        expect(result.file).toBeInstanceOf(File);
+        expect(result.file.type).toBe('image/jpeg');
+        expect(result.file.name).toMatch(/^capture-\d+\.jpg$/);
+        await expect(result.file.text()).resolves.toBe('ABC');
+
+        // The raw frame — the original — is a *separate* file from the
+        // cropped result, not the same bytes twice (#1241): a caller that
+        // uploads both ends up with an original a later recrop can
+        // actually recover something from.
+        expect(result.original).toBeInstanceOf(File);
+        expect(result.original.name).toMatch(/^capture-original-\d+\.jpg$/);
+        expect(result.original).not.toBe(result.file);
+
+        expect(result.edit.rotation).toBe(0);
+        expect(result.edit.crop).toBeTruthy();
 
         // Closing is the caller's job (RacerForm tears the whole component
         // down once `onCapture` returns) — this component itself neither

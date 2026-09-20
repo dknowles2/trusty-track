@@ -127,6 +127,93 @@ describe('rotating an already-uploaded photo', () => {
         );
     });
 
+    it('reopens on the original when one is on file, not the current (already cropped) image (#1241)', async () => {
+        vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(fakeContext());
+        vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(
+            'data:image/jpeg;base64,QUJD',
+        );
+        vi.mocked(useMutation).mockReturnValue([{ fetching: false, stale: false }, vi.fn()] as never);
+
+        render(
+            <AlertProvider>
+                <RacerForm
+                    raceId={1}
+                    initialData={{
+                        ...initialData,
+                        racer_image_url: '/static/racer-cropped.jpg',
+                        racer_image_original_url: '/static/racer-original.jpg',
+                    }}
+                    onSubmit={vi.fn()}
+                    onCancel={vi.fn()}
+                />
+            </AlertProvider>,
+        );
+
+        const racerButton = screen.getAllByRole('button', { name: /rotate \/ recrop/i })[0];
+        await userEvent.click(racerButton);
+
+        const stagePhoto = document.querySelector(
+            'img[alt="Photo being cropped"]',
+        ) as HTMLImageElement;
+        // The original, not the cropped image the roster preview shows —
+        // otherwise the parts cropped away the first time would still be
+        // unreachable.
+        expect(stagePhoto.src).toContain('/static/racer-original.jpg');
+    });
+
+    it('promotes the current image to being the original on its first recrop, and reports it to onSubmit alongside the new edit (#1241)', async () => {
+        vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(fakeContext());
+        vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(
+            'data:image/jpeg;base64,QUJD',
+        );
+        const uploadImageMutation = vi.fn().mockResolvedValue({
+            data: { uploadImage: '/static/racer-recropped.jpg' },
+        });
+        vi.mocked(useMutation).mockReturnValue([
+            { fetching: false, stale: false },
+            uploadImageMutation,
+        ] as never);
+        const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+        render(
+            <AlertProvider>
+                <RacerForm raceId={1} initialData={initialData} onSubmit={onSubmit} onCancel={vi.fn()} />
+            </AlertProvider>,
+        );
+
+        // `initialData` (above) carries no `racer_image_original_url` —
+        // this racer has never been recropped before.
+        const racerButton = screen.getAllByRole('button', { name: /rotate \/ recrop/i })[0];
+        await userEvent.click(racerButton);
+        loadPhotoBeingCropped();
+        await userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+
+        await waitFor(() => {
+            expect(uploadImageMutation).toHaveBeenCalledTimes(1);
+        });
+        expect(await screen.findByAltText('Racer')).toHaveAttribute(
+            'src',
+            '/static/racer-recropped.jpg',
+        );
+
+        await userEvent.click(screen.getByRole('button', { name: /save racer/i }));
+
+        expect(onSubmit).toHaveBeenCalledTimes(1);
+        const submitted = onSubmit.mock.calls[0][0];
+        expect(submitted.racer_image_url).toBe('/static/racer-recropped.jpg');
+        // The image the modal opened on — the *original* `racer_image_url`
+        // from `initialData` — is now the original, since there was none
+        // on file yet.
+        expect(submitted.racer_image_original_url).toBe('/static/racer-original.jpg');
+        expect(submitted.racer_image_edit).toEqual(
+            expect.stringContaining('"rotation":0'),
+        );
+        expect(JSON.parse(submitted.racer_image_edit)).toMatchObject({
+            rotation: 0,
+            crop: expect.any(Object),
+        });
+    });
+
     it('cancelling leaves the stored photo untouched', async () => {
         vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(fakeContext());
         vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(
