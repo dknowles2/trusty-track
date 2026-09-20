@@ -323,14 +323,215 @@ def test_a_recrop_stores_the_new_original_and_edit(client, db):
     )
 
 
+def test_a_car_recrop_stores_the_new_original_and_edit(client, db):
+    """The car-side twin of the test above — `_photo_field_updates` is
+    called once per side, and only one of the two calls was exercised."""
+    race = _race(db, "CarRecropRace")
+    racer = _racer(db, race, car_image_url="/static/car-original.png")
+
+    body = client.post(
+        "/graphql",
+        json={
+            "query": UPDATE_RACER,
+            "variables": {
+                "id": racer.id,
+                "racer": {
+                    "firstName": racer.first_name,
+                    "lastName": racer.last_name,
+                    "carImageUrl": "/static/car-recropped.png",
+                    "carImageOriginalUrl": "/static/car-original.png",
+                    "carImageEdit": (
+                        '{"rotation":180,"crop":{"x":1,"y":1,"width":9,"height":9}}'
+                    ),
+                },
+            },
+        },
+    ).json()
+
+    assert not body.get("errors"), body
+    updated = body["data"]["updateRacer"]
+    assert updated["carImageUrl"] == "/static/car-recropped.png"
+    assert updated["carImageOriginalUrl"] == "/static/car-original.png"
+    assert (
+        updated["carImageEdit"]
+        == '{"rotation":180,"crop":{"x":1,"y":1,"width":9,"height":9}}'
+    )
+
+
+def test_a_new_racer_photo_with_no_original_or_edit_clears_stale_history(client, db):
+    """A plain file-from-disk upload (#1241): `racerImageUrl` alone, with
+    no `racerImageOriginalUrl`/`racerImageEdit` in the payload at all — the
+    shape `RacerForm.tsx`'s `uploadFile` sends. The *stale* original and
+    edit, left over from whatever this racer's photo used to be, must be
+    nulled rather than left pointing at an unrelated picture — the same
+    rule `bulk_assign_racer_photos` already applies to an assigned photo."""
+    race = _race(db, "FreshRacerPhotoRace")
+    racer = _racer(
+        db,
+        race,
+        racer_image_url="/static/racer-old-cropped.png",
+        racer_image_original_url="/static/racer-old-original.png",
+        racer_image_edit='{"rotation":90,"crop":{"x":0,"y":0,"width":1,"height":1}}',
+    )
+
+    body = client.post(
+        "/graphql",
+        json={
+            "query": UPDATE_RACER,
+            "variables": {
+                "id": racer.id,
+                "racer": {
+                    "firstName": racer.first_name,
+                    "lastName": racer.last_name,
+                    "racerImageUrl": "/static/racer-fresh.png",
+                },
+            },
+        },
+    ).json()
+
+    assert not body.get("errors"), body
+    updated = body["data"]["updateRacer"]
+    assert updated["racerImageUrl"] == "/static/racer-fresh.png"
+    assert updated["racerImageOriginalUrl"] is None
+    assert updated["racerImageEdit"] is None
+
+
+def test_a_new_car_photo_with_no_original_or_edit_clears_stale_history(client, db):
+    """The car-side twin of the test above."""
+    race = _race(db, "FreshCarPhotoRace")
+    racer = _racer(
+        db,
+        race,
+        car_image_url="/static/car-old-cropped.png",
+        car_image_original_url="/static/car-old-original.png",
+        car_image_edit='{"rotation":90,"crop":{"x":0,"y":0,"width":1,"height":1}}',
+    )
+
+    body = client.post(
+        "/graphql",
+        json={
+            "query": UPDATE_RACER,
+            "variables": {
+                "id": racer.id,
+                "racer": {
+                    "firstName": racer.first_name,
+                    "lastName": racer.last_name,
+                    "carImageUrl": "/static/car-fresh.png",
+                },
+            },
+        },
+    ).json()
+
+    assert not body.get("errors"), body
+    updated = body["data"]["updateRacer"]
+    assert updated["carImageUrl"] == "/static/car-fresh.png"
+    assert updated["carImageOriginalUrl"] is None
+    assert updated["carImageEdit"] is None
+
+
+def test_updating_unrelated_fields_leaves_the_racer_photo_history_alone(client, db):
+    """The reviewer's exact scenario, verbatim: an `updateRacer` payload
+    naming only `firstName`/`lastName`/`carWeight` — an ordinary check-in
+    weight edit with nothing to do with the photo — must not touch a
+    racer's crop history at all (#1241). A first version of this feature
+    nulled both fields here, because it reapplied them unconditionally
+    rather than treating an absent `racerImageUrl` as "leave alone" the
+    way every other field on this input already does."""
+    race = _race(db, "WeightOnlyEditRace")
+    racer = _racer(
+        db,
+        race,
+        racer_image_url="/static/racer-cropped.png",
+        racer_image_original_url="/static/racer-original.png",
+        racer_image_edit='{"rotation":90,"crop":{"x":0,"y":0,"width":50,"height":50}}',
+    )
+
+    body = client.post(
+        "/graphql",
+        json={
+            "query": UPDATE_RACER,
+            "variables": {
+                "id": racer.id,
+                "racer": {
+                    "firstName": racer.first_name,
+                    "lastName": racer.last_name,
+                    "carWeight": 5.0,
+                },
+            },
+        },
+    ).json()
+
+    assert not body.get("errors"), body
+    updated = body["data"]["updateRacer"]
+    assert updated["carWeight"] == 5.0
+    assert updated["racerImageUrl"] == "/static/racer-cropped.png"
+    assert updated["racerImageOriginalUrl"] == "/static/racer-original.png"
+    assert (
+        updated["racerImageEdit"]
+        == '{"rotation":90,"crop":{"x":0,"y":0,"width":50,"height":50}}'
+    )
+
+
+def test_updating_unrelated_fields_leaves_the_car_photo_history_alone(client, db):
+    """The car-side twin of the test above."""
+    race = _race(db, "WeightOnlyEditCarRace")
+    racer = _racer(
+        db,
+        race,
+        car_image_url="/static/car-cropped.png",
+        car_image_original_url="/static/car-original.png",
+        car_image_edit='{"rotation":180,"crop":{"x":0,"y":0,"width":9,"height":9}}',
+    )
+
+    body = client.post(
+        "/graphql",
+        json={
+            "query": UPDATE_RACER,
+            "variables": {
+                "id": racer.id,
+                "racer": {
+                    "firstName": racer.first_name,
+                    "lastName": racer.last_name,
+                    "carWeight": 5.0,
+                },
+            },
+        },
+    ).json()
+
+    assert not body.get("errors"), body
+    updated = body["data"]["updateRacer"]
+    assert updated["carWeight"] == 5.0
+    assert updated["carImageUrl"] == "/static/car-cropped.png"
+    assert updated["carImageOriginalUrl"] == "/static/car-original.png"
+    assert (
+        updated["carImageEdit"]
+        == '{"rotation":180,"crop":{"x":0,"y":0,"width":9,"height":9}}'
+    )
+
+
 def test_an_absent_field_still_leaves_the_stored_value_alone(client, db):
     """The behaviour the explicit clear flags exist to preserve — a screen
-    that does not offer a field must not wipe it out just by omitting it."""
+    that does not offer a field must not wipe it out just by omitting it.
+    Covers the photo-history pair too (#1241) — this is the test that
+    should have caught the reviewer's finding, and didn't, because it
+    checked every other field but these two."""
     race = _race(db, "LeaveAloneRace")
     group = crud.create_racing_group(
         db, schemas.RacingGroupCreate(name="Bears"), race.id
     )
-    racer = _racer(db, race, racing_group_id=group.id, car_number=7, car_name="Speedy")
+    racer = _racer(
+        db,
+        race,
+        racing_group_id=group.id,
+        car_number=7,
+        car_name="Speedy",
+        racer_image_url="/static/racer-cropped.png",
+        racer_image_original_url="/static/racer-original.png",
+        racer_image_edit='{"rotation":90,"crop":{"x":0,"y":0,"width":50,"height":50}}',
+        car_image_url="/static/car-cropped.png",
+        car_image_original_url="/static/car-original.png",
+        car_image_edit='{"rotation":180,"crop":{"x":0,"y":0,"width":9,"height":9}}',
+    )
 
     body = client.post(
         "/graphql",
@@ -347,6 +548,19 @@ def test_an_absent_field_still_leaves_the_stored_value_alone(client, db):
     ).json()
 
     assert not body.get("errors"), body
-    assert body["data"]["updateRacer"]["racingGroupId"] == group.id
-    assert body["data"]["updateRacer"]["carNumber"] == 7
-    assert body["data"]["updateRacer"]["carName"] == "Speedy"
+    updated = body["data"]["updateRacer"]
+    assert updated["racingGroupId"] == group.id
+    assert updated["carNumber"] == 7
+    assert updated["carName"] == "Speedy"
+    assert updated["racerImageUrl"] == "/static/racer-cropped.png"
+    assert updated["racerImageOriginalUrl"] == "/static/racer-original.png"
+    assert (
+        updated["racerImageEdit"]
+        == '{"rotation":90,"crop":{"x":0,"y":0,"width":50,"height":50}}'
+    )
+    assert updated["carImageUrl"] == "/static/car-cropped.png"
+    assert updated["carImageOriginalUrl"] == "/static/car-original.png"
+    assert (
+        updated["carImageEdit"]
+        == '{"rotation":180,"crop":{"x":0,"y":0,"width":9,"height":9}}'
+    )

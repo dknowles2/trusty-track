@@ -1160,6 +1160,58 @@ _RACER_CLEAR_FLAGS = (
 )
 
 
+def _photo_field_updates(
+    prefix: str, url: str | None, original: str | None, edit: str | None
+) -> dict[str, str | None]:
+    """Which of `<prefix>_image_url`/`_original_url`/`_edit` an
+    `updateRacer` payload actually means to change (#1241).
+
+    A first version of this feature popped the original/edit pair out and
+    reapplied them unconditionally, bypassing `RacerInput`'s ordinary
+    "absent means leave alone" convention (#747) for every field but the
+    six explicit `clear_*` flags. A reviewer proved that was a real hole:
+    `updateRacer` is a public mutation, not a function this PR's one
+    well-behaved caller (`RaceDetails.tsx`, which always resends the whole
+    form) can be trusted to always call correctly — a payload naming only
+    `carWeight`, say, silently nulled a racer's entire crop history, with
+    no test protecting the invariant `test_an_absent_field_still_leaves_
+    the_stored_value_alone` exists to guard everywhere else on this input.
+
+    This restores that convention rather than departing from it, and
+    folds in the one real behaviour a fresh, uncropped photo still needs
+    — invalidating a *stale* original/edit without a `clear*` flag, since
+    an ordinary file-upload payload sets the url alone:
+
+    - `url` absent: the operator is not touching this photo at all.
+      Nothing is returned — `original`/`edit` are left exactly as they
+      are, whatever else the payload carries for them (meaningless
+      without a `url` alongside, so not worth a special case of their
+      own).
+    - `url` given, `original` and `edit` both absent: a fresh, uncropped
+      file is replacing whatever was there — the old original and edit
+      belong to a photo that no longer exists, so both are nulled. The
+      same rule `bulk_assign_racer_photos` already applies to an assigned
+      photo, for the identical reason.
+    - `url` given, and `original` or `edit` given: a recrop or a camera
+      capture, which always send both together — store all three exactly
+      as sent.
+
+    `clear_racer_image`/`clear_car_image` are unaffected by any of this;
+    the resolver applies them afterward, and they null all three
+    unconditionally regardless of what this returns.
+    """
+    if url is None:
+        return {}
+    updates: dict[str, str | None] = {f"{prefix}_image_url": url}
+    if original is None and edit is None:
+        updates[f"{prefix}_image_original_url"] = None
+        updates[f"{prefix}_image_edit"] = None
+    else:
+        updates[f"{prefix}_image_original_url"] = original
+        updates[f"{prefix}_image_edit"] = edit
+    return updates
+
+
 @strawberry.input
 class RacingGroupInput:
     """
@@ -5485,25 +5537,31 @@ class Mutation:
         clear_racer_image = data.pop("clear_racer_image", False)
         clear_car_image = data.pop("clear_car_image", False)
         clear_home_unit = data.pop("clear_home_unit", False)
-        # The original and the crop that produced the current image move in
-        # lockstep with it, not with "absent means leave alone" (#1241):
-        # `RacerForm` always knows the correct current value for these four,
-        # including null (a fresh file upload has no original yet; a racer
-        # with no crop history has no edit), because unlike every other
-        # field on this input there is no partial update that only ever
-        # touches the image and leaves its own metadata stale on purpose.
-        # Popped and reapplied unconditionally, ahead of the `is not None`
-        # filter below, so a null here is not dropped as "not sent" the way
-        # it would be for `car_name` or `car_weight`.
+        # The original/edit pair follows the same "absent means leave
+        # alone" convention as every other field here (#1241) — see
+        # `_photo_field_updates`'s own docstring for why an earlier,
+        # unconditional-reapply version of this was a real hole, caught by
+        # review before it shipped: a payload naming only `carWeight`
+        # could silently wipe a racer's entire crop history. Popped ahead
+        # of the general filter below because a "leave alone" answer here
+        # is "add nothing to `filtered_data`," not "add `None`."
+        racer_image_url = data.pop("racer_image_url", None)
+        car_image_url = data.pop("car_image_url", None)
         racer_image_original_url = data.pop("racer_image_original_url", None)
         car_image_original_url = data.pop("car_image_original_url", None)
         racer_image_edit = data.pop("racer_image_edit", None)
         car_image_edit = data.pop("car_image_edit", None)
         filtered_data = {k: v for k, v in data.items() if v is not None}
-        filtered_data["racer_image_original_url"] = racer_image_original_url
-        filtered_data["car_image_original_url"] = car_image_original_url
-        filtered_data["racer_image_edit"] = racer_image_edit
-        filtered_data["car_image_edit"] = car_image_edit
+        filtered_data.update(
+            _photo_field_updates(
+                "racer", racer_image_url, racer_image_original_url, racer_image_edit
+            )
+        )
+        filtered_data.update(
+            _photo_field_updates(
+                "car", car_image_url, car_image_original_url, car_image_edit
+            )
+        )
         if clear_racing_group:
             filtered_data["racing_group_id"] = None
         if clear_car_number:
