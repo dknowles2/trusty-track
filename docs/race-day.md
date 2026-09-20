@@ -438,7 +438,7 @@ Switch to the **Race** tab in Race Control to enter the race execution view. Thi
 
 The view is split into two columns:
 
-- **Left (main area)**: The current heat. Its header shows the heat number and one status line — the heat's own phase (Ready, Racing…, Recorded) with the timer's state as muted text beside it — and a **⚙** button for this device's own preferences (a Cars/Faces picture picker, **Sound options**, **Auto-advance**); see [Sound Options](#sound-options) and [Cars or Faces](#cars-or-faces) below. Racer names, lane assignments and results follow underneath, one line per lane. Below that, a footer holds the controls that act on *this* heat: **Skip Heat** and **Override** (or **Enter Results** on a track with no timer) before it runs, **Edit** and **Re-Run** after — and, on the right, **Next Heat**, always there but only clickable once a result has landed. Before a heat runs on a track with a timer, **Override** is a small, deliberately understated text link rather than a button, for the rare case a result needs correcting by hand — overriding a timer's result is the exception, not the ordinary way a heat gets recorded.
+- **Left (main area)**: The current heat. Its header shows the heat number and one status line — the heat's own phase (Ready, Racing…, Recorded) with the timer's state as muted text beside it — and a **⚙** button for this device's own preferences: a Cars/Faces picture picker and **Auto-advance** together at the top, then a divider, then **Sound options…** as a menu row below it — see [Sound Options](#sound-options) and [Cars or Faces](#cars-or-faces) below. Racer names, lane assignments and results follow underneath, one line per lane. Below that, a footer holds the controls that act on *this* heat: **Skip Heat** and **Override** (or **Enter Results** on a track with no timer) before it runs, **Edit** and **Re-Run** after — and, on the right, **Next Heat**, always there but only clickable once a result has landed. Before a heat runs on a track with a timer, **Override** is a small, deliberately understated text link rather than a button, for the rare case a result needs correcting by hand — overriding a timer's result is the exception, not the ordinary way a heat gets recorded.
 - **Right (sidebar)**: **On Deck** — the next heat's lane-up, so those cars can be staged — with the round's progress below it and any later rounds after that. The progress panel shows an estimated finish time and pace for the round, which starts as a rough guess and gets more accurate as heats are actually recorded — it learns this event's own rhythm rather than assuming a fixed time per heat. **Take a break** sits in that panel's header — see [Taking a Break](#taking-a-break) below.
 
 Both panels show the same kind of picture beside each lane — a car photo by
@@ -524,8 +524,9 @@ these on, so the printed hints don't show there either.
 
 ### Sound Options
 
-A single **Sound options** button, behind the **⚙** in the heat card's
-header, opens a panel of event sounds — a heat being staged, the gate
+A single **Sound options…** row, behind the **⚙** in the heat card's
+header — below a divider, under the picture picker and **Auto-advance** —
+opens a panel of event sounds — a heat being staged, the gate
 release, the finish chime, a track record broken, the award ceremony
 fanfare — all behind one shared **Enable sound effects on this device**
 switch. Nothing plays until that switch is on, and the setting (like every
@@ -547,7 +548,7 @@ sound is on for this device.
 The current heat and **On Deck** both show a small picture beside each
 lane — either the car's own photo or the racer's portrait, whichever you've
 told this device to show. A **Lane pictures** picker in the same **⚙**
-menu as **Sound options** offers two buttons, **Cars** and **Faces**; the
+menu as **Sound options…** offers two buttons, **Cars** and **Faces**; the
 two panels always show the same kind of picture, so picking one changes
 what that kind is everywhere on the screen at once.
 

@@ -157,6 +157,13 @@ test('the lane-photo picker fits inside the ⚙ popover on a 390px phone (#1245)
     await expect(page.getByTestId('lane-photo-option-car')).toBeVisible();
     await expect(page.getByTestId('lane-photo-option-portrait')).toBeVisible();
 
+    // Sound options… (#1247) is a full-width menu row below a divider, at
+    // the foot of the same 240px popover — it has to fit on this phone
+    // width too, not just the lane-picture picker above.
+    const soundOptions = page.getByTestId('sound-effects-modal-trigger');
+    await expect(soundOptions).toBeVisible();
+    await expect(soundOptions).toHaveAccessibleName('Sound options…');
+
     const overflow = await popover.evaluate((el) => el.scrollWidth > el.clientWidth);
     expect(overflow).toBe(false);
 });

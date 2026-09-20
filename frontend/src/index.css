@@ -591,7 +591,13 @@ input:checked + .slider:before {
   margin-top: 5px;
 }
 
-.dropdown-content button {
+/* `.menu-row-btn` shares this look with `.dropdown-content button` — a
+   full-width, borderless, left-aligned row, colour and hover included — for
+   a button that reads as a menu entry without being inside a `.dropdown-
+   content` container (e.g. the preferences popover's Sound options… row,
+   #1247). One rule, two selectors, so a change to one is a change to both — nothing tests it, so a later split into two rules would go unnoticed; keep them together. */
+.dropdown-content button,
+.menu-row-btn {
   color: var(--text-emphasis-color);
   padding: 12px 16px;
   text-decoration: none;
@@ -603,7 +609,8 @@ input:checked + .slider:before {
   font-size: 0.9rem;
 }
 
-.dropdown-content button:hover {
+.dropdown-content button:hover,
+.menu-row-btn:hover {
   background-color: var(--surface-soft-color);
 }
 
