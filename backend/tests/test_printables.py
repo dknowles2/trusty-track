@@ -263,6 +263,53 @@ class TestVotingQrEndpoint:
         assert response.status_code == 200
         assert response.content.startswith(PNG_MAGIC)
 
+    def test_it_also_serves_the_camera_page(self, client, race):
+        """Widened for #1254's "Connect a camera" block on the Displays
+        panel: the camera address is an audience-device page on this
+        instance, the same trust class as `/observation` (#1282 — the
+        camera QR silently never rendered because this endpoint refused
+        it)."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={
+                "url": (
+                    f"http://192.168.1.42:8000/race/{race.id}/camera"
+                    "?displayId=x&trackId=1"
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.content.startswith(PNG_MAGIC)
+
+    def test_the_camera_page_is_served_with_no_query_string_too(self, client, race):
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"http://192.168.1.42:8000/race/{race.id}/camera"},
+        )
+
+        assert response.status_code == 200
+        assert response.content.startswith(PNG_MAGIC)
+
+    def test_an_off_instance_camera_url_is_refused(self, client, race):
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"https://evil.example/race/{race.id}/camera"},
+        )
+
+        assert response.status_code == 400
+
+    def test_a_camera_url_for_a_different_race_is_refused(self, client, race):
+        """Scoped to `race_id` exactly like `/vote` and `/observation`
+        already are — a code for one race must not point a camera at
+        another's."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": "http://192.168.1.42:8000/race/999999/camera"},
+        )
+
+        assert response.status_code == 400
+
     def test_an_unlisted_page_for_the_same_race_is_still_refused(self, client, race):
         """Widening the guard to a second page must not widen it to *every*
         page — the roster, say, which is not a page a display holding no PIN

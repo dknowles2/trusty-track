@@ -279,6 +279,25 @@ test('the Connect a camera code presets this race\'s own track, and scanning it 
     const cameraDisplayId = cameraUrl.searchParams.get('displayId');
     expect(cameraDisplayId).toBeTruthy();
 
+    // The QR code itself, not just the address text beside it (#1282): the
+    // backend's QR guard silently refused a `/camera` target, and the
+    // block's own `onError` handler just hid the broken `<img>`, so the
+    // address and Copy button looked complete with no code ever drawn.
+    const cameraQr = cameraBlock.locator('img');
+    await expect(cameraQr).toBeVisible();
+    expect(
+        await cameraQr.evaluate((img: HTMLImageElement) => img.naturalWidth),
+    ).toBeGreaterThan(0);
+
+    // The screen block shares the same component and the same guard, so it
+    // gets the same check here rather than being taken on faith.
+    const screenBlock = page.getByTestId('connect-screen-address');
+    const screenQr = screenBlock.locator('img');
+    await expect(screenQr).toBeVisible();
+    expect(
+        await screenQr.evaluate((img: HTMLImageElement) => img.naturalWidth),
+    ).toBeGreaterThan(0);
+
     // A second machine, with `&fake=1` appended so no real camera is
     // needed — the same flag `FakeCamera` uses throughout the instant
     // replay suite.
