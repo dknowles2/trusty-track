@@ -146,22 +146,51 @@ test('screenshot a district derby', async ({ page }) => {
         }
     }
 
+    // --- Roster: scoped to the roster section (#1279) rather than a
+    // full-page capture. The caption is about the table's own columns (car
+    // number, rank, Home Pack), which the section alone already shows — a
+    // full-page shot also carries the race navigation row and the page's
+    // own header/checklist, none of which the caption is about, matching
+    // the same "scope the crop to what the caption describes" fix #1230
+    // and #1259 already made for 01 and observation/08.
+    //
+    // Scoped to `data-testid="roster-section"` (`RaceDetails.tsx`), the
+    // wrapper around the toolbar/header *and* the table — not to the table
+    // alone, which was this fix's own first attempt and was wrong: the
+    // desktop `roster-header` (the "Racer Roster" heading, check-in
+    // progress, toolbar, search box) is `position: sticky; top: 0` and a
+    // *sibling* of the table, not an ancestor. Scoping to the table alone
+    // meant `screenshotLocator`'s scroll-into-view carried the sticky
+    // header along pinned over the top of the crop — the picture still
+    // showed the toolbar the caption says nothing about, and it hid the
+    // roster's actual first row (car #1) underneath it. Scoping to the
+    // section that contains both means the sticky header settles at its
+    // own top, above row 1, exactly where it belongs. ---
     await page.goto(`/race/${raceId}`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('Home Pack').first()).toBeVisible();
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '02-roster-home-pack.png') });
+    await screenshotLocator(page.getByTestId('roster-section'), {
+        path: path.join(SCREENSHOT_DIR, '02-roster-home-pack.png'),
+    });
 
     // --- Round wizard: opened on a race with no rounds yet, whose words are
     // the district scale — the prefill this stage adds. Step 2 is where
     // both halves of it show at once: "Each Rank" already selected, and
-    // "Also give one overall trophy" already checked. ---
+    // "Also give one overall trophy" already checked. Scoped to the
+    // wizard's own dialog (#1279), the same technique 01 already uses —
+    // `RoundWizard.tsx` renders one `Modal` titled "Race Schedule Wizard"
+    // for every step, so the dialog's accessible name is that title
+    // regardless of which step is showing. ---
     await page.goto(`/race/${raceId}/control/schedule`);
     await page.getByRole('button', { name: 'Start Round Creation Wizard' }).click();
+    const roundWizardDialog = page.getByRole('dialog', { name: 'Race Schedule Wizard' });
     await expect(page.getByLabel(/By Rank/)).toBeChecked();
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.locator('select')).toHaveValue('EACH_GROUP');
     await expect(page.getByLabel(/Also give one overall trophy/)).toBeChecked();
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '03-round-wizard-prefill.png') });
+    await screenshotLocator(roundWizardDialog, {
+        path: path.join(SCREENSHOT_DIR, '03-round-wizard-prefill.png'),
+    });
 
     await page.getByRole('button', { name: 'Next' }).click();
     await page.getByRole('button', { name: 'Generate schedule' }).click();
@@ -169,7 +198,14 @@ test('screenshot a district derby', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Tiger' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Wolf' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Grand Finals' })).toBeVisible();
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '04-schedule-by-rank.png') });
+    // --- Scoped to the round list itself (#1279), not the whole page — the
+    // "N Rounds Scheduled" header and Add Round/Heat sheet controls above it
+    // are outside `data-testid="schedule-round-list"`, and so is the race
+    // navigation row. The caption is about the rank blocks and Grand
+    // Finals, which this container alone holds. ---
+    await screenshotLocator(page.getByTestId('schedule-round-list'), {
+        path: path.join(SCREENSHOT_DIR, '04-schedule-by-rank.png'),
+    });
 
     // --- Race every heat through the API — recording is not the step under
     // test, and driving each one by hand through the timer UI would make a
@@ -206,9 +242,15 @@ test('screenshot a district derby', async ({ page }) => {
     // --- Awards: the per-rank champions and the grand-final trophy, both
     // seeded automatically the moment the round wizard's schedule was
     // generated — no "Add an award" step, which is the whole point of this
-    // stage's checkbox. ---
+    // stage's checkbox. Scoped to the awards list itself (#1279) rather
+    // than the whole page — the caption is about the champions and the
+    // overall winner, which `data-testid="awards-list"` (`Awards.tsx`'s
+    // `<ol>`) alone already shows, not the page header or the voting
+    // banner above it. ---
     await page.goto(`/race/${raceId}/awards`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('Not decided by the racing yet')).toHaveCount(0);
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '05-awards.png') });
+    await screenshotLocator(page.getByTestId('awards-list'), {
+        path: path.join(SCREENSHOT_DIR, '05-awards.png'),
+    });
 });
