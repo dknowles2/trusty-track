@@ -368,10 +368,15 @@ export default function TrackCard({
         </small>
       </div>
 
-      {/* Beside Length (feet), because scale speed is nothing without a
-          length to compute from (#610) — the flag below is ANDed with a
-          positive length wherever a speed is actually rendered, so a track
-          with no length shows none regardless of this setting. */}
+      {/* After Lane colours, not beside Length (feet) — #1252 moved Length
+          further up the card and this block has sat after Lane colours for
+          a while anyway, so "beside" stopped being true on two counts. It
+          doesn't need to sit next to Length on screen: scale speed is
+          nothing without a length to compute from (#610), but it reads
+          `track.lengthFeet` directly rather than relying on layout
+          proximity, and the flag below is ANDed with a positive length
+          wherever a speed is actually rendered — so a track with no length
+          shows none regardless of this setting, wherever this block sits. */}
       <div style={{ marginBottom: '1rem' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
           <input
