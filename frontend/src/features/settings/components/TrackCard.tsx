@@ -405,7 +405,7 @@ export default function TrackCard({
       )}
 
       <div data-testid="track-timer">
-      <h3 style={{ ...subheading, marginTop: '1.5rem' }}>Timer</h3>
+      <h4 style={{ ...subheading, marginTop: '1.5rem' }}>Timer</h4>
 
       <div>
         <label htmlFor={`track-timer-type-${index}`} style={fieldLabel}>Timer Type</label>

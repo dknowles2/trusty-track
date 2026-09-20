@@ -188,7 +188,9 @@ describe('TrackCard', () => {
 
         it('renders "Timer", not "The timer", as the remaining divider', () => {
             renderCard();
-            expect(screen.getByRole('heading', { name: 'Timer' })).toBeInTheDocument();
+            // One level below the card's own title, so the outline reads
+            // card → its one divider rather than two sibling headings.
+            expect(screen.getByRole('heading', { name: 'Timer', level: 4 })).toBeInTheDocument();
             expect(screen.queryByText('The timer')).not.toBeInTheDocument();
         });
     });
