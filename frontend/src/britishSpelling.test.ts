@@ -178,7 +178,7 @@ function stripNonProse(src: string): string {
     src = src.replace(/```[\s\S]*?```/g, (m) => ' '.repeat(m.length));
     src = src.replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length));
     // A markdown link's URL half: `[text](url)` -> keep `[text](` + blanks.
-    src = src.replace(/\]\(([^)]*)\)/g, (m, url: string) => '](' + ' '.repeat(url.length) + ')');
+    src = src.replace(/\]\(([^)]*)\)/g, (_m, url: string) => '](' + ' '.repeat(url.length) + ')');
     // A bare URL.
     src = src.replace(/https?:\/\/\S+/g, (m) => ' '.repeat(m.length));
     // An HTML/markdown comment.
