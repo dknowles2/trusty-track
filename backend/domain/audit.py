@@ -434,12 +434,13 @@ CATEGORY_HINTS: dict[AuditCategory, str] = {
 #: generated from then on, which is why `NOTEWORTHY_ACTIONS` above already
 #: lists it beside the round/heat actions rather than the track ones.
 #:
-#: `bulkAssignPhotos` sits beside `uploadImage` in `SETUP`, not with its five
-#: `bulk*` siblings in `ROSTER` — the same pairing `.claude/rules/auth-and-demo.md`'s
-#: "The public demo" section draws for the demo's own denylist ("`bulkAssignPhotos`
-#: sits beside `uploadImage` in the denylist for the same reason"): both write
-#: an image reference with no upload behind it, where the rest of `ROSTER`'s
-#: bulk actions touch a racer's roster fields, not its photos.
+#: `bulkAssignPhotos` sits in `ROSTER` with its `bulk*` siblings, as the issue's
+#: table has it. A first draft put it beside `uploadImage` in `SETUP`, borrowing
+#: the pairing the demo denylist draws (`.claude/rules/auth-and-demo.md`, "The
+#: public demo") — but that list groups by exposure, and these chips group by
+#: the subject an operator is scanning for: assigning photos to racers is a
+#: roster action, and `SETUP`'s own hint ("races, tracks, settings, backups,
+#: test data") never mentions racers.
 ACTIONS_BY_CATEGORY: dict[AuditCategory, frozenset[str]] = {
     AuditCategory.RESULTS: frozenset(
         {
@@ -478,6 +479,7 @@ ACTIONS_BY_CATEGORY: dict[AuditCategory, frozenset[str]] = {
     ),
     AuditCategory.ROSTER: frozenset(
         {
+            "bulkAssignPhotos",
             "createRacer",
             "updateRacer",
             "deleteRacer",
@@ -551,7 +553,6 @@ ACTIONS_BY_CATEGORY: dict[AuditCategory, frozenset[str]] = {
             "createPracticeRace",
             "backupDownloaded",
             "backupRestored",
-            "bulkAssignPhotos",
         }
     ),
 }
