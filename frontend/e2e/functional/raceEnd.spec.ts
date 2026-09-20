@@ -73,3 +73,74 @@ test("Home's overflow menu routes straight to a race's standings (#847)", async 
 
     await expect(page).toHaveURL(new RegExp(`/race/${raceId}/standings$`));
 });
+
+// #1239: locking and unlocking a race used to be six steps through Edit
+// race — this covers both directions from Home's own row menu, staying on
+// Home throughout, and that a reload (a fresh query, not the normalized
+// cache) still shows the locked state.
+test("Home's row menu locks and unlocks a race in place, without navigating away (#1239)", async ({
+    page,
+}) => {
+    const raceName = `Home Lock Menu ${Date.now()}`;
+    const { raceId } = await seedRace(page, raceName);
+
+    await ensureConfigured(page);
+    await page.goto('/');
+
+    const row = page.locator('tr', { hasText: raceName });
+    await expect(row).toBeVisible();
+    await expect(row.getByText('Locked', { exact: true })).toHaveCount(0);
+
+    // Lock.
+    await page.getByTestId(`race-more-menu-${raceId}`).click();
+    const lockEntry = page.getByTestId(`race-menu-lock-${raceId}`);
+    await expect(lockEntry).toHaveText('Lock race');
+    await lockEntry.click();
+
+    await expect(page.getByRole('heading', { name: 'Lock race?' })).toBeVisible();
+    await expect(page.getByText(/Guards a finished race against accidental edits/)).toBeVisible();
+    await page.getByRole('button', { name: 'Lock race' }).click();
+
+    // Still on Home — the point of the menu entry is not leaving the page —
+    // and the badge appears in place.
+    await expect(page).toHaveURL(/\/$/);
+    await expect(row.getByText('Locked', { exact: true })).toBeVisible();
+
+    // A reload proves this is a real, persisted mutation, not just a
+    // client-side optimistic flip.
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('tr', { hasText: raceName }).getByText('Locked', { exact: true })).toBeVisible();
+
+    // Unlock.
+    await page.getByTestId(`race-more-menu-${raceId}`).click();
+    const unlockEntry = page.getByTestId(`race-menu-lock-${raceId}`);
+    await expect(unlockEntry).toHaveText('Unlock race');
+    await unlockEntry.click();
+
+    await expect(page.getByRole('heading', { name: 'Unlock race?' })).toBeVisible();
+    await expect(page.getByText(/Scheduling, results, registrations and awards become editable again/)).toBeVisible();
+    await page.getByRole('button', { name: 'Unlock race' }).click();
+
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.locator('tr', { hasText: raceName }).getByText('Locked', { exact: true })).toHaveCount(0);
+});
+
+test("Home's row menu confirm can be cancelled, leaving the race's lock state untouched (#1239)", async ({
+    page,
+}) => {
+    const raceName = `Home Lock Cancel ${Date.now()}`;
+    const { raceId } = await seedRace(page, raceName);
+
+    await ensureConfigured(page);
+    await page.goto('/');
+
+    await page.getByTestId(`race-more-menu-${raceId}`).click();
+    await page.getByTestId(`race-menu-lock-${raceId}`).click();
+
+    await expect(page.getByRole('heading', { name: 'Lock race?' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+    await expect(page.getByRole('heading', { name: 'Lock race?' })).toHaveCount(0);
+    await expect(page.locator('tr', { hasText: raceName }).getByText('Locked', { exact: true })).toHaveCount(0);
+});

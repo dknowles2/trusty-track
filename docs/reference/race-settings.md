@@ -304,10 +304,12 @@ number was typed, and the note is there to catch that before check-in does.
 
 ### Locking a race
 
-Once an event has concluded, **Lock race** — the first control in the edit
-form's **Event** section — guards against an
-accidental edit — a stray tap on a shared laptop weeks later, not a control for
-keeping anyone out. It is not offered while creating a race, only afterwards.
+Once an event has concluded, **Lock race** guards against an accidental
+edit — a stray tap on a shared laptop weeks later, not a control for keeping
+anyone out. The quickest way there is the race's **⋯** menu on the Home
+page, which toggles it directly with a confirmation; it is also the first
+control in the edit form's **Event** section. It is not offered while
+creating a race, only afterwards.
 
 While a race is locked:
 

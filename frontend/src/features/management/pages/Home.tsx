@@ -1,19 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, type NavigateFunction } from 'react-router-dom';
 import { useQuery, useMutation, gql } from 'urql';
-import { CREATE_PRACTICE_RACE, CREATE_RACE } from '../graphql/queries';
+import { CREATE_PRACTICE_RACE, CREATE_RACE, UPDATE_RACE } from '../graphql/queries';
 import Modal from '../../../components/ui/Modal';
 import RaceSetupWizard from '../components/RaceSetupWizard';
 import { buildCreateRaceInput, type RaceSetupData } from '../raceInput';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { Icon } from '@mdi/react';
-import { mdiPlus, mdiFlagCheckered, mdiMonitorMultiple, mdiSchool, mdiDotsHorizontal, mdiAccountGroup, mdiPencil, mdiTrophy, mdiPrinter, mdiChevronDown } from '@mdi/js';
+import { mdiPlus, mdiFlagCheckered, mdiMonitorMultiple, mdiSchool, mdiDotsHorizontal, mdiAccountGroup, mdiPencil, mdiTrophy, mdiPrinter, mdiChevronDown, mdiLock, mdiLockOpenVariant } from '@mdi/js';
 import logoFullUrl from '../../../assets/logo_full_transparent.png';
 import LockedBadge from '../../core/components/LockedBadge';
 import RaceStatusBadge, { type RaceStatus } from '../components/RaceStatusBadge';
 import { raceListSummary } from '../homeRaceList';
 import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
+import { useRole } from '../../core/hooks/useRole';
 
 // Below this width the table (950px-plus at full column count, per #1137's
 // own measurement) no longer fits — a phone at 390px and a portrait tablet
@@ -137,11 +138,20 @@ function RaceQuickActions({
     openMenuRaceId,
     setOpenMenuRaceId,
     navigate,
+    isOperator,
+    onToggleLock,
 }: {
     race: Race;
     openMenuRaceId: number | null;
     setOpenMenuRaceId: (id: number | null) => void;
     navigate: NavigateFunction;
+    // #892: `updateRace` is refused for anyone but the operator anyway, so
+    // hiding the entry for a lesser role is a UI courtesy, not the gate —
+    // matching what the rest of this menu already does for a viewer today
+    // (nothing here is disabled or hidden by role; the entry below is the
+    // one exception, made because the issue asked for it explicitly).
+    isOperator: boolean;
+    onToggleLock: (race: Race) => void;
 }) {
     const linkStyle = { textDecoration: 'none', fontSize: '0.9rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' } as const;
     return (
@@ -222,6 +232,24 @@ function RaceQuickActions({
                         >
                             <Icon path={mdiPencil} size={0.7} /> Edit race
                         </button>
+                        {/* Lock/unlock without leaving Home (#1239) — six
+                            steps through Edit race down to two taps plus a
+                            confirm. Same two words RaceForm's own checkbox
+                            uses (`Lock race` / `Unlock race`), so there is
+                            one name for the action wherever it appears
+                            (#589). Operator-only: `updateRace` refuses
+                            anyone else anyway, so this is a courtesy rather
+                            than the gate (#892). */}
+                        {isOperator && (
+                            <button
+                                onClick={() => { setOpenMenuRaceId(null); onToggleLock(race); }}
+                                data-testid={`race-menu-lock-${race.id}`}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <Icon path={race.isLocked ? mdiLockOpenVariant : mdiLock} size={0.7} />
+                                {race.isLocked ? 'Unlock race' : 'Lock race'}
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
@@ -230,8 +258,9 @@ function RaceQuickActions({
 }
 
 export default function Home() {
-    const { showAlert } = useAlert();
+    const { showAlert, showConfirm } = useAlert();
     const navigate = useNavigate();
+    const { isOperator } = useRole();
     const [showCreate, setShowCreate] = useState(false);
     // Location state check removed as per user request
 
@@ -285,12 +314,53 @@ export default function Home() {
         };
     }, [isPracticeMenuOpen]);
 
-    const [{ data, fetching, error }] = useQuery({
+    const [{ data, fetching, error }, reexecuteRaces] = useQuery({
         query: GET_RACES,
     });
 
     const [, createRace] = useMutation(CREATE_RACE);
     const [practiceResult, createPracticeRace] = useMutation(CREATE_PRACTICE_RACE);
+    const [, updateRaceLock] = useMutation(UPDATE_RACE);
+
+    // Lock/unlock from the row's own menu (#1239) — a one-tap toggle asks
+    // for a confirm in both directions (a mis-tap on the wrong row is one
+    // tap away either way), reusing `RaceForm`'s own `FieldHelp` summary for
+    // the lock body so the two surfaces say the same thing. The mutation
+    // sends nothing but `isLocked` — that is the one shape
+    // `is_lock_only_update` (`backend/api/race_lock.py`) lets through on a
+    // locked race, and it is also the operator's only way back out of one;
+    // see `.claude/rules/auth-and-demo.md`'s "Locking a race".
+    const handleToggleLock = async (race: Race) => {
+        const next = !race.isLocked;
+        const confirmed = next
+            ? await showConfirm(
+                  'Guards a finished race against accidental edits; it can still be deleted.',
+                  'Lock race?',
+                  'Lock race',
+                  'primary',
+              )
+            : await showConfirm(
+                  'Scheduling, results, registrations and awards become editable again.',
+                  'Unlock race?',
+                  'Unlock race',
+                  'primary',
+              );
+        if (!confirmed) return;
+        try {
+            const result = await updateRaceLock({ id: race.id, race: { isLocked: next } });
+            if (result.error) throw result.error;
+            // `updateRace` publishes `racesChanged`, which keeps the nav's
+            // own list and a second tab fresh — but this tab already holds
+            // the query that answer would refetch, so re-executing it here
+            // is what makes the badge move on *this* screen without an
+            // extra round trip through the subscription. Same
+            // `'network-only'` pattern every other Home mutation follows.
+            reexecuteRaces({ requestPolicy: 'network-only' });
+        } catch (e) {
+            console.error("Failed to update race lock", e);
+            showAlert(errorText(e, next ? "Failed to lock race" : "Failed to unlock race"), "Error");
+        }
+    };
 
     const handleCreate = async (formData: RaceSetupData) => {
         try {
@@ -546,6 +616,8 @@ export default function Home() {
                                         openMenuRaceId={openMenuRaceId}
                                         setOpenMenuRaceId={setOpenMenuRaceId}
                                         navigate={navigate}
+                                        isOperator={isOperator}
+                                        onToggleLock={handleToggleLock}
                                     />
                                 </div>
                             </div>
@@ -588,6 +660,8 @@ export default function Home() {
                                                 openMenuRaceId={openMenuRaceId}
                                                 setOpenMenuRaceId={setOpenMenuRaceId}
                                                 navigate={navigate}
+                                                isOperator={isOperator}
+                                                onToggleLock={handleToggleLock}
                                             />
                                         </td>
                                     </tr>
