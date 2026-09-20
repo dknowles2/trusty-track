@@ -715,8 +715,9 @@ _The standings show rank, car number, name, den — with the den's category in p
 > cannot support an answer. See
 > [ties](scoring-and-championships.md#when-two-cars-tie).
 
-Once the results are final, **lock the race** from **Edit race** so nothing gets
-changed by accident on the way out the door — see
+Once the results are final, **lock the race** — from the race's **⋯** menu on
+Home, or from **Edit race** — so nothing gets changed by accident on the way
+out the door — see
 [locking a race](reference/race-settings.md#locking-a-race).
 
 ---
