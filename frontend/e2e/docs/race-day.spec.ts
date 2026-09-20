@@ -281,7 +281,10 @@ test('take screenshots', async ({ page }) => {
     // is gone.
     await expect(cropDialog.getByText('Loading photo…')).toBeHidden();
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/33-crop-photo-modal.png') });
-    await cropDialog.getByRole('button', { name: 'Cancel' }).click();
+    // The recrop path (a photo already on file) carries its own vocabulary
+    // (#1242) — "Keep original", not "Cancel", which the camera-capture
+    // path still uses.
+    await cropDialog.getByRole('button', { name: 'Keep original' }).click();
     await expect(cropDialog).toBeHidden();
 
     await page.getByRole('button', { name: 'Save Check-in' }).click();

@@ -92,10 +92,17 @@ describe('rotating an already-uploaded photo', () => {
         expect(buttons).toHaveLength(2);
         await userEvent.click(buttons[0]);
 
-        expect(screen.getByRole('dialog', { name: /rotate \/ recrop photo/i })).toBeInTheDocument();
+        const dialog = screen.getByRole('dialog', { name: /rotate \/ recrop photo/i });
+        expect(dialog).toBeInTheDocument();
+
+        // The photo is already on file, so the recrop path uses its own
+        // vocabulary (#1242) rather than the camera capture's "Use this
+        // photo" / "Cancel" — confirming here is a save, not a first use.
+        expect(within(dialog).getByRole('button', { name: /keep original/i })).toBeInTheDocument();
+        expect(within(dialog).queryByRole('button', { name: /use this photo/i })).not.toBeInTheDocument();
 
         loadPhotoBeingCropped();
-        await userEvent.click(screen.getByRole('button', { name: /use this photo/i }));
+        await userEvent.click(screen.getByRole('button', { name: /save changes/i }));
 
         // The modal is gone, and the upload mutation ran with a fresh data
         // URL — the same door `uploadFile` already opens for a chosen file
@@ -142,7 +149,7 @@ describe('rotating an already-uploaded photo', () => {
         loadPhotoBeingCropped();
 
         const dialog = screen.getByRole('dialog', { name: /rotate \/ recrop photo/i });
-        await userEvent.click(within(dialog).getByRole('button', { name: /^cancel$/i }));
+        await userEvent.click(within(dialog).getByRole('button', { name: /keep original/i }));
 
         // `onCancel` is a plain synchronous state update (`RacerForm.tsx` sets
         // `cropTarget` back to `'none'` with nothing awaited), so there is no

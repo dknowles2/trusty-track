@@ -241,6 +241,42 @@ describe('ImageCropModal', () => {
         expect(cropBox.getAttribute('style')).toBe(styleMidDrag);
     });
 
+    it('confirmLabel/cancelLabel override the default button wording (#1242)', () => {
+        render(
+            <ImageCropModal
+                open
+                src={DATA_URL}
+                aspect={PORTRAIT_ASPECT}
+                confirmLabel="Save changes"
+                cancelLabel="Keep original"
+                onCancel={vi.fn()}
+                onConfirm={vi.fn()}
+            />,
+        );
+        loadImage(800, 600);
+
+        expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Keep original' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /^use this photo$/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /^cancel$/i })).not.toBeInTheDocument();
+    });
+
+    it('defaults to "Cancel" / "Use this photo" when no labels are given', () => {
+        render(
+            <ImageCropModal
+                open
+                src={DATA_URL}
+                aspect={PORTRAIT_ASPECT}
+                onCancel={vi.fn()}
+                onConfirm={vi.fn()}
+            />,
+        );
+        loadImage(800, 600);
+
+        expect(screen.getByRole('button', { name: /^cancel$/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^use this photo$/i })).toBeInTheDocument();
+    });
+
     it('renders nothing when closed', () => {
         const { container } = render(
             <ImageCropModal

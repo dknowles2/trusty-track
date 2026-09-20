@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '../../setupTests';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import CameraCapture from './CameraCapture';
 import { CAR_ASPECT, PORTRAIT_ASPECT } from './imageEdit';
 
@@ -114,7 +114,16 @@ describe('the crop step', () => {
         // The viewfinder is gone — this is the crop step now, not a second
         // overlay stacked on top of it.
         expect(screen.queryByText(/take photo/i)).not.toBeInTheDocument();
-        expect(screen.getByRole('dialog', { name: /crop photo/i })).toBeInTheDocument();
+        const dialog = screen.getByRole('dialog', { name: /crop photo/i });
+        expect(dialog).toBeInTheDocument();
+
+        // `CameraCapture` passes no `confirmLabel`/`cancelLabel` — a
+        // first-time capture keeps `ImageCropModal`'s own defaults (#1242),
+        // separately pinned from `RacerFormRotate.test.tsx`'s "Keep
+        // original" / "Save changes" recrop pair so the two vocabularies
+        // can't drift into each other unnoticed.
+        expect(within(dialog).getByRole('button', { name: /^cancel$/i })).toBeInTheDocument();
+        expect(within(dialog).getByRole('button', { name: /use this photo/i })).toBeInTheDocument();
 
         loadCroppedPhoto();
         fireEvent.click(screen.getByRole('button', { name: /use this photo/i }));

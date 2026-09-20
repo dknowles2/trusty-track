@@ -97,6 +97,21 @@ export interface ImageCropModalProps {
     /** Locked target aspect ratio (width / height). `PORTRAIT_ASPECT` or `CAR_ASPECT` from `imageEdit.ts`, typically. */
     aspect: number;
     title?: string;
+    /**
+     * The footer's two buttons, per-caller vocabulary for what confirming
+     * or backing out actually means here (#1242). A first-time capture
+     * (`CameraCapture.tsx`) is genuinely choosing *whether* to use this
+     * shot, so the defaults below fit it unchanged; `RacerForm.tsx`'s
+     * Rotate / Recrop reopens this same modal against a photo already on
+     * file, where the real question is "keep what's on file, or replace it
+     * with this edit" — a different pair of words for a different action,
+     * not a second name for the same one (`.claude/rules/
+     * terminology-and-names.md`'s "one name per action" is about a
+     * destination having one name everywhere, not about two distinct
+     * actions sharing a verb).
+     */
+    confirmLabel?: string;
+    cancelLabel?: string;
     onCancel: () => void;
     /** Called with a `data:image/jpeg` URL of the rotated, cropped result. */
     onConfirm: (dataUrl: string) => void;
@@ -107,6 +122,8 @@ export default function ImageCropModal({
     src,
     aspect,
     title = 'Crop photo',
+    confirmLabel = 'Use this photo',
+    cancelLabel = 'Cancel',
     onCancel,
     onConfirm,
 }: ImageCropModalProps) {
@@ -495,10 +512,10 @@ export default function ImageCropModal({
                 }}
             >
                 <button type="button" className="secondary-btn" onClick={onCancel}>
-                    Cancel
+                    {cancelLabel}
                 </button>
                 <button type="button" className="primary-btn" onClick={handleConfirm} disabled={!ready}>
-                    Use this photo
+                    {confirmLabel}
                 </button>
             </div>
         </Modal>
