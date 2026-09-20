@@ -6,7 +6,21 @@
  * the page's crowding was worst: name, geometry, lanes in service, transport,
  * model, serial port, remote start and historical records were one flat run of
  * controls with nothing saying which of them were about the *track* and which
- * about the *timer at the end of it*. Two subheadings, and the card reads.
+ * about the *timer at the end of it*.
+ *
+ * The card's first line is its own title — the track's own name, live from
+ * the Track Name input below, falling back to **Track {n}** (1-based) while
+ * that box is blank (#1251). It used to open with a heading that just said
+ * "The track", which repeated a word the page and the section above it had
+ * already said, and did nothing to tell two cards apart before you had
+ * scrolled past the heading to read the name box underneath it — with the
+ * title doing that job instead, everything from Track Name down to lanes in
+ * service is self-evidently about *this* track and needs no heading of its
+ * own. One divider is left, **Timer**, ahead of the transport, model, serial
+ * port, remote start and historical records — it was "The timer", written as
+ * the counterpart to "The track"; without that sibling the article read as
+ * orphaned, so a bare noun is what a section divider inside a titled card
+ * wants.
  *
  * Everything here saves with **Save Settings** except the two panels that say
  * otherwise: lanes in service and track records each save on click, because
@@ -185,7 +199,20 @@ export default function TrackCard({
         </button>
       )}
 
-      <h3 style={subheading}>The track</h3>
+      {/* The card's own title (#1251) — the track's name, live from the
+          Track Name input just below, or Track {n} (1-based) while that box
+          is blank. `paddingRight` keeps a long name clear of the Remove
+          Track control, which is absolutely positioned over this corner. */}
+      <h3
+        data-testid={`track-card-title-${index}`}
+        style={{
+          margin: '0 0 1rem 0',
+          fontSize: '1.1rem',
+          paddingRight: canRemove ? '2rem' : 0,
+        }}
+      >
+        {track.name.trim() || `Track ${index + 1}`}
+      </h3>
 
       <div style={{ marginBottom: '1rem' }}>
         <label htmlFor={`track-name-${index}`} style={fieldLabel}>Track Name</label>
@@ -378,7 +405,7 @@ export default function TrackCard({
       )}
 
       <div data-testid="track-timer">
-      <h3 style={{ ...subheading, marginTop: '1.5rem' }}>The timer</h3>
+      <h4 style={{ ...subheading, marginTop: '1.5rem' }}>Timer</h4>
 
       <div>
         <label htmlFor={`track-timer-type-${index}`} style={fieldLabel}>Timer Type</label>

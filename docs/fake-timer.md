@@ -10,7 +10,7 @@ To enable the Fake Timer, navigate to the **System Settings** page (shown automa
 
 1.  Open **Tracks** and find the card for your track. (On the very first run
     everything is on one page, so there is nothing to open.)
-2.  Locate the **Timer Type** dropdown, under **The timer**.
+2.  Locate the **Timer Type** dropdown, under **Timer**.
 3.  Select **Fake Timer (Manual Control)**.
 4.  Click **Save Settings**.
 

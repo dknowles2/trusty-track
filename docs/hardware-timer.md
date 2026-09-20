@@ -49,7 +49,7 @@ its manual if you have it, genuinely helps.
 ## Two ways to connect
 
 Both are chosen per track in **Settings → Tracks**, on the track's card under
-**The timer**.
+**Timer**.
 
 ![A track's timer settings: the connection under Timer Type, the model picker beneath it, and the remote start gate and reverse lanes settings below that](assets/screenshots/timers/01-timer-settings.png)
 _Everything about a track's timer lives on the track's own card in System Settings: how it connects, which model it is, whether a remote start gate is fitted, and whether its cable is wired backwards._
@@ -226,7 +226,7 @@ lands on the wrong car.
 
 Rather than rewiring the timer or renumbering the track, tick **The timer's
 cable is wired backwards** on the track's card in System Settings, under
-**The timer**. Every result from then on is flipped to match the track. More
+**Timer**. Every result from then on is flipped to match the track. More
 in [the timer reference](reference/timers.md#reverse-lane-numbering).
 
 ## If a lane stops working
