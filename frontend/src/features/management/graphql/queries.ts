@@ -80,6 +80,13 @@ export const GET_RACE_DETAILS = gql`
         carWeight
         racerImageUrl
         carImageUrl
+        # The photo was cropped from, and the crop that produced it (#1241)
+        # — read back by RacerForm's Rotate / Recrop so a tight crop can be
+        # loosened. Null for a racer with no crop history yet.
+        racerImageOriginalUrl
+        carImageOriginalUrl
+        racerImageEdit
+        carImageEdit
         excludedFromStandings
         homeUnit
       }

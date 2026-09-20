@@ -10,6 +10,7 @@ import {
     rotatedSize,
     MIN_CROP_SIZE,
     type CropRect,
+    type ImageEdit,
     type ImageSize,
     type Quarter,
     type RotationDirection,
@@ -98,6 +99,22 @@ export interface ImageCropModalProps {
     aspect: number;
     title?: string;
     /**
+     * Seed the crop from a stored edit rather than starting fresh (#1241) —
+     * `RacerForm.tsx`'s Rotate / Recrop reopens this modal on a photo's
+     * *original*, and without these the operator would lose whatever
+     * rotation/crop was already on file and have to redo it from scratch.
+     * Applied once, the instant the image finishes loading: rotation is set
+     * first, then `initialCrop` is run through `clampCrop` against the
+     * *rotated* frame at that rotation — clamped, not used verbatim,
+     * because the original on disk might have been replaced by a shorter
+     * or narrower one since the edit was recorded. Both are optional and
+     * independent of one another only in the sense that either may be
+     * omitted; a caller with an edit on file always has both, since
+     * `imageEdit.ts`'s `ImageEdit` carries them as one record.
+     */
+    initialRotation?: Quarter;
+    initialCrop?: CropRect;
+    /**
      * The footer's two buttons, per-caller vocabulary for what confirming
      * or backing out actually means here (#1242). A first-time capture
      * (`CameraCapture.tsx`) is genuinely choosing *whether* to use this
@@ -113,8 +130,15 @@ export interface ImageCropModalProps {
     confirmLabel?: string;
     cancelLabel?: string;
     onCancel: () => void;
-    /** Called with a `data:image/jpeg` URL of the rotated, cropped result. */
-    onConfirm: (dataUrl: string) => void;
+    /**
+     * Called with a `data:image/jpeg` URL of the rotated, cropped result,
+     * and the `ImageEdit` (rotation + crop, in the rotated frame's own
+     * pixel space) that produced it — the same record `initialRotation`/
+     * `initialCrop` take back in, so a caller can store it and hand it
+     * straight back on the next recrop with no conversion either way
+     * (#1241).
+     */
+    onConfirm: (dataUrl: string, edit: ImageEdit) => void;
 }
 
 export default function ImageCropModal({
@@ -124,6 +148,8 @@ export default function ImageCropModal({
     title = 'Crop photo',
     confirmLabel = 'Use this photo',
     cancelLabel = 'Cancel',
+    initialRotation,
+    initialCrop,
     onCancel,
     onConfirm,
 }: ImageCropModalProps) {
@@ -205,8 +231,21 @@ export default function ImageCropModal({
         if (!img) return;
         const size = { width: img.naturalWidth, height: img.naturalHeight };
         setImageSize(size);
-        setRotation(0);
-        setCrop(fitInitialCrop(size, aspect));
+        // Seed from a stored edit when one was given (#1241) — rotation
+        // first, then the crop, clamped against the rotated frame *at that
+        // rotation* rather than the unrotated `size`, since `crop`'s own
+        // coordinates (stored or freshly dragged) are always expressed in
+        // whatever frame is currently rotated to. Clamping rather than
+        // using `initialCrop` verbatim is what keeps this safe even if the
+        // photo on disk has since been replaced by a differently sized one.
+        const rotation = initialRotation ?? 0;
+        setRotation(rotation);
+        const rotatedAtLoad = rotatedSize(size, rotation);
+        setCrop(
+            initialCrop
+                ? clampCrop(initialCrop, rotatedAtLoad, aspect)
+                : fitInitialCrop(rotatedAtLoad, aspect),
+        );
     };
 
     const handleRotate = (direction: RotationDirection) => {
@@ -355,7 +394,7 @@ export default function ImageCropModal({
         if (!octx) return;
         octx.drawImage(rotatedCanvas, crop.x, crop.y, crop.width, crop.height, 0, 0, outW, outH);
 
-        onConfirm(outCanvas.toDataURL('image/jpeg', JPEG_QUALITY));
+        onConfirm(outCanvas.toDataURL('image/jpeg', JPEG_QUALITY), { rotation, crop });
     };
 
     if (!open) return null;

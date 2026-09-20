@@ -788,6 +788,10 @@ type Racer {
   carWeight: Float
   racerImageUrl: String
   carImageUrl: String
+  racerImageOriginalUrl: String
+  carImageOriginalUrl: String
+  racerImageEdit: String
+  carImageEdit: String
   racingGroupId: Int
   raceId: Int!
   excludedFromStandings: Boolean!
@@ -805,6 +809,10 @@ input RacerInput {
   carWeight: Float = null
   racerImageUrl: String = null
   carImageUrl: String = null
+  racerImageOriginalUrl: String = null
+  carImageOriginalUrl: String = null
+  racerImageEdit: String = null
+  carImageEdit: String = null
   raceId: Int = null
   excludedFromStandings: Boolean! = false
   homeUnit: String = null

@@ -1,8 +1,23 @@
 import { useRef, useEffect, useState } from 'react';
 import ImageCropModal from './ImageCropModal';
+import type { ImageEdit } from './imageEdit';
+
+/** What a capture hands back once the operator confirms the crop step
+ * (#1241): the cropped result `onCapture` always returned, *and* the raw
+ * frame the crop was taken from, *and* the edit that produced it — the same
+ * shape `RacerForm.tsx`'s Rotate / Recrop stores, so a photo taken by
+ * camera is exactly as recoverable as one recropped after the fact. */
+export interface CaptureResult {
+    /** The rotated, cropped result — what a caller uploads as the image. */
+    file: File;
+    /** The unedited frame, before rotation or cropping — what a caller
+     * uploads as the original. */
+    original: File;
+    edit: ImageEdit;
+}
 
 interface CameraCaptureProps {
-    onCapture: (file: File) => void;
+    onCapture: (result: CaptureResult) => void;
     onClose: () => void;
     /**
      * Locked target aspect ratio for the crop step that follows a capture —
@@ -97,8 +112,13 @@ export default function CameraCapture({ onCapture, onClose, aspect }: CameraCapt
         setCapturedDataUrl(canvas.toDataURL('image/jpeg', 0.92));
     };
 
-    const handleCropConfirm = (dataUrl: string) => {
-        onCapture(dataUrlToFile(dataUrl, `capture-${Date.now()}.jpg`));
+    const handleCropConfirm = (dataUrl: string, edit: ImageEdit) => {
+        if (!capturedDataUrl) return;
+        // The raw frame becomes the original (#1241) — a capture is
+        // exactly as recoverable as a recrop, from the first photo.
+        const original = dataUrlToFile(capturedDataUrl, `capture-original-${Date.now()}.jpg`);
+        const file = dataUrlToFile(dataUrl, `capture-${Date.now()}.jpg`);
+        onCapture({ file, original, edit });
         setCapturedDataUrl(null);
     };
 
