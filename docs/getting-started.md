@@ -83,8 +83,8 @@ Nothing here touches your real event.
 
 Clicking the button again reopens the same rehearsal — it reads **Resume
 practice race** once one exists — rather than building a second one. Want to
-start over instead? A small **Start new** link appears beside the button for
-exactly that.
+start over instead? Open the arrow beside **Resume practice race** and
+choose **Start a new practice race**.
 
 When you are done, open the practice race and delete it like any other race.
 

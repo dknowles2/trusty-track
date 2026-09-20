@@ -8,7 +8,7 @@ import { buildCreateRaceInput, type RaceSetupData } from '../raceInput';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { Icon } from '@mdi/react';
-import { mdiPlus, mdiFlagCheckered, mdiMonitorMultiple, mdiSchool, mdiDotsHorizontal, mdiAccountGroup, mdiPencil, mdiTrophy, mdiPrinter } from '@mdi/js';
+import { mdiPlus, mdiFlagCheckered, mdiMonitorMultiple, mdiSchool, mdiDotsHorizontal, mdiAccountGroup, mdiPencil, mdiTrophy, mdiPrinter, mdiChevronDown } from '@mdi/js';
 import logoFullUrl from '../../../assets/logo_full_transparent.png';
 import LockedBadge from '../../core/components/LockedBadge';
 import RaceStatusBadge, { type RaceStatus } from '../components/RaceStatusBadge';
@@ -254,6 +254,37 @@ export default function Home() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [openMenuRaceId]);
 
+    // Resume practice race's own split-button chevron (#1238) — the same
+    // shape as the roster's Add Racer split button (`RaceDetails.tsx`),
+    // kept as its own local state and its own effect rather than folded
+    // into `openMenuRaceId` above, since that one is scoped to "which
+    // race row's ⋯ menu is open" and this menu belongs to no race row.
+    const [isPracticeMenuOpen, setIsPracticeMenuOpen] = useState(false);
+
+    useEffect(() => {
+        if (!isPracticeMenuOpen) return;
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Element;
+            // Mirrors `RaceDetails.tsx`'s own outside-click handler for its
+            // Add Racer split button: the chevron itself sits outside
+            // `.dropdown-content`, so without this special case a click on
+            // it would close the menu the same click had just opened.
+            if (target.closest('.dropdown') || target.classList.contains('split-btn-arrow')) {
+                return;
+            }
+            setIsPracticeMenuOpen(false);
+        };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setIsPracticeMenuOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isPracticeMenuOpen]);
+
     const [{ data, fetching, error }] = useQuery({
         query: GET_RACES,
     });
@@ -339,40 +370,78 @@ export default function Home() {
                         away. The night before an event is when a volunteer
                         wants it, and they will not go looking for it. Once
                         one exists, this resumes it rather than piling up
-                        another (#588); "Start new" is the deliberate way
-                        past that. */}
-                    <button
-                        onClick={() => handlePractice(false)}
-                        className="secondary-btn"
-                        data-testid="practice-race"
-                        disabled={practiceResult.fetching}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                        <Icon path={mdiSchool} size={0.8} />
-                        {practiceResult.fetching
-                            ? (practiceRace ? 'Resuming…' : 'Setting up…')
-                            : (practiceRace ? 'Resume practice race' : 'Try a practice race')}
-                    </button>
-                    {practiceRace && (
-                        <button
-                            onClick={() => handlePractice(true)}
-                            data-testid="practice-race-start-new"
-                            disabled={practiceResult.fetching}
-                            title="Start a new rehearsal instead of resuming this one"
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                padding: 0,
-                                font: 'inherit',
-                                fontSize: '0.85rem',
-                                color: 'var(--scouting-blue)',
-                                textDecoration: 'underline',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            Start new
-                        </button>
-                    )}
+                        another (#588) — "Start new" is the deliberate way
+                        past that, folded into a split button on Resume
+                        rather than a control of its own (#1238): "resume"
+                        and "start fresh" are two ways of reaching the same
+                        rehearsal, which is what a split button's main
+                        click / chevron shape encodes. Same pattern as the
+                        roster's own Add Racer split button
+                        (`RaceDetails.tsx`, `.split-btn-container` /
+                        `.split-btn-main` / `.split-btn-arrow`). With no
+                        practice race yet there is nothing to be an
+                        alternative to, so it is a plain button with no
+                        chevron, exactly as before. */}
+                    <div className="dropdown" style={{ position: 'relative' }}>
+                        {practiceRace ? (
+                            <div className="split-btn-container">
+                                <button
+                                    onClick={() => handlePractice(false)}
+                                    className="secondary-btn split-btn-main"
+                                    data-testid="practice-race"
+                                    disabled={practiceResult.fetching}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                >
+                                    <Icon path={mdiSchool} size={0.8} />
+                                    {practiceResult.fetching ? 'Resuming…' : 'Resume practice race'}
+                                </button>
+                                <button
+                                    className="secondary-btn split-btn-arrow"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsPracticeMenuOpen(!isPracticeMenuOpen);
+                                    }}
+                                    disabled={practiceResult.fetching}
+                                    aria-haspopup="menu"
+                                    aria-expanded={isPracticeMenuOpen}
+                                    aria-label="More practice race options"
+                                >
+                                    <Icon path={mdiChevronDown} size={0.7} />
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => handlePractice(false)}
+                                className="secondary-btn"
+                                data-testid="practice-race"
+                                disabled={practiceResult.fetching}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <Icon path={mdiSchool} size={0.8} />
+                                {practiceResult.fetching ? 'Setting up…' : 'Try a practice race'}
+                            </button>
+                        )}
+                        {isPracticeMenuOpen && practiceRace && (
+                            <div
+                                className="dropdown-content"
+                                style={{ display: 'block' }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <button
+                                    onClick={() => {
+                                        handlePractice(true);
+                                        setIsPracticeMenuOpen(false);
+                                    }}
+                                    data-testid="practice-race-start-new"
+                                    disabled={practiceResult.fetching}
+                                    title="Start a new rehearsal instead of resuming this one"
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                >
+                                    Start a new practice race
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <button onClick={() => setShowCreate(true)} className="primary-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Icon path={mdiPlus} size={0.8} /> Create New Race
                     </button>
