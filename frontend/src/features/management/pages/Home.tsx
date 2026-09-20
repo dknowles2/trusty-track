@@ -356,19 +356,10 @@ export default function Home() {
                     {practiceRace && (
                         <button
                             onClick={() => handlePractice(true)}
+                            className="tertiary-btn"
                             data-testid="practice-race-start-new"
                             disabled={practiceResult.fetching}
                             title="Start a new rehearsal instead of resuming this one"
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                padding: 0,
-                                font: 'inherit',
-                                fontSize: '0.85rem',
-                                color: 'var(--scouting-blue)',
-                                textDecoration: 'underline',
-                                cursor: 'pointer',
-                            }}
                         >
                             Start new
                         </button>

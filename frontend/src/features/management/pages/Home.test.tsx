@@ -233,6 +233,27 @@ describe('Home Page', () => {
             expect(screen.getByTestId('practice-race-start-new')).toBeInTheDocument();
         });
 
+        // #1238: "Start new" used to be a plain underlined word with an
+        // inline style stripping every button affordance (no background, no
+        // border, no padding, `textDecoration: 'underline'`) — invisible to
+        // `tokenSystem.test.ts`'s colour guard since none of it was a class,
+        // and dropped from the phone-stacking rule since it carried neither
+        // `.secondary-btn` nor `.primary-btn`. It is a real button class now,
+        // `.tertiary-btn`, with no inline style at all — a restyle back to
+        // the old inline literals should fail this.
+        it('is a real button class, not an inline-styled text link', async () => {
+            mockPracticeMutation();
+            renderHome({
+                races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
+                practiceRace: { id: 5, name: 'Practice Race' },
+            });
+
+            const button = await screen.findByTestId('practice-race-start-new');
+            expect(button).toHaveClass('tertiary-btn');
+            expect(button).not.toHaveStyle({ textDecoration: 'underline' });
+            expect(button).not.toHaveStyle({ background: 'none' });
+        });
+
         it('resumes without asking to start a new one', async () => {
             const { practiceFn } = mockPracticeMutation();
             renderHome({

@@ -206,3 +206,62 @@ test('start new builds a genuinely fresh rehearsal instead', async ({ page }) =>
     expect(secondId).not.toBe(firstId);
     expect(secondName).not.toBe(firstName);
 });
+
+test('the header row is three real buttons, on one row wide and stacked narrow (#1238)', async ({
+    page,
+}) => {
+    // "Start new" used to be a plain underlined word with no border, no
+    // background and no padding — the odd one out beside two real buttons,
+    // and dropped from the phone-stacking rule entirely since it carried
+    // neither `.secondary-btn` nor `.primary-btn`. It is `.tertiary-btn` now,
+    // subordinate in colour but matched in shape: this checks the shape
+    // rather than the colour, which `tokenSystem.test.ts` already guards.
+    await ensureConfigured(page);
+
+    await page.goto('/');
+    await page.getByTestId('practice-race').click();
+    await expect(page).toHaveURL(/\/race\/\d+\/control\/race/, { timeout: 30000 });
+
+    // Back on Home, all three header-row controls are on screen now that a
+    // practice race exists.
+    await page.goto('/');
+    const resume = page.getByTestId('practice-race');
+    const startNew = page.getByTestId('practice-race-start-new');
+    const create = page.getByRole('button', { name: /Create New Race/i });
+    await expect(startNew).toBeVisible();
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const resumeWide = await resume.boundingBox();
+    const startNewWide = await startNew.boundingBox();
+    const createWide = await create.boundingBox();
+    if (!resumeWide || !startNewWide || !createWide) {
+        throw new Error('one of the header-row buttons has no bounding box');
+    }
+
+    // Same row: level tops, and a hit target the same height as its
+    // neighbours rather than the old "roughly the height of the text".
+    expect(Math.abs(startNewWide.y - resumeWide.y)).toBeLessThanOrEqual(2);
+    expect(Math.abs(startNewWide.height - resumeWide.height)).toBeLessThanOrEqual(2);
+    expect(Math.abs(startNewWide.height - createWide.height)).toBeLessThanOrEqual(2);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const actions = page.locator('.home-races-header-actions');
+    const actionsBox = await actions.boundingBox();
+    const resumeNarrow = await resume.boundingBox();
+    const startNewNarrow = await startNew.boundingBox();
+    const createNarrow = await create.boundingBox();
+    if (!actionsBox || !resumeNarrow || !startNewNarrow || !createNarrow) {
+        throw new Error('one of the header-row buttons has no bounding box');
+    }
+
+    // Full-width, same as Resume and Create — before #1238 "Start new" had
+    // neither class and stayed at its natural (narrow) width here.
+    expect(Math.abs(startNewNarrow.width - actionsBox.width)).toBeLessThanOrEqual(2);
+    expect(Math.abs(resumeNarrow.width - actionsBox.width)).toBeLessThanOrEqual(2);
+    expect(Math.abs(createNarrow.width - actionsBox.width)).toBeLessThanOrEqual(2);
+
+    // Stacked in the deliberate order — Resume, Start new, Create — subordinate
+    // to Resume rather than sitting ahead of it or splitting the two buttons.
+    expect(startNewNarrow.y).toBeGreaterThan(resumeNarrow.y);
+    expect(createNarrow.y).toBeGreaterThan(startNewNarrow.y);
+});
