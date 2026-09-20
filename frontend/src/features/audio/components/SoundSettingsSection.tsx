@@ -162,7 +162,7 @@ export default function SoundSettingsSection(): React.ReactElement {
                         </div>
                         <button
                             type="button"
-                            className="btn btn-secondary btn-sm"
+                            className="secondary-btn"
                             style={{ fontSize: '0.75rem', padding: '2px 8px' }}
                             onClick={() => playSound(opt.key)}
                             title={`Preview ${opt.title}`}

@@ -2075,6 +2075,42 @@ describe('RaceExecution', () => {
             expect(screen.getByTestId('auto-advance-toggle')).toBeInTheDocument();
         });
 
+        // #1247: the settings sit together first, and the dialog launcher
+        // moved out from between them — a divider separates it, and it reads
+        // as a menu row, ellipsised like the roster's Print… entry since it
+        // opens a dialog rather than acting directly.
+        it('orders the popover as picker, then auto-advance, then a divider, then Sound options…', () => {
+            render(<RaceExecution {...defaultProps} onToggleAutoAdvance={vi.fn()} />);
+
+            openPreferences();
+
+            const popover = screen.getByTestId('race-execution-preferences-popover');
+            const picker = within(popover).getByTestId('lane-photo-picker');
+            const autoAdvance = within(popover).getByTestId('auto-advance-toggle');
+            const soundButton = within(popover).getByTestId('sound-effects-modal-trigger');
+
+            // DOCUMENT_POSITION_FOLLOWING means the second node comes after
+            // the first in the tree — this pins the order top to bottom.
+            expect(picker.compareDocumentPosition(autoAdvance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+            expect(autoAdvance.compareDocumentPosition(soundButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+            // A divider sits between Auto-advance's row and the Sound
+            // options… row, not merely somewhere in the popover.
+            const autoAdvanceRow = autoAdvance.closest('label');
+            expect(autoAdvanceRow).not.toBeNull();
+            const divider = autoAdvanceRow!.nextElementSibling;
+            expect(divider).not.toBeNull();
+            expect(divider).not.toBe(soundButton);
+            expect(divider!.nextElementSibling).toBe(soundButton);
+            expect((divider as HTMLElement).style.borderTop).toBe('1px solid var(--divider-color)');
+
+            // The row is a menu item, carrying only the shared menu-row
+            // class — not the dead, undefined class pair #1247 removes.
+            expect(soundButton.className).toBe('menu-row-btn');
+
+            expect(soundButton).toHaveAccessibleName('Sound options…');
+        });
+
         it('closes on Escape and returns focus to the ⚙ trigger', () => {
             render(<RaceExecution {...defaultProps} onToggleAutoAdvance={vi.fn()} />);
 
