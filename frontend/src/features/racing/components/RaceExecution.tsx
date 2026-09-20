@@ -906,26 +906,6 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             </div>
                                         </div>
 
-                                        <button
-                                            type="button"
-                                            className="btn btn-secondary btn-sm"
-                                            style={{ fontSize: '0.85rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-start' }}
-                                            onClick={() => {
-                                                setIsSoundModalOpen(true);
-                                                setPreferencesOpen(false);
-                                            }}
-                                            title="Configure race sound effects"
-                                            data-testid="sound-effects-modal-trigger"
-                                        >
-                                            {/* A muted hint on the button itself
-                                                (#1074) — without it, folding the
-                                                corner checkbox into this panel
-                                                left nothing saying whether sound
-                                                is on at all. */}
-                                            <Icon path={soundSettings.master ? mdiVolumeHigh : mdiVolumeOff} size={0.7} />
-                                            Sound options
-                                        </button>
-
                                         {onToggleAutoAdvance && (
                                             <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', cursor: 'pointer' }}>
                                                 <span style={{ fontSize: '0.9rem', color: 'var(--text-strong-muted-color)', userSelect: 'none' }}>Auto-advance</span>
@@ -957,6 +937,42 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                 </span>
                                             </label>
                                         )}
+
+                                        {/* The two inline settings above are
+                                            per-device preferences changed once;
+                                            this is a dialog launcher, a
+                                            different kind of thing (#1247) — a
+                                            divider separates it, and it reads
+                                            as a menu row rather than a button
+                                            among switches. */}
+                                        <div style={{ borderTop: '1px solid var(--divider-color)' }} />
+
+                                        <button
+                                            type="button"
+                                            className="menu-row-btn"
+                                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                            onClick={() => {
+                                                setIsSoundModalOpen(true);
+                                                setPreferencesOpen(false);
+                                            }}
+                                            title="Configure race sound effects"
+                                            data-testid="sound-effects-modal-trigger"
+                                        >
+                                            {/* A muted hint on the button itself
+                                                (#1074) — without it, folding the
+                                                corner checkbox into this panel
+                                                left nothing saying whether sound
+                                                is on at all. */}
+                                            <Icon path={soundSettings.master ? mdiVolumeHigh : mdiVolumeOff} size={0.7} />
+                                            {/* The ellipsis is a signal, not
+                                                decoration — same convention as
+                                                the roster's Print… entry
+                                                (`.claude/rules/frontend-
+                                                screens.md`'s "Printables"):
+                                                this opens a dialog rather than
+                                                acting directly. */}
+                                            Sound options…
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -1882,7 +1898,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
                     <button
                         type="button"
-                        className="btn btn-primary"
+                        className="primary-btn"
                         onClick={() => {
                             setIsSoundModalOpen(false);
                             setSoundSettings(readSoundSettings(window.localStorage));
