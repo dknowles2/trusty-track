@@ -22,22 +22,37 @@
 import { test, expect } from '@playwright/test';
 import { ensureConfigured, gql } from './support';
 
-/** This spec's own track, so nothing it does reaches anybody else's race. */
-const TRACK_NAME = 'Timer Model Track';
+/**
+ * A fresh track name for this attempt (#1288). Each test below names and
+ * creates its own track, and asserts that exactly one card carries that
+ * name — but a fixed name meant a retry created another track under the
+ * same name without deleting the one the failed attempt already left
+ * behind, so the count went 2, then 3 on successive retries, turning a
+ * transient failure (a slow server) into a certain one no retry could ever
+ * clear. Called from inside each test's own body — so it is re-evaluated
+ * on every attempt, including a retry — rather than held in a module-level
+ * constant, which is set once when the file is first loaded and would just
+ * as reliably reintroduce the collision.
+ */
+function uniqueTrackName(): string {
+    return `Timer Model Track ${Math.random().toString(36).slice(2, 8)}`;
+}
 
 test('a timer model can be chosen, and the undetectable one is marked', async ({ page }) => {
     await ensureConfigured(page);
 
-    // A track of its own. This test switches a track off the fake timer and
-    // onto backend auto-detect, and does not switch it back — on the shared
-    // track that leaves every later spec arming heats against a probe of the
-    // machine's serial ports. It survived only because this file happens to
-    // sort near the end of an alphabetical, single-worker run, which is not a
-    // property anybody should have to know about.
+    // A track of its own, named fresh for this attempt. This test switches
+    // a track off the fake timer and onto backend auto-detect, and does not
+    // switch it back — on the shared track that leaves every later spec
+    // arming heats against a probe of the machine's serial ports. It
+    // survived only because this file happens to sort near the end of an
+    // alphabetical, single-worker run, which is not a property anybody
+    // should have to know about.
+    const trackName = uniqueTrackName();
     await gql(
         page,
         `mutation TimerModelTrack($track: TrackInput!) { createTrack(track: $track) { id } }`,
-        { track: { name: TRACK_NAME, laneCount: 4, timerType: 'FAKE' } },
+        { track: { name: trackName, laneCount: 4, timerType: 'FAKE' } },
     );
 
     await page.goto('/system-settings');
@@ -51,7 +66,7 @@ test('a timer model can be chosen, and the undetectable one is marked', async ({
     // says nothing about which track it is once specs run at once.
     const card = page
         .getByTestId(/track-card-\d+/)
-        .filter({ has: page.locator(`input[value="${TRACK_NAME}"]`) });
+        .filter({ has: page.locator(`input[value="${trackName}"]`) });
     await expect(card).toHaveCount(1);
 
     // No model to pick on the fake timer: it is chosen by transport, and
@@ -99,7 +114,7 @@ test('a timer model can be chosen, and the undetectable one is marked', async ({
             const data = await gql<{
                 initialConfig: { tracks: { name: string; timerProfile: string | null }[] };
             }>(page, `query { initialConfig { tracks { name timerProfile } } }`);
-            return data.initialConfig.tracks.find((t) => t.name === TRACK_NAME)?.timerProfile;
+            return data.initialConfig.tracks.find((t) => t.name === trackName)?.timerProfile;
         }, { timeout: 30000 })
         // Equal to the profile *chosen*, not merely truthy — a save that
         // silently kept the previous profile, or picked a different
@@ -153,15 +168,27 @@ test('a newly added track is titled Track N until named, and retitles live as yo
 test('lanes in service sits under the lane count, and looks different from lane colours (#1252)', async ({ page }) => {
     await ensureConfigured(page);
 
+    // Its own track, named fresh for this attempt — not the first test's.
+    // `fullyParallel` gives this file no guaranteed order between tests, let
+    // alone between one test's retry and another's, so reusing a name this
+    // test did not itself create is depending on a card that may not exist
+    // yet, or that belongs to a different attempt's name (#1288).
+    const trackName = uniqueTrackName();
+    await gql(
+        page,
+        `mutation TimerModelTrack($track: TrackInput!) { createTrack(track: $track) { id } }`,
+        { track: { name: trackName, laneCount: 4, timerType: 'FAKE' } },
+    );
+
     await page.goto('/system-settings');
     await page.waitForLoadState('networkidle');
     await page.getByTestId('settings-nav-tracks').click();
 
-    // The same track the first test in this file uses — found by name, not
-    // position, same as every other lookup here.
+    // Found by the name in its own input, and every lookup below is scoped
+    // inside it — same as every other lookup in this file.
     const card = page
         .getByTestId(/track-card-\d+/)
-        .filter({ has: page.locator(`input[value="${TRACK_NAME}"]`) });
+        .filter({ has: page.locator(`input[value="${trackName}"]`) });
     await expect(card).toHaveCount(1);
 
     // Order: the "Lanes in service" panel's own top edge sits below the lane
