@@ -46,6 +46,10 @@ const DESKTOP_VIEWPORTS = [
     { name: '1280x720', width: 1280, height: 720 },
 ];
 
+// Same 390×844 phone size other mobile specs use (`liveBadgeLayout.spec.ts`,
+// `mobileNav.spec.ts`, `mobileStats.spec.ts`, `formFieldBoxSizing.spec.ts`).
+const PHONE_VIEWPORT = { width: 390, height: 844 };
+
 for (const viewport of DESKTOP_VIEWPORTS) {
     test.describe(`action row at ${viewport.name}`, () => {
         test.use({ viewport: { width: viewport.width, height: viewport.height } });
@@ -104,7 +108,7 @@ for (const viewport of DESKTOP_VIEWPORTS) {
             await expect(nextHeat).toBeEnabled({ timeout: 30000 });
         });
 
-        test('the ⚙ popover opens and toggles the car-photo switch', async ({ page }) => {
+        test('the ⚙ popover opens and switches the lane-photo picker (#1245)', async ({ page }) => {
             await ensureConfigured(page);
             const { raceId } = await seedRace(page, `Preferences Popover ${viewport.name} ${Date.now()}`);
             await createSchedule(page, raceId);
@@ -112,20 +116,47 @@ for (const viewport of DESKTOP_VIEWPORTS) {
             await page.goto(`/race/${raceId}/control/race`);
             await expect(page.getByTestId('race-execution-action-row')).toBeVisible({ timeout: 30000 });
 
-            const photoToggle = page.getByTestId('lane-photo-toggle');
-            await expect(photoToggle).toHaveCount(0);
+            const picker = page.getByTestId('lane-photo-picker');
+            await expect(picker).toHaveCount(0);
 
             await page.getByTestId('race-execution-preferences-trigger').click();
-            // The popover itself is visible; the checkbox inside it is not
-            // — it is deliberately hidden behind the styled pill (the same
-            // shape `auto-advance-toggle` and `shortcuts.spec.ts`'s own
-            // photo-preference test use), so this checks presence and state
-            // rather than visibility.
             await expect(page.getByTestId('race-execution-preferences-popover')).toBeVisible();
-            await expect(photoToggle).toBeChecked(); // Car is the default (#1075).
 
-            await page.locator('label').filter({ has: photoToggle }).click();
-            await expect(photoToggle).not.toBeChecked();
+            const carOption = page.getByTestId('lane-photo-option-car');
+            const portraitOption = page.getByTestId('lane-photo-option-portrait');
+            await expect(carOption).toHaveAttribute('aria-checked', 'true'); // Car is the default (#1075).
+            await expect(portraitOption).toHaveAttribute('aria-checked', 'false');
+
+            await portraitOption.click();
+            await expect(portraitOption).toHaveAttribute('aria-checked', 'true');
+            await expect(carOption).toHaveAttribute('aria-checked', 'false');
         });
     });
 }
+
+test('the lane-photo picker fits inside the ⚙ popover on a 390px phone (#1245)', async ({ page }) => {
+    // The popover itself is a fixed 240px wide (`RaceExecution.tsx`'s
+    // `minWidth`) regardless of viewport — a segmented control with two
+    // named buttons is wider than the switch it replaced, so this pins
+    // that it still fits rather than pushing the popover into horizontal
+    // scroll.
+    await page.setViewportSize(PHONE_VIEWPORT);
+    await ensureConfigured(page);
+    const { raceId } = await seedRace(page, `Preferences Popover Phone ${Date.now()}`);
+    await createSchedule(page, raceId);
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByTestId('race-execution-action-row')).toBeVisible({ timeout: 30000 });
+
+    await page.getByTestId('race-execution-preferences-trigger').click();
+    const popover = page.getByTestId('race-execution-preferences-popover');
+    await expect(popover).toBeVisible();
+
+    const picker = page.getByTestId('lane-photo-picker');
+    await expect(picker).toBeVisible();
+    await expect(page.getByTestId('lane-photo-option-car')).toBeVisible();
+    await expect(page.getByTestId('lane-photo-option-portrait')).toBeVisible();
+
+    const overflow = await popover.evaluate((el) => el.scrollWidth > el.clientWidth);
+    expect(overflow).toBe(false);
+});

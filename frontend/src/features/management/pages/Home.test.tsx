@@ -195,7 +195,7 @@ describe('Home Page', () => {
         expect(emptyCell).toHaveAttribute('colSpan', '6');
     });
 
-    it('offers a rehearsal from the empty state', async () => {
+    it('offers a rehearsal from the empty state, with no chevron to open', async () => {
         // The night before an event is when a volunteer wants this, and an
         // empty Home page is exactly where they are standing.
         (useQuery as any).mockReturnValue([{
@@ -215,13 +215,18 @@ describe('Home Page', () => {
         await waitFor(() => {
             expect(screen.getByTestId('practice-race-empty')).toBeInTheDocument();
         });
-        expect(screen.getByTestId('practice-race')).toBeInTheDocument();
-        // Nothing to resume yet, so there is nothing to "start over" from.
+        const button = screen.getByTestId('practice-race');
+        expect(button).toBeInTheDocument();
+        // With no practice race there is nothing to be an alternative to
+        // (#1238), so it's a plain button — no split-button chevron, and
+        // therefore no "Start new" entry to find anywhere on the page.
+        expect(button).not.toHaveClass('split-btn-main');
+        expect(screen.queryByRole('button', { name: /More practice race options/ })).not.toBeInTheDocument();
         expect(screen.queryByTestId('practice-race-start-new')).not.toBeInTheDocument();
     });
 
     describe('resuming an existing practice race (#588)', () => {
-        it('offers to resume rather than inviting a fresh one', async () => {
+        it('offers to resume, as the main click of a split button', async () => {
             mockPracticeMutation();
             renderHome({
                 races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
@@ -230,10 +235,30 @@ describe('Home Page', () => {
 
             const button = await screen.findByTestId('practice-race');
             expect(button).toHaveTextContent('Resume practice race');
-            expect(screen.getByTestId('practice-race-start-new')).toBeInTheDocument();
+            expect(button).toHaveClass('split-btn-main');
+            expect(screen.getByRole('button', { name: /More practice race options/ })).toBeInTheDocument();
         });
 
-        it('resumes without asking to start a new one', async () => {
+        // #1238: "Start new" folded into the chevron of a split button on
+        // Resume, mirroring the roster's own Add Racer split button — the
+        // entry is not in the document until the chevron opens it, the same
+        // shape Add Racer's own bulk-action menu tests already exercise.
+        it('keeps the Start new entry off the page until the chevron opens it', async () => {
+            mockPracticeMutation();
+            renderHome({
+                races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
+                practiceRace: { id: 5, name: 'Practice Race' },
+            });
+
+            await screen.findByTestId('practice-race');
+            expect(screen.queryByTestId('practice-race-start-new')).not.toBeInTheDocument();
+
+            fireEvent.click(screen.getByRole('button', { name: /More practice race options/ }));
+
+            expect(await screen.findByTestId('practice-race-start-new')).toBeInTheDocument();
+        });
+
+        it('resumes without opening the chevron', async () => {
             const { practiceFn } = mockPracticeMutation();
             renderHome({
                 races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
@@ -247,17 +272,92 @@ describe('Home Page', () => {
             });
         });
 
-        it('lets the operator deliberately start a fresh rehearsal', async () => {
+        it('lets the operator deliberately start a fresh rehearsal from the chevron', async () => {
             const { practiceFn } = mockPracticeMutation();
             renderHome({
                 races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
                 practiceRace: { id: 5, name: 'Practice Race' },
             });
 
+            await screen.findByTestId('practice-race');
+            fireEvent.click(screen.getByRole('button', { name: /More practice race options/ }));
             fireEvent.click(await screen.findByTestId('practice-race-start-new'));
 
             await waitFor(() => {
                 expect(practiceFn).toHaveBeenCalledWith({ startNew: true });
+            });
+        });
+
+        // Second-round review on #1238: the outside-click/Escape effect and
+        // its `.split-btn-arrow` special case are behaviour this PR adds,
+        // and nothing above exercised any of it — the effect could be
+        // deleted whole and every test up to this point would still pass.
+        describe('closing the chevron menu', () => {
+            it('closes on Escape, removing the entry and flipping aria-expanded', async () => {
+                mockPracticeMutation();
+                renderHome({
+                    races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
+                    practiceRace: { id: 5, name: 'Practice Race' },
+                });
+
+                await screen.findByTestId('practice-race');
+                const chevron = screen.getByRole('button', { name: /More practice race options/ });
+                fireEvent.click(chevron);
+                expect(await screen.findByTestId('practice-race-start-new')).toBeInTheDocument();
+
+                fireEvent.keyDown(document, { key: 'Escape' });
+
+                await waitFor(() => {
+                    expect(screen.queryByTestId('practice-race-start-new')).not.toBeInTheDocument();
+                });
+                expect(chevron).toHaveAttribute('aria-expanded', 'false');
+            });
+
+            it('closes on a click outside the dropdown', async () => {
+                mockPracticeMutation();
+                renderHome({
+                    races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
+                    practiceRace: { id: 5, name: 'Practice Race' },
+                });
+
+                await screen.findByTestId('practice-race');
+                fireEvent.click(screen.getByRole('button', { name: /More practice race options/ }));
+                expect(await screen.findByTestId('practice-race-start-new')).toBeInTheDocument();
+
+                fireEvent.mouseDown(document.body);
+
+                await waitFor(() => {
+                    expect(screen.queryByTestId('practice-race-start-new')).not.toBeInTheDocument();
+                });
+            });
+
+            // A real click is mousedown-then-click. The mousedown half must
+            // not let the outside-click handler close the menu ahead of the
+            // chevron's own onClick toggle — if it did, the toggle would
+            // read the now-false state and flip it back to true, leaving a
+            // second click on the chevron re-opening the menu instead of
+            // closing it. This is the `.split-btn-arrow` exclusion
+            // `RaceDetails.tsx`'s own Add Racer split button already relies
+            // on, mirrored here.
+            it('a second click on the chevron toggles closed rather than being reopened by its own mousedown', async () => {
+                mockPracticeMutation();
+                renderHome({
+                    races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
+                    practiceRace: { id: 5, name: 'Practice Race' },
+                });
+
+                await screen.findByTestId('practice-race');
+                const chevron = screen.getByRole('button', { name: /More practice race options/ });
+                fireEvent.click(chevron);
+                expect(await screen.findByTestId('practice-race-start-new')).toBeInTheDocument();
+
+                fireEvent.mouseDown(chevron);
+                fireEvent.click(chevron);
+
+                await waitFor(() => {
+                    expect(screen.queryByTestId('practice-race-start-new')).not.toBeInTheDocument();
+                });
+                expect(chevron).toHaveAttribute('aria-expanded', 'false');
             });
         });
     });
