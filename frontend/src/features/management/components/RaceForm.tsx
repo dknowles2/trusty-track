@@ -1095,7 +1095,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                             <ThemePicker
                                 id="race-printables-theme"
                                 label="Printables theme"
-                                blurb="Pit passes, licences, heat sheets and certificates printed for this race."
+                                blurb="Pit passes, licenses, heat sheets and certificates printed for this race."
                                 surface="printables"
                                 value={formData.printables_theme ?? ''}
                                 onChange={(value) => handleChange('printables_theme', value)}

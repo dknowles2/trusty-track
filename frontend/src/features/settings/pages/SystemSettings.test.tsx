@@ -1769,7 +1769,7 @@ describe('Scale speed (#610 stage 3)', () => {
     });
 });
 
-describe('Lane colours (#611 stage 3)', () => {
+describe('Lane colors (#611 stage 3)', () => {
     afterEach(cleanup);
 
     const configuredWith = (tracks: unknown[]) => {
@@ -1793,7 +1793,7 @@ describe('Lane colours (#611 stage 3)', () => {
         scaleRatio: 25, showScaleSpeed: true, laneColors: [], ...over,
     });
 
-    it('renders the stored colours, one control per lane', async () => {
+    it('renders the stored colors, one control per lane', async () => {
         configuredWith([saved({ laneColors: ['#E53935', '', '#1E88E5', ''] })]);
         (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
         render(
@@ -1806,14 +1806,14 @@ describe('Lane colours (#611 stage 3)', () => {
 
         await openSection('tracks');
 
-        expect(await screen.findByLabelText('Lane 1 colour')).toHaveValue('#e53935');
-        expect(screen.getByLabelText('Lane 3 colour')).toHaveValue('#1e88e5');
+        expect(await screen.findByLabelText('Lane 1 color')).toHaveValue('#e53935');
+        expect(screen.getByLabelText('Lane 3 color')).toHaveValue('#1e88e5');
         // A lane past the end of the array, or a blank entry, renders as
-        // "no colour configured" rather than crashing on a missing index.
-        expect(screen.getByLabelText('Lane 2 colour')).toHaveValue('#ffffff');
+        // "no color configured" rather than crashing on a missing index.
+        expect(screen.getByLabelText('Lane 2 color')).toHaveValue('#ffffff');
     });
 
-    it('reports an edited colour and the standard preset into the submitted TrackInput', async () => {
+    it('reports an edited color and the standard preset into the submitted TrackInput', async () => {
         configuredWith([saved()]);
         const mockUpdate = vi.fn().mockResolvedValue({ data: { updateInitialConfig: { initialized: true } } });
         (useMutation as any).mockImplementation((query: any) =>
@@ -1831,7 +1831,7 @@ describe('Lane colours (#611 stage 3)', () => {
         );
 
         await openSection('tracks');
-        await user.click(await screen.findByRole('button', { name: /use standard colours/i }));
+        await user.click(await screen.findByRole('button', { name: /use standard colors/i }));
         await user.click(screen.getByText('Save Settings'));
 
         await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
@@ -1840,7 +1840,7 @@ describe('Lane colours (#611 stage 3)', () => {
         });
     });
 
-    it('sends an empty list for a track nobody has coloured', async () => {
+    it('sends an empty list for a track nobody has colored', async () => {
         configuredWith([saved()]);
         const mockUpdate = vi.fn().mockResolvedValue({ data: { updateInitialConfig: { initialized: true } } });
         (useMutation as any).mockImplementation((query: any) =>

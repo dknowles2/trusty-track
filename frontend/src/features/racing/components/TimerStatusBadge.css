@@ -26,7 +26,7 @@
   flex-shrink: 0;
 }
 
-.timer-status-dot--grey   { background: #9e9e9e; }
+.timer-status-dot--gray   { background: #9e9e9e; }
 .timer-status-dot--yellow { background: #f5c518; }
 .timer-status-dot--green  { background: #4caf50; }
 .timer-status-dot--blue   { background: #2196f3; }

@@ -100,7 +100,7 @@ describe('Printables', () => {
         mockRace();
         open('?racers=11');
 
-        await userEvent.click(screen.getByRole('button', { name: /Driver's licences/ }));
+        await userEvent.click(screen.getByRole('button', { name: /Driver's licenses/ }));
 
         expect(document.querySelectorAll('.drivers-license')).toHaveLength(1);
         expect(cardNames()).toEqual(['Alex Rivera']);

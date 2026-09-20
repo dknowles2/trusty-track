@@ -266,35 +266,35 @@ describe('TrackCard', () => {
         });
     });
 
-    describe('lane colours', () => {
+    describe('lane colors', () => {
         it('is present even for a track that has not been saved yet (no id)', () => {
-            // Unlike lanes in service and track records, lane colours save
+            // Unlike lanes in service and track records, lane colors save
             // with the rest of the form rather than on click, so there is no
-            // row to hang the colour on and no reason to gate it on an id.
+            // row to hang the color on and no reason to gate it on an id.
             renderCard({ id: undefined });
-            expect(screen.getByText('Lane colours (optional)')).toBeInTheDocument();
+            expect(screen.getByText('Lane colors (optional)')).toBeInTheDocument();
         });
 
         it('renders one control per lane, from the track\'s own lane count', () => {
             renderCard({ laneCount: 3 });
-            expect(screen.getByLabelText('Lane 1 colour')).toBeInTheDocument();
-            expect(screen.getByLabelText('Lane 2 colour')).toBeInTheDocument();
-            expect(screen.getByLabelText('Lane 3 colour')).toBeInTheDocument();
-            expect(screen.queryByLabelText('Lane 4 colour')).not.toBeInTheDocument();
+            expect(screen.getByLabelText('Lane 1 color')).toBeInTheDocument();
+            expect(screen.getByLabelText('Lane 2 color')).toBeInTheDocument();
+            expect(screen.getByLabelText('Lane 3 color')).toBeInTheDocument();
+            expect(screen.queryByLabelText('Lane 4 color')).not.toBeInTheDocument();
         });
 
-        it('reports a colour edit through onLaneColors, keyed to the lane', () => {
+        it('reports a color edit through onLaneColors, keyed to the lane', () => {
             const { onLaneColors } = renderCard({ laneCount: 4, laneColors: [] });
-            fireEvent.change(screen.getByLabelText('Lane 2 colour'), {
+            fireEvent.change(screen.getByLabelText('Lane 2 color'), {
                 target: { value: '#1e88e5' },
             });
             expect(onLaneColors).toHaveBeenCalledWith(['', '#1e88e5']);
         });
 
-        it('offers a clear button only for a lane with a colour set', () => {
+        it('offers a clear button only for a lane with a color set', () => {
             renderCard({ laneCount: 2, laneColors: ['#E53935', ''] });
-            expect(screen.getByLabelText('Clear lane 1 colour')).toBeInTheDocument();
-            expect(screen.queryByLabelText('Clear lane 2 colour')).not.toBeInTheDocument();
+            expect(screen.getByLabelText('Clear lane 1 color')).toBeInTheDocument();
+            expect(screen.queryByLabelText('Clear lane 2 color')).not.toBeInTheDocument();
         });
 
         it('clears one lane without touching the others', async () => {
@@ -302,29 +302,29 @@ describe('TrackCard', () => {
                 laneCount: 2,
                 laneColors: ['#E53935', '#1E88E5'],
             });
-            await userEvent.click(screen.getByLabelText('Clear lane 1 colour'));
+            await userEvent.click(screen.getByLabelText('Clear lane 1 color'));
             expect(onLaneColors).toHaveBeenCalledWith(['', '#1E88E5']);
         });
 
         it('offers the standard preset for a lane count it covers', async () => {
             const { onLaneColors } = renderCard({ laneCount: 4, laneColors: [] });
-            await userEvent.click(screen.getByRole('button', { name: /use standard colours/i }));
+            await userEvent.click(screen.getByRole('button', { name: /use standard colors/i }));
             expect(onLaneColors).toHaveBeenCalledWith(['#E53935', '#FAFAFA', '#1E88E5', '#FDD835']);
         });
 
         it('offers no preset button past six lanes', () => {
             renderCard({ laneCount: 7, laneColors: [] });
             expect(
-                screen.queryByRole('button', { name: /use standard colours/i }),
+                screen.queryByRole('button', { name: /use standard colors/i }),
             ).not.toBeInTheDocument();
         });
 
-        it('hides Clear all when no lane has a colour', () => {
+        it('hides Clear all when no lane has a color', () => {
             renderCard({ laneCount: 4, laneColors: [] });
             expect(screen.queryByRole('button', { name: /clear all/i })).not.toBeInTheDocument();
         });
 
-        it('offers Clear all once some lane has a colour', () => {
+        it('offers Clear all once some lane has a color', () => {
             renderCard({ laneCount: 4, laneColors: ['#E53935', '', '', ''] });
             expect(screen.getByRole('button', { name: /clear all/i })).toBeInTheDocument();
         });
@@ -348,20 +348,20 @@ describe('TrackCard', () => {
             return Boolean(before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING);
         }
 
-        it('sits directly under the lane count, ahead of length and lane colours', () => {
+        it('sits directly under the lane count, ahead of length and lane colors', () => {
             renderCard({ id: 12, laneCount: 3, laneOutages: [] });
 
             const lanesInput = screen.getByLabelText('Lanes');
             const lanesInService = screen.getByText('Lanes in service');
             const lengthInput = screen.getByLabelText('Length (Feet)');
-            const laneColours = screen.getByText('Lane colours (optional)');
+            const laneColors = screen.getByText('Lane colors (optional)');
 
             expect(isBefore(lanesInput, lanesInService)).toBe(true);
             expect(isBefore(lanesInService, lengthInput)).toBe(true);
-            expect(isBefore(lengthInput, laneColours)).toBe(true);
+            expect(isBefore(lengthInput, laneColors)).toBe(true);
         });
 
-        it('gives the in-service chip a checkbox class, and the colour chip a swatch class', () => {
+        it('gives the in-service chip a checkbox class, and the color chip a swatch class', () => {
             // jsdom applies no stylesheet, so this only pins the class names
             // each chip carries — that the two classes actually draw
             // different shapes (squared checkbox chip vs. circular swatch)
@@ -372,8 +372,8 @@ describe('TrackCard', () => {
             const laneWorks = screen.getByLabelText('Lane 1 works');
             expect(laneWorks.closest('.lane-service-chip')).not.toBeNull();
 
-            const laneColour = screen.getByLabelText('Lane 1 colour');
-            expect(laneColour).toHaveClass('lane-colour-swatch');
+            const laneColor = screen.getByLabelText('Lane 1 color');
+            expect(laneColor).toHaveClass('lane-color-swatch');
         });
     });
 

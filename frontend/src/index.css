@@ -1497,7 +1497,7 @@ input:checked + .slider:before {
   border-radius: 6px;
 }
 
-.lane-colour-swatch {
+.lane-color-swatch {
   width: 1.75rem;
   height: 1.75rem;
   padding: 0;
@@ -1506,16 +1506,16 @@ input:checked + .slider:before {
   cursor: pointer;
 }
 
-.lane-colour-swatch::-webkit-color-swatch-wrapper {
+.lane-color-swatch::-webkit-color-swatch-wrapper {
   padding: 0;
 }
 
-.lane-colour-swatch::-webkit-color-swatch {
+.lane-color-swatch::-webkit-color-swatch {
   border: none;
   border-radius: 50%;
 }
 
-.lane-colour-swatch::-moz-color-swatch {
+.lane-color-swatch::-moz-color-swatch {
   border: none;
   border-radius: 50%;
 }

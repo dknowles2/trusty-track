@@ -247,7 +247,7 @@ export function checklistFor(progress: SetupProgress, words: TerminologyWords): 
         {
             key: 'printables',
             label: 'Print anything you need',
-            hint: "Pit passes, driver's licences and check-in codes are usually printed the night before check-in opens; heat sheets once the schedule exists.",
+            hint: "Pit passes, driver's licenses and check-in codes are usually printed the night before check-in opens; heat sheets once the schedule exists.",
             // There is no stored fact for "a sheet came out of a printer" —
             // printing is HTML the browser renders, never a server round
             // trip (see the Printables docs) — so this can never be `done`

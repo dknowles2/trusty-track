@@ -37,13 +37,13 @@ export const AWARD_TEMPLATES: readonly AwardTemplate[] = [
   {
     id: 'best-paint',
     name: 'Best Paint',
-    blurb: 'The finish itself — colour, gloss, how clean the lines are.',
+    blurb: 'The finish itself — color, gloss, how clean the lines are.',
     artworkKey: 'paintbrush',
   },
   {
-    id: 'best-use-of-colour',
-    name: 'Best Use of Colour',
-    blurb: 'A bold or unusual colour scheme, done well.',
+    id: 'best-use-of-color',
+    name: 'Best Use of Color',
+    blurb: 'A bold or unusual color scheme, done well.',
     artworkKey: 'palette',
   },
   {
@@ -61,7 +61,7 @@ export const AWARD_TEMPLATES: readonly AwardTemplate[] = [
   {
     id: 'most-patriotic',
     name: 'Most Patriotic',
-    blurb: 'Stars, stripes, or the colours of the flag.',
+    blurb: 'Stars, stripes, or the colors of the flag.',
     artworkKey: 'flag-star',
   },
   {

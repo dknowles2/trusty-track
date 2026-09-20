@@ -103,7 +103,7 @@ class TrackBase(BaseModel):
         for index, entry in enumerate(value):
             if entry and not is_valid_lane_color(entry):
                 raise ValueError(
-                    f"lane {index + 1}'s colour must be a hex value like #E53935, "
+                    f"lane {index + 1}'s color must be a hex value like #E53935, "
                     f"got {entry!r}"
                 )
         return value
