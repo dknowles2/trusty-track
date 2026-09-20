@@ -56,6 +56,66 @@ test('turning on Debugging Mode shows the timer state-machine transitions panel 
         const panel = page.getByTestId('timer-transitions-panel');
         await expect(panel).toBeVisible();
         await expect(panel.getByText('ARMED')).toBeVisible();
+
+        // #1244: on a FAKE track the panel is the readout for the fake
+        // timer's own Start Timer/Finish Heat controls, so it docks
+        // directly under them rather than at the foot of the right column
+        // under On Deck. Checked at desktop width and again on a phone
+        // viewport, where the grid concatenates left-then-right and the
+        // fake-timer stack must stay together rather than the panel
+        // falling to the very end of the page.
+        for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
+            await page.setViewportSize(viewport);
+            await expect(panel).toBeVisible();
+
+            // Two sequential `boundingBox()` round trips read the layout on
+            // either side of a gap the app's own subscriptions (the
+            // WebSocket log above shows several reconnecting around this
+            // point) can land a re-render inside, which is what made this
+            // flaky the first time it ran twice — one read would land on the
+            // heat card mid-reflow. `waitForFunction` first settles the
+            // layout (there is nothing left in this app that would move the
+            // panel once it does), then one atomic `evaluate` takes every
+            // measurement in a single, uninterruptible browser turn.
+            await page.waitForFunction(
+                () => {
+                    const moleEl = document.querySelector('[data-testid="fake-timer-mole"]');
+                    const panelEl = document.querySelector('[data-testid="timer-transitions-panel"]');
+                    if (!moleEl || !panelEl) return false;
+                    const m = moleEl.getBoundingClientRect();
+                    const p = panelEl.getBoundingClientRect();
+                    return p.top >= m.bottom - 1;
+                },
+                undefined,
+                { timeout: 5000 },
+            );
+
+            const layout = await page.evaluate(() => {
+                const moleEl = document.querySelector('[data-testid="fake-timer-mole"]') as HTMLElement;
+                const panelEl = document.querySelector('[data-testid="timer-transitions-panel"]') as HTMLElement;
+                const onDeckEl = document
+                    .querySelector('[data-testid="race-execution-right-column"]')
+                    ?.querySelector('h3');
+                const m = moleEl.getBoundingClientRect();
+                const p = panelEl.getBoundingClientRect();
+                return {
+                    panelTop: p.top,
+                    panelLeft: p.left,
+                    moleBottom: m.bottom,
+                    moleLeft: m.left,
+                    // DOCUMENT_POSITION_FOLLOWING is 4.
+                    onDeckFollowsPanel: onDeckEl
+                        ? (panelEl.compareDocumentPosition(onDeckEl) & 4) !== 0
+                        : false,
+                };
+            });
+
+            expect(layout.panelTop).toBeGreaterThanOrEqual(layout.moleBottom);
+            expect(Math.abs(layout.panelLeft - layout.moleLeft)).toBeLessThanOrEqual(2);
+            // The panel is not the last thing on the page — On Deck, from
+            // the right column, still follows it in document order.
+            expect(layout.onDeckFollowsPanel).toBe(true);
+        }
     } finally {
         // Shared, install-wide state (#1079) — leave it as this run found it.
         await page.goto('/system-settings');

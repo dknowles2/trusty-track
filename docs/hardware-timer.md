@@ -127,6 +127,11 @@ Track talking, lines marked `←` are the timer answering. Arrows going out
 with nothing ever coming back means the cable or the port is wrong. More in
 [the timer reference](reference/timers.md#the-serial-log).
 
+The same log follows you onto the race screen: with **Debugging Mode** on
+(System Settings → Advanced), the Race tab docks it in the right-hand column
+during a heat, with a **Timer State Machine** panel — a live history of the
+timer's own state changes — directly beneath it.
+
 ## When something goes wrong
 
 **Nothing is found.** The timer check page says which ports it tried. Only USB
