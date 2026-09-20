@@ -1268,6 +1268,21 @@ export default function RaceDetails() {
           of the day disabled, which is space spent saying "not yet". What it
           held is now a selection bar that exists only when something is
           selected. */}
+      {/* `data-testid="roster-section"` wraps the toolbar/header through the
+          table and the mobile cards — added for `screenshot-district-derby
+          .spec.ts`'s `02-roster-home-pack.png` (#1279), which needs both the
+          sticky `roster-header` *and* the table it sits above in one crop.
+          Scoping to the table div alone (`desktop-only-table`, formerly
+          `data-testid="roster-table"`, now unused and removed) put
+          `screenshotLocator`'s scroll-into-view under the sticky header
+          rather than above it — `roster-header` is a sibling of the table,
+          not an ancestor, so it stayed pinned over the top of the capture
+          and hid the roster's actual first row. A plain, unstyled wrapper
+          (no `overflow`/`transform`) does not change `roster-header`'s own
+          sticky positioning, which is relative to its nearest scrolling
+          ancestor — the page, unaffected by an inert parent div — not to
+          this wrapper. */}
+      <div data-testid="roster-section">
       {mobileChrome && (
         <>
           {/* #1148: a compact, non-sticky utility row replaces the heading,
@@ -1664,7 +1679,7 @@ export default function RaceDetails() {
       </div>
       )}
 
-      <div style={{ overflowX: 'auto' }} className="desktop-only-table" data-testid="roster-table">
+      <div style={{ overflowX: 'auto' }} className="desktop-only-table">
             <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }} className="responsive-table">
                 <thead style={{ backgroundColor: 'var(--scouting-blue)', color: 'var(--on-primary-color)' }}>
                     <tr>
@@ -1940,6 +1955,7 @@ export default function RaceDetails() {
               // Mobile Standard View
               filteredRacers.map(racer => renderRacerCard(racer))
           )}
+      </div>
       </div>
 
       {/* Racer Form Modal */}

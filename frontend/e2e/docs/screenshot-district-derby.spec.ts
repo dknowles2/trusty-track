@@ -146,23 +146,30 @@ test('screenshot a district derby', async ({ page }) => {
         }
     }
 
-    // --- Roster: scoped to the table itself (#1279) rather than a full-page
-    // capture. The caption is only about the table's own columns (car
-    // number, rank, Home Pack), which the table alone already shows — a
+    // --- Roster: scoped to the roster section (#1279) rather than a
+    // full-page capture. The caption is about the table's own columns (car
+    // number, rank, Home Pack), which the section alone already shows — a
     // full-page shot also carries the race navigation row and the page's
     // own header/checklist, none of which the caption is about, matching
     // the same "scope the crop to what the caption describes" fix #1230
-    // and #1259 already made for 01 and observation/08. `data-testid=
-    // "roster-table"` is the wrapper the desktop table renders in
-    // (`RaceDetails.tsx`), added for this rather than reading the
-    // pre-existing `.desktop-only-table` class — the same reason every
-    // other screenshot locator here reads a testid rather than a CSS
-    // class, which is free to be reused for styling in a way a testid
-    // never has to be. ---
+    // and #1259 already made for 01 and observation/08.
+    //
+    // Scoped to `data-testid="roster-section"` (`RaceDetails.tsx`), the
+    // wrapper around the toolbar/header *and* the table — not to the table
+    // alone, which was this fix's own first attempt and was wrong: the
+    // desktop `roster-header` (the "Racer Roster" heading, check-in
+    // progress, toolbar, search box) is `position: sticky; top: 0` and a
+    // *sibling* of the table, not an ancestor. Scoping to the table alone
+    // meant `screenshotLocator`'s scroll-into-view carried the sticky
+    // header along pinned over the top of the crop — the picture still
+    // showed the toolbar the caption says nothing about, and it hid the
+    // roster's actual first row (car #1) underneath it. Scoping to the
+    // section that contains both means the sticky header settles at its
+    // own top, above row 1, exactly where it belongs. ---
     await page.goto(`/race/${raceId}`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('Home Pack').first()).toBeVisible();
-    await screenshotLocator(page.getByTestId('roster-table'), {
+    await screenshotLocator(page.getByTestId('roster-section'), {
         path: path.join(SCREENSHOT_DIR, '02-roster-home-pack.png'),
     });
 
