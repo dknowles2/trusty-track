@@ -249,6 +249,52 @@ test('the launch area keeps its two headings and fits a phone screen with no hor
     expect(fitsWithoutOverflow).toBe(true);
 });
 
+test('the Connect a camera code presets this race\'s own track, and scanning it shows a camera row with that track selected (#1254)', async ({ browser, page }) => {
+    // The reported bug: connecting a camera meant editing a URL on a phone
+    // keyboard, because the Displays panel's only QR code landed on the
+    // Live page. `ConnectDisplayAddress`'s own `path` prop and
+    // `cameraWindowUrl` are unit-tested on their own; this is the round
+    // trip no unit test can see — the address actually shown on the panel
+    // opens `/camera`, and connecting through it reaches the operator's
+    // own list with the track preset already applied.
+    await ensureConfigured(page);
+    const { raceId, trackId } = await seedRace(page, 'Camera Connect Race');
+
+    await page.goto(`/race/${raceId}/displays`);
+    const cameraBlock = page.getByTestId('connect-camera-address');
+    await expect(cameraBlock).toBeVisible();
+
+    // Read the block's own address rather than trusting the component's
+    // internals — the same "read it, then follow it" shape
+    // `instantReplay.spec.ts` uses for FakeCamera. The block renders
+    // immediately, before the track-preset queries have necessarily
+    // answered, so wait for the preset to actually be in the text rather
+    // than reading it the instant the block appears.
+    const cameraCode = cameraBlock.locator('code');
+    await expect(cameraCode).toContainText('trackId=', { timeout: 10000 });
+    const cameraUrlText = (await cameraCode.textContent())?.trim() ?? '';
+    const cameraUrl = new URL(cameraUrlText);
+    expect(cameraUrl.pathname).toBe(`/race/${raceId}/camera`);
+    expect(cameraUrl.searchParams.get('trackId')).toBe(String(trackId));
+    const cameraDisplayId = cameraUrl.searchParams.get('displayId');
+    expect(cameraDisplayId).toBeTruthy();
+
+    // A second machine, with `&fake=1` appended so no real camera is
+    // needed — the same flag `FakeCamera` uses throughout the instant
+    // replay suite.
+    const cameraContext = await browser.newContext();
+    const cameraTab = await cameraContext.newPage();
+    await cameraTab.goto(`${cameraUrl.pathname}${cameraUrl.search}&fake=1`);
+    await cameraTab.waitForLoadState('networkidle');
+
+    await page.goto(`/race/${raceId}/displays`);
+    const row = page.getByTestId(`display-${cameraDisplayId}`);
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await expect(row.getByRole('combobox')).toHaveValue(String(trackId), { timeout: 10000 });
+
+    await cameraContext.close();
+});
+
 /*
  * There is deliberately no spec here for "a viewer cannot assign a display".
  * Asserting it needs an operator PIN set on this backend, which every other

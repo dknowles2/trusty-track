@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     CLAIM_HEARTBEAT_MS,
+    cameraWindowUrl,
     displayId,
     newDisplayWindowUrl,
     qrCodeWindowUrl,
@@ -153,6 +154,36 @@ describe('newDisplayWindowUrl', () => {
         const a = newDisplayWindowUrl(1);
         const b = newDisplayWindowUrl(1);
         expect(a).not.toBe(b);
+    });
+});
+
+describe('cameraWindowUrl (#1254)', () => {
+    it('names the camera page for the given race, as a displayId query parameter', () => {
+        const url = cameraWindowUrl(42);
+        expect(url).toMatch(/^\/race\/42\/camera\?displayId=.+$/);
+    });
+
+    it('mints a different id on every call, so two codes never share one', () => {
+        const a = cameraWindowUrl(1);
+        const b = cameraWindowUrl(1);
+        expect(a).not.toBe(b);
+    });
+
+    it('carries no trackId when none is given', () => {
+        const url = cameraWindowUrl(1);
+        expect(url).not.toContain('trackId');
+    });
+
+    it('presets the track when one is given', () => {
+        const url = cameraWindowUrl(1, 7);
+        const params = new URL(url, 'http://example.test').searchParams;
+        expect(params.get('trackId')).toBe('7');
+        expect(params.get('displayId')).toBeTruthy();
+    });
+
+    it('encodes both parameters the same way every other fresh-identity URL does', () => {
+        const url = cameraWindowUrl(1, 7);
+        expect(url).toMatch(/^\/race\/1\/camera\?displayId=[^&]+&trackId=7$/);
     });
 });
 

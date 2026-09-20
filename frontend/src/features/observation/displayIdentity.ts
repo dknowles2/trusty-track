@@ -198,3 +198,28 @@ export function qrCodeWindowUrl(raceId: number, target: 'STANDINGS' | 'VOTE'): s
     if (target === 'VOTE') params.set('qr_target', 'vote');
     return `/race/${raceId}/observation?${params.toString()}`;
 }
+
+/**
+ * The address of a brand-new camera for `raceId` (#1254) — the same
+ * fresh-identity shape `qrCodeWindowUrl` above already uses for a screen: a
+ * fresh `displayId` so the phone that scans this is unambiguously a new
+ * device, with nothing to contend with any tab already open. `trackId`,
+ * when supplied, presets which track's timer the camera listens to —
+ * `Camera.tsx` reads `?trackId=` once, on the first successful connect, and
+ * applies it through `setCameraTrack` only if the camera's own assignment
+ * doesn't already carry one (see `.claude/rules/displays.md`'s "?trackId="
+ * paragraph for the once-only rule and why the page's own dropdown and the
+ * Displays row's own picker still win afterward).
+ *
+ * Unlike `qrCodeWindowUrl`/`newDisplayWindowUrl`, this is not handed to
+ * `window.open` on a click — it is drawn as a QR code that has to keep
+ * naming the same screen across a re-render, so a caller displaying it
+ * (`DisplaysPanel.tsx`) memoises the id-bearing call once per mount rather
+ * than calling this again on every render, which would mint a fresh
+ * `displayId` — and so a fresh screen — each time.
+ */
+export function cameraWindowUrl(raceId: number, trackId?: number): string {
+    const params = new URLSearchParams({ displayId: randomId() });
+    if (trackId) params.set('trackId', String(trackId));
+    return `/race/${raceId}/camera?${params.toString()}`;
+}
