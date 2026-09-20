@@ -1501,6 +1501,49 @@ input:checked + .slider:before {
 }
 
 /*
+ * The lane-pictures preference is a two-way choice, not an on/off switch
+ * (#1245) — a radiogroup of two buttons in a rounded track, the same look
+ * as the free-race mode control (`.free-race-mode-control` /
+ * `.free-race-mode-btn` in `FreeRaceLaneSetup.tsx`). Scoped to its own
+ * classes rather than shared with that control: `FreeRaceLaneSetup.tsx`'s
+ * own comment on `.free-race-mode-control` explains that its *base* look is
+ * kept as inline styles on purpose, with only its ≤599px response classed,
+ * because an earlier draft that classed the base look too made an
+ * unconditional `flex: 1 1 0` easy to reach for and that turned three
+ * unequal-width tabs into three equal ones at every width (caught by a
+ * docs screenshot diff, not a test). This control only ever has two
+ * options and needs no such override, but lifting a shared base class
+ * would mean either reintroducing that inline-styles-only convention here
+ * too (which buys nothing over a scoped pair) or refactoring the free-race
+ * control's own screenshot-pinned layout, which is a bigger change than
+ * this fix's one control.
+ */
+.lane-photo-picker {
+  display: flex;
+  background: var(--surface-strong-color);
+  padding: 4px;
+  border-radius: 20px;
+  gap: 4px;
+}
+
+.lane-photo-picker-btn {
+  padding: 6px 14px;
+  border-radius: 16px;
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  color: var(--text-strong-muted-color);
+  cursor: pointer;
+}
+
+.lane-photo-picker-btn[aria-checked='true'] {
+  background: var(--surface-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-weight: bold;
+  color: var(--text-color);
+}
+
+/*
  * The action row's own buttons never wrap their label onto a second line
  * (#1157) — the bug the footer redesign fixes was five controls squeezed by
  * `justify-content: space-between` to their minimum width, so "Skip Heat"

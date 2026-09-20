@@ -296,7 +296,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [editingResults, setEditingResults] = useState<EditableLane[]>([]);
     const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
     const { showConfirm, showAlert } = useAlert();
-    const { orgLower, groupLower, vehicle, vehicleLower, vehiclesLower } = useTerminology();
+    const { orgLower, groupLower, vehicle, vehicles, vehiclesLower } = useTerminology();
 
     // The live view, assembled by the server (#7). What used to be here was a
     // merge of the heat's stored lanes with `timerStatus.pendingResults`,
@@ -465,6 +465,20 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [preferencesOpen, setPreferencesOpen] = useState(false);
     const preferencesRef = useRef<HTMLDivElement>(null);
     const preferencesTriggerRef = useRef<HTMLButtonElement>(null);
+    // Lane pictures (#1245): a two-option radiogroup, not a switch — see
+    // `.claude/rules/race-day-ui.md`'s #1075 entry. Refs give the standard
+    // radiogroup keyboard pattern (an arrow key both moves focus and
+    // changes the selection) something to focus once the other option
+    // becomes the checked one.
+    const lanePhotoCarOptionRef = useRef<HTMLButtonElement>(null);
+    const lanePhotoPortraitOptionRef = useRef<HTMLButtonElement>(null);
+    const handleLanePhotoOptionKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+        event.preventDefault();
+        const next: LanePhotoPreference = lanePhotoPreference === 'car' ? 'portrait' : 'car';
+        setLanePhotoPreference(next);
+        (next === 'car' ? lanePhotoCarOptionRef : lanePhotoPortraitOptionRef).current?.focus();
+    };
     useEffect(() => {
         if (!preferencesOpen) return;
         const handleClickOutside = (event: MouseEvent) => {
@@ -846,38 +860,51 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             per device, like sound. Car by
                                             default: this screen's main reader
                                             is the operator pulling cars out of
-                                            parc fermé, not the announcer. */}
-                                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', cursor: 'pointer' }}>
+                                            parc fermé, not the announcer. A
+                                            two-way choice, not a boolean, so
+                                            it is a radiogroup of two named
+                                            buttons rather than a switch with
+                                            an unlabelled "off" (#1245) — see
+                                            `.claude/rules/race-day-ui.md`'s
+                                            #1075 entry. */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                             <span style={{ fontSize: '0.9rem', color: 'var(--text-strong-muted-color)', userSelect: 'none' }}>
-                                                Show {vehicleLower} photos
+                                                Lane pictures
                                             </span>
-                                            <span style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', flexShrink: 0 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    data-testid="lane-photo-toggle"
-                                                    aria-label={`Show ${vehicleLower} photos`}
-                                                    checked={lanePhotoPreference === 'car'}
-                                                    onChange={(e) => setLanePhotoPreference(e.target.checked ? 'car' : 'portrait')}
-                                                    style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
-                                                />
-                                                <div style={{
-                                                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                                                    background: lanePhotoPreference === 'car' ? 'var(--scouting-blue)' : 'var(--input-border-color)',
-                                                    borderRadius: '24px',
-                                                    transition: 'background 0.2s',
-                                                }} />
-                                                <div style={{
-                                                    position: 'absolute',
-                                                    height: '18px', width: '18px',
-                                                    left: lanePhotoPreference === 'car' ? '23px' : '3px',
-                                                    bottom: '3px',
-                                                    background: 'var(--surface-color)',
-                                                    borderRadius: '50%',
-                                                    transition: 'left 0.2s',
-                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                                                }} />
-                                            </span>
-                                        </label>
+                                            <div
+                                                role="radiogroup"
+                                                aria-label="Lane pictures"
+                                                data-testid="lane-photo-picker"
+                                                className="lane-photo-picker"
+                                            >
+                                                <button
+                                                    ref={lanePhotoCarOptionRef}
+                                                    type="button"
+                                                    role="radio"
+                                                    aria-checked={lanePhotoPreference === 'car'}
+                                                    tabIndex={lanePhotoPreference === 'car' ? 0 : -1}
+                                                    data-testid="lane-photo-option-car"
+                                                    className="lane-photo-picker-btn"
+                                                    onClick={() => setLanePhotoPreference('car')}
+                                                    onKeyDown={handleLanePhotoOptionKeyDown}
+                                                >
+                                                    {vehicles}
+                                                </button>
+                                                <button
+                                                    ref={lanePhotoPortraitOptionRef}
+                                                    type="button"
+                                                    role="radio"
+                                                    aria-checked={lanePhotoPreference === 'portrait'}
+                                                    tabIndex={lanePhotoPreference === 'portrait' ? 0 : -1}
+                                                    data-testid="lane-photo-option-portrait"
+                                                    className="lane-photo-picker-btn"
+                                                    onClick={() => setLanePhotoPreference('portrait')}
+                                                    onKeyDown={handleLanePhotoOptionKeyDown}
+                                                >
+                                                    Faces
+                                                </button>
+                                            </div>
+                                        </div>
 
                                         <button
                                             type="button"

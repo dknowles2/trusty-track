@@ -659,6 +659,8 @@ describe('index.css declares no literal colour outside :root, except an explicit
     // guard).
     '.demo-paused-card|background': 'the demo-paused card is a self-contained light card, out of scope here',
 
+    '.lane-photo-picker-btn[aria-checked=\'true\']|box-shadow': 'ordinary drop shadow, reads as depth in every theme',
+
     // Named explicitly in the issue as fine to leave.
     '.settings-nav button:hover|background': 'named in the issue as harmless',
     '.settings-nav-link:hover|background': 'named in the issue as harmless',
