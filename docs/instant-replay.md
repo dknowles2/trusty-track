@@ -30,16 +30,17 @@ shows the actual race.
 ## The Happy Path
 
 1. On the device that will hold the camera, open **Displays** in the race
-   navigation row, find the address shown there — the same one a wall
-   display uses — and add `/camera` to the end of it, or scan the QR code
-   and edit the path. (A direct link from the Displays panel is on the
-   roadmap; for now, typing the address is the way in — see
-   [`reference/displays.md`](reference/displays.md) for how a screen
-   normally finds its own address.)
+   navigation row and scan the **Connect a camera** code — a second code,
+   next to the one a wall display uses, that opens the camera page
+   directly. With more than one track in the install, a **Camera for**
+   picker above the code lets you choose which one it presets; with a
+   single track, the code already carries it and there is nothing to
+   choose.
 2. The browser asks for camera permission. Allow it, and a live preview
    appears.
-3. Pick which **track** this camera is listening to from the dropdown at
-   the top — the same track the heats you want replayed are running on.
+3. The **track** dropdown at the top already shows the track the code
+   presets — change it here if this camera is actually watching a
+   different one.
 4. Aim the camera at the finish line (see [Aiming the camera](#aiming-the-camera)
    below) and prop it up. There is nothing else to do — leave the page open.
 

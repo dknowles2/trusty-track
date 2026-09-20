@@ -325,6 +325,12 @@ to it.
   Displays list on its own — **except a phone that got there by scanning the
   QR code view** (above). That phone is a spectator, not a screen you set
   up, so it never appears in the list and cannot be assigned anything.
+- **A camera registers the same way, through its own address.** The
+  Displays panel's "Other devices" area shows two codes side by side —
+  **Connect a screen**, above, and **Connect a camera**, which opens the
+  finish-line camera page instead and presets which track it listens to.
+  See the [Instant Replay Guide](../instant-replay.md) for the rest of
+  what a camera does once it is open.
 - **An assignment wins over the screen's URL** — that is the point, since
   the operator is across the room. Until one arrives, the screen shows
   whatever its URL asks for.

@@ -246,6 +246,22 @@ export const RACE_AWARD_COUNT_QUERY = gql`
 `;
 
 /**
+ * The race's own track (#1254) — the Displays panel's "Connect a camera"
+ * block defaults its track preset to this one, when it names a track this
+ * race's tracks list still holds, before falling back to the first. Asked
+ * for separately, the same reasoning `RACE_AWARD_COUNT_QUERY` gives: the
+ * panel is the only thing that wants it.
+ */
+export const RACE_TRACK_QUERY = gql`
+  query RaceTrackForCameraPreset($raceId: Int!) {
+    race(raceId: $raceId) {
+      id
+      trackId
+    }
+  }
+`;
+
+/**
  * A rerolled name suggestion for one display's rename form (#521).
  *
  * Goes through the server's `whimsical_name` walk against the race's other

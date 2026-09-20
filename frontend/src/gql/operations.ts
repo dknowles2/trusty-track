@@ -743,6 +743,13 @@ export type RaceAwardCountQueryVariables = Exact<{
 
 export type RaceAwardCountQuery = { race: { id: number, awards: Array<{ id: number }> } | null };
 
+export type RaceTrackForCameraPresetQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type RaceTrackForCameraPresetQuery = { race: { id: number, trackId: number | null } | null };
+
 export type SuggestDisplayNameQueryVariables = Exact<{
   displayId: string;
   avoid?: string | null | undefined;

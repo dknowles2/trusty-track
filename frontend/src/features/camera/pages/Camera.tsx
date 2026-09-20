@@ -125,10 +125,41 @@ export default function Camera() {
   const demoMode = configData?.initialConfig?.demoMode ?? false;
 
   const [{ data: tracksData }] = useQuery({ query: GET_TRACKS });
-  const tracks: { id: number; name: string; timerType: string }[] = tracksData?.tracks ?? [];
+  const tracks: { id: number; name: string; timerType: string }[] = useMemo(
+    () => tracksData?.tracks ?? [],
+    [tracksData],
+  );
   const trackId: number | null = assignment?.trackId ?? null;
   const selectedTrack = tracks.find((t) => t.id === trackId) ?? null;
   const [, setCameraTrack] = useMutation(SET_CAMERA_TRACK);
+
+  // The Displays panel's own "Connect a camera" QR code presets a track by
+  // baking `?trackId=` into the address (#1254) — applied here, once, on
+  // the first successful connect, and never again. `appliedTrackPresetRef`
+  // is what makes it once-only: it flips true the moment enough has
+  // answered to decide (the assignment payload, the tracks list), whether
+  // or not a mutation actually fires, so neither a later re-render nor a
+  // reconnect (the subscription's own opening payload on a dropped-wifi
+  // reconnect is not a fresh "connect" for this purpose) ever applies it a
+  // second time. That matters because this page's own track dropdown and
+  // the Displays row's own picker are both still live afterward, and both
+  // have to keep winning over a URL the phone may still be carrying.
+  const presetTrackIdParam = searchParams.get('trackId');
+  const presetTrackId = presetTrackIdParam ? Number(presetTrackIdParam) || null : null;
+  const appliedTrackPresetRef = useRef(false);
+  useEffect(() => {
+    if (appliedTrackPresetRef.current) return;
+    if (!presetTrackId) return;
+    // Wait for a real assignment payload and a real tracks list before
+    // deciding anything — an early, empty tracks array would otherwise
+    // read as "unknown track id" and silently discard a genuine preset.
+    if (!assignment) return;
+    if (tracksData === undefined) return;
+    appliedTrackPresetRef.current = true;
+    if (assignment.trackId != null) return; // never override an existing choice
+    if (!tracks.some((t) => t.id === presetTrackId)) return; // unknown id — ignored
+    setCameraTrack({ displayId: thisDisplayId, trackId: presetTrackId });
+  }, [presetTrackId, assignment, tracksData, tracks, thisDisplayId, setCameraTrack]);
 
   const [{ data: timerData }] = useSubscription({
     query: TIMER_STATUS_SUBSCRIPTION,

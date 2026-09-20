@@ -22,6 +22,13 @@
  * display or check-in tablet on purpose, so it has to register — the
  * opposite of the audience-facing QR code (`QRCodeDisplayView.tsx`), which
  * passes `true`.
+ *
+ * `path` (#1254) lets a second caller point the identical address/Copy/QR
+ * machinery somewhere other than this race's own Live page — `DisplaysPanel`'s
+ * own "Connect a camera" block passes `cameraWindowUrl(raceId, trackId)`
+ * rather than duplicating this component. `heading`/`caption` are optional
+ * labels rendered above the address row, so two blocks sitting side by side
+ * read as a pair rather than two identical, unlabelled boxes.
  */
 
 import { useState } from 'react';
@@ -34,7 +41,29 @@ import { shareUrl, qrCodeSrc } from '../../core/shareAddress';
 import { qrTargetPath } from '../qrCode';
 import { NETWORK_ADDRESSES_QUERY } from '../graphql/queries';
 
-export default function ConnectDisplayAddress({ raceId }: { raceId: number }) {
+interface ConnectDisplayAddressProps {
+    raceId: number;
+    /** Overrides the default `STANDINGS` target — a no-origin path such as
+     * `cameraWindowUrl(raceId, trackId)` builds. Defaults to today's Live
+     * page, unchanged. */
+    path?: string;
+    /** An optional label above the address row, so two blocks sitting side
+     * by side (#1254) read as a pair. */
+    heading?: string;
+    /** An optional line under the heading, saying what this address is for. */
+    caption?: string;
+    /** Defaults to the screen block's own id — a caller adding a second
+     * block (the camera one) passes its own. */
+    testId?: string;
+}
+
+export default function ConnectDisplayAddress({
+    raceId,
+    path,
+    heading,
+    caption,
+    testId = 'connect-screen-address',
+}: ConnectDisplayAddressProps) {
     const [result] = useQuery({ query: NETWORK_ADDRESSES_QUERY });
     const [copied, setCopied] = useState(false);
     const [qrFailed, setQrFailed] = useState(false);
@@ -43,9 +72,10 @@ export default function ConnectDisplayAddress({ raceId }: { raceId: number }) {
 
     const networkAddresses = result.data?.networkAddresses ?? [];
     const mdnsHostname = result.data?.mdnsHostname ?? null;
+    const resolvedPath = path ?? qrTargetPath('STANDINGS', raceId, { spectator: false });
     const { url, reachable } = shareUrl(
         window.location.origin,
-        qrTargetPath('STANDINGS', raceId, { spectator: false }),
+        resolvedPath,
         networkAddresses,
         mdnsHostname,
     );
@@ -59,17 +89,21 @@ export default function ConnectDisplayAddress({ raceId }: { raceId: number }) {
     };
 
     return (
-        <div
-            style={{
-                border: '1px solid var(--border-color)',
-                borderRadius: '12px',
-                padding: '0.85rem 1rem',
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                gap: '0.75rem',
-            }}
-        >
+        <div data-testid={testId} style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '0.85rem 1rem' }}>
+            {heading && <h3 style={{ margin: '0 0 0.3rem', fontSize: '1rem' }}>{heading}</h3>}
+            {caption && (
+                <p style={{ margin: '0 0 0.6rem', fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
+                    {caption}
+                </p>
+            )}
+            <div
+                style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                }}
+            >
             <span style={{ color: 'var(--text-muted-color)' }}>
                 Open this address on a screen anywhere on this network to connect it: <ShareableUrl url={url} />
             </span>
@@ -104,6 +138,7 @@ export default function ConnectDisplayAddress({ raceId }: { raceId: number }) {
                     onError={() => setQrFailed(true)}
                 />
             )}
+            </div>
         </div>
     );
 }

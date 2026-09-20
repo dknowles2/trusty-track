@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '../../../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import DisplaysPanel from './DisplaysPanel';
 import { useQuery, useMutation, useClient } from 'urql';
 import { ADVANCE_DISPLAY, ASSIGN_DISPLAY, IDENTIFY_DISPLAY, RENAME_DISPLAY } from '../graphql/queries';
@@ -633,6 +633,257 @@ describe('the two headings over the launch area (#1249)', () => {
         renderPanel('STANDINGS', 10, true, 2, false);
         expect(screen.getByRole('heading', { name: 'This computer', level: 2 })).toBeInTheDocument();
         expect(screen.getByRole('heading', { name: 'Other devices', level: 2 })).toBeInTheDocument();
+    });
+});
+
+describe('the two connect blocks under Other devices (#1254)', () => {
+    type CameraFixture = {
+        displayId: string;
+        role: 'CAMERA';
+        trackId: number | null;
+        lastClipAt: string | null;
+        cameraOrder: number;
+    };
+
+    function renderConnectBlocks(options: {
+        tracks?: { id: number; name: string }[];
+        raceTrackId?: number | null;
+        cameras?: CameraFixture[];
+    } = {}) {
+        const { tracks = [], raceTrackId = null, cameras = [] } = options;
+        type QueryArgs = { query: { definitions: { name?: { value?: string } }[] } };
+        (vi.mocked(useQuery) as ReturnType<typeof vi.fn>).mockImplementation((args: QueryArgs) => {
+            const name = args.query.definitions.find((d) => d.name?.value)?.name?.value;
+            if (name === 'RaceAwardCount') {
+                return [
+                    { data: { race: { id: 1, awards: [] } }, fetching: false, error: null },
+                    vi.fn(),
+                ];
+            }
+            if (name === 'GetTracks') {
+                return [{ data: { tracks }, fetching: false, error: null }, vi.fn()];
+            }
+            if (name === 'RaceTrackForCameraPreset') {
+                return [
+                    { data: { race: { id: 1, trackId: raceTrackId } }, fetching: false, error: null },
+                    vi.fn(),
+                ];
+            }
+            if (name === 'ObservationNetworkAddresses') {
+                return [
+                    { data: { networkAddresses: [], mdnsHostname: null }, fetching: false, error: null },
+                    vi.fn(),
+                ];
+            }
+            // GetDisplays
+            return [
+                {
+                    data: {
+                        displays: [
+                            {
+                                displayId: 'd-1',
+                                name: 'Gym north',
+                                view: 'STANDINGS',
+                                cycleSeconds: 10,
+                                scrollBehavior: 'PAGING',
+                                showCheckedIn: true,
+                                qrTarget: 'STANDINGS',
+                                showStandingsTicker: true,
+                                description: 'Standings',
+                                pacedByAPerson: false,
+                                connected: true,
+                                role: 'DISPLAY',
+                            },
+                            ...cameras,
+                        ],
+                    },
+                    fetching: false,
+                    error: null,
+                },
+                vi.fn(),
+            ];
+        });
+        (vi.mocked(useMutation) as ReturnType<typeof vi.fn>).mockImplementation(() => [
+            { fetching: false },
+            vi.fn(),
+        ]);
+        (vi.mocked(useClient) as ReturnType<typeof vi.fn>).mockReturnValue({ query: vi.fn() });
+        return render(<DisplaysPanel raceId={1} />);
+    }
+
+    it('renders both blocks as a labelled pair', () => {
+        renderConnectBlocks();
+        expect(screen.getByRole('heading', { name: 'Connect a screen' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Connect a camera' })).toBeInTheDocument();
+        expect(
+            screen.getByText('For the finish line — scan on the phone that will film it.'),
+        ).toBeInTheDocument();
+        expect(screen.getByTestId('connect-screen-address')).toBeInTheDocument();
+        expect(screen.getByTestId('connect-camera-address')).toBeInTheDocument();
+    });
+
+    it('one track: no picker, and the camera address carries it', () => {
+        renderConnectBlocks({ tracks: [{ id: 9, name: 'Only Track' }] });
+
+        expect(screen.queryByTestId('connect-camera-track')).toBeNull();
+        const cameraBlock = screen.getByTestId('connect-camera-address');
+        expect(within(cameraBlock).getByText(/trackId=9/)).toBeInTheDocument();
+    });
+
+    it('more than one track: a picker defaulting to the race’s own track, changing the camera address on selection', () => {
+        renderConnectBlocks({
+            tracks: [
+                { id: 9, name: 'North' },
+                { id: 11, name: 'South' },
+            ],
+            raceTrackId: 11,
+        });
+
+        const picker = screen.getByTestId('connect-camera-track') as HTMLSelectElement;
+        expect(picker.value).toBe('11');
+        const cameraBlock = screen.getByTestId('connect-camera-address');
+        expect(within(cameraBlock).getByText(/trackId=11/)).toBeInTheDocument();
+
+        fireEvent.change(picker, { target: { value: '9' } });
+        expect(within(cameraBlock).getByText(/trackId=9/)).toBeInTheDocument();
+    });
+
+    it('more than one track, no race track: defaults to the first', () => {
+        renderConnectBlocks({
+            tracks: [
+                { id: 9, name: 'North' },
+                { id: 11, name: 'South' },
+            ],
+        });
+
+        const picker = screen.getByTestId('connect-camera-track') as HTMLSelectElement;
+        expect(picker.value).toBe('9');
+        const cameraBlock = screen.getByTestId('connect-camera-address');
+        expect(within(cameraBlock).getByText(/trackId=9/)).toBeInTheDocument();
+    });
+
+    it('shows no camera URL while the race track query is still pending, and never falls back to tracks[0] before it answers', () => {
+        // The reported bug: GET_TRACKS is asked for elsewhere on this page
+        // too and is often already warm, where RACE_TRACK_QUERY is new here
+        // and genuinely has to go over the wire — so a default computed the
+        // instant GET_TRACKS answers, before this race's own track query
+        // has, can land on the *wrong* track (tracks[0]) with the same
+        // confidence as a right one.
+        let raceTrackPending = true;
+        type QueryArgs = { query: { definitions: { name?: { value?: string } }[] } };
+        const tracks = [
+            { id: 9, name: 'North' },
+            { id: 11, name: 'South' },
+        ];
+        const implementation = (args: QueryArgs) => {
+            const name = args.query.definitions.find((d) => d.name?.value)?.name?.value;
+            if (name === 'RaceAwardCount') {
+                return [
+                    { data: { race: { id: 1, awards: [] } }, fetching: false, error: null },
+                    vi.fn(),
+                ];
+            }
+            if (name === 'GetTracks') {
+                // Warm — already answered.
+                return [{ data: { tracks }, fetching: false, error: null }, vi.fn()];
+            }
+            if (name === 'RaceTrackForCameraPreset') {
+                return raceTrackPending
+                    ? [{ data: undefined, fetching: true, error: null }, vi.fn()]
+                    : [
+                          { data: { race: { id: 1, trackId: 11 } }, fetching: false, error: null },
+                          vi.fn(),
+                      ];
+            }
+            if (name === 'ObservationNetworkAddresses') {
+                return [
+                    { data: { networkAddresses: [], mdnsHostname: null }, fetching: false, error: null },
+                    vi.fn(),
+                ];
+            }
+            // GetDisplays
+            return [
+                {
+                    data: {
+                        displays: [
+                            {
+                                displayId: 'd-1',
+                                name: 'Gym north',
+                                view: 'STANDINGS',
+                                cycleSeconds: 10,
+                                scrollBehavior: 'PAGING',
+                                showCheckedIn: true,
+                                qrTarget: 'STANDINGS',
+                                showStandingsTicker: true,
+                                description: 'Standings',
+                                pacedByAPerson: false,
+                                connected: true,
+                                role: 'DISPLAY',
+                            },
+                        ],
+                    },
+                    fetching: false,
+                    error: null,
+                },
+                vi.fn(),
+            ];
+        };
+        (vi.mocked(useQuery) as ReturnType<typeof vi.fn>).mockImplementation(implementation);
+        (vi.mocked(useMutation) as ReturnType<typeof vi.fn>).mockImplementation(() => [
+            { fetching: false },
+            vi.fn(),
+        ]);
+        (vi.mocked(useClient) as ReturnType<typeof vi.fn>).mockReturnValue({ query: vi.fn() });
+
+        const { rerender } = render(<DisplaysPanel raceId={1} />);
+
+        expect(screen.queryByTestId('connect-camera-address')).toBeNull();
+        expect(screen.getByText(/Preparing the camera address/)).toBeInTheDocument();
+
+        raceTrackPending = false;
+        rerender(<DisplaysPanel raceId={1} />);
+
+        expect(screen.queryByText(/Preparing the camera address/)).toBeNull();
+        const cameraBlock = screen.getByTestId('connect-camera-address');
+        expect(within(cameraBlock).getByText(/trackId=11/)).toBeInTheDocument();
+    });
+
+    it('mints the camera identity once, and a later render of the same instance keeps the same displayId', () => {
+        const { rerender } = renderConnectBlocks();
+        const readDisplayId = () =>
+            screen
+                .getByTestId('connect-camera-address')
+                .textContent?.match(/displayId=([^&\s]+)/)?.[1];
+
+        const firstId = readDisplayId();
+        expect(firstId).toBeTruthy();
+
+        // Re-render the *same* mounted instance — the ordinary case this
+        // panel sees constantly (a subscription tick, another row's
+        // rename), not a fresh mount. Passing a new, unrelated prop
+        // (`onDisplaysChange`) forces React to actually re-run the
+        // component body rather than bail out early on identical props.
+        rerender(<DisplaysPanel raceId={1} onDisplaysChange={() => {}} />);
+
+        expect(readDisplayId()).toBe(firstId);
+    });
+
+    it('shows the empty-state line while no camera has connected', () => {
+        renderConnectBlocks();
+        expect(
+            screen.getByText('No cameras yet — scan the code above to connect one.'),
+        ).toBeInTheDocument();
+    });
+
+    it('hides the empty-state line once a camera row exists', () => {
+        renderConnectBlocks({
+            cameras: [
+                { displayId: 'cam-1', role: 'CAMERA', trackId: null, lastClipAt: null, cameraOrder: 0 },
+            ],
+        });
+        expect(
+            screen.queryByText('No cameras yet — scan the code above to connect one.'),
+        ).toBeNull();
     });
 });
 
