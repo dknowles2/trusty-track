@@ -630,7 +630,13 @@ def check_in_barcode(racer_id: int, db: Session = Depends(get_db)) -> Response:
 #: rather than "anything containing `/race/{race_id}/`": a display holds no
 #: PIN (#15), and the point of checking at all is that this is not a way to
 #: point a kiosk at an arbitrary address.
-_QR_ALLOWED_PATHS = ("/vote", "/observation")
+#: `/camera` (#1254) joined for the same reason `/observation` did: it is an
+#: audience-*device* address on this instance — a volunteer's phone or a
+#: camera-only tablet, never an operator control — the same trust class as
+#: the observation page, not a widening of what the guard is for. The guard
+#: still exists to refuse an *off-instance* target, not to keep pages of
+#: this instance off the list (#1282).
+_QR_ALLOWED_PATHS = ("/vote", "/observation", "/camera")
 
 
 def _validate_vote_qr_url(url: str, race_id: int, request: Request) -> None:
