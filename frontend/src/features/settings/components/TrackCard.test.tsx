@@ -100,6 +100,101 @@ describe('TrackCard', () => {
         expect(onChange).toHaveBeenCalledWith('name', 'Back Track');
     });
 
+    describe('card title', () => {
+        it("is the track's own name", () => {
+            renderCard({ name: 'Main Track' });
+            expect(screen.getByTestId('track-card-title-0')).toHaveTextContent('Main Track');
+        });
+
+        it('falls back to Track {n} (1-based) while the name is blank', () => {
+            render(
+                <MemoryRouter>
+                    <AlertProvider>
+                        <TrackCard
+                            index={1}
+                            track={{ ...baseTrack, name: '' }}
+                            timerModels={models}
+                            canRemove
+                            onChange={vi.fn()}
+                            onRemove={vi.fn()}
+                            onLaneOutages={vi.fn()}
+                            onRecords={vi.fn()}
+                            onLaneColors={vi.fn()}
+                        />
+                    </AlertProvider>
+                </MemoryRouter>,
+            );
+            expect(screen.getByTestId('track-card-title-1')).toHaveTextContent('Track 2');
+        });
+
+        it('falls back to Track 1 for a blank name at index 0', () => {
+            mockMutations();
+            renderCard({ name: '' });
+            expect(screen.getByTestId('track-card-title-0')).toHaveTextContent('Track 1');
+        });
+
+        it('treats a whitespace-only name as blank', () => {
+            mockMutations();
+            renderCard({ name: '   ' });
+            expect(screen.getByTestId('track-card-title-0')).toHaveTextContent('Track 1');
+        });
+
+        it('updates live as Track Name is edited', () => {
+            mockMutations();
+            const onChange = vi.fn();
+            const { rerender } = render(
+                <MemoryRouter>
+                    <AlertProvider>
+                        <TrackCard
+                            index={0}
+                            track={{ ...baseTrack, name: '' }}
+                            timerModels={models}
+                            canRemove
+                            onChange={onChange}
+                            onRemove={vi.fn()}
+                            onLaneOutages={vi.fn()}
+                            onRecords={vi.fn()}
+                            onLaneColors={vi.fn()}
+                        />
+                    </AlertProvider>
+                </MemoryRouter>,
+            );
+            expect(screen.getByTestId('track-card-title-0')).toHaveTextContent('Track 1');
+
+            rerender(
+                <MemoryRouter>
+                    <AlertProvider>
+                        <TrackCard
+                            index={0}
+                            track={{ ...baseTrack, name: 'Gym Track' }}
+                            timerModels={models}
+                            canRemove
+                            onChange={onChange}
+                            onRemove={vi.fn()}
+                            onLaneOutages={vi.fn()}
+                            onRecords={vi.fn()}
+                            onLaneColors={vi.fn()}
+                        />
+                    </AlertProvider>
+                </MemoryRouter>,
+            );
+            expect(screen.getByTestId('track-card-title-0')).toHaveTextContent('Gym Track');
+        });
+
+        it('no longer renders "The track" as a heading', () => {
+            renderCard();
+            expect(screen.queryByText('The track')).not.toBeInTheDocument();
+        });
+
+        it('renders "Timer", not "The timer", as the remaining divider', () => {
+            renderCard();
+            // One level below the card's own title, so the outline reads
+            // card → its one divider rather than two sibling headings.
+            expect(screen.getByRole('heading', { name: 'Timer', level: 4 })).toBeInTheDocument();
+            expect(screen.queryByText('The timer')).not.toBeInTheDocument();
+        });
+    });
+
     it('parses lane count and length as numbers, falling back to 0 for a blank field', () => {
         const { onChange } = renderCard();
 
