@@ -327,16 +327,22 @@ for (const viewport of [
             if (!stageAfterRight) throw new Error('stage has no layout');
             // A clockwise turn maps "flush left" to "flush top" — see
             // `rotateCrop`'s own doc comment in `imageEdit.ts` for the
-            // centre-mapping formula. The mutation this guards against
-            // (`fitInitialCrop` on rotate) would centre the box instead —
-            // at roughly half the stage's remaining slack, well past the
-            // threshold below.
-            const slackAfterRight = stageAfterRight.height - afterRight.height;
+            // centre-mapping formula, so a correct rotate leaves this offset
+            // at (near) zero, the same "flush against the edge" shape the
+            // drag assertion above and the rotate-back assertion below both
+            // check with an absolute 5px bound. The mutation this guards
+            // against (`fitInitialCrop` on rotate, #1240) would centre the
+            // box instead — at roughly *half* the stage's own remaining
+            // slack (`stageAfterRight.height - afterRight.height`), tens of
+            // pixels here — so a 5px bound still catches it with room to
+            // spare; the old `slackAfterRight * 0.4` bound (62–84px in this
+            // stage) was 15–20x looser than the ideal offset of ~0 needed to
+            // be.
             const offsetAfterRight = afterRight.y - stageAfterRight.y;
             expect(
                 offsetAfterRight,
-                'rotating right should carry the drag to the top edge, not reset to centred',
-            ).toBeLessThanOrEqual(slackAfterRight * 0.4);
+                'rotating right should carry the drag flush to the top edge, not reset to centred',
+            ).toBeLessThanOrEqual(5);
 
             // Rotate back: the crop should return to the left edge it was
             // dragged to, not the (now landscape-again) default centre.
