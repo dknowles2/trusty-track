@@ -560,12 +560,14 @@ stops the save and the form says which section to look in, and the server
 refuses one too if it is ever asked to save one some other way.
 
 **The vehicle word has a picture to go with it: a car, a rocket, or a
-boat.** The **Vehicle picture** dropdown sits under the vehicle word's two
-boxes and is independent of it — renaming "Car" to "Speedster" keeps
-whichever picture is already chosen, and picking the rocket picture does not
-touch the word. It draws the small line-art mark on the pit pass footer and
-on the heat sheet and results sheet's masthead; the certificate does not
-carry it. A car until you change it.
+boat.** **Vehicle picture** sits under the vehicle word's two boxes as three
+swatch buttons — each showing the actual picture beside its name, so you can
+see what the rocket or the boat looks like before choosing it — and is
+independent of the word: renaming "Car" to "Speedster" keeps whichever
+picture is already chosen, and picking the rocket picture does not touch the
+word. It draws the small line-art mark on the pit pass footer and on the
+heat sheet and results sheet's masthead; the certificate does not carry it.
+A car until you change it.
 
 **One label stays fixed for everyone: Category**, the field on a racing
 group that a Cub Scout rank or a school grade goes in — see

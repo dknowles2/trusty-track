@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { gql, useQuery } from 'urql';
 
 import { DEFAULT_LIMIT_OZ, formatOunces } from '../weightCheck';
-import { DEFAULT_TERMINOLOGY, VEHICLE_ARTWORK_OPTIONS } from '../../settings/terminologyDefaults';
+import { DEFAULT_TERMINOLOGY } from '../../settings/terminologyDefaults';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { SHARED, TIEBREAKER_OPTIONS, tiebreakerWontFire } from '../../stats/tiebreakText';
 import { SCORING_STRATEGY_OPTIONS } from '../../stats/scoringStrategyText';
@@ -10,6 +10,7 @@ import { NAME_DISPLAY_OPTIONS } from '../../core/displayName';
 import { GET_TRACKS } from '../../core/graphql/queries';
 import SettingsNav from '../../settings/components/SettingsNav';
 import ThemePicker from '../../settings/components/ThemePicker';
+import VehiclePicker from '../../settings/components/VehiclePicker';
 import AppearancePreview from '../../settings/components/AppearancePreview';
 import FieldHelp from '../../../components/ui/FieldHelp';
 import { readAppTheme } from '../../../theming/appTheme';
@@ -999,18 +1000,11 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                             />
                                         </div>
                                         <div>
-                                            <label style={labelStyle} htmlFor="race-vehicle-artwork-key">Vehicle picture</label>
-                                            <select
+                                            <VehiclePicker
                                                 id="race-vehicle-artwork-key"
                                                 value={formData.vehicle_artwork_key ?? DEFAULT_TERMINOLOGY.vehicleArtworkKey}
-                                                onChange={e => handleChange('vehicle_artwork_key', e.target.value)}
-                                                className="form-control"
-                                                style={inputStyle}
-                                            >
-                                                {VEHICLE_ARTWORK_OPTIONS.map(option => (
-                                                    <option key={option.value} value={option.value}>{option.label}</option>
-                                                ))}
-                                            </select>
+                                                onChange={key => handleChange('vehicle_artwork_key', key)}
+                                            />
                                         </div>
                                     </div>
                                 )}

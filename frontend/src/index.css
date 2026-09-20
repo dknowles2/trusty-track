@@ -1471,6 +1471,21 @@ input:checked + .slider:before {
 }
 
 /*
+ * The Vehicle picture picker (#1250) — `VehiclePicker.tsx` reuses
+ * `.theme-swatch-btn` for the button itself, but `VehicleGlyph`'s line art
+ * is wider than it is tall (drawn on a 120x50 viewBox), unlike a theme's
+ * circular colour swatch, so it gets its own fixed box to sit centred in
+ * rather than `.theme-swatch`'s square one.
+ */
+.vehicle-swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 40px;
+}
+
+/*
  * A track card's two look-alike chip rows, made to look like different
  * tools before any state changes (#1252) — Lanes in service and Lane
  * colours are both a chip per lane and used to be the same 20px-radius
