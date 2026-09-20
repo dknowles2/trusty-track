@@ -1263,7 +1263,7 @@ describe('Terminology (#496 stage 3; #551 adds the vehicle term, and stage 4 of 
         expect(screen.getByLabelText('One racing group (was “Den”)')).toHaveValue('Class');
         expect(screen.getByLabelText('The organization itself (was “Pack”)')).toHaveValue('Club');
         expect(screen.getByLabelText('One vehicle (was “Car”)')).toHaveValue('Rocket');
-        expect(screen.getByLabelText('Vehicle picture')).toHaveValue('rocket');
+        expect(screen.getByTestId('vehicle_artwork_key-option-rocket')).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('seeds the checkbox when only the vehicle word has been customized', async () => {
@@ -1316,7 +1316,7 @@ describe('Terminology (#496 stage 3; #551 adds the vehicle term, and stage 4 of 
         await openSection('general');
 
         expect(screen.getByLabelText('Use different words for “Den”, “Pack” and “Car”')).toBeChecked();
-        expect(screen.getByLabelText('Vehicle picture')).toHaveValue('boat');
+        expect(screen.getByTestId('vehicle_artwork_key-option-boat')).toHaveAttribute('aria-pressed', 'true');
         // The word stays the built-in default — the picture is an
         // independent column, not derived from the word (#551, stage 4).
         expect(screen.getByLabelText('One vehicle (was “Car”)')).toHaveValue('Car');
@@ -1373,7 +1373,7 @@ describe('Terminology (#496 stage 3; #551 adds the vehicle term, and stage 4 of 
         await user.type(screen.getByLabelText('One racing group (was “Den”)'), 'Class');
         await user.clear(screen.getByLabelText('One vehicle (was “Car”)'));
         await user.type(screen.getByLabelText('One vehicle (was “Car”)'), 'Rocket');
-        await user.selectOptions(screen.getByLabelText('Vehicle picture'), 'rocket');
+        await user.click(screen.getByTestId('vehicle_artwork_key-option-rocket'));
         await user.click(screen.getByText('Save Settings'));
 
         await waitFor(() => expect(mockUpdate).toHaveBeenCalled());

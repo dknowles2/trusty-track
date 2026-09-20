@@ -5,6 +5,7 @@ import BackupPanel from '../components/BackupPanel';
 import PinFieldRow from '../components/PinFieldRow';
 import SettingsNav from '../components/SettingsNav';
 import ThemePicker from '../components/ThemePicker';
+import VehiclePicker from '../components/VehiclePicker';
 import AppearancePreview from '../components/AppearancePreview';
 import SoundSettingsSection from '../../audio/components/SoundSettingsSection';
 import TrackCard, { type TimerModel, type TrackFields } from '../components/TrackCard';
@@ -24,7 +25,7 @@ import { errorText } from '../../../utils/errors';
 import { applyStoredAppTheme, readAppTheme, writeAppTheme } from '../../../theming/appTheme';
 import type { SurfaceThemeSetting, ThemeKey } from '../../../theming/themes';
 import type { HistoricalRecord } from '../components/TrackRecords';
-import { DEFAULT_TERMINOLOGY, VEHICLE_ARTWORK_OPTIONS } from '../terminologyDefaults';
+import { DEFAULT_TERMINOLOGY } from '../terminologyDefaults';
 import {
   DEFAULT_ANSWERS,
   EVENT_KINDS,
@@ -1103,17 +1104,7 @@ export default function SystemConfig() {
                 />
               </div>
               <div>
-                <label htmlFor="vehicle_artwork_key" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Vehicle picture</label>
-                <select
-                  id="vehicle_artwork_key"
-                  value={vehicleArtworkKey}
-                  onChange={(e) => setVehicleArtworkKey(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
-                >
-                  {VEHICLE_ARTWORK_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
+                <VehiclePicker id="vehicle_artwork_key" value={vehicleArtworkKey} onChange={setVehicleArtworkKey} />
               </div>
             </div>
           )}

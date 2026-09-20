@@ -73,13 +73,13 @@ describe('editing a race with no override', () => {
         await userEvent.click(screen.getByLabelText('Use different words for this race'));
         expect(screen.getByLabelText('One racing group')).toHaveValue('Den');
         expect(screen.getByLabelText('One vehicle')).toHaveValue('Car');
-        expect(screen.getByLabelText('Vehicle picture')).toHaveValue('car');
+        expect(screen.getByTestId('race-vehicle-artwork-key-option-car')).toHaveAttribute('aria-pressed', 'true');
 
         await userEvent.clear(screen.getByLabelText('One racing group'));
         await userEvent.type(screen.getByLabelText('One racing group'), 'Class');
         await userEvent.clear(screen.getByLabelText('One vehicle'));
         await userEvent.type(screen.getByLabelText('One vehicle'), 'Rocket');
-        await userEvent.selectOptions(screen.getByLabelText('Vehicle picture'), 'rocket');
+        await userEvent.click(screen.getByTestId('race-vehicle-artwork-key-option-rocket'));
         await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
         const payload = onSubmit.mock.calls[0][0];
@@ -117,7 +117,7 @@ describe('editing a race with no override', () => {
         await openWords();
 
         expect(screen.getByLabelText('Use different words for this race')).toBeChecked();
-        expect(screen.getByLabelText('Vehicle picture')).toHaveValue('rocket');
+        expect(screen.getByTestId('race-vehicle-artwork-key-option-rocket')).toHaveAttribute('aria-pressed', 'true');
         await userEvent.click(screen.getByLabelText('Use different words for this race'));
         await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
