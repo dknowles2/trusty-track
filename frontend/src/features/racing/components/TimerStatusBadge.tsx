@@ -57,7 +57,7 @@ function getStatusDisplay(state: string | undefined): { colorClass: string; labe
       return { colorClass: 'red', label: 'Timer: Needs attention' };
     case 'DISCONNECTED':
     default:
-      return { colorClass: 'grey', label: 'Timer disconnected' };
+      return { colorClass: 'gray', label: 'Timer disconnected' };
   }
 }
 

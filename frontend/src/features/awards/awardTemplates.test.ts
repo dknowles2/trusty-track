@@ -20,7 +20,7 @@ describe('AWARD_TEMPLATES', () => {
       expect.arrayContaining([
         'Best Paint',
         'Most Original',
-        'Best Use of Colour',
+        'Best Use of Color',
         'Most Aerodynamic',
         'Most Patriotic',
         'Best Scout Spirit',

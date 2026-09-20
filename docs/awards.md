@@ -102,7 +102,7 @@ end of an event, which is normal and nothing is wrong.
 #### Starting from a ready-made award
 
 **Start from a ready-made award** offers the usual superlatives — Best Paint,
-Most Original, Best Use of Colour, Most Aerodynamic, Most Patriotic, Best
+Most Original, Best Use of Color, Most Aerodynamic, Most Patriotic, Best
 Scout Spirit, Judges' Choice — so a pack that has never run one of these does
 not have to invent a name the night before. Choosing one fills in the name
 and its artwork; both stay ordinary editable fields afterward, so you can
@@ -126,7 +126,7 @@ walking the cars around with a clipboard.
    for a new judged award — turn it off for one your pack's leaders would
    rather decide privately.
 2. When you are ready, click **Open voting** (near the top of this page) —
-   greyed out until at least one award has **Let people vote for this** on,
+   grayed out until at least one award has **Let people vote for this** on,
    so voting cannot open on an empty ballot. The button's label flips to
    **Close voting**, and the text beside it says
    "Voting is open." Share the address that appears next to it — a phone on
@@ -145,7 +145,7 @@ walking the cars around with a clipboard.
    for you — it is your call, the same way starting the ceremony itself is.
 
 **If some cars have no photo, this page tells you before you open voting.**
-A car with no photo shows its number in large type on its den's colour
+A car with no photo shows its number in large type on its den's color
 instead of a photo, so a voter still has something to tap — fine for a
 speed award, not as good as a photo for one about how the car looks. A line
 above the voting button counts how many cars are missing a photo and links

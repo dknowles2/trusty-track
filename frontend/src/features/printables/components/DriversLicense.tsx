@@ -29,7 +29,7 @@ export default function DriversLicense({ racer, race, racingGroup, nameDisplay =
     return (
         <div className="print-card drivers-license">
             <div className="print-card-header">
-                <span className="print-card-kind">Driver's Licence</span>
+                <span className="print-card-kind">Driver's License</span>
                 <span className="print-card-race">{race.name}</span>
             </div>
             <div className="print-checker" />

@@ -84,7 +84,7 @@ describe('checklistFor', () => {
         const [, , , , , printables] = checklistFor(progress());
         expect(printables.label).toBe('Print anything you need');
         expect(printables.hint).toBe(
-            "Pit passes, driver's licences and check-in codes are usually printed the night before check-in opens; heat sheets once the schedule exists.",
+            "Pit passes, driver's licenses and check-in codes are usually printed the night before check-in opens; heat sheets once the schedule exists.",
         );
         expect(printables.action).toBe('Go to Printables');
     });

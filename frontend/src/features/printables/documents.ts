@@ -67,7 +67,7 @@ export const DOCUMENTS: readonly DocumentSpec[] = [
     },
     {
         kind: 'drivers-license',
-        label: "Driver's licences",
+        label: "Driver's licenses",
         // Business-card stock is the reason for the size: an operator who wants
         // these on card rather than paper can buy the sheets anywhere.
         blurb: 'Business-card sized. Racer, car name, and car number.',

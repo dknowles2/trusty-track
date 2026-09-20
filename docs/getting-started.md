@@ -120,12 +120,12 @@ Once your system settings are configured, you're ready to create a race event.
    ![The Kind of event step, asking what is being raced and who is holding it](assets/screenshots/getting-started/03-new-race-questions.png)
 
    - **Dens** — a ready-made list from your answers: the six Cub Scout ranks
-     for a pack, each with its rank colour and a block of a hundred car
-     numbers. Rename, recolour, remove or add to them here, or leave the list
+     for a pack, each with its rank color and a block of a hundred car
+     numbers. Rename, recolor, remove or add to them here, or leave the list
      empty if your race does not group racers. They can all be changed later
      from **Manage Dens** on the Roster page.
 
-   ![The Dens step, listing Lion through Arrow of Light with a colour, a category and a number range each](assets/screenshots/getting-started/03-new-race-groups.png)
+   ![The Dens step, listing Lion through Arrow of Light with a color, a category and a number range each](assets/screenshots/getting-started/03-new-race-groups.png)
 
    - **Details** — the race form itself. It is one page, in three groups —
      the same groups you will find down the side of the edit form later on:
@@ -162,7 +162,7 @@ A new race opens with a **Setting up this race** panel at the top of the Roster 
 5. **Set up awards** *(optional)*
 6. **Print anything you need** *(optional)*
 
-Most items tick themselves off as you do them — there is nothing to mark complete by hand — and the panel shows a button for whichever step you are on. **Check in cars** stays open, with a live count, until every racer on the roster is checked in; it does not tick at the first one, since check-in usually runs all morning. **Print anything you need** covers whichever of the Printables page's documents your pack actually prints — pit passes, driver's licences, check-in codes, a heat sheet — and it never ticks at all, since nothing tells the app a sheet actually came out of a printer; it fades to a muted "no longer needed" line, with no tick, once check-in starts or the race is locked, since whatever printing would have helped with already has. **Set up awards** fades the same muted way, with no tick, once the race is locked with none defined — a pack that hands out no trophies has made that choice, and locking the race is how it says so. The panel disappears once every step is either done or faded that way, so a locked race with no awards does not get lectured about them.
+Most items tick themselves off as you do them — there is nothing to mark complete by hand — and the panel shows a button for whichever step you are on. **Check in cars** stays open, with a live count, until every racer on the roster is checked in; it does not tick at the first one, since check-in usually runs all morning. **Print anything you need** covers whichever of the Printables page's documents your pack actually prints — pit passes, driver's licenses, check-in codes, a heat sheet — and it never ticks at all, since nothing tells the app a sheet actually came out of a printer; it fades to a muted "no longer needed" line, with no tick, once check-in starts or the race is locked, since whatever printing would have helped with already has. **Set up awards** fades the same muted way, with no tick, once the race is locked with none defined — a pack that hands out no trophies has made that choice, and locking the race is how it says so. The panel disappears once every step is either done or faded that way, so a locked race with no awards does not get lectured about them.
 
 Once you start checking racers in, the panel collapses to one line naming whatever is still outstanding — "Setting up: 2 of 4 done — Check in cars · Generate a schedule · optional: Set up awards", say — so it stops sitting above the roster table for the rest of the day. Click it to open it back up. The count is over the four required steps only, so finishing them reads as "4 of 4 done" even with awards or printing still to decide; anything optional still outstanding is named afterward, under its own "optional:" label, rather than counted as a fifth or sixth obligation. "Print anything you need" drops off that line as soon as check-in starts, whether or not anything was printed; "Check in cars" stays on it, counting, until the last racer arrives.
 
@@ -175,10 +175,10 @@ Racers are grouped into racing groups, typically called "Dens" in Cub Scouting. 
 already made yours; this is where you change them — or add them, for a race that started with none.
 
 1. On the **Roster** page, click **⋯** at the top right of the roster and choose **Manage Dens**.
-2. Click the pencil beside a den to rename or recolour it, or **+ Add New Den** to add one.
+2. Click the pencil beside a den to rename or recolor it, or **+ Add New Den** to add one.
 3. Each den is offered a car number range to itself — 100–199 for the first den, 200–299 for the next. Change or clear those numbers if you number cars some other way.
 
-![The racing group manager, listing the six dens the wizard made, each with its colour and car number range](assets/screenshots/getting-started/04-racing-group-management.png)
+![The racing group manager, listing the six dens the wizard made, each with its color and car number range](assets/screenshots/getting-started/04-racing-group-management.png)
 
 With your dens in place, your race is ready for racer registration and check-in!
 

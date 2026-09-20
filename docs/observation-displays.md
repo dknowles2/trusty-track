@@ -76,7 +76,7 @@ Switch to the **Timing Stats** tab to see the results of the most recently recor
 If a heat beats the track record, both audience views say so on their own —
 a banner over the projector's results overlay, and one above the Timing
 Stats results — naming the new time, who set it, and the record it beat.
-Gold is Field Uniform's own accent colour; a different
+Gold is Field Uniform's own accent color; a different
 [Display theme](reference/themes.md) gives it a different one.
 
 ![The record banner on the Timing Stats view](assets/screenshots/observation/10-record-banner.png)
@@ -398,7 +398,7 @@ makes the second one its own display rather than a mirror of the first.
 ## Display Without Photos
 
 If racer photos haven't been added, the Observation page still works — each racer
-gets a coloured circle with their initials instead. Adding photos during check-in
+gets a colored circle with their initials instead. Adding photos during check-in
 makes the display nicer, but nothing here needs them.
 
 (Every screenshot on this page has photographs in it, so none of them shows the

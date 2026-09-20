@@ -785,7 +785,7 @@ export default function SystemConfig() {
       <ThemePicker
         id="printables-theme"
         label="Printables theme"
-        blurb="Pit passes, licences, heat sheets and certificates — the same however many desks print them."
+        blurb="Pit passes, licenses, heat sheets and certificates — the same however many desks print them."
         surface="printables"
         value={printablesTheme}
         onChange={(value) => setPrintablesTheme(value as SurfaceThemeSetting)}

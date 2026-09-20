@@ -52,7 +52,7 @@ test('the hub lists every printable document, and the round trip to the heat she
 
     // The four sheet-and-print documents are still picked from right here…
     await expect(page.getByRole('button', { name: /Pit passes/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Driver's licences/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Driver's licenses/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Check-in codes/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Car labels/ })).toBeVisible();
 

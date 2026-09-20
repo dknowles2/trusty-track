@@ -285,7 +285,7 @@ export default function Observation() {
   const identify = useIdentifyOverlay(assignment);
 
   const urlIntent = useMemo(() => readUrl(searchParams), [searchParams]);
-  const behaviour = useMemo(
+  const behavior = useMemo(
     () =>
       resolveView(
         // `assigned` rather than merely having a payload: every connected
@@ -309,11 +309,11 @@ export default function Observation() {
     [assignment, urlIntent, id],
   );
 
-  const isProjectorMode = behaviour.projector;
-  const shouldCycle = behaviour.cycle;
-  const cycleInterval = behaviour.cycleMs;
+  const isProjectorMode = behavior.projector;
+  const shouldCycle = behavior.cycle;
+  const cycleInterval = behavior.cycleMs;
 
-  const [activeTab, setActiveTab] = useState<'standings' | 'timing'>(behaviour.tab);
+  const [activeTab, setActiveTab] = useState<'standings' | 'timing'>(behavior.tab);
 
   const [showResultsOverlay, setShowResultsOverlay] = useState(false);
   const [overlayData, setOverlayData] = useState<{
@@ -362,10 +362,10 @@ export default function Observation() {
   // effect, for the reason RaceControl pins its heat the same way: an effect
   // shows the old tab for a frame and then corrects it, which on a projector
   // is a visible flick.
-  const [prevTab, setPrevTab] = useState(behaviour.tab);
-  if (behaviour.tab !== prevTab) {
-    setPrevTab(behaviour.tab);
-    setActiveTab(behaviour.tab);
+  const [prevTab, setPrevTab] = useState(behavior.tab);
+  if (behavior.tab !== prevTab) {
+    setPrevTab(behavior.tab);
+    setActiveTab(behavior.tab);
   }
 
   // Ensure body scroll is hidden in the full-screen views. The slideshow is
@@ -374,11 +374,11 @@ export default function Observation() {
   // until the room is full.
   const isFullScreenView =
     isProjectorMode ||
-    behaviour.slideshow ||
-    behaviour.standingsOnly ||
-    behaviour.checkin ||
-    behaviour.qrcode ||
-    behaviour.overlay;
+    behavior.slideshow ||
+    behavior.standingsOnly ||
+    behavior.checkin ||
+    behavior.qrcode ||
+    behavior.overlay;
 
   // Tell the app's furniture to get out of the way. `Navigation` cannot work
   // this out for itself any more: an assigned view changes no URL, so before
@@ -481,10 +481,10 @@ export default function Observation() {
   // overlay out from under the room the instant the payload arrives.
   // `intermissionActive` is a dependency precisely so the redirect that was
   // skipped fires the moment the break ends, rather than waiting on
-  // `behaviour.redirectTo` to change again.
+  // `behavior.redirectTo` to change again.
   useEffect(() => {
-    if (behaviour.redirectTo && !intermissionActive) navigate(behaviour.redirectTo, { replace: true });
-  }, [behaviour.redirectTo, intermissionActive, navigate]);
+    if (behavior.redirectTo && !intermissionActive) navigate(behavior.redirectTo, { replace: true });
+  }, [behavior.redirectTo, intermissionActive, navigate]);
 
   // The Display surface's theme (#498) — this whole page, projector mode or
   // not, is the audience-facing surface the spec means by "Display". Every
@@ -567,7 +567,7 @@ export default function Observation() {
   // opening payload (on load, or on reconnect) is history, not news, and the
   // key includes `recordedAt` so a re-recorded heat — which reuses its round
   // name and heat number — is news a second time (#335).
-  if ((isProjectorMode || behaviour.overlay) && timingStatsData?.timingStats) {
+  if ((isProjectorMode || behavior.overlay) && timingStatsData?.timingStats) {
     const observation = observeHeatResult(seenHeatResult, timingStatsData.timingStats);
     if (observation.seen !== seenHeatResult) {
       setSeenHeatResult(observation.seen);
@@ -587,10 +587,10 @@ export default function Observation() {
     if (showResultsOverlay) {
       const timer = setTimeout(() => {
         setShowResultsOverlay(false);
-      }, behaviour.overlay ? 10000 : 5000);
+      }, behavior.overlay ? 10000 : 5000);
       return () => clearTimeout(timer);
     }
-  }, [showResultsOverlay, seenHeatResult, behaviour.overlay]);
+  }, [showResultsOverlay, seenHeatResult, behavior.overlay]);
 
   // Play sound effects for heat finish or track record break (#554).
   // Off by default on audience displays, remembered per device.
@@ -836,8 +836,8 @@ export default function Observation() {
   // simply never seen at a small viewport. `useMeasuredPages` is the same
   // mechanism `StandingsOnlyView` already uses for the full-screen
   // `STANDINGS_ONLY` view, reused here for the tab; the operator's existing
-  // per-display "seconds" and paging/auto-scroll settings (`behaviour.
-  // cycleMs`/`behaviour.scrollBehavior`) are the cadence, unchanged and with
+  // per-display "seconds" and paging/auto-scroll settings (`behavior.
+  // cycleMs`/`behavior.scrollBehavior`) are the cadence, unchanged and with
   // no new control to learn — see `displays.md`'s "What a small screen
   // drops". Declared here, ahead of every early `return` below (the
   // slideshow, `STANDINGS_ONLY`, check-in, QR code, overlay, projector and
@@ -888,8 +888,8 @@ export default function Observation() {
   }, [activeTab]);
 
   const standingsPages = useMeasuredPages(standingsWrapperRef, standingsTableRef, effectiveStandings, {
-    behavior: behaviour.scrollBehavior,
-    cycleMs: behaviour.cycleMs,
+    behavior: behavior.scrollBehavior,
+    cycleMs: behavior.cycleMs,
     reservePx: standingsHeadHeightPx,
     // Falls back to the hook's own default guess until a real row has
     // rendered and been measured — same "guess, then measure" shape as
@@ -1448,7 +1448,7 @@ export default function Observation() {
   // Ahead of both other modes: it is a full-screen view of its own rather than
   // a tab, and it deliberately shows none of the race furniture — the point is
   // the photographs, on a screen across a room.
-  if (behaviour.slideshow) {
+  if (behavior.slideshow) {
     return (
       <div
         className="container projector-mode"
@@ -1460,7 +1460,7 @@ export default function Observation() {
         <PhotoSlideshow
           racers={initialData?.race?.racers ?? []}
           racingGroups={initialData?.race?.racingGroups ?? []}
-          intervalMs={behaviour.cycleMs}
+          intervalMs={behavior.cycleMs}
           loading={initialResult.fetching && !initialData}
           nameDisplay={nameDisplay}
         />
@@ -1473,7 +1473,7 @@ export default function Observation() {
   // whose standings do not fit alongside them. Ahead of the standard mode
   // render for the same reason the slideshow is: this is a view of its own,
   // not a tab within the usual layout.
-  if (behaviour.standingsOnly) {
+  if (behavior.standingsOnly) {
     return (
       <div
         className="container projector-mode"
@@ -1507,8 +1507,8 @@ export default function Observation() {
           formatScore={effectiveFormatScore}
           dnfAnnotation={dnfAnnotation}
           vehicle={vehicle}
-          scrollBehavior={behaviour.scrollBehavior}
-          cycleMs={behaviour.cycleMs}
+          scrollBehavior={behavior.scrollBehavior}
+          cycleMs={behavior.cycleMs}
           phoneTier={density.phoneTier}
         />
       </div>
@@ -1520,7 +1520,7 @@ export default function Observation() {
   // entrance or the gym wall before racing starts. Ahead of the standard mode
   // render for the same reason every other full-screen view here is: this is
   // a view of its own, not a tab within the usual layout.
-  if (behaviour.checkin) {
+  if (behavior.checkin) {
     return (
       <div
         className="container projector-mode"
@@ -1547,7 +1547,7 @@ export default function Observation() {
           racingGroups={initialData?.race?.racingGroups ?? []}
           nameDisplay={nameDisplay}
           groupWord={group}
-          showCheckedIn={behaviour.showCheckedIn}
+          showCheckedIn={behavior.showCheckedIn}
           // Racing "beginning" is the first heat's result landing — the same
           // signal `timingStats` (`lastHeatResults`) already carries for the
           // Last Heat's Times tab, so this costs no extra query. Once true
@@ -1567,7 +1567,7 @@ export default function Observation() {
   // or an auxiliary TV during check-in or intermission. Ahead of the standard
   // mode render for the same reason every other full-screen view here is:
   // this is a view of its own, not a tab within the usual layout.
-  if (behaviour.qrcode) {
+  if (behavior.qrcode) {
     return (
       <div
         className="container projector-mode"
@@ -1584,7 +1584,7 @@ export default function Observation() {
         <IdentifyPresence name={identify.name} showConnectBadge={identify.showConnectBadge} showFlash={identify.showFlash} />
         <QRCodeDisplayView
           raceId={id}
-          target={behaviour.qrTarget}
+          target={behavior.qrTarget}
           headline={initialData?.race?.qrHeadline}
           wifiNote={initialData?.race?.qrWifiNote}
         />
@@ -1602,7 +1602,7 @@ export default function Observation() {
   // docstring for why transparency here is the whole feature, and why the
   // rest of the Display theme's tokens (the accent color on filled badges)
   // still apply.
-  if (behaviour.overlay) {
+  if (behavior.overlay) {
     const overlayHeatLabel = isExhibition
       ? `${vehicle} exhibition run`
       : officialCurrentHeat
@@ -1639,7 +1639,7 @@ export default function Observation() {
           scoreLabel={scoreLabel}
           formatScore={formatScore}
           dnfAnnotation={dnfAnnotation}
-          showStandingsTicker={behaviour.showStandingsTicker}
+          showStandingsTicker={behavior.showStandingsTicker}
           finishBanner={showResultsOverlay && overlayData ? overlayData : null}
         />
       </div>
@@ -2066,11 +2066,11 @@ export default function Observation() {
                 width: '100%',
                 borderCollapse: 'collapse',
                 transform:
-                  behaviour.scrollBehavior === 'SMOOTH' ? `translateY(-${standingsPages.offset}px)` : undefined,
+                  behavior.scrollBehavior === 'SMOOTH' ? `translateY(-${standingsPages.offset}px)` : undefined,
                 // Matches `StandingsOnlyView`'s own transition length — short
                 // enough that discrete jumps every 50ms read as continuous
                 // motion rather than a stutter.
-                transition: behaviour.scrollBehavior === 'SMOOTH' ? 'transform 60ms linear' : undefined,
+                transition: behavior.scrollBehavior === 'SMOOTH' ? 'transform 60ms linear' : undefined,
               }}
             >
               <thead ref={standingsHeadRef} style={{ backgroundColor: 'var(--display-accent-color)', color: 'var(--display-on-accent-color)' }}>
@@ -2169,7 +2169,7 @@ export default function Observation() {
             flex column, `flexShrink: 0` — its own small height is what the
             wrapper's `flex: 1` yields to, rather than a row the wrapper
             could ever clip. */}
-        {activeTab === 'standings' && behaviour.scrollBehavior === 'PAGING' && standingsPages.pageCount > 1 && (
+        {activeTab === 'standings' && behavior.scrollBehavior === 'PAGING' && standingsPages.pageCount > 1 && (
           <div
             data-testid="standings-tab-page-indicator"
             style={{

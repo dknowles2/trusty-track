@@ -184,14 +184,14 @@ test('lanes in service sits under the lane count, and looks different from lane 
 
     // Look: the two chip rows read as different tools before any state
     // changes — a squared checkbox chip for lanes in service, a circular
-    // swatch for lane colours — not the same bordered pill twice over.
+    // swatch for lane colors — not the same bordered pill twice over.
     const serviceChip = card.locator('.lane-service-chip').first();
-    const colourSwatch = card.locator('.lane-colour-swatch').first();
+    const colorSwatch = card.locator('.lane-color-swatch').first();
     await expect(serviceChip).toBeVisible();
-    await expect(colourSwatch).toBeVisible();
+    await expect(colorSwatch).toBeVisible();
     const [serviceRadius, swatchRadius] = await Promise.all([
         serviceChip.evaluate((el) => getComputedStyle(el).borderRadius),
-        colourSwatch.evaluate((el) => getComputedStyle(el).borderRadius),
+        colorSwatch.evaluate((el) => getComputedStyle(el).borderRadius),
     ]);
     expect(serviceRadius).not.toBe(swatchRadius);
 });

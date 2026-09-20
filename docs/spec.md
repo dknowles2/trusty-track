@@ -161,7 +161,7 @@ The Official BSA Guidelines — Scouting Blue (`#003F87`), Cub Scouting Gold
 (`#FCD116`) — are **Field Uniform**, the default of seven themes an operator
 can pick from (#498), not a fixed requirement. Three surfaces theme
 independently: **App** (the operator's own screens), **Display** (the
-audience/projector views), and **Printables** (pit passes, licences, heat
+audience/projector views), and **Printables** (pit passes, licenses, heat
 sheets, certificates, results sheets). See
 [the Themes reference page](reference/themes.md) for the full list and what
 each is for.

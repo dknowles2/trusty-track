@@ -148,7 +148,7 @@ _The list narrows as you type, matching on car number as well as name. Click a n
 6. After assigning all photos, click **Apply N Assignment(s)** to save.
 
 ![The Apply button and the assignment counter](assets/screenshots/race-day/24-bulk-upload-assigned.png)
-_Two photos assigned and one still to go. **Apply** stays greyed out until at least one photo has a racer against it, and the footer beside it counts how many are ready._
+_Two photos assigned and one still to go. **Apply** stays grayed out until at least one photo has a racer against it, and the footer beside it counts how many are ready._
 
 Photos that are uploaded but not assigned to any racer are silently skipped — only photos with a racer selected are saved. Assignments can be applied at any time during or after check-in; the photos will be visible on the audience display during the race.
 
@@ -182,7 +182,7 @@ Until the first heat has been recorded, a readiness panel sits at the top of the
 | **Schedule** | How many heats exist. |
 | **Displays** | How many audience screens are currently connected. |
 
-Red means you cannot run a heat yet; amber means you can, but something is worth a look — a queue still at the check-in desk, most often. Displays are reported in grey because having no audience screen is a choice rather than a problem.
+Red means you cannot run a heat yet; amber means you can, but something is worth a look — a queue still at the check-in desk, most often. Displays are reported in gray because having no audience screen is a choice rather than a problem.
 
 Once nothing needs attention the panel collapses to a single line, and it disappears entirely as soon as a heat has been recorded — from that point the timer badge and the race execution screen report anything that goes wrong.
 
@@ -220,7 +220,7 @@ Set **Runs per lane** (default: 1, "Everyone races in every lane" only). Increas
 ![Round Wizard — Step 1](assets/screenshots/race-day/07-round-wizard-step1.png)
 _Step 1: "Everyone races in every lane" is the most common choice, and the most common format under it is "All Pack"._
 
-With "Everyone races in every lane" chosen, a second, collapsed choice appears: **How heats are built**. Click it to open it — most packs never need to. Partial Perfect Chart is selected by default and is the right choice for almost every field; the other two options (Lane rotation, Perfect-N) each show a one-line description of what they guarantee, and an option greyed out says why it can't be used for your current roster and track. See [Scheduling algorithms](scheduling-algorithms.md) for the full comparison.
+With "Everyone races in every lane" chosen, a second, collapsed choice appears: **How heats are built**. Click it to open it — most packs never need to. Partial Perfect Chart is selected by default and is the right choice for almost every field; the other two options (Lane rotation, Perfect-N) each show a one-line description of what they guarantee, and an option grayed out says why it can't be used for your current roster and track. See [Scheduling algorithms](scheduling-algorithms.md) for the full comparison.
 
 ![Round Wizard — How heats are built](assets/screenshots/race-day/34-round-wizard-how-heats-are-built.png)
 _"How heats are built," opened: Partial Perfect Chart is the default, and each option says what it guarantees._
@@ -388,7 +388,7 @@ want to hand out hardware for it.
 If you need to adjust the heat order before racing begins (for example, to separate siblings or accommodate a late arrival), drag a heat by the handle at the left-hand end of its row to move it within its round.
 
 > [!NOTE]
-> A heat can only be moved while it has no times against it. Once a heat has been run its handle is greyed out; a heat you skipped can still be moved, because it has no times.
+> A heat can only be moved while it has no times against it. Once a heat has been run its handle is grayed out; a heat you skipped can still be moved, because it has no times.
 
 ![Heat Reordering](assets/screenshots/race-day/11-heat-reordering.png)
 _Drag the handle at the left-hand end of a heat's row to reorder it within the round._
@@ -397,7 +397,7 @@ _Drag the handle at the left-hand end of a heat's row to reorder it within the r
 > **Print the running order** once the schedule is settled. **Heat sheet**, beside Add Round, gives you a table per round with an empty column to write results into — the one thing that still works when the wifi drops. See the [Printables guide](printables.md#the-heat-sheet).
 
 > [!TIP]
-> **Jumping Ahead:** If you want to run a later heat immediately, click the **Run** button on that heat in the Schedule view. Trusty Track will automatically move it to be the next heat in the order and take you directly to the **Race** tab. This only works within the round you are on — **Run** is greyed out on a round that is still waiting for an earlier one to finish.
+> **Jumping Ahead:** If you want to run a later heat immediately, click the **Run** button on that heat in the Schedule view. Trusty Track will automatically move it to be the next heat in the order and take you directly to the **Race** tab. This only works within the round you are on — **Run** is grayed out on a round that is still waiting for an earlier one to finish.
 
 ---
 

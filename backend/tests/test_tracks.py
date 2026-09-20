@@ -444,7 +444,7 @@ class TestLaneColors:
         message = resp["errors"][0]["message"]
         assert (
             message
-            == "Lane 1's colour must be a hex value like #E53935, got 'not-a-color'."
+            == "Lane 1's color must be a hex value like #E53935, got 'not-a-color'."
         )
         # #1023: `str.capitalize()` used to lower-case the hex example
         # ("#e53935") along with the rest of the message.

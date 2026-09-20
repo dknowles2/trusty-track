@@ -43,7 +43,7 @@ That one answer does three things differently from a pack's own derby:
   **Pack** and **Den** — a racer's home pack keeps its own word regardless;
   see [below](#the-roster-a-racers-own-home-pack).
 - The **Dens** step still scaffolds the same six Cub Scout ranks, in their
-  rank colours, now labelled **Ranks** under a **District**. Remove the
+  rank colors, now labelled **Ranks** under a **District**. Remove the
   ones nobody is sending tonight the same way you would remove a den from
   a pack's own list — a district rarely fields all six.
 - The **Round Wizard**, once you reach the Schedule tab, opens with

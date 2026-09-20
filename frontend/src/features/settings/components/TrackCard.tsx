@@ -45,7 +45,7 @@
  * keep that legible before either has any state to show, the two rows are
  * drawn differently too: Lanes in service is squared, checkbox-first chips
  * (`.lane-service-chip`); Lane colours is a bare swatch per lane
- * (`.lane-colour-swatch`), no pill around the pair.
+ * (`.lane-color-swatch`), no pill around the pair.
  */
 
 import { Link } from 'react-router-dom';
@@ -296,7 +296,7 @@ export default function TrackCard({
           this row reads as "colours" and not as the checkbox-shaped chips
           in Lanes in service above. */}
       <div style={{ marginBottom: '1rem' }}>
-        <span style={fieldLabel}>Lane colours (optional)</span>
+        <span style={fieldLabel}>Lane colors (optional)</span>
         <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
           {lanesOf(track.laneCount).map((lane) => {
             const hex = colorForLane(track.laneColors ?? [], lane);
@@ -312,11 +312,11 @@ export default function TrackCard({
               >
                 <input
                   type="color"
-                  className="lane-colour-swatch"
+                  className="lane-color-swatch"
                   id={`track-lane-color-${index}-${lane}`}
                   value={hex ?? '#ffffff'}
-                  title={name ? `Lane ${lane}: ${name}` : `Lane ${lane} colour`}
-                  aria-label={`Lane ${lane} colour`}
+                  title={name ? `Lane ${lane}: ${name}` : `Lane ${lane} color`}
+                  aria-label={`Lane ${lane} color`}
                   onChange={(e) =>
                     onLaneColors(setLaneColor(track.laneColors ?? [], lane, e.target.value))
                   }
@@ -325,7 +325,7 @@ export default function TrackCard({
                 {hex && (
                   <button
                     type="button"
-                    aria-label={`Clear lane ${lane} colour`}
+                    aria-label={`Clear lane ${lane} color`}
                     onClick={() => onLaneColors(setLaneColor(track.laneColors ?? [], lane, ''))}
                     style={{
                       background: 'none',
@@ -351,7 +351,7 @@ export default function TrackCard({
               className="secondary-btn"
               onClick={() => onLaneColors(presetColors(track.laneCount))}
             >
-              Use standard colours
+              Use standard colors
             </button>
           )}
           {(track.laneColors ?? []).some(Boolean) && (
@@ -361,10 +361,10 @@ export default function TrackCard({
           )}
         </div>
         <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.25rem' }}>
-          Matches a lane number to the colour painted on the physical track — for
+          Matches a lane number to the color painted on the physical track — for
           example &quot;put {vehicleLower} #12 in the blue lane.&quot; &quot;Use
-          standard colours&quot; is a starting point, not a lock-in: pick any
-          lane&apos;s own colour afterwards to match your track exactly.
+          standard colors&quot; is a starting point, not a lock-in: pick any
+          lane&apos;s own color afterwards to match your track exactly.
         </small>
       </div>
 

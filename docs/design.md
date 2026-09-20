@@ -48,7 +48,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `vehicle_singular`, `vehicle_plural` (`varchar`, nullable — #551) — the install-wide default word for a racer's vehicle, replacing "Car"/"Cars". The third configurable term, same null-means-inherit shape as the two pairs above; storage identifiers (`car_number`, `car_name`, `CarNumberingStrategy`, ...) are deliberately not renamed — only the word a screen shows is configurable.
     -   `vehicle_artwork_key` (`varchar`, nullable — #551 stage 4) — which line-art picture goes with the vehicle word: one of `domain.terminology.VEHICLE_ARTWORK_KEYS` (`"car"`, `"rocket"`, `"boat"`). A plain string, the same shape `Award.artwork_key` already uses, and independent of the word itself — an operator can rename "Car" to "Speedster" without losing the rocket picture. `frontend/src/features/printables/components/PrintDecor.tsx`'s `VehicleGlyph` is the only place a key becomes a picture; an unrecognised key renders nothing.
     -   `name_display` (`varchar`, nullable — #552) — the install-wide default for how much of a racer's name a public screen may show: one of `domain.name_display.NAME_DISPLAY_VALUES` (`"FULL"`, `"LAST_INITIAL"`, `"FIRST_ONLY"`). Null means `"FULL"`, and unlike the terminology columns above `"FULL"` is itself a reachable value — a closed three-value choice, not free text — so there is no `clearNameDisplay`-style flag at this layer. `domain/name_display.py` resolves this and `Race`'s own override below into what `Race.resolvedNameDisplay` / `InitialConfigStatus.resolvedNameDisplay` return; nothing server-side branches on the value otherwise, since every abbreviating surface renders client-side through `frontend/src/features/core/displayName.ts`.
-    -   `keep_replays` (Boolean, default `false` — #177 stage 2) — whether a stored replay clip survives longer than delete-after-next-heat. Off keeps stage 1a's exact behaviour. Set through `updateInitialConfig`, deliberately not split into its own `setDebugMode`/`setThemes`-style mutation (#1079, #1080) — this one needs to stay inside that mutation's wholesale demo refusal, not escape it.
+    -   `keep_replays` (Boolean, default `false` — #177 stage 2) — whether a stored replay clip survives longer than delete-after-next-heat. Off keeps stage 1a's exact behavior. Set through `updateInitialConfig`, deliberately not split into its own `setDebugMode`/`setThemes`-style mutation (#1079, #1080) — this one needs to stay inside that mutation's wholesale demo refusal, not escape it.
     -   `replay_retention_heats`, `replay_retention_mb` (Integer, nullable — #177 stage 2) — two independent, optional bounds applied once `keep_replays` is on: the last N heats with a clip, and a total-size cap in megabytes. Null means unbounded at that one dimension; both null means genuinely unbounded.
 -   **`Track`**: Configuration of the physical track.
     -   `id` (PK)
@@ -80,7 +80,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `global_start_number` (if GLOBAL, default 1)
     -   `championship_trophies` (int, number of top finishers for championship, default 3)
     -   `scoring_strategy` (Enum: `TIMED`, `POINTS` - default `TIMED`)
-    -   `tiebreaker` (Enum: `SHARED`, `BEST_TIME`, `TOTAL_TIME`, `COUNTBACK`, `HEAD_TO_HEAD` - default `SHARED`) — how a shared score is broken at a cut: advancement, an award's place (#540). `SHARED` means not resolved — a cut still reports the tie and takes a provisional pick, today's behaviour made visible rather than a new default nobody chose. Resolved in `services.scoring.get_leaderboard` alone (`domain/tiebreak.py` holds the five rules), never stored — the same "computed on every read" shape the standings themselves follow (#17).
+    -   `tiebreaker` (Enum: `SHARED`, `BEST_TIME`, `TOTAL_TIME`, `COUNTBACK`, `HEAD_TO_HEAD` - default `SHARED`) — how a shared score is broken at a cut: advancement, an award's place (#540). `SHARED` means not resolved — a cut still reports the tie and takes a provisional pick, today's behavior made visible rather than a new default nobody chose. Resolved in `services.scoring.get_leaderboard` alone (`domain/tiebreak.py` holds the five rules), never stored — the same "computed on every read" shape the standings themselves follow (#17).
     -   `rules_configuration` (JSON string, optional — vestigial; nothing reads or writes it)
     -   `weight_limit_oz` (Float, optional — the pack's weight limit; null means the race does not check weights)
     -   `auto_advance_heat` (Boolean — move to the next heat on a countdown after a result)
@@ -279,7 +279,7 @@ download and the other a file upload, and they carry their own role check —
 `RolePolicyExtension` guards GraphQL mutations and these are not GraphQL, which
 is the same reason `/ws/timer/{track_id}` checks for itself.
 
-The driver's licence and pit pass have **no endpoint**. They are HTML the
+The driver's license and pit pass have **no endpoint**. They are HTML the
 browser prints, rendered by the frontend at `/race/:raceId/print` — there is no
 PDF toolchain on a Raspberry Pi, the branding already lives in the frontend,
 and a sheet of sixty is a CSS grid rather than a page-composition problem. The
@@ -356,7 +356,7 @@ The BSA Official Colors — Scouting Blue (`#003F87`) and Cub Scouting Gold
 (`#FCD116`) — are **Field Uniform**, the default of seven themes (#498), not
 a fixed requirement. Three surfaces are independently themeable: **App** (the
 operator's own screens), **Display** (the audience/projector views), and
-**Printables** (pit passes, licences, heat sheets, certificates). Each is a
+**Printables** (pit passes, licenses, heat sheets, certificates). Each is a
 CSS custom property redefinition at that surface's own scoping root
 (`applyTheme` in `frontend/src/theming/applyTheme.ts`), never a generated
 stylesheet — the seven records in `frontend/src/theming/themes.ts` are the
