@@ -764,6 +764,34 @@ describe('the two connect blocks under Other devices (#1254, #1293)', () => {
         ).toBeInTheDocument();
     });
 
+    // #1300: the screen card gets the same placement, pointed at the
+    // displays guide, so the pair stays a pair.
+    it('links the screen card’s heading to the Observation & Audience Displays guide', () => {
+        renderConnectBlocks();
+        const screenBlock = screen.getByTestId('connect-screen-address');
+        const docsLink = within(screenBlock).getByTestId('docs-link');
+        expect(docsLink).toHaveAttribute('href', expect.stringContaining('observation-displays'));
+    });
+
+    // #1300: the camera card's own `?` opens the Instant Replay guide —
+    // the docs page the issue found unreachable from the one moment an
+    // operator actually needs it.
+    it('links the camera card’s heading to the Instant Replay guide', () => {
+        renderConnectBlocks();
+        const cameraBlock = screen.getByTestId('connect-camera-address');
+        const docsLink = within(cameraBlock).getByTestId('docs-link');
+        expect(docsLink).toHaveAttribute('href', expect.stringContaining('instant-replay'));
+    });
+
+    // Same guide, on the "no track yet" notice card — whichever of the two
+    // renders, the link is there.
+    it('links the no-track notice card’s heading to the Instant Replay guide too', () => {
+        renderConnectBlocks({ raceTrackId: null });
+        const notice = screen.getByTestId('connect-camera-no-track');
+        const docsLink = within(notice).getByTestId('docs-link');
+        expect(docsLink).toHaveAttribute('href', expect.stringContaining('instant-replay'));
+    });
+
     it('presets the race’s own track, with no picker', () => {
         renderConnectBlocks({
             tracks: [

@@ -44,8 +44,9 @@
  * row outright, for the one case with no address to show at all (a race
  * with no track yet, #1293) — it still gets the same border, heading and
  * caption every other card gets, rather than a hand-built copy of just
- * those three things. `headingExtra` is an unused slot in the heading row,
- * reserved for #1300's `DocsLink` — nothing renders there today.
+ * those three things. `headingExtra` is the heading row's own slot for a
+ * `DocsLink` (#1300) — `DisplaysPanel.tsx` passes one to both "Connect a…"
+ * cards, so the `?` sits in the same place whichever renders.
  *
  * The address row itself is two slots, left (the sentence, the address,
  * Copy) and right (a fixed 100×100 QR box, reserved even before the QR has
