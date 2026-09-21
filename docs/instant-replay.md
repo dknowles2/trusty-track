@@ -17,9 +17,12 @@ shows the actual race.
 
 - A device with a camera — a phone propped on a tripod or a stack of books
   works fine, and so does a laptop's built-in webcam.
-- A recent browser: **Chrome, Edge, or Safari 16.4 or later.** Firefox does
-  not have the video pipeline this feature is built on and is not
-  supported. See [Browser requirements](#browser-requirements) below.
+- A recent browser: **Chrome, Edge, or Safari 16.4 or later** — on a phone,
+  a tablet or a computer, iOS included: every browser on iOS is Safari's
+  own engine under its own skin, whatever it calls itself, so there is
+  nothing to switch to or away from there. Firefox does not have the video
+  pipeline this feature is built on and is not supported. See
+  [Browser requirements](#browser-requirements) below.
 - Trusty Track reached over **HTTPS**, or on the same machine that is
   running it (`localhost`). See [A note on HTTPS](#a-note-on-https).
 - Nothing to install — the camera page is a normal web page, like the
@@ -320,12 +323,22 @@ regardless of how long that particular heat actually took to run.
 | Browser | Supported |
 | --- | --- |
 | Chrome, Edge (desktop or Android) | Yes |
-| Safari 16.4 or later (macOS, iOS) | Yes |
+| Safari 16.4 or later (macOS) | Yes |
+| Safari 16.4+ and any iPhone/iPad browser (Chrome, Edge, Safari — all Safari's own engine on iOS) | Yes, via the canvas capture path — not yet verified on a physical iPhone; see [#1294](https://github.com/dknowles2/trusty-track/issues/1294) |
 | Firefox | No |
+
+Every browser on iOS — Chrome, Edge, Safari, anything else the App Store
+offers — is Safari's own engine (WebKit) wearing a different name, so
+"switch browsers" is never the advice there. What actually distinguishes a
+supported iPhone or iPad from an unsupported one is its iOS *version*, not
+which app icon was tapped to get here.
 
 The camera page checks this itself and says so plainly rather than failing
 partway through a heat — open it in an unsupported browser and it explains
-what to use instead before ever asking for camera permission.
+what to use instead before ever asking for camera permission. On an iPhone
+or iPad too old to support this feature at all, the message says to update
+iOS rather than naming a different browser, since no browser install would
+help.
 
 ---
 
