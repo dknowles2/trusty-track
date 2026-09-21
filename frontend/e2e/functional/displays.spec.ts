@@ -290,18 +290,18 @@ test('the Connect a screen and Connect a camera cards line up as a pair (#1292)'
     // grows wider than its own viewport.
     //
     // #1313: `.connect-devices-row`'s own grid collapse to one column is
-    // plain CSS, synchronous with the resize — but this page's own
-    // `RaceViewHeading` also hides itself below 768px, and that is
-    // `useNarrowViewport`'s React state, set from a `resize` *listener*
-    // rather than from the resize itself. `setViewportSize` fires the
-    // event and returns; the grid has already collapsed by the next
-    // frame, but the heading's removal (and the height it frees up above
-    // this pair) lands on whichever render the listener's `setNarrow`
-    // call happens to trigger. A `boundingBox()` read taken in that
-    // window can catch the pair still sitting at the taller, heading-still-
-    // present position, ~87px above where it settles once the heading is
-    // actually gone (measured in the issue: a transient y of 623.14 versus
-    // a steady-state 553.14, a 70px gap of the same shape). Poll the gap
+    // plain CSS, synchronous with the resize — but everything above this
+    // pair that changes shape at 768px does so through React state set from
+    // a `resize` *listener*, not from the resize itself: `Navigation`'s
+    // desktop row becoming the mobile pill and bottom tab bar, and
+    // `RaceViewHeading` hiding its `<h1>` (`useNarrowViewport`).
+    // `setViewportSize` fires the event and returns; the grid has already
+    // collapsed by the next frame, but the height those swaps free up above
+    // the pair lands on whichever render the listeners' `setState` calls
+    // happen to trigger. A `boundingBox()` read taken in that window can
+    // catch the pair still sitting at its taller, pre-swap position (the
+    // issue measured a transient y of 623.14 against a steady-state 553.14;
+    // the real failures were 70–90px off in the same shape). Poll the gap
     // between the two cards until it has settled rather than reading once.
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(screenBlock).toBeVisible();
