@@ -764,13 +764,14 @@ describe('the two connect blocks under Other devices (#1254, #1293)', () => {
         ).toBeInTheDocument();
     });
 
-    // #1300: the screen card gets the same placement, pointed at the
-    // displays guide, so the pair stays a pair.
-    it('links the screen card’s heading to the Observation & Audience Displays guide', () => {
+    // #1300: the screen card gets no `?` of its own — this page's own
+    // `<h1>` (`DisplaysPage.tsx`) already carries `docsKey="displays"`, and
+    // a second link to that identical guide on the same page is the
+    // duplicate `docsLinks.spec.ts` exists to catch.
+    it('gives the screen card no docs link of its own', () => {
         renderConnectBlocks();
         const screenBlock = screen.getByTestId('connect-screen-address');
-        const docsLink = within(screenBlock).getByTestId('docs-link');
-        expect(docsLink).toHaveAttribute('href', expect.stringContaining('observation-displays'));
+        expect(within(screenBlock).queryByTestId('docs-link')).toBeNull();
     });
 
     // #1300: the camera card's own `?` opens the Instant Replay guide —

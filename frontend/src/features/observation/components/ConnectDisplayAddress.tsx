@@ -45,8 +45,12 @@
  * with no track yet, #1293) — it still gets the same border, heading and
  * caption every other card gets, rather than a hand-built copy of just
  * those three things. `headingExtra` is the heading row's own slot for a
- * `DocsLink` (#1300) — `DisplaysPanel.tsx` passes one to both "Connect a…"
- * cards, so the `?` sits in the same place whichever renders.
+ * `DocsLink` (#1300) — `DisplaysPanel.tsx` passes one to both camera
+ * cards (the address one and the no-track notice), so the `?` sits in the
+ * same place whichever renders. The screen card gets none: the page's own
+ * `<h1>` already links to the same guide the screen card would, and a
+ * second link to it on one page is the duplicate `docsLinks.spec.ts`
+ * exists to catch.
  *
  * The address row itself is two slots, left (the sentence, the address,
  * Copy) and right (a fixed 100×100 QR box, reserved even before the QR has
