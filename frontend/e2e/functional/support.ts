@@ -130,12 +130,20 @@ export const RACERS = [
  * rather than an error, which is a confusing way for a spec to fail.
  */
 export async function seedRace(page: Page, name: string): Promise<SeededRace> {
-    // A retry re-seeds, and `races.name` is unique on a backend shared by the
-    // whole run — so without a per-attempt suffix a retry hit the constraint
-    // and failed for certain, defeating the very mechanism that exists for
-    // shared-runner flakes (#237). First attempts keep their given names.
-    const retry = test.info().retry;
+    // A retry re-seeds, and so does a `--repeat-each` repetition — a
+    // different counter (`repeatEachIndex`), which runs the same test body
+    // several times in the same worker with `retry` staying 0 throughout —
+    // and `races.name` is unique on a backend shared by the whole run, so
+    // without a per-attempt suffix either one hit the constraint and failed
+    // for certain. That defeats the mechanism each counter exists for: a
+    // retry survives a shared-runner flake (#237), and `--repeat-each` is how
+    // a flake is hunted by running a spec many times in one invocation — #1313
+    // had to fall back to separate invocations instead, for lack of this.
+    // First attempts keep their given names; a retried repetition gets both
+    // suffixes.
+    const { retry, repeatEachIndex } = test.info();
     if (retry > 0) name = `${name} (retry ${retry})`;
+    if (repeatEachIndex > 0) name = `${name} (repeat ${repeatEachIndex})`;
 
     await ensureConfigured(page);
 
