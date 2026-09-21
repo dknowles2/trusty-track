@@ -824,6 +824,25 @@ describe('the settings sections', () => {
         expect(swatch).toBeVisible();
     });
 
+    it('keeps the Replays block behind its own closed disclosure on the first run (#1298)', async () => {
+        // Advanced renders inline on the wizard, with no nav — but an
+        // off-by-default *storage* option sitting in plain view on a
+        // section whose own blurb says "not for a first look" reads as a
+        // decision the wizard is asking for. A closed `<details>`, the
+        // same shape Look & sound's own disclosure uses, keeps it in the
+        // document (a first-timer can still meet the setting) without
+        // competing for attention. Debugging Mode is unaffected — an
+        // ordinary boolean with no such hazard.
+        renderWith({ initialized: false, organizationName: '', tracks: [] });
+
+        expect(await screen.findByLabelText('Debugging Mode')).toBeVisible();
+        const checkbox = screen.getByTestId('keep_replays');
+        expect(checkbox).not.toBeVisible();
+
+        await fireEvent.click(screen.getByText(/Replays — keep finish-line clips/));
+        expect(checkbox).toBeVisible();
+    });
+
     it('shows one section at a time once the install is configured', async () => {
         renderWith(configured);
 
@@ -888,6 +907,18 @@ describe('the settings sections', () => {
         const advancedPanel = screen.getByTestId('advanced-panel');
         expect(within(advancedPanel).getByTestId('replay-retention-fields')).toBeInTheDocument();
         expect(within(advancedPanel).getByLabelText('Debugging Mode')).toBeInTheDocument();
+    });
+
+    it('renders the Replays block inline on the sectioned page, not behind a disclosure (#1298)', async () => {
+        // The closed-by-default `<details>` is a wizard-only concession —
+        // an operator who has already opened Advanced from the nav asked
+        // to be here, the same reasoning Look & sound's own disclosure is
+        // skipped for once the install is configured.
+        renderWith(configured);
+
+        await openSection('advanced');
+        expect(screen.queryByText(/Replays — keep finish-line clips/)).toBeNull();
+        expect(screen.getByTestId('keep_replays')).toBeVisible();
     });
 
     it('the Advanced checkbox saves through setDebugMode, and the save payload carries none of the three split-out fields (#1079, #1080)', async () => {

@@ -65,7 +65,7 @@ or a different set of race-day sound effects. See
 ### Advanced
 
 - **Debugging Mode**: Off by default. Turning it on shows extra timer controls and logs during races — leave it off unless you're troubleshooting.
-- **Replays**: Off by default. Turning on **Keep replay clips** lets a camera's clip be played back later, on the Schedule tab or in Race Control, instead of being deleted the moment the next heat starts — see the [Instant Replay guide](instant-replay.md).
+- **Replays**, collapsed behind its own closed **Replays — keep finish-line clips on this machine** disclosure, since it's a storage setting most first runs can skip: turning on **Keep replay clips** lets a camera's clip be played back later, on the Schedule tab or in Race Control, instead of being deleted the moment the next heat starts — see the [Instant Replay guide](instant-replay.md).
 
 ![System Settings Form](assets/screenshots/getting-started/02-system-settings.png)
 

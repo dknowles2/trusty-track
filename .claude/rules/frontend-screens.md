@@ -272,6 +272,15 @@ held, Replays stopped fitting either: a clip is disk storage, the same kind
 of thing Debugging Mode already lives beside, not a look or a sound. It
 moved here, keeping its own test ids and behaviour, and Advanced's blurb
 grew a clause ("troubleshooting controls and replay storage") to say so.
+**On the wizard specifically, the block sits behind its own closed
+`<details>`** — the same disclosure shape Look & sound's own twenty-three
+swatches use, reused for the identical reason: Advanced renders inline
+with no nav on a fresh install, and an off-by-default storage option in
+plain view on a section whose blurb says "not for a first look" reads as a
+decision the wizard is asking for. Debugging Mode stays outside it — an
+ordinary boolean with no such hazard. The sectioned settings page renders
+the block inline, same as it always has, since an operator who opened
+Advanced from the nav asked to be there.
 
 **The two links out are section-nav entries now, not a separately boxed
 footnote** ([#959](https://github.com/dknowles2/trusty-track/issues/959)),

@@ -4,6 +4,11 @@ How the app, the wall display, and the printed pages look, and how to change
 it. Set from **System Settings → Look & sound** — for the walkthrough, see
 [Getting Started](../getting-started.md#look-sound).
 
+The same section also holds this device's race-day sound effects — the
+staging tone, the gate horn, the finish chime and the rest — which are
+unrelated to any of the three themes below; see
+[Sound Options](../race-day.md#sound-options).
+
 ## Three screens, three choices
 
 Trusty Track has three surfaces, and each has its own theme:

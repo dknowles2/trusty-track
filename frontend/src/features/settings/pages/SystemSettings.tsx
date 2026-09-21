@@ -1292,7 +1292,28 @@ export default function SystemConfig() {
           <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
           <small style={{ color: 'var(--text-muted-color)', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
         </div>
-        {replayControls}
+        {isEditing ? (
+          replayControls
+        ) : (
+          // On the wizard, Advanced renders inline with no nav — the same
+          // "shows the lot" page Look & sound's own disclosure exists for
+          // — but unlike a theme (every picker already defaults to the
+          // app's usual look), an off-by-default *storage* option sitting
+          // in plain view on a section whose own blurb says "not for a
+          // first look" reads as a decision the wizard is asking for. A
+          // closed `<details>`, the same shape Look & sound already uses,
+          // keeps it in the document (a first-timer can still meet the
+          // setting) without presenting it as one more thing to answer
+          // before Save Settings. Debugging Mode stays outside it — an
+          // ordinary boolean with no such hazard, same reasoning as
+          // "Advanced is the last form section" above.
+          <details>
+            <summary style={{ cursor: 'pointer', fontWeight: 'bold', marginBottom: '1rem' }}>
+              Replays — keep finish-line clips on this machine
+            </summary>
+            <div style={{ marginTop: '1rem' }}>{replayControls}</div>
+          </details>
+        )}
       </section>
     ),
   };
