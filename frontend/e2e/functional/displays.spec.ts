@@ -283,20 +283,33 @@ test('the Connect a camera code carries this race\'s own track, and scanning it 
     // backend's QR guard silently refused a `/camera` target, and the
     // block's own `onError` handler just hid the broken `<img>`, so the
     // address and Copy button looked complete with no code ever drawn.
+    //
+    // `expect.poll`, not a single `evaluate` — the QR PNG comes from the
+    // backend's own `/api/printables/vote-qr/...` route, and a plain
+    // `naturalWidth` read has no tolerance for that response being merely
+    // slow. Run 35554616738 caught exactly this: under a busy shard, both
+    // this image's request *and* the screen block's own (below — the same,
+    // unmodified component, so it is not specific to the camera target)
+    // sat with no recorded response for the whole ~34s the trace covers,
+    // failing a same-tick `naturalWidth` check three times running though
+    // nothing was actually wrong. Polling still catches the real bug this
+    // check exists for (#1282's guard refusing `/camera`): a refused
+    // request's `naturalWidth` never becomes positive, so `expect.poll`
+    // still fails, just at its own timeout rather than instantly.
     const cameraQr = cameraBlock.locator('img');
     await expect(cameraQr).toBeVisible();
-    expect(
-        await cameraQr.evaluate((img: HTMLImageElement) => img.naturalWidth),
-    ).toBeGreaterThan(0);
+    await expect
+        .poll(() => cameraQr.evaluate((img: HTMLImageElement) => img.naturalWidth), { timeout: 15000 })
+        .toBeGreaterThan(0);
 
     // The screen block shares the same component and the same guard, so it
     // gets the same check here rather than being taken on faith.
     const screenBlock = page.getByTestId('connect-screen-address');
     const screenQr = screenBlock.locator('img');
     await expect(screenQr).toBeVisible();
-    expect(
-        await screenQr.evaluate((img: HTMLImageElement) => img.naturalWidth),
-    ).toBeGreaterThan(0);
+    await expect
+        .poll(() => screenQr.evaluate((img: HTMLImageElement) => img.naturalWidth), { timeout: 15000 })
+        .toBeGreaterThan(0);
 
     // A second machine, with `&fake=1` appended so no real camera is
     // needed — the same flag `FakeCamera` uses throughout the instant
