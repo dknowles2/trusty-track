@@ -277,6 +277,30 @@ describe('a proxy track (#330)', () => {
         }
     });
 
+    it('mounts the connector inline, sharing the row rather than its own column (#1299)', async () => {
+        // Before #1299, this mount passed no `inline` prop, so the connector
+        // rendered its standalone block shape — a 20px-taller column with a
+        // bold, oversized button — beside the bare Reset button, and the two
+        // did not line up.
+        Object.defineProperty(navigator, 'serial', { value: {}, configurable: true });
+        try {
+            setupProxyTrack([proxyTrack()], {
+                state: 'DISCONNECTED',
+                deviceName: null,
+                port: null,
+                laneCount: null,
+                lastError: null,
+                serialLog: [],
+            });
+
+            const button = await screen.findByRole('button', { name: /Connect Hardware Timer/ });
+            expect(button.className).toContain('proxy-connect-btn--inline');
+            expect(document.querySelector('.proxy-connector-container')).not.toBeInTheDocument();
+        } finally {
+            delete (navigator as { serial?: unknown }).serial;
+        }
+    });
+
     it('offers the connector even without Web Serial support, rather than nothing', async () => {
         // jsdom has no `navigator.serial`, which is also true of Safari and
         // Firefox. Either way the operator gets an explanation, not a dead

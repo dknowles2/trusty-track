@@ -30,6 +30,16 @@
     cursor: not-allowed;
 }
 
+/* Row context (#1299): sized like the global `button` rule in index.css
+   (padding: 10px 20px; border-radius: var(--border-radius)) so it shares a
+   height and a corner radius with a plain <button> beside it, keeping only
+   the purple hardware colour as the connector's identity. */
+.proxy-connect-btn--inline {
+    padding: 10px 20px;
+    border-radius: var(--border-radius);
+    font-weight: normal;
+}
+
 .proxy-connector-error {
     display: flex;
     align-items: center;
@@ -40,6 +50,13 @@
     padding: 8px 12px;
     border-radius: 4px;
     border: 1px solid var(--danger-border-color);
+}
+
+/* Row context (#1299): the button's row parent carries `flexWrap: 'wrap'`
+   (TimerDiagnostics.tsx), so a full-width basis drops this onto its own
+   line beneath the row instead of squeezing in beside it. */
+.proxy-connector-error--inline {
+    flex-basis: 100%;
 }
 
 .proxy-connector-status.connected {
@@ -54,6 +71,19 @@
     margin-bottom: 20px;
 }
 
+/* Row context (#1299): the same padding and corner radius as Reset (the
+   global `button` rule), no `margin-bottom`. This is a status, not a
+   button — it keeps its own colour and text, and `cursor: default` rather
+   than the pointer a clickable control would get; there is no hover rule
+   to remove, since none was ever declared for this state. Combined with
+   `.connected` for specificity over the block-shape rule above. */
+.proxy-connector-status.connected.proxy-connector-status--inline {
+    padding: 10px 20px;
+    border-radius: var(--border-radius);
+    margin-bottom: 0;
+    cursor: default;
+}
+
 .proxy-connector-unsupported {
     display: flex;
     align-items: center;
@@ -64,4 +94,14 @@
     background: var(--danger-accent-bg-color);
     border-radius: 8px;
     margin-bottom: 20px;
+}
+
+/* Row context (#1299): no button exists in this state, so — like the
+   inline error notice above — this drops onto its own line beneath Reset
+   via `flex-basis: 100%` rather than squeezing in beside it, with no
+   `margin-bottom` pushing the row apart. Combined with the base class for
+   specificity over the block-shape rule above. */
+.proxy-connector-unsupported.proxy-connector-unsupported--inline {
+    margin-bottom: 0;
+    flex-basis: 100%;
 }
