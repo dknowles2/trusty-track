@@ -300,6 +300,23 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 0;
 }
 
+/* The one heading every race view renders (#1296, #1297) — Roster, Control,
+ * Standings, Awards, Stats, Displays. `1.5rem` is the value two of the six
+ * already chose before this; the browser's own `2em` default (what the
+ * other two got, having never set a size at all) was never a decision.
+ * `RaceViewHeading.tsx` is the only place this class is used. */
+.race-view-heading {
+  font-size: 1.5rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.race-view-heading-row {
+  margin-bottom: 1.5rem;
+}
+
 button {
   font-family: var(--font-header);
   border-radius: var(--border-radius);
