@@ -344,34 +344,22 @@ test('screenshot instant replay', async ({ page, browser }) => {
 
         // 13 (#1292): the "Other devices" row — the Connect a screen and
         // Connect a camera cards as a pair, the same height, their address
-        // rows and QR codes on the same lines. Both cards' own address text
-        // and QR are masked, and both genuinely need to be:
-        //
-        //   - The camera card's address carries `cameraWindowUrl`'s own
-        //     fresh `displayId`, minted on every mount with no way to pin
-        //     it from here (see `.claude/rules/displays.md`'s "A computer
-        //     can drive more than one screen" — there is no `?displayId=`
-        //     override for this URL the way `newDisplayWindowUrl`'s own
-        //     callers get one).
-        //   - Both cards' addresses also carry this spec's own `raceId`
-        //     (which shifts with whatever else the shared CI backend has
-        //     created first) and `shareUrl`'s substituted LAN address
-        //     (`services/network.lan_addresses()`, "best-effort" by its own
-        //     docs and different per machine — the same reason
-        //     `observation/13-qrcode.png` is excluded from the drift gate
-        //     outright, per `.claude/rules/documentation.md`).
-        //
-        // A first version of this capture masked only the camera card,
-        // reasoning the screen card's target (this race's own Live page)
-        // carried no per-mount id — true, but beside the point: two local
-        // runs on one machine (a fixed LAN address throughout) measured 0px
-        // that way, and it still drifted 444px/0.22% between two *separate*
-        // CI runners, confirmed by reading the PR's own drift-check comment
-        // after a first attempt landed — entirely inside the screen card's
-        // own address line, never inside the (masked) camera one. This
-        // crop is about the two cards lining up, not about either code's
-        // own pixels, so masking both is the honest fix rather than a
-        // partial one that happens to hold on a single developer machine.
+        // rows and QR codes on the same lines. Captured plainly, with no
+        // `mask` — this picture is what a parent volunteer reads in the
+        // guide, and a mask paints over exactly the two things the caption
+        // is about (the addresses and the QR codes). Masking was tried and
+        // reverted: both cards' addresses carry this spec's own `raceId`
+        // (shifts with whatever else the shared CI backend has created
+        // first) and `shareUrl`'s substituted LAN address (machine-
+        // dependent), and the camera card's also carries `cameraWindowUrl`'s
+        // fresh `displayId` — the same causes, in the same shape,
+        // `observation/13-qrcode.png` is already excluded from the drift
+        // gate for (see `.claude/rules/documentation.md`'s screenshot
+        // section, and `drift-policy.json`'s `exclude`, where this image is
+        // listed beside it). "Generated where checked" is what settles a
+        // picture like this, not a mask — so this one is excluded from the
+        // gate outright and refreshed by hand from a CI artifact whenever
+        // the panels change, the same way `observation/13-qrcode.png` is.
         const devicesRow = page.getByTestId('connect-devices-row');
         const screenCard = devicesRow.getByTestId('connect-screen-address');
         const cameraCard = devicesRow.getByTestId('connect-camera-address');
@@ -380,12 +368,6 @@ test('screenshot instant replay', async ({ page, browser }) => {
         await expect(cameraCard).toBeVisible();
         await screenshotLocator(devicesRow, {
             path: path.join(SCREENSHOT_DIR, '13-connect-devices.png'),
-            mask: [
-                screenCard.locator('code'),
-                screenCard.locator('img[alt^="QR code"]'),
-                cameraCard.locator('code'),
-                cameraCard.locator('img[alt^="QR code"]'),
-            ],
         });
 
         // 03: Race Control's own camera badge, above the lock banner —
