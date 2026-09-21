@@ -1838,7 +1838,7 @@ describe('heats render as cards under 600px (#1139)', () => {
     renderNarrow([pendingHeat], onRunHeat);
 
     fireEvent.click(screen.getByRole('button', { name: 'Run' }));
-    expect(onRunHeat).toHaveBeenCalledWith(pendingHeat, true);
+    expect(onRunHeat).toHaveBeenCalledWith(pendingHeat);
   });
 });
 

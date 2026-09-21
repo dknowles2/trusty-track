@@ -136,7 +136,7 @@ interface RaceExecutionProps {
     activeExecutionHeat: Heat | null;
     nextExecutionHeat: Heat | null;
     activeHeatId: number | null;
-    onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
+    onRunHeat: (heat: Heat) => void | Promise<void>;
     onNextHeat: () => void;
     getRacerName: (id: number, fromBottom?: boolean) => string;
     /** Rounds whose field is the slowest cars — their undecided slots read
@@ -1030,7 +1030,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             <kbd style={KBD_STYLE}>{SHORTCUT_HINTS.EDIT}</kbd>
                                         </button>
                                         <button
-                                            onClick={() => onRunHeat(activeExecutionHeat, false)}
+                                            onClick={() => onRunHeat(activeExecutionHeat)}
                                             disabled={raceLocked}
                                             title={raceLocked ? lockedTitle : undefined}
                                             style={{

@@ -20,7 +20,7 @@ vi.mock('../components/ScheduleManagement', () => ({
         return (
             <div data-testid="schedule-management">
                 {heats.map((heat: any) => (
-                    <button key={heat.id} onClick={() => onRunHeat(heat, true)}>
+                    <button key={heat.id} onClick={() => onRunHeat(heat)}>
                         Run Heat {heat.id}
                     </button>
                 ))}

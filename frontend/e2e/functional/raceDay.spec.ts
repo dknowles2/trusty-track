@@ -527,6 +527,51 @@ test('a round summary can be raised again once its round is decided a second tim
     await expect(summary).toBeVisible({ timeout: 30000 });
 });
 
+test('re-running an earlier heat from the Schedule tab lands on that heat, not wherever the Race tab was last pinned (#1295)', async ({
+    page,
+}) => {
+    // Before this fix, `handleRunHeat`'s `shouldStart` argument meant
+    // Re-Run cleared the heat and stopped — still on the Schedule tab, with
+    // no `setSelectedHeatId` call to say which heat should be on screen
+    // next. Switching to the Race tab by hand then showed whatever heat the
+    // #130 pin already held, not the one just cleared. The bug is invisible
+    // unless the pin is somewhere else first: with nothing else going on,
+    // the ordinary "first heat still to be run" fallback would land on the
+    // re-run heat by coincidence and the assertion would pass either way.
+    // So this reproduces the issue's own scenario: be on a later heat on
+    // the Race tab, then re-run an earlier one from Schedule.
+    const { raceId, racers } = await seedRace(page, 'Re-Run Lands On The Right Heat');
+    await createSchedule(page, raceId);
+
+    const heats = (await readHeats(page, raceId)).sort((a, b) => a.heatNumber - b.heatNumber);
+    expect(heats.length).toBeGreaterThanOrEqual(6);
+    await recordRound(page, heats.slice(0, 4), racers); // heats 1-4 recorded; 5, 6 are not.
+
+    // The Race tab's fallback lands on heat 5 — the first still to be run —
+    // and that becomes the #130 pin.
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByRole('heading', { name: 'Heat 5' })).toBeVisible({ timeout: 15000 });
+
+    // Re-run heat 2 — already recorded, and earlier than the pin — from the
+    // Schedule tab's own row button.
+    await page.goto(`/race/${raceId}/control/schedule`);
+    const heat2Row = page.getByRole('row').filter({ hasText: 'Heat 2' });
+    await heat2Row.getByRole('button', { name: 'Re-Run' }).click();
+    const confirmDialog = page.getByRole('dialog', { name: 'Re-run Heat' });
+    await expect(confirmDialog).toBeVisible();
+    await confirmDialog.getByRole('button', { name: 'Re-run' }).click();
+    await expect(confirmDialog).toBeHidden();
+
+    // Re-Run does what Run does: it takes the operator straight to the Race
+    // tab, with heat 2 — the heat it just cleared — up and ready to arm,
+    // not heat 5, the heat the screen was showing a moment ago.
+    await expect(page).toHaveURL(new RegExp(`/race/${raceId}/control/race$`));
+    await expect(page.getByRole('heading', { name: 'Heat 2' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Heat 5' })).toHaveCount(0);
+    // Pending — cleared, not still showing its old recorded result.
+    await expect(page.getByRole('button', { name: 'Start Timer' })).toBeVisible();
+});
+
 test('clearing a result un-completes a race whose summary was already shown (#856)', async ({
     page,
 }) => {

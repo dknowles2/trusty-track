@@ -110,7 +110,8 @@ every car in it has scratched.
 
 - **Edit** on a recorded heat corrects individual times.
 - **Re-Run** clears the whole heat so it can race again — it asks you to
-  confirm first, since it discards every lane's recorded result.
+  confirm first, since it discards every lane's recorded result — and then
+  takes you to the Race tab with that heat ready to arm, the same as **Run**.
 - Either way, [who advances is re-decided](championship-rounds.md#when-a-time-is-corrected)
   from the corrected results.
 - If the schedule changes while a heat is armed on the timer — a rebuild, a
