@@ -37,14 +37,18 @@ test('re-running an earlier heat sends On Deck to the next unfinished one, on bo
     await expect(confirmDialog).toBeVisible();
     await confirmDialog.getByRole('button', { name: 'Re-run' }).click();
     await expect(confirmDialog).toBeHidden();
-    // Cleared: the row's own button now offers "Run", not "Re-Run".
-    await expect(heat2Row.getByRole('button', { name: 'Run', exact: true })).toBeVisible();
-
-    // The operator's own Race tab: heat 2 is current again (the earliest
-    // unfinished heat), and On Deck must skip the already-recorded heats 3
-    // and 4 and land on heat 5 — not heat 3, the positional successor.
-    await page.goto(`/race/${raceId}/control/race`);
+    // Cleared, and confirming does what Run does (#1295): the operator lands
+    // on the Race tab with heat 2 — the heat just cleared — up and ready to
+    // arm, rather than staying on this row to notice for themselves that it
+    // now reads "Run". No `page.goto` needed to get there; asserting on the
+    // Schedule row's own button after this click would be racing the
+    // navigation that already carried the page away from it.
+    await expect(page).toHaveURL(new RegExp(`/race/${raceId}/control/race$`));
     await expect(page.getByRole('heading', { name: 'Heat 2' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('button', { name: 'Start Timer' })).toBeVisible();
+
+    // On Deck must skip the already-recorded heats 3 and 4 and land on
+    // heat 5 — not heat 3, the positional successor.
     const onDeckPanel = page.getByTestId('race-execution-right-column');
     await expect(onDeckPanel).toContainText('Heat 5');
     await expect(onDeckPanel).not.toContainText('Heat 3');
