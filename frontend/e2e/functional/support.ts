@@ -51,6 +51,8 @@ export interface SeededRace {
     trackId: number;
     laneCount: number;
     racers: SeededRacer[];
+    /** The name the race was actually created with — `attemptSuffix()` included. */
+    name: string;
 }
 
 export async function gql<T = unknown>(
@@ -240,7 +242,7 @@ export async function seedRace(page: Page, name: string): Promise<SeededRace> {
         racers.push({ id: result.createRacer.id, ...racer });
     }
 
-    return { raceId, trackId: track.id, laneCount: track.laneCount, racers };
+    return { raceId, trackId: track.id, laneCount: track.laneCount, racers, name };
 }
 
 /** One preliminary round, optionally followed by a championship round. */
