@@ -740,6 +740,30 @@ describe('the two connect blocks under Other devices (#1254, #1293)', () => {
         expect(screen.getByTestId('connect-camera-address')).toBeInTheDocument();
     });
 
+    // #1292: both cards get a caption now, so their address rows — and the
+    // QR codes inside them — start at the same height.
+    it('gives both cards a caption', () => {
+        renderConnectBlocks();
+        expect(
+            screen.getByText('For a wall display, projector or tablet on this network.'),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText('For the finish line — scan on the phone that will film it.'),
+        ).toBeInTheDocument();
+    });
+
+    // #1292: the "No cameras yet" line used to render *below* the camera
+    // card, outside it — so the card's own bottom edge sat above the line,
+    // and the two cards' bottoms never matched. It is the card's own
+    // footer now.
+    it('renders the empty-state line inside the camera card, as its footer', () => {
+        renderConnectBlocks();
+        const cameraBlock = screen.getByTestId('connect-camera-address');
+        expect(
+            within(cameraBlock).getByText('No cameras yet — scan the code above to connect one.'),
+        ).toBeInTheDocument();
+    });
+
     it('presets the race’s own track, with no picker', () => {
         renderConnectBlocks({
             tracks: [
@@ -760,6 +784,10 @@ describe('the two connect blocks under Other devices (#1254, #1293)', () => {
         renderConnectBlocks({ raceTrackId: null });
 
         const notice = screen.getByTestId('connect-camera-no-track');
+        // #1292: the notice renders through the same card component the
+        // address case does — same heading, same border/padding — rather
+        // than a hand-built copy of just those three things.
+        expect(within(notice).getByRole('heading', { name: 'Connect a camera' })).toBeInTheDocument();
         expect(
             within(notice).getByText(
                 "Pick this race's track in Edit race first, so the camera knows which timer to listen to.",
@@ -868,8 +896,9 @@ describe('the two connect blocks under Other devices (#1254, #1293)', () => {
 
     it('shows the empty-state line while no camera has connected', () => {
         renderConnectBlocks();
+        const cameraBlock = screen.getByTestId('connect-camera-address');
         expect(
-            screen.getByText('No cameras yet — scan the code above to connect one.'),
+            within(cameraBlock).getByText('No cameras yet — scan the code above to connect one.'),
         ).toBeInTheDocument();
     });
 

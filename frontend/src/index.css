@@ -2031,3 +2031,140 @@ input:checked + .slider:before {
 .replay-finish-mark:focus-visible {
   z-index: 1;
 }
+
+/* The Displays panel's "Connect a screen" / "Connect a camera" pair
+ * (#1292) — `ConnectDisplayAddress.tsx`. Both cards share this one class
+ * set, which is the point: two boxes that happen to sit next to each other
+ * used to have different tops, different caption heights and a QR code
+ * that landed wherever its own card's address happened to wrap to; sharing
+ * one stylesheet entry per role is what keeps that from drifting apart
+ * again the next time either card's content changes independently.
+ *
+ * `.connect-devices-row` is a two-column grid rather than the flex row it
+ * replaces — `repeat(auto-fit, minmax(300px, 1fr))` collapses to one
+ * column on its own once the row is narrower than two 300px cards plus its
+ * gap, with no separate breakpoint to keep in step with the card's own
+ * ~768px one below. `align-items: stretch` (already CSS Grid's own default
+ * for `align-items` — spelled out here so the intent is not "whatever the
+ * default happens to be") is what makes a shorter card (the screen one,
+ * with no footer) match the taller one's height rather than ending early;
+ * `.connect-display-card` is what actually fills that stretched height —
+ * `display: flex; flex-direction: column; height: 100%` — so its own
+ * `.connect-display-card-footer` can sit at the very bottom via
+ * `margin-top: auto` regardless of how much shorter the address row above
+ * it is. */
+.connect-devices-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  align-items: stretch;
+  gap: 1rem;
+}
+
+.connect-display-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+}
+
+.connect-display-card-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 0.3rem;
+}
+
+.connect-display-card-heading {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.connect-display-card-caption {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-muted-color);
+}
+
+.connect-display-card-notice {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted-color);
+}
+
+/* The address row's own two slots: the sentence/address/Copy on the left,
+ * a fixed-size QR box on the right (below). `align-items: flex-start`
+ * keeps the QR box pinned to the row's own top edge regardless of how many
+ * lines the left slot wraps to — a longer camera URL must not push the QR
+ * down, or two cards whose addresses are different lengths would still
+ * disagree about where their QR codes sit. */
+.connect-display-address-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.connect-display-address-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.connect-display-address-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.connect-display-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--warning-color);
+}
+
+/* Reserved at a fixed 100×100 whether the QR is still loading, failed, or
+ * there is no reachable address to encode at all — so the box the QR
+ * eventually appears in never jumps the layout once it does. */
+.connect-display-qr-box {
+  flex: 0 0 100px;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.connect-display-qr-unavailable {
+  font-size: 0.75rem;
+  color: var(--text-muted-color);
+}
+
+.connect-display-card-footer {
+  margin-top: auto;
+  padding-top: 0.6rem;
+}
+
+/* Below 768px — the same breakpoint `.settings-layout` and the roster's
+ * own mobile rules already use on this page — the QR moves below the
+ * address instead of beside it: a phone-width card has no room for a
+ * 100px-wide column beside prose without crushing the sentence into an
+ * unreadable sliver. `.connect-devices-row`'s own grid needs no matching
+ * rule here — `auto-fit` has already dropped to one column well above this
+ * width for any ordinary page padding. */
+@media screen and (max-width: 768px) {
+  .connect-display-address-row {
+    flex-direction: column;
+  }
+
+  .connect-display-qr-box {
+    align-self: flex-start;
+  }
+}

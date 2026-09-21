@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useQuery } from 'urql';
@@ -273,6 +273,152 @@ describe('ConnectDisplayAddress', () => {
       rerender(<ConnectDisplayAddress raceId={1} testId="connect-camera-address" />);
       expect(screen.getByTestId('connect-camera-address')).toBeInTheDocument();
       expect(screen.queryByTestId('connect-screen-address')).toBeNull();
+    });
+  });
+
+  // #1292: everything belonging to a block now lives inside this component
+  // — a footer slot for the camera's own empty-state line, and a `notice`
+  // mode that replaces the address row while keeping the same card chrome,
+  // so the "no track yet" case doesn't hand-build its own copy of the
+  // border/heading/caption.
+  describe('the footer slot (#1292)', () => {
+    it('renders nothing extra when no footer is supplied', () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+
+      render(<ConnectDisplayAddress raceId={1} />);
+
+      expect(screen.queryByText(/No cameras yet/)).toBeNull();
+    });
+
+    it('renders a footer after the address row, inside the same card', () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+
+      render(
+        <ConnectDisplayAddress
+          raceId={1}
+          testId="connect-camera-address"
+          footer={<p>No cameras yet — scan the code above to connect one.</p>}
+        />,
+      );
+
+      const card = screen.getByTestId('connect-camera-address');
+      expect(
+        within(card).getByText('No cameras yet — scan the code above to connect one.'),
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe('the notice prop (#1292, #1293)', () => {
+    it('replaces the address row with the notice, keeping the same card chrome', () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+
+      render(
+        <ConnectDisplayAddress
+          raceId={1}
+          heading="Connect a camera"
+          testId="connect-camera-no-track"
+          notice="Pick this race's track in Edit race first, so the camera knows which timer to listen to."
+        />,
+      );
+
+      const card = screen.getByTestId('connect-camera-no-track');
+      expect(within(card).getByRole('heading', { name: 'Connect a camera' })).toBeInTheDocument();
+      expect(
+        within(card).getByText(
+          "Pick this race's track in Edit race first, so the camera knows which timer to listen to.",
+        ),
+      ).toBeInTheDocument();
+      // No address, no Copy button, no QR — there is nothing here to show
+      // one for.
+      expect(screen.queryByText(/http:\/\//)).toBeNull();
+      expect(screen.queryByRole('button', { name: /copy/i })).toBeNull();
+      expect(screen.queryByAltText(/qr code/i)).toBeNull();
+    });
+  });
+
+  describe('headingExtra (#1292, reserved for #1300)', () => {
+    it('renders alongside the heading when supplied', () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+
+      render(
+        <ConnectDisplayAddress
+          raceId={1}
+          heading="Connect a screen"
+          headingExtra={<span>extra</span>}
+        />,
+      );
+
+      const heading = screen.getByRole('heading', { name: 'Connect a screen' });
+      expect(heading.parentElement).toHaveTextContent('extra');
+    });
+  });
+
+  describe('sentence and qrAlt (#1292)', () => {
+    it('default to the screen wording', () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+
+      render(<ConnectDisplayAddress raceId={1} />);
+
+      expect(
+        screen.getByText(/Open this address on a screen anywhere on this network to connect it:/),
+      ).toBeInTheDocument();
+      expect(screen.getByAltText("QR code that opens this race's live display")).toBeInTheDocument();
+    });
+
+    it('take an overridden sentence and qrAlt, the camera block\'s own wording', () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+
+      render(
+        <ConnectDisplayAddress
+          raceId={1}
+          sentence="Open this address on the phone that will be the camera:"
+          qrAlt="QR code that opens this race's camera page"
+        />,
+      );
+
+      expect(
+        screen.getByText(/Open this address on the phone that will be the camera:/),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText(/Open this address on a screen anywhere/),
+      ).toBeNull();
+      expect(screen.getByAltText("QR code that opens this race's camera page")).toBeInTheDocument();
+    });
+  });
+
+  describe('the QR box is reserved (#1292)', () => {
+    it('renders the box before the network-addresses query has answered', () => {
+      stubOrigin('http://localhost:8000');
+      (useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue([
+        { data: undefined, fetching: true, error: undefined },
+        vi.fn(),
+      ]);
+
+      render(<ConnectDisplayAddress raceId={1} testId="connect-screen-address" />);
+
+      expect(screen.getByTestId('connect-screen-address-qr-box')).toBeInTheDocument();
+      // Nothing to show yet — no QR, no "unavailable" placeholder.
+      expect(screen.queryByAltText(/qr code/i)).toBeNull();
+    });
+
+    it('keeps the box, with a muted placeholder, once the QR fails to load', () => {
+      stubOrigin('http://localhost:8000');
+      mockNetworkAddresses(['192.168.1.42']);
+
+      render(<ConnectDisplayAddress raceId={1} testId="connect-screen-address" />);
+      const image = screen.getByAltText(/qr code/i);
+      act(() => {
+        image.dispatchEvent(new Event('error'));
+      });
+
+      const box = screen.getByTestId('connect-screen-address-qr-box');
+      expect(within(box).getByText('QR unavailable')).toBeInTheDocument();
     });
   });
 });

@@ -342,6 +342,34 @@ test('screenshot instant replay', async ({ page, browser }) => {
             path: path.join(SCREENSHOT_DIR, '02-displays-panel-camera.png'),
         });
 
+        // 13 (#1292): the "Other devices" row — the Connect a screen and
+        // Connect a camera cards as a pair, the same height, their address
+        // rows and QR codes on the same lines. Captured plainly, with no
+        // `mask` — this picture is what a parent volunteer reads in the
+        // guide, and a mask paints over exactly the two things the caption
+        // is about (the addresses and the QR codes). Masking was tried and
+        // reverted: both cards' addresses carry this spec's own `raceId`
+        // (shifts with whatever else the shared CI backend has created
+        // first) and `shareUrl`'s substituted LAN address (machine-
+        // dependent), and the camera card's also carries `cameraWindowUrl`'s
+        // fresh `displayId` — the same causes, in the same shape,
+        // `observation/13-qrcode.png` is already excluded from the drift
+        // gate for (see `.claude/rules/documentation.md`'s screenshot
+        // section, and `drift-policy.json`'s `exclude`, where this image is
+        // listed beside it). "Generated where checked" is what settles a
+        // picture like this, not a mask — so this one is excluded from the
+        // gate outright and refreshed by hand from a CI artifact whenever
+        // the panels change, the same way `observation/13-qrcode.png` is.
+        const devicesRow = page.getByTestId('connect-devices-row');
+        const screenCard = devicesRow.getByTestId('connect-screen-address');
+        const cameraCard = devicesRow.getByTestId('connect-camera-address');
+        await expect(devicesRow).toBeVisible();
+        await expect(screenCard).toBeVisible();
+        await expect(cameraCard).toBeVisible();
+        await screenshotLocator(devicesRow, {
+            path: path.join(SCREENSHOT_DIR, '13-connect-devices.png'),
+        });
+
         // 03: Race Control's own camera badge, above the lock banner —
         // reachable without leaving the heat the operator is running.
         await page.goto(`/race/${raceId}/control`);
