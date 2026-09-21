@@ -51,6 +51,8 @@ export interface SeededRace {
     trackId: number;
     laneCount: number;
     racers: SeededRacer[];
+    /** The name the race was actually created with — `attemptSuffix()` included. */
+    name: string;
 }
 
 export async function gql<T = unknown>(
@@ -123,6 +125,58 @@ export const RACERS = [
     { firstName: 'Fay', lastName: 'Fox', carNumber: 6 },
 ];
 
+/**
+ * A suffix that keeps a name unique across a retry or a `--repeat-each`
+ * repetition, on a backend every functional spec shares.
+ *
+ * `test.info()` gives two independent counters. `retry` increments when a
+ * failed test is retried, which is how a spec survives a shared-runner flake
+ * (#237). `repeatEachIndex` runs the same test body several times *in one
+ * invocation*, with `retry` staying 0 throughout — how a flake is hunted by
+ * running a spec many times in one invocation, rather than falling back to
+ * separate invocations for lack of this (#1313 had to). Either one re-runs a
+ * test whose setup already ran once against the shared backend, and
+ * anything that backend enforces as unique — `races.name`, `tracks.name` —
+ * collides with the earlier attempt's own row unless the name carries the
+ * attempt along with it (#1318, and the display ids `attemptId` below
+ * covers, #1320).
+ *
+ * A retried repetition gets both suffixes, since the two counters are
+ * independent and either can be nonzero on its own. First attempts get
+ * neither, so an unretried, unrepeated run's names are unchanged.
+ */
+export function attemptSuffix(): string {
+    const { retry, repeatEachIndex } = test.info();
+    let suffix = retry > 0 ? ` (retry ${retry})` : '';
+    if (repeatEachIndex > 0) suffix += ` (repeat ${repeatEachIndex})`;
+    return suffix;
+}
+
+/**
+ * The same idea as `attemptSuffix`, for an id rather than a display name.
+ *
+ * `displays.spec.ts` looks a display up by exact string — a `localStorage`
+ * value, a URL parameter, and a `getByTestId('display-<id>')` read-back all
+ * have to agree on it — so a suffix with spaces and parentheses would not
+ * survive a `data-testid` attribute the way it survives a GraphQL `name`
+ * field. `-retry-N`/`-repeat-N` reads back identically everywhere the id is
+ * used.
+ *
+ * Apply this to every hard-coded display id in that file, not only the one
+ * #1320 found actually colliding: a retry runs *after* the rest of the file
+ * has already run once in the same worker, so a retried test can inherit
+ * whatever a later test in that same file left assigned to its id on the
+ * shared backend — the identical mechanism #1320 found for
+ * `--repeat-each`, just reached through the other counter.
+ */
+export function attemptId(base: string): string {
+    const { retry, repeatEachIndex } = test.info();
+    let id = base;
+    if (retry > 0) id = `${id}-retry-${retry}`;
+    if (repeatEachIndex > 0) id = `${id}-repeat-${repeatEachIndex}`;
+    return id;
+}
+
 /** A race with a checked-in roster, ready for a schedule.
  *
  * Racers are checked in because `generate_heats_for_round` fields only racers
@@ -130,20 +184,10 @@ export const RACERS = [
  * rather than an error, which is a confusing way for a spec to fail.
  */
 export async function seedRace(page: Page, name: string): Promise<SeededRace> {
-    // A retry re-seeds, and so does a `--repeat-each` repetition — a
-    // different counter (`repeatEachIndex`), which runs the same test body
-    // several times in the same worker with `retry` staying 0 throughout —
-    // and `races.name` is unique on a backend shared by the whole run, so
-    // without a per-attempt suffix either one hit the constraint and failed
-    // for certain. That defeats the mechanism each counter exists for: a
-    // retry survives a shared-runner flake (#237), and `--repeat-each` is how
-    // a flake is hunted by running a spec many times in one invocation — #1313
-    // had to fall back to separate invocations instead, for lack of this.
-    // First attempts keep their given names; a retried repetition gets both
-    // suffixes.
-    const { retry, repeatEachIndex } = test.info();
-    if (retry > 0) name = `${name} (retry ${retry})`;
-    if (repeatEachIndex > 0) name = `${name} (repeat ${repeatEachIndex})`;
+    // A retry or a `--repeat-each` repetition re-seeds against this shared
+    // backend, and `races.name` is unique — see `attemptSuffix`'s doc
+    // comment for why. First attempts keep their given name.
+    name += attemptSuffix();
 
     await ensureConfigured(page);
 
@@ -198,7 +242,7 @@ export async function seedRace(page: Page, name: string): Promise<SeededRace> {
         racers.push({ id: result.createRacer.id, ...racer });
     }
 
-    return { raceId, trackId: track.id, laneCount: track.laneCount, racers };
+    return { raceId, trackId: track.id, laneCount: track.laneCount, racers, name };
 }
 
 /** One preliminary round, optionally followed by a championship round. */

@@ -13,7 +13,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { ensureConfigured, gql, seedRace, trackPoolName } from './support';
+import { attemptId, ensureConfigured, gql, seedRace, trackPoolName } from './support';
 
 /** The display's own storage key, which is how a screen keeps its identity. */
 const STORAGE_KEY = 'trustytrack.displayId';
@@ -32,14 +32,15 @@ async function openDisplay(page: Page, raceId: number, id: string) {
 test('an operator can see a display and change what it shows', async ({ browser, page }) => {
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Display Assignment Race');
+    const id = attemptId('spec-display-1');
 
     const displayContext = await browser.newContext();
     const display = await displayContext.newPage();
-    await openDisplay(display, raceId, 'spec-display-1');
+    await openDisplay(display, raceId, id);
 
     // The operator's list learns about it without anyone adding anything.
     await page.goto(`/race/${raceId}/displays`);
-    const row = page.getByTestId('display-spec-display-1');
+    const row = page.getByTestId(`display-${id}`);
     await expect(row).toBeVisible();
 
     // A name the operator will recognise, which is the point of naming at all.
@@ -78,6 +79,7 @@ test('scenes are disabled with a reason until a display connects (#850)', async 
     // `disabled` prop — that only a real page can exercise.
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Scenes Disabled Race');
+    const id = attemptId('spec-display-scenes');
 
     await page.goto(`/race/${raceId}/displays`);
 
@@ -91,9 +93,9 @@ test('scenes are disabled with a reason until a display connects (#850)', async 
 
     const displayContext = await browser.newContext();
     const display = await displayContext.newPage();
-    await openDisplay(display, raceId, 'spec-display-scenes');
+    await openDisplay(display, raceId, id);
 
-    await expect(page.getByTestId('display-spec-display-scenes')).toBeVisible();
+    await expect(page.getByTestId(`display-${id}`)).toBeVisible();
     await expect(racing).toBeEnabled({ timeout: 10000 });
     await expect(page.getByText(/connect a screen first/i)).not.toBeVisible();
 
@@ -103,28 +105,29 @@ test('scenes are disabled with a reason until a display connects (#850)', async 
 test('a display that goes away stays listed, and can be forgotten', async ({ browser, page }) => {
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Display Presence Race');
+    const id = attemptId('spec-display-2');
 
     const displayContext = await browser.newContext();
     const display = await displayContext.newPage();
-    await openDisplay(display, raceId, 'spec-display-2');
+    await openDisplay(display, raceId, id);
 
     await page.goto(`/race/${raceId}/displays`);
-    await expect(page.getByTestId('display-spec-display-2')).toBeVisible();
+    await expect(page.getByTestId(`display-${id}`)).toBeVisible();
 
     // Closing the tab is the only signal a screen has gone. It must not vanish
     // from the list: a projector that has dropped off the wifi is precisely
     // what the operator needs to be told about.
     await displayContext.close();
     await expect(
-        page.getByTestId('display-spec-display-2').getByText('Not connected'),
+        page.getByTestId(`display-${id}`).getByText('Not connected'),
     ).toBeVisible({ timeout: 10000 });
 
     // Only a person can decide a screen is really gone.
     await page
-        .getByTestId('display-spec-display-2')
+        .getByTestId(`display-${id}`)
         .getByRole('button', { name: /^Forget/ })
         .click();
-    await expect(page.getByTestId('display-spec-display-2')).toHaveCount(0);
+    await expect(page.getByTestId(`display-${id}`)).toHaveCount(0);
 });
 
 test('an unassigned display still follows its own URL', async ({ browser, page }) => {
@@ -132,12 +135,13 @@ test('an unassigned display still follows its own URL', async ({ browser, page }
     // the list loses nothing, and every display behaves as it did before.
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Display Fallback Race');
+    const id = attemptId('spec-display-3');
 
     const displayContext = await browser.newContext();
     const display = await displayContext.newPage();
     await display.addInitScript(
         ([key, value]) => window.localStorage.setItem(key, value),
-        [STORAGE_KEY, 'spec-display-3'],
+        [STORAGE_KEY, id],
     );
     await display.goto(`/race/${raceId}/observation?view=timing`);
     await display.waitForLoadState('networkidle');
@@ -417,6 +421,7 @@ test('a screen sent to the awards ceremony can still be called back', async ({ b
     // to "Not connected" and the screen could never be told anything again.
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Ceremony Leash Race');
+    const id = attemptId('spec-display-3');
 
     // An award, because the ceremony is not offered as a view for a race with
     // nothing to announce.
@@ -430,10 +435,10 @@ test('a screen sent to the awards ceremony can still be called back', async ({ b
 
     const displayContext = await browser.newContext();
     const display = await displayContext.newPage();
-    await openDisplay(display, raceId, 'spec-display-3');
+    await openDisplay(display, raceId, id);
 
     await page.goto(`/race/${raceId}/displays`);
-    const row = page.getByTestId('display-spec-display-3');
+    const row = page.getByTestId(`display-${id}`);
     await expect(row).toBeVisible();
 
     await row.getByRole('combobox').selectOption('AWARDS');
@@ -460,6 +465,7 @@ test('an operator can drive the ceremony on a screen across the room', async ({ 
     // assigned it from the Displays panel.
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Ceremony Remote Race');
+    const id = attemptId('spec-display-4');
 
     // Two awards, so there is somewhere to advance to.
     for (const name of ['Fastest Car', 'Best Paint']) {
@@ -474,10 +480,10 @@ test('an operator can drive the ceremony on a screen across the room', async ({ 
 
     const displayContext = await browser.newContext();
     const display = await displayContext.newPage();
-    await openDisplay(display, raceId, 'spec-display-4');
+    await openDisplay(display, raceId, id);
 
     await page.goto(`/race/${raceId}/displays`);
-    const row = page.getByTestId('display-spec-display-4');
+    const row = page.getByTestId(`display-${id}`);
     await expect(row).toBeVisible();
 
     await row.getByRole('combobox').selectOption('AWARDS');
@@ -505,6 +511,7 @@ test('Identify reaches a screen showing the awards ceremony', async ({ browser, 
     // assert the flash appears on the audience page.
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Ceremony Identify Race');
+    const id = attemptId('spec-display-6');
 
     await gql(
         page,
@@ -516,10 +523,10 @@ test('Identify reaches a screen showing the awards ceremony', async ({ browser, 
 
     const displayContext = await browser.newContext();
     const display = await displayContext.newPage();
-    await openDisplay(display, raceId, 'spec-display-6');
+    await openDisplay(display, raceId, id);
 
     await page.goto(`/race/${raceId}/displays`);
-    const row = page.getByTestId('display-spec-display-6');
+    const row = page.getByTestId(`display-${id}`);
     await expect(row).toBeVisible();
 
     await row.getByRole('combobox').selectOption('AWARDS');
@@ -541,13 +548,14 @@ test('the ceremony is offered only once the race has awards', async ({ browser, 
     // question no unit test can answer.
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Ceremony Offer Race');
+    const id = attemptId('spec-display-5');
 
     const displayContext = await browser.newContext();
     const display = await displayContext.newPage();
-    await openDisplay(display, raceId, 'spec-display-5');
+    await openDisplay(display, raceId, id);
 
     await page.goto(`/race/${raceId}/displays`);
-    const row = page.getByTestId('display-spec-display-5');
+    const row = page.getByTestId(`display-${id}`);
     await expect(row).toBeVisible();
     await expect(row.getByRole('combobox')).not.toContainText('Awards ceremony');
 
