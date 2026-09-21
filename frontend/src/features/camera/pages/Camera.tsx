@@ -104,6 +104,12 @@ export default function Camera() {
   // of the functional suite alongside it. Shrinking the window is the same
   // proof at a fraction of the cost; a real camera never sets this.
   const ringCapacityOverrideMs = Number(searchParams.get('ringMs')) || undefined;
+  // A second test-only override, the same one-shot shape as `?ringMs=` —
+  // forces `capture.ts`'s canvas frame source even in a browser (Chromium,
+  // under Playwright) that does carry `MediaStreamTrackProcessor`, so
+  // `instantReplay.spec.ts` can exercise the WebKit fallback path without
+  // an actual iPhone (#1294). A real camera never sets this.
+  const forceFallbackFrameSource = searchParams.get('noProcessor') === '1';
 
   const displayIdParam = searchParams.get('displayId');
   const thisDisplayId = useMemo(() => displayId(displayIdParam), [displayIdParam]);
@@ -296,11 +302,16 @@ export default function Camera() {
           fakeSource?.stop();
           return;
         }
-        captureHandle = await startCapture(track, ring, (error) => {
-          // The one place a capture failure is surfaced beyond the status
-          // line, which only has room for "error".
-          console.error('Camera capture error', error);
-        });
+        captureHandle = await startCapture(
+          track,
+          ring,
+          (error) => {
+            // The one place a capture failure is surfaced beyond the status
+            // line, which only has room for "error".
+            console.error('Camera capture error', error);
+          },
+          { forceFallback: forceFallbackFrameSource },
+        );
         videoTrackInfoRef.current = captureHandle.track;
         if (!cancelled) setStatus('recording');
       } catch {
@@ -316,7 +327,7 @@ export default function Camera() {
       ring.clear();
       videoTrackInfoRef.current = null;
     };
-  }, [usable, fake, deviceId]);
+  }, [usable, fake, deviceId, forceFallbackFrameSource]);
 
   const uploadClip = useCallback(
     async (args: { heatId: number; recordedAt: string; bounds: ClipBounds; blob: Blob }) => {

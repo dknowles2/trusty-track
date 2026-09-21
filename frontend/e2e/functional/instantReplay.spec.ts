@@ -610,6 +610,167 @@ test('a heat re-run plays its corrected clip; the identical clip does not replay
     await display.context().close();
 });
 
+/**
+ * WebKit has never shipped `MediaStreamTrackProcessor` (#1294) —
+ * `capture.ts`'s `canvasFrameSource` is the fallback frame source that
+ * lights the camera page up there anyway, and these two tests are what
+ * actually exercises it, since no CI runner is an iPhone. Two different
+ * ways of getting there, both asserted the same way as the file's very
+ * first test (a decodable clip, playing on a display) plus one thing that
+ * test doesn't check: the gate must show no refusal message while it does.
+ *
+ * **`?noProcessor=1`** forces `startCapture`'s own choice, in a Chromium
+ * context that genuinely does carry `MediaStreamTrackProcessor` — this
+ * proves the fallback's own frame-production and encode path work, but
+ * proves nothing about the gate, since the processor is still there for
+ * `browserSupport.ts` to see.
+ *
+ * **Deleting `MediaStreamTrackProcessor` via `addInitScript`** proves the
+ * other half: with the API genuinely absent before any page script runs,
+ * `capture.ts`'s own feature detection (not the query-string hook) picks
+ * the fallback on its own, and `browserSupport.ts`'s gate — which no longer
+ * requires the processor at all — must let the page through rather than
+ * refusing.
+ *
+ * Neither test can prove this works on an actual iPhone: both run inside
+ * Chromium, and what changes between them and the file's other tests is
+ * only which frame source `capture.ts` picks, never WebKit's own
+ * (unexercised, here) implementation of `new VideoFrame(canvas, {...})`.
+ */
+test('a camera captures through the canvas fallback when ?noProcessor=1 forces it, and a display still plays the clip (#1294)', async ({
+    browser,
+    page,
+}) => {
+    await ensureConfigured(page);
+    const { raceId, trackId } = await seedRace(page, 'Instant Replay WebKit Fallback Forced Race');
+    await scheduleWithSpareHeats(page, raceId, 3);
+    const heats = await officialHeatsInOrder(page, raceId);
+    expect(heats.length).toBeGreaterThanOrEqual(3);
+    // Two warm-ups, exactly as the file's very first test — the camera's
+    // own `timingStats`-keyed `seen` state (first), then the race's first
+    // clip, which is exactly what a *fresh* `heatReplay` subscription's own
+    // opening payload would be — needed so the display's own `seen === null`
+    // rule doesn't swallow the heat actually under test as history too.
+    const [camWarmUp, displayWarmUp, underTest] = heats;
+
+    const cameraContext = await browser.newContext();
+    const camera = await cameraContext.newPage();
+    await openCamera(camera, raceId, 'spec-camera-fallback-forced', '&noProcessor=1');
+    // The gate must not refuse — MediaStreamTrackProcessor is still present
+    // in this Chromium context; only capture.ts's own choice of frame
+    // source is forced by the query string.
+    await expect(camera.getByText(/Use Chrome, Edge or Safari/)).toHaveCount(0);
+    await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+    await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
+        timeout: 15000,
+    });
+
+    const display = await (await browser.newContext()).newPage();
+    await openObservation(display, raceId, 'spec-display-fallback-forced');
+
+    await runHeatToStart(page, camWarmUp.id);
+    await finishHeat(page, camWarmUp.id);
+    await camera.waitForTimeout(2000);
+
+    await runHeatToStart(page, displayWarmUp.id);
+    await finishHeat(page, displayWarmUp.id);
+    await waitForClipUpload(page, raceId, displayWarmUp.id, 'spec-camera-fallback-forced');
+    await display.waitForTimeout(2000);
+
+    await runHeatToStart(page, underTest.id);
+    await finishHeat(page, underTest.id);
+    await waitForClipUpload(page, raceId, underTest.id, 'spec-camera-fallback-forced');
+    await cameraContext.close();
+
+    // Not just "an upload happened" — the clip must actually decode, the
+    // same strength the file's own post-eviction test already holds the
+    // processor path to.
+    const video = display.getByTestId('replay-video');
+    await expect(video).toBeVisible({ timeout: 15000 });
+    await expect(video).toHaveAttribute('src', /\/replay\//);
+    await expect
+        .poll(async () => video.evaluate((el: HTMLVideoElement) => el.readyState), { timeout: 10000 })
+        .toBeGreaterThanOrEqual(2); // HAVE_CURRENT_DATA or better — real decoded frame data
+    const duration = await video.evaluate((el: HTMLVideoElement) => el.duration);
+    expect(Number.isFinite(duration)).toBe(true);
+    expect(duration).toBeGreaterThan(0);
+    await display.context().close();
+});
+
+test('a camera captures through the canvas fallback when MediaStreamTrackProcessor is genuinely absent, and the gate shows no refusal (#1294)', async ({
+    browser,
+    page,
+}) => {
+    await ensureConfigured(page);
+    const { raceId, trackId } = await seedRace(page, 'Instant Replay WebKit Fallback Absent Race');
+    await scheduleWithSpareHeats(page, raceId, 3);
+    const heats = await officialHeatsInOrder(page, raceId);
+    expect(heats.length).toBeGreaterThanOrEqual(3);
+    // Two warm-ups — see the previous test's own comment for why.
+    const [camWarmUp, displayWarmUp, underTest] = heats;
+
+    const cameraContext = await browser.newContext();
+    // Simulates WebKit's own absence of the insertable-streams API — set
+    // before any page script runs, so `capture.ts`'s own feature detection
+    // (not the `?noProcessor=1` hook the test above uses) sees exactly what
+    // an iPhone's own browser would.
+    await cameraContext.addInitScript(() => {
+        delete (window as unknown as { MediaStreamTrackProcessor?: unknown }).MediaStreamTrackProcessor;
+    });
+    const camera = await cameraContext.newPage();
+
+    // Prove the gate itself, in a real (non-fake) load. `?fake=1` bypasses
+    // both browser gates outright by design (`Camera.tsx`'s `!fake &&`
+    // guards) — every other assertion in this test needs that bypass to
+    // drive a capture with no real device, but proving the *gate itself*
+    // does not refuse a genuinely-absent processor needs the opposite: a
+    // load that actually reaches `browserSupport.ts`'s check. This is the
+    // #1294 fix's own headline behaviour, checked directly rather than only
+    // inferred from a clip landing below.
+    await camera.goto(`/race/${raceId}/camera?displayId=spec-camera-fallback-absent-gate`);
+    await camera.waitForLoadState('networkidle');
+    await expect(camera.getByText(/Use Chrome, Edge or Safari/)).toHaveCount(0);
+    await expect(camera.getByText(/Instant replay needs a newer iOS/)).toHaveCount(0);
+
+    // The rest of this test proves the fallback itself actually captures
+    // and uploads, through the same `?fake=1` flow every other test in this
+    // file uses — no CI runner has a real camera for the check above to
+    // drive a genuine `getUserMedia` capture through.
+    await openCamera(camera, raceId, 'spec-camera-fallback-absent');
+    await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
+    await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
+        timeout: 15000,
+    });
+
+    const display = await (await browser.newContext()).newPage();
+    await openObservation(display, raceId, 'spec-display-fallback-absent');
+
+    await runHeatToStart(page, camWarmUp.id);
+    await finishHeat(page, camWarmUp.id);
+    await camera.waitForTimeout(2000);
+
+    await runHeatToStart(page, displayWarmUp.id);
+    await finishHeat(page, displayWarmUp.id);
+    await waitForClipUpload(page, raceId, displayWarmUp.id, 'spec-camera-fallback-absent');
+    await display.waitForTimeout(2000);
+
+    await runHeatToStart(page, underTest.id);
+    await finishHeat(page, underTest.id);
+    await waitForClipUpload(page, raceId, underTest.id, 'spec-camera-fallback-absent');
+    await cameraContext.close();
+
+    const video = display.getByTestId('replay-video');
+    await expect(video).toBeVisible({ timeout: 15000 });
+    await expect(video).toHaveAttribute('src', /\/replay\//);
+    await expect
+        .poll(async () => video.evaluate((el: HTMLVideoElement) => el.readyState), { timeout: 10000 })
+        .toBeGreaterThanOrEqual(2);
+    const duration = await video.evaluate((el: HTMLVideoElement) => el.duration);
+    expect(Number.isFinite(duration)).toBe(true);
+    expect(duration).toBeGreaterThan(0);
+    await display.context().close();
+});
+
 test.describe.serial('stored retention and intermission highlights, install-wide, so these four run serially rather than racing each other over the shared keepReplays flag (#177 stages 2 and 3)', () => {
     // Confined to one worker (serial mode), with a real System Settings
     // round trip between most of the four tests and two camera uploads
