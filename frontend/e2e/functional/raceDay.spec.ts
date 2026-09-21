@@ -20,6 +20,7 @@
 
 import { test, expect } from '@playwright/test';
 import {
+    attemptSuffix,
     BACKEND_URL,
     createSchedule,
     dismissRoundSummary,
@@ -1024,12 +1025,10 @@ test('the result controls fit above the fold at 1366×768 on a 4-lane no-timer t
     // the same shape `screenshot-timers.spec.ts` uses for its own pretend
     // hardware.
     await ensureConfigured(page);
-    // The same per-attempt suffix `seedRace` in `support.ts` applies, and for
+    // The same per-attempt suffix `seedRace` in `support.ts` uses, and for
     // the same reason: a retry and a `--repeat-each` repetition both re-seed
     // against this shared backend, and `races.name`/`tracks.name` are unique.
-    const { retry, repeatEachIndex } = test.info();
-    let suffix = retry > 0 ? ` (retry ${retry})` : '';
-    if (repeatEachIndex > 0) suffix += ` (repeat ${repeatEachIndex})`;
+    const suffix = attemptSuffix();
     const trackName = `E2E No-Timer Track ${test.info().parallelIndex}${suffix}`;
 
     const trackCreated = await gql<{ createTrack: { id: number } }>(

@@ -17,26 +17,18 @@
  */
 
 import { test, expect, type Page, type Locator } from '@playwright/test';
-import { ensureConfigured, gql } from './support';
+import { attemptSuffix, ensureConfigured, gql } from './support';
 
 /** A race with one racer whose racer photo is already "on file". */
 async function seedRacerWithPhoto(page: Page, raceName: string): Promise<{ raceId: number }> {
     // A retry re-seeds against the same shared backend, and `races.name` is
     // unique — without a per-attempt suffix a retry after a flaky drag
     // assertion died on the constraint instead of getting a clean second
-    // attempt (#1117), the same fix `seedRace`'s own comment describes for
-    // this suite's other specs. `repeatEachIndex` gets the identical
-    // treatment: `--repeat-each` runs the same test body several times in
-    // the same worker with `retry` staying 0 throughout, which collided on
-    // this constraint the same way while verifying this very fix locally.
-    const info = test.info();
-    const suffix = [
-        info.retry > 0 ? `retry ${info.retry}` : null,
-        info.repeatEachIndex > 0 ? `repeat ${info.repeatEachIndex}` : null,
-    ]
-        .filter(Boolean)
-        .join(', ');
-    if (suffix) raceName = `${raceName} (${suffix})`;
+    // attempt (#1117), the same fix `attemptSuffix`'s own doc comment
+    // describes for this suite's other specs. `--repeat-each` gets the
+    // identical treatment: it collided on this constraint the same way
+    // while verifying this very fix locally.
+    raceName += attemptSuffix();
 
     await ensureConfigured(page);
 
