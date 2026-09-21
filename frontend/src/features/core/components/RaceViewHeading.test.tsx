@@ -39,7 +39,7 @@ describe('RaceViewHeading', () => {
     expect(screen.queryByTestId('docs-link')).not.toBeInTheDocument();
   });
 
-  it('renders no h1 at all when neither locked nor docsKey nor actions apply', () => {
+  it('renders a bare h1 with just the title when neither locked nor docsKey nor actions apply', () => {
     render(<RaceViewHeading title="Standings" />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Standings');
   });
