@@ -249,6 +249,60 @@ test('the launch area keeps its two headings and fits a phone screen with no hor
     expect(fitsWithoutOverflow).toBe(true);
 });
 
+test('the Connect a screen and Connect a camera cards line up as a pair (#1292)', async ({ page }) => {
+    // #1292: the two cards used to have different tops, different-height
+    // address rows and QR codes at different heights, because content that
+    // belonged to one card (a picker, an empty-state line) rendered outside
+    // it. Both cards now go through the same `ConnectDisplayAddress`
+    // component and the same `.connect-devices-row` grid — this is the
+    // round trip that proves it, in a real layout no unit test renders.
+    await ensureConfigured(page);
+    const { raceId } = await seedRace(page, 'Connect Devices Alignment Race');
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`/race/${raceId}/displays`);
+
+    const screenBlock = page.getByTestId('connect-screen-address');
+    const cameraBlock = page.getByTestId('connect-camera-address');
+    await expect(screenBlock).toBeVisible();
+    await expect(cameraBlock).toBeVisible();
+
+    const screenQr = screenBlock.locator('img');
+    const cameraQr = cameraBlock.locator('img');
+    await expect(screenQr).toBeVisible();
+    await expect(cameraQr).toBeVisible({ timeout: 15000 });
+
+    const screenBox = await screenBlock.boundingBox();
+    const cameraBox = await cameraBlock.boundingBox();
+    expect(screenBox).not.toBeNull();
+    expect(cameraBox).not.toBeNull();
+    expect(Math.abs(screenBox!.y - cameraBox!.y)).toBeLessThanOrEqual(2);
+    expect(Math.abs(screenBox!.height - cameraBox!.height)).toBeLessThanOrEqual(2);
+
+    const screenQrBox = await screenQr.boundingBox();
+    const cameraQrBox = await cameraQr.boundingBox();
+    expect(screenQrBox).not.toBeNull();
+    expect(cameraQrBox).not.toBeNull();
+    expect(Math.abs(screenQrBox!.y - cameraQrBox!.y)).toBeLessThanOrEqual(2);
+
+    // Below 768px the pair stacks — the camera card (added second, after
+    // the screen card in DOM order) ends up below it, and the page never
+    // grows wider than its own viewport.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(screenBlock).toBeVisible();
+    await expect(cameraBlock).toBeVisible();
+    const stackedScreenBox = await screenBlock.boundingBox();
+    const stackedCameraBox = await cameraBlock.boundingBox();
+    expect(stackedScreenBox).not.toBeNull();
+    expect(stackedCameraBox).not.toBeNull();
+    expect(stackedCameraBox!.y).toBeGreaterThan(stackedScreenBox!.y + stackedScreenBox!.height - 2);
+
+    const fitsWithoutOverflow = await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+    );
+    expect(fitsWithoutOverflow).toBe(true);
+});
+
 test('the Connect a camera code carries this race\'s own track, and scanning it shows a camera row listening to that track (#1254, #1293)', async ({ browser, page }) => {
     // The reported bug: connecting a camera meant editing a URL on a phone
     // keyboard, because the Displays panel's only QR code landed on the

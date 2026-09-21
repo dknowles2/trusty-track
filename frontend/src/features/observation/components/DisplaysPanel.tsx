@@ -364,59 +364,65 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                     the wall-mounted display or the check-in tablet a new
                     display window would open on *this* machine instead — an
                     address to type or scan is the only way in (#723). Two
-                    blocks side by side (#1254): a screen, unchanged, and a
-                    camera — its own fresh identity, presetting this race's
-                    own track with no picker over the install's other
-                    tracks (#1293 — a race runs on exactly one). */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-start' }}>
-                    <div style={{ flex: '1 1 300px', minWidth: '260px' }}>
-                        <ConnectDisplayAddress
-                            raceId={raceId}
-                            heading="Connect a screen"
-                            testId="connect-screen-address"
-                        />
-                    </div>
-                    <div style={{ flex: '1 1 300px', minWidth: '260px' }}>
-                        {cameraPresetSettled ? (
-                            raceTrackId ? (
-                                <>
-                                    <ConnectDisplayAddress
-                                        raceId={raceId}
-                                        path={cameraPath}
-                                        heading="Connect a camera"
-                                        caption="For the finish line — scan on the phone that will film it."
-                                        testId="connect-camera-address"
-                                    />
-                                    {cameras.length === 0 && (
-                                        <p style={captionStyle}>No cameras yet — scan the code above to connect one.</p>
-                                    )}
-                                </>
-                            ) : (
-                                // `Race.trackId` is nullable — a race with no
-                                // track yet is already a race the timer can't
-                                // run, so the honest answer is a notice, not a
-                                // code that would preset nothing (and never a
-                                // fallback to the install's only track either,
-                                // even when there is exactly one — this race's
-                                // own track is the only one with a right
-                                // answer here).
-                                <div data-testid="connect-camera-no-track" style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '0.85rem 1rem' }}>
-                                    <h3 style={{ margin: '0 0 0.3rem', fontSize: '1rem' }}>Connect a camera</h3>
-                                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
-                                        Pick this race&apos;s track in Edit race first, so the camera knows which
-                                        timer to listen to.
-                                    </p>
-                                </div>
-                            )
+                    cards side by side (#1254), the same height, the same
+                    rows (#1292 — see `.connect-devices-row` in `index.css`
+                    and `ConnectDisplayAddress`'s own header comment): a
+                    screen, unchanged, and a camera — its own fresh identity,
+                    presetting this race's own track with no picker over the
+                    install's other tracks (#1293 — a race runs on exactly
+                    one). */}
+                <div className="connect-devices-row" data-testid="connect-devices-row">
+                    <ConnectDisplayAddress
+                        raceId={raceId}
+                        heading="Connect a screen"
+                        caption="For a wall display, projector or tablet on this network."
+                        testId="connect-screen-address"
+                    />
+                    {cameraPresetSettled ? (
+                        raceTrackId ? (
+                            <ConnectDisplayAddress
+                                raceId={raceId}
+                                path={cameraPath}
+                                heading="Connect a camera"
+                                caption="For the finish line — scan on the phone that will film it."
+                                sentence="Open this address on the phone that will be the camera:"
+                                qrAlt="QR code that opens this race's camera page"
+                                testId="connect-camera-address"
+                                footer={
+                                    cameras.length === 0 ? (
+                                        <p style={captionStyle}>
+                                            No cameras yet — scan the code above to connect one.
+                                        </p>
+                                    ) : undefined
+                                }
+                            />
                         ) : (
-                            // Neither the notice nor the address is shown
-                            // until the race's own track query has answered —
-                            // see this block's own comment on
-                            // `cameraPresetSettled` for why a URL built
-                            // before then would be wrong, not just early.
-                            <p style={captionStyle}>Preparing the camera address…</p>
-                        )}
-                    </div>
+                            // `Race.trackId` is nullable — a race with no
+                            // track yet is already a race the timer can't
+                            // run, so the honest answer is a notice, not a
+                            // code that would preset nothing (and never a
+                            // fallback to the install's only track either,
+                            // even when there is exactly one — this race's
+                            // own track is the only one with a right
+                            // answer here). Renders through the same
+                            // component as the address case, via `notice`,
+                            // so it shares the card's chrome rather than
+                            // hand-building a copy of it (#1292).
+                            <ConnectDisplayAddress
+                                raceId={raceId}
+                                heading="Connect a camera"
+                                testId="connect-camera-no-track"
+                                notice="Pick this race's track in Edit race first, so the camera knows which timer to listen to."
+                            />
+                        )
+                    ) : (
+                        // Neither the notice nor the address is shown
+                        // until the race's own track query has answered —
+                        // see this block's own comment on
+                        // `cameraPresetSettled` for why a URL built
+                        // before then would be wrong, not just early.
+                        <p style={captionStyle}>Preparing the camera address…</p>
+                    )}
                 </div>
             </div>
         </div>

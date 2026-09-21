@@ -29,9 +29,32 @@
  * rather than duplicating this component. `heading`/`caption` are optional
  * labels rendered above the address row, so two blocks sitting side by side
  * read as a pair rather than two identical, unlabelled boxes.
+ *
+ * **Everything belonging to a block lives inside this component now**
+ * ([#1292](https://github.com/dknowles2/trusty-track/issues/1292)). Two
+ * blocks used to sit side by side with content rendered *outside* either
+ * card — a picker above one, an empty-state line below it — so their tops,
+ * address rows and bottoms all landed at different heights even though both
+ * were "the same card". `footer` renders after the address row (or the
+ * `notice`, below), pinned to the card's own bottom edge with
+ * `margin-top: auto` (`.connect-display-card` is a `flex-direction: column`
+ * column the whole height of its grid row — see `.connect-devices-row` in
+ * `index.css`) — the camera block's "No cameras yet" line is this, not a
+ * paragraph a caller renders next to the card. `notice` replaces the address
+ * row outright, for the one case with no address to show at all (a race
+ * with no track yet, #1293) — it still gets the same border, heading and
+ * caption every other card gets, rather than a hand-built copy of just
+ * those three things. `headingExtra` is an unused slot in the heading row,
+ * reserved for #1300's `DocsLink` — nothing renders there today.
+ *
+ * The address row itself is two slots, left (the sentence, the address,
+ * Copy) and right (a fixed 100×100 QR box, reserved even before the QR has
+ * loaded so the layout cannot jump once it has) — `sentence` and `qrAlt`
+ * let a caller whose address is not a screen (the camera block) say so
+ * specifically, defaulting to today's wording.
  */
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import { mdiAlertOutline, mdiCheck, mdiContentCopy } from '@mdi/js';
@@ -55,6 +78,27 @@ interface ConnectDisplayAddressProps {
     /** Defaults to the screen block's own id — a caller adding a second
      * block (the camera one) passes its own. */
     testId?: string;
+    /** Rendered in the heading row, after the heading text. Nothing passes
+     * this today — it is a reserved slot for #1300's `DocsLink`, so that
+     * feature does not need to touch this component's own layout when it
+     * lands. */
+    headingExtra?: ReactNode;
+    /** Rendered after the address row (or the `notice`), inside the same
+     * card, pinned to the card's bottom edge. The camera block's "No
+     * cameras yet — scan the code above to connect one." line is this,
+     * not a paragraph a caller renders next to the card (#1292). */
+    footer?: ReactNode;
+    /** Replaces the address row with this text, while keeping the same
+     * card chrome (border, heading, caption, footer) — the "this race has
+     * no track yet" case (#1293), which has no address to show at all. */
+    notice?: string;
+    /** What the address row's sentence says before the address itself.
+     * Defaults to the screen wording; a caller whose address is not a
+     * screen (the camera block) says so specifically. */
+    sentence?: string;
+    /** The QR image's `alt` text. Defaults to the screen wording, for the
+     * same reason as `sentence`. */
+    qrAlt?: string;
 }
 
 export default function ConnectDisplayAddress({
@@ -63,8 +107,15 @@ export default function ConnectDisplayAddress({
     heading,
     caption,
     testId = 'connect-screen-address',
+    headingExtra,
+    footer,
+    notice,
+    sentence = 'Open this address on a screen anywhere on this network to connect it:',
+    qrAlt = "QR code that opens this race's live display",
 }: ConnectDisplayAddressProps) {
-    const [result] = useQuery({ query: NETWORK_ADDRESSES_QUERY });
+    // A `notice` has no address to show, so there is nothing for this query
+    // to feed — paused rather than fetched and discarded.
+    const [result] = useQuery({ query: NETWORK_ADDRESSES_QUERY, pause: !!notice });
     const [copied, setCopied] = useState(false);
     const [qrFailed, setQrFailed] = useState(false);
 
@@ -73,12 +124,9 @@ export default function ConnectDisplayAddress({
     const networkAddresses = result.data?.networkAddresses ?? [];
     const mdnsHostname = result.data?.mdnsHostname ?? null;
     const resolvedPath = path ?? qrTargetPath('STANDINGS', raceId, { spectator: false });
-    const { url, reachable } = shareUrl(
-        window.location.origin,
-        resolvedPath,
-        networkAddresses,
-        mdnsHostname,
-    );
+    const { url, reachable } = notice
+        ? { url: '', reachable: false }
+        : shareUrl(window.location.origin, resolvedPath, networkAddresses, mdnsHostname);
 
     const handleCopy = async () => {
         const ok = await copyText(url);
@@ -89,56 +137,66 @@ export default function ConnectDisplayAddress({
     };
 
     return (
-        <div data-testid={testId} style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '0.85rem 1rem' }}>
-            {heading && <h3 style={{ margin: '0 0 0.3rem', fontSize: '1rem' }}>{heading}</h3>}
-            {caption && (
-                <p style={{ margin: '0 0 0.6rem', fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
-                    {caption}
-                </p>
+        <div data-testid={testId} className="connect-display-card">
+            {(heading || headingExtra) && (
+                <div className="connect-display-card-heading-row">
+                    {heading && <h3 className="connect-display-card-heading">{heading}</h3>}
+                    {headingExtra}
+                </div>
             )}
-            <div
-                style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                }}
-            >
-            <span style={{ color: 'var(--text-muted-color)' }}>
-                Open this address on a screen anywhere on this network to connect it: <ShareableUrl url={url} />
-            </span>
-            <button
-                type="button"
-                className="secondary-btn"
-                onClick={handleCopy}
-                aria-label={copied ? 'Copied' : 'Copy the address'}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-            >
-                <Icon path={copied ? mdiCheck : mdiContentCopy} size={0.7} />
-                {copied ? 'Copied' : 'Copy'}
-            </button>
-            {!reachable && (
-                <span
-                    role="alert"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--warning-color)' }}
-                >
-                    <Icon path={mdiAlertOutline} size={0.8} />
-                    Trusty Track could not find this machine's network address. Try typing it
-                    into the other screen's browser to check before relying on it.
-                </span>
+            {caption && <p className="connect-display-card-caption">{caption}</p>}
+            {notice ? (
+                <p className="connect-display-card-notice">{notice}</p>
+            ) : (
+                <div className="connect-display-address-row">
+                    <div className="connect-display-address-left">
+                        <div className="connect-display-address-line">
+                            <span style={{ color: 'var(--text-muted-color)' }}>
+                                {sentence} <ShareableUrl url={url} />
+                            </span>
+                            <button
+                                type="button"
+                                className="secondary-btn"
+                                onClick={handleCopy}
+                                aria-label={copied ? 'Copied' : 'Copy the address'}
+                                style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                            >
+                                <Icon path={copied ? mdiCheck : mdiContentCopy} size={0.7} />
+                                {copied ? 'Copied' : 'Copy'}
+                            </button>
+                        </div>
+                        {!reachable && (
+                            <span role="alert" className="connect-display-warning">
+                                <Icon path={mdiAlertOutline} size={0.8} />
+                                Trusty Track could not find this machine's network address. Try typing
+                                it into the other screen's browser to check before relying on it.
+                            </span>
+                        )}
+                    </div>
+                    {/* A fixed, reserved box — before the QR has loaded, on
+                        the unreachable path, and once it has failed — so the
+                        QR is always at the same place in every card
+                        regardless of how long its own address happens to be
+                        (#1292). */}
+                    <div data-testid={`${testId}-qr-box`} className="connect-display-qr-box">
+                        {reachable && !qrFailed && (
+                            <img
+                                key={url}
+                                src={qrCodeSrc(raceId, url)}
+                                alt={qrAlt}
+                                width={100}
+                                height={100}
+                                style={{ border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                                onError={() => setQrFailed(true)}
+                            />
+                        )}
+                        {reachable && qrFailed && (
+                            <span className="connect-display-qr-unavailable">QR unavailable</span>
+                        )}
+                    </div>
+                </div>
             )}
-            {reachable && !qrFailed && (
-                <img
-                    key={url}
-                    src={qrCodeSrc(raceId, url)}
-                    alt="QR code that opens this race's live display"
-                    width={100}
-                    height={100}
-                    style={{ border: '1px solid var(--border-color)', borderRadius: '8px' }}
-                    onError={() => setQrFailed(true)}
-                />
-            )}
-            </div>
+            {footer && <div className="connect-display-card-footer">{footer}</div>}
         </div>
     );
 }

@@ -36,6 +36,13 @@ shows the actual race.
    it — there is nothing to choose. If the race doesn't have a track set
    yet, the block says so instead of showing a code; pick one on the race's
    own **Edit race** form first.
+
+   ![The Connect a screen and Connect a camera cards, side by side](assets/screenshots/instant-replay/13-connect-devices.png)
+   _Under **Other devices**: a code for a wall display or check-in tablet on
+   the left, and the camera's own code on the right — the same pair, the
+   same height, so the two read as one thing to scan rather than two
+   unrelated boxes._
+
 2. The browser asks for camera permission. Allow it, and a live preview
    appears.
 3. The status line under the preview already says which track this camera

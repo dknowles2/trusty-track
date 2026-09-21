@@ -342,6 +342,30 @@ test('screenshot instant replay', async ({ page, browser }) => {
             path: path.join(SCREENSHOT_DIR, '02-displays-panel-camera.png'),
         });
 
+        // 13 (#1292): the "Other devices" row — the Connect a screen and
+        // Connect a camera cards as a pair, the same height, their address
+        // rows and QR codes on the same lines. `cameraWindowUrl` mints a
+        // fresh `displayId` on every mount with no way to pin it from here
+        // (see `.claude/rules/displays.md`'s "A computer can drive more than
+        // one screen" — there is no `?displayId=` override for this URL the
+        // way `newDisplayWindowUrl`'s own callers get one), so the camera
+        // card's own address text *and* its QR (which encodes that same
+        // address) both differ on every run — confirmed by diffing two
+        // local runs of this identical spec: masking the QR alone still
+        // left the `displayId=…` text underneath it unmasked and drifting
+        // by 560 px / 0.28%, entirely inside that one line. The screen
+        // card carries no such id (its target is this race's own Live page,
+        // not a fresh device) and needs no mask. This crop is about the two
+        // cards lining up, not about either code's own pixels.
+        const devicesRow = page.getByTestId('connect-devices-row');
+        const cameraCard = devicesRow.getByTestId('connect-camera-address');
+        await expect(devicesRow).toBeVisible();
+        await expect(cameraCard).toBeVisible();
+        await screenshotLocator(devicesRow, {
+            path: path.join(SCREENSHOT_DIR, '13-connect-devices.png'),
+            mask: [cameraCard.locator('code'), cameraCard.locator('img[alt^="QR code"]')],
+        });
+
         // 03: Race Control's own camera badge, above the lock banner —
         // reachable without leaving the heat the operator is running.
         await page.goto(`/race/${raceId}/control`);
