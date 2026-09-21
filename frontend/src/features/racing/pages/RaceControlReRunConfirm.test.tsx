@@ -380,3 +380,104 @@ describe('Re-Run navigates, the same as Run (#1295)', () => {
     expect(capturedActiveExecutionHeat?.id).toBe(completedHeat.id);
   });
 });
+
+/**
+ * #1295 review finding: every test above exercises the confirm/clear/
+ * select/navigate steps, but none of them put a completed heat *behind* a
+ * still-pending one in its round — the one shape that makes the jump-ahead
+ * reorder (`handleRunHeat`'s "If this is a future heat, move it to be the
+ * next one in its round") actually fire. Without a case like the first one
+ * below, deleting that whole block — Re-Run would stop reordering while Run
+ * kept doing it — passed all 11 existing unit tests and both e2e specs. The
+ * issue's own "Proposed fix" section is explicit that this has to survive
+ * Re-Run: "re-run heat 3" still means "run it next", not "run it after
+ * heats 7–9".
+ */
+describe('Re-Run reorders to the head of its round, the same as Run (#1295)', () => {
+  it('a completed heat sits behind a pending one in its round: Re-Run reorders it to the head, then selects and navigates', async () => {
+    // Sorted by heat number, `pendingHeat` (6) comes before `completedHeat`
+    // (7) — exactly the shape that trips the jump-ahead branch in
+    // `handleRunHeat`: the first heat still to be run in the round is not
+    // the one just re-run, so it has to be moved to the front.
+    const pendingHeat = {
+      id: 5,
+      roundId: 10,
+      roundNumber: 1,
+      heatNumber: 6,
+      lanes: [{ lane: 1, racerId: 108, placeholderSlot: null, time: null, place: null, skipped: false }],
+      replays: [],
+    };
+    mockQueries(mockRaceData([pendingHeat, completedHeat]));
+    const { updateHeatResult, reorderHeats } = mockMutations();
+    renderRaceControl();
+
+    await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
+    await capturedOnRunHeat!(completedHeat);
+
+    expect(updateHeatResult).toHaveBeenCalled();
+    // `completedHeat` (id 1) moves to heat number 1; `pendingHeat` (id 5),
+    // the heat it jumped ahead of, moves to heat number 2 — the exact
+    // shape `RaceControlReorder.test.tsx` pins for Run on a future heat
+    // (issue #416), now exercised for Re-Run on a completed one.
+    expect(reorderHeats).toHaveBeenCalledWith({
+      heatUpdates: [
+        { heatId: completedHeat.id, newHeatNumber: 1 },
+        { heatId: pendingHeat.id, newHeatNumber: 2 },
+      ],
+    });
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/race/1/control/race'));
+    await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
+    expect(capturedActiveExecutionHeat?.id).toBe(completedHeat.id);
+  });
+
+  it('the same shape under a master running order: no reorder, but still selects and navigates', async () => {
+    const pendingHeat = {
+      id: 5,
+      roundId: 10,
+      roundNumber: 1,
+      heatNumber: 6,
+      lanes: [{ lane: 1, racerId: 108, placeholderSlot: null, time: null, place: null, skipped: false }],
+      replays: [],
+    };
+    mockQueries(mockRaceData([pendingHeat, completedHeat], true));
+    const { updateHeatResult, reorderHeats } = mockMutations();
+    renderRaceControl();
+
+    await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
+    await capturedOnRunHeat!(completedHeat);
+
+    expect(updateHeatResult).toHaveBeenCalled();
+    expect(reorderHeats).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/race/1/control/race'));
+    await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
+    expect(capturedActiveExecutionHeat?.id).toBe(completedHeat.id);
+  });
+
+  it('a completed heat already first among the round\'s pending heats: no reorder', async () => {
+    // `laterPendingHeat` (8) sorts *after* `completedHeat` (7), so
+    // `completedHeat` is already at the front of what is left to run —
+    // unlike the two tests above, this exercises the branch with more than
+    // one heat in the round and still expects it to decide "nothing to do",
+    // rather than trivially skipping it the way a single-heat round would.
+    const laterPendingHeat = {
+      id: 6,
+      roundId: 10,
+      roundNumber: 1,
+      heatNumber: 8,
+      lanes: [{ lane: 1, racerId: 109, placeholderSlot: null, time: null, place: null, skipped: false }],
+      replays: [],
+    };
+    mockQueries(mockRaceData([completedHeat, laterPendingHeat]));
+    const { updateHeatResult, reorderHeats } = mockMutations();
+    renderRaceControl();
+
+    await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
+    await capturedOnRunHeat!(completedHeat);
+
+    expect(updateHeatResult).toHaveBeenCalled();
+    expect(reorderHeats).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/race/1/control/race'));
+    await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
+    expect(capturedActiveExecutionHeat?.id).toBe(completedHeat.id);
+  });
+});
