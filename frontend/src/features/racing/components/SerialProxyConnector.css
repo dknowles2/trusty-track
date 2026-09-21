@@ -30,6 +30,16 @@
     cursor: not-allowed;
 }
 
+/* Row context (#1299): sized like the global `button` rule in index.css
+   (padding: 10px 20px; border-radius: var(--border-radius)) so it shares a
+   height and a corner radius with a plain <button> beside it, keeping only
+   the purple hardware colour as the connector's identity. */
+.proxy-connect-btn--inline {
+    padding: 10px 20px;
+    border-radius: var(--border-radius);
+    font-weight: normal;
+}
+
 .proxy-connector-error {
     display: flex;
     align-items: center;
@@ -40,6 +50,13 @@
     padding: 8px 12px;
     border-radius: 4px;
     border: 1px solid var(--danger-border-color);
+}
+
+/* Row context (#1299): the button's row parent carries `flexWrap: 'wrap'`
+   (TimerDiagnostics.tsx), so a full-width basis drops this onto its own
+   line beneath the row instead of squeezing in beside it. */
+.proxy-connector-error--inline {
+    flex-basis: 100%;
 }
 
 .proxy-connector-status.connected {
