@@ -88,24 +88,80 @@ install_system_packages() {
         error "Trusty Track requires Python 3.10 or higher. Found $PYTHON_VERSION"
     fi
 
-    # Install Node.js from NodeSource if needed.
+    install_node
+}
+
+# ---------------------------------------------------------------------------
+# 1b. Node.js
+# ---------------------------------------------------------------------------
+#
+# 22 is the floor we accept; 24 is what we install and what `.nvmrc`, CI and
+# the Docker image use. An existing >=22 is left alone rather than replaced —
+# this runs on a Pi that may be doing other things.
+#
+# Also requires `npm` on PATH, not just `node` — Debian bookworm's own
+# `nodejs` package does not pull `npm` in (it is a separate "Suggested"
+# package, not a dependency: `apt-get install nodejs` alone lands a `node`
+# with no `npm` at all) — so a Node with no `npm` must fall into the install
+# branch below rather than being reported OK
+# (dknowles2/trusty-track#1322).
+node_is_ok() {
+    command -v node &>/dev/null || return 1
+    command -v npm &>/dev/null || return 1
+    local node_major
+    node_major=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+    [[ "$node_major" -ge 22 ]]
+}
+
+install_node() {
+    if node_is_ok; then
+        success "Node.js $(node -v) OK"
+        return
+    fi
+
+    info "Installing Node.js 24 from NodeSource..."
+    curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+
+    # NodeSource's setup script can print its own apt failure — e.g.
+    # "Error: Failed to run 'apt update' (Exit Code: 0)", which is what the
+    # v1.5.0 Pi image build hit under QEMU emulation, apparently out of
+    # memory — and still exit 0: the pipeline's status above is `bash -`'s
+    # own, which is 0 whether or not the script it ran actually succeeded,
+    # and `set -o pipefail` (already on, line 26) cannot see past that —
+    # `bash -` really did exit 0. So check what the script was actually
+    # supposed to have done, rather than trusting its exit code: register
+    # its apt source. If that file never appeared, the repository never
+    # registered, and the plain `apt-get install` below would silently pull
+    # Debian's own (npm-less) nodejs instead of NodeSource's — exactly what
+    # happened building that image (dknowles2/trusty-track#1322).
     #
-    # 22 is the floor we accept; 24 is what we install and what `.nvmrc`, CI and
-    # the Docker image use. An existing 22 is left alone rather than replaced —
-    # this runs on a Pi that may be doing other things.
-    NODE_OK=false
-    if command -v node &>/dev/null; then
-        NODE_MAJOR=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-        if [[ "$NODE_MAJOR" -ge 22 ]]; then
-            NODE_OK=true
+    # Overridable so tests can point this at a path they control rather
+    # than `/etc`; the default is NodeSource's real one (confirmed by
+    # reading `setup_24.x`'s own source — it writes the newer deb822-format
+    # `nodesource.sources`, not the older `nodesource.list` it explicitly
+    # removes on the way in).
+    local sources_file="${NODESOURCE_SOURCES_FILE:-/etc/apt/sources.list.d/nodesource.sources}"
+    if [[ ! -s "$sources_file" ]]; then
+        error "NodeSource did not register — look for an apt error above, e.g. 'Cannot allocate memory' under emulation ($sources_file was not written)"
+    fi
+
+    apt-get install -y -q nodejs
+
+    # Re-run the exact same check after the install, rather than trusting
+    # apt-get's own exit code: NodeSource registering correctly and
+    # apt-get still landing Debian's own nodejs (a pin-priority problem, a
+    # partially updated package list, ...) is a different failure from the
+    # one above, and both must be caught before ever printing "OK".
+    if ! node_is_ok; then
+        if command -v node &>/dev/null; then
+            local npm_status="missing"
+            command -v npm &>/dev/null && npm_status="present"
+            error "Node.js is still $(node -v) after installing from NodeSource, and npm is $npm_status — the NodeSource repository did not take effect"
+        else
+            error "node is not on PATH after installing from NodeSource"
         fi
     fi
 
-    if [[ "$NODE_OK" == "false" ]]; then
-        info "Installing Node.js 24 from NodeSource..."
-        curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
-        apt-get install -y -q nodejs
-    fi
     success "Node.js $(node -v) OK"
 }
 
