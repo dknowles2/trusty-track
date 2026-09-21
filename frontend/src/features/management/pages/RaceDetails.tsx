@@ -24,7 +24,7 @@ import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import { isRaceSectionId, type RaceSectionId } from '../raceSettingsSections';
 import DeleteLockedRaceModal from '../components/DeleteLockedRaceModal';
-import LockedBadge from '../../core/components/LockedBadge';
+import RaceViewHeading from '../../core/components/RaceViewHeading';
 import ImportRacersModal from '../components/ImportRacersModal';
 import RosterImportModal, { IMPORT_OTHER_SOFTWARE_LABEL } from '../components/RosterImportModal';
 import SetupChecklist from '../components/SetupChecklist';
@@ -1137,33 +1137,39 @@ export default function RaceDetails() {
           already use (#589), ahead of #947's rename of this button
           specifically. */}
       <div style={{ marginBottom: mobileChrome ? 0 : '1rem' }}>
-          {/* #1148: under 768px the mobile nav's own race pill (`Navigation.tsx`)
-              already names this race, and the bottom tab bar's "Roster" label
-              already names this page, so the heading — and the summary line
+          {/* #1296/#1297: the heading — title (the race's own name, #949),
+              the Locked badge and the docs link — is `RaceViewHeading`'s own
+              job now, including hiding itself under 768px; the summary line
               under it, which exists to explain the heading's own settings
-              grid it replaced (#949) — are both dropped rather than
-              repeating the page's own name and adding chrome the check-in
-              queue has no room for. "Edit race" moves into the roster
-              toolbar's own ⋯ overflow below instead of standing alone here.
-              The locked notice stays regardless of width — it is safety
-              information, not orientation chrome. */}
-          {!mobileChrome && (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
-                  <h1 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      {race?.name}
-                      {race?.is_locked && <LockedBadge />}
-                  </h1>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              grid it replaced (#949), still drops separately, since it is
+              not part of the heading row. "Edit race" moves into the roster
+              toolbar's own ⋯ overflow below on a phone instead of standing
+              alone here — `docsInOverflow` is what keeps the component from
+              also drawing a second `?` icon there, since "Roster guide"
+              already lives in that menu. The locked notice below stays
+              regardless of width — it is safety information, not
+              orientation chrome. */}
+          <RaceViewHeading
+              title={race?.name}
+              locked={!!race?.is_locked}
+              docsKey="roster"
+              docsInOverflow
+              testId="roster-heading"
+              // On a phone, "Edit race" lives in the roster toolbar's own
+              // `roster-more-menu` overflow (below) instead — a standalone
+              // pill here would be a second copy of the identical control.
+              actions={
+                  mobileChrome ? undefined : (
                       <EditRaceButton
                           onClick={() => setIsEditingRace(true)}
                           disabled={!isOperator}
                           title={operatorRoleTitle}
                           data-testid="edit-race-btn"
                       />
-                      <DocsLink docsKey="roster" />
-                  </div>
-              </div>
+                  )
+              }
+          />
+          {!mobileChrome && (
               <p data-testid="race-summary-line" style={{ margin: '0.35rem 0 0', color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
                   {raceSummaryLine(
                       {
@@ -1175,7 +1181,6 @@ export default function RaceDetails() {
                       group,
                   )}
               </p>
-            </>
           )}
           {race?.is_locked && (
               <p

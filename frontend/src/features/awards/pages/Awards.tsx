@@ -44,6 +44,7 @@ import {
 import { readAppTheme } from '../../../theming/appTheme';
 import { themeByKey } from '../../../theming/themes';
 import DocsLink from '../../../components/ui/DocsLink';
+import RaceViewHeading from '../../core/components/RaceViewHeading';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 import { useRole } from '../../core/hooks/useRole';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
@@ -341,87 +342,80 @@ export default function Awards() {
 
   return (
     <div className="container" style={{ padding: '2rem' }}>
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '15px',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: mobileChrome ? '1rem' : '2rem',
-          borderBottom: '1px solid var(--divider-color)',
-          paddingBottom: '1rem',
-        }}
-      >
-        {/* #1148: under 768px the bottom tab bar already names this page
-            ("Awards"), so the heading is dropped, and Present/Print
-            certificates — reached for far less often than Add an award —
-            move into a small overflow so the row is one compact line
+      <div style={{ borderBottom: '1px solid var(--divider-color)', paddingBottom: '1rem', marginBottom: mobileChrome ? '1rem' : '2rem' }}>
+        {/* #1296/#1297: the heading — title, Locked badge, docs link — is
+            `RaceViewHeading`'s own job now, hidden under 768px same as every
+            other race view; `docsInOverflow` is what keeps it from also
+            drawing a second `?` at this width, since "Awards guide" already
+            lives in `awards-more-menu` below. Present/Print certificates —
+            reached for far less often than Add an award — still move into
+            that same small overflow so the row stays one compact line
             rather than three buttons, two of which wrapped their labels. */}
-        {!mobileChrome && (
-          <h1 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            Awards
-            <DocsLink docsKey="awards" />
-          </h1>
-        )}
-        <div style={{ display: 'flex', gap: '0.5rem', marginLeft: mobileChrome ? 'auto' : undefined }}>
-          {mobileChrome ? (
-            <>
-              <div className="dropdown" style={{ position: 'relative' }}>
+        <RaceViewHeading
+          title="Awards"
+          locked={raceLocked}
+          docsKey="awards"
+          docsInOverflow
+          testId="awards-heading"
+          actions={
+            mobileChrome ? (
+              <>
+                <div className="dropdown" style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => setAwardsMenuOpen(o => !o)}
+                    aria-label="More award actions"
+                    aria-expanded={awardsMenuOpen}
+                    data-testid="awards-more-menu"
+                    style={{ display: 'flex', alignItems: 'center', padding: '6px 10px' }}
+                  >
+                    <Icon path={mdiDotsHorizontal} size={0.8} />
+                  </button>
+                  {awardsMenuOpen && (
+                    <div className="dropdown-content" style={{ display: 'block' }}>
+                      {presentAction}
+                      {printCertificatesAction}
+                      <DocsLink docsKey="awards" label="Awards guide" />
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
-                  className="secondary-btn"
-                  onClick={() => setAwardsMenuOpen(o => !o)}
-                  aria-label="More award actions"
-                  aria-expanded={awardsMenuOpen}
-                  data-testid="awards-more-menu"
-                  style={{ display: 'flex', alignItems: 'center', padding: '6px 10px' }}
+                  className="primary-btn"
+                  onClick={() => setAdding(true)}
+                  disabled={operatorDisabled}
+                  title={operatorTitle}
                 >
-                  <Icon path={mdiDotsHorizontal} size={0.8} />
+                  Add an award
                 </button>
-                {awardsMenuOpen && (
-                  <div className="dropdown-content" style={{ display: 'block' }}>
-                    {presentAction}
-                    {printCertificatesAction}
-                    <DocsLink docsKey="awards" label="Awards guide" />
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                className="primary-btn"
-                onClick={() => setAdding(true)}
-                disabled={operatorDisabled}
-                title={operatorTitle}
-              >
-                Add an award
-              </button>
-            </>
-          ) : (
-            <>
-              {/* Opens the ceremony in a new tab, the same way Launch Projector
-                  Mode does — the docs already tell the operator to run the
-                  ceremony on the projector machine, and the chrome-hiding route
-                  had no way back from an operator's own tab except the browser's
-                  Back button, which a kiosk or a full-screen tablet may not have
-                  (#955). It is still an ordinary route underneath, so it is also
-                  the address to point a projector at directly. */}
-              {presentAction}
-              {/* The certificate print page, next to the ceremony route it pairs
-                  with — one is for the room, the other for the wall afterward. */}
-              {printCertificatesAction}
-              <button
-                type="button"
-                className="primary-btn"
-                onClick={() => setAdding(true)}
-                disabled={operatorDisabled}
-                title={operatorTitle}
-              >
-                Add an award
-              </button>
-            </>
-          )}
-        </div>
+              </>
+            ) : (
+              <>
+                {/* Opens the ceremony in a new tab, the same way Launch Projector
+                    Mode does — the docs already tell the operator to run the
+                    ceremony on the projector machine, and the chrome-hiding route
+                    had no way back from an operator's own tab except the browser's
+                    Back button, which a kiosk or a full-screen tablet may not have
+                    (#955). It is still an ordinary route underneath, so it is also
+                    the address to point a projector at directly. */}
+                {presentAction}
+                {/* The certificate print page, next to the ceremony route it pairs
+                    with — one is for the room, the other for the wall afterward. */}
+                {printCertificatesAction}
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={() => setAdding(true)}
+                  disabled={operatorDisabled}
+                  title={operatorTitle}
+                >
+                  Add an award
+                </button>
+              </>
+            )
+          }
+        />
       </div>
 
       {raceLocked && (
