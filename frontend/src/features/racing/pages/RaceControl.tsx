@@ -50,7 +50,7 @@ import { shouldShowReadiness } from '../readiness';
 import { estimatePace } from '../pace';
 import { expectedHeatCount } from '../growingRounds';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
-import LockedBadge from '../../core/components/LockedBadge';
+import RaceViewHeading from '../../core/components/RaceViewHeading';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
 export default function RaceControl() {
@@ -1023,15 +1023,15 @@ export default function RaceControl() {
   if (fetching && !data) return <div>Loading Race Control...</div>;
 
   if (error && !race) return (
-    <div className="container" style={{ padding: '20px' }}>
-      {!mobileChrome && <h1>Race Control</h1>}
+    <div className="container" style={{ padding: '2rem' }}>
+      <RaceViewHeading title="Race Control" />
       <p style={{ color: 'var(--error-color)' }}>{errorText(error, 'The race could not be loaded.')}</p>
     </div>
   );
 
   if (!race && !fetching) return (
     <div className="container">
-      {!mobileChrome && <h1>Race Control</h1>}
+      <RaceViewHeading title="Race Control" />
       <p>No active race found. Please return home and select a race.</p>
     </div>
   );
@@ -1088,77 +1088,82 @@ export default function RaceControl() {
   // its own.
   const goToEditRace = () => navigate(`/race/${id}?edit=true`);
 
-  // The header row itself: under 768px, the tab strip is the first row with
-  // no "Race Control" heading above it (the bottom tab bar's own "Control"
-  // label already says this), and "Edit race" moves into this row's own
-  // overflow — there is no room left for a standalone pill beside the tab
-  // strip at phone width. At ordinary widths this is unchanged: heading,
-  // centered tab strip, and the pill (#1148).
-  const controlHeader = mobileChrome ? (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }} data-testid="race-control-mobile-header">
-      {race?.isLocked && <LockedBadge />}
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', minWidth: 0 }}>
-        {tabStripButtons}
-      </div>
-      <div className="dropdown" style={{ position: 'relative' }}>
-        <button
-          type="button"
-          className="secondary-btn"
-          onClick={() => setControlMenuOpen(o => !o)}
-          aria-label="Race Control menu"
-          aria-expanded={controlMenuOpen}
-          data-testid="race-control-overflow"
-          style={{ display: 'flex', alignItems: 'center', padding: '6px 10px', height: '36px' }}
-        >
-          <Icon path={mdiDotsHorizontal} size={0.8} />
-        </button>
-        {controlMenuOpen && (
-          <div className="dropdown-content" style={{ display: 'block', right: 0, left: 'auto' }}>
-            <button
-              type="button"
-              onClick={() => { setControlMenuOpen(false); goToEditRace(); }}
-              disabled={!isOperator}
-              title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
-              data-testid="race-control-edit-race"
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <Icon path={mdiPencil} size={0.7} /> Edit race
-            </button>
-            <DocsLink docsKey={docsKeyForTab[viewMode]} label="Learn more" />
-          </div>
-        )}
-      </div>
+  // "Edit race" is a standalone pill at ordinary widths and an entry in the
+  // tab strip's own overflow under 768px — there is no room left for a
+  // standalone pill beside the tab strip at phone width (#1148). Race
+  // settings had no route from Race Control at all — only from the Roster
+  // page's own "Edit race" button (#589, #949) — so both forms open the
+  // same modal there rather than inventing a settings page of its own.
+  const editRaceControl = mobileChrome ? (
+    <div className="dropdown" style={{ position: 'relative' }}>
+      <button
+        type="button"
+        className="secondary-btn"
+        onClick={() => setControlMenuOpen(o => !o)}
+        aria-label="Race Control menu"
+        aria-expanded={controlMenuOpen}
+        data-testid="race-control-overflow"
+        style={{ display: 'flex', alignItems: 'center', padding: '6px 10px', height: '36px' }}
+      >
+        <Icon path={mdiDotsHorizontal} size={0.8} />
+      </button>
+      {controlMenuOpen && (
+        <div className="dropdown-content" style={{ display: 'block', right: 0, left: 'auto' }}>
+          <button
+            type="button"
+            onClick={() => { setControlMenuOpen(false); goToEditRace(); }}
+            disabled={!isOperator}
+            title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
+            data-testid="race-control-edit-race"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Icon path={mdiPencil} size={0.7} /> Edit race
+          </button>
+          {/* #1297: the same "Learn more" the ⋯ menu already carried before
+              the shared heading existed — `docsInOverflow` below is what
+              tells `RaceViewHeading` not to also draw a bare `?` icon here. */}
+          <DocsLink docsKey={docsKeyForTab[viewMode]} label="Learn more" />
+        </div>
+      )}
     </div>
   ) : (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-      <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-        Race Control
-        {race?.isLocked && <LockedBadge />}
-      </h1>
+    <EditRaceButton
+      onClick={goToEditRace}
+      disabled={!isOperator}
+      title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
+      data-testid="race-control-edit-race"
+    />
+  );
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1, minWidth: '300px', justifyContent: 'center' }}>
-          {tabStripButtons}
-      </div>
-
-      {/* Race settings had no route from Race Control at all — only from
-          the Roster page's own "Edit race" button (#589, #949). This opens
-          the same modal there rather than inventing a settings page of
-          its own; the spacer this replaced existed only to balance the
-          centered tab group against the title on the left. */}
-      <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px' }}>
-        <EditRaceButton
-          onClick={goToEditRace}
-          disabled={!isOperator}
-          title={!isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined}
-          data-testid="race-control-edit-race"
-        />
-        <DocsLink docsKey={docsKeyForTab[viewMode]} />
-      </div>
-    </div>
+  // The header row itself is one `RaceViewHeading` now (#1296, #1297): the
+  // title/badge/docs-link `<h1>` (hidden under 768px, same as every other
+  // race view) and, in its `actions` slot, the tab strip beside whichever
+  // form of "Edit race" this width uses. The tab strip's own `flex: 1`
+  // is what makes it fill the middle of the row — `RaceViewHeading`'s own
+  // actions wrapper is `flex: 1` too, so there is free row space for it to
+  // consume in the first place; see that component's own comment on why
+  // that is the shape a bare pushed-right button and a strip that fills
+  // the middle can share.
+  const controlHeader = (
+    <RaceViewHeading
+      title="Race Control"
+      locked={!!race?.isLocked}
+      docsKey={docsKeyForTab[viewMode]}
+      docsInOverflow
+      testId="race-control-header"
+      actions={
+        <>
+          <div style={{ display: 'flex', justifyContent: 'center', flex: 1, minWidth: 0 }}>
+            {tabStripButtons}
+          </div>
+          {editRaceControl}
+        </>
+      }
+    />
   );
 
   return (
-    <div className="container" style={{ padding: mobileChrome ? '8px 12px' : '20px' }}>
+    <div className="container" style={{ padding: mobileChrome ? '8px 12px' : '2rem' }}>
       {controlHeader}
 
       {/* One badge per registered camera (#177 stage 1b) — "Finish line —

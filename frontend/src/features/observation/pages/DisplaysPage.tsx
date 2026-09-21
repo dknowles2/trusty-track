@@ -14,11 +14,13 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import DisplaysPanel from '../components/DisplaysPanel';
 import ScenesPanel from '../components/ScenesPanel';
-import DocsLink from '../../../components/ui/DocsLink';
+import RaceViewHeading from '../../core/components/RaceViewHeading';
+import { useRaceLocked } from '../../core/hooks/useRaceLocked';
 
 export default function DisplaysPage() {
   const { raceId } = useParams<{ raceId: string }>();
   const id = parseInt(raceId || '0');
+  const locked = useRaceLocked(id);
 
   // Whether any audience display is known for this race (#850) — read off
   // `DisplaysPanel`, which already asks the question for its own list,
@@ -27,11 +29,11 @@ export default function DisplaysPage() {
   const [hasDisplays, setHasDisplays] = useState(false);
 
   return (
-    <div className="container" style={{ padding: '20px' }}>
-      <h1 style={{ margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        Displays
-        <DocsLink docsKey="displays" />
-      </h1>
+    <div className="container" style={{ padding: '2rem' }}>
+      {/* #1296/#1297: title, Locked badge and docs link are
+          `RaceViewHeading`'s own job now — this page has no overflow of its
+          own, so the `?` stays visible at the row's right on a phone. */}
+      <RaceViewHeading title="Displays" docsKey="displays" locked={locked} testId="displays-heading" />
       {/* Displays leads (#850): it is the thing that is actually there — the
           operator's live list of screens, and the address to give a screen
           that has not connected yet — where Scenes is a power tool for

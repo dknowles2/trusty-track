@@ -279,6 +279,69 @@ describe('RaceDetails', () => {
         });
     });
 
+    describe('the shared race-view heading (#1296, #1297)', () => {
+        function mockRaceQuery(overrides: Record<string, unknown> = {}) {
+            (useQuery as any).mockReturnValue([{
+                data: {
+                    race: {
+                        id: 1,
+                        name: 'Test Race',
+                        dateTime: '2024-03-15T10:00:00',
+                        location: 'Test Location',
+                        schedulingStrategy: 'LANE_ROTATION',
+                        scoringStrategy: 'TIMED',
+                        carNumberingStrategy: 'PER_GROUP',
+                        trackId: 1,
+                        organizationId: 1,
+                        globalStartNumber: 1,
+                        championshipTrophies: 3,
+                        track: { name: 'Main Track' },
+                        racers: [],
+                        racingGroups: [],
+                        leaderboard: [],
+                        isLocked: false,
+                        ...overrides,
+                    },
+                    tracks: [{ id: 1, name: 'Main Track' }]
+                },
+                fetching: false,
+                error: null
+            }, vi.fn()]);
+            mockMutations();
+        }
+
+        it('shows the race name and the Locked badge when the race is locked', async () => {
+            mockRaceQuery({ isLocked: true });
+
+            render(
+                <MemoryRouter initialEntries={['/race/1']}>
+                    <Routes>
+                        <Route path="/race/:raceId" element={<RaceDetails />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            const heading = await screen.findByTestId('roster-heading');
+            expect(heading).toHaveTextContent('Test Race');
+            expect(heading).toHaveTextContent('Locked');
+        });
+
+        it('shows no Locked badge when the race is not locked', async () => {
+            mockRaceQuery({ isLocked: false });
+
+            render(
+                <MemoryRouter initialEntries={['/race/1']}>
+                    <Routes>
+                        <Route path="/race/:raceId" element={<RaceDetails />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            const heading = await screen.findByTestId('roster-heading');
+            expect(heading).not.toHaveTextContent('Locked');
+        });
+    });
+
     it('displays human-readable race settings', async () => {
         // Mock race data
         const mockRace = {

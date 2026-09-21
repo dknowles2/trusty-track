@@ -1115,6 +1115,46 @@ describe('RaceControl Page', () => {
         expect(screen.queryByText(/No active race found/i)).not.toBeInTheDocument();
         expect(screen.getByText('Trusty Track could not be reached. Check the network connection and try again.')).toBeInTheDocument();
     });
+
+    // -----------------------------------------------------------------
+    // The shared race-view heading (#1296, #1297)
+    // -----------------------------------------------------------------
+
+    it('shows the Locked badge in the heading when the race is locked', async () => {
+        (useQuery as any).mockReturnValue([{
+            data: { race: { ...mockRaceData.race, isLocked: true } },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        const heading = await screen.findByTestId('race-control-header');
+        expect(within(heading).getByText('Locked')).toBeInTheDocument();
+    });
+
+    it('does not show the Locked badge when the race is not locked', async () => {
+        // The default `beforeEach` mock carries no `isLocked` at all.
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+        const heading = await screen.findByTestId('race-control-header');
+        expect(within(heading).queryByText('Locked')).not.toBeInTheDocument();
+    });
 });
 
 

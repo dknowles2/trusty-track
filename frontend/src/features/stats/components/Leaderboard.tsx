@@ -16,7 +16,6 @@ import { downloadCsv, filenameFor } from '../../../utils/csv';
 import { useTerminology } from '../../../context/TerminologyContext';
 import RunOffControl from '../../racing/components/RunOffControl';
 import { runOffCluster, usableLaneCount } from '../../racing/runOff';
-import DocsLink from '../../../components/ui/DocsLink';
 import './Leaderboard.css';
 
 export interface LeaderboardEntry {
@@ -473,7 +472,6 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         >
           Print results
         </Link>
-        <DocsLink docsKey="standings" />
         </div>
       </div>
 

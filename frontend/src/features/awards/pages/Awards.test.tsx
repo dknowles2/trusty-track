@@ -189,6 +189,21 @@ describe('the awards page', () => {
     expect(screen.getByText('Ada Lovelace (#42)')).toBeInTheDocument();
   });
 
+  it('shows the Locked badge in the heading when the race is locked (#1296)', () => {
+    renderPage({ ...RACE, isLocked: true } as unknown as typeof RACE);
+
+    const heading = screen.getByTestId('awards-heading');
+    expect(within(heading).getByText('Awards')).toBeInTheDocument();
+    expect(within(heading).getByText('Locked')).toBeInTheDocument();
+  });
+
+  it('shows no Locked badge when the race is not locked', () => {
+    renderPage();
+
+    const heading = screen.getByTestId('awards-heading');
+    expect(within(heading).queryByText('Locked')).not.toBeInTheDocument();
+  });
+
   it('notes a contested SPEED place beside the recipient (#540)', () => {
     renderPage({
       ...RACE,

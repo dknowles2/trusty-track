@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import '../../../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, within } from '@testing-library/react';
 import Standings from './Standings';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useQuery, useSubscription } from 'urql';
 import { AlertProvider } from '../../../context/AlertContext';
 import { tiedLeaderboardEntries } from '../testFixtures';
+import { GET_RACES_NAV } from '../../core/graphql/queries';
 
 // Mock urql
 vi.mock('urql', async (importOriginal) => {
@@ -140,5 +141,42 @@ describe('Standings', () => {
 
         expect(screen.getByText('Invalid Race ID')).toBeInTheDocument();
         expect(screen.queryByText('Current Standings')).not.toBeInTheDocument();
+    });
+
+    it('shows the Locked badge in the heading when the race is locked (#1296)', async () => {
+        const mockData = {
+            race: { id: 1, name: 'Test Race', scoringStrategy: 'TIMED', leaderboard: [] },
+        };
+
+        // `useQuery` is called both by `Leaderboard` (the race's own
+        // standings metadata) and by `useRaceLocked` (`GET_RACES_NAV`) —
+        // discriminate by document rather than a blanket mock, since the
+        // two calls want different shapes.
+        (useQuery as any).mockImplementation(({ query }: { query: unknown }) => {
+            if (query === GET_RACES_NAV) {
+                return [{ data: { races: [{ id: 1, name: 'Test Race', isLocked: true }] }, fetching: false, error: null }, vi.fn()];
+            }
+            return [{ data: { race: mockData.race }, fetching: false, error: null }, vi.fn()];
+        });
+
+        (vi.mocked(useSubscription) as any).mockReturnValue([{
+            data: { leaderboard: [] },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={['/race/1/standings']}>
+                    <Routes>
+                        <Route path="/race/:raceId/standings" element={<Standings />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        const heading = await screen.findByTestId('standings-heading');
+        expect(within(heading).getByText('Standings')).toBeInTheDocument();
+        expect(within(heading).getByText('Locked')).toBeInTheDocument();
     });
 });

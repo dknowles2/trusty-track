@@ -21,7 +21,8 @@ import { groupScoreDomain } from '../groupScoreDomain';
 import { strategyLabel } from '../scoringStrategyText';
 import { hideRaceColumn } from '../trackRecordColumns';
 import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
-import DocsLink from '../../../components/ui/DocsLink';
+import RaceViewHeading from '../../core/components/RaceViewHeading';
+import { useRaceLocked } from '../../core/hooks/useRaceLocked';
 import './RaceStats.css';
 
 // ---- Types ----
@@ -179,6 +180,10 @@ const fmt = (t: number | null | undefined) =>
 export default function RaceStats() {
   const { raceId } = useParams<{ raceId: string }>();
   const id = parseInt(raceId || '0');
+  // No `raceStats`-shaped field carries `isLocked` — this reads the same
+  // `GET_RACES_NAV` the navigation pill already has cached rather than
+  // adding it to `raceStats` for one boolean (#1296).
+  const locked = useRaceLocked(id);
   const { group, groups, vehicle, vehicleLower } = useTerminology();
 
   const [result, reExecute] = useQuery({
@@ -239,9 +244,7 @@ export default function RaceStats() {
 
   return (
     <div className="container race-stats" style={{ padding: '2rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <DocsLink docsKey="stats" />
-      </div>
+      <RaceViewHeading title="Stats" docsKey="stats" locked={locked} testId="stats-heading" />
       {/* Overview Cards */}
       <div className="race-stats__overview-cards">
         <div className="race-stats__overview-card race-stats__overview-card--badge">

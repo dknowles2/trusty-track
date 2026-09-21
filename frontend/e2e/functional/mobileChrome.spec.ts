@@ -95,8 +95,11 @@ test.describe('phone chrome at 390×844 (#1148)', () => {
         // "Control" label already says this.
         await expect(page.getByRole('heading', { name: 'Race Control' })).toHaveCount(0);
 
-        // The tab strip is the first interactive row on the page.
-        const mobileHeader = page.getByTestId('race-control-mobile-header');
+        // The tab strip is the first interactive row on the page — the
+        // shared `RaceViewHeading` row, whose own `<h1>` is hidden at this
+        // width and whose `actions` slot (the tab strip plus the overflow
+        // trigger) is what remains (#1296).
+        const mobileHeader = page.getByTestId('race-control-header');
         await expect(mobileHeader).toBeVisible();
         const scheduleTab = mobileHeader.getByRole('button', { name: /Schedule/ });
         await expect(scheduleTab).toBeVisible();
@@ -216,6 +219,18 @@ test.describe('phone chrome at 390×844 (#1148)', () => {
             }
         });
     }
+
+    test('none of the six race views shows the shared page heading text at this width (#1296)', async ({ page }) => {
+        const { raceId } = await seedRace(page, 'Mobile Chrome Six Headings ' + Date.now());
+        await createSchedule(page, raceId);
+        await ensureConfigured(page);
+
+        for (const path of ['', '/control', '/standings', '/awards', '/stats', '/displays']) {
+            await page.goto(`/race/${raceId}${path}`);
+            await page.waitForLoadState('networkidle');
+            await expect(page.locator('h1.race-view-heading'), `heading at ${path || '/'}`).toHaveCount(0);
+        }
+    });
 });
 
 test.describe('desktop at 1280×800 stays unchanged (#1148)', () => {
@@ -243,5 +258,31 @@ test.describe('desktop at 1280×800 stays unchanged (#1148)', () => {
         await page.goto(`/race/${raceId}/awards`);
         await page.waitForLoadState('networkidle');
         await expect(page.getByRole('heading', { name: 'Awards' })).toBeVisible();
+    });
+
+    test('the six race views share one heading size, and the ? sits inside the h1 on all six (#1296, #1297)', async ({ page }) => {
+        const { raceId } = await seedRace(page, 'Desktop Chrome Six Headings ' + Date.now());
+        await createSchedule(page, raceId);
+        await ensureConfigured(page);
+
+        let fontSize: string | null = null;
+        for (const path of ['', '/control', '/standings', '/awards', '/stats', '/displays']) {
+            await page.goto(`/race/${raceId}${path}`);
+            await page.waitForLoadState('networkidle');
+            const heading = page.locator('h1.race-view-heading');
+            await expect(heading, `heading at ${path || '/'}`).toHaveCount(1);
+            const thisSize = await heading.evaluate((el) => getComputedStyle(el).fontSize);
+            if (fontSize === null) {
+                fontSize = thisSize;
+            } else {
+                expect(thisSize, `font-size at ${path || '/'}`).toBe(fontSize);
+            }
+            // The ? icon lives inside the h1 on every one of the six views
+            // (#1297) — never beside a button group, never alone.
+            await expect(
+                heading.locator('[data-testid="docs-link"]'),
+                `docs link inside heading at ${path || '/'}`,
+            ).toHaveCount(1);
+        }
     });
 });
