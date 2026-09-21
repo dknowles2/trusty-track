@@ -9,6 +9,10 @@ the next heat by itself ten seconds after results are recorded.
 heats match cars that are doing about as well, so more children get a heat
 they can win. See [Round styles](round-styles.md#balanced).
 
+**Camera** — a phone, tablet or laptop registered through the Camera page; a
+display with a role, not a separate kind of device. See the
+[Instant Replay guide](../instant-replay.md).
+
 **Car** — the built-in word for what a racer's entry is called. A pack can
 rename it — "Rocket" for a Space Derby, "Boat" for a Raingutter Regatta — and
 pick which of three pictures goes with it; see
@@ -55,6 +59,10 @@ thirty seconds.
 
 **Heat sheet** — the schedule on paper, with an empty column to write
 results into. See [Printed documents](printing.md#the-heat-sheet).
+
+**Instant replay** — a slow-motion clip of a heat's finish, played on every
+audience display a few seconds after the result is recorded. See the
+[Instant Replay guide](../instant-replay.md).
 
 **Lane** — one slot on the track. Lanes are not equal — small differences in
 the track make some faster — which is why the default round style gives every

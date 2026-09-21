@@ -764,6 +764,35 @@ describe('the two connect blocks under Other devices (#1254, #1293)', () => {
         ).toBeInTheDocument();
     });
 
+    // #1300: the screen card gets no `?` of its own — this page's own
+    // `<h1>` (`DisplaysPage.tsx`) already carries `docsKey="displays"`, and
+    // a second link to that identical guide on the same page is the
+    // duplicate `docsLinks.spec.ts` exists to catch.
+    it('gives the screen card no docs link of its own', () => {
+        renderConnectBlocks();
+        const screenBlock = screen.getByTestId('connect-screen-address');
+        expect(within(screenBlock).queryByTestId('docs-link')).toBeNull();
+    });
+
+    // #1300: the camera card's own `?` opens the Instant Replay guide —
+    // the docs page the issue found unreachable from the one moment an
+    // operator actually needs it.
+    it('links the camera card’s heading to the Instant Replay guide', () => {
+        renderConnectBlocks();
+        const cameraBlock = screen.getByTestId('connect-camera-address');
+        const docsLink = within(cameraBlock).getByTestId('docs-link');
+        expect(docsLink).toHaveAttribute('href', expect.stringContaining('instant-replay'));
+    });
+
+    // Same guide, on the "no track yet" notice card — whichever of the two
+    // renders, the link is there.
+    it('links the no-track notice card’s heading to the Instant Replay guide too', () => {
+        renderConnectBlocks({ raceTrackId: null });
+        const notice = screen.getByTestId('connect-camera-no-track');
+        const docsLink = within(notice).getByTestId('docs-link');
+        expect(docsLink).toHaveAttribute('href', expect.stringContaining('instant-replay'));
+    });
+
     it('presets the race’s own track, with no picker', () => {
         renderConnectBlocks({
             tracks: [

@@ -32,6 +32,10 @@ after — "what exactly counts toward the standings?", "which timers work?",
   works, every timer state, the remote start gate, and test runs.
 - **[Audience display views](displays.md)** — the six things a screen can
   show, and how assigning a view from Race Control works.
+- **[Instant Replay](../instant-replay.md#browser-requirements)** — which
+  browsers can be a finish-line camera, and how to check
+  [which cameras are registered](../instant-replay.md#which-cameras-are-registered)
+  for this race.
 - **[Themes](themes.md)** — the seven looks the app, the wall display, and
   printed pages can each take, what the "Field Uniform (default)" option
   means, and the printing/ink note.
