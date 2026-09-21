@@ -32,22 +32,21 @@ shows the actual race.
 1. On the device that will hold the camera, open **Displays** in the race
    navigation row and scan the **Connect a camera** code — a second code,
    next to the one a wall display uses, that opens the camera page
-   directly. With more than one track in the install, a **Camera for**
-   picker above the code lets you choose which one it presets; with a
-   single track, the code already carries it and there is nothing to
-   choose.
+   directly. A race runs on exactly one track, so the code already carries
+   it — there is nothing to choose. If the race doesn't have a track set
+   yet, the block says so instead of showing a code; pick one on the race's
+   own **Edit race** form first.
 2. The browser asks for camera permission. Allow it, and a live preview
    appears.
-3. The **track** dropdown at the top already shows the track the code
-   presets — change it here if this camera is actually watching a
-   different one.
+3. The status line under the preview already says which track this camera
+   is listening to — the one the code carried, set automatically.
 4. Aim the camera at the finish line (see [Aiming the camera](#aiming-the-camera)
    below) and prop it up. There is nothing else to do — leave the page open.
 
 ![The camera page, watching a track and ready to capture](assets/screenshots/instant-replay/01-camera-page.png)
 _The camera page: the track it is listening to and a status line saying
-what it is doing. A real camera also shows a live preview above the track
-picker — this picture comes from the automated test harness, which has no
+what it is doing. A real camera also shows a live preview above the status
+line — this picture comes from the automated test harness, which has no
 camera to preview._
 
 5. Race a heat as normal. A few seconds after the result lands, the camera's
@@ -74,7 +73,8 @@ doing:
 > Listening to Main Track's timer · buffer 10s · last clip 2s ago
 
 - **Listening to *(track)*'s timer** — which track's results this camera is
-  watching, chosen from the dropdown above.
+  watching. Since a race runs on exactly one track, this is set
+  automatically, with nothing to choose.
 - **buffer *N*s** — how much recent video it is currently holding, in
   case a result lands. This climbs to about ten seconds and stays there.
 - **last clip *time* ago** — when this camera's most recent clip was
@@ -112,13 +112,13 @@ starts or stops.
 ## Which Cameras Are Registered
 
 Every camera that has opened its page shows up on the **Displays** panel,
-alongside the audience screens — with a track picker in place of the view
-dropdown an ordinary screen gets, and a note saying when its last clip
-landed.
+alongside the audience screens — with a line saying which track it is
+listening to in place of the view dropdown an ordinary screen gets, and a
+note saying when its last clip landed.
 
 ![The Displays panel, with a camera row showing its track and last clip](assets/screenshots/instant-replay/02-displays-panel-camera.png)
-_A camera row on the Displays panel — pick its track here just as well as on
-the camera page itself, and see at a glance that it is still uploading._
+_A camera row on the Displays panel — shows which track it is listening to,
+and see at a glance that it is still uploading._
 
 Race Control also shows a small badge for each registered camera, above the
 lock banner, so the operator can tell a camera is still connected without
@@ -131,7 +131,7 @@ operator's own screen._
 ### Several Cameras
 
 With more than one camera pointed at the same track, each row on the
-Displays panel gets a small **↑ / ↓** beside its track picker — pick which
+Displays panel gets a small **↑ / ↓** beside its track line — pick which
 camera's clip plays first when a heat has more than one. Both the replay a
 display shows after a result and the camera picker in the ▶ modal (see
 [Keeping Clips Longer](#keeping-clips-longer) below) follow this order.

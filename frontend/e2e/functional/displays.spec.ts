@@ -13,7 +13,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { ensureConfigured, gql, seedRace } from './support';
+import { ensureConfigured, gql, seedRace, trackPoolName } from './support';
 
 /** The display's own storage key, which is how a screen keeps its identity. */
 const STORAGE_KEY = 'trustytrack.displayId';
@@ -249,7 +249,7 @@ test('the launch area keeps its two headings and fits a phone screen with no hor
     expect(fitsWithoutOverflow).toBe(true);
 });
 
-test('the Connect a camera code presets this race\'s own track, and scanning it shows a camera row with that track selected (#1254)', async ({ browser, page }) => {
+test('the Connect a camera code carries this race\'s own track, and scanning it shows a camera row listening to that track (#1254, #1293)', async ({ browser, page }) => {
     // The reported bug: connecting a camera meant editing a URL on a phone
     // keyboard, because the Displays panel's only QR code landed on the
     // Live page. `ConnectDisplayAddress`'s own `path` prop and
@@ -283,20 +283,33 @@ test('the Connect a camera code presets this race\'s own track, and scanning it 
     // backend's QR guard silently refused a `/camera` target, and the
     // block's own `onError` handler just hid the broken `<img>`, so the
     // address and Copy button looked complete with no code ever drawn.
+    //
+    // `expect.poll`, not a single `evaluate` — the QR PNG comes from the
+    // backend's own `/api/printables/vote-qr/...` route, and a plain
+    // `naturalWidth` read has no tolerance for that response being merely
+    // slow. Run 35554616738 caught exactly this: under a busy shard, both
+    // this image's request *and* the screen block's own (below — the same,
+    // unmodified component, so it is not specific to the camera target)
+    // sat with no recorded response for the whole ~34s the trace covers,
+    // failing a same-tick `naturalWidth` check three times running though
+    // nothing was actually wrong. Polling still catches the real bug this
+    // check exists for (#1282's guard refusing `/camera`): a refused
+    // request's `naturalWidth` never becomes positive, so `expect.poll`
+    // still fails, just at its own timeout rather than instantly.
     const cameraQr = cameraBlock.locator('img');
     await expect(cameraQr).toBeVisible();
-    expect(
-        await cameraQr.evaluate((img: HTMLImageElement) => img.naturalWidth),
-    ).toBeGreaterThan(0);
+    await expect
+        .poll(() => cameraQr.evaluate((img: HTMLImageElement) => img.naturalWidth), { timeout: 15000 })
+        .toBeGreaterThan(0);
 
     // The screen block shares the same component and the same guard, so it
     // gets the same check here rather than being taken on faith.
     const screenBlock = page.getByTestId('connect-screen-address');
     const screenQr = screenBlock.locator('img');
     await expect(screenQr).toBeVisible();
-    expect(
-        await screenQr.evaluate((img: HTMLImageElement) => img.naturalWidth),
-    ).toBeGreaterThan(0);
+    await expect
+        .poll(() => screenQr.evaluate((img: HTMLImageElement) => img.naturalWidth), { timeout: 15000 })
+        .toBeGreaterThan(0);
 
     // A second machine, with `&fake=1` appended so no real camera is
     // needed — the same flag `FakeCamera` uses throughout the instant
@@ -309,7 +322,11 @@ test('the Connect a camera code presets this race\'s own track, and scanning it 
     await page.goto(`/race/${raceId}/displays`);
     const row = page.getByTestId(`display-${cameraDisplayId}`);
     await expect(row).toBeVisible({ timeout: 10000 });
-    await expect(row.getByRole('combobox')).toHaveValue(String(trackId), { timeout: 10000 });
+    // A race runs on exactly one track (#1293) — the row is a read-only
+    // line naming it, not a picker.
+    const trackName = trackPoolName(test.info().parallelIndex);
+    await expect(row.getByText(`Listening to ${trackName}`)).toBeVisible({ timeout: 10000 });
+    await expect(row.getByRole('combobox')).toHaveCount(0);
 
     await cameraContext.close();
 });
