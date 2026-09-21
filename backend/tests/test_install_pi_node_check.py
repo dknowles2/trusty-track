@@ -199,3 +199,23 @@ def test_a_node_with_no_npm_is_reinstalled_even_at_a_good_major_version():
     assert "✓ Node.js v24.0.0 OK" in combined, combined
     assert curl_called, "a node with no npm must still trigger the install"
     assert apt_called
+
+
+def test_a_node_below_the_floor_is_reinstalled_even_with_npm_present():
+    """(e) Node v20 with `npm` beside it -- everything present, only the
+    version short of the 22 floor. This is the case that pins the floor
+    itself: every other refusal here is missing `npm`, so lowering the
+    floor to 16 left them all passing (found in review). The install
+    branch must run, and the post-install re-check must refuse when it
+    leaves the version where it was."""
+    result, curl_called, apt_called = _run_install_node(
+        node_version="v20.19.0",
+        with_npm=True,
+        curl_registers=True,
+        apt_get_fixes_it=False,
+    )
+    combined = result.stdout + result.stderr
+    assert result.returncode != 0, combined
+    assert "OK" not in combined, combined
+    assert curl_called, "a node below the floor must trigger the install"
+    assert apt_called
