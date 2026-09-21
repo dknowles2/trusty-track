@@ -30,21 +30,37 @@ const PHONE_VIEWPORT = { width: 390, height: 844 };
  * that empty state, so this seeds a recorded heat first, the same fixture
  * shape `mobileStandingsAndAwards.spec.ts` already uses to reach the same
  * page's real layout.
+ *
+ * `expectedLinks`: every screen but one carries exactly one door in, the
+ * point #1194 exists to make. Displays is the deliberate exception (#1300):
+ * its own `<h1>` links to the displays guide, same as ever, and the
+ * "Connect a camera" card (and its no-track notice sibling) now carries a
+ * *second*, genuinely different door — the Instant Replay guide — at the
+ * one moment an operator is actually reaching for it. Two links to two
+ * different guides on one page is not the duplicate this suite exists to
+ * catch; two links to the *same* guide would be, which is exactly why the
+ * screen card next to it was deliberately left with none of its own (see
+ * `DisplaysPanel.tsx`'s own comment on that choice).
  */
-const SCREENS: { name: string; path: (raceId: number) => string; needsResults?: boolean }[] = [
+const SCREENS: {
+    name: string;
+    path: (raceId: number) => string;
+    needsResults?: boolean;
+    expectedLinks?: number;
+}[] = [
     { name: 'Roster', path: (raceId) => `/race/${raceId}` },
     { name: 'Control', path: (raceId) => `/race/${raceId}/control` },
     { name: 'Standings', path: (raceId) => `/race/${raceId}/standings`, needsResults: true },
     { name: 'Awards', path: (raceId) => `/race/${raceId}/awards` },
     { name: 'Stats', path: (raceId) => `/race/${raceId}/stats` },
-    { name: 'Displays', path: (raceId) => `/race/${raceId}/displays` },
+    { name: 'Displays', path: (raceId) => `/race/${raceId}/displays`, expectedLinks: 2 },
 ];
 
 test.describe('desktop viewport', () => {
     for (const screen of SCREENS) {
-        test(`${screen.name} shows exactly one docs link, opening trusty-track.com in a new tab`, async ({
-            page,
-        }) => {
+        const expectedLinks = screen.expectedLinks ?? 1;
+        const linkWord = expectedLinks === 1 ? 'exactly one docs link' : `exactly ${expectedLinks} docs links`;
+        test(`${screen.name} shows ${linkWord}, opening trusty-track.com in a new tab`, async ({ page }) => {
             const { raceId, racers } = await seedRace(page, `Docs Links ${screen.name} ${Date.now()}`);
             await createSchedule(page, raceId);
             await ensureConfigured(page);
@@ -61,12 +77,14 @@ test.describe('desktop viewport', () => {
             // about when an SPA navigation has "settled" (`ci.md`'s own
             // rule against that pattern).
             const links = page.getByTestId('docs-link');
-            await expect(links).toHaveCount(1);
+            await expect(links).toHaveCount(expectedLinks);
 
-            const link = links.first();
-            await expect(link).toHaveAttribute('href', /^https:\/\/trusty-track\.com\/docs\//);
-            await expect(link).toHaveAttribute('target', '_blank');
-            await expect(link).toHaveAttribute('rel', /noopener/);
+            for (let i = 0; i < expectedLinks; i++) {
+                const link = links.nth(i);
+                await expect(link).toHaveAttribute('href', /^https:\/\/trusty-track\.com\/docs\//);
+                await expect(link).toHaveAttribute('target', '_blank');
+                await expect(link).toHaveAttribute('rel', /noopener/);
+            }
         });
     }
 });

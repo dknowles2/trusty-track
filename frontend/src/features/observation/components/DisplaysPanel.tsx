@@ -62,6 +62,7 @@ import {
 } from '../displayView';
 import { cameraWindowUrl, newDisplayWindowUrl } from '../displayIdentity';
 import ConnectDisplayAddress from './ConnectDisplayAddress';
+import DocsLink from '../../../components/ui/DocsLink';
 import { useRole } from '../../core/hooks/useRole';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 import { useTerminology } from '../../../context/TerminologyContext';
@@ -370,7 +371,16 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                     screen, unchanged, and a camera — its own fresh identity,
                     presetting this race's own track with no picker over the
                     install's other tracks (#1293 — a race runs on exactly
-                    one). */}
+                    one). The camera card carries a `?` in `headingExtra`
+                    (#1300), to the Instant Replay guide — the screen card
+                    deliberately does not get one of its own: this page's
+                    own `<h1>` (`DisplaysPage.tsx`) already carries
+                    `docsKey="displays"`, and a second link to the identical
+                    guide on the same page is exactly the duplicate
+                    `docsLinks.spec.ts` exists to catch — see that spec's
+                    own header comment, and its `Displays` entry in
+                    `SCREENS` for why that page alone expects two links,
+                    not one. */}
                 <div className="connect-devices-row" data-testid="connect-devices-row">
                     <ConnectDisplayAddress
                         raceId={raceId}
@@ -388,6 +398,7 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                                 sentence="Open this address on the phone that will be the camera:"
                                 qrAlt="QR code that opens this race's camera page"
                                 testId="connect-camera-address"
+                                headingExtra={<DocsLink docsKey="camera" />}
                                 footer={
                                     cameras.length === 0 ? (
                                         <p style={captionStyle}>
@@ -413,6 +424,7 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                                 heading="Connect a camera"
                                 testId="connect-camera-no-track"
                                 notice="Pick this race's track in Edit race first, so the camera knows which timer to listen to."
+                                headingExtra={<DocsLink docsKey="camera" />}
                             />
                         )
                     ) : (

@@ -1,4 +1,4 @@
-# Instant Replay Guide
+# Instant Replay: the Finish-line Camera
 
 Turn a phone, tablet or laptop into a finish-line camera. When a heat
 finishes, everyone watching an audience display sees a slow-motion clip of
