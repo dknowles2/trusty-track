@@ -50,11 +50,7 @@ import { observeHeatResult, type SeenHeatResult } from '../../observation/result
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 import DocsLink from '../../../components/ui/DocsLink';
 
-import {
-  cameraSupport,
-  INSECURE_CONTEXT_MESSAGE,
-  WEBCODECS_MESSAGE,
-} from '../browserSupport';
+import { cameraSupport, INSECURE_CONTEXT_MESSAGE } from '../browserSupport';
 import {
   correctedT0Ms,
   latestRunningAt,
@@ -504,11 +500,11 @@ export default function Camera() {
     );
   }
 
-  if (!fake && !support.webCodecs) {
+  if (!fake && support.message) {
     return (
       <div className="container" style={{ padding: '20px', maxWidth: '640px' }}>
         <h1>Camera</h1>
-        <p style={{ color: 'var(--error-color)' }}>{WEBCODECS_MESSAGE}</p>
+        <p style={{ color: 'var(--error-color)' }}>{support.message}</p>
       </div>
     );
   }

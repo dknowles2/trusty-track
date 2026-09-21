@@ -1,28 +1,103 @@
 import { describe, expect, it } from 'vitest';
-import { cameraSupport, hasWebCodecs, isInsecureContext } from './browserSupport';
+import {
+  cameraSupport,
+  hasTrackProcessor,
+  hasVideoEncoder,
+  IOS_NEEDS_UPDATE_MESSAGE,
+  isAppleWebKit,
+  isInsecureContext,
+  isIOS,
+  WEBCODECS_MESSAGE,
+  webCodecsMessage,
+} from './browserSupport';
 
-describe('hasWebCodecs', () => {
-  it('is true when both VideoEncoder and MediaStreamTrackProcessor exist on the global', () => {
+// Real UA strings, one per platform combination this file's own comments
+// reason about — `isIOS`/`isAppleWebKit`'s whole point is that a brand
+// marker embedded in an iOS UA (`CriOS`, `EdgiOS`) cannot be trusted the
+// same way a desktop one can, so the matrix below exercises exactly the
+// browsers named there rather than synthetic strings that beg the question.
+const IPHONE_SAFARI =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
+const IPHONE_CHROME =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/124.0.6367.80 Mobile/15E148 Safari/604.1';
+const IPHONE_EDGE =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 EdgiOS/124.2478.97 Mobile/15E148 Safari/604.1';
+const IPAD_SAFARI =
+  'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
+const DESKTOP_SAFARI =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15';
+const DESKTOP_CHROME =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+const DESKTOP_EDGE =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0';
+const ANDROID_CHROME =
+  'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
+const DESKTOP_FIREFOX = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0';
+
+describe('hasVideoEncoder', () => {
+  it('is true when VideoEncoder exists on the global', () => {
+    expect(hasVideoEncoder({ VideoEncoder: class {} } as unknown as typeof globalThis)).toBe(true);
+  });
+
+  it('is false when absent — Firefox, or an old browser of any kind', () => {
+    expect(hasVideoEncoder({} as unknown as typeof globalThis)).toBe(false);
+  });
+});
+
+describe('hasTrackProcessor', () => {
+  it('is true when MediaStreamTrackProcessor exists on the global', () => {
     expect(
-      hasWebCodecs({
-        VideoEncoder: class {},
-        MediaStreamTrackProcessor: class {},
-      } as unknown as typeof globalThis),
+      hasTrackProcessor({ MediaStreamTrackProcessor: class {} } as unknown as typeof globalThis),
     ).toBe(true);
   });
 
-  it('is false when both are absent — Firefox', () => {
-    expect(hasWebCodecs({} as unknown as typeof globalThis)).toBe(false);
+  it('is false when absent — every WebKit build, mobile or desktop', () => {
+    expect(hasTrackProcessor({} as unknown as typeof globalThis)).toBe(false);
+  });
+});
+
+describe('isIOS', () => {
+  it.each([
+    ['iPhone Safari', IPHONE_SAFARI],
+    ['iPhone Chrome (CriOS)', IPHONE_CHROME],
+    ['iPhone Edge (EdgiOS)', IPHONE_EDGE],
+    ['iPad Safari', IPAD_SAFARI],
+  ])('is true for %s', (_name, ua) => {
+    expect(isIOS(ua)).toBe(true);
   });
 
-  it('is false when only VideoEncoder exists — the capture pipeline needs MediaStreamTrackProcessor too', () => {
-    expect(hasWebCodecs({ VideoEncoder: class {} } as unknown as typeof globalThis)).toBe(false);
+  it.each([
+    ['desktop Safari', DESKTOP_SAFARI],
+    ['desktop Chrome', DESKTOP_CHROME],
+    ['desktop Edge', DESKTOP_EDGE],
+    ['Android Chrome', ANDROID_CHROME],
+    ['desktop Firefox', DESKTOP_FIREFOX],
+  ])('is false for %s', (_name, ua) => {
+    expect(isIOS(ua)).toBe(false);
+  });
+});
+
+describe('isAppleWebKit', () => {
+  it.each([
+    ['iPhone Safari', IPHONE_SAFARI],
+    // The whole reason isIOS is checked independently of the desktop
+    // exclusion below: these two would otherwise read as "not WebKit-only"
+    // because their own UA carries a rebadged browser's brand marker.
+    ['iPhone Chrome (CriOS)', IPHONE_CHROME],
+    ['iPhone Edge (EdgiOS)', IPHONE_EDGE],
+    ['iPad Safari', IPAD_SAFARI],
+    ['desktop Safari', DESKTOP_SAFARI],
+  ])('is true for %s', (_name, ua) => {
+    expect(isAppleWebKit(ua)).toBe(true);
   });
 
-  it('is false when only MediaStreamTrackProcessor exists', () => {
-    expect(
-      hasWebCodecs({ MediaStreamTrackProcessor: class {} } as unknown as typeof globalThis),
-    ).toBe(false);
+  it.each([
+    ['desktop Chrome', DESKTOP_CHROME],
+    ['desktop Edge', DESKTOP_EDGE],
+    ['Android Chrome', ANDROID_CHROME],
+    ['desktop Firefox', DESKTOP_FIREFOX],
+  ])('is false for %s', (_name, ua) => {
+    expect(isAppleWebKit(ua)).toBe(false);
   });
 });
 
@@ -40,17 +115,83 @@ describe('isInsecureContext', () => {
   });
 });
 
+describe('webCodecsMessage', () => {
+  const withoutEncoder = {} as unknown as typeof globalThis;
+  const withEncoderNoProcessor = { VideoEncoder: class {} } as unknown as typeof globalThis;
+  const withBoth = {
+    VideoEncoder: class {},
+    MediaStreamTrackProcessor: class {},
+  } as unknown as typeof globalThis;
+
+  it('is the iOS-specific message on an iPhone with no VideoEncoder — never names Chrome or Edge', () => {
+    const message = webCodecsMessage(withoutEncoder, IPHONE_SAFARI);
+    expect(message).toBe(IOS_NEEDS_UPDATE_MESSAGE);
+    expect(message).not.toMatch(/Chrome|Edge/);
+  });
+
+  it('is the iOS-specific message on an iPhone running Chrome with no VideoEncoder — the UA names Chrome, but switching to it changes nothing on iOS', () => {
+    expect(webCodecsMessage(withoutEncoder, IPHONE_CHROME)).toBe(IOS_NEEDS_UPDATE_MESSAGE);
+  });
+
+  it('is the iOS-specific message on an iPad with no VideoEncoder', () => {
+    expect(webCodecsMessage(withoutEncoder, IPAD_SAFARI)).toBe(IOS_NEEDS_UPDATE_MESSAGE);
+  });
+
+  it('is null on an iPhone that has VideoEncoder but not MediaStreamTrackProcessor — capture.ts\'s fallback covers it', () => {
+    expect(webCodecsMessage(withEncoderNoProcessor, IPHONE_SAFARI)).toBeNull();
+  });
+
+  it('is null on an iPhone with both — the ordinary processor path', () => {
+    expect(webCodecsMessage(withBoth, IPHONE_SAFARI)).toBeNull();
+  });
+
+  it('is the generic message on a non-Apple desktop browser with no VideoEncoder', () => {
+    expect(webCodecsMessage(withoutEncoder, DESKTOP_CHROME)).toBe(WEBCODECS_MESSAGE);
+  });
+
+  it('is the generic message on desktop Safari with no VideoEncoder — not the iOS wording', () => {
+    expect(webCodecsMessage(withoutEncoder, DESKTOP_SAFARI)).toBe(WEBCODECS_MESSAGE);
+  });
+
+  it('is null on desktop Safari with VideoEncoder but no MediaStreamTrackProcessor — the same fallback applies there too', () => {
+    expect(webCodecsMessage(withEncoderNoProcessor, DESKTOP_SAFARI)).toBeNull();
+  });
+
+  it('is the generic message on Firefox with no VideoEncoder', () => {
+    expect(webCodecsMessage(withoutEncoder, DESKTOP_FIREFOX)).toBe(WEBCODECS_MESSAGE);
+  });
+
+  it('is null wherever VideoEncoder exists, regardless of the processor', () => {
+    expect(webCodecsMessage(withBoth, DESKTOP_CHROME)).toBeNull();
+    expect(webCodecsMessage(withEncoderNoProcessor, ANDROID_CHROME)).toBeNull();
+  });
+});
+
 describe('cameraSupport', () => {
-  it('combines both checks', () => {
+  it('combines all three checks', () => {
     const support = cameraSupport(
       { VideoEncoder: class {}, MediaStreamTrackProcessor: class {} } as unknown as typeof globalThis,
       { isSecureContext: true },
+      DESKTOP_CHROME,
     );
-    expect(support).toEqual({ webCodecs: true, secureContext: true });
+    expect(support).toEqual({ webCodecs: true, secureContext: true, message: null });
   });
 
-  it('reports an insecure, unsupported browser correctly', () => {
-    const support = cameraSupport({} as unknown as typeof globalThis, { isSecureContext: false });
-    expect(support).toEqual({ webCodecs: false, secureContext: false });
+  it('reports an insecure, unsupported browser correctly, with the iOS message on an iPhone', () => {
+    const support = cameraSupport({} as unknown as typeof globalThis, { isSecureContext: false }, IPHONE_SAFARI);
+    expect(support).toEqual({
+      webCodecs: false,
+      secureContext: false,
+      message: IOS_NEEDS_UPDATE_MESSAGE,
+    });
+  });
+
+  it('is usable (message null) on an iPhone missing only MediaStreamTrackProcessor', () => {
+    const support = cameraSupport(
+      { VideoEncoder: class {} } as unknown as typeof globalThis,
+      { isSecureContext: true },
+      IPHONE_SAFARI,
+    );
+    expect(support.message).toBeNull();
   });
 });
