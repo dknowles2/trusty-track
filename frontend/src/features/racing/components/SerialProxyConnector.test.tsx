@@ -57,6 +57,21 @@ describe('SerialProxyConnector, standalone (default, no `inline`)', () => {
         expect(wrapper!.children[0]).toBe(error);
         expect(wrapper!.children[1]?.tagName).toBe('BUTTON');
     });
+
+    it('renders the connected badge and the unsupported notice with unmodified classes', () => {
+        mockProxy({ status: 'connected' });
+        const { container: connectedContainer } = render(<SerialProxyConnector trackId={1} />);
+        const badge = connectedContainer.querySelector('.proxy-connector-status.connected');
+        expect(badge).not.toBeNull();
+        expect(badge?.className).toBe('proxy-connector-status connected');
+        cleanup();
+
+        mockProxy({ isSupported: false });
+        const { container: unsupportedContainer } = render(<SerialProxyConnector trackId={1} />);
+        const notice = unsupportedContainer.querySelector('.proxy-connector-unsupported');
+        expect(notice).not.toBeNull();
+        expect(notice?.className).toBe('proxy-connector-unsupported');
+    });
 });
 
 describe('SerialProxyConnector, `inline` (Timer check\'s action row, #1299)', () => {
@@ -81,14 +96,22 @@ describe('SerialProxyConnector, `inline` (Timer check\'s action row, #1299)', ()
         expect(screen.getByText('The timer connection failed.')).toBeInTheDocument();
     });
 
-    it('leaves the connected and unsupported states unchanged (out of scope for #1299)', () => {
+    it('carries the inline modifier on the connected badge too — a real event spends most of its time here', () => {
         mockProxy({ status: 'connected' });
-        const { container: connectedContainer } = render(<SerialProxyConnector trackId={1} inline />);
-        expect(connectedContainer.querySelector('.proxy-connector-status.connected')).not.toBeNull();
-        cleanup();
+        const { container } = render(<SerialProxyConnector trackId={1} inline />);
 
+        const badge = container.querySelector('.proxy-connector-status.connected');
+        expect(badge).not.toBeNull();
+        expect(badge?.className).toBe('proxy-connector-status connected proxy-connector-status--inline');
+        expect(screen.getByText('Hardware Timer Proxy Active')).toBeInTheDocument();
+    });
+
+    it('carries the inline modifier on the unsupported notice too', () => {
         mockProxy({ isSupported: false });
-        const { container: unsupportedContainer } = render(<SerialProxyConnector trackId={1} inline />);
-        expect(unsupportedContainer.querySelector('.proxy-connector-unsupported')).not.toBeNull();
+        const { container } = render(<SerialProxyConnector trackId={1} inline />);
+
+        const notice = container.querySelector('.proxy-connector-unsupported');
+        expect(notice).not.toBeNull();
+        expect(notice?.className).toBe('proxy-connector-unsupported proxy-connector-unsupported--inline');
     });
 });
