@@ -2,7 +2,9 @@
 /**
  * #177 stage 1b — the Displays panel's own camera-role and replays-toggle
  * additions. `DisplaysPanel.test.tsx` covers the pre-existing view/rider
- * controls; this file is scoped to what stage 1b added on top of them.
+ * controls; this file is scoped to what stage 1b added on top of them —
+ * updated by #1293 for the row's read-only track line and its one override
+ * affordance, in place of the picker stage 1b originally gave it.
  */
 import '../../../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -10,7 +12,6 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/re
 import DisplaysPanel from './DisplaysPanel';
 import { useQuery, useMutation, useClient } from 'urql';
 import { ASSIGN_DISPLAY, SET_CAMERA_TRACK } from '../graphql/queries';
-import { GET_TRACKS } from '../../core/graphql/queries';
 
 vi.mock('urql', async (importOriginal) => {
     const actual = await importOriginal<typeof import('urql')>();
@@ -37,21 +38,23 @@ interface DisplayFixture {
     connected: boolean;
 }
 
-function renderPanel(display: DisplayFixture) {
+/** `raceTrackId` defaults to `5` — the same track `GET_TRACKS` hands back
+ * as "Main Track" — so a `CAMERA_ROW` fixture (below) whose own `trackId`
+ * also defaults to `5` reads as an ordinary, already-matching camera and
+ * shows no override button unless a test deliberately sets one or the
+ * other to something else. */
+function renderPanel(display: DisplayFixture, raceTrackId: number | null = 5) {
     (vi.mocked(useQuery) as ReturnType<typeof vi.fn>).mockImplementation((args: unknown) => {
-        if (args === GET_TRACKS || (args as { query: unknown })?.query === GET_TRACKS) {
-            return [{ data: { tracks: [{ id: 5, name: 'Main Track', timerType: 'FAKE' }] }, fetching: false, error: null }, vi.fn()];
-        }
         const queryArg = (args as { query?: { definitions?: { name?: { value?: string } }[] } })?.query;
-        const asksForAwards = queryArg?.definitions?.some(
-            (definition) => definition.name?.value === 'RaceAwardCount',
-        );
-        if (asksForAwards) {
+        const name = queryArg?.definitions?.find((d) => d.name?.value)?.name?.value;
+        if (name === 'RaceAwardCount') {
             return [{ data: { race: { id: 1, awards: [] } }, fetching: false, error: null }, vi.fn()];
         }
-        const asksForTracks = queryArg?.definitions?.some((d) => d.name?.value === 'GetTracks');
-        if (asksForTracks) {
+        if (name === 'GetTracks') {
             return [{ data: { tracks: [{ id: 5, name: 'Main Track', timerType: 'FAKE' }] }, fetching: false, error: null }, vi.fn()];
+        }
+        if (name === 'RaceTrackForCameraPreset') {
+            return [{ data: { race: { id: 1, trackId: raceTrackId } }, fetching: false, error: null }, vi.fn()];
         }
         return [{ data: { displays: [display] }, fetching: false, error: null }, vi.fn()];
     });
@@ -83,7 +86,7 @@ const CAMERA_ROW: DisplayFixture = {
     role: 'CAMERA',
     view: 'STANDINGS',
     replays: true,
-    trackId: null,
+    trackId: 5,
     lastClipAt: null,
     connected: true,
 };
@@ -121,22 +124,24 @@ describe('the Replays toggle on an ordinary display row', () => {
         });
     });
 
-    it('offers no track picker on an ordinary display', async () => {
+    it('offers no camera track line or override on an ordinary display', async () => {
         renderPanel(DISPLAY_ROW);
         await waitFor(() => {
             expect(screen.getByText('Gym north')).toBeInTheDocument();
         });
-        expect(screen.queryByLabelText('Which track Gym north listens to')).toBeNull();
+        expect(screen.queryByText(/Listening to/)).toBeNull();
+        expect(screen.queryByRole('button', { name: "Use this race's track" })).toBeNull();
     });
 });
 
-describe('a CAMERA row', () => {
-    it('shows a track picker instead of a view select', async () => {
+describe('a CAMERA row (#1293 — a read-only line, not a picker)', () => {
+    it('shows a read-only track line instead of a view select', async () => {
         renderPanel(CAMERA_ROW);
         await waitFor(() => {
-            expect(screen.getByLabelText('Which track Finish line listens to')).toBeInTheDocument();
+            expect(screen.getByText('Listening to Main Track')).toBeInTheDocument();
         });
         expect(screen.queryByLabelText('What Finish line shows')).toBeNull();
+        expect(screen.queryByRole('combobox')).toBeNull();
     });
 
     it('reports no clip yet before one has landed', async () => {
@@ -154,14 +159,20 @@ describe('a CAMERA row', () => {
         });
     });
 
-    it('calls setCameraTrack when a track is picked', async () => {
-        renderPanel(CAMERA_ROW);
+    it('offers no override when the camera already matches the race’s track', async () => {
+        renderPanel(CAMERA_ROW, 5);
         await waitFor(() => {
-            expect(screen.getByLabelText('Which track Finish line listens to')).toBeInTheDocument();
+            expect(screen.getByText('Listening to Main Track')).toBeInTheDocument();
         });
-        fireEvent.change(screen.getByLabelText('Which track Finish line listens to'), {
-            target: { value: '5' },
+        expect(screen.queryByRole('button', { name: "Use this race's track" })).toBeNull();
+    });
+
+    it('offers "Use this race\'s track" when the camera is on a different track, and it calls setCameraTrack', async () => {
+        renderPanel({ ...CAMERA_ROW, trackId: 11 }, 5);
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: "Use this race's track" })).toBeInTheDocument();
         });
+        fireEvent.click(screen.getByRole('button', { name: "Use this race's track" }));
         expect(setCameraTrack).toHaveBeenCalledWith({ displayId: 'c-1', trackId: 5 });
     });
 

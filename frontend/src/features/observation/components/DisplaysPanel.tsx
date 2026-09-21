@@ -173,8 +173,9 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     const [, setCameraTrack] = useMutation(SET_CAMERA_TRACK);
     const [, setCameraOrder] = useMutation(SET_CAMERA_ORDER);
 
-    // For a CAMERA row's own track picker (#177 stage 1b) — the same query
-    // the race form already reads tracks from.
+    // For looking up a track's own name by id — the race's own track for
+    // the camera row's read-only line (#1293), and the same query the race
+    // form already reads tracks from.
     const [tracksResult] = useQuery({ query: GET_TRACKS });
     const tracks: { id: number; name: string }[] = tracksResult.data?.tracks ?? [];
     // Imperative rather than `useQuery`: the reroll fires once per click
@@ -182,31 +183,24 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     // (#521). `renameDisplay` still commits it — this only fills the draft.
     const client = useClient();
 
-    // The "Connect a camera" block's own track preset (#1254). One track in
-    // the install → no picker, the URL simply carries it; more than one →
-    // a small select above the block, defaulting to the race's own track
-    // when it is one of this race's tracks, else the first — the same
-    // "no decision offered where there is only one answer" shape the block
-    // itself follows for the picker's own presence.
+    // The "Connect a camera" block's own track preset (#1293). A race runs
+    // on exactly one track (`Race.trackId`), so the code simply carries
+    // it — there is no picker over the install's other tracks to offer,
+    // the way there was before this issue (an install-wide `GET_TRACKS`
+    // list is no longer an input to the preset at all).
     const [raceTrackResult] = useQuery({ query: RACE_TRACK_QUERY, variables: { raceId }, pause: !raceId });
     const raceTrackId: number | null = raceTrackResult.data?.race?.trackId ?? null;
-    // Neither query is guaranteed to answer before the other — `GET_TRACKS`
-    // is asked for elsewhere on this page too and is often already warm in
-    // the cache, where `RACE_TRACK_QUERY` is new here and genuinely has to
-    // go over the wire. A default computed from `tracks[0]` before this
-    // race's own track answers is a *wrong* preset shown with the same
-    // confidence as a right one — a code scanned in that window sends the
-    // camera to whichever track happened to load first, not this race's
-    // own — so the default (and the block that shows it) waits for both.
-    const cameraPresetSettled = tracksResult.data !== undefined && (!raceId || raceTrackResult.data !== undefined);
-    const defaultCameraTrackId: number | undefined =
-        !cameraPresetSettled || tracks.length === 0
-            ? undefined
-            : raceTrackId && tracks.some((t) => t.id === raceTrackId)
-              ? raceTrackId
-              : tracks[0].id;
-    const [manualCameraTrackId, setManualCameraTrackId] = useState<number | null>(null);
-    const effectiveCameraTrackId = manualCameraTrackId ?? defaultCameraTrackId;
+    // `cameraPresetSettled` is "has this race's own track query answered" —
+    // a default shown before it has is a *wrong* preset shown with the
+    // same confidence as a right one, the #1284 reasoning this still
+    // follows for the one query that remains.
+    const cameraPresetSettled = !raceId || raceTrackResult.data !== undefined;
+    // The race's own track's name, for the camera row's read-only line
+    // below — `RACE_TRACK_QUERY` only carries the id, so the name comes
+    // from `GET_TRACKS`, already fetched above for the row's own lookup.
+    const raceTrackName: string | null = raceTrackId
+        ? (tracks.find((t) => t.id === raceTrackId)?.name ?? null)
+        : null;
 
     // A fresh identity, minted once for the life of this mount — see
     // `cameraWindowUrl`'s own doc comment for why calling it again on every
@@ -214,16 +208,16 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     // row's rename) would mean the code on screen keeps naming a different
     // screen before anybody has even scanned it. `trackId` is layered on
     // top reactively, via `URLSearchParams.set` rather than a second mint,
-    // so picking a different track in the select above regenerates the URL
-    // and the QR without ever handing the phone a new identity mid-connect.
+    // so the URL and the QR always carry the race's current track without
+    // ever handing the phone a new identity mid-connect.
     const cameraBaseUrl = useMemo(() => cameraWindowUrl(raceId), [raceId]);
     const cameraPath = useMemo(() => {
-        if (!effectiveCameraTrackId) return cameraBaseUrl;
+        if (!raceTrackId) return cameraBaseUrl;
         const [path, query] = cameraBaseUrl.split('?');
         const params = new URLSearchParams(query);
-        params.set('trackId', String(effectiveCameraTrackId));
+        params.set('trackId', String(raceTrackId));
         return `${path}?${params.toString()}`;
-    }, [cameraBaseUrl, effectiveCameraTrackId]);
+    }, [cameraBaseUrl, raceTrackId]);
 
     const [renaming, setRenaming] = useState<string | null>(null);
     const [draftName, setDraftName] = useState('');
@@ -371,8 +365,9 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                     display window would open on *this* machine instead — an
                     address to type or scan is the only way in (#723). Two
                     blocks side by side (#1254): a screen, unchanged, and a
-                    camera — its own fresh identity and, once the install
-                    has more than one track, its own track preset. */}
+                    camera — its own fresh identity, presetting this race's
+                    own track with no picker over the install's other
+                    tracks (#1293 — a race runs on exactly one). */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-start' }}>
                     <div style={{ flex: '1 1 300px', minWidth: '260px' }}>
                         <ConnectDisplayAddress
@@ -383,42 +378,42 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                     </div>
                     <div style={{ flex: '1 1 300px', minWidth: '260px' }}>
                         {cameraPresetSettled ? (
-                            <>
-                                {tracks.length > 1 && (
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
-                                        Camera for:{' '}
-                                        <select
-                                            data-testid="connect-camera-track"
-                                            aria-label="Which track the camera code presets"
-                                            value={effectiveCameraTrackId ?? ''}
-                                            onChange={(e) => setManualCameraTrackId(Number(e.target.value))}
-                                            style={{ padding: '0.3rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
-                                        >
-                                            {tracks.map((t) => (
-                                                <option key={t.id} value={t.id}>
-                                                    {t.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </label>
-                                )}
-                                <ConnectDisplayAddress
-                                    raceId={raceId}
-                                    path={cameraPath}
-                                    heading="Connect a camera"
-                                    caption="For the finish line — scan on the phone that will film it."
-                                    testId="connect-camera-address"
-                                />
-                                {cameras.length === 0 && (
-                                    <p style={captionStyle}>No cameras yet — scan the code above to connect one.</p>
-                                )}
-                            </>
+                            raceTrackId ? (
+                                <>
+                                    <ConnectDisplayAddress
+                                        raceId={raceId}
+                                        path={cameraPath}
+                                        heading="Connect a camera"
+                                        caption="For the finish line — scan on the phone that will film it."
+                                        testId="connect-camera-address"
+                                    />
+                                    {cameras.length === 0 && (
+                                        <p style={captionStyle}>No cameras yet — scan the code above to connect one.</p>
+                                    )}
+                                </>
+                            ) : (
+                                // `Race.trackId` is nullable — a race with no
+                                // track yet is already a race the timer can't
+                                // run, so the honest answer is a notice, not a
+                                // code that would preset nothing (and never a
+                                // fallback to the install's only track either,
+                                // even when there is exactly one — this race's
+                                // own track is the only one with a right
+                                // answer here).
+                                <div data-testid="connect-camera-no-track" style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '0.85rem 1rem' }}>
+                                    <h3 style={{ margin: '0 0 0.3rem', fontSize: '1rem' }}>Connect a camera</h3>
+                                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
+                                        Pick this race&apos;s track in Edit race first, so the camera knows which
+                                        timer to listen to.
+                                    </p>
+                                </div>
+                            )
                         ) : (
-                            // Neither the picker nor the address is shown until
-                            // both queries above have answered — see this
-                            // block's own comment on `cameraPresetSettled` for
-                            // why a URL built before then would be wrong, not
-                            // just early.
+                            // Neither the notice nor the address is shown
+                            // until the race's own track query has answered —
+                            // see this block's own comment on
+                            // `cameraPresetSettled` for why a URL built
+                            // before then would be wrong, not just early.
                             <p style={captionStyle}>Preparing the camera address…</p>
                         )}
                     </div>
@@ -751,27 +746,39 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                         {/* A camera's own controls (#177 stage 1a/1b): which
                             track it is listening to, and when its clip last
                             landed — Race Control's own badge (below) reads
-                            the same `lastClipAt`. */}
+                            the same `lastClipAt`. A race runs on exactly one
+                            track (#1293), so this is a read-only line naming
+                            it rather than a picker over the install's other
+                            tracks — `Camera.tsx` registers against the
+                            race's track itself on connect, and
+                            `setCameraTrack` stays reachable here only as an
+                            override, for the one case that can still
+                            disagree: a camera a stale client registered to
+                            another race's track before this fix. No button
+                            when this race has no track of its own to offer
+                            (`raceTrackId == null`) — there is nothing to
+                            point the camera at yet. */}
                         {display.role === 'CAMERA' && (
                             <>
-                                <select
-                                    aria-label={`Which track ${display.name} listens to`}
-                                    value={display.trackId ?? ''}
-                                    disabled={!isOperator}
-                                    title={operatorTitle}
-                                    onChange={(e) => {
-                                        const trackId = Number(e.target.value);
-                                        if (trackId) setCameraTrack({ displayId: display.displayId, trackId });
-                                    }}
-                                    style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
-                                >
-                                    <option value="">Choose a track…</option>
-                                    {tracks.map((t) => (
-                                        <option key={t.id} value={t.id}>
-                                            {t.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <span style={{ fontSize: '0.85rem' }}>
+                                    {raceTrackName
+                                        ? `Listening to ${raceTrackName}`
+                                        : "This race has no track set"}
+                                </span>
+                                {raceTrackId != null && display.trackId !== raceTrackId && (
+                                    <button
+                                        type="button"
+                                        disabled={!isOperator}
+                                        title={operatorTitle ?? `Point ${display.name} at this race's track`}
+                                        onClick={() =>
+                                            setCameraTrack({ displayId: display.displayId, trackId: raceTrackId })
+                                        }
+                                        className="secondary-btn"
+                                        style={{ padding: '0.25rem 0.6rem' }}
+                                    >
+                                        Use this race&apos;s track
+                                    </button>
+                                )}
                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>
                                     {display.lastClipAt
                                         ? `Last clip ${agoText(display.lastClipAt)}`

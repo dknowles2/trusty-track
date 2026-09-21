@@ -256,9 +256,10 @@ test('screenshot instant replay', async ({ page, browser }) => {
         await cameraPage.route('**/fake-camera.webm', (route) =>
             route.fulfill({ path: FROZEN_CAMERA_FIXTURE, contentType: 'video/webm' }),
         );
+        // The race runs on this one track, so the camera registers against
+        // it automatically on connect — no dropdown to pick from (#1293).
         await cameraPage.goto(`/race/${raceId}/camera?fake=1`);
         await cameraPage.waitForLoadState('networkidle');
-        await cameraPage.getByLabel('Which track this camera listens to').selectOption(String(trackId));
         await expect(cameraPage.getByTestId('camera-status-line')).toContainText('Listening to', {
             timeout: 15000,
         });
@@ -325,33 +326,18 @@ test('screenshot instant replay', async ({ page, browser }) => {
         await page.goto(`/race/${raceId}/displays`);
         await page.waitForLoadState('networkidle');
         const cameraRow = page.locator('[data-testid^="display-"]').filter({
-            has: page.getByLabel(/Which track .* listens to/),
+            has: page.getByText(/Last clip|No clip yet/),
         });
         await expect(cameraRow.getByText(/Last clip/)).toBeVisible({ timeout: 15000 });
 
-        // The track <select> lists every track in the whole install
-        // (`GET_TRACKS`, not race-scoped), and an unstyled <select>'s own
-        // rendered width follows the widest *option* text present, not just
-        // the one selected — so how many tracks (and how long their names
-        // are) happen to exist elsewhere on the shared backend at this
-        // instant moves this picture's pixels even though the visible
-        // value ("Instant Replay Track") never does. #1227's own diff of
-        // this file's output against a sharded run (a separate, near-empty
-        // backend) confirmed exactly this: 586 px / 0.94%, every one of
-        // them inside the select's own box and nowhere else in the row —
-        // an ordinary content diff, not antialiasing, and not the
-        // "another display's own row" cause the issue first guessed before
-        // the diff was actually read. Trimmed to the selected option alone
-        // — the same #841 pattern `screenshot-settings.spec.ts` uses to
-        // remove a sibling track card's influence on a page's layout,
-        // applied here to a sibling track's influence on one select's
-        // width instead of to a sibling row's presence.
-        await cameraRow.getByLabel(/Which track .* listens to/).evaluate((select: HTMLSelectElement) => {
-            for (const option of Array.from(select.options)) {
-                if (!option.selected) option.remove();
-            }
-        });
-
+        // #1293 replaced the row's own install-wide track <select> — whose
+        // rendered width used to follow the widest *option* text present,
+        // not just the selected one, which is what #1227 (below) worked
+        // around — with a read-only "Listening to {track}" line. A plain
+        // text node has no rendered width that depends on how many tracks
+        // (or how long their names are) happen to exist elsewhere on the
+        // shared backend at this instant, so that workaround is gone with
+        // the element it existed for.
         await screenshotLocator(cameraRow, {
             path: path.join(SCREENSHOT_DIR, '02-displays-panel-camera.png'),
         });
