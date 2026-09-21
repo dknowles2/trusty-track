@@ -591,7 +591,19 @@ export default function RaceControl() {
     reExecute({ requestPolicy: 'network-only' });
   }, [reorderHeatsMutation, reExecute]);
 
-  const handleRunHeat = useCallback(async (heat: Heat, shouldStart: boolean = true) => {
+  // Re-Run is Run after a clear (#1295) — there is no separate "clear
+  // without starting" gesture any more. The `shouldStart` parameter this
+  // used to take let the Schedule tab's Re-Run stop after the clear and
+  // leave the operator on the Schedule tab, but neither `35f1aae9` (the
+  // feature-architecture refactor that introduced it) nor #1139 (the
+  // row/card split that carried it through) recorded a reason for that
+  // stop, and the docs never described it either. Clearing a heat's result
+  // and then doing nothing left the operator to notice the row now read
+  // "Run", click it a second time, or switch to the Race tab by hand and
+  // hope it landed on the right heat — the #130 pin means it usually
+  // didn't, since manual navigation shows whatever heat was already pinned,
+  // not the one just cleared.
+  const handleRunHeat = useCallback(async (heat: Heat) => {
     if (hasRun(heat.lanes)) {
         // #1083: the button reads "Re-Run" — rather than "Run" — exactly
         // when there is a recorded time or place to lose (`hasTimes`, not
@@ -628,47 +640,45 @@ export default function RaceControl() {
         }
     }
 
-    if (shouldStart) {
-        // If this is a future heat, move it to be the next one in its round.
-        //
-        // Not under a master running order: renumbering a round 1..N would
-        // yank its heats to the head of the interleave (#549) — and the
-        // renumbering only exists so the display order shows the jumped-to
-        // heat as next, which selecting it below already does.
-        if (!masterRunningOrder) {
-            const roundHeats = heats
-              .filter((h: Heat) => h.roundId === heat.roundId)
-              .sort((a: Heat, b: Heat) => a.heatNumber - b.heatNumber);
+    // If this is a future heat, move it to be the next one in its round.
+    //
+    // Not under a master running order: renumbering a round 1..N would
+    // yank its heats to the head of the interleave (#549) — and the
+    // renumbering only exists so the display order shows the jumped-to
+    // heat as next, which selecting it below already does.
+    if (!masterRunningOrder) {
+        const roundHeats = heats
+          .filter((h: Heat) => h.roundId === heat.roundId)
+          .sort((a: Heat, b: Heat) => a.heatNumber - b.heatNumber);
 
-            // Deliberately not `hasRun`: a skipped heat still counts as somewhere to
-            // jump back to.
-            const firstUncompletedIndex = roundHeats.findIndex((h: Heat) => !hasTimes(h.lanes));
+        // Deliberately not `hasRun`: a skipped heat still counts as somewhere to
+        // jump back to.
+        const firstUncompletedIndex = roundHeats.findIndex((h: Heat) => !hasTimes(h.lanes));
 
-            const targetIndex = roundHeats.findIndex((h: Heat) => h.id === heat.id);
+        const targetIndex = roundHeats.findIndex((h: Heat) => h.id === heat.id);
 
-            // Only reorder if we're jumping ahead of at least one uncompleted heat
-            if (firstUncompletedIndex !== -1 && targetIndex > firstUncompletedIndex) {
-                const reordered = arrayMove(roundHeats, targetIndex, firstUncompletedIndex) as Heat[];
-                const updates = reordered.map((h: Heat, idx) => ({
-                    heat_id: h.id,
-                    new_heat_number: idx + 1
-                }));
+        // Only reorder if we're jumping ahead of at least one uncompleted heat
+        if (firstUncompletedIndex !== -1 && targetIndex > firstUncompletedIndex) {
+            const reordered = arrayMove(roundHeats, targetIndex, firstUncompletedIndex) as Heat[];
+            const updates = reordered.map((h: Heat, idx) => ({
+                heat_id: h.id,
+                new_heat_number: idx + 1
+            }));
 
-                try {
-                    await handleReorderHeats(updates);
-                } catch (e) {
-                    console.error("Failed to reorder heats", e);
-                    showAlert(errorText(e, "Failed to reorder heats."), "Error");
-                    // Don't move the operator to the Race tab believing the
-                    // schedule changed.
-                    return;
-                }
+            try {
+                await handleReorderHeats(updates);
+            } catch (e) {
+                console.error("Failed to reorder heats", e);
+                showAlert(errorText(e, "Failed to reorder heats."), "Error");
+                // Don't move the operator to the Race tab believing the
+                // schedule changed.
+                return;
             }
         }
-
-        setSelectedHeatId(heat.id);
-        navigate(`/race/${id}/control/race`);
     }
+
+    setSelectedHeatId(heat.id);
+    navigate(`/race/${id}/control/race`);
   }, [heats, masterRunningOrder, updateHeatResultMutation, reExecute, handleReorderHeats, navigate, id, showToast, showAlert, showConfirm]);
 
 

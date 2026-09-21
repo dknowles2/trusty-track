@@ -104,7 +104,7 @@ interface ScheduleManagementProps {
   onDeleteRound: (roundId: number) => Promise<void>;
   onDeleteHeat: (heatId: number) => Promise<void>;
   onRefetchHeats: () => Promise<void>;
-  onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
+  onRunHeat: (heat: Heat) => void | Promise<void>;
   onReorderHeats: (updates: { heat_id: number, new_heat_number: number }[]) => Promise<void>;
   /**
    * One interleaved running order across racing groups, rather than a block
@@ -238,7 +238,7 @@ interface SortableHeatRowProps {
    * or reordering a heat all reach operator-only mutations. */
   isOperator: boolean;
   getRacerName: (id: number) => string;
-  onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
+  onRunHeat: (heat: Heat) => void | Promise<void>;
   onDeleteHeat: (heatId: number) => Promise<void>;
   /** How many lane columns this row renders — `laneColumnCount(track.laneCount,
    * roundHeats)`, not the bare track value, so a finished heat's lane past a
@@ -326,7 +326,7 @@ interface HeatActionsProps {
   isRunning: boolean;
   raceLocked: boolean;
   isOperator: boolean;
-  onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
+  onRunHeat: (heat: Heat) => void | Promise<void>;
   onDeleteHeat: (heatId: number) => Promise<void>;
   /** The delete button's own class, so the table row can keep its
    * hover/focus-only reveal (`.heat-row-delete-btn` in `index.css`) while
@@ -430,7 +430,7 @@ const HeatActions: React.FC<HeatActionsProps> = ({
     )}
     <button
       className="primary-btn"
-      onClick={() => onRunHeat(heat, !state.isCompleted)}
+      onClick={() => onRunHeat(heat)}
       disabled={state.isRunDisabled}
       title={state.runBtnTitle}
       style={{ padding: '4px 12px', fontSize: '0.8rem', minWidth: '70px', ...runButtonStyle }}
