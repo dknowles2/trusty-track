@@ -53,13 +53,13 @@ vi.mock('../components/RaceExecution', () => ({
             <button onClick={() => onRunHeat({
                 id: 1,
                 heatNumber: 1, lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }], replays: []
-            }, true)}>Run Heat 1</button>
+            })}>Run Heat 1</button>
             {/* Jumps ahead of an uncompleted heat, which is what triggers the
                 reorder-then-navigate path in handleRunHeat (issue #416). */}
             <button onClick={() => onRunHeat({
                 id: 3, roundId: 5,
                 heatNumber: 3, lanes: [{ lane: 1, racerId: 3, placeholderSlot: null, time: null, place: null, skipped: false }], replays: []
-            }, true)}>Run Heat 3 (jump ahead)</button>
+            })}>Run Heat 3 (jump ahead)</button>
             <button onClick={() => {
                 // Simulate finishing heat
                 onUpdateResult(1, [{ lane: 1, racerId: 1, placeholderSlot: null, time: 4.5, place: 1, skipped: false }]);

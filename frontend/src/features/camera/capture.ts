@@ -35,9 +35,19 @@
  * shortcut around it — the previous version's fake path skipped this
  * pipeline entirely (a plain `fetch` of a canned file), which is why the
  * header/eviction bug above shipped with every automated check green.
+ *
+ * **`VideoFrame`s can also come from a canvas, not only from
+ * `MediaStreamTrackProcessor`** (#1294) — WebKit has never shipped that API,
+ * on iOS or on desktop, which used to mean this whole pipeline (and so the
+ * camera page itself, gated on the processor's own existence in
+ * `browserSupport.ts`) refused outright on every WebKit browser. `pickCodec`
+ * and everything from `VideoEncoder` down are unchanged; only *where the
+ * frames come from* differs, behind `frameSourceFor`. See that function's
+ * own header for the two paths and what each hands the encoder.
  */
 
 import type { RingBuffer } from './ring';
+import { hasTrackProcessor } from './browserSupport';
 
 export interface EncodedFrame {
   /** A copy of the encoder's own bytes — `EncodedVideoChunk.copyTo` writes
@@ -99,6 +109,197 @@ async function pickCodec(
   return null;
 }
 
+/** `requestVideoFrameCallback`'s own `mediaTime` is seconds; every other
+ * timestamp in this file (a processor-sourced `VideoFrame.timestamp`, an
+ * `EncodedVideoChunk.timestamp`) is microseconds, WebCodecs' native unit —
+ * this is the one place seconds cross that boundary. */
+function mediaTimeToTimestampUs(mediaTimeSeconds: number): number {
+  return Math.round(mediaTimeSeconds * 1_000_000);
+}
+
+interface RvfcMetadata {
+  readonly mediaTime: number;
+}
+
+/**
+ * Redraws `video` onto `canvas` on every decoded frame
+ * (`requestVideoFrameCallback`), calling `onFrame` after each draw. Shared
+ * by `fakeCameraTrack` below (canvas → `captureStream()`, an ordinary
+ * `MediaStreamTrack`) and `canvasFrameSource` (canvas → `VideoFrame`,
+ * WebKit's own fallback, #1294) — the redraw loop is identical between the
+ * two, and only what each does with the freshly drawn canvas differs; this
+ * is the one place either writes it.
+ *
+ * Falls back to `requestAnimationFrame` where `requestVideoFrameCallback`
+ * does not exist — Safari shipped WebCodecs before it shipped rVFC on every
+ * version in this app's own support matrix — synthesizing a `mediaTime`
+ * off `video.currentTime`, which is exactly what rVFC's own metadata would
+ * have reported.
+ *
+ * Returns a `stop` function; drawing continues, chained one
+ * `requestVideoFrameCallback`/`requestAnimationFrame` at a time, until it
+ * is called.
+ */
+function drawLoop(
+  video: HTMLVideoElement,
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+  onFrame: (metadata: RvfcMetadata) => void,
+): () => void {
+  let stopped = false;
+  const draw = (_now?: number, metadata?: RvfcMetadata) => {
+    if (stopped) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    onFrame(metadata ?? { mediaTime: video.currentTime });
+    const withRvfc = video as HTMLVideoElement & {
+      requestVideoFrameCallback?: (cb: (now: number, metadata: RvfcMetadata) => void) => number;
+    };
+    if (withRvfc.requestVideoFrameCallback) {
+      withRvfc.requestVideoFrameCallback(draw);
+    } else {
+      requestAnimationFrame(() => draw());
+    }
+  };
+  draw();
+  return () => {
+    stopped = true;
+  };
+}
+
+/** How many undelivered `VideoFrame`s `canvasFrameSource` will hold before
+ * dropping the oldest — small, deliberately: each one holds real GPU memory
+ * until `close()`d, and an encoder that has fallen this far behind is
+ * already a case `RingBuffer`'s own age-based eviction handles downstream,
+ * not something a bigger queue here would fix. */
+const MAX_QUEUED_FALLBACK_FRAMES = 4;
+
+/** The shape `startCapture`'s own `pump` loop actually calls —
+ * `ReadableStreamDefaultReader<VideoFrame>` minus the parts it never uses,
+ * so both `MediaStreamTrackProcessor().readable.getReader()` (the ordinary
+ * path) and `canvasFrameSource` (the fallback, below) satisfy it
+ * identically and `pump` never has to know which one it was handed. */
+interface FrameSource {
+  read(): Promise<ReadableStreamReadResult<VideoFrame>>;
+  cancel(): Promise<void>;
+}
+
+/**
+ * A `FrameSource` for `track` that does not need `MediaStreamTrackProcessor`
+ * — WebKit has not shipped that API on iOS or on desktop
+ * (`browserSupport.ts`'s `isAppleWebKit`), so this is what actually lights
+ * the camera page up on an iPhone (#1294). `track` is played through a
+ * hidden `<video>` element and redrawn onto an offscreen `<canvas>` on
+ * every decoded frame (`drawLoop`, shared with `fakeCameraTrack` — this
+ * file has no second copy of that loop), and each draw becomes
+ * `new VideoFrame(canvas, { timestamp })`, timestamped off
+ * `requestVideoFrameCallback`'s own `mediaTime` (`mediaTimeToTimestampUs`).
+ * The result feeds `startCapture`'s `pump` loop exactly as a processor's
+ * own reader would — same encoder, same keyframe cadence, same ring, same
+ * mux and upload downstream; nothing past this function knows which frame
+ * source produced what it is encoding.
+ *
+ * Every `VideoFrame` this produces is `close()`d exactly once — a WebCodecs
+ * frame holds real GPU memory until then — either by whoever calls `read()`
+ * (the same obligation the processor path already places on `pump`) or, if
+ * `cancel()` runs first, by this function itself for anything still
+ * queued.
+ */
+function canvasFrameSource(track: MediaStreamTrack): FrameSource {
+  const video = document.createElement('video');
+  video.srcObject = new MediaStream([track]);
+  video.muted = true;
+  video.playsInline = true;
+
+  const canvas = document.createElement('canvas');
+  let stopDrawing: (() => void) | null = null;
+  let cancelled = false;
+
+  const queue: VideoFrame[] = [];
+  let waiting: ((result: ReadableStreamReadResult<VideoFrame>) => void) | null = null;
+
+  const enqueue = (frame: VideoFrame) => {
+    if (cancelled) {
+      frame.close();
+      return;
+    }
+    if (waiting) {
+      const resolve = waiting;
+      waiting = null;
+      resolve({ done: false, value: frame });
+      return;
+    }
+    queue.push(frame);
+    while (queue.length > MAX_QUEUED_FALLBACK_FRAMES) queue.shift()?.close();
+  };
+
+  const ready = (async () => {
+    await video.play().catch(() => {});
+    if (cancelled) return;
+    if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+      await new Promise<void>((resolve) => {
+        video.addEventListener('loadedmetadata', () => resolve(), { once: true });
+      });
+    }
+    if (cancelled) return;
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('2D canvas context unavailable.');
+    stopDrawing = drawLoop(video, canvas, ctx, (metadata) => {
+      enqueue(new VideoFrame(canvas, { timestamp: mediaTimeToTimestampUs(metadata.mediaTime) }));
+    });
+  })();
+
+  return {
+    async read() {
+      await ready.catch(() => {});
+      if (cancelled) return { done: true, value: undefined };
+      const queued = queue.shift();
+      if (queued) return { done: false, value: queued };
+      return new Promise((resolve) => {
+        waiting = resolve;
+      });
+    },
+    async cancel() {
+      cancelled = true;
+      stopDrawing?.();
+      const pending = waiting;
+      waiting = null;
+      pending?.({ done: true, value: undefined });
+      queue.splice(0).forEach((f) => f.close());
+      video.pause();
+      video.srcObject = null;
+    },
+  };
+}
+
+/**
+ * Whether `startCapture` should use `canvasFrameSource` rather than
+ * `MediaStreamTrackProcessor` — pulled out as its own pure-ish function
+ * (still reads the global, but takes no track and touches nothing else) so
+ * a test can assert on the choice without driving a real capture through
+ * either path. `forceFallback` is `Camera.tsx`'s `?noProcessor=1`, the same
+ * one-shot-override shape `?ringMs=` already is: a real camera never sets
+ * it, and `instantReplay.spec.ts` uses it to exercise this path in a
+ * browser that does carry the processor.
+ *
+ * Defers the actual `typeof MediaStreamTrackProcessor` check to
+ * `browserSupport.ts`'s `hasTrackProcessor` rather than re-testing the
+ * global here too — one function owns that signal, and this one only
+ * decides what to do with it.
+ */
+export function usesFallbackFrameSource(
+  forceFallback: boolean,
+  g: typeof globalThis = globalThis,
+): boolean {
+  return forceFallback || !hasTrackProcessor(g);
+}
+
+function frameSourceFor(track: MediaStreamTrack, forceFallback: boolean): FrameSource {
+  if (usesFallbackFrameSource(forceFallback)) return canvasFrameSource(track);
+  return new MediaStreamTrackProcessor({ track }).readable.getReader();
+}
+
 export interface CaptureHandle {
   /** What the encoder actually configured with — the track's own negotiated
    * width/height/frame rate, not a guess, since `mux.ts` has to declare the
@@ -113,11 +314,18 @@ export interface CaptureHandle {
  * `KEYFRAME_INTERVAL_US`. Rejects if no candidate codec is supported for
  * this track's own resolution — the caller's job to report that, same as
  * any other capture failure.
+ *
+ * `options.forceFallback` is `Camera.tsx`'s `?noProcessor=1` test hook
+ * (#1294) — see `usesFallbackFrameSource`'s own doc comment. A real camera
+ * never sets it; `frameSourceFor` picks the fallback on its own whenever
+ * `MediaStreamTrackProcessor` is genuinely absent, which is every WebKit
+ * browser today.
  */
 export async function startCapture(
   track: MediaStreamTrack,
   ring: RingBuffer<EncodedFrame>,
   onError: (error: unknown) => void,
+  options: { forceFallback?: boolean } = {},
 ): Promise<CaptureHandle> {
   const settings = track.getSettings();
   const width = settings.width ?? 1280;
@@ -167,8 +375,7 @@ export async function startCapture(
   });
   encoder.configure({ codec: codec.webCodecs, width, height, framerate: frameRate, bitrate: TARGET_BITRATE });
 
-  const processor = new MediaStreamTrackProcessor({ track });
-  const reader = processor.readable.getReader();
+  const reader = frameSourceFor(track, options.forceFallback ?? false);
 
   let stopped = false;
   let lastKeyframeUs = -Infinity;
@@ -223,8 +430,8 @@ export async function startCapture(
 /**
  * A `MediaStreamTrack` sourced from `fake-camera.webm` rather than a real
  * device (#177 stage 1b's `FakeCamera`) — a hidden, looping `<video>` drawn
- * to an offscreen `<canvas>` on every decoded frame
- * (`requestVideoFrameCallback`), captured from the canvas rather than the
+ * to an offscreen `<canvas>` on every decoded frame (`drawLoop`, shared
+ * with `canvasFrameSource` above), captured from the canvas rather than the
  * video element directly: `HTMLVideoElement.captureStream` is a
  * non-standard extension with no TypeScript type in this tree, where
  * `HTMLCanvasElement.captureStream` is standard. Looped so a test driving
@@ -255,23 +462,7 @@ export async function fakeCameraTrack(url = '/fake-camera.webm'): Promise<{
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('2D canvas context unavailable.');
 
-  let stopped = false;
-  const draw = () => {
-    if (stopped) return;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const withRvfc = video as HTMLVideoElement & {
-      requestVideoFrameCallback?: (cb: () => void) => number;
-    };
-    if (withRvfc.requestVideoFrameCallback) {
-      withRvfc.requestVideoFrameCallback(draw);
-    } else {
-      // Safari shipped WebCodecs before it shipped rVFC on every version in
-      // the issue's own matrix — fall back to a plain animation-frame loop,
-      // which still redraws every time the compositor is willing to.
-      requestAnimationFrame(draw);
-    }
-  };
-  draw();
+  const stopDrawing = drawLoop(video, canvas, ctx, () => {});
 
   const stream = canvas.captureStream();
   const [track] = stream.getVideoTracks();
@@ -280,7 +471,7 @@ export async function fakeCameraTrack(url = '/fake-camera.webm'): Promise<{
   return {
     track,
     stop: () => {
-      stopped = true;
+      stopDrawing();
       video.pause();
       video.removeAttribute('src');
       video.load();
