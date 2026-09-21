@@ -15,13 +15,19 @@ import { INITIAL_CONFIG_QUERY } from '../../core/graphql/queries';
  * to lose, and the button reads "Run" rather than "Re-Run" for exactly that
  * case, so it must not ask).
  *
+ * #1295: past the confirm and the clear, Re-Run now does exactly what Run
+ * does — select the heat and navigate to the Race tab — rather than
+ * stopping once the clear lands. `handleRunHeat` no longer takes a
+ * `shouldStart` argument at all; every caller gets the same path.
+ *
  * Same shape as `RaceControlScheduleConfirm.test.tsx`: capture the real
  * `onRunHeat` function `RaceControl` hands to `ScheduleManagement` — the
  * Schedule tab's own Re-Run button — and call it directly, with
  * `useAlert`'s `showConfirm` mocked so the gate can be asserted without
  * fighting the real modal's DOM.
  */
-let capturedOnRunHeat: ((heat: any, shouldStart?: boolean) => Promise<void>) | undefined;
+let capturedOnRunHeat: ((heat: any) => Promise<void>) | undefined;
+let capturedActiveExecutionHeat: { id: number } | null = null;
 
 vi.mock('../components/ScheduleManagement', () => ({
   ScheduleManagement: ({ onRunHeat }: any) => {
@@ -30,8 +36,20 @@ vi.mock('../components/ScheduleManagement', () => ({
   },
 }));
 
+// Exposes `activeExecutionHeat` so a test can confirm the #130 pin landed on
+// the heat Re-Run just cleared, not whatever heat the fallback would have
+// picked — the exact failure #1295 describes ("switching over shows that
+// pinned heat, not the one they just cleared").
 vi.mock('../components/RaceExecution', () => ({
-  RaceExecution: () => <div data-testid="race-execution">Race Execution</div>,
+  RaceExecution: ({ activeExecutionHeat }: any) => {
+    capturedActiveExecutionHeat = activeExecutionHeat;
+    return (
+      <div data-testid="race-execution">
+        Race Execution
+        {activeExecutionHeat && <div data-testid="active-heat-id">{activeExecutionHeat.id}</div>}
+      </div>
+    );
+  },
 }));
 
 vi.mock('../components/FreeRaceTab', () => ({
@@ -45,6 +63,27 @@ vi.mock('urql', async (importOriginal) => {
     useQuery: vi.fn(),
     useMutation: vi.fn(),
     useSubscription: vi.fn(),
+  };
+});
+
+// `useNavigate` is wrapped, not replaced — everything else (MemoryRouter,
+// Routes, useLocation, useParams) stays real, and so does the navigation
+// itself: a test needs the URL to genuinely change to the Race tab so the
+// mocked `RaceExecution` above actually mounts and reports which heat
+// landed on screen, not just that `navigate` was called with the right
+// string.
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  return {
+    ...actual,
+    useNavigate: () => {
+      const realNavigate = actual.useNavigate();
+      return (...args: Parameters<typeof realNavigate>) => {
+        mockNavigate(...args);
+        return realNavigate(...args);
+      };
+    },
   };
 });
 
@@ -64,6 +103,7 @@ const completedHeat = {
     { lane: 1, racerId: 101, placeholderSlot: null, time: 3.5, place: 1, skipped: false },
     { lane: 2, racerId: 102, placeholderSlot: null, time: 3.8, place: 2, skipped: false },
   ],
+  replays: [],
 };
 
 /** Passed over rather than raced — nothing recorded, nothing to lose. */
@@ -76,6 +116,7 @@ const skippedHeat = {
     { lane: 1, racerId: 103, placeholderSlot: null, time: null, place: null, skipped: true },
     { lane: 2, racerId: 104, placeholderSlot: null, time: null, place: null, skipped: true },
   ],
+  replays: [],
 };
 
 /** Never run at all — not skipped, no time, no place. */
@@ -88,9 +129,10 @@ const freshHeat = {
     { lane: 1, racerId: 105, placeholderSlot: null, time: null, place: null, skipped: false },
     { lane: 2, racerId: 106, placeholderSlot: null, time: null, place: null, skipped: false },
   ],
+  replays: [],
 };
 
-function mockRaceData(heats: unknown[]) {
+function mockRaceData(heats: unknown[], masterRunningOrder = false) {
   return {
     race: {
       id: 1,
@@ -101,7 +143,7 @@ function mockRaceData(heats: unknown[]) {
       registeredCount: 4,
       checkedInCount: 4,
       isLocked: false,
-      masterRunningOrder: false,
+      masterRunningOrder,
       track: { id: 1, laneCount: 4, timerType: 'FAKE', laneOutages: [], laneColors: [] },
       racingGroups: [],
       racers: [],
@@ -141,13 +183,17 @@ function mockQueries(data: ReturnType<typeof mockRaceData>) {
   });
 }
 
-function mockMutations(updateHeatResult = vi.fn().mockResolvedValue({ data: {} })) {
+function mockMutations(
+  updateHeatResult = vi.fn().mockResolvedValue({ data: {} }),
+  reorderHeats = vi.fn().mockResolvedValue({ data: {} })
+) {
   (useMutation as any).mockImplementation((query: any) => {
     const qStr = JSON.stringify(query);
     if (qStr.includes('updateHeatResult')) return [{ fetching: false }, updateHeatResult];
+    if (qStr.includes('reorderHeats')) return [{ fetching: false }, reorderHeats];
     return [{ fetching: false }, vi.fn().mockResolvedValue({ data: {} })];
   });
-  return { updateHeatResult };
+  return { updateHeatResult, reorderHeats };
 }
 
 function renderRaceControl() {
@@ -164,6 +210,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   showConfirm.mockResolvedValue(true);
   capturedOnRunHeat = undefined;
+  capturedActiveExecutionHeat = null;
+  mockNavigate.mockClear();
   (useSubscription as any).mockReturnValue([{ data: undefined }, vi.fn()]);
 });
 
@@ -176,7 +224,7 @@ describe('Re-Run confirmation (#1083)', () => {
     await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
     expect(capturedOnRunHeat).toBeDefined();
 
-    await capturedOnRunHeat!(completedHeat, false);
+    await capturedOnRunHeat!(completedHeat);
 
     expect(showConfirm).toHaveBeenCalledWith(
       'Re-run Heat 7? This clears the recorded results for its 2 lanes. The cars will race again and the standings will update.',
@@ -200,7 +248,7 @@ describe('Re-Run confirmation (#1083)', () => {
     renderRaceControl();
 
     await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
-    await capturedOnRunHeat!(completedHeat, false);
+    await capturedOnRunHeat!(completedHeat);
 
     expect(showConfirm).toHaveBeenCalled();
     expect(updateHeatResult).not.toHaveBeenCalled();
@@ -212,7 +260,7 @@ describe('Re-Run confirmation (#1083)', () => {
     renderRaceControl();
 
     await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
-    await capturedOnRunHeat!(skippedHeat, false);
+    await capturedOnRunHeat!(skippedHeat);
 
     expect(showConfirm).not.toHaveBeenCalled();
     // A skipped heat is still `hasRun`, so it goes through the ordinary
@@ -227,9 +275,209 @@ describe('Re-Run confirmation (#1083)', () => {
     renderRaceControl();
 
     await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
-    await capturedOnRunHeat!(freshHeat, false);
+    await capturedOnRunHeat!(freshHeat);
 
     expect(showConfirm).not.toHaveBeenCalled();
     expect(updateHeatResult).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * #1295: Re-Run used to clear the heat and then stop, leaving the operator
+ * on the Schedule tab with no indication of which heat was now up next. It
+ * now does what Run does once the clear (if any) lands: select the heat and
+ * navigate to the Race tab, so the #130 pin lands on the heat that was just
+ * cleared rather than whatever the fallback would otherwise pick.
+ */
+describe('Re-Run navigates, the same as Run (#1295)', () => {
+  it('confirmed: clears the heat, selects it, and navigates to the Race tab', async () => {
+    mockQueries(mockRaceData([completedHeat]));
+    const { updateHeatResult, reorderHeats } = mockMutations();
+    renderRaceControl();
+
+    await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
+    await capturedOnRunHeat!(completedHeat);
+
+    expect(updateHeatResult).toHaveBeenCalledWith({
+      heatId: 1,
+      lanes: [
+        { lane: 1, racerId: 101, placeholderSlot: null, time: null, place: null, skipped: false },
+        { lane: 2, racerId: 102, placeholderSlot: null, time: null, place: null, skipped: false },
+      ],
+    });
+    // The only heat in its round, so there is nothing to jump ahead of.
+    expect(reorderHeats).not.toHaveBeenCalled();
+    // Navigation is real (only `useNavigate` is wrapped, not stubbed out),
+    // so this settles once the route — and the mocked `RaceExecution` it
+    // mounts — actually changes.
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/race/1/control/race'));
+    await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
+    // The #130 pin: the heat just cleared is the one now selected, not
+    // whatever heat the "first still to be run" fallback would land on.
+    expect(capturedActiveExecutionHeat?.id).toBe(completedHeat.id);
+  });
+
+  it('declined: clears nothing and never navigates', async () => {
+    showConfirm.mockResolvedValue(false);
+    mockQueries(mockRaceData([completedHeat]));
+    const { updateHeatResult } = mockMutations();
+    renderRaceControl();
+
+    await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
+    await capturedOnRunHeat!(completedHeat);
+
+    expect(updateHeatResult).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    // Still on the Schedule tab.
+    expect(screen.getByTestId('schedule-management')).toBeInTheDocument();
+  });
+
+  it("a never-run heat's Run is unchanged: no confirm, no clear, still selects and navigates", async () => {
+    mockQueries(mockRaceData([freshHeat]));
+    const { updateHeatResult } = mockMutations();
+    renderRaceControl();
+
+    await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
+    await capturedOnRunHeat!(freshHeat);
+
+    expect(showConfirm).not.toHaveBeenCalled();
+    expect(updateHeatResult).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/race/1/control/race'));
+    await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
+    expect(capturedActiveExecutionHeat?.id).toBe(freshHeat.id);
+  });
+
+  it('under a master running order, re-running an earlier heat still selects and navigates, but does not reorder', async () => {
+    // heatUnraced sits ahead of completedHeat in heat-number order — without
+    // a master running order this would trigger the jump-ahead reorder;
+    // under one, `handleRunHeat` skips it outright (`.claude/rules/scheduling.md`'s
+    // "master running order" — renumbering 1..N would yank the round to the
+    // head of the race-wide interleave).
+    const heatUnraced = {
+      id: 4,
+      roundId: 10,
+      roundNumber: 1,
+      heatNumber: 6,
+      lanes: [{ lane: 1, racerId: 107, placeholderSlot: null, time: null, place: null, skipped: false }],
+      replays: [],
+    };
+    mockQueries(mockRaceData([heatUnraced, completedHeat], true));
+    const { updateHeatResult, reorderHeats } = mockMutations();
+    renderRaceControl();
+
+    await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
+    await capturedOnRunHeat!(completedHeat);
+
+    expect(updateHeatResult).toHaveBeenCalled();
+    expect(reorderHeats).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/race/1/control/race'));
+    await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
+    // The #130 pin: without a master running order this would also be
+    // reachable by the "first heat still to be run" fallback landing on
+    // `completedHeat` by coincidence — `heatUnraced` is what makes this a
+    // real check of `setSelectedHeatId`, since the fallback would otherwise
+    // land there instead.
+    expect(capturedActiveExecutionHeat?.id).toBe(completedHeat.id);
+  });
+});
+
+/**
+ * #1295 review finding: every test above exercises the confirm/clear/
+ * select/navigate steps, but none of them put a completed heat *behind* a
+ * still-pending one in its round — the one shape that makes the jump-ahead
+ * reorder (`handleRunHeat`'s "If this is a future heat, move it to be the
+ * next one in its round") actually fire. Without a case like the first one
+ * below, deleting that whole block — Re-Run would stop reordering while Run
+ * kept doing it — passed all 11 existing unit tests and both e2e specs. The
+ * issue's own "Proposed fix" section is explicit that this has to survive
+ * Re-Run: "re-run heat 3" still means "run it next", not "run it after
+ * heats 7–9".
+ */
+describe('Re-Run reorders to the head of its round, the same as Run (#1295)', () => {
+  it('a completed heat sits behind a pending one in its round: Re-Run reorders it to the head, then selects and navigates', async () => {
+    // Sorted by heat number, `pendingHeat` (6) comes before `completedHeat`
+    // (7) — exactly the shape that trips the jump-ahead branch in
+    // `handleRunHeat`: the first heat still to be run in the round is not
+    // the one just re-run, so it has to be moved to the front.
+    const pendingHeat = {
+      id: 5,
+      roundId: 10,
+      roundNumber: 1,
+      heatNumber: 6,
+      lanes: [{ lane: 1, racerId: 108, placeholderSlot: null, time: null, place: null, skipped: false }],
+      replays: [],
+    };
+    mockQueries(mockRaceData([pendingHeat, completedHeat]));
+    const { updateHeatResult, reorderHeats } = mockMutations();
+    renderRaceControl();
+
+    await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
+    await capturedOnRunHeat!(completedHeat);
+
+    expect(updateHeatResult).toHaveBeenCalled();
+    // `completedHeat` (id 1) moves to heat number 1; `pendingHeat` (id 5),
+    // the heat it jumped ahead of, moves to heat number 2 — the exact
+    // shape `RaceControlReorder.test.tsx` pins for Run on a future heat
+    // (issue #416), now exercised for Re-Run on a completed one.
+    expect(reorderHeats).toHaveBeenCalledWith({
+      heatUpdates: [
+        { heatId: completedHeat.id, newHeatNumber: 1 },
+        { heatId: pendingHeat.id, newHeatNumber: 2 },
+      ],
+    });
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/race/1/control/race'));
+    await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
+    expect(capturedActiveExecutionHeat?.id).toBe(completedHeat.id);
+  });
+
+  it('the same shape under a master running order: no reorder, but still selects and navigates', async () => {
+    const pendingHeat = {
+      id: 5,
+      roundId: 10,
+      roundNumber: 1,
+      heatNumber: 6,
+      lanes: [{ lane: 1, racerId: 108, placeholderSlot: null, time: null, place: null, skipped: false }],
+      replays: [],
+    };
+    mockQueries(mockRaceData([pendingHeat, completedHeat], true));
+    const { updateHeatResult, reorderHeats } = mockMutations();
+    renderRaceControl();
+
+    await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
+    await capturedOnRunHeat!(completedHeat);
+
+    expect(updateHeatResult).toHaveBeenCalled();
+    expect(reorderHeats).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/race/1/control/race'));
+    await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
+    expect(capturedActiveExecutionHeat?.id).toBe(completedHeat.id);
+  });
+
+  it('a completed heat already first among the round\'s pending heats: no reorder', async () => {
+    // `laterPendingHeat` (8) sorts *after* `completedHeat` (7), so
+    // `completedHeat` is already at the front of what is left to run —
+    // unlike the two tests above, this exercises the branch with more than
+    // one heat in the round and still expects it to decide "nothing to do",
+    // rather than trivially skipping it the way a single-heat round would.
+    const laterPendingHeat = {
+      id: 6,
+      roundId: 10,
+      roundNumber: 1,
+      heatNumber: 8,
+      lanes: [{ lane: 1, racerId: 109, placeholderSlot: null, time: null, place: null, skipped: false }],
+      replays: [],
+    };
+    mockQueries(mockRaceData([completedHeat, laterPendingHeat]));
+    const { updateHeatResult, reorderHeats } = mockMutations();
+    renderRaceControl();
+
+    await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
+    await capturedOnRunHeat!(completedHeat);
+
+    expect(updateHeatResult).toHaveBeenCalled();
+    expect(reorderHeats).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/race/1/control/race'));
+    await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
+    expect(capturedActiveExecutionHeat?.id).toBe(completedHeat.id);
   });
 });

@@ -95,12 +95,15 @@ test('Re-Run asks first: Cancel leaves the result on the server, confirming clea
     expect(stillRecorded.lanes.some((l) => l.time !== null)).toBe(true);
 
     // Confirm this time: the heat goes back to pending on the server too.
+    // Confirming also does what Run does (#1295) — it takes the operator
+    // straight to the Race tab with heat 1 up, rather than leaving them on
+    // this row to notice for themselves that it now reads "Run".
     await page.getByRole('row').filter({ hasText: 'Heat 1' }).getByRole('button', { name: 'Re-Run' }).click();
     await page.getByRole('dialog', { name: 'Re-run Heat' }).getByRole('button', { name: 'Re-run' }).click();
     await expect(page.getByRole('dialog', { name: 'Re-run Heat' })).toBeHidden();
-    await expect(
-        page.getByRole('row').filter({ hasText: 'Heat 1' }).getByRole('button', { name: 'Run', exact: true }),
-    ).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/race/${raceId}/control/race$`));
+    await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('button', { name: 'Start Timer' })).toBeVisible();
 
     const cleared = (await readHeats(page, raceId)).find((h) => h.heatNumber === 1)!;
     expect(cleared.lanes.every((l) => l.time === null)).toBe(true);
