@@ -288,14 +288,31 @@ test('the Connect a screen and Connect a camera cards line up as a pair (#1292)'
     // Below 768px the pair stacks — the camera card (added second, after
     // the screen card in DOM order) ends up below it, and the page never
     // grows wider than its own viewport.
+    //
+    // #1313: `.connect-devices-row`'s own grid collapse to one column is
+    // plain CSS, synchronous with the resize — but this page's own
+    // `RaceViewHeading` also hides itself below 768px, and that is
+    // `useNarrowViewport`'s React state, set from a `resize` *listener*
+    // rather than from the resize itself. `setViewportSize` fires the
+    // event and returns; the grid has already collapsed by the next
+    // frame, but the heading's removal (and the height it frees up above
+    // this pair) lands on whichever render the listener's `setNarrow`
+    // call happens to trigger. A `boundingBox()` read taken in that
+    // window can catch the pair still sitting at the taller, heading-still-
+    // present position, ~87px above where it settles once the heading is
+    // actually gone (measured in the issue: a transient y of 623.14 versus
+    // a steady-state 553.14, a 70px gap of the same shape). Poll the gap
+    // between the two cards until it has settled rather than reading once.
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(screenBlock).toBeVisible();
     await expect(cameraBlock).toBeVisible();
-    const stackedScreenBox = await screenBlock.boundingBox();
-    const stackedCameraBox = await cameraBlock.boundingBox();
-    expect(stackedScreenBox).not.toBeNull();
-    expect(stackedCameraBox).not.toBeNull();
-    expect(stackedCameraBox!.y).toBeGreaterThan(stackedScreenBox!.y + stackedScreenBox!.height - 2);
+    await expect
+        .poll(async () => {
+            const s = await screenBlock.boundingBox();
+            const c = await cameraBlock.boundingBox();
+            return s && c ? c.y - (s.y + s.height) : null;
+        })
+        .toBeGreaterThan(-2);
 
     const fitsWithoutOverflow = await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
