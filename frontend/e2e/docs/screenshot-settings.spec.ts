@@ -204,40 +204,28 @@ test('screenshot the settings panels', async ({ page }) => {
     await expect(page.getByTestId('appearance-preview')).toBeVisible();
     await page.waitForTimeout(200);
 
-    // Forced off before this picture (#1208, extended by #1227): the
-    // Appearance panel this crops also holds the Replays block below the
-    // theme pickers, and `keep_replays` reveals two retention fields when
-    // it is checked (`SystemSettings.tsx`'s `{keepReplays && …}`) — 247px
-    // of extra panel height this picture is not about.
-    // `screenshot-instant-replay.spec.ts` is the one spec that turns
-    // `keepReplays` on for real, install-wide, and restores it in its own
-    // `finally`; in the unsharded regen workflow (one backend, every file
-    // in parallel) that save can be live at the instant this page loads, so
-    // the box — and the fields under it — can already be on. `uncheck()`
-    // rather than `click()`, which would *check* it if it happened to be
-    // off already and produce the opposite wrong picture; `uncheck()` is
-    // idempotent either way. The sharded CI job never saw this, since
-    // instant-replay and settings land on different shards with a backend
-    // each — which is why this drift only ever showed up on the unsharded
-    // regen baseline (#1227's own "settings/08" finding: a sharded run and
-    // an unsharded one compared byte-identical once this spec no longer
-    // depends on the other one's timing).
-    await page.getByTestId('keep_replays').uncheck();
-
+    // #1298 moved the Replays block out of this section and into Advanced,
+    // beside Debugging Mode — this panel is now only the three theme
+    // pickers and their preview, so unlike before (#1208, #1227) nothing
+    // here depends on `keepReplays`'s state, and there is no forced
+    // uncheck() needed to keep this crop a fixed height.
     await screenshotLocator(appearancePanel, { path: path.join(SCREENSHOT_DIR, '08-appearance-old-glory.png') });
 
-    // The Replays block (#177 stage 2), inside the same Appearance section
-    // as the three theme pickers above — same "unsaved local state only"
-    // rule: the checkbox is ticked (which is what reveals the two retention
-    // boxes) and never saved by this spec. `screenshot-instant-replay.spec.ts`
-    // is the one place a *saved*, real "on" setting is exercised, and its
-    // save is install-wide, not per track: in the unsharded regen workflow
-    // (one backend, files in parallel) that spec can be mid-run when this
-    // page loads, so the box may already be checked. `check()` rather than
+    // The Replays block (#177 stage 2) lives in Advanced now (#1298), beside
+    // Debugging Mode — same "unsaved local state only" rule as before: the
+    // checkbox is ticked (which is what reveals the two retention boxes)
+    // and never saved by this spec. `screenshot-instant-replay.spec.ts` is
+    // the one place a *saved*, real "on" setting is exercised, and its save
+    // is install-wide, not per track: in the unsharded regen workflow (one
+    // backend, files in parallel) that spec can be mid-run when this page
+    // loads, so the box may already be checked. `check()` rather than
     // `click()` — a click would *untick* it and hide the very fields the
     // next line waits for, which is how every regen run failed after #1201
     // while the sharded CI job, with a backend per shard, never saw it
     // (#1208). The picture is of the revealed fields either way.
+    await page.getByTestId('settings-nav-advanced').click();
+    const advancedPanel = page.getByTestId('advanced-panel');
+    await expect(advancedPanel).toBeVisible();
     await page.getByTestId('keep_replays').check();
     const replayRetentionFields = page.getByTestId('replay-retention-fields');
     await expect(replayRetentionFields.getByLabel('Keep the last')).toBeVisible();

@@ -21,8 +21,9 @@ fields on one page under the same headings, since the first time through
 you are filling everything in anyway — it is the last step of the setup
 wizard, described next. Three of the six sections hold nothing on that
 first page, and are absent from it rather than showing as an empty heading:
-**Words and names** and **Appearance**, because both override an
-install-wide default that has nothing to override until the race exists;
+**Words and names** and **Appearance** — the race's own Appearance overrides
+the themes set under System Settings → Look & sound — because both override
+an install-wide default that has nothing to override until the race exists;
 and **Displays**, because the QR code headline and Wi-Fi guidance it holds
 serve one audience-display view most races never assign, and the day you
 create a race is not the day to be asked about it.

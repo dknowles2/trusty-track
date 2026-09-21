@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '../../../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import SystemSettings from './SystemSettings';
 import { MemoryRouter } from 'react-router-dom';
 import { AlertProvider } from '../../../context/AlertContext';
@@ -789,14 +789,14 @@ describe('the settings sections', () => {
         expect(screen.queryByTestId('settings-nav')).toBeNull();
     });
 
-    it('puts Tracks ahead of the collapsed Appearance section on the first run (#851)', async () => {
+    it('puts Tracks ahead of the collapsed Look & sound section on the first run (#851)', async () => {
         // The two fields that change anything before a heat runs are the
         // organization's name and a track's lane count. Twenty-three theme
         // swatches and a three-panel preview used to sit between them and
         // "Access" — this pins that Tracks now comes first, and that
-        // Appearance's bulk sits behind a closed disclosure so it is still
-        // reachable (the wizard still "shows the lot") without competing
-        // with the track question for a first-timer's attention.
+        // Look & sound's bulk sits behind a closed disclosure so it is
+        // still reachable (the wizard still "shows the lot") without
+        // competing with the track question for a first-timer's attention.
         renderWith({ initialized: false, organizationName: '', tracks: [] });
 
         const tracksPanel = await screen.findByTestId('tracks-panel');
@@ -820,7 +820,7 @@ describe('the settings sections', () => {
         const swatch = screen.getByTestId('app-theme-option-field-uniform');
         expect(swatch).not.toBeVisible();
 
-        await fireEvent.click(screen.getByText(/Appearance/));
+        await fireEvent.click(screen.getByText(/Look & sound/));
         expect(swatch).toBeVisible();
     });
 
@@ -853,6 +853,41 @@ describe('the settings sections', () => {
         await openSection('advanced');
         expect(screen.getByLabelText('Debugging Mode')).toBeInTheDocument();
         expect(screen.queryByTestId('general-panel')).toBeNull();
+    });
+
+    it('renames the nav entry to "Look & sound" (#1298) — sound is not appearance, and the test id and blurb stay put', async () => {
+        // The section id (`appearance`) and every test id (`settings-nav-
+        // appearance`, `appearance-panel`) are unchanged — they are not
+        // user-facing, and renaming them would churn every spec in this
+        // file and several e2e ones for nothing. Only the label an operator
+        // reads changes.
+        renderWith(configured);
+
+        expect(await screen.findByTestId('settings-nav-appearance')).toHaveTextContent('Look & sound');
+    });
+
+    it('keeps Sound effects inside the renamed Look & sound panel, after the three theme pickers (#1298)', async () => {
+        renderWith(configured);
+
+        await openSection('appearance');
+
+        const appearancePanel = screen.getByTestId('appearance-panel');
+        expect(within(appearancePanel).getByTestId('sound-settings-section')).toBeInTheDocument();
+    });
+
+    it('moves Replays out of Look & sound and into Advanced, beside Debugging Mode (#1298)', async () => {
+        // The block itself, its test ids and its behaviour are unchanged —
+        // only which section renders it. Stored clips are disk storage, not
+        // a look or a sound.
+        renderWith(configured);
+
+        await openSection('appearance');
+        expect(screen.queryByTestId('replay-retention-fields')).not.toBeInTheDocument();
+
+        await openSection('advanced');
+        const advancedPanel = screen.getByTestId('advanced-panel');
+        expect(within(advancedPanel).getByTestId('replay-retention-fields')).toBeInTheDocument();
+        expect(within(advancedPanel).getByLabelText('Debugging Mode')).toBeInTheDocument();
     });
 
     it('the Advanced checkbox saves through setDebugMode, and the save payload carries none of the three split-out fields (#1079, #1080)', async () => {

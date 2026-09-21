@@ -210,7 +210,8 @@
    * (`Observation.tsx`, `AwardCeremony.tsx`) are their own surface,
    * independent of the App surface above. These defaults equal today's
    * hardcoded `.projector-mode` dark palette exactly — no rendered colour
-   * moves for an install that never opens the Appearance section.
+   * moves for an install that never opens the Look & sound section (#1298,
+   * renamed from Appearance).
    */
   --display-bg-color: #0A0A0A;
   --display-surface-color: #1a1a1a;
@@ -1424,7 +1425,8 @@ input:checked + .slider:before {
 }
 
 /*
- * Theme swatch buttons — the Appearance section's three pickers (#498). A
+ * Theme swatch buttons — the Look & sound section's three pickers (#498,
+ * renamed from Appearance by #1298). A
  * small circular chip showing the theme's primary and accent color, rather
  * than a bare `<select>`, since "what does Old Glory look like" is exactly
  * the question a name alone cannot answer.

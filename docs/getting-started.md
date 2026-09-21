@@ -28,7 +28,7 @@ The first time, everything below is on one page, in order — fill it in from to
 to bottom, starting with the two things that actually change anything before a
 heat runs: your organization's name and your track's lane count. Afterwards
 the page splits into sections listed down the left —
-**General**, **Appearance**, **Access**, **Tracks**, **Advanced** and **Backup**
+**General**, **Look & sound**, **Access**, **Tracks**, **Advanced** and **Backup**
 — and shows one at a time; a nav lets you jump straight to any of them, so
 their order there matters less than it does on this first page.
 **Save Settings** saves the lot, whichever section you are looking at.
@@ -52,18 +52,20 @@ If you run more than one track, **+ Add Another Track** adds another to the same
 
 Next comes a security decision, and it's fine to skip it for a kitchen-table first run: by default there's no PIN, so anyone who can reach the app on your network can change anything — including deleting the race mid-event. Setting an **Operator PIN** locks that down; an optional **Check-in PIN** limits a registration-desk device to adding and checking in racers. Both can be added later before race day. See [Access and Your Network](access-and-network.md) for what each PIN protects and how to set one.
 
-### Appearance
+### Look & sound
 
-Collapsed behind an **Appearance — pick a look** disclosure, closed by
-default: every picker here already defaults to the app's usual look, so it's
-entirely safe to skip on a first run. Open it now, or come back to it later,
-if you want the wall display to look different for an evening race, a
-patriotic-themed derby, or a print run that needs to save ink. See
+Collapsed behind a **Look & sound — pick a look, or a sound** disclosure,
+closed by default: every picker here already defaults to the app's usual
+look, so it's entirely safe to skip on a first run. Open it now, or come
+back to it later, if you want the wall display to look different for an
+evening race, a patriotic-themed derby, a print run that needs to save ink,
+or a different set of race-day sound effects. See
 [Themes](reference/themes.md) for the full list.
 
 ### Advanced
 
 - **Debugging Mode**: Off by default. Turning it on shows extra timer controls and logs during races — leave it off unless you're troubleshooting.
+- **Replays**: Off by default. Turning on **Keep replay clips** lets a camera's clip be played back later, on the Schedule tab or in Race Control, instead of being deleted the moment the next heat starts — see the [Instant Replay guide](instant-replay.md).
 
 ![System Settings Form](assets/screenshots/getting-started/02-system-settings.png)
 

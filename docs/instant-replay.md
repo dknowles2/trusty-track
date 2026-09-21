@@ -207,7 +207,7 @@ heat: the moment the next heat starts, the old clip is gone. That is fine
 for watching the room, but it means nobody can go back and replay heat 12
 after the fact.
 
-**System Settings → Displays → Replays** has a **Keep replay clips**
+**System Settings → Advanced → Replays** has a **Keep replay clips**
 checkbox that changes this. Turned on, a clip is kept — and every heat with
 one gets a small **▶** you can click on the **Schedule** tab or in Race
 Control's **Previous Heats** list to play it back, any time during the
