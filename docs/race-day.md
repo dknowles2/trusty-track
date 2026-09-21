@@ -575,7 +575,7 @@ If a timer result is wrong (for example, a photo-finish dispute or a false start
 2. Update the time for each lane as needed.
 3. Click **Save Results**.
 
-To completely re-run a heat, click **Re-Run**. Because this clears every lane's recorded time and place, it asks you to confirm first, naming the heat and how many lanes hold a result; confirming returns the heat to "pending" so it can race again.
+To completely re-run a heat, click **Re-Run**. Because this clears every lane's recorded time and place, it asks you to confirm first, naming the heat and how many lanes hold a result; confirming returns the heat to "pending" so it can race again, and takes you to the Race tab with that heat ready to arm — the same as clicking **Run**.
 
 Correcting a qualifying time re-decides who advances. A championship round
 not yet raced re-fills itself; one already raced shows **Line-up out of
@@ -760,7 +760,7 @@ in [Changes in the middle of a race](reference/mid-race-changes.md#a-withdrawal)
 
 ### A timer result came in wrong
 
-Click **Edit** on the completed heat in the Race Execution view to manually correct any time value. If the entire heat needs to be re-run, click **Re-Run** and confirm — it clears all results so the heat can race again.
+Click **Edit** on the completed heat in the Race Execution view to manually correct any time value. If the entire heat needs to be re-run, click **Re-Run** and confirm — it clears all results and takes you to the Race tab with that heat ready to arm.
 
 ### We need to run a practice heat that doesn't count
 
