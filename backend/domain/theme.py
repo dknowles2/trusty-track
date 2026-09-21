@@ -4,7 +4,7 @@ A pack that runs a regular derby in Field Uniform and a space-themed
 "Rocket Derby" the same season wants the second event's wall display and pit
 passes to look like that event, without re-theming the install before and
 after. `Organization.display_theme`/`printables_theme` (#498) already choose
-these install-wide, in `System Settings → Appearance`; this adds a second,
+these install-wide, in `System Settings → Look & sound`; this adds a second,
 narrower layer above them, the same shape `domain.terminology` and
 `domain.name_display` already use for their own two scopes.
 

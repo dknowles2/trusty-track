@@ -1,8 +1,13 @@
 # Themes
 
 How the app, the wall display, and the printed pages look, and how to change
-it. Set from **System Settings → Appearance** — for the walkthrough, see
-[Getting Started](../getting-started.md#appearance).
+it. Set from **System Settings → Look & sound** — for the walkthrough, see
+[Getting Started](../getting-started.md#look-sound).
+
+The same section also holds this device's race-day sound effects — the
+staging tone, the gate horn, the finish chime and the rest — which are
+unrelated to any of the three themes below; see
+[Sound Options](../race-day.md#sound-options).
 
 ## Three screens, three choices
 
@@ -87,7 +92,7 @@ one place any theme, Clear Sight included, keeps that lighter touch on
 purpose, so an empty field still looks empty rather than already filled
 in.
 
-![The Appearance section with Old Glory selected for all three pickers](../assets/screenshots/settings/08-appearance-old-glory.png)
+![The Look & sound section with Old Glory selected for all three pickers](../assets/screenshots/settings/08-appearance-old-glory.png)
 _A swatch for each theme, and a live preview of all three surfaces below
 the pickers — nothing here is saved until **Save Settings** is clicked._
 

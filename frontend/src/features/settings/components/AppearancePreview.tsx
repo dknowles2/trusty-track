@@ -1,5 +1,6 @@
 /**
- * The three small mockups under the Appearance section's pickers (#498).
+ * The three small mockups under the Look & sound section's pickers (#498,
+ * renamed from Appearance by #1298).
  *
  * Display and Printables are otherwise invisible until the operator walks to
  * a wall screen or hits print — this preview is the only way to answer "what

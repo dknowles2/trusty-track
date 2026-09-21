@@ -38,8 +38,8 @@ export const SECTIONS: readonly Section[] = [
   },
   {
     id: 'appearance',
-    label: 'Appearance',
-    blurb: 'How the screens, the wall display, and the printed pages look.',
+    label: 'Look & sound',
+    blurb: 'How the screens and printed pages look, and what this device plays.',
   },
   {
     id: 'access',
@@ -54,7 +54,7 @@ export const SECTIONS: readonly Section[] = [
   {
     id: 'advanced',
     label: 'Advanced',
-    blurb: "Not for a first look — troubleshooting controls, off by default.",
+    blurb: 'Not for a first look — troubleshooting controls and replay storage, off by default.',
   },
   {
     id: 'backup',
@@ -97,16 +97,16 @@ export const isFormSection = (id: SectionId): boolean => FORM_SECTIONS.includes(
  * Two fields change anything before a heat runs: the organization's name
  * (General) and a track's lane count (Tracks). Both now come first. Access
  * (the operator/check-in PINs) is optional but still an operational
- * decision, so it stays ahead of Appearance, which is purely cosmetic — a
+ * decision, so it stays ahead of Look & sound, which is purely cosmetic — a
  * theme nobody picks is already a working default (`MATCH_APP` resolves to
- * Field Uniform) — and Advanced (Debugging Mode) stays last, as it is on the
- * sectioned page.
+ * Field Uniform) — and Advanced (Debugging Mode, and the Replays block)
+ * stays last, as it is on the sectioned page.
  *
  * Same five members as `FORM_SECTIONS`, reordered — nothing is added,
- * removed, or hidden. `SystemSettings.tsx` additionally collapses Appearance
- * behind a closed disclosure on the wizard only, so its twenty-three theme
- * swatches and live preview are still in the document (a first-timer can
- * still meet the setting) without competing with the track question for
+ * removed, or hidden. `SystemSettings.tsx` additionally collapses Look &
+ * sound behind a closed disclosure on the wizard only, so its twenty-three
+ * theme swatches and live preview are still in the document (a first-timer
+ * can still meet the setting) without competing with the track question for
  * attention.
  */
 export const WIZARD_FORM_ORDER: readonly SectionId[] = ['general', 'tracks', 'access', 'appearance', 'advanced'];

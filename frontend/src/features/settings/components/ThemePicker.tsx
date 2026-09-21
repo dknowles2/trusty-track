@@ -1,7 +1,8 @@
 /**
- * One of the Appearance section's three pickers (#498): a labelled row of
- * theme swatches rather than a bare `<select>`, since "what does Old Glory
- * look like" is exactly the question a name alone cannot answer.
+ * One of the Look & sound section's three pickers (#498, renamed by
+ * #1298): a labelled row of theme swatches rather than a bare `<select>`,
+ * since "what does Old Glory look like" is exactly the question a name
+ * alone cannot answer.
  *
  * The Display and Printables pickers include an explicit "Field Uniform
  * (default)" option, shown first — the App picker never does, since Field

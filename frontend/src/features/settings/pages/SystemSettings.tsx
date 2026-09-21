@@ -798,80 +798,82 @@ export default function SystemConfig() {
         printablesSetting={printablesTheme}
       />
 
-      {/* Stored replay clips (#177 stage 2) — lives beside the Display
-          theme rather than in Advanced: it is an audience-facing setting
-          about what the wall display and the Schedule tab can show, the
-          same reasoning that puts the theme pickers here rather than
-          beside Debugging Mode. Off keeps stage 1a's exact
-          delete-after-next-heat behaviour byte-for-byte. */}
-      <div data-testid="replay-retention-fields" style={{ marginTop: '2rem' }}>
-        <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          Replays
-          <DocsLink docsKey="settings-replays" />
-        </p>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
-          <input
-            type="checkbox"
-            id="keep_replays"
-            data-testid="keep_replays"
-            checked={keepReplays}
-            onChange={(e) => setKeepReplays(e.target.checked)}
-            style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
-          />
-          <span style={{ fontWeight: 'bold', cursor: 'pointer' }}>Keep replay clips</span>
-        </label>
-        <FieldHelp id="keep-replays-help" forceOpen={!sectioned}>
-          Off (the default), a camera's clip is deleted the moment the next
-          heat starts — it only ever exists long enough to play once. On, a
-          clip is kept, and every heat with one gets a ▶ on the Schedule tab
-          and in Race Control's Previous Heats list to play it back later.
-          Stored clips are never included in a backup.
-        </FieldHelp>
-        {keepReplays && (
-          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
-            <div>
-              <label htmlFor="replay_retention_heats" style={{ display: 'block', marginBottom: '0.25rem' }}>
-                Keep the last
-              </label>
-              <input
-                type="number"
-                id="replay_retention_heats"
-                min="0"
-                placeholder="no limit"
-                value={replayRetentionHeats}
-                onChange={(e) => setReplayRetentionHeats(e.target.value)}
-                style={{ width: '8rem', padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
-              />
-              <FieldHelp id="replay-retention-heats-help" forceOpen={!sectioned}>
-                heats' clips. Leave blank to keep every heat's clips,
-                unbounded.
-              </FieldHelp>
-            </div>
-            <div>
-              <label htmlFor="replay_retention_mb" style={{ display: 'block', marginBottom: '0.25rem' }}>
-                Keep clips under
-              </label>
-              <input
-                type="number"
-                id="replay_retention_mb"
-                min="0"
-                placeholder="no limit"
-                value={replayRetentionMb}
-                onChange={(e) => setReplayRetentionMb(e.target.value)}
-                style={{ width: '8rem', padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
-              />
-              <FieldHelp id="replay-retention-mb-help" forceOpen={!sectioned}>
-                MB total. Leave blank for no size limit.
-              </FieldHelp>
-            </div>
-          </div>
-        )}
-      </div>
-
       <div style={{ marginTop: '2rem' }}>
         <SoundSettingsSection />
       </div>
     </>
+  );
+
+  // Stored replay clips (#177 stage 2) — lives in Advanced, beside
+  // Debugging Mode, where this block's own comment once said it had
+  // considered living: a clip is storage on disk, not an audience-facing
+  // look or sound, so it does not belong in the section that renamed
+  // itself to describe exactly those two things (#1298). Off keeps stage
+  // 1a's exact delete-after-next-heat behaviour byte-for-byte.
+  const replayControls = (
+    <div data-testid="replay-retention-fields" style={{ marginTop: '2rem' }}>
+      <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        Replays
+        <DocsLink docsKey="settings-replays" />
+      </p>
+      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+        <input
+          type="checkbox"
+          id="keep_replays"
+          data-testid="keep_replays"
+          checked={keepReplays}
+          onChange={(e) => setKeepReplays(e.target.checked)}
+          style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+        />
+        <span style={{ fontWeight: 'bold', cursor: 'pointer' }}>Keep replay clips</span>
+      </label>
+      <FieldHelp id="keep-replays-help" forceOpen={!sectioned}>
+        Off (the default), a camera's clip is deleted the moment the next
+        heat starts — it only ever exists long enough to play once. On, a
+        clip is kept, and every heat with one gets a ▶ on the Schedule tab
+        and in Race Control's Previous Heats list to play it back later.
+        Stored clips are never included in a backup.
+      </FieldHelp>
+      {keepReplays && (
+        <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+          <div>
+            <label htmlFor="replay_retention_heats" style={{ display: 'block', marginBottom: '0.25rem' }}>
+              Keep the last
+            </label>
+            <input
+              type="number"
+              id="replay_retention_heats"
+              min="0"
+              placeholder="no limit"
+              value={replayRetentionHeats}
+              onChange={(e) => setReplayRetentionHeats(e.target.value)}
+              style={{ width: '8rem', padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+            />
+            <FieldHelp id="replay-retention-heats-help" forceOpen={!sectioned}>
+              heats' clips. Leave blank to keep every heat's clips,
+              unbounded.
+            </FieldHelp>
+          </div>
+          <div>
+            <label htmlFor="replay_retention_mb" style={{ display: 'block', marginBottom: '0.25rem' }}>
+              Keep clips under
+            </label>
+            <input
+              type="number"
+              id="replay_retention_mb"
+              min="0"
+              placeholder="no limit"
+              value={replayRetentionMb}
+              onChange={(e) => setReplayRetentionMb(e.target.value)}
+              style={{ width: '8rem', padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+            />
+            <FieldHelp id="replay-retention-mb-help" forceOpen={!sectioned}>
+              MB total. Leave blank for no size limit.
+            </FieldHelp>
+          </div>
+        </div>
+      )}
+    </div>
   );
 
   /**
@@ -1154,14 +1156,14 @@ export default function SystemConfig() {
       </section>
     ),
 
-    // Appearance (#851): on the sectioned settings page this is its own
-    // section, chosen from the nav — already as "open" as it needs to be.
-    // On the wizard, where every section is on screen at once, the twenty-
-    // three swatches and the live preview sit behind a closed disclosure
-    // instead — still in the document (the wizard still "shows the lot"),
-    // just not competing with the track question for a first-timer's
-    // attention. Nothing inside is required, so this cannot hide a value
-    // `firstProblem` needs the browser to validate.
+    // Look & sound (#851, renamed by #1298): on the sectioned settings page
+    // this is its own section, chosen from the nav — already as "open" as it
+    // needs to be. On the wizard, where every section is on screen at once,
+    // the twenty-three swatches and the live preview sit behind a closed
+    // disclosure instead — still in the document (the wizard still "shows
+    // the lot"), just not competing with the track question for a
+    // first-timer's attention. Nothing inside is required, so this cannot
+    // hide a value `firstProblem` needs the browser to validate.
     appearance: (
       <section aria-labelledby="settings-appearance" data-testid="appearance-panel">
         <SectionHeading id="appearance" sectioned={sectioned} />
@@ -1170,7 +1172,7 @@ export default function SystemConfig() {
         ) : (
           <details>
             <summary style={{ cursor: 'pointer', fontWeight: 'bold', marginBottom: '1rem' }}>
-              Appearance — pick a look (optional, you can change this any time)
+              Look & sound — pick a look, or a sound (optional, you can change this any time)
             </summary>
             <div style={{ marginTop: '1rem' }}>{appearanceControls}</div>
           </details>
@@ -1270,9 +1272,12 @@ export default function SystemConfig() {
     // destructive, so there is no misclick to guard against, only clutter to
     // keep out of an operator's first look. Debugging Mode used to sit at the
     // foot of General, which put it near the *top* of the page once the page
-    // was sectioned — this is the one control that lives here today, and the
-    // section exists so a later troubleshooting control has somewhere to go
-    // that is not General.
+    // was sectioned — this was the one control here, and the section existed
+    // so a later troubleshooting control had somewhere to go that was not
+    // General. The Replays block (#177 stage 2) is that later control
+    // (#1298) — stored clips are disk storage, not a look or a sound, so it
+    // moved out of the renamed Look & sound section to sit beside Debugging
+    // Mode instead.
     advanced: (
       <section aria-labelledby="settings-advanced" data-testid="advanced-panel">
         {sectioned ? <SectionHeading id="advanced" sectioned={sectioned} /> : <h2 style={{ marginBottom: '0.5rem' }}>Advanced</h2>}
@@ -1287,6 +1292,28 @@ export default function SystemConfig() {
           <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
           <small style={{ color: 'var(--text-muted-color)', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
         </div>
+        {isEditing ? (
+          replayControls
+        ) : (
+          // On the wizard, Advanced renders inline with no nav — the same
+          // "shows the lot" page Look & sound's own disclosure exists for
+          // — but unlike a theme (every picker already defaults to the
+          // app's usual look), an off-by-default *storage* option sitting
+          // in plain view on a section whose own blurb says "not for a
+          // first look" reads as a decision the wizard is asking for. A
+          // closed `<details>`, the same shape Look & sound already uses,
+          // keeps it in the document (a first-timer can still meet the
+          // setting) without presenting it as one more thing to answer
+          // before Save Settings. Debugging Mode stays outside it — an
+          // ordinary boolean with no such hazard, same reasoning as
+          // "Advanced is the last form section" above.
+          <details>
+            <summary style={{ cursor: 'pointer', fontWeight: 'bold', marginBottom: '1rem' }}>
+              Replays — keep finish-line clips on this machine
+            </summary>
+            <div style={{ marginTop: '1rem' }}>{replayControls}</div>
+          </details>
+        )}
       </section>
     ),
   };

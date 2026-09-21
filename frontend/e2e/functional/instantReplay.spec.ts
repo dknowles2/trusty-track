@@ -191,18 +191,19 @@ async function waitForClipUpload(
  * shared with every other spec in this run, the same `debugAndThemes.spec.ts`
  * exception this file's own header docs don't otherwise take: each caller
  * restores it afterward. Driven through the real System Settings form
- * (Appearance section) rather than a hand-built `updateInitialConfig` call —
- * the form already holds this install's full track list in its own state and
- * resends it unchanged, which is what `InitialConfigInput.tracks` being
- * required (an empty list means "delete every track", not "leave alone")
- * would otherwise make a hand-built payload responsible for getting right.
+ * (Advanced section, beside Debugging Mode — moved there from Appearance by
+ * #1298) rather than a hand-built `updateInitialConfig` call — the form
+ * already holds this install's full track list in its own state and resends
+ * it unchanged, which is what `InitialConfigInput.tracks` being required (an
+ * empty list means "delete every track", not "leave alone") would otherwise
+ * make a hand-built payload responsible for getting right.
  */
 async function setKeepReplays(
     page: Page,
     { on, retentionHeats }: { on: boolean; retentionHeats?: number },
 ): Promise<void> {
     await page.goto('/system-settings');
-    await page.getByTestId('settings-nav-appearance').click();
+    await page.getByTestId('settings-nav-advanced').click();
     const checkbox = page.getByLabel('Keep replay clips');
     if (on) {
         if (!(await checkbox.isChecked())) await checkbox.check();

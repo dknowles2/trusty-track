@@ -139,9 +139,10 @@ and "Timer & Hardware" tabs describe track settings, which are per track in
 System Settings — shared hardware in the room, not a race fact (#171's
 reasoning) — so the race form only picks a track and says where the rest
 lives. Its "Displays & Media" tab names a display theme — per install by
-default, in System Settings → Appearance, and now overridable per race in
-this form's own *Appearance* section (#1081) — and header text and sponsor
-images, and the latter two still do not exist. Its discoverability items — a
+default, in System Settings → Look & sound (renamed from Appearance by
+#1298), and now overridable per race in this form's own *Appearance* section
+(#1081) — and header text and sponsor images, and the latter two still do
+not exist. Its discoverability items — a
 one-click route from Race Control
 and an explicit action on Home's race table — had already landed in #589.
 
@@ -256,6 +257,30 @@ renders every section in order with no nav, this reads as one more heading
 near the foot of a long page rather than as a change in behavior — the
 control itself has not moved relative to the fields around it, only relative
 to General.
+
+**The Replays block (#177 stage 2) joined Debugging Mode here, moved out of
+what was then Appearance** ([#1298](https://github.com/dknowles2/trusty-track/issues/1298)).
+`SystemSettings.tsx`'s own comment above `keepReplays`'s block had said
+Advanced was "beside the Display theme rather than in Advanced", since a
+stored clip once read as an audience-facing look. Sound effects sitting in
+the same section (added later by #859, never reasoned about) made that
+section's own name a lie — an operator looking for the volume control had no
+reason to open a section whose blurb said "look" — and the honest fix
+renamed it **Look & sound** rather than trying to make "Appearance" cover a
+sound panel too. Once the section's name had to actually describe what it
+held, Replays stopped fitting either: a clip is disk storage, the same kind
+of thing Debugging Mode already lives beside, not a look or a sound. It
+moved here, keeping its own test ids and behaviour, and Advanced's blurb
+grew a clause ("troubleshooting controls and replay storage") to say so.
+**On the wizard specifically, the block sits behind its own closed
+`<details>`** — the same disclosure shape Look & sound's own twenty-three
+swatches use, reused for the identical reason: Advanced renders inline
+with no nav on a fresh install, and an off-by-default storage option in
+plain view on a section whose blurb says "not for a first look" reads as a
+decision the wizard is asking for. Debugging Mode stays outside it — an
+ordinary boolean with no such hazard. The sectioned settings page renders
+the block inline, same as it always has, since an operator who opened
+Advanced from the nav asked to be there.
 
 **The two links out are section-nav entries now, not a separately boxed
 footnote** ([#959](https://github.com/dknowles2/trusty-track/issues/959)),
