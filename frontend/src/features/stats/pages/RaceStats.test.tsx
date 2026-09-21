@@ -9,6 +9,7 @@ import { groupScoreDomain } from '../groupScoreDomain';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useQuery } from 'urql';
 import { GET_RACE_STATS } from '../graphql/queries';
+import { GET_RACES_NAV } from '../../core/graphql/queries';
 import { filenameFor } from '../../../utils/csv';
 
 vi.mock('urql', async (importOriginal) => {
@@ -464,6 +465,31 @@ describe('racingGroup comparison', () => {
             { racingGroupId: 1, racingGroupName: 'Wolves', racingGroupColor: '#ff0000', racerCount: 5, avgScore: null, bestRacerName: null },
         ]);
         expect(domain).toEqual([0, 'auto']);
+    });
+
+    it('shows the Locked badge in the heading when the race is locked (#1296)', () => {
+        // `useRaceLocked` reads `GET_RACES_NAV`, a second `useQuery` call
+        // beside this page's own `GET_RACE_STATS` — discriminate by
+        // document rather than the blanket `mockReturnValue` the rest of
+        // this file uses, since the two calls want different shapes.
+        (useQuery as any).mockImplementation(({ query }: { query: unknown }) => {
+            if (query === GET_RACES_NAV) {
+                return [{ data: { races: [{ id: 2, name: 'This Derby', isLocked: true }] }, fetching: false, error: null }, vi.fn()];
+            }
+            return [{ data: { raceStats: statsPayload() }, fetching: false, error: null }, vi.fn()];
+        });
+
+        render(
+            <MemoryRouter initialEntries={['/race/2/stats']}>
+                <Routes>
+                    <Route path="/race/:raceId/stats" element={<RaceStats />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        const heading = screen.getByTestId('stats-heading');
+        expect(within(heading).getByText('Stats')).toBeInTheDocument();
+        expect(within(heading).getByText('Locked')).toBeInTheDocument();
     });
 });
 

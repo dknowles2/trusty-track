@@ -29,7 +29,11 @@ function resolve_src(): string {
 const PAGES_WITH_A_DOCS_LINK = [
     'features/management/pages/RaceDetails.tsx',
     'features/racing/pages/RaceControl.tsx',
-    'features/stats/components/Leaderboard.tsx',
+    // `Leaderboard.tsx` itself lost its own docs link (#1296, #1297): the
+    // page heading above it (`Standings.tsx`) carries the Standings guide
+    // now, since `Leaderboard` also renders inside Race Control's round
+    // summary, where a page-level docs link has no place.
+    'features/stats/pages/Standings.tsx',
     'features/awards/pages/Awards.tsx',
     'features/stats/pages/RaceStats.tsx',
     'features/printables/pages/Printables.tsx',
@@ -46,7 +50,16 @@ describe('every major screen carries a DocsLink (#1194)', () => {
         it(`${rel} renders <DocsLink`, () => {
             const full = join(SRC, rel);
             const src = readFileSync(full, 'utf8');
-            expect(src.includes('<DocsLink'), `${rel} has no <DocsLink`).toBe(true);
+            // A race view can carry its `?` two ways now (#1296, #1297): a
+            // literal `<DocsLink`, the same as every other major screen, or
+            // `<RaceViewHeading … docsKey="…">`, which renders one inside
+            // its own `<h1>` — Standings, Stats and Displays moved to the
+            // second form when the shared heading absorbed their own
+            // page-level docs link.
+            const hasDocsLink =
+                src.includes('<DocsLink') ||
+                (src.includes('<RaceViewHeading') && src.includes('docsKey'));
+            expect(hasDocsLink, `${rel} has no <DocsLink and no <RaceViewHeading docsKey=…>`).toBe(true);
         });
     }
 });
