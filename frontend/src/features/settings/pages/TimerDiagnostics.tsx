@@ -596,7 +596,7 @@ const TrackTimer: React.FC<{
                       to a real heat.
                     */}
                     {track.timerType === 'AUTO_DETECT_PROXY' && (
-                        <SerialProxyConnector trackId={track.id} />
+                        <SerialProxyConnector trackId={track.id} inline />
                     )}
                 </div>
             )}
