@@ -49,7 +49,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { ensureConfigured, gql, readHeats, seedRace, type Heat } from './support';
+import { ensureConfigured, gql, readHeats, seedRace, trackPoolName, type Heat } from './support';
 
 // Raised from 180s/45s-per-upload to 300s/90s (#177 stage 4 review) once
 // this file's own camera-heavy test count grew from four to seven — the
@@ -222,7 +222,7 @@ async function setKeepReplays(
 
 test('a camera uploads through FakeCamera, and a replays-on display plays the clip', async ({ browser, page }) => {
     await ensureConfigured(page);
-    const { raceId, trackId } = await seedRace(page, 'Instant Replay Playback Race');
+    const { raceId } = await seedRace(page, 'Instant Replay Playback Race');
     await scheduleWithSpareHeats(page, raceId, 3);
     const heats = await officialHeatsInOrder(page, raceId);
     expect(heats.length).toBeGreaterThanOrEqual(4);
@@ -231,8 +231,17 @@ test('a camera uploads through FakeCamera, and a replays-on display plays the cl
     const cameraContext = await browser.newContext();
     const camera = await cameraContext.newPage();
     await openCamera(camera, raceId, 'spec-camera-playback');
-    await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
     await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
+        timeout: 15000,
+    });
+
+    // The camera registered against the race's own track with no picker
+    // anywhere (#1293) — the Displays panel's camera row says so too,
+    // read-only, rather than offering a blank "Choose a track…" over every
+    // track in the install.
+    const trackName = trackPoolName(test.info().parallelIndex);
+    await page.goto(`/race/${raceId}/displays`);
+    await expect(page.getByTestId('displays-list')).toContainText(`Listening to ${trackName}`, {
         timeout: 15000,
     });
 
@@ -305,7 +314,7 @@ test('the results-flow overlay shows finish-frame markers, and they are not clic
     page,
 }) => {
     await ensureConfigured(page);
-    const { raceId, trackId } = await seedRace(page, 'Instant Replay Overlay Markers Race');
+    const { raceId } = await seedRace(page, 'Instant Replay Overlay Markers Race');
     await scheduleWithSpareHeats(page, raceId, 3);
     const heats = await officialHeatsInOrder(page, raceId);
     expect(heats.length).toBeGreaterThanOrEqual(3);
@@ -314,7 +323,6 @@ test('the results-flow overlay shows finish-frame markers, and they are not clic
     const cameraContext = await browser.newContext();
     const camera = await cameraContext.newPage();
     await openCamera(camera, raceId, 'spec-camera-overlay-marks');
-    await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
     await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
         timeout: 15000,
     });
@@ -357,13 +365,12 @@ test('the results-flow overlay shows finish-frame markers, and they are not clic
 
 test('a display with replays off never shows the clip', async ({ browser, page }) => {
     await ensureConfigured(page);
-    const { raceId, trackId } = await seedRace(page, 'Instant Replay Off Race');
+    const { raceId } = await seedRace(page, 'Instant Replay Off Race');
     await scheduleWithSpareHeats(page, raceId);
     const [warmUp, underTest] = await officialHeatsInOrder(page, raceId);
 
     const camera = await (await browser.newContext()).newPage();
     await openCamera(camera, raceId, 'spec-camera-off');
-    await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
     await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
         timeout: 15000,
     });
@@ -400,13 +407,12 @@ test('a display with replays off never shows the clip', async ({ browser, page }
 
 test('a reconnecting display does not replay a result from before it reloaded', async ({ browser, page }) => {
     await ensureConfigured(page);
-    const { raceId, trackId } = await seedRace(page, 'Instant Replay Reconnect Race');
+    const { raceId } = await seedRace(page, 'Instant Replay Reconnect Race');
     await scheduleWithSpareHeats(page, raceId);
     const [warmUp, underTest] = await officialHeatsInOrder(page, raceId);
 
     const camera = await (await browser.newContext()).newPage();
     await openCamera(camera, raceId, 'spec-camera-reconnect');
-    await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
     await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
         timeout: 15000,
     });
@@ -462,7 +468,7 @@ test('a clip cut long after the ring has evicted its own opening keyframe still 
     // wall-clock cost and ~4x the encoded frames, on a shard already running
     // the rest of the functional suite alongside it.
     await ensureConfigured(page);
-    const { raceId, trackId } = await seedRace(page, 'Instant Replay Eviction Race');
+    const { raceId } = await seedRace(page, 'Instant Replay Eviction Race');
     await scheduleWithSpareHeats(page, raceId, 3);
     const heats = await officialHeatsInOrder(page, raceId);
     expect(heats.length).toBeGreaterThanOrEqual(3);
@@ -473,7 +479,6 @@ test('a clip cut long after the ring has evicted its own opening keyframe still 
 
     const camera = await (await browser.newContext()).newPage();
     await openCamera(camera, raceId, 'spec-camera-eviction', '&ringMs=3000');
-    await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
     await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
         timeout: 15000,
     });
@@ -534,7 +539,7 @@ test('a heat re-run plays its corrected clip; the identical clip does not replay
     // must replay; the identical pair arriving again (a reconnect finding
     // the same clip still current) must not replay a second time.
     await ensureConfigured(page);
-    const { raceId, trackId } = await seedRace(page, 'Instant Replay Rerun Race');
+    const { raceId } = await seedRace(page, 'Instant Replay Rerun Race');
     await scheduleWithSpareHeats(page, raceId, 3);
     const heats = await officialHeatsInOrder(page, raceId);
     expect(heats.length).toBeGreaterThanOrEqual(3);
@@ -545,7 +550,6 @@ test('a heat re-run plays its corrected clip; the identical clip does not replay
 
     const camera = await (await browser.newContext()).newPage();
     await openCamera(camera, raceId, 'spec-camera-rerun');
-    await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
     await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
         timeout: 15000,
     });
@@ -679,7 +683,7 @@ test.describe.serial('stored retention and intermission highlights, install-wide
         page,
     }) => {
         await ensureConfigured(page);
-        const { raceId, trackId } = await seedRace(page, 'Instant Replay Stored Race');
+        const { raceId } = await seedRace(page, 'Instant Replay Stored Race');
         await scheduleWithSpareHeats(page, raceId, 3);
         const heats = await officialHeatsInOrder(page, raceId);
         expect(heats.length).toBeGreaterThanOrEqual(4);
@@ -690,7 +694,6 @@ test.describe.serial('stored retention and intermission highlights, install-wide
         try {
             const camera = await (await browser.newContext()).newPage();
             await openCamera(camera, raceId, 'spec-camera-stored');
-            await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
             await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
                 timeout: 15000,
             });
@@ -747,13 +750,12 @@ test.describe.serial('stored retention and intermission highlights, install-wide
 
     test('no ▶ appears on the Schedule tab when Keep replay clips is off', async ({ browser, page }) => {
         await ensureConfigured(page);
-        const { raceId, trackId } = await seedRace(page, 'Instant Replay No Storage Race');
+        const { raceId } = await seedRace(page, 'Instant Replay No Storage Race');
         await scheduleWithSpareHeats(page, raceId);
         const [warmUp, underTest] = await officialHeatsInOrder(page, raceId);
 
         const camera = await (await browser.newContext()).newPage();
         await openCamera(camera, raceId, 'spec-camera-no-storage');
-        await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
         await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
             timeout: 15000,
         });
@@ -779,7 +781,7 @@ test.describe.serial('stored retention and intermission highlights, install-wide
 
     test('retention keeps only the last N heats\' clips', async ({ browser, page }) => {
         await ensureConfigured(page);
-        const { raceId, trackId } = await seedRace(page, 'Instant Replay Retention Race');
+        const { raceId } = await seedRace(page, 'Instant Replay Retention Race');
         await scheduleWithSpareHeats(page, raceId, 3);
         const heats = await officialHeatsInOrder(page, raceId);
         expect(heats.length).toBeGreaterThanOrEqual(4);
@@ -791,7 +793,6 @@ test.describe.serial('stored retention and intermission highlights, install-wide
         try {
             const camera = await (await browser.newContext()).newPage();
             await openCamera(camera, raceId, 'spec-camera-retention');
-            await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
             await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
                 timeout: 15000,
             });
@@ -825,7 +826,6 @@ test.describe.serial('stored retention and intermission highlights, install-wide
             await setKeepReplays(page, { on: true, retentionHeats: 1000 });
             const camera2 = await (await browser.newContext()).newPage();
             await openCamera(camera2, raceId, 'spec-camera-retention-2');
-            await camera2.getByLabel('Which track this camera listens to').selectOption(String(trackId));
             await expect(camera2.getByTestId('camera-status-line')).toContainText('Listening to', {
                 timeout: 15000,
             });
@@ -848,7 +848,7 @@ test.describe.serial('stored retention and intermission highlights, install-wide
         page,
     }) => {
         await ensureConfigured(page);
-        const { raceId, trackId } = await seedRace(page, 'Instant Replay Highlights Race');
+        const { raceId } = await seedRace(page, 'Instant Replay Highlights Race');
         await scheduleWithSpareHeats(page, raceId, 3);
         const heats = await officialHeatsInOrder(page, raceId);
         expect(heats.length).toBeGreaterThanOrEqual(4);
@@ -859,7 +859,6 @@ test.describe.serial('stored retention and intermission highlights, install-wide
         try {
             const camera = await (await browser.newContext()).newPage();
             await openCamera(camera, raceId, 'spec-camera-highlights');
-            await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
             await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
                 timeout: 15000,
             });
@@ -966,7 +965,7 @@ test.describe.serial('stored retention and intermission highlights, install-wide
         page,
     }) => {
         await ensureConfigured(page);
-        const { raceId, trackId, laneCount } = await seedRace(page, 'Instant Replay Finish Frames Race');
+        const { raceId, laneCount } = await seedRace(page, 'Instant Replay Finish Frames Race');
         await scheduleWithSpareHeats(page, raceId, 3);
         const heats = await officialHeatsInOrder(page, raceId);
         expect(heats.length).toBeGreaterThanOrEqual(4);
@@ -977,7 +976,6 @@ test.describe.serial('stored retention and intermission highlights, install-wide
         try {
             const camera = await (await browser.newContext()).newPage();
             await openCamera(camera, raceId, 'spec-camera-finish-frames');
-            await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
             await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
                 timeout: 15000,
             });
@@ -1056,7 +1054,7 @@ test.describe.serial('stored retention and intermission highlights, install-wide
         page,
     }) => {
         await ensureConfigured(page);
-        const { raceId, trackId } = await seedRace(page, 'Instant Replay Camera Order Race');
+        const { raceId } = await seedRace(page, 'Instant Replay Camera Order Race');
         await scheduleWithSpareHeats(page, raceId, 3);
         const heats = await officialHeatsInOrder(page, raceId);
         expect(heats.length).toBeGreaterThanOrEqual(4);
@@ -1067,14 +1065,12 @@ test.describe.serial('stored retention and intermission highlights, install-wide
         try {
             const cameraA = await (await browser.newContext()).newPage();
             await openCamera(cameraA, raceId, 'spec-camera-order-a');
-            await cameraA.getByLabel('Which track this camera listens to').selectOption(String(trackId));
             await expect(cameraA.getByTestId('camera-status-line')).toContainText('Listening to', {
                 timeout: 15000,
             });
 
             const cameraB = await (await browser.newContext()).newPage();
             await openCamera(cameraB, raceId, 'spec-camera-order-b');
-            await cameraB.getByLabel('Which track this camera listens to').selectOption(String(trackId));
             await expect(cameraB.getByTestId('camera-status-line')).toContainText('Listening to', {
                 timeout: 15000,
             });
@@ -1155,7 +1151,7 @@ test.describe.serial('stored retention and intermission highlights, install-wide
         // `replayModalHeatId !== null`) folded into its own `modalOpen`
         // shortcut gate as a second, independent guard.
         await ensureConfigured(page);
-        const { raceId, trackId } = await seedRace(page, 'Instant Replay Space Collision Race');
+        const { raceId } = await seedRace(page, 'Instant Replay Space Collision Race');
         await scheduleWithSpareHeats(page, raceId, 3);
         const heats = await officialHeatsInOrder(page, raceId);
         expect(heats.length).toBeGreaterThanOrEqual(5);
@@ -1166,7 +1162,6 @@ test.describe.serial('stored retention and intermission highlights, install-wide
         try {
             const camera = await (await browser.newContext()).newPage();
             await openCamera(camera, raceId, 'spec-camera-space-collision');
-            await camera.getByLabel('Which track this camera listens to').selectOption(String(trackId));
             await expect(camera.getByTestId('camera-status-line')).toContainText('Listening to', {
                 timeout: 15000,
             });

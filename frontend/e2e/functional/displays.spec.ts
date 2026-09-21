@@ -13,7 +13,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { ensureConfigured, gql, seedRace } from './support';
+import { ensureConfigured, gql, seedRace, trackPoolName } from './support';
 
 /** The display's own storage key, which is how a screen keeps its identity. */
 const STORAGE_KEY = 'trustytrack.displayId';
@@ -249,7 +249,7 @@ test('the launch area keeps its two headings and fits a phone screen with no hor
     expect(fitsWithoutOverflow).toBe(true);
 });
 
-test('the Connect a camera code presets this race\'s own track, and scanning it shows a camera row with that track selected (#1254)', async ({ browser, page }) => {
+test('the Connect a camera code carries this race\'s own track, and scanning it shows a camera row listening to that track (#1254, #1293)', async ({ browser, page }) => {
     // The reported bug: connecting a camera meant editing a URL on a phone
     // keyboard, because the Displays panel's only QR code landed on the
     // Live page. `ConnectDisplayAddress`'s own `path` prop and
@@ -309,7 +309,11 @@ test('the Connect a camera code presets this race\'s own track, and scanning it 
     await page.goto(`/race/${raceId}/displays`);
     const row = page.getByTestId(`display-${cameraDisplayId}`);
     await expect(row).toBeVisible({ timeout: 10000 });
-    await expect(row.getByRole('combobox')).toHaveValue(String(trackId), { timeout: 10000 });
+    // A race runs on exactly one track (#1293) — the row is a read-only
+    // line naming it, not a picker.
+    const trackName = trackPoolName(test.info().parallelIndex);
+    await expect(row.getByText(`Listening to ${trackName}`)).toBeVisible({ timeout: 10000 });
+    await expect(row.getByRole('combobox')).toHaveCount(0);
 
     await cameraContext.close();
 });

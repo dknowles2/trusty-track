@@ -4,7 +4,13 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import DisplaysPanel from './DisplaysPanel';
 import { useQuery, useMutation, useClient } from 'urql';
-import { ADVANCE_DISPLAY, ASSIGN_DISPLAY, IDENTIFY_DISPLAY, RENAME_DISPLAY } from '../graphql/queries';
+import {
+    ADVANCE_DISPLAY,
+    ASSIGN_DISPLAY,
+    IDENTIFY_DISPLAY,
+    RENAME_DISPLAY,
+    SET_CAMERA_TRACK,
+} from '../graphql/queries';
 
 vi.mock('urql', async (importOriginal) => {
     const actual = await importOriginal<typeof import('urql')>();
@@ -636,21 +642,33 @@ describe('the two headings over the launch area (#1249)', () => {
     });
 });
 
-describe('the two connect blocks under Other devices (#1254)', () => {
+describe('the two connect blocks under Other devices (#1254, #1293)', () => {
     type CameraFixture = {
         displayId: string;
         role: 'CAMERA';
         trackId: number | null;
         lastClipAt: string | null;
         cameraOrder: number;
+        name?: string;
     };
 
+    // A race runs on exactly one track (#1293) — the camera block presets
+    // it, with no picker over the install's other tracks. Defaults give
+    // every test in this block a real race track unless it deliberately
+    // asks for none, so the "no track" case below is the one exception
+    // rather than the default every other test has to route around.
     function renderConnectBlocks(options: {
         tracks?: { id: number; name: string }[];
         raceTrackId?: number | null;
         cameras?: CameraFixture[];
+        setCameraTrack?: ReturnType<typeof vi.fn>;
     } = {}) {
-        const { tracks = [], raceTrackId = null, cameras = [] } = options;
+        const {
+            tracks = [{ id: 9, name: 'Main Track' }],
+            raceTrackId = 9,
+            cameras = [],
+            setCameraTrack = vi.fn().mockResolvedValue({ data: {} }),
+        } = options;
         type QueryArgs = { query: { definitions: { name?: { value?: string } }[] } };
         (vi.mocked(useQuery) as ReturnType<typeof vi.fn>).mockImplementation((args: QueryArgs) => {
             const name = args.query.definitions.find((d) => d.name?.value)?.name?.value;
@@ -703,12 +721,12 @@ describe('the two connect blocks under Other devices (#1254)', () => {
                 vi.fn(),
             ];
         });
-        (vi.mocked(useMutation) as ReturnType<typeof vi.fn>).mockImplementation(() => [
-            { fetching: false },
-            vi.fn(),
-        ]);
+        (vi.mocked(useMutation) as ReturnType<typeof vi.fn>).mockImplementation((query: unknown) => {
+            if (query === SET_CAMERA_TRACK) return [{ fetching: false }, setCameraTrack];
+            return [{ fetching: false }, vi.fn()];
+        });
         (vi.mocked(useClient) as ReturnType<typeof vi.fn>).mockReturnValue({ query: vi.fn() });
-        return render(<DisplaysPanel raceId={1} />);
+        return { ...render(<DisplaysPanel raceId={1} />), setCameraTrack };
     }
 
     it('renders both blocks as a labelled pair', () => {
@@ -722,15 +740,7 @@ describe('the two connect blocks under Other devices (#1254)', () => {
         expect(screen.getByTestId('connect-camera-address')).toBeInTheDocument();
     });
 
-    it('one track: no picker, and the camera address carries it', () => {
-        renderConnectBlocks({ tracks: [{ id: 9, name: 'Only Track' }] });
-
-        expect(screen.queryByTestId('connect-camera-track')).toBeNull();
-        const cameraBlock = screen.getByTestId('connect-camera-address');
-        expect(within(cameraBlock).getByText(/trackId=9/)).toBeInTheDocument();
-    });
-
-    it('more than one track: a picker defaulting to the race’s own track, changing the camera address on selection', () => {
+    it('presets the race’s own track, with no picker', () => {
         renderConnectBlocks({
             tracks: [
                 { id: 9, name: 'North' },
@@ -739,42 +749,33 @@ describe('the two connect blocks under Other devices (#1254)', () => {
             raceTrackId: 11,
         });
 
-        const picker = screen.getByTestId('connect-camera-track') as HTMLSelectElement;
-        expect(picker.value).toBe('11');
+        // The install has two tracks; the race runs on exactly one of
+        // them, and the code carries that one with nothing to choose.
+        expect(screen.queryByTestId('connect-camera-track')).toBeNull();
         const cameraBlock = screen.getByTestId('connect-camera-address');
         expect(within(cameraBlock).getByText(/trackId=11/)).toBeInTheDocument();
-
-        fireEvent.change(picker, { target: { value: '9' } });
-        expect(within(cameraBlock).getByText(/trackId=9/)).toBeInTheDocument();
     });
 
-    it('more than one track, no race track: defaults to the first', () => {
-        renderConnectBlocks({
-            tracks: [
-                { id: 9, name: 'North' },
-                { id: 11, name: 'South' },
-            ],
-        });
+    it('a race with no track: the notice, not an address — never the install’s only track either', () => {
+        renderConnectBlocks({ raceTrackId: null });
 
-        const picker = screen.getByTestId('connect-camera-track') as HTMLSelectElement;
-        expect(picker.value).toBe('9');
-        const cameraBlock = screen.getByTestId('connect-camera-address');
-        expect(within(cameraBlock).getByText(/trackId=9/)).toBeInTheDocument();
+        const notice = screen.getByTestId('connect-camera-no-track');
+        expect(
+            within(notice).getByText(
+                "Pick this race's track in Edit race first, so the camera knows which timer to listen to.",
+            ),
+        ).toBeInTheDocument();
+        expect(screen.queryByTestId('connect-camera-address')).toBeNull();
     });
 
-    it('shows no camera URL while the race track query is still pending, and never falls back to tracks[0] before it answers', () => {
-        // The reported bug: GET_TRACKS is asked for elsewhere on this page
-        // too and is often already warm, where RACE_TRACK_QUERY is new here
-        // and genuinely has to go over the wire — so a default computed the
-        // instant GET_TRACKS answers, before this race's own track query
-        // has, can land on the *wrong* track (tracks[0]) with the same
+    it('shows no camera URL while the race track query is still pending', () => {
+        // `cameraPresetSettled` is "has RACE_TRACK_QUERY answered" — a
+        // default computed before that race's own track query has
+        // answered would be a *wrong* preset shown with the same
         // confidence as a right one.
         let raceTrackPending = true;
         type QueryArgs = { query: { definitions: { name?: { value?: string } }[] } };
-        const tracks = [
-            { id: 9, name: 'North' },
-            { id: 11, name: 'South' },
-        ];
+        const tracks = [{ id: 9, name: 'Main Track' }];
         const implementation = (args: QueryArgs) => {
             const name = args.query.definitions.find((d) => d.name?.value)?.name?.value;
             if (name === 'RaceAwardCount') {
@@ -784,16 +785,12 @@ describe('the two connect blocks under Other devices (#1254)', () => {
                 ];
             }
             if (name === 'GetTracks') {
-                // Warm — already answered.
                 return [{ data: { tracks }, fetching: false, error: null }, vi.fn()];
             }
             if (name === 'RaceTrackForCameraPreset') {
                 return raceTrackPending
                     ? [{ data: undefined, fetching: true, error: null }, vi.fn()]
-                    : [
-                          { data: { race: { id: 1, trackId: 11 } }, fetching: false, error: null },
-                          vi.fn(),
-                      ];
+                    : [{ data: { race: { id: 1, trackId: 9 } }, fetching: false, error: null }, vi.fn()];
             }
             if (name === 'ObservationNetworkAddresses') {
                 return [
@@ -838,6 +835,7 @@ describe('the two connect blocks under Other devices (#1254)', () => {
         const { rerender } = render(<DisplaysPanel raceId={1} />);
 
         expect(screen.queryByTestId('connect-camera-address')).toBeNull();
+        expect(screen.queryByTestId('connect-camera-no-track')).toBeNull();
         expect(screen.getByText(/Preparing the camera address/)).toBeInTheDocument();
 
         raceTrackPending = false;
@@ -845,7 +843,7 @@ describe('the two connect blocks under Other devices (#1254)', () => {
 
         expect(screen.queryByText(/Preparing the camera address/)).toBeNull();
         const cameraBlock = screen.getByTestId('connect-camera-address');
-        expect(within(cameraBlock).getByText(/trackId=11/)).toBeInTheDocument();
+        expect(within(cameraBlock).getByText(/trackId=9/)).toBeInTheDocument();
     });
 
     it('mints the camera identity once, and a later render of the same instance keeps the same displayId', () => {
@@ -878,12 +876,118 @@ describe('the two connect blocks under Other devices (#1254)', () => {
     it('hides the empty-state line once a camera row exists', () => {
         renderConnectBlocks({
             cameras: [
-                { displayId: 'cam-1', role: 'CAMERA', trackId: null, lastClipAt: null, cameraOrder: 0 },
+                { displayId: 'cam-1', role: 'CAMERA', trackId: 9, lastClipAt: null, cameraOrder: 0 },
             ],
         });
         expect(
             screen.queryByText('No cameras yet — scan the code above to connect one.'),
         ).toBeNull();
+    });
+});
+
+describe('the camera row: a read-only line, and an override for a mismatch (#1293)', () => {
+    type CameraFixture = {
+        displayId: string;
+        role: 'CAMERA';
+        trackId: number | null;
+        lastClipAt: string | null;
+        cameraOrder: number;
+        name?: string;
+    };
+
+    function renderCameraRow(options: {
+        tracks?: { id: number; name: string }[];
+        raceTrackId?: number | null;
+        camera: CameraFixture;
+        setCameraTrack?: ReturnType<typeof vi.fn>;
+    }) {
+        const {
+            tracks = [{ id: 9, name: 'Main Track' }],
+            raceTrackId = 9,
+            camera,
+            setCameraTrack = vi.fn().mockResolvedValue({ data: {} }),
+        } = options;
+        type QueryArgs = { query: { definitions: { name?: { value?: string } }[] } };
+        (vi.mocked(useQuery) as ReturnType<typeof vi.fn>).mockImplementation((args: QueryArgs) => {
+            const name = args.query.definitions.find((d) => d.name?.value)?.name?.value;
+            if (name === 'RaceAwardCount') {
+                return [
+                    { data: { race: { id: 1, awards: [] } }, fetching: false, error: null },
+                    vi.fn(),
+                ];
+            }
+            if (name === 'GetTracks') {
+                return [{ data: { tracks }, fetching: false, error: null }, vi.fn()];
+            }
+            if (name === 'RaceTrackForCameraPreset') {
+                return [
+                    { data: { race: { id: 1, trackId: raceTrackId } }, fetching: false, error: null },
+                    vi.fn(),
+                ];
+            }
+            if (name === 'ObservationNetworkAddresses') {
+                return [
+                    { data: { networkAddresses: [], mdnsHostname: null }, fetching: false, error: null },
+                    vi.fn(),
+                ];
+            }
+            // GetDisplays — the camera row under test, alone.
+            return [
+                { data: { displays: [{ name: 'Finish line cam', ...camera }] }, fetching: false, error: null },
+                vi.fn(),
+            ];
+        });
+        (vi.mocked(useMutation) as ReturnType<typeof vi.fn>).mockImplementation((query: unknown) => {
+            if (query === SET_CAMERA_TRACK) return [{ fetching: false }, setCameraTrack];
+            return [{ fetching: false }, vi.fn()];
+        });
+        (vi.mocked(useClient) as ReturnType<typeof vi.fn>).mockReturnValue({ query: vi.fn() });
+        return { ...render(<DisplaysPanel raceId={1} />), setCameraTrack };
+    }
+
+    it('shows "Listening to {track}" and no <select>', () => {
+        renderCameraRow({
+            raceTrackId: 9,
+            tracks: [{ id: 9, name: 'Main Track' }],
+            camera: { displayId: 'cam-1', role: 'CAMERA', trackId: 9, lastClipAt: null, cameraOrder: 0 },
+        });
+
+        expect(screen.getByText(/Listening to Main Track/)).toBeInTheDocument();
+        expect(screen.queryByLabelText(/Which track .* listens to/)).toBeNull();
+        expect(screen.queryByRole('combobox')).toBeNull();
+    });
+
+    it('offers no override when the camera already matches the race’s track', () => {
+        renderCameraRow({
+            raceTrackId: 9,
+            camera: { displayId: 'cam-1', role: 'CAMERA', trackId: 9, lastClipAt: null, cameraOrder: 0 },
+        });
+
+        expect(screen.queryByRole('button', { name: "Use this race's track" })).toBeNull();
+    });
+
+    it('a camera on a different track: the override button appears and calls setCameraTrack with the race’s track', () => {
+        const { setCameraTrack } = renderCameraRow({
+            raceTrackId: 9,
+            tracks: [
+                { id: 9, name: 'Main Track' },
+                { id: 11, name: 'Other Track' },
+            ],
+            camera: { displayId: 'cam-1', role: 'CAMERA', trackId: 11, lastClipAt: null, cameraOrder: 0 },
+        });
+
+        const override = screen.getByRole('button', { name: "Use this race's track" });
+        fireEvent.click(override);
+        expect(setCameraTrack).toHaveBeenCalledWith({ displayId: 'cam-1', trackId: 9 });
+    });
+
+    it('a camera with no track yet: the override button appears too', () => {
+        renderCameraRow({
+            raceTrackId: 9,
+            camera: { displayId: 'cam-1', role: 'CAMERA', trackId: null, lastClipAt: null, cameraOrder: 0 },
+        });
+
+        expect(screen.getByRole('button', { name: "Use this race's track" })).toBeInTheDocument();
     });
 });
 

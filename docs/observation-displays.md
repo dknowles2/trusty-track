@@ -260,10 +260,12 @@ Two things worth knowing:
 - **Every ordinary screen has its own Replays checkbox**, on by default — turn
   it off for a screen that should never show the [instant replay](instant-replay.md),
   the ceremony projector during the trophies, say. A camera registered through
-  the Camera page shows a track picker in this spot instead, since a camera has
-  nothing of its own to display — and, once a second camera is watching the
-  same track, a small **↑ / ↓** beside it for which one's clip plays first.
-  See [Several Cameras](instant-replay.md#several-cameras).
+  the Camera page shows which track it is listening to in this spot instead,
+  since a camera has nothing of its own to display — set automatically to the
+  race's own track, with an override button that appears only if a camera
+  is somehow listening to a different one — and, once a second camera is
+  watching the same track, a small **↑ / ↓** beside it for which one's clip
+  plays first. See [Several Cameras](instant-replay.md#several-cameras).
 
 The ten views a screen can show, and how assignment behaves, are in
 [Audience display views](reference/displays.md).

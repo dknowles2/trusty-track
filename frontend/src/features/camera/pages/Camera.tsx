@@ -41,6 +41,7 @@ import { INITIAL_CONFIG_QUERY } from '../../core/graphql/queries';
 import { displayId, startDeviceClaimHeartbeat } from '../../observation/displayIdentity';
 import {
   DisplayAssignmentSubscription,
+  RACE_TRACK_QUERY,
   SET_CAMERA_TRACK,
   TimingStatsSubscription,
 } from '../../observation/graphql/queries';
@@ -133,33 +134,44 @@ export default function Camera() {
   const selectedTrack = tracks.find((t) => t.id === trackId) ?? null;
   const [, setCameraTrack] = useMutation(SET_CAMERA_TRACK);
 
-  // The Displays panel's own "Connect a camera" QR code presets a track by
-  // baking `?trackId=` into the address (#1254) — applied here, once, on
-  // the first successful connect, and never again. `appliedTrackPresetRef`
-  // is what makes it once-only: it flips true the moment enough has
-  // answered to decide (the assignment payload, the tracks list), whether
-  // or not a mutation actually fires, so neither a later re-render nor a
-  // reconnect (the subscription's own opening payload on a dropped-wifi
-  // reconnect is not a fresh "connect" for this purpose) ever applies it a
-  // second time. That matters because this page's own track dropdown and
-  // the Displays row's own picker are both still live afterward, and both
-  // have to keep winning over a URL the phone may still be carrying.
+  // A race runs on exactly one track (`Race.trackId`) (#1293) — this page
+  // registers against it automatically on connect, with no dropdown of its
+  // own. The Displays panel's own "Connect a camera" code still bakes
+  // `?trackId=` into the address (#1254); when it names this race's own
+  // track it is applied, and otherwise — absent, or naming a track that is
+  // not this race's own (a stale client's old code, a typo) — the race's
+  // own track is used instead and the param is silently ignored (logged at
+  // debug level at most, never surfaced to the operator).
+  //
+  // Applied here, once, on the first successful connect, and never again.
+  // `appliedTrackPresetRef` is what makes it once-only: it flips true the
+  // moment enough has answered to decide (the assignment payload, this
+  // race's own track query), whether or not a mutation actually fires, so
+  // neither a later re-render nor a reconnect (the subscription's own
+  // opening payload on a dropped-wifi reconnect is not a fresh "connect"
+  // for this purpose) ever applies it a second time.
+  const [{ data: raceTrackData }] = useQuery({ query: RACE_TRACK_QUERY, variables: { raceId }, pause: !raceId });
+  const raceTrackId: number | null = raceTrackData?.race?.trackId ?? null;
   const presetTrackIdParam = searchParams.get('trackId');
   const presetTrackId = presetTrackIdParam ? Number(presetTrackIdParam) || null : null;
   const appliedTrackPresetRef = useRef(false);
   useEffect(() => {
     if (appliedTrackPresetRef.current) return;
-    if (!presetTrackId) return;
-    // Wait for a real assignment payload and a real tracks list before
-    // deciding anything — an early, empty tracks array would otherwise
-    // read as "unknown track id" and silently discard a genuine preset.
+    // Wait for a real assignment payload and this race's own track query
+    // before deciding anything — an early "no track yet" read would
+    // otherwise be mistaken for the race genuinely having none.
     if (!assignment) return;
-    if (tracksData === undefined) return;
+    if (raceTrackData === undefined) return;
     appliedTrackPresetRef.current = true;
     if (assignment.trackId != null) return; // never override an existing choice
-    if (!tracks.some((t) => t.id === presetTrackId)) return; // unknown id — ignored
-    setCameraTrack({ displayId: thisDisplayId, trackId: presetTrackId });
-  }, [presetTrackId, assignment, tracksData, tracks, thisDisplayId, setCameraTrack]);
+    const validPreset = presetTrackId != null && presetTrackId === raceTrackId ? presetTrackId : null;
+    if (presetTrackId != null && validPreset === null) {
+      console.debug(`Camera: ignoring ?trackId=${presetTrackId} — not this race's own track`);
+    }
+    const targetTrackId = validPreset ?? raceTrackId;
+    if (!targetTrackId) return; // this race has no track yet — nothing to register against
+    setCameraTrack({ displayId: thisDisplayId, trackId: targetTrackId });
+  }, [presetTrackId, assignment, raceTrackData, raceTrackId, thisDisplayId, setCameraTrack]);
 
   const [{ data: timerData }] = useSubscription({
     query: TIMER_STATUS_SUBSCRIPTION,
@@ -526,13 +538,19 @@ export default function Camera() {
   };
   const statusWord = STATUS_WORD[status];
 
+  // A race runs on exactly one track, so this page has nothing to ask —
+  // the fallback below only ever shows in the brief window before the
+  // once-only registration effect above has run, or when this race
+  // genuinely has no track yet (`Race.trackId` is nullable).
   const statusLine = trackId
     ? `Listening to ${selectedTrack?.name ?? 'this track'}'s timer` +
       (fake ? '' : ` · buffer ${ringSpanSec}s`) +
       (lastClipText ? ` · last clip ${lastClipText}` : '') +
       (timerTypeNone ? ' · no electronic timer — cutting a fixed clip around each result' : '') +
       (statusWord ? ` · ${statusWord}` : '')
-    : 'Pick a track to start listening for its results.';
+    : raceTrackId
+      ? 'Connecting to this race’s track…'
+      : "This race has no track set yet — pick one in Edit race first.";
 
   return (
     <div className="container" style={{ padding: '20px', maxWidth: '640px' }}>
@@ -541,33 +559,6 @@ export default function Camera() {
         {assignment?.name ?? 'Camera'}
         <DocsLink docsKey="camera" />
       </h1>
-
-      <label style={{ display: 'block', marginBottom: '1rem' }}>
-        Track
-        <select
-          aria-label="Which track this camera listens to"
-          value={trackId ?? ''}
-          onChange={(e) => {
-            const id = Number(e.target.value);
-            if (id) setCameraTrack({ displayId: thisDisplayId, trackId: id });
-          }}
-          style={{
-            display: 'block',
-            marginTop: '0.3rem',
-            padding: '0.4rem 0.6rem',
-            borderRadius: '8px',
-            border: '1px solid var(--input-border-color)',
-            width: '100%',
-          }}
-        >
-          <option value="">Choose a track…</option>
-          {tracks.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-      </label>
 
       {devices.length > 1 && (
         <label style={{ display: 'block', marginBottom: '1rem' }}>
