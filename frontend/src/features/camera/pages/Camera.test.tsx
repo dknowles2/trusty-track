@@ -112,6 +112,33 @@ describe('the demo gate', () => {
     });
 });
 
+/** Restores `navigator.userAgent` after a test that stubs it — used only by
+ * the iOS-specific cases below, since every other test here relies on
+ * jsdom's own default (non-iOS) UA and needs no override at all. */
+function stubUserAgent(ua: string): () => void {
+    const original = navigator.userAgent;
+    Object.defineProperty(navigator, 'userAgent', { value: ua, configurable: true });
+    return () => Object.defineProperty(navigator, 'userAgent', { value: original, configurable: true });
+}
+
+const IPHONE_SAFARI_UA =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
+const IPHONE_CHROME_UA =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/124.0.6367.80 Mobile/15E148 Safari/604.1';
+
+/** Shared by the two tests that need capture to actually proceed on jsdom —
+ * `MediaStreamTrackProcessor` absent, no camera device to open — without
+ * the capture effect's own rejection throwing past the render. */
+function stubNoRealCamera(): void {
+    Object.defineProperty(navigator, 'mediaDevices', {
+        value: {
+            getUserMedia: vi.fn().mockRejectedValue(new Error('no camera in jsdom')),
+            enumerateDevices: vi.fn().mockResolvedValue([]),
+        },
+        configurable: true,
+    });
+}
+
 describe('browser support gating', () => {
     it('shows the WebCodecs message when VideoEncoder is missing', () => {
         mockConfig(false);
@@ -121,12 +148,59 @@ describe('browser support gating', () => {
         expect(screen.getByText(/Use Chrome, Edge or Safari 16.4\+/)).toBeInTheDocument();
     });
 
-    it('shows the WebCodecs message when MediaStreamTrackProcessor is missing — VideoEncoder alone is not enough for the real capture pipeline', () => {
+    it('shows the iOS-specific message on an iPhone with no VideoEncoder — never names Chrome or Edge', () => {
+        const restore = stubUserAgent(IPHONE_SAFARI_UA);
+        try {
+            mockConfig(false);
+            vi.stubGlobal('VideoEncoder', undefined);
+            vi.stubGlobal('MediaStreamTrackProcessor', undefined);
+            renderCamera();
+            expect(screen.getByText(/Instant replay needs a newer iOS/)).toBeInTheDocument();
+            expect(screen.queryByText(/Chrome|Edge/)).toBeNull();
+        } finally {
+            restore();
+        }
+    });
+
+    it('shows the iOS-specific message on an iPhone running Chrome — the UA names Chrome, but switching to it changes nothing on iOS', () => {
+        const restore = stubUserAgent(IPHONE_CHROME_UA);
+        try {
+            mockConfig(false);
+            vi.stubGlobal('VideoEncoder', undefined);
+            vi.stubGlobal('MediaStreamTrackProcessor', undefined);
+            renderCamera();
+            expect(screen.getByText(/Instant replay needs a newer iOS/)).toBeInTheDocument();
+        } finally {
+            restore();
+        }
+    });
+
+    it('shows no message, and renders the camera page, when only MediaStreamTrackProcessor is missing — capture.ts\'s canvas frame source covers it', () => {
         mockConfig(false);
         vi.stubGlobal('VideoEncoder', class {});
         vi.stubGlobal('MediaStreamTrackProcessor', undefined);
+        Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+        stubNoRealCamera();
         renderCamera();
-        expect(screen.getByText(/Use Chrome, Edge or Safari 16.4\+/)).toBeInTheDocument();
+        expect(screen.getByTestId('camera-status-line')).toBeInTheDocument();
+        expect(screen.queryByText(/Use Chrome, Edge or Safari/)).toBeNull();
+        Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+    });
+
+    it('shows no message on an iPhone with VideoEncoder but no MediaStreamTrackProcessor — the fallback applies there too', () => {
+        const restore = stubUserAgent(IPHONE_SAFARI_UA);
+        try {
+            mockConfig(false);
+            vi.stubGlobal('VideoEncoder', class {});
+            vi.stubGlobal('MediaStreamTrackProcessor', undefined);
+            Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+            stubNoRealCamera();
+            renderCamera();
+            expect(screen.getByTestId('camera-status-line')).toBeInTheDocument();
+            expect(screen.queryByText(/Instant replay needs a newer iOS/)).toBeNull();
+        } finally {
+            restore();
+        }
     });
 
     it('shows the insecure-context message over plain HTTP off localhost', () => {
