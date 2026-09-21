@@ -47,6 +47,7 @@
  */
 
 import type { RingBuffer } from './ring';
+import { hasTrackProcessor } from './browserSupport';
 
 export interface EncodedFrame {
   /** A copy of the encoder's own bytes — `EncodedVideoChunk.copyTo` writes
@@ -281,13 +282,17 @@ function canvasFrameSource(track: MediaStreamTrack): FrameSource {
  * one-shot-override shape `?ringMs=` already is: a real camera never sets
  * it, and `instantReplay.spec.ts` uses it to exercise this path in a
  * browser that does carry the processor.
+ *
+ * Defers the actual `typeof MediaStreamTrackProcessor` check to
+ * `browserSupport.ts`'s `hasTrackProcessor` rather than re-testing the
+ * global here too — one function owns that signal, and this one only
+ * decides what to do with it.
  */
 export function usesFallbackFrameSource(
   forceFallback: boolean,
   g: typeof globalThis = globalThis,
 ): boolean {
-  const w = g as unknown as { MediaStreamTrackProcessor?: unknown };
-  return forceFallback || typeof w.MediaStreamTrackProcessor === 'undefined';
+  return forceFallback || !hasTrackProcessor(g);
 }
 
 function frameSourceFor(track: MediaStreamTrack, forceFallback: boolean): FrameSource {

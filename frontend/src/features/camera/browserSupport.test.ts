@@ -22,10 +22,21 @@ const IPHONE_CHROME =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/124.0.6367.80 Mobile/15E148 Safari/604.1';
 const IPHONE_EDGE =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 EdgiOS/124.2478.97 Mobile/15E148 Safari/604.1';
-const IPAD_SAFARI =
+// A legacy-shape iPad UA (explicit "iPad" token) — real for a pre-iPadOS 13
+// device, and still worth covering since an old embedded webview or an
+// operator's own ancient hardware can still send it.
+const IPAD_LEGACY_SAFARI =
   'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
 const DESKTOP_SAFARI =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15';
+// Since iPadOS 13 (2019), Safari on iPad sends this exact desktop-class UA
+// by default — byte-identical in shape to `DESKTOP_SAFARI` above, with no
+// "iPad" token anywhere. `IPAD_MODERN_NAV`'s `maxTouchPoints` is the only
+// signal that tells the two apart (a real Mac reports 0, an iPad reports 5)
+// — see `isIOS`'s own doc comment.
+const IPAD_MODERN_UA = DESKTOP_SAFARI;
+const IPAD_MODERN_NAV = { platform: 'MacIntel', maxTouchPoints: 5 };
+const DESKTOP_MAC_NAV = { platform: 'MacIntel', maxTouchPoints: 0 };
 const DESKTOP_CHROME =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 const DESKTOP_EDGE =
@@ -61,9 +72,13 @@ describe('isIOS', () => {
     ['iPhone Safari', IPHONE_SAFARI],
     ['iPhone Chrome (CriOS)', IPHONE_CHROME],
     ['iPhone Edge (EdgiOS)', IPHONE_EDGE],
-    ['iPad Safari', IPAD_SAFARI],
-  ])('is true for %s', (_name, ua) => {
+    ['iPad Safari, legacy UA shape (explicit "iPad" token)', IPAD_LEGACY_SAFARI],
+  ])('is true for %s, off the UA alone', (_name, ua) => {
     expect(isIOS(ua)).toBe(true);
+  });
+
+  it('is true for a real iPad running iPadOS 13+ — a desktop-class UA with no "iPad" token, told apart from a real Mac only by navigator.maxTouchPoints', () => {
+    expect(isIOS(IPAD_MODERN_UA, IPAD_MODERN_NAV)).toBe(true);
   });
 
   it.each([
@@ -75,6 +90,10 @@ describe('isIOS', () => {
   ])('is false for %s', (_name, ua) => {
     expect(isIOS(ua)).toBe(false);
   });
+
+  it('is false for a real Mac (MacIntel, no touchscreen) even though the platform check alone would be ambiguous', () => {
+    expect(isIOS(DESKTOP_SAFARI, DESKTOP_MAC_NAV)).toBe(false);
+  });
 });
 
 describe('isAppleWebKit', () => {
@@ -85,10 +104,14 @@ describe('isAppleWebKit', () => {
     // because their own UA carries a rebadged browser's brand marker.
     ['iPhone Chrome (CriOS)', IPHONE_CHROME],
     ['iPhone Edge (EdgiOS)', IPHONE_EDGE],
-    ['iPad Safari', IPAD_SAFARI],
+    ['iPad Safari, legacy UA shape', IPAD_LEGACY_SAFARI],
     ['desktop Safari', DESKTOP_SAFARI],
   ])('is true for %s', (_name, ua) => {
     expect(isAppleWebKit(ua)).toBe(true);
+  });
+
+  it('is true for a real iPad running iPadOS 13+ (desktop-class UA, told apart by maxTouchPoints)', () => {
+    expect(isAppleWebKit(IPAD_MODERN_UA, IPAD_MODERN_NAV)).toBe(true);
   });
 
   it.each([
@@ -133,8 +156,14 @@ describe('webCodecsMessage', () => {
     expect(webCodecsMessage(withoutEncoder, IPHONE_CHROME)).toBe(IOS_NEEDS_UPDATE_MESSAGE);
   });
 
-  it('is the iOS-specific message on an iPad with no VideoEncoder', () => {
-    expect(webCodecsMessage(withoutEncoder, IPAD_SAFARI)).toBe(IOS_NEEDS_UPDATE_MESSAGE);
+  it('is the iOS-specific message on a legacy-UA iPad with no VideoEncoder', () => {
+    expect(webCodecsMessage(withoutEncoder, IPAD_LEGACY_SAFARI)).toBe(IOS_NEEDS_UPDATE_MESSAGE);
+  });
+
+  it('is the iOS-specific message on a real iPadOS 13+ iPad with no VideoEncoder — the desktop-class UA alone would say "Use Chrome, Edge or Safari" to a device where that is exactly #1294\'s self-contradiction', () => {
+    const message = webCodecsMessage(withoutEncoder, IPAD_MODERN_UA, IPAD_MODERN_NAV);
+    expect(message).toBe(IOS_NEEDS_UPDATE_MESSAGE);
+    expect(message).not.toMatch(/Chrome|Edge/);
   });
 
   it('is null on an iPhone that has VideoEncoder but not MediaStreamTrackProcessor — capture.ts\'s fallback covers it', () => {
@@ -193,5 +222,15 @@ describe('cameraSupport', () => {
       IPHONE_SAFARI,
     );
     expect(support.message).toBeNull();
+  });
+
+  it('gives a real iPadOS 13+ iPad the iOS message, not the generic one, when VideoEncoder is missing', () => {
+    const support = cameraSupport(
+      {} as unknown as typeof globalThis,
+      { isSecureContext: true },
+      IPAD_MODERN_UA,
+      IPAD_MODERN_NAV,
+    );
+    expect(support.message).toBe(IOS_NEEDS_UPDATE_MESSAGE);
   });
 });

@@ -48,16 +48,35 @@ export function hasTrackProcessor(g: typeof globalThis = globalThis): boolean {
   return typeof w.MediaStreamTrackProcessor !== 'undefined';
 }
 
-/** True on iPhone, iPad or iPod — checked on the OS token directly, not by
- * excluding other browsers' brand markers the way `isAppleWebKit` below
- * does for desktop. iOS Chrome's UA carries `CriOS`, not `Chrome`, and iOS
- * Edge's carries `EdgiOS` — which itself contains the literal substring
- * `Edg` — so a desktop-style "AppleWebKit and not {Chrome,Edge}" exclusion
- * cannot be trusted to say anything about which browser is running on iOS;
- * the OS token is the one signal that holds regardless of which browser
- * brought you here. */
-export function isIOS(ua: string = navigator.userAgent): boolean {
-  return /iP(hone|ad|od)/.test(ua);
+/** The two `navigator` fields `isIOS` needs beyond the UA string — threaded
+ * through as a plain object (never read off a bare `navigator` inside a
+ * function body) so a test can supply values jsdom's own `navigator` does
+ * not carry. */
+export interface NavigatorPlatformInfo {
+  readonly platform?: string;
+  readonly maxTouchPoints?: number;
+}
+
+/** True on iPhone, iPad or iPod. Two signals, because one no longer covers
+ * real devices on its own:
+ *
+ * - The OS token in the UA (`/iP(hone|ad|od)/`) — checked directly rather
+ *   than by excluding other browsers' brand markers the way `isAppleWebKit`
+ *   below does for desktop, since iOS Chrome's UA carries `CriOS`, not
+ *   `Chrome`, and iOS Edge's carries `EdgiOS` (itself containing the
+ *   literal substring `Edg`), so a desktop-style exclusion can't be trusted
+ *   to say anything about which browser is running on iOS.
+ * - `navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1` —
+ *   the standard workaround for the case the UA token alone misses
+ *   entirely: since iPadOS 13 (2019), Safari on iPad sends a desktop-class
+ *   `Macintosh` UA with **no `iPad` token at all**, indistinguishable by
+ *   UA string from a real Mac's. `maxTouchPoints` is what a Mac genuinely
+ *   does not have (0, or occasionally 1 for a trackpad quirk on some
+ *   builds) and a real iPad always does (5) — so this is the one signal
+ *   left once the UA itself has been made to lie. */
+export function isIOS(ua: string = navigator.userAgent, nav: NavigatorPlatformInfo = navigator): boolean {
+  if (/iP(hone|ad|od)/.test(ua)) return true;
+  return nav.platform === 'MacIntel' && (nav.maxTouchPoints ?? 0) > 1;
 }
 
 /** True for desktop Safari (`AppleWebKit`, and none of the other engines
@@ -69,9 +88,12 @@ export function isIOS(ua: string = navigator.userAgent): boolean {
  * missing `VideoEncoder` should say "update iOS" (where switching browsers
  * changes nothing) or name Chrome/Edge as real alternatives (where it
  * does). */
-export function isAppleWebKit(ua: string = navigator.userAgent): boolean {
+export function isAppleWebKit(
+  ua: string = navigator.userAgent,
+  nav: NavigatorPlatformInfo = navigator,
+): boolean {
   const isDesktopSafari = /AppleWebKit/.test(ua) && !/Chrome|Chromium|Edg/.test(ua);
-  return isDesktopSafari || isIOS(ua);
+  return isDesktopSafari || isIOS(ua, nav);
 }
 
 /**
@@ -113,19 +135,21 @@ export const INSECURE_CONTEXT_MESSAGE =
 export function webCodecsMessage(
   g: typeof globalThis = globalThis,
   ua: string = navigator.userAgent,
+  nav: NavigatorPlatformInfo = navigator,
 ): string | null {
   if (hasVideoEncoder(g)) return null;
-  return isIOS(ua) ? IOS_NEEDS_UPDATE_MESSAGE : WEBCODECS_MESSAGE;
+  return isIOS(ua, nav) ? IOS_NEEDS_UPDATE_MESSAGE : WEBCODECS_MESSAGE;
 }
 
 export function cameraSupport(
   g: typeof globalThis = globalThis,
   w: { isSecureContext?: boolean } = window,
   ua: string = navigator.userAgent,
+  nav: NavigatorPlatformInfo = navigator,
 ): CameraSupport {
   return {
     webCodecs: hasVideoEncoder(g),
     secureContext: !isInsecureContext(w),
-    message: webCodecsMessage(g, ua),
+    message: webCodecsMessage(g, ua, nav),
   };
 }
