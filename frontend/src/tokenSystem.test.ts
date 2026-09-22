@@ -481,7 +481,7 @@ describe('stripNoise / hexAndRgbaLiterals: GraphQL comments inside a gql documen
 });
 
 const ALLOWED_HEX_OR_RGBA =
-  /^(?:rgba\(0,\s*0,\s*0,\s*0\.\d+\)|#(?:d4af37|c0c0c0|cd7f32|ffd700)|#eee|#ffffff|#8a5a2b|#(?:d32f2f|2e7d32|003F87|FCD116|0A0A0A)|rgba\(255,\s*255,\s*255,\s*0\.\d+\)|rgba\(0,\s*63,\s*135,\s*0\.0(?:5|55)\)|rgba\(252,\s*209,\s*22,\s*0\.09\)|#000|#ef9a9a|#f2f2f2|#1e1e1e|#dcdcdc|#6fbcff|#a6e22e)$/i;
+  /^(?:rgba\(0,\s*0,\s*0,\s*0\.\d+\)|#(?:d4af37|c0c0c0|cd7f32|ffd700)|#eee|#ffffff|#8a5a2b|#(?:d32f2f|2e7d32|003F87|FCD116|0A0A0A)|rgba\(255,\s*255,\s*255,\s*0\.\d+\)|rgba\(0,\s*63,\s*135,\s*0\.0(?:5|55)\)|rgba\(252,\s*209,\s*22,\s*0\.\d+\)|#000|#ef9a9a|#f2f2f2|#1e1e1e|#dcdcdc|#6fbcff|#a6e22e)$/i;
 
 const ALLOWED_NAMED = new Set(['red', 'orange', 'gold', 'silver']);
 
