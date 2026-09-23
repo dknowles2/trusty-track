@@ -20,6 +20,7 @@ import {
     MAX_CHAMPIONSHIP_TROPHIES,
     MIN_CHAMPIONSHIP_TROPHIES,
     RACE_SECTIONS,
+    scoringNeedsATimerNote,
     sectionsFor,
     type RaceSectionId,
 } from '../raceSettingsSections';
@@ -626,6 +627,25 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                 <FieldHelp id="race-scoring-strategy-help" as="small" style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: '0.6rem' }} docs="scoring-methods">
                                     Which method fits depends on your timer and how you want ties handled.
                                 </FieldHelp>
+                                {/* #1324: Timed's Enter Results modal takes a hand-typed
+                                    time — a real timer supplies it, and so does a
+                                    volunteer with a stopwatch, but a pack with no timing
+                                    device at all needs Points instead, to type a
+                                    finishing order. Same warning-slot mechanism Ties uses
+                                    below, reused here for the Scoring choice itself; see
+                                    `scoringNeedsATimerNote`'s own docstring for why it is
+                                    a separate predicate from `tiebreakerWontFire`. One
+                                    call site reaches the setup wizard too, since its
+                                    Details step is this form in create mode. */}
+                                {scoringNeedsATimerNote(formData.scoring_strategy, trackTimerType) && (
+                                    <FieldHelp
+                                        id="race-scoring-no-timer-note"
+                                        as="small"
+                                        style={{ color: 'var(--warning-soft-color)', display: 'block', marginBottom: '0.6rem' }}
+                                    >
+                                        {scoringNeedsATimerNote(formData.scoring_strategy, trackTimerType)}
+                                    </FieldHelp>
+                                )}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                                     {SCORING_STRATEGY_OPTIONS.map(option => (
                                         <label key={option.value} style={{ display: 'block', cursor: 'pointer' }}>

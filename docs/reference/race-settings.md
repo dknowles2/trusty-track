@@ -136,7 +136,7 @@ trophy.
 
 | Field | What it does |
 | --- | --- |
-| **Scoring** | **Timed**, **Points**, **Cumulative time**, or **Fastest single run** — see [Scoring](scoring.md). Choose before racing starts. Every option shows its one-line description underneath it, not only the one currently picked |
+| **Scoring** | **Timed**, **Points**, **Cumulative time**, or **Fastest single run** — see [Scoring](scoring.md). Choose before racing starts. Every option shows its one-line description underneath it, not only the one currently picked. On a track set to [no timer](#no-timer), picking **Timed** shows a note right there — *"This track has no electronic timer. Timing by stopwatch? Choose Timed. Judging finish order by eye? Choose Points."* — since that combination is only a way to enter results if a volunteer is timing by hand; the setup wizard's own Scoring step shows the identical note ([#1324](https://github.com/dknowles2/trusty-track/issues/1324)) |
 | **Drop worst run(s)** | `0` is off. Drops each racer's worst counted results before scoring — only once everyone who has raced has the same number of runs to drop from, with one to spare; otherwise nothing is dropped and the standings say so. See [Drop the worst run](scoring.md#drop-the-worst-run) |
 | **Ties** | How a tied score gets settled where it decides something — see [Ties](#ties) below |
 | **Championship Trophies** | How many cars the wizard puts into the final, and how many trophies get seeded onto the [Awards](../awards.md) page the moment that final exists — 1st, 2nd, 3rd, and so on. Changing this later does not add or remove awards already there; see [The Championship Trophies number](championship-rounds.md#the-championship-trophies-number) |
@@ -435,6 +435,15 @@ none to show. The main button on each heat is **Enter Results**, opening the
 same result screen the **Override** button always has — times for a Timed
 race, finishing order for a Points race (see
 [Scoring](scoring.md#points), which is what points-based scoring is for).
+
+**Timed** on a no-timer track still works — a volunteer with a stopwatch
+types the real elapsed time by hand — but it is the wrong pick for a pack
+with no timing device of any kind, calling the finish by eye: without a
+recorded time there is no **Place** column to type an order into. The
+Scoring section says so at the moment it matters rather than leaving it for
+the first heat: choosing **Timed** on a no-timer track shows a note right
+there, in both the setup wizard and the race form, naming **Points** as the
+scoring method to pick instead ([#1324](https://github.com/dknowles2/trusty-track/issues/1324)).
 
 This is different from the **Fake Timer**: the fake one starts heats and
 invents a finishing time a few seconds later, which is meant for a practice

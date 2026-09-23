@@ -14,6 +14,8 @@
  * doing is in `RaceForm.tsx`. Same split as `raceFlow.ts`.
  */
 
+import { TIMED } from '../stats/scoringStrategyText';
+
 export type RaceSectionId =
     | 'event'
     | 'scoring'
@@ -207,6 +209,58 @@ export function firstProblem(race: RaceForValidation): RaceProblem | null {
                     'Every custom word needs a value — fill in each box, or untick "Use different words for this race" to go back to the built-in words.',
             };
         }
+    }
+    return null;
+}
+
+/**
+ * The inline note the Scoring section shows when the chosen scoring
+ * strategy and the track's own timer disagree about how a result gets
+ * entered (#1324).
+ *
+ * `TIMED`'s Enter Results modal asks for a time only
+ * (`showsPlaceColumn`/`shouldDerivePlaces` in `features/racing/lanes.ts`) —
+ * a real timer supplies it, and a volunteer with a stopwatch can still type
+ * one by hand, so `TIMED` on a `NONE`-timer track is a legitimate pairing,
+ * not a bug. What is missing is anyone telling the *other* population that
+ * shares the same track setting: a pack with no timing device of any kind,
+ * who mean to call the finish by eye. They need `POINTS` instead, and
+ * nothing said so until they opened their first heat's Enter Results and
+ * found no way to type an order at all. `POINTS` (and the two other
+ * time-based strategies, which always take a hand-typed time regardless of
+ * the track) has no equivalent gap, so this is stated as narrowly as the
+ * bug it names — `TIMED` and `NONE`, nothing broader.
+ *
+ * Deliberately a separate predicate from `tiebreakerWontFire`
+ * (`features/stats/tiebreakText.ts`), not a case folded into it: that one
+ * says why a *tiebreak method* can't settle a tie (a question about
+ * `Race.tiebreaker`); this one says why the *scoring strategy itself*
+ * leaves no way to record a result at all (a question about
+ * `Race.scoringStrategy`). Extending `tiebreakerWontFire` to also flag
+ * `TIMED` + `NONE` would be wrong, not merely a different topic — under
+ * `TIMED`, a no-timer track's results are real, hand-typed elapsed times,
+ * so `BEST_TIME`/`TOTAL_TIME` can genuinely compare them; only the
+ * `POINTS` + `NONE` combination that predicate already flags ever leaves
+ * no time on record. What the two predicates share is the *mechanism* — a
+ * short note computed live from this race's own scoring and the selected
+ * track's timer, shown beside the relevant control rather than left for
+ * the operator to discover on race day — reused here for a different
+ * question, in the same Scoring section.
+ *
+ * One function serves both signposts the issue asks for, because both are
+ * the same combination of facts: the setup wizard's Details step *is*
+ * `RaceForm` in its flat create mode (`RaceSetupWizard.tsx`), so a single
+ * call site in `RaceForm.tsx`'s Scoring fieldset reaches the wizard and
+ * the edit form alike — the latter is what makes a race edited after
+ * creation, or a track whose timer type changed later, get the identical
+ * note rather than a second copy that could drift from the first.
+ */
+export function scoringNeedsATimerNote(
+    scoringStrategy: string,
+    trackTimerType: string | null | undefined,
+): string | null {
+    if (scoringStrategy === TIMED && trackTimerType === 'NONE') {
+        return "This track has no electronic timer. Timing by stopwatch? Choose Timed. Judging finish order by eye? Choose Points.";
     }
     return null;
 }

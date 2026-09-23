@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { firstProblem, isRaceSectionId, RACE_SECTIONS, sectionsFor } from './raceSettingsSections';
+import {
+    firstProblem,
+    isRaceSectionId,
+    RACE_SECTIONS,
+    scoringNeedsATimerNote,
+    sectionsFor,
+} from './raceSettingsSections';
 
 describe('which sections are offered', () => {
     it('gives the edit form one entry per section, in order', () => {
@@ -121,5 +127,38 @@ describe('what stops a save', () => {
         // than bouncing them about.
         expect(firstProblem(race({ name: '', championship_trophies: 0 }))?.section).toBe('event');
         expect(firstProblem(race({ championship_trophies: 0, weight_limit_oz: 0 }))?.section).toBe('scoring');
+    });
+});
+
+describe('scoringNeedsATimerNote (#1324)', () => {
+    // A no-timer track with Timed scoring is the one combination Enter
+    // Results has no way to record a finishing order for — see the issue's
+    // own table. Every other cell is a legitimate pairing: a real timer
+    // works under both strategies, and Points always takes a hand-typed
+    // place regardless of the track.
+    const NOTE = /no electronic timer/i;
+
+    it('warns for Timed scoring on a track with no timer', () => {
+        expect(scoringNeedsATimerNote('TIMED', 'NONE')).toMatch(NOTE);
+    });
+
+    it('says nothing for Points on a no-timer track — that combination already works', () => {
+        expect(scoringNeedsATimerNote('POINTS', 'NONE')).toBeNull();
+    });
+
+    it('says nothing for Timed scoring once a track with a real timer is chosen', () => {
+        expect(scoringNeedsATimerNote('TIMED', 'FAKE')).toBeNull();
+        expect(scoringNeedsATimerNote('TIMED', 'AUTO_DETECT_BACKEND')).toBeNull();
+        expect(scoringNeedsATimerNote('TIMED', 'AUTO_DETECT_PROXY')).toBeNull();
+    });
+
+    it('says nothing for the other two time-based strategies, which always type a time by hand', () => {
+        expect(scoringNeedsATimerNote('CUMULATIVE_TIME', 'NONE')).toBeNull();
+        expect(scoringNeedsATimerNote('FASTEST_TIME', 'NONE')).toBeNull();
+    });
+
+    it('says nothing once no track is selected yet, or the track query has not answered', () => {
+        expect(scoringNeedsATimerNote('TIMED', null)).toBeNull();
+        expect(scoringNeedsATimerNote('TIMED', undefined)).toBeNull();
     });
 });
