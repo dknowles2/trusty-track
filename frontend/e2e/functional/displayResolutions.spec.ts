@@ -116,20 +116,48 @@ const STANDINGS_SCROLLER_SELECTOR = '[data-testid="standings-only-view"]';
  * a `<tr>` or any text-bearing leaf. That is the tell: a `<table>` under
  * `border-collapse: collapse` gets its own generated border box from the
  * table-layout algorithm's rounding of the collapsed border between its
- * last row and its own edge, a value with no relationship to whether that
- * row's own text is visible — reproduced deterministically with a
- * `border-bottom` on a `<table>` decoupling its box from its `<tr>`'s by a
- * clean, font-independent 1.5px (see this PR's own description for the
- * probe). Walking "every descendant" therefore asks the wrong question for
- * a container element: `<table>`, `<tbody>` and `<tr>` are never
- * themselves rendered content, only arrangements of the elements inside
- * them, so their own boxes can disagree with their children's by a
- * layout-engine rounding artifact that a reader never sees. Two changes
- * fix that:
+ * last row and its own edge — a value that moves independently of, and by
+ * a different amount than, that row's own text. With the real standings
+ * markup, trimmed close to its natural height, the last row's own leaf
+ * *also* overshoots (matching #1273's own `scrollHeight`/`clientHeight`
+ * gap) — just by less than the table's box does, and sometimes little
+ * enough to sit inside a reasonable tolerance where the table's box does
+ * not. Reproduced with a decoupled, font-independent case too — a
+ * `border-bottom` on a `<table>` pushes its box 1.5px past its one `<tr>`'s
+ * with nothing rendered behind the gap at all (see this PR's own
+ * description for the probe) — so the table's own box is demonstrably not
+ * a reliable proxy for its row's, in either direction. Walking "every
+ * descendant" therefore asks the wrong question for a container element:
+ * `<table>`, `<tbody>` and `<tr>` are never themselves rendered content,
+ * only arrangements of the elements inside them, so their own boxes can
+ * disagree with their children's by a layout-engine artifact that has
+ * nothing to do with what is actually painted on screen. Two changes fix
+ * that:
  *
- *   1. Only *leaf* descendants (no child elements — text, an image, a
- *      childless badge) are candidates. A leaf's own box is the thing a
- *      person actually reads; a container's is a computed aggregate.
+ *   1. A descendant is a candidate when it is a *leaf* (no child elements —
+ *      text, an image, a childless badge) **or** when its own computed
+ *      style means its box is *painted*: a visible `background-color`,
+ *      `background-image`, `box-shadow`, or border. A leaf's own box is the
+ *      thing a person actually reads; a plain container's is a computed
+ *      aggregate with nothing on screen behind it — but a container that
+ *      paints something is exactly as visible as a leaf, and excluding it
+ *      loses a real failure mode: `.heat-card-racer`
+ *      (`Observation.tsx`'s heat cards) is a non-leaf `<div>` — it wraps a
+ *      lane badge and two lines of text — carrying its own
+ *      `background`/`border-radius`, sitting inside `.heat-cards-layout`'s
+ *      `overflow: hidden` (added *specifically* as a backstop against
+ *      clipping a pathological card). A leaf-only walk cannot see that
+ *      card's own box at all, so the one element the wrapper's
+ *      `overflow: hidden` exists to catch became invisible to the check
+ *      that is supposed to catch it. `isVisibleColor`/`isPaintedBox` below
+ *      check `backgroundColor` (parsing the alpha channel rather than
+ *      string-matching `transparent`, so `rgba(x, y, z, 0)` counts as
+ *      invisible too), `backgroundImage`, `boxShadow`, and each side's
+ *      border width/style/color. **Not** `border-radius` alone: rounding a
+ *      corner paints nothing by itself, and a container with a radius but
+ *      no background, border or shadow is exactly as invisible as a plain
+ *      `<div>` — the property that would make that rounded corner visible
+ *      is already one of the other four checks.
  *   2. Because real (font-rendered) rows still accumulate a little
  *      sub-pixel rounding of their own — the flat `1` a leaf's overshoot
  *      was compared to before doesn't scale with how tall a line of text
@@ -145,10 +173,11 @@ const STANDINGS_SCROLLER_SELECTOR = '[data-testid="standings-only-view"]';
  *      characters wide" analogue would be a different, unmeasured
  *      quantity, and neither #1273 nor #1333 was a horizontal case.
  *
- * Each leaf is judged against its *own* tolerance (tracked as the largest
- * `overshoot - tolerance`, not the largest raw overshoot), because a small
- * leaf with a small allowance can be genuinely clipped by less than a
- * bigger leaf elsewhere is merely rounding by.
+ * Each candidate — leaf or painted container — is judged against its
+ * *own* tolerance (tracked as the largest `overshoot - tolerance`, not the
+ * largest raw overshoot), because a small one with a small allowance can be
+ * genuinely clipped by less than a bigger one elsewhere is merely rounding
+ * by.
  *
  * Module-level (not nested in the main `test.describe` below) so the
  * synthetic cases at the bottom of this file — a fresh `page.setContent`
@@ -157,6 +186,43 @@ const STANDINGS_SCROLLER_SELECTOR = '[data-testid="standings-only-view"]';
  */
 async function verticalOverflowFailures(page: Page, viewportLabel?: string): Promise<string[]> {
     return page.evaluate(({ exemptSelector, viewportLabel }) => {
+        // A computed color counts as visible unless it parses as `rgba(...)`
+        // with a zero alpha (or is the literal `transparent`, which resolves
+        // to that anyway) — so `rgba(255, 0, 0, 0)` is caught the same as
+        // `rgba(0, 0, 0, 0)`, not just a string match on "transparent".
+        function isVisibleColor(color: string): boolean {
+            if (!color || color === 'transparent') return false;
+            const m = color.match(/rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(?:,\s*([\d.]+)\s*)?\)/);
+            if (!m) return true;
+            const alpha = m[1] === undefined ? 1 : parseFloat(m[1]);
+            return alpha > 0;
+        }
+
+        // A non-leaf element is still a geometry candidate when its own box
+        // is painted — see this function's own comment for `.heat-card-racer`,
+        // the concrete case a leaf-only walk missed. Deliberately excludes
+        // `border-radius` on its own: a rounded corner paints nothing without
+        // one of these four already being true.
+        function isPaintedBox(style: CSSStyleDeclaration): boolean {
+            if (isVisibleColor(style.backgroundColor)) return true;
+            if (style.backgroundImage !== 'none') return true;
+            if (style.boxShadow !== 'none') return true;
+            return (
+                (parseFloat(style.borderTopWidth) > 0 &&
+                    style.borderTopStyle !== 'none' &&
+                    isVisibleColor(style.borderTopColor)) ||
+                (parseFloat(style.borderRightWidth) > 0 &&
+                    style.borderRightStyle !== 'none' &&
+                    isVisibleColor(style.borderRightColor)) ||
+                (parseFloat(style.borderBottomWidth) > 0 &&
+                    style.borderBottomStyle !== 'none' &&
+                    isVisibleColor(style.borderBottomColor)) ||
+                (parseFloat(style.borderLeftWidth) > 0 &&
+                    style.borderLeftStyle !== 'none' &&
+                    isVisibleColor(style.borderLeftColor))
+            );
+        }
+
         const bad: string[] = [];
         document.querySelectorAll<HTMLElement>('body *').forEach((el) => {
             if (el.closest(exemptSelector)) return;
@@ -173,21 +239,23 @@ async function verticalOverflowFailures(page: Page, viewportLabel?: string): Pro
             const restrictiveX = /(hidden|auto|scroll|clip)/.test(style.overflowX);
             if (!restrictiveY && !restrictiveX) return;
 
-            // Confirm the candidate by geometry: walk every *leaf*
-            // descendant (no child elements of its own — see this
-            // function's own comment on why a container like `<table>` is
-            // excluded) and find the one poking outside this element's own
-            // box by the most relative to its own tolerance, on whichever
-            // axis is restrictive here. Skips `display: none` and
-            // zero-size descendants — neither occupies any rendered box to
-            // fall outside of anything.
+            // Confirm the candidate by geometry: walk every descendant that
+            // is either a *leaf* (no child elements of its own — see this
+            // function's own comment on why a plain container like
+            // `<table>` is excluded) or a container whose own box is
+            // *painted* (same comment — `.heat-card-racer` is why this is
+            // not leaf-only), and find the one poking outside this
+            // element's own box by the most relative to its own tolerance,
+            // on whichever axis is restrictive here. Skips `display: none`
+            // and zero-size descendants — neither occupies any rendered box
+            // to fall outside of anything.
             const box = el.getBoundingClientRect();
             let worstExcess = -Infinity;
             let worstDescriptor = '';
             el.querySelectorAll<HTMLElement>('*').forEach((child) => {
-                if (child.children.length > 0) return;
                 const childStyle = getComputedStyle(child);
                 if (childStyle.display === 'none') return;
+                if (child.children.length > 0 && !isPaintedBox(childStyle)) return;
                 const childBox = child.getBoundingClientRect();
                 if (childBox.width === 0 && childBox.height === 0) return;
                 const childLabel = `${child.tagName}.${String(child.className).replace(/\s+/g, '.')}`;
@@ -1274,5 +1342,36 @@ test.describe('verticalOverflowFailures — synthetic cases (#1333)', () => {
         const bad = await verticalOverflowFailures(page, '1280x720 (720p TV)');
         expect(bad.length, bad.join('\n')).toBe(1);
         expect(bad[0]).toContain('[1280x720 (720p TV)] DIV.wrap clips its content');
+    });
+
+    /**
+     * The converse of the table case above: a container whose own box is
+     * *painted* — background, border, or a visible border-radius fill — is
+     * something a reader actually sees, so leaf-only scoping alone loses a
+     * real failure mode. `.card` here stands in for `.heat-card-racer`
+     * (`Observation.tsx`) — a non-leaf `<div>` with its own `background` and
+     * `border-radius`, inside `.heat-cards-layout`'s `overflow: hidden`,
+     * added specifically as a backstop against clipping a pathological
+     * card. The card's own explicit `height: 65px` pushes its border box
+     * 23px past the 50px wrapper; its text leaf sits near the card's *top*
+     * and never comes close to the wrapper's edge (`-32px`, i.e. 32px of
+     * headroom) — so a leaf-only walk finds no overshoot anywhere and
+     * returns `[]`, exactly the miss this pins. The candidate that must be
+     * named is `DIV.card`, not the text inside it.
+     */
+    test('a non-leaf card with a painted background is flagged, not its safely-inside text', async ({ page }) => {
+        await page.setContent(`
+            <style>
+                body { margin: 0; }
+                .wrap { width: 200px; height: 50px; overflow: hidden; }
+                .card { background: #ffcc00; border-radius: 8px; padding: 4px; height: 65px; }
+                .card-text { display: block; line-height: 14px; }
+            </style>
+            <div class="wrap"><div class="card"><span class="card-text">hi</span></div></div>
+        `);
+        const bad = await verticalOverflowFailures(page);
+        expect(bad.length, bad.join('\n')).toBe(1);
+        expect(bad[0]).toContain('DIV.wrap clips its content');
+        expect(bad[0]).toContain('DIV.card overshoots the bottom edge by 23.0px');
     });
 });
