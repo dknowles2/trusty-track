@@ -49,6 +49,13 @@ theme:
 # trusty-track.com. The two are one deployment (see scripts/build_site.sh), so
 # "home" from inside the guides means the front door, not docs/index.md — which
 # is still reachable as the first entry in the nav.
+# Shown in the footer of every page. The landing page carries the fuller
+# version of this beside its privacy claims (#1331); a reader who arrives
+# straight onto a guide from a search result never sees that page, and the
+# same beacon counts them, so the line belongs somewhere every docs page
+# renders rather than only on the docs home.
+copyright: This documentation site counts visits. Trusty Track itself never does.
+
 extra:
   homepage: https://trusty-track.com/
 
