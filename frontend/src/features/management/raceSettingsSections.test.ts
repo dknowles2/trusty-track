@@ -6,6 +6,7 @@ import {
     scoringNeedsATimerNote,
     sectionsFor,
 } from './raceSettingsSections';
+import { SCORING_STRATEGY_OPTIONS } from '../stats/scoringStrategyText';
 
 describe('which sections are offered', () => {
     it('gives the edit form one entry per section, in order', () => {
@@ -142,7 +143,10 @@ describe('scoringNeedsATimerNote (#1324)', () => {
     // reproduction walked through.
     const NOTE = /no electronic timer/i;
     const TIMED_WORDING = 'Timing by stopwatch? Choose Timed.';
-    const OTHER_TIME_BASED_WORDING = 'Timing by stopwatch? This method still works.';
+    // Named, not "this method": the note renders above the radio list, so a
+    // bare "this" has no antecedent beside it (found in review). The name is
+    // the option's own label, so it matches the radio the operator clicked.
+    const STILL_WORKS = (label: string) => `Timing by stopwatch? ${label} still works.`;
 
     it('warns for Timed scoring on a track with no timer, with the issue\'s own wording', () => {
         const note = scoringNeedsATimerNote('TIMED', 'NONE');
@@ -153,15 +157,26 @@ describe('scoringNeedsATimerNote (#1324)', () => {
     it('warns for Cumulative time and Fastest single run too — they share Timed\'s no-Place-column gap', () => {
         for (const strategy of ['CUMULATIVE_TIME', 'FASTEST_TIME']) {
             const note = scoringNeedsATimerNote(strategy, 'NONE');
+            const label = SCORING_STRATEGY_OPTIONS.find(option => option.value === strategy)!.label;
             expect(note).toMatch(NOTE);
             // Not the Timed-specific wording — the operator is already on a
             // time-based strategy, so "Choose Timed" would point at a third
             // option nobody asked about. The second half — Points is the
             // answer for calling a finish by eye — is identical either way.
-            expect(note).toContain(OTHER_TIME_BASED_WORDING);
+            expect(note).toContain(STILL_WORKS(label));
             expect(note).toContain('Judging finish order by eye? Choose Points.');
             expect(note).not.toContain(TIMED_WORDING);
         }
+    });
+
+    it('falls back to "This method" for a strategy the options list has never heard of', () => {
+        // `isTimeBasedStrategy` is `!== 'POINTS'`, so an unrecognized string
+        // is treated as time-based and reaches the named-method branch with
+        // no label to use. Nothing can produce one today; a fifth strategy
+        // added to the backend enum before this list would.
+        expect(scoringNeedsATimerNote('SOMETHING_NEW', 'NONE')).toContain(
+            'Timing by stopwatch? This method still works.',
+        );
     });
 
     it('says nothing for Points on a no-timer track — that combination already works', () => {

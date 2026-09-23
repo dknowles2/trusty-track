@@ -15,7 +15,7 @@
  */
 
 import { isTimeBasedStrategy } from '../racing/lanes';
-import { TIMED } from '../stats/scoringStrategyText';
+import { SCORING_STRATEGY_OPTIONS, TIMED } from '../stats/scoringStrategyText';
 
 export type RaceSectionId =
     | 'event'
@@ -246,12 +246,17 @@ export function firstProblem(race: RaceForValidation): RaceProblem | null {
  * The wording still splits on `TIMED` specifically, though: "Timing by
  * stopwatch? Choose Timed." reads correctly only when Timed is not already
  * the race's own choice. Under Cumulative time or Fastest single run the
- * operator has already chosen a time-based strategy, so the note says the
- * chosen method still works with a stopwatch rather than pointing at a
- * third strategy nobody asked about — the second half, "Judging finish
- * order by eye? Choose Points.", is identical either way, since Points is
- * the one answer for calling a finish by eye regardless of which
- * time-based strategy was current.
+ * operator has already chosen a time-based strategy, so the note says that
+ * method still works with a stopwatch rather than pointing at a third
+ * strategy nobody asked about. It names the method rather than saying
+ * "this method" (found in review): the note renders *above* the radio
+ * list, so a bare "this" has nothing next to it to refer back to, and the
+ * name comes from `SCORING_STRATEGY_OPTIONS` so it is the same string the
+ * option the operator just clicked is labelled with, rather than a second
+ * copy of the vocabulary that could drift from it. The second half,
+ * "Judging finish order by eye? Choose Points.", is identical either way,
+ * since Points is the one answer for calling a finish by eye regardless of
+ * which time-based strategy was current.
  *
  * Deliberately a separate predicate from `tiebreakerWontFire`
  * (`features/stats/tiebreakText.ts`), not a case folded into it: that one
@@ -284,7 +289,17 @@ export function scoringNeedsATimerNote(
     if (trackTimerType !== 'NONE' || !isTimeBasedStrategy(scoringStrategy)) {
         return null;
     }
-    return scoringStrategy === TIMED
-        ? 'This track has no electronic timer. Timing by stopwatch? Choose Timed. Judging finish order by eye? Choose Points.'
-        : 'This track has no electronic timer. Timing by stopwatch? This method still works. Judging finish order by eye? Choose Points.';
+    if (scoringStrategy === TIMED) {
+        return 'This track has no electronic timer. Timing by stopwatch? Choose Timed. Judging finish order by eye? Choose Points.';
+    }
+    // `isTimeBasedStrategy` is `!== 'POINTS'`, so a strategy string this
+    // module has never heard of lands here. No live call path can produce
+    // one today — the form's value comes from `SCORING_STRATEGY_OPTIONS`
+    // and the backend's enum, which are the same four — but a future fifth
+    // strategy would reach this before anyone updated the list, and
+    // "This method still works" is the sentence that stays true without a
+    // name to put in it.
+    const label = SCORING_STRATEGY_OPTIONS.find(option => option.value === scoringStrategy)?.label;
+    const stillWorks = label ? `${label} still works.` : 'This method still works.';
+    return `This track has no electronic timer. Timing by stopwatch? ${stillWorks} Judging finish order by eye? Choose Points.`;
 }
