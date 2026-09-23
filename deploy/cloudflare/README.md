@@ -51,6 +51,36 @@ Then **Custom domains → Set up a custom domain** for `trusty-track.com` and
 again for `www.trusty-track.com`. DNS is already on Cloudflare, so both are
 created for you; Pages redirects the `www` host to the apex.
 
+## Web Analytics, and why it isn't in this repository
+
+[#1331](https://github.com/dknowles2/trusty-track/issues/1331) chose Cloudflare
+Web Analytics over Google Analytics precisely because it needs none of this
+file's other rows: no environment variable, no snippet in `www/index.html`, no
+injection step in `scripts/build_site.sh`. **Metrics → Web Analytics → Enable**
+on the Pages project is the whole of it — Cloudflare adds the beacon to the
+built HTML itself, on the next deployment, and removing it later is the same
+toggle in reverse. That is deliberate, not an oversight: it keeps the source
+tree and every local or CI build tracker-free (`grep -r gtag` and a grep for
+`cloudflareinsights` both come back empty), which a `GOOGLE_ANALYTICS_ID`
+variable and a build-time substitution never could — a local `build_site.sh`
+would still produce a clean `dist/`, but the variable and the placeholder
+comment would sit in the repository regardless of whether anyone set it.
+
+**Whether this also reports preview deployments into the production dataset is
+not settled by Cloudflare's own documentation.** Their Pages how-to says only
+that the snippet is added "to your Pages site on the next deployment"
+(<https://developers.cloudflare.com/pages/how-to/web-analytics/>), which reads
+as the beacon going into the built HTML rather than being matched to one
+hostname at the edge — and `main`, every PR preview, and production all serve
+that same build. If that reading is right, a preview build's pageviews land in
+the same Web Analytics property production does, unweighted by which branch
+served them. Confirm this by watching the dashboard after the next PR preview
+deploys, before relying on the production numbers being production-only; if it
+turns out previews do report in, **Builds & deployments → Preview
+deployments → Custom branches** (already documented below, for build-quota
+reasons) restricting previews to `main` alone at least bounds which branches
+can contribute noise.
+
 ## The preview of `main`: `main.trusty-track.com`
 
 `main` is not the production branch (see below), so Pages builds it as a
