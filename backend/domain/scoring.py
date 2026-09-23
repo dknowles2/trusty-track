@@ -393,6 +393,48 @@ def counts_a_disrupted_round(strategy: str) -> bool:
     return strategy not in _SUMMING_STRATEGIES
 
 
+def has_any_recorded_time(times: Iterable[float | None]) -> bool:
+    """Whether a race has ever recorded a time on any lane (#1329).
+
+    A pure `POINTS` race — placements typed in, no timer ever consulted —
+    is a fully supported configuration (see the module docstring's
+    ``POINTS`` entry), but several surfaces used to render time-shaped
+    scaffolding regardless: a Lane Fairness table of dashes, a Displays
+    view offering a "Last heat's times" screen that can never fill in.
+    Both were re-deriving "does this race have any recorded time" their
+    own way; this is the one place that question is answered, so a caller
+    asks it once rather than each guessing from a different signal.
+
+    ``times`` is every lane's raw stored ``seconds`` value across the
+    race's own scope (official heats, typically — see the caller). The
+    test itself — ``t is not None`` — is exactly the one
+    ``services/stats.py``'s own per-heat completion check used to run
+    before this issue also fixed *that* check to ask a different, broader
+    question (see ``.claude/rules/scoring.md``'s "A race with no recorded
+    time anywhere"): a heat is complete when any lane holds a time *or* a
+    place, where this function asks specifically about a time, generalised
+    from one heat to the whole race rather than inventing a second copy of
+    the narrower test.
+
+    **A recorded ``0.0`` counts as a recorded time**, deliberately unlike
+    ``_compute_lane_stats``'s ``t <= 0.0`` exclusion a few modules over.
+    The two are different questions: that check asks "is this a *real*,
+    usable time for a fairness average" (a DNF marker is not), where this
+    asks "has a timer, or a volunteer with a stopwatch, ever been used on
+    this race at all" — and a `0.0` is evidence of exactly that: a start
+    recorded with no finish, not the absence of one. Treating it as absent
+    here would tell a race with a single DNF-marked heat that it is a pure
+    `POINTS` race with nothing time-shaped to show, which is false — a
+    timer *was* connected, and typed places are what happened everywhere
+    else.
+
+    A racer with no recorded value at all — never reached, or a lane with
+    only a place and no time — contributes nothing either way; only an
+    actual (non-``None``) stored value ever flips this to ``True``.
+    """
+    return any(t is not None for t in times)
+
+
 def rank_key(score: float, heats_completed: int, racer_id: int) -> tuple:
     """Sort key for standings: score ascending, unraced racers last.
 

@@ -50,6 +50,7 @@ function statsPayload(overrides: object = {}) {
         heatResults: [],
         trackRecords: [],
         topScaleMph: null,
+        hasRecordedTimes: true,
         ...overrides,
     };
 }
@@ -154,6 +155,7 @@ describe('the race stats query', () => {
             'racingGroupId', 'racingGroupColor', 'racerCount', 'avgScore', 'bestRacerName',
             'racerFirstName', 'racerLastName', 'place',
             'timeSeconds', 'raceDate',
+            'hasRecordedTimes',
         ]) {
             expect(document).toContain(field);
         }
@@ -370,6 +372,18 @@ describe('lane fairness', () => {
         expect(rows[3]).toHaveTextContent('Lane 3');
         expect(rows[3]).toHaveTextContent('—');
     });
+
+    it('says it needs recorded times instead of a table of dashes (#1329)', () => {
+        renderStats(statsPayload({ laneStats, hasRecordedTimes: false }));
+
+        // The heading stays — the page must not silently lose the section.
+        expect(screen.getByText('Lane Fairness')).toBeInTheDocument();
+        expect(
+            screen.getByText(/Lane Fairness needs recorded times/)
+        ).toBeInTheDocument();
+        expect(screen.queryByText('Advantage %')).toBeNull();
+        expect(screen.queryByText('Lane 1')).toBeNull();
+    });
 });
 
 describe('highlights', () => {
@@ -395,6 +409,18 @@ describe('highlights', () => {
     it('is absent when the race has no highlights yet', () => {
         renderStats(statsPayload({ highlights: [] }));
         expect(screen.queryByText('Top Moments')).toBeNull();
+    });
+
+    it('says it needs recorded times rather than staying silently absent (#1329)', () => {
+        renderStats(statsPayload({ highlights: [], hasRecordedTimes: false }));
+
+        // Unlike the ordinary "no highlights yet" case above, the heading
+        // now appears — a race with no recorded time at all is a different,
+        // explainable state, not "nothing has happened yet".
+        expect(screen.getByText('Top Moments')).toBeInTheDocument();
+        expect(
+            screen.getByText(/Top Moments needs recorded times/)
+        ).toBeInTheDocument();
     });
 });
 

@@ -248,6 +248,16 @@ export type ViewGroup = 'During racing' | 'Between heats' | 'Before racing' | 'A
 const GROUP_ORDER: readonly ViewGroup[] = ['During racing', 'Between heats', 'Before racing', 'After'];
 
 /**
+ * Views `viewOptionsFor` may drop for a race with no recorded time anywhere
+ * (#1329) — `TIMING` ("Last heat's times") shows a time column that is
+ * always blank on a pure `POINTS` race, and `CYCLE` alternates it in with
+ * Standings, so half the cycle is the same half-empty screen. Declared once
+ * so the filter and its exception (below) read the same list rather than
+ * two literals that could drift.
+ */
+const TIME_DEPENDENT_VIEWS: readonly DisplayView[] = ['TIMING', 'CYCLE'];
+
+/**
  * The choices the operator is offered, in the order they are offered.
  *
  * `cycles` marks the views that advance on a timer the operator can set —
@@ -409,27 +419,65 @@ export function viewHasStandingsTickerToggle(view: DisplayView): boolean {
  * optional. An option that can only disappoint is worse than one that is not
  * there.
  *
- * It is kept when the screen is already showing it, whatever the race holds.
- * A row whose current view is missing from its own list renders a select with
- * nothing chosen, so the operator cannot see what the screen is doing — which
- * is reachable by deleting the last award while a ceremony is up.
+ * `TIMING` ("Last heat's times") and `CYCLE` ("Cycle between both") are left
+ * out the same way for a race with no recorded time anywhere (#1329) — a
+ * pure `POINTS` race, scored entirely by typed-in finishing place. `TIMING`
+ * promises "every {car} in finishing order, with place and time," and the
+ * time half is permanently blank there; `CYCLE` alternates that same
+ * half-empty screen in with Standings, so half the cycle is worse than
+ * `TIMING` alone. `Race.hasRecordedTimes` (`domain.scoring.
+ * has_any_recorded_time`, computed once server-side and shared with the
+ * Stats page's identical gap) is the one fact this checks — not the race's
+ * `scoringStrategy`, since a `TIMED`/`CUMULATIVE_TIME`/`FASTEST_TIME` race on
+ * a track with no electronic timer can still have real, hand-typed times on
+ * record (`.claude/rules/scoring.md`'s Scoring section), and a `POINTS` race
+ * is not actually barred from ever recording one either (a run-off, say).
+ * Asking the derived fact rather than guessing from the strategy is what
+ * keeps this option offered exactly when it would show something.
  *
- * This is an *offer*, not a permission. The server still accepts the
- * assignment, and the ceremony page still says for itself when a race has no
- * awards; a second copy of the rule on the server would be one more thing to
- * keep in step for no gain.
+ * Each is kept when the screen is already showing it, whatever the race
+ * holds — individually, not as a pair: a screen on `TIMING` keeps that one
+ * option but still loses `CYCLE`, the same shape a row whose current view is
+ * missing from its own list would otherwise render a select with nothing
+ * chosen, telling the operator nothing about what the screen is doing.
+ * Reachable for the ceremony by deleting the last award mid-show, and for
+ * `TIMING`/`CYCLE` by a correction that removes a race's only recorded time
+ * after a screen was already assigned to one of them.
+ *
+ * This is an *offer*, not a permission. The server still accepts either
+ * assignment regardless of what the race holds, and the pages themselves
+ * render honestly for what they are actually given — a second copy of
+ * either rule on the server would be one more thing to keep in step for no
+ * gain.
  *
  * `STANDINGS_ONLY`, `CHECKIN`, `QRCODE` and `OVERLAY` need no such gating —
- * unlike the ceremony none of the four has anything it can be missing (there
- * is always a leaderboard, always a roster, this race's own address always
- * resolves to something even before voting is ever turned on, and a heat can
- * always be armed even before the first one has run), so all four are
- * offered unconditionally like every other ordinary view.
+ * unlike the ceremony (or `TIMING`/`CYCLE`) none of the four has anything it
+ * can be missing (there is always a leaderboard, always a roster, this
+ * race's own address always resolves to something even before voting is
+ * ever turned on, and a heat can always be armed even before the first one
+ * has run), so all four are offered unconditionally like every other
+ * ordinary view.
  */
 export function viewOptionsFor(
     hasAwards: boolean,
     current: DisplayView,
+    hasRecordedTimes: boolean,
 ): readonly (typeof VIEW_OPTIONS)[number][] {
-    if (hasAwards || current === 'AWARDS') return VIEW_OPTIONS;
-    return VIEW_OPTIONS.filter((option) => option.view !== 'AWARDS');
+    let options = VIEW_OPTIONS;
+    if (!hasAwards && current !== 'AWARDS') {
+        options = options.filter((option) => option.view !== 'AWARDS');
+    }
+    if (!hasRecordedTimes) {
+        // Each of the two is dropped individually unless it is the exact
+        // view the screen is already showing — a screen on `TIMING` keeps
+        // that option but still loses `CYCLE`, the same "only the current
+        // one survives" shape the ceremony's own exception uses (it has
+        // only one option to keep; this filter has two to consider).
+        options = options.filter(
+            (option) =>
+                !(TIME_DEPENDENT_VIEWS as readonly DisplayView[]).includes(option.view) ||
+                option.view === current,
+        );
+    }
+    return options;
 }

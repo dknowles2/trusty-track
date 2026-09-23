@@ -44,6 +44,16 @@ offered it, because the screen would land on a page saying there is nothing
 to announce. Add the awards on the [Awards page](../awards.md) and the choice
 appears the next time you open the Displays list.
 
+**Last heat's times and Cycle between both only appear once the race has
+recorded a time.** A race scored purely by finishing place —
+[Points](scoring.md#points), on a track with no electronic timer — never has
+one, and the time half of Last heat's times would sit permanently blank;
+offering the cycle would only alternate Standings with that same half-empty
+screen. Record a time on any heat — a run-off, or switching the race to a
+time-based scoring method with a stopwatch — and both choices appear the
+next time you open the Displays list. Either is still kept on a screen
+already showing it, the same as the ceremony above.
+
 **Driving the ceremony.** A screen showing the ceremony gets **‹** and **›**
 buttons on its row, so the operator can move it on without walking to it.
 They send a *step* rather than a slide number, which is why the arrow keys

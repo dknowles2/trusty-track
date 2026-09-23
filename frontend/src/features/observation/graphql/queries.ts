@@ -234,10 +234,19 @@ export const NETWORK_ADDRESSES_QUERY = gql`
  * thing that wants it, and it is re-read every time that tab is opened,
  * which is what makes an award added a minute ago show up here.
  */
+/**
+ * Also carries `hasRecordedTimes` (#1329) — the Displays picker's own
+ * signpost for `TIMING`/`CYCLE` (`viewOptionsFor`), the sibling of the
+ * ceremony's `awards.length > 0` gate just above it. This panel does not
+ * query `raceStats` at all, so this is where it reads the same
+ * server-computed fact that query's own `hasRecordedTimes` field carries,
+ * rather than a second round trip for one boolean.
+ */
 export const RACE_AWARD_COUNT_QUERY = gql`
   query RaceAwardCount($raceId: Int!) {
     race(raceId: $raceId) {
       id
+      hasRecordedTimes
       awards {
         id
       }

@@ -13,7 +13,16 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { attemptId, ensureConfigured, gql, seedRace, trackPoolName } from './support';
+import {
+    attemptId,
+    createSchedule,
+    ensureConfigured,
+    gql,
+    readHeats,
+    recordRound,
+    seedRace,
+    trackPoolName,
+} from './support';
 
 /** The display's own storage key, which is how a screen keeps its identity. */
 const STORAGE_KEY = 'trustytrack.displayId';
@@ -31,8 +40,17 @@ async function openDisplay(page: Page, raceId: number, id: string) {
 
 test('an operator can see a display and change what it shows', async ({ browser, page }) => {
     await ensureConfigured(page);
-    const { raceId } = await seedRace(page, 'Display Assignment Race');
+    const { raceId, racers } = await seedRace(page, 'Display Assignment Race');
     const id = attemptId('spec-display-1');
+
+    // #1329: `TIMING` ("Last heat's times") is only offered once the race
+    // has recorded a time, the same "keep an option offered only when it
+    // would show something" rule the ceremony's own AWARDS gating already
+    // follows a few tests below — record one heat so the option exists to
+    // select.
+    await createSchedule(page, raceId);
+    const heats = await readHeats(page, raceId);
+    await recordRound(page, heats.slice(0, 1), racers);
 
     const displayContext = await browser.newContext();
     const display = await displayContext.newPage();
@@ -165,7 +183,13 @@ test('two windows on the same computer register as two distinct displays', async
     // that reason. Sharing the context is what makes this the actual
     // situation being fixed, with neither window told which id to use.
     await ensureConfigured(page);
-    const { raceId } = await seedRace(page, 'Same Computer Displays Race');
+    const { raceId, racers } = await seedRace(page, 'Same Computer Displays Race');
+
+    // #1329: `TIMING` needs a recorded time to be offered at all — see the
+    // first test in this file for the same setup, with the same reason.
+    await createSchedule(page, raceId);
+    const heats = await readHeats(page, raceId);
+    await recordRound(page, heats.slice(0, 1), racers);
 
     const first = await context.newPage();
     await first.goto(`/race/${raceId}/observation`);

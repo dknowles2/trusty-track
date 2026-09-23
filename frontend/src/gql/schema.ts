@@ -1252,6 +1252,7 @@ export type Race = {
   dropWorstRuns: Scalars['Int']['output'];
   excludeRoundWinnersFromQualifyingStandings: Scalars['Boolean']['output'];
   globalStartNumber: Scalars['Int']['output'];
+  hasRecordedTimes: Scalars['Boolean']['output'];
   heats: Array<Heat>;
   highlightsSummary?: Maybe<HighlightsSummary>;
   homeUnitLabel: Scalars['String']['output'];
@@ -1349,6 +1350,7 @@ export type RaceStateChangedEvent = {
 };
 
 export type RaceStats = {
+  hasRecordedTimes: Scalars['Boolean']['output'];
   heatResults: Array<HeatResultRow>;
   highlights: Array<HeatHighlight>;
   laneStats: Array<LaneTimeStat>;

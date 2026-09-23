@@ -57,6 +57,7 @@ class RequestLoaders:
         self._racer_counts: dict[int, tuple[int, int]] = {}
         self._race_status: dict[int, str] = {}
         self._heat_replays: dict[int, dict[int, list[models.HeatReplay]]] = {}
+        self._has_recorded_time: dict[int, bool] = {}
 
         event.listen(db, "after_commit", self._on_commit)
 
@@ -83,6 +84,7 @@ class RequestLoaders:
         self._racer_counts.clear()
         self._race_status.clear()
         self._heat_replays.clear()
+        self._has_recorded_time.clear()
 
     # ------------------------------------------------------------------ #
     # Collections, loaded once per race                                    #
@@ -380,6 +382,35 @@ class RequestLoaders:
         if race_id not in self._race_status:
             self.prime_race_status([race_id])
         return self._race_status[race_id]
+
+    def has_recorded_time_for_race(self, race_id: int) -> bool:
+        """Whether this race has ever recorded a time on any official heat (#1329).
+
+        The one place both `RaceStats.hasRecordedTimes` (the Stats page) and
+        `Race.hasRecordedTimes` (the Displays panel, which does not query
+        `raceStats` at all) get their answer — a pure predicate over plain
+        values, `domain.scoring.has_any_recorded_time`, fed by the same
+        batched `heats_for_race`/`lane_values_for_heat` every other
+        per-heat field resolver already reads through this class, so
+        asking it costs no query beyond whichever of the two a caller
+        reaches first (`test_query_counts.py`).
+
+        Official heats only — the same scope `services/stats.py`'s own
+        `compute_race_stats` uses, and the same reason: a free race heat is
+        an exhibition run and a run-off only settles a tie, neither of
+        which decides whether *this race* is a "no times at all" one.
+        """
+        if race_id not in self._has_recorded_time:
+            heats = self.heats_for_race(race_id)
+            times = (
+                lane.seconds
+                for heat in heats
+                for lane in self.lane_values_for_heat(race_id, heat.id)
+            )
+            self._has_recorded_time[race_id] = domain_scoring.has_any_recorded_time(
+                times
+            )
+        return self._has_recorded_time[race_id]
 
     # ------------------------------------------------------------------ #
     # Derived values                                                       #

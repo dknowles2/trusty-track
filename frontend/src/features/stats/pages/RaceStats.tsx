@@ -109,6 +109,14 @@ interface RaceStatsData {
   heatResults: HeatResultRow[];
   trackRecords: TrackRecord[];
   topScaleMph: number | null;
+  /** Whether this race has ever recorded a time on any official heat
+   * (#1329) — `domain.scoring.has_any_recorded_time`, the same fact the
+   * Displays picker's `viewOptionsFor` reads off `Race.hasRecordedTimes`.
+   * A pure `POINTS` race — scored entirely by typed-in place, never a time —
+   * is `false` here even once fully raced; Lane Fairness and Top Moments
+   * below both read it, since neither can answer a time-shaped question
+   * with no time on record. */
+  hasRecordedTimes: boolean;
 }
 
 /** "Mar 14, 2026" from the race's stored date, or nothing if it has none. */
@@ -273,70 +281,87 @@ export default function RaceStats() {
 
       {hasResults && (
         <>
-          {/* Lane Fairness */}
+          {/* Lane Fairness — a table of dashes on a race with no recorded
+              time is worse than an honest line saying why (#1329): the
+              whole point of the table (is one lane faster) is unanswerable
+              without a time to compare, since `services/stats.py`'s own
+              lane-fairness pass skips every lane whose time is `None`. The
+              heading stays either way, so the page does not silently lose
+              a section an operator is used to scanning past. */}
           <div className="race-stats__section">
             <h2 className="race-stats__section-title">Lane Fairness</h2>
-            <div className="race-stats__chart-wrapper">
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={stats.laneStats} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  {/* `interval={0}` forces every lane to get its own tick —
-                      Recharts' default skips alternate labels once they
-                      would collide, which at phone width turned a 4-lane
-                      chart into "Lane 2 · Lane 4" with lanes 1 and 3
-                      unlabelled (#1147). Short "L1"–"L4" labels under 600px
-                      are what make room for all of them at that width;
-                      `fontSize: 11` gives them a little more still. */}
-                  <XAxis
-                    dataKey="lane"
-                    interval={0}
-                    tick={{ fontSize: 11 }}
-                    tickFormatter={(v: number) => (isNarrow ? `L${v}` : `Lane ${v}`)}
-                  />
-                  <YAxis unit="%" tickFormatter={(v: number) => v.toFixed(1)} />
-                  <Tooltip
-                    formatter={(value: unknown) => [`${Number(value).toFixed(2)}%`, 'Advantage']}
-                    labelFormatter={(label: unknown) => `Lane ${label}`}
-                  />
-                  <ReferenceLine y={0} stroke="var(--text-muted-color)" />
-                  <Bar dataKey="relativeAdvantagePct" name="Advantage %">
-                    {stats.laneStats.map((entry, i) => (
-                      <Cell
-                        key={i}
-                        fill={(entry.relativeAdvantagePct ?? 0) >= 0 ? 'var(--scouting-blue)' : 'var(--cub-scouting-gold)'}
+            {!stats.hasRecordedTimes ? (
+              <div className="race-stats__empty">
+                <p>
+                  Lane Fairness needs recorded times, and this race has none
+                  — it&apos;s scored by place alone.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="race-stats__chart-wrapper">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={stats.laneStats} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      {/* `interval={0}` forces every lane to get its own tick —
+                          Recharts' default skips alternate labels once they
+                          would collide, which at phone width turned a 4-lane
+                          chart into "Lane 2 · Lane 4" with lanes 1 and 3
+                          unlabelled (#1147). Short "L1"–"L4" labels under 600px
+                          are what make room for all of them at that width;
+                          `fontSize: 11` gives them a little more still. */}
+                      <XAxis
+                        dataKey="lane"
+                        interval={0}
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(v: number) => (isNarrow ? `L${v}` : `Lane ${v}`)}
                       />
+                      <YAxis unit="%" tickFormatter={(v: number) => v.toFixed(1)} />
+                      <Tooltip
+                        formatter={(value: unknown) => [`${Number(value).toFixed(2)}%`, 'Advantage']}
+                        labelFormatter={(label: unknown) => `Lane ${label}`}
+                      />
+                      <ReferenceLine y={0} stroke="var(--text-muted-color)" />
+                      <Bar dataKey="relativeAdvantagePct" name="Advantage %">
+                        {stats.laneStats.map((entry, i) => (
+                          <Cell
+                            key={i}
+                            fill={(entry.relativeAdvantagePct ?? 0) >= 0 ? 'var(--scouting-blue)' : 'var(--cub-scouting-gold)'}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <table className="race-stats__table">
+                  <thead>
+                    <tr>
+                      <th>Lane</th>
+                      <th>Avg Time</th>
+                      <th>Heats Run</th>
+                      <th>Advantage %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.laneStats.map(ls => (
+                      <tr key={ls.lane}>
+                        {/* "Lane / 1" used to wrap onto two lines in a narrow
+                            column (#1147) — the label is short but not
+                            unbreakable at the space between the two words. */}
+                        <td style={{ whiteSpace: 'nowrap' }}>Lane {ls.lane}</td>
+                        <td className="mono">{fmt(ls.avgTime)}</td>
+                        <td>{ls.heatCount}</td>
+                        <td className="mono">
+                          {ls.relativeAdvantagePct != null
+                            ? `${ls.relativeAdvantagePct >= 0 ? '+' : ''}${ls.relativeAdvantagePct.toFixed(2)}%`
+                            : '—'}
+                        </td>
+                      </tr>
                     ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <table className="race-stats__table">
-              <thead>
-                <tr>
-                  <th>Lane</th>
-                  <th>Avg Time</th>
-                  <th>Heats Run</th>
-                  <th>Advantage %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.laneStats.map(ls => (
-                  <tr key={ls.lane}>
-                    {/* "Lane / 1" used to wrap onto two lines in a narrow
-                        column (#1147) — the label is short but not
-                        unbreakable at the space between the two words. */}
-                    <td style={{ whiteSpace: 'nowrap' }}>Lane {ls.lane}</td>
-                    <td className="mono">{fmt(ls.avgTime)}</td>
-                    <td>{ls.heatCount}</td>
-                    <td className="mono">
-                      {ls.relativeAdvantagePct != null
-                        ? `${ls.relativeAdvantagePct >= 0 ? '+' : ''}${ls.relativeAdvantagePct.toFixed(2)}%`
-                        : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  </tbody>
+                </table>
+              </>
+            )}
           </div>
 
           {/* Per-Racer Stats */}
@@ -407,40 +432,56 @@ export default function RaceStats() {
             </div>
           </div>
 
-          {/* Top Moments */}
-          {stats.highlights.length > 0 && (
+          {/* Top Moments — both highlights (fastest heat, closest race) are
+              time-derived, so a race with no recorded time never produces
+              either (#1329); say so rather than letting the section vanish
+              with no explanation. A race that does have times but has not
+              produced a highlight yet (every recorded time is a DNF
+              marker) is unaffected — that keeps the section's pre-#1329
+              behaviour of staying absent, since there is nothing new to
+              say there. */}
+          {(!stats.hasRecordedTimes || stats.highlights.length > 0) && (
             <div className="race-stats__section">
               <h2 className="race-stats__section-title">Top Moments</h2>
-              <div className="race-stats__highlights">
-                {stats.highlights.map((hl, i) => (
-                  <div
-                    key={i}
-                    className={`race-stats__highlight-card${hl.type === 'CLOSEST_RACE' ? ' race-stats__highlight-card--closest' : ''}`}
-                  >
-                    <div className="race-stats__highlight-type">
-                      {hl.type === 'FASTEST_HEAT' ? 'Fastest Heat' : 'Closest Race'}
-                    </div>
-                    <div className="race-stats__highlight-value">
-                      {hl.type === 'FASTEST_HEAT' && hl.time != null
-                        ? hl.time.toFixed(3) + 's'
-                        : hl.margin != null
-                          ? `Δ ${hl.margin.toFixed(3)}s`
-                          : '—'}
-                    </div>
-                    {hl.type === 'FASTEST_HEAT' && formatScaleMph(stats.topScaleMph) && (
-                      <div className="race-stats__highlight-scale-mph">
-                        Top scale speed: {formatScaleMph(stats.topScaleMph)}
+              {!stats.hasRecordedTimes ? (
+                <div className="race-stats__empty">
+                  <p>
+                    Top Moments needs recorded times, and this race has none
+                    — it&apos;s scored by place alone.
+                  </p>
+                </div>
+              ) : (
+                <div className="race-stats__highlights">
+                  {stats.highlights.map((hl, i) => (
+                    <div
+                      key={i}
+                      className={`race-stats__highlight-card${hl.type === 'CLOSEST_RACE' ? ' race-stats__highlight-card--closest' : ''}`}
+                    >
+                      <div className="race-stats__highlight-type">
+                        {hl.type === 'FASTEST_HEAT' ? 'Fastest Heat' : 'Closest Race'}
                       </div>
-                    )}
-                    <div className="race-stats__highlight-sub">
-                      {hl.type === 'FASTEST_HEAT' && hl.racerName && (
-                        <span>{hl.racerName} &mdash; </span>
+                      <div className="race-stats__highlight-value">
+                        {hl.type === 'FASTEST_HEAT' && hl.time != null
+                          ? hl.time.toFixed(3) + 's'
+                          : hl.margin != null
+                            ? `Δ ${hl.margin.toFixed(3)}s`
+                            : '—'}
+                      </div>
+                      {hl.type === 'FASTEST_HEAT' && formatScaleMph(stats.topScaleMph) && (
+                        <div className="race-stats__highlight-scale-mph">
+                          Top scale speed: {formatScaleMph(stats.topScaleMph)}
+                        </div>
                       )}
-                      {hl.roundName}, Heat {hl.globalHeatNumber ?? hl.heatNumber}
+                      <div className="race-stats__highlight-sub">
+                        {hl.type === 'FASTEST_HEAT' && hl.racerName && (
+                          <span>{hl.racerName} &mdash; </span>
+                        )}
+                        {hl.roundName}, Heat {hl.globalHeatNumber ?? hl.heatNumber}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

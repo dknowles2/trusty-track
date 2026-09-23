@@ -243,6 +243,38 @@ describe('TrackCard', () => {
             });
             expect(onChange).toHaveBeenCalledWith('scaleRatio', 32);
         });
+
+        describe('the no-timer note (#1329 gap 3)', () => {
+            it('appears for a track with no electronic timer', () => {
+                renderCard({ timerType: 'NONE' });
+                expect(
+                    screen.getByText(/This track has no electronic timer/),
+                ).toBeInTheDocument();
+            });
+
+            it('is absent for a track with a real or fake timer', () => {
+                renderCard({ timerType: 'FAKE' });
+                expect(
+                    screen.queryByText(/This track has no electronic timer/),
+                ).not.toBeInTheDocument();
+            });
+
+            it('shows regardless of whether "Show scale speed" is checked — it warns before turning it on', () => {
+                renderCard({ timerType: 'NONE', showScaleSpeed: false });
+                expect(
+                    screen.getByText(/This track has no electronic timer/),
+                ).toBeInTheDocument();
+            });
+
+            it('never disables the checkbox or the ratio input', async () => {
+                const { onChange } = renderCard({ timerType: 'NONE', showScaleSpeed: true, scaleRatio: 25 });
+                expect(screen.getByRole('checkbox', { name: /show scale speed/i })).toBeEnabled();
+                const ratio = screen.getByLabelText(/^Scale \(1:25/);
+                expect(ratio).toBeEnabled();
+                fireEvent.change(ratio, { target: { value: '10' } });
+                expect(onChange).toHaveBeenCalledWith('scaleRatio', 10);
+            });
+        });
     });
 
     describe('lanes in service', () => {

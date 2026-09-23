@@ -426,6 +426,14 @@ the [projector view and the Last heat's times
 view](displays.md#the-ten-views), and the fastest heat of the race gets its
 own line on the [Stats page](stats-and-exports.md#top-moments).
 
+On a track with [no electronic timer](#no-timer), the card notes that scale
+speed still needs a recorded time to convert — a stopwatch-timed race under
+Timed scoring can supply one by hand, but a race scored by place alone
+(Points) never records a time at all, so nothing appears there. The note is
+informational only and does not turn the checkbox off for you: this setting
+is per track, shared across every race that ever runs on it, so it cannot
+know which scoring method next season's race will pick.
+
 ### No timer
 
 Not every pack owns an electronic timer, and **No timer — I'll enter results

@@ -11,6 +11,7 @@ from backend.domain.scoring import (
     TIMED,
     counts_a_disrupted_round,
     drop_worst_status,
+    has_any_recorded_time,
     rank_key,
     score_heats,
     standings_ranks,
@@ -638,3 +639,47 @@ class TestDropWorstStatus:
     def test_true_when_everyone_has_exactly_enough(self):
         heats = [_heat((1, 3.0, 1), (2, 4.0, 1)), _heat((1, 4.0, 1), (2, 5.0, 1))]
         assert drop_worst_status(heats, TIMED, 1) is True
+
+
+class TestHasAnyRecordedTime:
+    """#1329's derived fact: has this race ever recorded a time, over any
+    scope of lanes a caller hands in — plain values, no heats or lanes
+    involved. The table the issue itself asks for."""
+
+    def test_no_heats_at_all(self):
+        # An empty race — nothing scheduled yet.
+        assert has_any_recorded_time([]) is False
+
+    def test_heats_scheduled_but_none_run(self):
+        # Every lane holds a racer but no result has been recorded on any
+        # of them yet — the ordinary "schedule exists, racing has not
+        # started" state.
+        assert has_any_recorded_time([None, None, None, None]) is False
+
+    def test_heats_run_with_places_and_no_times(self):
+        # A pure POINTS race: every heat has a place typed in and no lane
+        # has ever held a time. This is the configuration the issue is
+        # about — fully raced, and still `False` here.
+        assert has_any_recorded_time([None, None, None, None]) is False
+
+    def test_heats_with_times(self):
+        assert has_any_recorded_time([3.1, 3.5, 3.8, 4.1]) is True
+
+    def test_one_time_among_many_blanks(self):
+        # A race WITH recorded times — one hand-typed or timer-recorded
+        # value is enough to flip the whole race, even surrounded by
+        # unraced lanes.
+        assert has_any_recorded_time([None, None, 3.1, None]) is True
+
+    def test_a_dnf_marker_counts_as_recorded(self):
+        # 0.0 is a DNF marker (a start with no finish), not an absent
+        # value — evidence a timer was actually used on this race, unlike
+        # `_compute_lane_stats`'s `t <= 0.0` exclusion, which is asking a
+        # different question (is this a *usable* time for an average).
+        assert has_any_recorded_time([0.0, None, None]) is True
+
+    def test_generator_input_is_consumed_once(self):
+        # The predicate takes an `Iterable`, not a `Sequence` — a caller
+        # streaming lane times through a generator (the loader does) must
+        # not need to materialise a list first.
+        assert has_any_recorded_time(t for t in [None, None, 5.0]) is True
