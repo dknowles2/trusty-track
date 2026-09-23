@@ -471,14 +471,21 @@ export default function Awards() {
       )}
 
       {!result.fetching && awards.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted-color)' }}>
+        <div
+          data-testid="awards-empty"
+          style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted-color)' }}
+        >
           <Icon path={mdiTrophyOutline} size={2} color="var(--input-border-color)" />
           <p style={{ marginTop: '1rem' }}>
             No awards yet. Add the ones your {orgLower} hands out — Best Paint and Most
             Original as well as the fast ones.
           </p>
           {/* The corner button above is the only way forward otherwise —
-              away from the text telling you to use it (#790). */}
+              away from the text telling you to use it (#790). Same
+              accessible name as that corner button, on purpose
+              (Awards.test.tsx pins there being two "Add an award" buttons
+              here) — `awards-empty` is how a caller (an e2e spec, say)
+              tells the two apart without relying on DOM order (#1334). */}
           <button
             type="button"
             className="primary-btn"
