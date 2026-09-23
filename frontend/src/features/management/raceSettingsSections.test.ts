@@ -131,34 +131,55 @@ describe('what stops a save', () => {
 });
 
 describe('scoringNeedsATimerNote (#1324)', () => {
-    // A no-timer track with Timed scoring is the one combination Enter
-    // Results has no way to record a finishing order for — see the issue's
-    // own table. Every other cell is a legitimate pairing: a real timer
-    // works under both strategies, and Points always takes a hand-typed
-    // place regardless of the track.
+    // A no-timer track with a time-based scoring strategy — Timed,
+    // Cumulative time or Fastest single run — is the combination Enter
+    // Results has no way to record a finishing order for: every one of the
+    // three shows a Time column only (`isTimeBasedStrategy` in
+    // `features/racing/lanes.ts`). A first version of this predicate fired
+    // only for `=== TIMED`, missing that Cumulative time and Fastest single
+    // run share the identical gap — this table pins all four strategies
+    // against a no-timer track, not just the one the issue's own
+    // reproduction walked through.
     const NOTE = /no electronic timer/i;
+    const TIMED_WORDING = 'Timing by stopwatch? Choose Timed.';
+    const OTHER_TIME_BASED_WORDING = 'Timing by stopwatch? This method still works.';
 
-    it('warns for Timed scoring on a track with no timer', () => {
-        expect(scoringNeedsATimerNote('TIMED', 'NONE')).toMatch(NOTE);
+    it('warns for Timed scoring on a track with no timer, with the issue\'s own wording', () => {
+        const note = scoringNeedsATimerNote('TIMED', 'NONE');
+        expect(note).toMatch(NOTE);
+        expect(note).toContain(TIMED_WORDING);
+    });
+
+    it('warns for Cumulative time and Fastest single run too — they share Timed\'s no-Place-column gap', () => {
+        for (const strategy of ['CUMULATIVE_TIME', 'FASTEST_TIME']) {
+            const note = scoringNeedsATimerNote(strategy, 'NONE');
+            expect(note).toMatch(NOTE);
+            // Not the Timed-specific wording — the operator is already on a
+            // time-based strategy, so "Choose Timed" would point at a third
+            // option nobody asked about. The second half — Points is the
+            // answer for calling a finish by eye — is identical either way.
+            expect(note).toContain(OTHER_TIME_BASED_WORDING);
+            expect(note).toContain('Judging finish order by eye? Choose Points.');
+            expect(note).not.toContain(TIMED_WORDING);
+        }
     });
 
     it('says nothing for Points on a no-timer track — that combination already works', () => {
         expect(scoringNeedsATimerNote('POINTS', 'NONE')).toBeNull();
     });
 
-    it('says nothing for Timed scoring once a track with a real timer is chosen', () => {
-        expect(scoringNeedsATimerNote('TIMED', 'FAKE')).toBeNull();
-        expect(scoringNeedsATimerNote('TIMED', 'AUTO_DETECT_BACKEND')).toBeNull();
-        expect(scoringNeedsATimerNote('TIMED', 'AUTO_DETECT_PROXY')).toBeNull();
-    });
-
-    it('says nothing for the other two time-based strategies, which always type a time by hand', () => {
-        expect(scoringNeedsATimerNote('CUMULATIVE_TIME', 'NONE')).toBeNull();
-        expect(scoringNeedsATimerNote('FASTEST_TIME', 'NONE')).toBeNull();
+    it('says nothing for any time-based strategy once a track with a real timer is chosen', () => {
+        for (const strategy of ['TIMED', 'CUMULATIVE_TIME', 'FASTEST_TIME']) {
+            expect(scoringNeedsATimerNote(strategy, 'FAKE')).toBeNull();
+            expect(scoringNeedsATimerNote(strategy, 'AUTO_DETECT_BACKEND')).toBeNull();
+            expect(scoringNeedsATimerNote(strategy, 'AUTO_DETECT_PROXY')).toBeNull();
+        }
     });
 
     it('says nothing once no track is selected yet, or the track query has not answered', () => {
-        expect(scoringNeedsATimerNote('TIMED', null)).toBeNull();
-        expect(scoringNeedsATimerNote('TIMED', undefined)).toBeNull();
+        for (const strategy of ['TIMED', 'CUMULATIVE_TIME', 'FASTEST_TIME']) {
+            expect(scoringNeedsATimerNote(strategy, null)).toBeNull();
+            expect(scoringNeedsATimerNote(strategy, undefined)).toBeNull();
+        }
     });
 });

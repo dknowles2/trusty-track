@@ -223,4 +223,32 @@ describe('the no-timer note (#1324)', () => {
         expect(fastestRow).toHaveTextContent(/won.t fire for this race/i);
         expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
     });
+
+    it('also shows the note for Cumulative time on a no-timer track — it shares Timed\'s missing-Place-column gap', async () => {
+        // #1324 review: a first version fired only for Timed. Cumulative
+        // time and Fastest single run are exactly as time-based
+        // (`isTimeBasedStrategy`) and hit the identical Enter Results
+        // shape, so a no-timer pack that lands on either finds no way to
+        // record a finishing order either — with no signpost, before this.
+        tracksQuery('NONE');
+        form(submitSpy());
+
+        await userEvent.click(screen.getByLabelText(/^Cumulative time \(total\)/));
+
+        expect(screen.getByText(NOTE)).toBeInTheDocument();
+        // Not the Timed-specific half of the wording — the operator is
+        // already on a time-based strategy, so "Choose Timed" would point
+        // at a third option nobody asked about.
+        expect(screen.getByText(NOTE)).not.toHaveTextContent(/choose timed/i);
+        expect(screen.getByText(NOTE)).toHaveTextContent(/judging finish order by eye\? choose points\./i);
+    });
+
+    it('and for Fastest single run on a no-timer track', async () => {
+        tracksQuery('NONE');
+        form(submitSpy());
+
+        await userEvent.click(screen.getByLabelText(/^Fastest single run/));
+
+        expect(screen.getByText(NOTE)).toBeInTheDocument();
+    });
 });

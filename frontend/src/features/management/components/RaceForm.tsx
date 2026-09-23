@@ -326,6 +326,11 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         (track: { id: number; timerType?: string | null }) => track.id === trackId,
     )?.timerType;
 
+    // Computed once per render rather than at each of its two call sites in
+    // the Scoring fieldset below (#1324 review) — same value either way,
+    // since neither is inside a loop over a changing option.
+    const noTimerScoringNote = scoringNeedsATimerNote(formData.scoring_strategy, trackTimerType);
+
     const handleChange = (field: keyof RaceFormData, value: string | number) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
@@ -627,23 +632,26 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                 <FieldHelp id="race-scoring-strategy-help" as="small" style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: '0.6rem' }} docs="scoring-methods">
                                     Which method fits depends on your timer and how you want ties handled.
                                 </FieldHelp>
-                                {/* #1324: Timed's Enter Results modal takes a hand-typed
-                                    time — a real timer supplies it, and so does a
-                                    volunteer with a stopwatch, but a pack with no timing
-                                    device at all needs Points instead, to type a
+                                {/* #1324: every time-based strategy's Enter Results modal
+                                    takes a hand-typed time — a real timer supplies it, and
+                                    so does a volunteer with a stopwatch, but a pack with no
+                                    timing device at all needs Points instead, to type a
                                     finishing order. Same warning-slot mechanism Ties uses
                                     below, reused here for the Scoring choice itself; see
-                                    `scoringNeedsATimerNote`'s own docstring for why it is
-                                    a separate predicate from `tiebreakerWontFire`. One
-                                    call site reaches the setup wizard too, since its
-                                    Details step is this form in create mode. */}
-                                {scoringNeedsATimerNote(formData.scoring_strategy, trackTimerType) && (
+                                    `scoringNeedsATimerNote`'s own docstring for why it is a
+                                    separate predicate from `tiebreakerWontFire`, and why it
+                                    covers Cumulative time and Fastest single run alongside
+                                    Timed rather than just the one the issue's own
+                                    reproduction named. One call site reaches the setup
+                                    wizard too, since its Details step is this form in
+                                    create mode. */}
+                                {noTimerScoringNote && (
                                     <FieldHelp
                                         id="race-scoring-no-timer-note"
                                         as="small"
                                         style={{ color: 'var(--warning-soft-color)', display: 'block', marginBottom: '0.6rem' }}
                                     >
-                                        {scoringNeedsATimerNote(formData.scoring_strategy, trackTimerType)}
+                                        {noTimerScoringNote}
                                     </FieldHelp>
                                 )}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>

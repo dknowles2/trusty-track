@@ -657,4 +657,24 @@ describe('the no-timer scoring note on the Details step (#1324)', () => {
 
         expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
     });
+
+    it('also shows once Cumulative time is chosen on a no-timer track — review finding: not just Timed', async () => {
+        // A first version of `scoringNeedsATimerNote` fired only for
+        // `=== TIMED`, missing that Cumulative time and Fastest single run
+        // share the identical missing-Place-column gap. Pinned here too,
+        // not only against the predicate directly, since this is the
+        // wizard's own Details step reaching the same call site RaceForm's
+        // edit mode uses.
+        mockQueries({ tracks: [{ id: 7, name: 'Main Track', timerType: 'NONE' }] });
+        renderWizard();
+
+        await next();
+        await next();
+        expect(screen.getByLabelText('Event Name')).toBeInTheDocument();
+
+        await userEvent.click(screen.getByLabelText(/^Cumulative time \(total\)/));
+
+        expect(screen.getByText(NOTE)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Create Race' })).toBeEnabled();
+    });
 });

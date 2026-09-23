@@ -14,6 +14,7 @@
  * doing is in `RaceForm.tsx`. Same split as `raceFlow.ts`.
  */
 
+import { isTimeBasedStrategy } from '../racing/lanes';
 import { TIMED } from '../stats/scoringStrategyText';
 
 export type RaceSectionId =
@@ -218,34 +219,55 @@ export function firstProblem(race: RaceForValidation): RaceProblem | null {
  * strategy and the track's own timer disagree about how a result gets
  * entered (#1324).
  *
- * `TIMED`'s Enter Results modal asks for a time only
- * (`showsPlaceColumn`/`shouldDerivePlaces` in `features/racing/lanes.ts`) —
- * a real timer supplies it, and a volunteer with a stopwatch can still type
- * one by hand, so `TIMED` on a `NONE`-timer track is a legitimate pairing,
- * not a bug. What is missing is anyone telling the *other* population that
- * shares the same track setting: a pack with no timing device of any kind,
- * who mean to call the finish by eye. They need `POINTS` instead, and
- * nothing said so until they opened their first heat's Enter Results and
- * found no way to type an order at all. `POINTS` (and the two other
- * time-based strategies, which always take a hand-typed time regardless of
- * the track) has no equivalent gap, so this is stated as narrowly as the
- * bug it names — `TIMED` and `NONE`, nothing broader.
+ * Every time-based strategy's Enter Results modal asks for a time only
+ * (`showsPlaceColumn`/`shouldDerivePlaces`, which both key off
+ * `isTimeBasedStrategy` in `features/racing/lanes.ts`) — a real timer
+ * supplies it, and a volunteer with a stopwatch can still type one by hand,
+ * so any of `TIMED`/`CUMULATIVE_TIME`/`FASTEST_TIME` on a `NONE`-timer
+ * track is a legitimate pairing, not a bug on its own. What is missing is
+ * anyone telling the *other* population that shares the same track
+ * setting: a pack with no timing device of any kind, who mean to call the
+ * finish by eye. They need `POINTS` instead, and nothing said so until
+ * they opened their first heat's Enter Results and found no way to type an
+ * order at all.
+ *
+ * A first version of this predicate fired only for `TIMED` — the one case
+ * the issue's own reproduction walks through — but `isTimeBasedStrategy`'s
+ * own docstring already says why that undercounts: `CUMULATIVE_TIME` and
+ * `FASTEST_TIME` (#547) are exactly as time-based as `TIMED`, share the
+ * identical Enter Results shape, and a no-timer pack that lands on either
+ * one hits the same missing-Place-column trap with no signpost at all.
+ * Narrowing to `=== TIMED` is the "not spelled out at each call site"
+ * mistake that docstring warns against, reintroduced one level up. `POINTS`
+ * is the only strategy with no gap here, so the condition below is
+ * `isTimeBasedStrategy`, not a re-derived `!== 'POINTS'` and not a literal
+ * `=== TIMED`.
+ *
+ * The wording still splits on `TIMED` specifically, though: "Timing by
+ * stopwatch? Choose Timed." reads correctly only when Timed is not already
+ * the race's own choice. Under Cumulative time or Fastest single run the
+ * operator has already chosen a time-based strategy, so the note says the
+ * chosen method still works with a stopwatch rather than pointing at a
+ * third strategy nobody asked about — the second half, "Judging finish
+ * order by eye? Choose Points.", is identical either way, since Points is
+ * the one answer for calling a finish by eye regardless of which
+ * time-based strategy was current.
  *
  * Deliberately a separate predicate from `tiebreakerWontFire`
  * (`features/stats/tiebreakText.ts`), not a case folded into it: that one
  * says why a *tiebreak method* can't settle a tie (a question about
  * `Race.tiebreaker`); this one says why the *scoring strategy itself*
  * leaves no way to record a result at all (a question about
- * `Race.scoringStrategy`). Extending `tiebreakerWontFire` to also flag
- * `TIMED` + `NONE` would be wrong, not merely a different topic — under
- * `TIMED`, a no-timer track's results are real, hand-typed elapsed times,
- * so `BEST_TIME`/`TOTAL_TIME` can genuinely compare them; only the
- * `POINTS` + `NONE` combination that predicate already flags ever leaves
- * no time on record. What the two predicates share is the *mechanism* — a
- * short note computed live from this race's own scoring and the selected
- * track's timer, shown beside the relevant control rather than left for
- * the operator to discover on race day — reused here for a different
- * question, in the same Scoring section.
+ * `Race.scoringStrategy`). Extending `tiebreakerWontFire` to also flag a
+ * time-based strategy plus `NONE` would be wrong, not merely a different
+ * topic — under any of the three, a no-timer track's results are real,
+ * hand-typed elapsed times, so `BEST_TIME`/`TOTAL_TIME` can genuinely
+ * compare them; only the `POINTS` + `NONE` combination that predicate
+ * already flags ever leaves no time on record. What the two predicates
+ * share is the *mechanism* — a short note computed live from this race's
+ * own scoring and the selected track's timer, shown beside the relevant
+ * control rather than left for the operator to discover on race day —
+ * reused here for a different question, in the same Scoring section.
  *
  * One function serves both signposts the issue asks for, because both are
  * the same combination of facts: the setup wizard's Details step *is*
@@ -259,8 +281,10 @@ export function scoringNeedsATimerNote(
     scoringStrategy: string,
     trackTimerType: string | null | undefined,
 ): string | null {
-    if (scoringStrategy === TIMED && trackTimerType === 'NONE') {
-        return "This track has no electronic timer. Timing by stopwatch? Choose Timed. Judging finish order by eye? Choose Points.";
+    if (trackTimerType !== 'NONE' || !isTimeBasedStrategy(scoringStrategy)) {
+        return null;
     }
-    return null;
+    return scoringStrategy === TIMED
+        ? 'This track has no electronic timer. Timing by stopwatch? Choose Timed. Judging finish order by eye? Choose Points.'
+        : 'This track has no electronic timer. Timing by stopwatch? This method still works. Judging finish order by eye? Choose Points.';
 }
