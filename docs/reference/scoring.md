@@ -41,7 +41,12 @@ somebody at the finish line calls the order, and types it straight into
 Override/Edit on the Race screen — see
 [Race and Track Settings](race-settings.md#no-timer) for setting a track up
 with no timer at all, which makes that the main way results get recorded
-rather than a fallback.
+rather than a fallback. Choosing a method that scores from a time
+instead — **Timed**, **Cumulative time** or **Fastest single run** — is
+right only for a volunteer typing a stopwatch reading by hand: for a pack
+with no timing device at all, calling the finish by eye, any of the three
+leaves no **Place** column to enter an order into, and the race form says
+so at the moment one is chosen ([#1324](https://github.com/dknowles2/trusty-track/issues/1324)).
 
 Because points are a total, a car with fewer counted heats gets a *better*
 score. Every rule below exists to stop a missing heat from becoming a

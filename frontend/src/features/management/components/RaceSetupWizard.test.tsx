@@ -103,6 +103,11 @@ function mockQueries({
     installDefault = DEFAULT_TERMINOLOGY,
     sourceAwards = lastYear.awards,
     sourceRoundPlan = lastYear.roundPlan,
+    tracks = [{ id: 7, name: 'Main Track', timerType: 'FAKE' }] as Array<{
+        id: number;
+        name: string;
+        timerType?: string | null;
+    }>,
 } = {}) {
     const source = { ...lastYear, awards: sourceAwards, roundPlan: sourceRoundPlan };
     vi.mocked(useQuery).mockImplementation(((args: { query: { definitions: Array<{ name?: { value: string } }> }; pause?: boolean }) => {
@@ -116,7 +121,7 @@ function mockQueries({
                 vi.fn(),
             ];
         }
-        return [{ data: { tracks: [{ id: 7, name: 'Main Track' }] }, fetching: false, stale: false }, vi.fn()];
+        return [{ data: { tracks }, fetching: false, stale: false }, vi.fn()];
     }) as never);
 }
 
@@ -614,5 +619,62 @@ describe('copying the round plan (#1088)', () => {
         await next();
 
         expect(screen.queryByTestId('setup-round-plan')).toBeNull();
+    });
+});
+
+describe('the no-timer scoring note on the Details step (#1324)', () => {
+    // The Details step *is* `RaceForm` in its flat create mode
+    // (`.claude/rules/roster.md`'s "The race setup wizard"), so this note
+    // reaches the wizard through the same call site the edit form uses —
+    // see `RaceFormScoring.test.tsx`'s own coverage of that predicate.
+    // What is worth pinning here, separately, is that arriving at this
+    // step is purely informational: the default scoring strategy is
+    // unchanged and Create Race stays enabled.
+    const NOTE = /no electronic timer/i;
+
+    it('shows the note once a no-timer track is the only one available', async () => {
+        mockQueries({ tracks: [{ id: 7, name: 'Main Track', timerType: 'NONE' }] });
+        renderWizard();
+
+        await next();
+        await next();
+        expect(screen.getByLabelText('Event Name')).toBeInTheDocument();
+
+        expect(screen.getByText(NOTE)).toBeInTheDocument();
+        // Informing, not defaulting: Timed is still the untouched default,
+        // and Create Race is not disabled by the note's presence.
+        expect(screen.getByLabelText(/^Timed \(average\)/)).toBeChecked();
+        expect(screen.getByRole('button', { name: 'Create Race' })).toBeEnabled();
+    });
+
+    it('says nothing once the track has a real timer', async () => {
+        mockQueries({ tracks: [{ id: 7, name: 'Main Track', timerType: 'FAKE' }] });
+        renderWizard();
+
+        await next();
+        await next();
+        expect(screen.getByLabelText('Event Name')).toBeInTheDocument();
+
+        expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+    });
+
+    it('also shows once Cumulative time is chosen on a no-timer track — review finding: not just Timed', async () => {
+        // A first version of `scoringNeedsATimerNote` fired only for
+        // `=== TIMED`, missing that Cumulative time and Fastest single run
+        // share the identical missing-Place-column gap. Pinned here too,
+        // not only against the predicate directly, since this is the
+        // wizard's own Details step reaching the same call site RaceForm's
+        // edit mode uses.
+        mockQueries({ tracks: [{ id: 7, name: 'Main Track', timerType: 'NONE' }] });
+        renderWizard();
+
+        await next();
+        await next();
+        expect(screen.getByLabelText('Event Name')).toBeInTheDocument();
+
+        await userEvent.click(screen.getByLabelText(/^Cumulative time \(total\)/));
+
+        expect(screen.getByText(NOTE)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Create Race' })).toBeEnabled();
     });
 });

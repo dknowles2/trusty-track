@@ -22,9 +22,9 @@ vi.mock('urql', async (importOriginal) => {
 import { useQuery } from 'urql';
 import RaceForm, { RaceFormData } from './RaceForm';
 
-const tracksQuery = () => {
+const tracksQuery = (timerType: string = 'FAKE') => {
     vi.mocked(useQuery).mockReturnValue([
-        { data: { tracks: [{ id: 1, name: 'Main Track', timerType: 'FAKE' }] }, fetching: false, stale: false },
+        { data: { tracks: [{ id: 1, name: 'Main Track', timerType }] }, fetching: false, stale: false },
         vi.fn(),
     ] as never);
 };
@@ -151,5 +151,104 @@ describe('the drop-worst-runs control', () => {
         await userEvent.clear(input);
 
         expect(input).toHaveValue(0);
+    });
+});
+
+describe('the no-timer note (#1324)', () => {
+    // Timed's Enter Results modal takes a hand-typed time only
+    // (`showsPlaceColumn` in `RaceExecution.tsx`) — with no track timer at
+    // all there is no way to record a finishing order, and nothing said so
+    // until the first heat. `scoringNeedsATimerNote` is the predicate;
+    // this is the same note reached through `RaceForm`, for both a race
+    // being created (which is what the setup wizard's Details step is) and
+    // one being edited.
+    const NOTE = /no electronic timer/i;
+
+    it('shows the note for a Timed race on a track with no timer — the default scoring strategy', () => {
+        tracksQuery('NONE');
+        form(submitSpy());
+
+        expect(screen.getByLabelText(/^Timed \(average\)/)).toBeChecked();
+        expect(screen.getByText(NOTE)).toBeInTheDocument();
+    });
+
+    it('says nothing once a track with a real timer is selected', () => {
+        tracksQuery('FAKE');
+        form(submitSpy());
+
+        expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+    });
+
+    it('says nothing once Points is chosen — that combination already works', async () => {
+        tracksQuery('NONE');
+        form(submitSpy());
+
+        await userEvent.click(screen.getByLabelText(/^Points \(by finish\)/));
+
+        expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+    });
+
+    it('reappears switching back to Timed', async () => {
+        tracksQuery('NONE');
+        form(submitSpy());
+
+        await userEvent.click(screen.getByLabelText(/^Points \(by finish\)/));
+        await userEvent.click(screen.getByLabelText(/^Timed \(average\)/));
+
+        expect(screen.getByText(NOTE)).toBeInTheDocument();
+    });
+
+    it('appears when editing an existing Timed race whose track has no timer — the same signpost, not only at creation', () => {
+        // The issue's own reason for putting this in the edit form too: a
+        // race can be edited after creation, or its track's timer type can
+        // change later. Neither is the moment the race was first set up.
+        tracksQuery('NONE');
+        form(submitSpy(), { name: 'Existing Derby', track_id: 1, scoring_strategy: 'TIMED' });
+
+        expect(screen.getByText(NOTE)).toBeInTheDocument();
+    });
+
+    it('the existing Points + no-timer tiebreaker warning still fires alongside it', async () => {
+        // Guards against the two predicates (`scoringNeedsATimerNote` and
+        // `tiebreakerWontFire`) contradicting or duplicating one another —
+        // this one is genuinely a different question (can the scoring
+        // strategy record a result at all vs. can a tiebreak method settle
+        // a tie) and both can legitimately be on screen together.
+        tracksQuery('NONE');
+        form(submitSpy());
+
+        await userEvent.click(screen.getByLabelText(/^Points \(by finish\)/));
+
+        const fastestRow = screen.getByLabelText(/^Fastest single heat/).closest('label')!;
+        expect(fastestRow).toHaveTextContent(/won.t fire for this race/i);
+        expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+    });
+
+    it('also shows the note for Cumulative time on a no-timer track — it shares Timed\'s missing-Place-column gap', async () => {
+        // #1324 review: a first version fired only for Timed. Cumulative
+        // time and Fastest single run are exactly as time-based
+        // (`isTimeBasedStrategy`) and hit the identical Enter Results
+        // shape, so a no-timer pack that lands on either finds no way to
+        // record a finishing order either — with no signpost, before this.
+        tracksQuery('NONE');
+        form(submitSpy());
+
+        await userEvent.click(screen.getByLabelText(/^Cumulative time \(total\)/));
+
+        expect(screen.getByText(NOTE)).toBeInTheDocument();
+        // Not the Timed-specific half of the wording — the operator is
+        // already on a time-based strategy, so "Choose Timed" would point
+        // at a third option nobody asked about.
+        expect(screen.getByText(NOTE)).not.toHaveTextContent(/choose timed/i);
+        expect(screen.getByText(NOTE)).toHaveTextContent(/judging finish order by eye\? choose points\./i);
+    });
+
+    it('and for Fastest single run on a no-timer track', async () => {
+        tracksQuery('NONE');
+        form(submitSpy());
+
+        await userEvent.click(screen.getByLabelText(/^Fastest single run/));
+
+        expect(screen.getByText(NOTE)).toBeInTheDocument();
     });
 });
