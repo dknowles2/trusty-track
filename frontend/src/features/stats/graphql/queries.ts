@@ -20,6 +20,7 @@ export const GET_RACE_STATS = gql`
       heatResults { roundName heatNumber globalHeatNumber lane carNumber racerFirstName racerLastName time place }
       trackRecords { timeSeconds racerName carNumber raceId raceName raceDate }
       topScaleMph
+      hasRecordedTimes
     }
   }
 `;

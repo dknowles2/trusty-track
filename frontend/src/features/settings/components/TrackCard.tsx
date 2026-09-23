@@ -56,6 +56,7 @@ import { lanesOf } from '../laneOutages';
 import { colorForLane, presetColors, presetForLaneCount, presetNameForColor, setLaneColor } from '../laneColors';
 import { TIMER_TYPE_LABELS } from '../timerTypeText';
 import DocsLink from '../../../components/ui/DocsLink';
+import { scaleSpeedNeedsATimerNote } from '../../observation/scaleSpeed';
 
 export interface TrackFields {
   // Absent until the track has been saved, which is also when it can first
@@ -159,6 +160,10 @@ export default function TrackCard({
 }: Props) {
   const { vehicleLower } = useTerminology();
   const chosen = timerModels.find((m) => m.key === track.timerProfile);
+  // #1329 gap 3: informational only, never disables the checkbox below —
+  // see `scaleSpeedNeedsATimerNote`'s own docstring for why this can't be
+  // gated on a race's scoring strategy the way #1324's sibling note is.
+  const noTimerScaleSpeedNote = scaleSpeedNeedsATimerNote(track.timerType);
   // Hidden on the demo, following `displayView.viewOptionsFor`'s rule for
   // the awards view: an option that can only disappoint is worse than one
   // that is absent. But kept when it is *already* this track's own value —
@@ -391,6 +396,14 @@ export default function TrackCard({
           Converts a heat&apos;s time into a real-world speed, shown beside the recorded
           time. A track with no length recorded shows no speed, whatever this says.
         </small>
+        {noTimerScaleSpeedNote && (
+          <small
+            id={`track-scale-speed-no-timer-note-${index}`}
+            style={{ color: 'var(--warning-soft-color)', display: 'block', marginTop: '0.25rem' }}
+          >
+            {noTimerScaleSpeedNote}
+          </small>
+        )}
         {track.showScaleSpeed && (
           <div style={{ marginTop: '0.75rem' }}>
             <label htmlFor={`track-scale-ratio-${index}`} style={fieldLabel}>

@@ -1803,6 +1803,15 @@ class RaceStats:
     #: `TimingStatsLane.scaleMph` — the track's scale speed turned off, no
     #: configured length, or no heat has finished yet to be fastest.
     top_scale_mph: float | None
+    #: Whether this race has ever recorded a time on any official heat
+    #: (#1329) — `backend.domain.scoring.has_any_recorded_time`, over every
+    #: lane this payload's own heats cover. A pure `POINTS` race with no
+    #: timer at all is a supported configuration (see `.claude/rules/
+    #: scoring.md`), and this is the one fact the Stats page (Lane
+    #: Fairness, Top Moments) and the Displays panel (`Race.hasRecordedTimes`
+    #: — the same predicate, the same loader) both ask rather than each
+    #: guessing from a different signal.
+    has_recorded_times: bool
 
 
 @strawberry.type
@@ -2561,6 +2570,16 @@ class Race:
         `.claude/rules/roster.md`'s "The Home page race list".
         """
         return _loaders(info).race_status_for_race(self.id)
+
+    @strawberry.field
+    def has_recorded_times(self, info: Info) -> bool:
+        """Whether this race has ever recorded a time on any official heat
+        (#1329) — the same predicate and the same loader `RaceStats.
+        hasRecordedTimes` reads, exposed here too since the Displays panel
+        does not query `raceStats` at all. See `RequestLoaders.
+        has_recorded_time_for_race`.
+        """
+        return _loaders(info).has_recorded_time_for_race(self.id)
 
     @strawberry.field
     def racing_groups(self, info: Info) -> list[RacingGroup]:
@@ -4374,6 +4393,7 @@ class Query:
             heat_results=[HeatResultRow(**hr) for hr in data["heat_results"]],
             track_records=[TrackRecord(**tr) for tr in data["track_records"]],
             top_scale_mph=data["top_scale_mph"],
+            has_recorded_times=_loaders(info).has_recorded_time_for_race(race_id),
         )
 
 

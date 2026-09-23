@@ -450,10 +450,13 @@ describe('viewHasStandingsTickerToggle', () => {
 });
 
 describe('viewOptionsFor', () => {
-    const views = (hasAwards: boolean, current: Parameters<typeof viewOptionsFor>[1]) =>
-        viewOptionsFor(hasAwards, current).map((o) => o.view);
+    const views = (
+        hasAwards: boolean,
+        current: Parameters<typeof viewOptionsFor>[1],
+        hasRecordedTimes = true,
+    ) => viewOptionsFor(hasAwards, current, hasRecordedTimes).map((o) => o.view);
 
-    it('offers everything to a race with awards', () => {
+    it('offers everything to a race with awards and recorded times', () => {
         expect(views(true, 'STANDINGS')).toEqual(VIEW_OPTIONS.map((o) => o.view));
     });
 
@@ -471,6 +474,44 @@ describe('viewOptionsFor', () => {
         // Deleting the last award while a ceremony is up. A row whose current
         // view is missing from its own list shows nothing as chosen.
         expect(views(false, 'AWARDS')).toContain('AWARDS');
+    });
+
+    it('leaves last heat\'s times and cycle out of a race with no recorded time (#1329)', () => {
+        expect(views(true, 'STANDINGS', false)).not.toContain('TIMING');
+        expect(views(true, 'STANDINGS', false)).not.toContain('CYCLE');
+    });
+
+    it('drops nothing else for that race', () => {
+        expect(views(true, 'STANDINGS', false)).toEqual(
+            VIEW_OPTIONS.filter((o) => o.view !== 'TIMING' && o.view !== 'CYCLE').map(
+                (o) => o.view,
+            ),
+        );
+    });
+
+    it('keeps last heat\'s times for a screen already showing it', () => {
+        expect(views(true, 'TIMING', false)).toContain('TIMING');
+        // Its sibling CYCLE is still absent — the exception is per current
+        // view, not "any time-dependent view is currently up".
+        expect(views(true, 'TIMING', false)).not.toContain('CYCLE');
+    });
+
+    it('keeps cycle for a screen already showing it', () => {
+        expect(views(true, 'CYCLE', false)).toContain('CYCLE');
+        expect(views(true, 'CYCLE', false)).not.toContain('TIMING');
+    });
+
+    it('offers both back once the race has a recorded time', () => {
+        expect(views(true, 'STANDINGS', true)).toContain('TIMING');
+        expect(views(true, 'STANDINGS', true)).toContain('CYCLE');
+    });
+
+    it('composes with the awards gate — both can be absent at once', () => {
+        expect(views(false, 'STANDINGS', false)).toEqual(
+            VIEW_OPTIONS.filter(
+                (o) => o.view !== 'AWARDS' && o.view !== 'TIMING' && o.view !== 'CYCLE',
+            ).map((o) => o.view),
+        );
     });
 
     it('offers standings-only unconditionally, unlike the ceremony', () => {
@@ -539,6 +580,28 @@ describe('groupedViewOptions (#948)', () => {
             'STANDINGS',
             'TIMING',
             'CYCLE',
+            'PROJECTOR',
+            'OVERLAY',
+        ]);
+    });
+
+    it('"During racing" survives losing two of its three time-dependent entries (#1329)', () => {
+        // TIMING and CYCLE dropped by viewOptionsFor for a race with no
+        // recorded time — the group itself must not vanish, since STANDINGS,
+        // PROJECTOR and OVERLAY are all still offered unconditionally.
+        const withoutTimes = VIEW_OPTIONS.filter(
+            (o) => o.view !== 'TIMING' && o.view !== 'CYCLE',
+        );
+        const grouped = groupedViewOptions(withoutTimes);
+        expect(grouped.map((g) => g.group)).toEqual([
+            'During racing',
+            'Between heats',
+            'Before racing',
+            'After',
+        ]);
+        const duringRacing = grouped.find((g) => g.group === 'During racing');
+        expect(duringRacing?.options.map((o) => o.view)).toEqual([
+            'STANDINGS',
             'PROJECTOR',
             'OVERLAY',
         ]);

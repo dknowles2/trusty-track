@@ -25,6 +25,10 @@ A difference under 1% is completely normal. Bigger is worth noting for
 track maintenance. The numbers mean most after a full
 everyone-in-every-lane round, where every car has run every lane.
 
+A race scored purely by finishing place — [Points](scoring.md#points), on a
+track with no electronic timer — never has a time to compare, so this section
+says so instead of showing a chart of dashes.
+
 ### Per-racer stats
 
 The section heading shows how many of the roster have raced so far
@@ -47,6 +51,11 @@ count once everyone has run at least one heat.
   turned on, a "Top scale speed" line underneath converts that time into a
   rough real-world MPH.
 - **Closest Race** — the heat with the smallest gap between first and last.
+
+Both are worked out from recorded times, so a race scored purely by
+finishing place ([Points](scoring.md#points), on a track with no electronic
+timer) has neither — this section says it needs recorded times rather than
+staying silently empty.
 
 ### Dens comparison
 

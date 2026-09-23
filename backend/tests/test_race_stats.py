@@ -158,6 +158,7 @@ query GetRaceStats($raceId: Int!) {
     heatResults {
       roundName heatNumber lane carNumber racerFirstName racerLastName time place
     }
+    hasRecordedTimes
   }
 }
 """
@@ -521,3 +522,41 @@ def test_racing_group_stats_still_uses_ordinary_heats_alongside_elimination(clie
         # Had the elimination heat's 9.999s times leaked in, every den's
         # average would be dragged well above 4.1s.
         assert group_stats["avgScore"] < 5.0
+
+
+def test_a_heat_recorded_by_place_alone_counts_as_completed(client, db):
+    """#1329. A pure `POINTS` race entered entirely by hand — a place on
+    every lane, never a time — used to leave `totalHeatsCompleted` at 0
+    forever, since the old check asked only `time is not None`. It should
+    count exactly like a timed heat does.
+    """
+    race_id, racer_ids, _racing_group_ids = _setup_race(client, db)
+    heats = _create_round_and_get_heats(client, race_id)
+    heat_id = heats[0]["id"]
+
+    _record_heat_result(
+        client,
+        heat_id,
+        [
+            {"lane": 1, "racer_id": racer_ids[0], "place": 1},
+            {"lane": 2, "racer_id": racer_ids[1], "place": 2},
+            {"lane": 3, "racer_id": racer_ids[2], "place": 3},
+            {"lane": 4, "racer_id": racer_ids[3], "place": 4},
+        ],
+    )
+
+    resp = client.post(
+        "/graphql", json={"query": RACE_STATS_QUERY, "variables": {"raceId": race_id}}
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]["raceStats"]
+
+    assert data["totalHeatsCompleted"] == 1
+    # `racerStats` (Min/Avg/Max/Std Dev) stays empty here — every one of
+    # those is a time statistic, and no time was ever recorded. That table
+    # is not one of #1329's four named gaps and is left alone; this test is
+    # only about the `totalHeatsCompleted` counter that gates whether the
+    # results section renders at all.
+    assert data["racerStats"] == []
+    # No time was ever recorded — that half of #1329's own predicate.
+    assert data["hasRecordedTimes"] is False

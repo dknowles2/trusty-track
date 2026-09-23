@@ -148,8 +148,20 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
             if racer_id:
                 racer_heat_counts[racer_id] = racer_heat_counts.get(racer_id, 0) + 1
 
-        # A heat is "completed" if at least one racer has a recorded time
-        has_result = any(r["time"] is not None for r in results if r["racer_id"])
+        # A heat is "completed" if at least one racer has a recorded result —
+        # a time, *or* a hand-entered place (#1329). This used to read only
+        # `r["time"] is not None`, which is `domain.lanes.Lane.has_result`'s
+        # own rule minus its `place` half (see that property's docstring for
+        # why #490 broadened it) — a second, narrower copy of the same
+        # question, and it disagreed: a pure `POINTS` race entered entirely
+        # by hand (never a time on any lane) never counted a single heat as
+        # completed, so `totalHeatsCompleted` stayed `0` and every section
+        # below this loop — not just Lane Fairness and Top Moments — sat
+        # behind "No heat results recorded yet" for a race that was fully
+        # raced. `parsed` is already a `domain.lanes.Lane` (`crud.
+        # lanes_for_heats`), so this reads its own canonical property rather
+        # than re-deriving the rule a second way.
+        has_result = any(parsed.has_result for parsed in heat_lanes if parsed.racer_id)
         if not has_result:
             continue
 

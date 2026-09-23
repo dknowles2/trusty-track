@@ -113,6 +113,29 @@ query($id: Int!) {
 }
 """
 
+# `Race.hasRecordedTimes` (#1329) reads off the same per-race
+# `heats_for_race`/`lane_values_for_heat` batches the page's own `heats {
+# lanes {...} }` selection already primes — asking for it too must not
+# cost an extra query.
+RACE_CONTROL_WITH_HAS_RECORDED_TIMES_QUERY = RACE_CONTROL_QUERY.replace(
+    "    rounds {",
+    "    hasRecordedTimes\n    rounds {",
+)
+
+# The Displays panel's own query shape (`RACE_AWARD_COUNT_QUERY`,
+# `frontend/src/features/observation/graphql/queries.ts`) — it does not
+# select `heats`/`lanes` at all, so `hasRecordedTimes` here is the query's
+# *only* reason to touch a heat or a lane.
+DISPLAYS_PANEL_HAS_RECORDED_TIMES_QUERY = """
+query($id: Int!) {
+  race(raceId: $id) {
+    id
+    hasRecordedTimes
+    awards { id }
+  }
+}
+"""
+
 
 class _QueryCounter:
     """Count SQL statements issued during a block."""
@@ -417,6 +440,89 @@ def test_round_plan_costs_no_extra_query(client, populated_race):
         f"Asking for roundPlan cost {with_plan.count} queries against "
         f"{without_plan.count} without it; it should read off the same "
         f"per-race rounds batch rather than issuing its own query."
+    )
+
+
+def test_has_recorded_times_costs_no_extra_query(client, populated_race):
+    """`Race.hasRecordedTimes` (#1329) reads off the same per-race
+    heats/lanes batches the rest of the page already loads — asking for it
+    alongside `heats { lanes {...} }` must cost the same as asking for the
+    page without it."""
+    with _QueryCounter() as without_field:
+        _run(client, RACE_CONTROL_QUERY, populated_race.id)
+    with _QueryCounter() as with_field:
+        body = _run(
+            client, RACE_CONTROL_WITH_HAS_RECORDED_TIMES_QUERY, populated_race.id
+        )
+
+    assert body["data"]["race"]["hasRecordedTimes"] is True
+    assert with_field.count <= without_field.count + 1, (
+        f"Asking for hasRecordedTimes cost {with_field.count} queries "
+        f"against {without_field.count} without it — it should read off "
+        f"the same per-race heats/lanes batches rather than issuing its "
+        f"own query."
+    )
+
+
+def test_has_recorded_times_does_not_scale_with_heat_count(client, db):
+    """The Displays panel's own query never selects `heats`/`lanes` at all
+    (`RACE_AWARD_COUNT_QUERY`), so `hasRecordedTimes` is what first primes
+    those batches for it — bounded by a fixed number of queries however
+    many heats the race actually has, not one per heat."""
+
+    def _build_race(heat_count: int) -> int:
+        group = crud.create_organization(
+            db, schemas.OrganizationCreate(name=f"HRT Pack {heat_count}")
+        )
+        track = crud.create_track(
+            db,
+            schemas.TrackCreate(
+                name=f"HRT Track {heat_count}", lane_count=4, timer_type="FAKE"
+            ),
+        )
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name=f"HRT Race {heat_count}",
+                organization_id=group.id,
+                track_id=track.id,
+            ),
+        )
+        racer = models.Racer(
+            race_id=race.id, first_name="A", last_name="B", car_passed_inspection=True
+        )
+        db.add(racer)
+        db.commit()
+        round_obj = crud.create_round(db, race_id=race.id, round_number=1)
+        for heat_number in range(1, heat_count + 1):
+            heat = models.Heat(
+                race_id=race.id, round_id=round_obj.id, heat_number=heat_number
+            )
+            crud.set_heat_lanes(
+                heat,
+                [domain_lanes.Lane(lane=1, racer_id=racer.id, time=3.5, place=1)],
+            )
+            db.add(heat)
+        db.commit()
+        return race.id
+
+    small_race_id = _build_race(3)
+    large_race_id = _build_race(45)
+
+    with _QueryCounter() as small:
+        body_small = _run(
+            client, DISPLAYS_PANEL_HAS_RECORDED_TIMES_QUERY, small_race_id
+        )
+    with _QueryCounter() as large:
+        body_large = _run(
+            client, DISPLAYS_PANEL_HAS_RECORDED_TIMES_QUERY, large_race_id
+        )
+
+    assert body_small["data"]["race"]["hasRecordedTimes"] is True
+    assert body_large["data"]["race"]["hasRecordedTimes"] is True
+    assert small.count == large.count, (
+        f"3 heats cost {small.count} queries, 45 heats cost {large.count} — "
+        f"hasRecordedTimes must not scale with heat count."
     )
 
 

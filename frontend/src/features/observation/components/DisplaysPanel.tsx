@@ -146,6 +146,9 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
         requestPolicy: 'cache-and-network',
     });
     const hasAwards = (awardsResult.data?.race?.awards?.length ?? 0) > 0;
+    // #1329: same query, same round trip — see that field's own docstring
+    // on `RACE_AWARD_COUNT_QUERY`.
+    const hasRecordedTimes = awardsResult.data?.race?.hasRecordedTimes ?? false;
 
     // #892: every mutation this panel runs (assignDisplay, advanceDisplay,
     // renameDisplay, forgetDisplay, identifyDisplay) is operator-only
@@ -580,7 +583,9 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
                                 nothing on it — but stays for a screen already
                                 showing one, or the row would say nothing about
                                 what it is doing. */}
-                            {groupedViewOptions(viewOptionsFor(hasAwards, display.view)).map(
+                            {groupedViewOptions(
+                                viewOptionsFor(hasAwards, display.view, hasRecordedTimes),
+                            ).map(
                                 ({ group, options }) => (
                                     <optgroup key={group} label={group}>
                                         {options.map((option) => (

@@ -43,9 +43,12 @@ function renderPanel(
     qrTarget = 'STANDINGS',
     showStandingsTicker = true,
     onDisplaysChange?: (hasDisplays: boolean) => void,
+    hasRecordedTimes = true,
 ) {
     // Two queries, and they answer different questions: the list of screens,
-    // and whether the race has any awards to announce.
+    // and whether the race has any awards to announce (plus, since #1329,
+    // whether it has ever recorded a time — read off the same query rather
+    // than a third round trip, see `RACE_AWARD_COUNT_QUERY`'s own docstring).
     type QueryArgs = { query: { definitions: { name?: { value?: string } }[] } };
     (vi.mocked(useQuery) as ReturnType<typeof vi.fn>).mockImplementation((args: QueryArgs) => {
         const asksForAwards = args.query.definitions.some(
@@ -57,6 +60,7 @@ function renderPanel(
                     data: {
                         race: {
                             id: 1,
+                            hasRecordedTimes,
                             awards: Array.from({ length: awards }, (_, i) => ({ id: i + 1 })),
                         },
                     },
@@ -354,6 +358,58 @@ describe('offering the ceremony as a view', () => {
     });
 });
 
+describe('offering last heat\'s times and cycle as views (#1329)', () => {
+    function viewsOffered() {
+        const select = screen.getByLabelText('What Gym north shows') as HTMLSelectElement;
+        return Array.from(select.options).map((option) => option.textContent);
+    }
+
+    it('is offered once the race has recorded a time', () => {
+        renderPanel('STANDINGS', 10, true, 2, true, 'PAGING', true, 'STANDINGS', true, undefined, true);
+        expect(viewsOffered()).toContain("Last heat's times");
+        expect(viewsOffered()).toContain('Cycle between both');
+    });
+
+    it('is left out of a race with no recorded time', () => {
+        // The time column on "Last heat's times" is always blank on a pure
+        // Points race — offering it, or the cycle that alternates it in
+        // with Standings, invites the operator to put a half-empty screen
+        // on the wall.
+        renderPanel('STANDINGS', 10, true, 2, true, 'PAGING', true, 'STANDINGS', true, undefined, false);
+        expect(viewsOffered()).not.toContain("Last heat's times");
+        expect(viewsOffered()).not.toContain('Cycle between both');
+    });
+
+    it('leaves every other view alone', () => {
+        renderPanel('STANDINGS', 10, true, 0, true, 'PAGING', true, 'STANDINGS', true, undefined, false);
+        expect(viewsOffered()).toEqual([
+            'Standings',
+            'Projector',
+            'Broadcast overlay (OBS)',
+            'Racer photos',
+            'Standings only',
+            'QR code',
+            'Check-in progress',
+        ]);
+    });
+
+    it('keeps last heat\'s times for a screen already showing it', () => {
+        renderPanel('TIMING', 10, true, 2, true, 'PAGING', true, 'STANDINGS', true, undefined, false);
+        const select = screen.getByLabelText('What Gym north shows') as HTMLSelectElement;
+        expect(select.value).toBe('TIMING');
+        // Its sibling is still absent — this is the current view's own
+        // exception, not a blanket "some time-dependent view is up".
+        expect(viewsOffered()).not.toContain('Cycle between both');
+    });
+
+    it('keeps cycle for a screen already showing it', () => {
+        renderPanel('CYCLE', 10, true, 2, true, 'PAGING', true, 'STANDINGS', true, undefined, false);
+        const select = screen.getByLabelText('What Gym north shows') as HTMLSelectElement;
+        expect(select.value).toBe('CYCLE');
+        expect(viewsOffered()).not.toContain("Last heat's times");
+    });
+});
+
 describe('grouping the options into optgroups (#948)', () => {
     function optgroupLabels() {
         const select = screen.getByLabelText('What Gym north shows') as HTMLSelectElement;
@@ -373,6 +429,24 @@ describe('grouping the options into optgroups (#948)', () => {
     it('drops the After group along with the ceremony option for a race with no awards', () => {
         renderPanel('STANDINGS', 10, true, 0);
         expect(optgroupLabels()).toEqual(['During racing', 'Between heats', 'Before racing']);
+    });
+
+    it('"During racing" survives losing two of its five entries for a race with no recorded time (#1329)', () => {
+        // TIMING and CYCLE dropped, but STANDINGS, PROJECTOR and OVERLAY
+        // still fill the group — it must not vanish the way "After" does
+        // when its only entry (the ceremony) is the one that goes.
+        renderPanel('STANDINGS', 10, true, 2, true, 'PAGING', true, 'STANDINGS', true, undefined, false);
+        expect(optgroupLabels()).toEqual([
+            'During racing',
+            'Between heats',
+            'Before racing',
+            'After',
+        ]);
+        const select = screen.getByLabelText('What Gym north shows') as HTMLSelectElement;
+        const duringRacing = Array.from(
+            select.querySelector('optgroup[label="During racing"]')?.querySelectorAll('option') ?? [],
+        ).map((option) => option.textContent);
+        expect(duringRacing).toEqual(['Standings', 'Projector', 'Broadcast overlay (OBS)']);
     });
 
     it('puts each option under the group the issue names', () => {

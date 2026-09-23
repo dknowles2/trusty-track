@@ -677,6 +677,7 @@ type Race {
   registeredCount: Int!
   checkedInCount: Int!
   status: String!
+  hasRecordedTimes: Boolean!
   racingGroups: [RacingGroup!]!
   racers: [Racer!]!
   scheduledRacerIds: [Int!]!
@@ -749,6 +750,7 @@ type RaceStats {
   heatResults: [HeatResultRow!]!
   trackRecords: [TrackRecord!]!
   topScaleMph: Float
+  hasRecordedTimes: Boolean!
 }
 
 input RaceUpdateInput {
