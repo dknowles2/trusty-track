@@ -108,13 +108,121 @@ const STANDINGS_SCROLLER_SELECTOR = '[data-testid="standings-only-view"]';
  * against the parent's own, rather than trusting `scrollHeight` to answer
  * that on its own.
  *
+ * [#1333](https://github.com/dknowles2/trusty-track/issues/1333) is the
+ * same failure one layer down: the geometry walk above still failed, by
+ * 1.6px against the 1px tolerance it added, on the identical
+ * `.standings-table-wrapper`. The offending descendant named in that
+ * message was `TABLE.standings-table` — the wrapper's *direct child*, not
+ * a `<tr>` or any text-bearing leaf. That is the tell: a `<table>` under
+ * `border-collapse: collapse` gets its own generated border box from the
+ * table-layout algorithm's rounding of the collapsed border between its
+ * last row and its own edge — a value that moves independently of, and by
+ * a different amount than, that row's own text. With the real standings
+ * markup, trimmed close to its natural height, the last row's own leaf
+ * *also* overshoots (matching #1273's own `scrollHeight`/`clientHeight`
+ * gap) — just by less than the table's box does, and sometimes little
+ * enough to sit inside a reasonable tolerance where the table's box does
+ * not. Reproduced with a decoupled, font-independent case too — a
+ * `border-bottom` on a `<table>` pushes its box 1.5px past its one `<tr>`'s
+ * with nothing rendered behind the gap at all (see this PR's own
+ * description for the probe) — so the table's own box is demonstrably not
+ * a reliable proxy for its row's, in either direction. Walking "every
+ * descendant" therefore asks the wrong question for a container element:
+ * `<table>`, `<tbody>` and `<tr>` are never themselves rendered content,
+ * only arrangements of the elements inside them, so their own boxes can
+ * disagree with their children's by a layout-engine artifact that has
+ * nothing to do with what is actually painted on screen. Two changes fix
+ * that:
+ *
+ *   1. A descendant is a candidate when it is a *leaf* (no child elements —
+ *      text, an image, a childless badge) **or** when its own computed
+ *      style means its box is *painted*: a visible `background-color`,
+ *      `background-image`, `box-shadow`, or border. A leaf's own box is the
+ *      thing a person actually reads; a plain container's is a computed
+ *      aggregate with nothing on screen behind it — but a container that
+ *      paints something is exactly as visible as a leaf, and excluding it
+ *      loses a real failure mode: `.heat-card-racer`
+ *      (`Observation.tsx`'s heat cards) is a non-leaf `<div>` — it wraps a
+ *      lane badge and two lines of text — carrying its own
+ *      `background`/`border-radius`, sitting inside `.heat-cards-layout`'s
+ *      `overflow: hidden` (added *specifically* as a backstop against
+ *      clipping a pathological card). A leaf-only walk cannot see that
+ *      card's own box at all, so the one element the wrapper's
+ *      `overflow: hidden` exists to catch became invisible to the check
+ *      that is supposed to catch it. `isVisibleColor`/`isPaintedBox` below
+ *      check `backgroundColor` (parsing the alpha channel rather than
+ *      string-matching `transparent`, so `rgba(x, y, z, 0)` counts as
+ *      invisible too), `backgroundImage`, `boxShadow`, and each side's
+ *      border width/style/color. **Not** `border-radius` alone: rounding a
+ *      corner paints nothing by itself, and a container with a radius but
+ *      no background, border or shadow is exactly as invisible as a plain
+ *      `<div>` — the property that would make that rounded corner visible
+ *      is already one of the other four checks.
+ *   2. Because real (font-rendered) rows still accumulate a little
+ *      sub-pixel rounding of their own — the flat `1` a leaf's overshoot
+ *      was compared to before doesn't scale with how tall a line of text
+ *      is — each leaf's own tolerance on the vertical axis is a quarter of
+ *      its *own* computed `line-height` (falling back to `1.2 ×
+ *      font-size` when the cascade never set one, i.e. `line-height:
+ *      normal`), floored at 1px so a zero/near-zero line-height leaf keeps
+ *      the original tolerance. A quarter of a line is comfortably under
+ *      where a reader would notice a missing glyph, and it is keyed to the
+ *      one leaf actually being judged, so it cannot smuggle a bigger
+ *      allowance in under an unrelated ancestor's font size. The
+ *      horizontal axis keeps the flat 1px tolerance — a "how many
+ *      characters wide" analogue would be a different, unmeasured
+ *      quantity, and neither #1273 nor #1333 was a horizontal case.
+ *
+ * Each candidate — leaf or painted container — is judged against its
+ * *own* tolerance (tracked as the largest `overshoot - tolerance`, not the
+ * largest raw overshoot), because a small one with a small allowance can be
+ * genuinely clipped by less than a bigger one elsewhere is merely rounding
+ * by.
+ *
  * Module-level (not nested in the main `test.describe` below) so the
  * synthetic cases at the bottom of this file — a fresh `page.setContent`
  * page, not the seeded race — can call the exact function under test
  * rather than a hand-copied stand-in that could quietly drift from it.
  */
-async function verticalOverflowFailures(page: Page): Promise<string[]> {
-    return page.evaluate(({ exemptSelector }) => {
+async function verticalOverflowFailures(page: Page, viewportLabel?: string): Promise<string[]> {
+    return page.evaluate(({ exemptSelector, viewportLabel }) => {
+        // A computed color counts as visible unless it parses as `rgba(...)`
+        // with a zero alpha (or is the literal `transparent`, which resolves
+        // to that anyway) — so `rgba(255, 0, 0, 0)` is caught the same as
+        // `rgba(0, 0, 0, 0)`, not just a string match on "transparent".
+        function isVisibleColor(color: string): boolean {
+            if (!color || color === 'transparent') return false;
+            const m = color.match(/rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(?:,\s*([\d.]+)\s*)?\)/);
+            if (!m) return true;
+            const alpha = m[1] === undefined ? 1 : parseFloat(m[1]);
+            return alpha > 0;
+        }
+
+        // A non-leaf element is still a geometry candidate when its own box
+        // is painted — see this function's own comment for `.heat-card-racer`,
+        // the concrete case a leaf-only walk missed. Deliberately excludes
+        // `border-radius` on its own: a rounded corner paints nothing without
+        // one of these four already being true.
+        function isPaintedBox(style: CSSStyleDeclaration): boolean {
+            if (isVisibleColor(style.backgroundColor)) return true;
+            if (style.backgroundImage !== 'none') return true;
+            if (style.boxShadow !== 'none') return true;
+            return (
+                (parseFloat(style.borderTopWidth) > 0 &&
+                    style.borderTopStyle !== 'none' &&
+                    isVisibleColor(style.borderTopColor)) ||
+                (parseFloat(style.borderRightWidth) > 0 &&
+                    style.borderRightStyle !== 'none' &&
+                    isVisibleColor(style.borderRightColor)) ||
+                (parseFloat(style.borderBottomWidth) > 0 &&
+                    style.borderBottomStyle !== 'none' &&
+                    isVisibleColor(style.borderBottomColor)) ||
+                (parseFloat(style.borderLeftWidth) > 0 &&
+                    style.borderLeftStyle !== 'none' &&
+                    isVisibleColor(style.borderLeftColor))
+            );
+        }
+
         const bad: string[] = [];
         document.querySelectorAll<HTMLElement>('body *').forEach((el) => {
             if (el.closest(exemptSelector)) return;
@@ -131,46 +239,63 @@ async function verticalOverflowFailures(page: Page): Promise<string[]> {
             const restrictiveX = /(hidden|auto|scroll|clip)/.test(style.overflowX);
             if (!restrictiveY && !restrictiveX) return;
 
-            // Confirm the candidate by geometry: walk every descendant and
-            // find the worst one actually poking outside this element's own
-            // box, on whichever axis is restrictive here. Skips
-            // `display: none` and zero-size descendants — neither occupies
-            // any rendered box to fall outside of anything.
+            // Confirm the candidate by geometry: walk every descendant that
+            // is either a *leaf* (no child elements of its own — see this
+            // function's own comment on why a plain container like
+            // `<table>` is excluded) or a container whose own box is
+            // *painted* (same comment — `.heat-card-racer` is why this is
+            // not leaf-only), and find the one poking outside this
+            // element's own box by the most relative to its own tolerance,
+            // on whichever axis is restrictive here. Skips `display: none`
+            // and zero-size descendants — neither occupies any rendered box
+            // to fall outside of anything.
             const box = el.getBoundingClientRect();
-            let worstOvershoot = 0;
+            let worstExcess = -Infinity;
             let worstDescriptor = '';
             el.querySelectorAll<HTMLElement>('*').forEach((child) => {
                 const childStyle = getComputedStyle(child);
                 if (childStyle.display === 'none') return;
+                if (child.children.length > 0 && !isPaintedBox(childStyle)) return;
                 const childBox = child.getBoundingClientRect();
                 if (childBox.width === 0 && childBox.height === 0) return;
                 const childLabel = `${child.tagName}.${String(child.className).replace(/\s+/g, '.')}`;
+
                 if (restrictiveY) {
+                    const lineHeightPx = parseFloat(childStyle.lineHeight);
+                    const fontSizePx = parseFloat(childStyle.fontSize);
+                    const naturalLineHeight = Number.isFinite(lineHeightPx)
+                        ? lineHeightPx
+                        : Number.isFinite(fontSizePx)
+                          ? fontSizePx * 1.2
+                          : 0;
+                    const tolerance = Math.max(1, naturalLineHeight * 0.25);
                     const overshoot = childBox.bottom - box.bottom;
-                    if (overshoot > worstOvershoot) {
-                        worstOvershoot = overshoot;
-                        worstDescriptor = `${childLabel} overshoots the bottom edge by ${overshoot.toFixed(1)}px`;
+                    const excess = overshoot - tolerance;
+                    if (excess > worstExcess) {
+                        worstExcess = excess;
+                        worstDescriptor = `${childLabel} overshoots the bottom edge by ${overshoot.toFixed(1)}px (tolerance ${tolerance.toFixed(1)}px)`;
                     }
                 }
                 if (restrictiveX) {
+                    // No line-height analogue on this axis — see this
+                    // function's own comment.
+                    const tolerance = 1;
                     const overshoot = childBox.right - box.right;
-                    if (overshoot > worstOvershoot) {
-                        worstOvershoot = overshoot;
-                        worstDescriptor = `${childLabel} overshoots the right edge by ${overshoot.toFixed(1)}px`;
+                    const excess = overshoot - tolerance;
+                    if (excess > worstExcess) {
+                        worstExcess = excess;
+                        worstDescriptor = `${childLabel} overshoots the right edge by ${overshoot.toFixed(1)}px (tolerance ${tolerance.toFixed(1)}px)`;
                     }
                 }
             });
-            // A 1px tolerance here too — the same sub-pixel rounding that
-            // produces the scrollHeight/clientHeight mismatch also shows up
-            // directly in a rect comparison occasionally.
-            if (worstOvershoot <= 1) return;
+            if (worstExcess <= 0) return;
 
             bad.push(
-                `${el.tagName}.${String(el.className).replace(/\s+/g, '.')} clips its content: scrollHeight=${el.scrollHeight} clientHeight=${el.clientHeight} — ${worstDescriptor}`,
+                `${viewportLabel ? `[${viewportLabel}] ` : ''}${el.tagName}.${String(el.className).replace(/\s+/g, '.')} clips its content: scrollHeight=${el.scrollHeight} clientHeight=${el.clientHeight} — ${worstDescriptor}`,
             );
         });
         return bad;
-    }, { exemptSelector: STANDINGS_SCROLLER_SELECTOR });
+    }, { exemptSelector: STANDINGS_SCROLLER_SELECTOR, viewportLabel });
 }
 
 /** Elements exempt from the legibility floor — see this file's own header
@@ -541,7 +666,12 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
      * viewport there is clipped rather than reachable, not merely scrolled. */
     async function assertCleanRender(
         page: Page,
-        opts: { fullScreen: boolean; overlapSelectors?: readonly string[]; racerNames?: readonly string[] },
+        opts: {
+            fullScreen: boolean;
+            viewport: string;
+            overlapSelectors?: readonly string[];
+            racerNames?: readonly string[];
+        },
     ): Promise<void> {
         // Wait for the bundled webfonts to finish their `font-display: swap`
         // swap before measuring anything below — found chasing #1273 itself.
@@ -568,7 +698,7 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
         }));
         expect(
             overflow.scrollWidth,
-            `horizontal overflow: scrollWidth=${overflow.scrollWidth} > clientWidth=${overflow.clientWidth}`,
+            `at ${opts.viewport}: horizontal overflow: scrollWidth=${overflow.scrollWidth} > clientWidth=${overflow.clientWidth}`,
         ).toBeLessThanOrEqual(overflow.clientWidth + 1);
 
         if (opts.fullScreen) {
@@ -578,20 +708,20 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             }));
             expect(
                 heights.scrollHeight,
-                `full-screen view needs to scroll: document height=${heights.scrollHeight} > viewport height=${heights.innerHeight}`,
+                `at ${opts.viewport}: full-screen view needs to scroll: document height=${heights.scrollHeight} > viewport height=${heights.innerHeight}`,
             ).toBeLessThanOrEqual(heights.innerHeight + 1);
         }
 
-        const clipped = await verticalOverflowFailures(page);
+        const clipped = await verticalOverflowFailures(page, opts.viewport);
         expect(clipped, clipped.join('\n')).toEqual([]);
 
         for (const selector of opts.overlapSelectors ?? []) {
             const overlaps = await overlapFailures(page, selector);
-            expect(overlaps, overlaps.join('\n')).toEqual([]);
+            expect(overlaps, `at ${opts.viewport}:\n${overlaps.join('\n')}`).toEqual([]);
         }
 
         const tooSmall = await legibilityFailures(page, opts.racerNames ?? racerNames());
-        expect(tooSmall, tooSmall.join('\n')).toEqual([]);
+        expect(tooSmall, `at ${opts.viewport}:\n${tooSmall.join('\n')}`).toEqual([]);
     }
 
     function racerNames(): string[] {
@@ -715,7 +845,11 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             // count, the same way "Last heat's times" already waits on
             // `.timing-list-item` rather than its own table wrapper.
             await expect(page.locator('.standing-row').first()).toBeVisible();
-            await assertCleanRender(page, { fullScreen: false, overlapSelectors: ['.heat-card', '.standing-row'] });
+            await assertCleanRender(page, {
+                fullScreen: false,
+                viewport: vp.name,
+                overlapSelectors: ['.heat-card', '.standing-row'],
+            });
 
             // Every row on screen fits the fold, and the roster (24 racers,
             // busier than any of these four viewports can show at once)
@@ -758,6 +892,7 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             await expect(page.locator('.standing-row').first()).toBeVisible();
             await assertCleanRender(page, {
                 fullScreen: false,
+                viewport: vp.name,
                 overlapSelectors: ['.heat-card', '.standing-row'],
                 racerNames: racerNames8,
             });
@@ -778,7 +913,11 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             await page.goto(`/race/${raceId}/observation?view=timing`);
             await page.waitForLoadState('networkidle');
             await expect(page.locator('.timing-list-item').first()).toBeVisible();
-            await assertCleanRender(page, { fullScreen: false, overlapSelectors: ['.timing-list-item'] });
+            await assertCleanRender(page, {
+                fullScreen: false,
+                viewport: vp.name,
+                overlapSelectors: ['.timing-list-item'],
+            });
 
             // The car's own name under a racer's name on this tab, and (on
             // the heat cards above it) the racing-group division under a
@@ -798,20 +937,28 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
         // exactly the Standings or Timing render already checked above.
         // This confirms the URL shape itself (`?cycle=true`) resolves to
         // that same clean markup rather than something unique to it.
-        await forEachViewport(page, async () => {
+        await forEachViewport(page, async (vp) => {
             await page.goto(`/race/${raceId}/observation?cycle=true`);
             await page.waitForLoadState('networkidle');
             await expect(page.locator('.standings-table')).toBeVisible();
-            await assertCleanRender(page, { fullScreen: false, overlapSelectors: ['.heat-card', '.standing-row'] });
+            await assertCleanRender(page, {
+                fullScreen: false,
+                viewport: vp.name,
+                overlapSelectors: ['.heat-card', '.standing-row'],
+            });
         });
     });
 
     test('Projector', async ({ page }) => {
-        await forEachViewport(page, async () => {
+        await forEachViewport(page, async (vp) => {
             await page.goto(`/race/${raceId}/observation?projector=true`);
             await page.waitForLoadState('networkidle');
             await expect(page.locator('.projector-grid')).toBeVisible();
-            await assertCleanRender(page, { fullScreen: true, overlapSelectors: ['.projector-racer-card'] });
+            await assertCleanRender(page, {
+                fullScreen: true,
+                viewport: vp.name,
+                overlapSelectors: ['.projector-racer-card'],
+            });
         });
     });
 
@@ -844,7 +991,11 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             await page.waitForLoadState('networkidle');
             await expect(page.locator('.projector-mode')).toBeVisible();
             await expect(page.locator(c.stacked ? '.projector-stacked' : '.projector-grid')).toBeVisible();
-            await assertCleanRender(page, { fullScreen: true, overlapSelectors: ['.projector-racer-card', '.projector-standing-row'] });
+            await assertCleanRender(page, {
+                fullScreen: true,
+                viewport: c.name,
+                overlapSelectors: ['.projector-racer-card', '.projector-standing-row'],
+            });
 
             const rightCol = page.locator('.projector-right-col');
             await expect(rightCol).toBeVisible();
@@ -874,30 +1025,31 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
     });
 
     test('Racer photos (the slideshow)', async ({ page }) => {
-        await forEachViewport(page, async () => {
+        await forEachViewport(page, async (vp) => {
             await page.goto(`/race/${raceId}/observation?view=slideshow`);
             await page.waitForLoadState('networkidle');
             await expect(page.getByTestId('slideshow')).toBeVisible();
-            await assertCleanRender(page, { fullScreen: true });
+            await assertCleanRender(page, { fullScreen: true, viewport: vp.name });
         });
     });
 
     test('Standings only', async ({ page }) => {
-        await forEachViewport(page, async () => {
+        await forEachViewport(page, async (vp) => {
             await page.goto(`/race/${raceId}/observation?view=standings_only`);
             await page.waitForLoadState('networkidle');
             await expect(page.getByTestId('standings-only-view')).toBeVisible();
-            await assertCleanRender(page, { fullScreen: true, overlapSelectors: ['.standing-row'] });
+            await assertCleanRender(page, { fullScreen: true, viewport: vp.name, overlapSelectors: ['.standing-row'] });
         });
     });
 
     test('Check-in progress', async ({ page }) => {
-        await forEachViewport(page, async () => {
+        await forEachViewport(page, async (vp) => {
             await page.goto(`/race/${raceId}/observation?view=checkin`);
             await page.waitForLoadState('networkidle');
             await expect(page.getByTestId('checkin-view')).toBeVisible();
             await assertCleanRender(page, {
                 fullScreen: true,
+                viewport: vp.name,
                 overlapSelectors: ['[data-testid^="checkin-group-"]'],
                 racerNames: pendingRacerNames,
             });
@@ -905,28 +1057,28 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
     });
 
     test('QR code', async ({ page }) => {
-        await forEachViewport(page, async () => {
+        await forEachViewport(page, async (vp) => {
             await page.goto(`/race/${raceId}/observation?view=qrcode`);
             await page.waitForLoadState('networkidle');
             await expect(page.getByTestId('qrcode-view')).toBeVisible();
             // No racer name/car number/place/time on this view at all — the
             // legibility floor has nothing to check here, so an empty list
             // is passed explicitly rather than the seeded roster's names.
-            await assertCleanRender(page, { fullScreen: true, racerNames: [] });
+            await assertCleanRender(page, { fullScreen: true, viewport: vp.name, racerNames: [] });
         });
     });
 
     test('Broadcast overlay (OBS)', async ({ page }) => {
-        await forEachViewport(page, async () => {
+        await forEachViewport(page, async (vp) => {
             await page.goto(`/race/${raceId}/observation?view=overlay`);
             await page.waitForLoadState('networkidle');
             await expect(page.getByTestId('overlay-view')).toBeVisible();
-            await assertCleanRender(page, { fullScreen: true });
+            await assertCleanRender(page, { fullScreen: true, viewport: vp.name });
         });
     });
 
     test('Awards ceremony', async ({ page }) => {
-        await forEachViewport(page, async () => {
+        await forEachViewport(page, async (vp) => {
             await page.goto(`/race/${raceId}/awards/present`);
             await page.waitForLoadState('networkidle');
             // Either slide is fine — the resolved SPEED award's winner, or
@@ -935,7 +1087,7 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             // operator's own step lands on first is not this test's concern;
             // waiting on the back link is enough to know a slide has rendered.
             await expect(page.getByTestId('ceremony-back-link')).toBeVisible();
-            await assertCleanRender(page, { fullScreen: true });
+            await assertCleanRender(page, { fullScreen: true, viewport: vp.name });
         });
     });
 
@@ -949,11 +1101,11 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
         );
 
         try {
-            await forEachViewport(page, async () => {
+            await forEachViewport(page, async (vp) => {
                 await page.goto(`/race/${raceId}/observation`);
                 await page.waitForLoadState('networkidle');
                 await expect(page.getByTestId('intermission-overlay')).toBeVisible();
-                await assertCleanRender(page, { fullScreen: true });
+                await assertCleanRender(page, { fullScreen: true, viewport: vp.name });
             });
         } finally {
             // The "Race complete!" test below needs no break in the way.
@@ -983,7 +1135,11 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
         await recordHeat(request, unrecorded[0], carNumberById);
 
         await expect(page.locator('.results-overlay')).toBeVisible({ timeout: 10000 });
-        await assertCleanRender(page, { fullScreen: true, overlapSelectors: ['.overlay-result-item'] });
+        await assertCleanRender(page, {
+            fullScreen: true,
+            viewport: VIEWPORTS[0].name,
+            overlapSelectors: ['.overlay-result-item'],
+        });
     });
 
     test('Race complete!', async ({ page, request }) => {
@@ -992,11 +1148,11 @@ test.describe('audience displays render cleanly at low resolutions (#1073, part 
             await recordHeat(request, heat, carNumberById);
         }
 
-        await forEachViewport(page, async () => {
+        await forEachViewport(page, async (vp) => {
             await page.goto(`/race/${raceId}/observation`);
             await page.waitForLoadState('networkidle');
             await expect(page.getByTestId('race-finished-overlay')).toBeVisible({ timeout: 10000 });
-            await assertCleanRender(page, { fullScreen: true });
+            await assertCleanRender(page, { fullScreen: true, viewport: vp.name });
         });
     });
 });
@@ -1055,5 +1211,167 @@ test.describe('verticalOverflowFailures — synthetic cases (#1273)', () => {
         `);
         const bad = await verticalOverflowFailures(page);
         expect(bad, bad.join('\n')).toEqual([]);
+    });
+});
+
+/**
+ * Pins the [#1333](https://github.com/dknowles2/trusty-track/issues/1333)
+ * fix directly: only *leaf* descendants (no child elements) are geometry
+ * candidates, and a leaf's own vertical tolerance is a quarter of its
+ * computed `line-height` (floored at 1px) rather than a flat 1px on
+ * whichever descendant anywhere in the subtree happens to poke out
+ * furthest. See `verticalOverflowFailures`'s own comment for why a
+ * container element — concretely, a `<table>` under `border-collapse:
+ * collapse` — is excluded rather than merely given more slack: its own
+ * generated border box is a layout-engine computation with no relationship
+ * to whether a reader can see the row inside it.
+ */
+test.describe('verticalOverflowFailures — synthetic cases (#1333)', () => {
+    /**
+     * Reproduces the exact #1273/#1333 mechanism, deterministically: a
+     * `border-bottom` on the `<table>` element (kept out of `border-collapse`
+     * folding by being fully transparent, so it changes no pixel on screen)
+     * decouples the table's own border box from its one row's box by a
+     * fixed, font-independent 1.5px — measured, not guessed, the same way
+     * the real `.standings-table` under `border-collapse: collapse` gets a
+     * generated border box that isn't bounded by its rows. `scrollHeight`
+     * (23) exceeds `clientHeight` (21) by more than the 1px candidate
+     * filter, so this reaches the geometry walk; the old walk would have
+     * flagged `TABLE` at a 2.0px overshoot past its 1px flat tolerance —
+     * exactly the shape of both prior failures. The new walk never
+     * considers `TABLE` (it has child elements, so it isn't a leaf) and the
+     * one leaf it does consider — `TD.cell`, the actual rendered content —
+     * overshoots by only 0.5px, comfortably inside its own tolerance.
+     */
+    test('a <table> whose own border box overshoots while its content stays inside is not a clip', async ({
+        page,
+    }) => {
+        await page.setContent(`
+            <style>
+                body { margin: 0; }
+                .wrap { width: 200px; height: 21px; overflow: hidden; }
+                table { border-collapse: collapse; border-bottom: 3px solid transparent; }
+                td { height: 20px; line-height: 20px; padding: 0; }
+            </style>
+            <div class="wrap"><table><tbody><tr><td class="cell">x</td></tr></tbody></table></div>
+        `);
+        const bad = await verticalOverflowFailures(page);
+        expect(bad, bad.join('\n')).toEqual([]);
+    });
+
+    /**
+     * The tolerance boundary itself, pinned exactly: `.offender`'s computed
+     * `line-height` is `20px`, so its own tolerance is
+     * `max(1, 20 * 0.25) = 5px`. A `55.5px`-tall child inside a `50px`
+     * wrapper overshoots by `5.5px` — `0.5px` past its own tolerance — and
+     * is flagged; a `54.5px`-tall child overshoots by `4.5px` — `0.5px`
+     * *under* its own tolerance — and is not. Same wrapper, same
+     * `line-height`, 1px apart in the child's own height either side of the
+     * line.
+     */
+    test('a leaf just over its own line-height-scaled tolerance is flagged', async ({ page }) => {
+        await page.setContent(`
+            <style>
+                .wrap { width: 200px; height: 50px; overflow: hidden; }
+                .offender { height: 55.5px; line-height: 20px; }
+            </style>
+            <div class="wrap"><div class="offender"></div></div>
+        `);
+        const bad = await verticalOverflowFailures(page);
+        expect(bad.length, bad.join('\n')).toBe(1);
+        expect(bad[0]).toContain('DIV.wrap clips its content');
+        expect(bad[0]).toContain('DIV.offender overshoots the bottom edge by 5.5px (tolerance 5.0px)');
+    });
+
+    test('the same leaf just under its own line-height-scaled tolerance is not a clip', async ({ page }) => {
+        await page.setContent(`
+            <style>
+                .wrap { width: 200px; height: 50px; overflow: hidden; }
+                .offender { height: 54.5px; line-height: 20px; }
+            </style>
+            <div class="wrap"><div class="offender"></div></div>
+        `);
+        const bad = await verticalOverflowFailures(page);
+        expect(bad, bad.join('\n')).toEqual([]);
+    });
+
+    /**
+     * The strictness half of the mutation test the issue asks for: a real
+     * three-row table (`border-collapse: collapse`, no decoupling trick)
+     * whose wrapper is cut by 20px — `scrollHeight=60`, `clientHeight=40` —
+     * still gets flagged. The last row's own cell overshoots by a full
+     * `20.0px`, far past even its own generous `5px` tolerance
+     * (`line-height: 20px`), so scoping the walk down to leaf content does
+     * not let a genuinely cropped row through.
+     */
+    test('a table wrapper genuinely cut by ~20px is still flagged, on its last row', async ({ page }) => {
+        await page.setContent(`
+            <style>
+                body { margin: 0; }
+                .wrap { width: 200px; height: 40px; overflow: hidden; }
+                table { border-collapse: collapse; width: 100%; }
+                td { height: 20px; line-height: 20px; padding: 0; }
+            </style>
+            <div class="wrap"><table><tbody>
+                <tr><td class="cell">row 1</td></tr>
+                <tr><td class="cell">row 2</td></tr>
+                <tr><td class="cell">row 3</td></tr>
+            </tbody></table></div>
+        `);
+        const bad = await verticalOverflowFailures(page);
+        expect(bad.length, bad.join('\n')).toBe(1);
+        expect(bad[0]).toContain('DIV.wrap clips its content');
+        expect(bad[0]).toContain('TD.cell overshoots the bottom edge by 20.0px (tolerance 5.0px)');
+    });
+
+    /**
+     * The viewport label itself, since #1333's own "small thing" is that a
+     * failure didn't say where it happened. `assertCleanRender` threads
+     * `opts.viewport` through to this function; called directly (as the
+     * real spec never does), an absent label is simply omitted rather than
+     * rendered as `[undefined]`.
+     */
+    test('a viewport label is prefixed onto the failure message when given', async ({ page }) => {
+        await page.setContent(`
+            <style>
+                .wrap { width: 200px; height: 50px; overflow: hidden; }
+                .offender { height: 55px; }
+            </style>
+            <div class="wrap"><div class="offender"></div></div>
+        `);
+        const bad = await verticalOverflowFailures(page, '1280x720 (720p TV)');
+        expect(bad.length, bad.join('\n')).toBe(1);
+        expect(bad[0]).toContain('[1280x720 (720p TV)] DIV.wrap clips its content');
+    });
+
+    /**
+     * The converse of the table case above: a container whose own box is
+     * *painted* — background, border, or a visible border-radius fill — is
+     * something a reader actually sees, so leaf-only scoping alone loses a
+     * real failure mode. `.card` here stands in for `.heat-card-racer`
+     * (`Observation.tsx`) — a non-leaf `<div>` with its own `background` and
+     * `border-radius`, inside `.heat-cards-layout`'s `overflow: hidden`,
+     * added specifically as a backstop against clipping a pathological
+     * card. The card's own explicit `height: 65px` pushes its border box
+     * 23px past the 50px wrapper; its text leaf sits near the card's *top*
+     * and never comes close to the wrapper's edge (`-32px`, i.e. 32px of
+     * headroom) — so a leaf-only walk finds no overshoot anywhere and
+     * returns `[]`, exactly the miss this pins. The candidate that must be
+     * named is `DIV.card`, not the text inside it.
+     */
+    test('a non-leaf card with a painted background is flagged, not its safely-inside text', async ({ page }) => {
+        await page.setContent(`
+            <style>
+                body { margin: 0; }
+                .wrap { width: 200px; height: 50px; overflow: hidden; }
+                .card { background: #ffcc00; border-radius: 8px; padding: 4px; height: 65px; }
+                .card-text { display: block; line-height: 14px; }
+            </style>
+            <div class="wrap"><div class="card"><span class="card-text">hi</span></div></div>
+        `);
+        const bad = await verticalOverflowFailures(page);
+        expect(bad.length, bad.join('\n')).toBe(1);
+        expect(bad[0]).toContain('DIV.wrap clips its content');
+        expect(bad[0]).toContain('DIV.card overshoots the bottom edge by 23.0px');
     });
 });
