@@ -163,6 +163,69 @@ async function pauseAndSeekToFixedFrame(video: import('@playwright/test').Locato
 }
 
 /**
+ * How many seconds the corner countdown badge on 11 is frozen to read —
+ * `formatCountdown`'s own `m:ss` shape, duplicated in miniature rather than
+ * imported across the app/e2e boundary (no other spec in this directory
+ * reaches into `frontend/src`; `support.ts` and this file's own helpers are
+ * the reused surface instead).
+ */
+const FROZEN_INTERMISSION_REMAINING_SECONDS = 200;
+const FROZEN_INTERMISSION_COUNTDOWN_TEXT = '3:20';
+
+/**
+ * Freezes `displayPage`'s own clock to a fixed distance before the break's
+ * real `endsAt`, so 11's corner countdown badge reads the same text on every
+ * run (#1340).
+ *
+ * `endsAt` itself is set from the *backend's* real wall clock the instant
+ * `startIntermission` lands — this spec has no way to pin that, and does not
+ * need to: `liveRemainingSeconds` (`features/racing/intermission.ts`) only
+ * ever reads `endsAt - now`, so pinning `now` to a fixed distance before it
+ * pins the displayed remainder just as well, however long the real mutation
+ * took to land. `page.clock.setFixedTime` — not `clock.install()`, which
+ * `screenshots-setup.ts`'s own hand-rolled `Date` freeze explains is the
+ * wrong tool here — freezes `Date.now()`/`new Date()` alone and leaves every
+ * real timer running, so `useLiveIntermission`'s own `setInterval` re-render
+ * and the display's live `heatReplay`/`raceStateChanged` subscriptions are
+ * unaffected; only the number the countdown reads stops moving. Waits for
+ * the badge to actually show the frozen value before returning — the
+ * component only recomputes `remaining` on its next render, which for a
+ * running countdown is the *next* tick of that same real `setInterval`, up
+ * to a second away — rather than assuming one has already happened.
+ *
+ * The two pages are deliberately not interchangeable, which is why both are
+ * parameters rather than one: `endsAt` is read through the operator's own
+ * `page`, since `gql` posts through that page's request context (`support.ts`)
+ * and it is the operator's, while the freeze and the assertion both belong to
+ * `displayPage` — it is the display's clock the badge is rendered against, and
+ * the display's DOM the frozen text has to appear in.
+ */
+async function freezeIntermissionCountdown(
+    page: import('@playwright/test').Page,
+    displayPage: import('@playwright/test').Page,
+    raceId: number,
+): Promise<void> {
+    let endsAt: string | null = null;
+    await expect(async () => {
+        const result = await gql<{ race: { intermission: { active: boolean; endsAt: string | null } } }>(
+            page,
+            `query IRDocsIntermissionEndsAt($raceId: Int!) { race(raceId: $raceId) { intermission { active endsAt } } }`,
+            { raceId },
+        );
+        expect(result.race.intermission.active).toBe(true);
+        expect(result.race.intermission.endsAt).not.toBeNull();
+        endsAt = result.race.intermission.endsAt;
+    }).toPass({ timeout: 15000 });
+    await displayPage.clock.setFixedTime(
+        new Date(endsAt!).getTime() - FROZEN_INTERMISSION_REMAINING_SECONDS * 1000,
+    );
+    await expect(displayPage.getByTestId('intermission-overlay-countdown')).toHaveText(
+        FROZEN_INTERMISSION_COUNTDOWN_TEXT,
+        { timeout: 15000 },
+    );
+}
+
+/**
  * The organization name and every existing track, reshaped into
  * `TrackInput`s — what `updateInitialConfig` needs sent back unchanged
  * alongside `keepReplays` below. `InitialConfigInput.tracks` is not
@@ -491,6 +554,13 @@ test('screenshot instant replay', async ({ page, browser }) => {
         await expect(highlightsCheckbox).toBeVisible({ timeout: 15000 });
         await expect(highlightsCheckbox).toBeChecked();
         await popover.getByTestId('intermission-preset-300').click();
+
+        // Freezes the display's own countdown to a fixed value (#1340) —
+        // see `freezeIntermissionCountdown`'s own docstring. Called as soon
+        // as the break is confirmed active, so the corner badge has settled
+        // on its frozen text well before the screenshot below, whatever else
+        // this run has to wait for in between.
+        await freezeIntermissionCountdown(page, displayPage, raceId);
 
         const highlightVideo = displayPage.getByTestId('replay-video');
         await expect(highlightVideo).toBeVisible({ timeout: 15000 });
