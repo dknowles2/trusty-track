@@ -25,6 +25,7 @@ from sqlalchemy import create_engine
 
 from backend.db import models  # noqa: F401 — registers the tables on Base
 from backend.db.database import Base, _sqlite_file_has_a_configured_organization
+from backend.tests.helpers import migrate_to_head
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -61,11 +62,20 @@ def _init_db_with_home_only(home: Path) -> subprocess.CompletedProcess:
     )
 
 
-def _seed_configured_database(home: Path) -> None:
-    """Build a database that looks like a real, already-configured install."""
-    result = _alembic_with_home_only(home, "upgrade", "head")
-    assert result.returncode == 0, result.stderr
-    db = home / ".trustytrack" / "trusty-track.db"
+def _seed_configured_database(home: Path) -> Path:
+    """Build a database that looks like a real, already-configured install.
+
+    Migrated in-process, not through the CLI. Only the call *under test* in
+    each of these has to be a subprocess — the arrangement does not, and
+    paying a second interpreter start plus a full backend import to build a
+    fixture is what made this file the slowest in the suite once the migration
+    tests stopped doing the same thing. That the CLI can migrate a fresh
+    default data directory is `test_cli_allows_a_fresh_default_data_dir`'s
+    subject, not this fixture's, so nothing is lost by not repeating it.
+    """
+    data_dir = home / ".trustytrack"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    db = migrate_to_head(data_dir)
     connection = sqlite3.connect(db)
     try:
         connection.execute(
@@ -75,6 +85,7 @@ def _seed_configured_database(home: Path) -> None:
         connection.commit()
     finally:
         connection.close()
+    return db
 
 
 # ── _sqlite_file_has_a_configured_organization, in-process ─────────────────

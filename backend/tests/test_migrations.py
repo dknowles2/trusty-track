@@ -13,28 +13,13 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine, inspect, text
 
-from backend.tests.helpers import build_pre_alembic_database, run_alembic
+from backend.tests.helpers import (
+    build_pre_alembic_database,
+    migrate_to_head,
+    run_alembic,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-
-
-def _run_init_db(data_dir: Path) -> subprocess.CompletedProcess:
-    """Run init_db() in a subprocess with its own data directory.
-
-    A subprocess is used because backend.db.database resolves its engine and
-    paths at import time from the environment.
-    """
-    return subprocess.run(
-        [sys.executable, "-c", "from backend.db.database import init_db; init_db()"],
-        cwd=REPO_ROOT,
-        env={
-            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
-            "TRUSTYTRACK_DATA_DIR": str(data_dir),
-            "HOME": str(data_dir),
-        },
-        capture_output=True,
-        text=True,
-    )
 
 
 def _table_names(db_path: Path) -> set:
@@ -122,19 +107,16 @@ def _revision(db_path: Path) -> str:
 def fresh_database(tmp_path_factory) -> Path:
     """A database created from nothing by `init_db()` — the reference schema.
 
-    Session-scoped because building one runs the whole migration chain in a
-    subprocess, and nothing that compares against it modifies it.
+    Session-scoped because building one runs the whole migration chain, and
+    nothing that compares against it modifies it.
     """
     data_dir = tmp_path_factory.mktemp("fresh")
-    result = _run_init_db(data_dir)
-    assert result.returncode == 0, result.stderr
-    return data_dir / "trusty-track.db"
+    return migrate_to_head(data_dir)
 
 
 def test_fresh_database_is_fully_migrated(tmp_path):
     """A brand new install ends up at head with every table present."""
-    result = _run_init_db(tmp_path)
-    assert result.returncode == 0, result.stderr
+    migrate_to_head(tmp_path)
 
     db = tmp_path / "trusty-track.db"
     tables = _table_names(db)
@@ -157,10 +139,10 @@ def test_fresh_database_is_fully_migrated(tmp_path):
 
 def test_init_db_is_idempotent(tmp_path):
     """Running init_db repeatedly is a no-op after the first time."""
-    assert _run_init_db(tmp_path).returncode == 0
+    migrate_to_head(tmp_path)
     first = _revision(tmp_path / "trusty-track.db")
 
-    assert _run_init_db(tmp_path).returncode == 0
+    migrate_to_head(tmp_path)
     assert _revision(tmp_path / "trusty-track.db") == first
 
 
@@ -179,8 +161,7 @@ def test_legacy_database_is_adopted_without_data_loss(tmp_path, already_has_debu
         ),
     )
 
-    result = _run_init_db(tmp_path)
-    assert result.returncode == 0, result.stderr
+    migrate_to_head(tmp_path)
 
     # Stamped and upgraded rather than left unversioned.
     assert "alembic_version" in _table_names(db)
@@ -215,8 +196,7 @@ def test_legacy_database_with_empty_alembic_version_is_adopted(tmp_path):
 
     db = build_pre_alembic_database(tmp_path, seed=seed)
 
-    result = _run_init_db(tmp_path)
-    assert result.returncode == 0, result.stderr
+    migrate_to_head(tmp_path)
 
     assert _revision(db) is not None, "database was left unversioned"
     assert "debug_mode" in _column_names(db, "organizations")
@@ -251,8 +231,7 @@ def test_a_track_created_before_scale_speed_reads_the_default(tmp_path):
         ),
     )
 
-    result = _run_init_db(tmp_path)
-    assert result.returncode == 0, result.stderr
+    migrate_to_head(tmp_path)
 
     engine = create_engine(f"sqlite:///{db}")
     try:
@@ -286,7 +265,7 @@ def test_migrations_reproduce_the_models(tmp_path):
     If this fails, someone changed a model without adding a migration. That is
     the drift the old create_all() approach hid until it crashed at runtime.
     """
-    assert _run_init_db(tmp_path).returncode == 0
+    migrate_to_head(tmp_path)
 
     result = _alembic_check(tmp_path)
     assert result.returncode == 0, (
@@ -339,7 +318,7 @@ def test_an_adopted_database_ends_up_with_the_same_schema(
         seed=lambda conn: conn.execute(text(insert)),
     )
 
-    assert _run_init_db(tmp_path).returncode == 0
+    migrate_to_head(tmp_path)
 
     result = _alembic_check(tmp_path)
     assert result.returncode == 0, (
@@ -378,8 +357,7 @@ def test_a_null_debug_mode_is_settled_before_the_column_is_tightened(tmp_path):
         ),
     )
 
-    result = _run_init_db(tmp_path)
-    assert result.returncode == 0, result.stderr
+    migrate_to_head(tmp_path)
 
     engine = create_engine(f"sqlite:///{db}")
     try:
@@ -417,7 +395,7 @@ def test_every_downgrade_runs_and_lands_back_at_the_same_schema(
     index, losing a server default — leaves a database that is *not* what a
     fresh install has, and the next upgrade builds on top of that.
     """
-    assert _run_init_db(tmp_path).returncode == 0
+    migrate_to_head(tmp_path)
     db = tmp_path / "trusty-track.db"
 
     down = run_alembic(tmp_path, "downgrade", "base")
@@ -444,7 +422,7 @@ def test_a_downgrade_past_the_folded_heats_keeps_the_data(tmp_path):
     some. `0002` is pinned because it is the last revision before `0003`; the
     point is to stop *just* below the pair, with every app table still there.
     """
-    assert _run_init_db(tmp_path).returncode == 0
+    migrate_to_head(tmp_path)
     db = tmp_path / "trusty-track.db"
 
     engine = create_engine(f"sqlite:///{db}")

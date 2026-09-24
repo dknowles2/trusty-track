@@ -1,12 +1,16 @@
 """Shared helpers for the tests."""
 
+import functools
 import subprocess
 import sys
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from sqlalchemy import create_engine, text
+
+from backend.db.database import init_db
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -14,8 +18,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 def run_alembic(data_dir: Path, *args: str) -> subprocess.CompletedProcess:
     """Run the Alembic CLI against a given data directory.
 
-    A subprocess because ``backend.db.database`` resolves its engine and paths
-    at import time from the environment.
+    A subprocess because this is the CLI — the entry point with its own
+    argument parsing and its own refusal guard (``migrations/env.py``'s
+    ``_refuse_unsafe_cli_target``), neither of which is reachable from inside
+    this process. Tests that only want a database at head should call
+    ``migrate_to_head`` instead; a subprocess there buys nothing and costs an
+    interpreter start plus a full backend import every time.
     """
     return subprocess.run(
         [sys.executable, "-m", "alembic", *args],
@@ -30,6 +38,71 @@ def run_alembic(data_dir: Path, *args: str) -> subprocess.CompletedProcess:
     )
 
 
+def migrate_to_head(data_dir: Path) -> Path:
+    """Migrate ``data_dir``'s database to head, the way an operator's install does.
+
+    This is ``init_db()`` itself — the same legacy detection, the same stamp,
+    the same upgrade — pointed at another engine rather than re-implemented.
+    It used to be a subprocess, because ``init_db`` could only ever migrate the
+    module-level engine resolved from the environment at import time, so a
+    second database meant a second interpreter. That cost about 0.9s per call
+    against roughly 0.3s of actual migrating, and it was paid once per test
+    across four files, which is what put these tests at the top of
+    ``--durations``.
+
+    Raises whatever the migration raises, which is the point: a failure now
+    arrives as a traceback in the test that caused it, instead of a returncode
+    and a captured stderr string the caller had to remember to assert on.
+    """
+    database = data_dir / "trusty-track.db"
+    engine = create_engine(
+        f"sqlite:///{database}", connect_args={"check_same_thread": False}
+    )
+    try:
+        init_db(engine)
+    finally:
+        # `init_db` disposes it on the way out; this covers the failure path.
+        engine.dispose()
+    return database
+
+
+@functools.cache
+def _baseline_file() -> bytes:
+    """The pre-Alembic schema as a SQLite file, built once per process.
+
+    Every caller of ``build_pre_alembic_database`` wants the same bytes: the
+    baseline schema with ``alembic_version`` removed, before any seed runs.
+    Building it took a full Alembic run per test; copying it takes a
+    ``write_bytes``. Cached on the function rather than in a fixture so the
+    helper stays callable from anywhere, including from module scope.
+
+    Built through ``_alembic_config`` rather than a config of its own so there
+    is one answer to where the migrations live and how they are configured,
+    with the connection handed in through ``config.attributes`` exactly as
+    ``init_db`` does it — which is also the branch of ``migrations/env.py``
+    that skips the CLI refusal guard.
+    """
+    from alembic import command
+
+    from backend.db import database as database_module
+
+    with tempfile.TemporaryDirectory() as scratch:
+        database = Path(scratch) / "trusty-track.db"
+        engine = create_engine(f"sqlite:///{database}")
+        try:
+            with engine.begin() as connection:
+                config = database_module._alembic_config()
+                config.attributes["connection"] = connection
+                command.upgrade(config, "0001_baseline")
+            with engine.begin() as connection:
+                # Un-manage it: this is what a database from before migrations
+                # looks like.
+                connection.execute(text("DROP TABLE alembic_version"))
+        finally:
+            engine.dispose()
+        return database.read_bytes()
+
+
 def build_pre_alembic_database(
     tmp_path: Path,
     *,
@@ -41,7 +114,9 @@ def build_pre_alembic_database(
     Built by running the baseline migration and then removing
     ``alembic_version``, rather than by hand. ``0001_baseline`` *is* the schema
     ``create_all()`` produced, so this cannot drift from what it claims to
-    reproduce.
+    reproduce. That run happens once per process and the resulting file is
+    copied here (see ``_baseline_file``) — it takes no arguments and reads no
+    state, so every call was producing the same bytes at the same cost.
 
     Hand-rolled minimal fixtures were what these tests used before, and they
     were a standing trap: a fixture that creates ``heats (id, lane_results)``
@@ -55,13 +130,10 @@ def build_pre_alembic_database(
         seed: called with an open connection to insert rows.
     """
     db = tmp_path / "trusty-track.db"
-    result = run_alembic(tmp_path, "upgrade", "0001_baseline")
-    assert result.returncode == 0, result.stderr
+    db.write_bytes(_baseline_file())
 
     engine = create_engine(f"sqlite:///{db}")
     with engine.begin() as conn:
-        # Un-manage it: this is what a database from before migrations looks like.
-        conn.execute(text("DROP TABLE alembic_version"))
         if legacy_debug_mode:
             _add_legacy_debug_mode(conn, legacy_debug_mode)
         if seed is not None:
