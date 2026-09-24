@@ -216,20 +216,30 @@ def _is_legacy_database(connection) -> bool:
     return "groups" in set(inspect(connection).get_table_names())
 
 
-def init_db() -> None:
+def init_db(target: Engine | None = None) -> None:
     """Bring the database schema up to date.
 
     Replaces the old ``create_all()`` plus hand-rolled ``ALTER TABLE``. Unlike
     that approach, this actually migrates existing databases, and it raises
     rather than swallowing failures — a half-migrated database that appears to
     start normally is worse than a clear refusal to start.
+
+    ``target`` migrates some other engine instead of this module's. The app
+    never passes one; the tests do, and that is the point. ``engine`` is
+    module-level and resolved from the environment at import time, so the only
+    way to migrate a second database used to be a fresh interpreter per
+    call — which is what the migration tests did, and what made them the
+    slowest in the suite. Handing the engine in keeps them on *this* function,
+    legacy stamp and all, rather than on a re-implementation of it that could
+    agree with itself while disagreeing with what an operator's install does.
     """
     from alembic import command
     from alembic.runtime.migration import MigrationContext
 
     config = _alembic_config()
+    target = target if target is not None else engine
 
-    with engine.begin() as connection:
+    with target.begin() as connection:
         if _is_legacy_database(connection):
             logger.info(
                 "Existing pre-Alembic database detected; stamping it at %s "
@@ -256,4 +266,4 @@ def init_db() -> None:
     # Dropping the pool is the fix rather than re-setting the pragma: the
     # listener already sets it correctly on connect, and this way there is one
     # place that decides. It costs one reconnect, once, at startup.
-    engine.dispose()
+    target.dispose()

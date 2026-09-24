@@ -31,9 +31,15 @@ requires-python = ">=3.10"
 dev = [
     "pytest",
     "pytest-asyncio",
-    # The suite is 5,900 tests with no single slow one, so the only lever on
-    # its runtime is running them at once: about 85 seconds becomes about 27
-    # on a four-core machine. See `addopts` below.
+    # The suite is ~16,700 tests and the overwhelming majority are fast, so
+    # the main lever on its runtime is running them at once. See `addopts`
+    # below. The exception is the handful that migrate a real SQLite file:
+    # those are worth watching in `--durations`, because each one that shells
+    # out pays an interpreter start plus a full backend import on top of the
+    # migrating, and `-n auto` multiplies that by however many workers are
+    # competing for a core. `backend/tests/helpers.py::migrate_to_head` is the
+    # in-process way to do it; keep a subprocess only when the CLI itself is
+    # the subject.
     "pytest-xdist",
     "httpx",
     "ruff",

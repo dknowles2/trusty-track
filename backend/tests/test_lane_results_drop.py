@@ -17,14 +17,16 @@ survive, and the point is that they are kept rather than lost.
 """
 
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, inspect, text
 
-from backend.tests.helpers import build_pre_alembic_database, run_alembic
+from backend.tests.helpers import (
+    build_pre_alembic_database,
+    migrate_to_head,
+    run_alembic,
+)
 
 # Every convention a `v1.0.0` database can hold, and what becomes of it.
 REBUILDABLE = [
@@ -100,24 +102,8 @@ def upgraded(tmp_path) -> Path:
             )
 
     build_pre_alembic_database(tmp_path, seed=seed)
-    result = _run_init_db(tmp_path)
-    assert result.returncode == 0, result.stderr
-    return tmp_path / "trusty-track.db"
-
-
-def _run_init_db(data_dir: Path):
-    """Migrate to head the way an operator does — through `init_db()`."""
-    return subprocess.run(
-        [sys.executable, "-c", "from backend.db.database import init_db; init_db()"],
-        cwd=Path(__file__).resolve().parents[2],
-        env={
-            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
-            "TRUSTYTRACK_DATA_DIR": str(data_dir),
-            "HOME": str(data_dir),
-        },
-        capture_output=True,
-        text=True,
-    )
+    # Migrated to head the way an operator does — through `init_db()`.
+    return migrate_to_head(tmp_path)
 
 
 def _rows(db: Path, sql: str) -> list:
@@ -270,7 +256,7 @@ def test_a_clean_database_archives_nothing(tmp_path):
             )
 
     build_pre_alembic_database(tmp_path, seed=seed)
-    assert _run_init_db(tmp_path).returncode == 0
+    migrate_to_head(tmp_path)
 
     db = tmp_path / "trusty-track.db"
     assert _rows(db, "select count(*) from heat_lane_blob_archive")[0][0] == 0
@@ -315,7 +301,7 @@ def test_a_lane_naming_a_deleted_racer_is_archived(tmp_path):
         )
 
     build_pre_alembic_database(tmp_path, seed=seed)
-    assert _run_init_db(tmp_path).returncode == 0
+    migrate_to_head(tmp_path)
 
     db = tmp_path / "trusty-track.db"
     archived = dict(
