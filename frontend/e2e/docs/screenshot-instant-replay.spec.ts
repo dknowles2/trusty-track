@@ -192,6 +192,13 @@ const FROZEN_INTERMISSION_COUNTDOWN_TEXT = '3:20';
  * component only recomputes `remaining` on its next render, which for a
  * running countdown is the *next* tick of that same real `setInterval`, up
  * to a second away — rather than assuming one has already happened.
+ *
+ * The two pages are deliberately not interchangeable, which is why both are
+ * parameters rather than one: `endsAt` is read through the operator's own
+ * `page`, since `gql` posts through that page's request context (`support.ts`)
+ * and it is the operator's, while the freeze and the assertion both belong to
+ * `displayPage` — it is the display's clock the badge is rendered against, and
+ * the display's DOM the frozen text has to appear in.
  */
 async function freezeIntermissionCountdown(
     page: import('@playwright/test').Page,
