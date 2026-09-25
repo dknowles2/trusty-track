@@ -210,8 +210,8 @@ def no_real_mdns(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def no_pre_probe_settle(monkeypatch):
-    """The prober's settle is real time, and there is nothing here to settle.
+def no_probe_wall_clock(monkeypatch):
+    """The prober's two waits are real time, and there is nothing here to wait for.
 
     ``probe.PRE_PROBE_SETTLE_SECONDS`` is two seconds of `asyncio.sleep` before
     each candidate profile that asks for one, so a device that needs a moment
@@ -224,8 +224,29 @@ def no_pre_probe_settle(monkeypatch):
     them. It matters most where there are fewest workers to hide it: CI runs
     four, not ten. It is the settle that is stubbed rather than the sleep, so a
     test that wants to prove the wait happens can set it back.
+
+    ``probe.RESPONSE_SECONDS`` is the other half, and stubbing only the settle
+    left it paying 0.6s per candidate on any port that never answers — ten
+    candidates, so six seconds for one quiet fake port. That made
+    ``test_the_manager_adopts_what_the_probe_found`` the slowest test in the
+    suite, at a number that never moved because it was a deadline rather than
+    work. It is worse than idle waiting: ``_banner_from`` polls
+    ``connection.read`` through ``asyncio.to_thread`` until the deadline, and a
+    fake port returns instantly, so the wait is a hot loop on the thread pool
+    that the other xdist workers are trying to share.
+
+    Not zero: the deadline is checked *before* the first read, so a zero
+    budget would return None without ever looking at a port that answered.
+    Small enough not to matter, large enough that the check cannot lose a race
+    against the statement above it. Nothing is given up by shortening it — a
+    fake that answers does so on the first read, and one that does not answer
+    is only reached sooner. Every test that is *about* the deadline passes
+    ``response_seconds`` to ``probe.detect`` explicitly, which this does not
+    touch; the two that go through ``TimerManager.autodetect()`` cannot, since
+    it takes no such argument, and they are the ones this is for.
     """
     monkeypatch.setattr(probe, "PRE_PROBE_SETTLE_SECONDS", 0.0)
+    monkeypatch.setattr(probe, "RESPONSE_SECONDS", 0.05)
 
 
 @pytest.fixture(scope="function")

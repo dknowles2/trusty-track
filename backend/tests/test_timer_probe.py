@@ -332,7 +332,6 @@ async def test_finding_nothing_says_so_on_the_status(monkeypatch):
     quiet = {"/dev/ttyUSB0": FakePort({})}
     monkeypatch.setattr(probe, "usb_ports", lambda: list(quiet))
     monkeypatch.setattr(probe, "open_serial", opener(quiet))
-    monkeypatch.setattr(probe, "RESPONSE_SECONDS", 0.1)
 
     manager = TimerManager(track_id=1, device=FAKE)
 
