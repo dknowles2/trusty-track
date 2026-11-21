@@ -24,6 +24,7 @@ import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import { isRaceSectionId, type RaceSectionId } from '../raceSettingsSections';
 import DeleteLockedRaceModal from '../components/DeleteLockedRaceModal';
+import QueryError from '../../core/components/QueryError';
 import RaceViewHeading from '../../core/components/RaceViewHeading';
 import ImportRacersModal from '../components/ImportRacersModal';
 import RosterImportModal, { IMPORT_OTHER_SOFTWARE_LABEL } from '../components/RosterImportModal';
@@ -94,7 +95,7 @@ export default function RaceDetails() {
     reexecuteRaceDetails({ requestPolicy: 'network-only' })
   );
 
-  const { data, fetching } = raceDetailsResult;
+  const { data, fetching, error } = raceDetailsResult;
   // "Home Pack" — the race's own resolved label (#1076, stage 1), always
   // the *organization's* own word (never this race's own override of it —
   // see `Race.homeUnitLabel`'s docstring). Falls back to the built-in
@@ -1000,6 +1001,16 @@ export default function RaceDetails() {
   };
 
   if (loading && !race) return <p>Loading...</p>;
+
+  if (error && !race) {
+    return (
+      <QueryError
+        error={error}
+        fallback="The race details could not be loaded."
+        onRetry={() => reexecuteRaceDetails({ requestPolicy: 'network-only' })}
+      />
+    );
+  }
 
   // Shared between the desktop sticky region (unchanged) and the narrow
   // one below, which keeps only this and the search box sticky (#1148) —
