@@ -136,6 +136,7 @@ class _FakeProxyWebSocket:
 
     def __init__(self) -> None:
         self.query_params: dict[str, str] = {}
+        self.client = None
         self._inbound: asyncio.Queue = asyncio.Queue()
         self._outbound: asyncio.Queue = asyncio.Queue()
         self.close_code: int | None = None
