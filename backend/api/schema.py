@@ -20,6 +20,11 @@ import pillow_heif
 import strawberry
 from pydantic import ValidationError
 from sqlalchemy.orm import Session, joinedload, object_session
+from strawberry.extensions import (
+    MaxAliasesLimiter,
+    MaxTokensLimiter,
+    QueryDepthLimiter,
+)
 from strawberry.types import Info
 
 from backend import demo_mode
@@ -8756,6 +8761,11 @@ class Subscription:
                 yield _get_active_free()
 
 
+#: Query complexity bounds enforced before any resolver runs (#1359).
+MAX_GRAPHQL_DEPTH = 15
+MAX_GRAPHQL_TOKENS = 1000
+MAX_GRAPHQL_ALIASES = 25
+
 schema = strawberry.Schema(
     query=Query,
     mutation=Mutation,
@@ -8785,6 +8795,9 @@ schema = strawberry.Schema(
     # `AuditExtension`'s wrap, so a lock refusal is recorded exactly like any
     # other. See `api/race_lock.py` for the allowed-while-locked list.
     extensions=[
+        lambda: MaxTokensLimiter(max_token_count=MAX_GRAPHQL_TOKENS),
+        lambda: MaxAliasesLimiter(max_alias_count=MAX_GRAPHQL_ALIASES),
+        lambda: QueryDepthLimiter(max_depth=MAX_GRAPHQL_DEPTH),
         RaceLockExtension,
         RolePolicyExtension,
         DemoPolicyExtension,
