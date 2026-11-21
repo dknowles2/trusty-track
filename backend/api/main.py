@@ -36,6 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
+from starlette.datastructures import MutableHeaders
 from strawberry.fastapi import GraphQLRouter
 
 from backend import demo_content, demo_mode
@@ -482,6 +483,37 @@ class MaxGraphQLBodySizeMiddleware:
 
 
 app.add_middleware(MaxGraphQLBodySizeMiddleware)
+
+
+_SECURITY_HEADERS = (
+    ("x-content-type-options", "nosniff"),
+    ("referrer-policy", "strict-origin-when-cross-origin"),
+    ("x-frame-options", "SAMEORIGIN"),
+)
+
+
+class SecurityHeadersMiddleware:
+    """Attach baseline security headers to every HTTP response (#1360)."""
+
+    def __init__(self, app):  # type: ignore[no-untyped-def]
+        self.app = app
+
+    async def __call__(self, scope, receive, send):  # type: ignore[no-untyped-def]
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def _send_with_headers(message):  # type: ignore[no-untyped-def]
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                for name, value in _SECURITY_HEADERS:
+                    headers.setdefault(name, value)
+            await send(message)
+
+        await self.app(scope, receive, _send_with_headers)
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 # Dependency
