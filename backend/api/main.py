@@ -15,6 +15,7 @@ import uuid
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 import pillow_heif
 from dotenv import load_dotenv
@@ -573,10 +574,9 @@ async def get_graphql_context(
     }
 
 
-_GRAPHQL_IDE = (
+_GRAPHQL_IDE: Literal["graphiql"] | None = (
     "graphiql"
-    if os.getenv("TRUSTYTRACK_GRAPHQL_IDE", "").strip().lower()
-    in ("1", "true", "yes")
+    if os.getenv("TRUSTYTRACK_GRAPHQL_IDE", "").strip().lower() in ("1", "true", "yes")
     else None
 )
 graphql_app = GraphQLRouter(
