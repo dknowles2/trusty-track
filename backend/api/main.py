@@ -539,20 +539,57 @@ FRONTEND_DIST = _BASE_DIR / "frontend" / "dist"
 app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 
 
-def _role_for_request(db: Session, pin: str | None) -> auth.Role:
+@app.exception_handler(auth.PinRateLimitError)
+async def _pin_rate_limit_handler(
+    _request: Request, exc: auth.PinRateLimitError
+) -> JSONResponse:
+    return JSONResponse(
+        {"detail": str(exc)},
+        status_code=429,
+        headers={"Retry-After": str(math.ceil(exc.retry_after))},
+    )
+
+
+def _role_for_request(
+    db: Session, pin: str | None, *, source_ip: str | None = None
+) -> auth.Role:
     """The caller's role, from the PIN they sent and the PINs that are set.
 
     Reads the single `Organization` rather than taking a race — roles are
     install-wide, and an install has one organization. No organization yet
     (the first run, before the wizard has saved) means nothing is configured,
     so `role_for` returns operator.
+
+    When an operator PIN is configured and *pin* is non-empty, failed attempts
+    are rate-limited per *source_ip* and logged (#1358).
     """
     organization = db.query(models.Organization).first()
-    return auth.role_for(
+    operator_pin_hash = getattr(organization, "operator_pin_hash", None)
+    checkin_pin_hash = getattr(organization, "checkin_pin_hash", None)
+
+    ip_key = source_ip or "unknown"
+    if operator_pin_hash and pin:
+        retry_after = auth.pin_rate_limiter.is_limited(ip_key)
+        if retry_after is not None:
+            logger.warning(
+                "PIN check rate-limited for %s (retry_after=%ds)",
+                ip_key,
+                math.ceil(retry_after),
+            )
+            raise auth.PinRateLimitError(retry_after)
+
+    role = auth.role_for(
         pin,
-        operator_pin_hash=getattr(organization, "operator_pin_hash", None),
-        checkin_pin_hash=getattr(organization, "checkin_pin_hash", None),
+        operator_pin_hash=operator_pin_hash,
+        checkin_pin_hash=checkin_pin_hash,
     )
+    if operator_pin_hash and pin:
+        if role is auth.Role.VIEWER:
+            auth.pin_rate_limiter.record_failure(ip_key)
+            logger.warning("Failed PIN attempt from %s", ip_key)
+        else:
+            auth.pin_rate_limiter.clear_key(ip_key)
+    return role
 
 
 async def get_graphql_context(
@@ -590,7 +627,7 @@ async def get_graphql_context(
         "source_ip": source_ip,
         # A callable, not a value: see `auth.resolve_role`. Only a mutation
         # asks, and working it out costs a query.
-        "role_resolver": lambda: _role_for_request(db, pin),
+        "role_resolver": lambda: _role_for_request(db, pin, source_ip=source_ip),
         "timer_managers": TIMER_MANAGERS,
         # The `.local` name this process is actually advertising (#723,
         # stage 3), if any — read fresh off the module global on every
@@ -835,7 +872,11 @@ def _require_checkin(request: Request, db: Session) -> None:
     mutation. Requiring the operator here would be stricter than the mutation
     that does the same thing, and the desk is exactly who photographs a car.
     """
-    if _role_for_request(db, request.headers.get(auth.PIN_HEADER)) is auth.Role.VIEWER:
+    source_ip = request.client.host if request.client else None
+    if (
+        _role_for_request(db, request.headers.get(auth.PIN_HEADER), source_ip=source_ip)
+        is auth.Role.VIEWER
+    ):
         raise HTTPException(status_code=403, detail="Check-in PIN required")
 
 
@@ -847,8 +888,10 @@ def _require_operator(request: Request, db: Session) -> None:
     (#15). Backup is operator-only in both directions: the archive holds every
     racer's name and photograph, and a restore replaces the running event.
     """
-    if _role_for_request(db, request.headers.get(auth.PIN_HEADER)) is not (
-        auth.Role.OPERATOR
+    source_ip = request.client.host if request.client else None
+    if (
+        _role_for_request(db, request.headers.get(auth.PIN_HEADER), source_ip=source_ip)
+        is not auth.Role.OPERATOR
     ):
         raise HTTPException(status_code=403, detail="Operator PIN required")
 
@@ -1362,9 +1405,16 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
 
     # Credentials before anything else, so an unauthenticated caller learns
     # nothing — not whether the track exists, nor whether proxy mode is on.
+    source_ip = websocket.client.host if websocket.client else None
     db = SessionLocal()
     try:
-        role = _role_for_request(db, websocket.query_params.get("pin"))
+        role = _role_for_request(
+            db, websocket.query_params.get("pin"), source_ip=source_ip
+        )
+    except auth.PinRateLimitError:
+        await websocket.accept()
+        await websocket.close(code=4429, reason="Too many failed PIN attempts")
+        return
     finally:
         db.close()
     if role is not auth.Role.OPERATOR:

@@ -739,3 +739,79 @@ def test_a_viewer_cannot_assign_a_display(client, db):
 
     body = response.json()
     assert "errors" in body, body
+
+
+# --------------------------------------------------------------------------- #
+# Rate limiting & logging on failed PIN checks (#1358)                        #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.usefixtures("secured")
+def test_failed_pin_attempts_are_rate_limited_and_logged_on_initial_config(
+    client, monkeypatch, caplog
+):
+    """Repeated wrong PINs on `initialConfig { role }` are logged (without the
+    PIN itself) and locked out before PBKDF2, while PIN-less viewers are
+    never blocked."""
+    monkeypatch.setattr(auth.pin_rate_limiter, "max_failures", 3)
+
+    with caplog.at_level("WARNING"):
+        for guess in ("0001", "0002", "0003"):
+            res = _post(client, ROLE_QUERY, pin=guess).json()
+            assert res["data"]["initialConfig"]["role"] == "VIEWER"
+
+        # 4th attempt — even with the right PIN — is locked out.
+        blocked = _post(client, ROLE_QUERY, pin="1111").json()
+        assert "errors" in blocked
+        assert "Too many failed PIN attempts" in blocked["errors"][0]["message"]
+
+    # An unauthenticated viewer (no PIN header) is still served normally.
+    viewer = _post(client, ROLE_QUERY).json()
+    assert viewer["data"]["initialConfig"]["role"] == "VIEWER"
+
+    messages = [rec.message for rec in caplog.records]
+    assert sum("Failed PIN attempt" in m for m in messages) == 3
+    assert any("PIN check rate-limited" in m for m in messages)
+    for guess in ("0001", "0002", "0003", "1111"):
+        assert all(guess not in m for m in messages)
+
+
+@pytest.mark.usefixtures("secured")
+def test_failed_pin_rate_limit_applies_to_rest_routes_with_429(client, monkeypatch):
+    monkeypatch.setattr(auth.pin_rate_limiter, "max_failures", 2)
+
+    for guess in ("9001", "9002"):
+        resp = client.get("/api/backup", headers={auth.PIN_HEADER: guess})
+        assert resp.status_code == 403
+
+    limited = client.get("/api/backup", headers={auth.PIN_HEADER: "1111"})
+    assert limited.status_code == 429
+    assert "Retry-After" in limited.headers
+
+
+@pytest.mark.usefixtures("secured")
+def test_valid_pin_before_lockout_clears_failure_count(client, monkeypatch):
+    monkeypatch.setattr(auth.pin_rate_limiter, "max_failures", 3)
+
+    assert (
+        _post(client, ROLE_QUERY, pin="0001").json()["data"]["initialConfig"]["role"]
+        == "VIEWER"
+    )
+    assert (
+        _post(client, ROLE_QUERY, pin="0002").json()["data"]["initialConfig"]["role"]
+        == "VIEWER"
+    )
+    # Valid PIN before reaching 3 failures succeeds and resets the counter.
+    assert (
+        _post(client, ROLE_QUERY, pin="1111").json()["data"]["initialConfig"]["role"]
+        == "OPERATOR"
+    )
+
+    assert (
+        _post(client, ROLE_QUERY, pin="0003").json()["data"]["initialConfig"]["role"]
+        == "VIEWER"
+    )
+    assert (
+        _post(client, ROLE_QUERY, pin="0004").json()["data"]["initialConfig"]["role"]
+        == "VIEWER"
+    )

@@ -29,6 +29,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from backend.api import auth
 from backend.api.main import app, get_db
 from backend.db import crud, schemas
 from backend.db.database import DATA_DIR, UPLOAD_DIR, Base
@@ -115,9 +116,11 @@ def override_get_db(db_session):
             # We don't close here because db_session fixture handles it
             pass
 
+    auth.pin_rate_limiter.clear()
     app.dependency_overrides[get_db] = _get_db_override
     yield
     app.dependency_overrides.pop(get_db, None)
+    auth.pin_rate_limiter.clear()
 
 
 @pytest.fixture(scope="function", autouse=True)
