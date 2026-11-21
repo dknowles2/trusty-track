@@ -229,8 +229,8 @@ if it could not find one to substitute (try typing the printed address into
 a phone's browser to check it works before relying on it).
 
 **A headline and a Wi-Fi line, both optional**, set in the **Displays**
-section of the race's own edit form (**Edit race** from Home, or **Edit
-Details** on the Roster page) — not offered while creating the race, since
+section of the race's own edit form (**Edit race** from Home or the Roster
+page) — not offered while creating the race, since
 this is about one audience-display view most races never assign:
 
 - **QR code headline** — the call-to-action above the code, e.g. *"Scan to
