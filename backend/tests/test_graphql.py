@@ -93,3 +93,46 @@ def test_create_and_query_race(client, db):
     data = response.json()
     assert data["data"]["race"]["name"] == "GraphQL Race"
     assert data["data"]["race"]["organization"]["name"] == "GraphQL Organization"
+
+
+def test_graphql_rejects_excessive_depth(client) -> None:
+    from backend.api.schema import MAX_GRAPHQL_DEPTH
+
+    nested = "id"
+    for _ in range(MAX_GRAPHQL_DEPTH + 1):
+        nested = f"duplicateOf {{ {nested} }}"
+    query = f"query {{ awards(raceId: 1) {{ {nested} }} }}"
+    response = client.post("/graphql", json={"query": query})
+    assert response.status_code == 200
+    body = response.json()
+    assert "errors" in body
+    assert "maximum operation depth" in body["errors"][0]["message"]
+
+
+def test_graphql_rejects_excessive_aliases(client) -> None:
+    from backend.api.schema import MAX_GRAPHQL_ALIASES
+
+    fields = " ".join(f"v{i}: version" for i in range(MAX_GRAPHQL_ALIASES + 1))
+    response = client.post("/graphql", json={"query": f"query {{ {fields} }}"})
+    assert response.status_code == 200
+    body = response.json()
+    assert "errors" in body
+    assert "aliases found" in body["errors"][0]["message"]
+
+
+def test_graphql_rejects_excessive_tokens(client) -> None:
+    from backend.api.schema import MAX_GRAPHQL_TOKENS
+
+    # Each `version` is 1 token; exceed MAX_GRAPHQL_TOKENS without tripping aliases.
+    fields = " ".join("version" for _ in range(MAX_GRAPHQL_TOKENS + 5))
+    response = client.post("/graphql", json={"query": f"query {{ {fields} }}"})
+    assert response.status_code == 200
+    body = response.json()
+    assert "errors" in body
+    assert "tokens" in body["errors"][0]["message"]
+
+
+def test_graphql_ide_disabled_by_default(client) -> None:
+    response = client.get("/graphql", headers={"Accept": "text/html"})
+    assert response.status_code != 200
+    assert "graphiql" not in response.text.lower()

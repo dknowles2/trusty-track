@@ -16,6 +16,7 @@ import uuid
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 import pillow_heif
 from dotenv import load_dotenv
@@ -606,7 +607,16 @@ async def get_graphql_context(
     }
 
 
-graphql_app = GraphQLRouter(schema, context_getter=get_graphql_context)
+_GRAPHQL_IDE: Literal["graphiql"] | None = (
+    "graphiql"
+    if os.getenv("TRUSTYTRACK_GRAPHQL_IDE", "").strip().lower() in ("1", "true", "yes")
+    else None
+)
+graphql_app = GraphQLRouter(
+    schema,
+    context_getter=get_graphql_context,
+    graphql_ide=_GRAPHQL_IDE,
+)
 app.include_router(graphql_app, prefix="/graphql")
 # In production the built frontend sends requests to /api/graphql (the Vite dev
 # proxy rewrites /api/* → /* so /graphql above handles dev; this covers production).
