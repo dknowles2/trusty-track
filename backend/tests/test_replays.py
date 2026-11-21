@@ -46,6 +46,7 @@ def isolated_replay_store(tmp_path, monkeypatch):
     """
     store = replays_service.ReplayStore(tmp_path / "replays")
     store.sweep()
+    replays_service.upload_rate_limiter.clear()
     monkeypatch.setattr(replays_service, "store", store)
     return store
 
@@ -1252,3 +1253,193 @@ def test_discard_rows_for_deleted_heats_is_a_no_op_with_no_matching_rows(db):
     `keepReplays` on."""
     replays_service.discard_rows_for_deleted_heats(db, [])
     replays_service.discard_rows_for_deleted_heats(db, [999999])
+
+
+# --------------------------------------------------------------------------- #
+# DoS / storage / rate-limit bounds (#1357)                                   #
+# --------------------------------------------------------------------------- #
+
+
+def test_reupload_same_camera_replaces_existing_clip(client, db, race):
+    """Uploading again for the same `(heat_id, recorded_at, camera_id)` must
+    replace the previous clip and delete its file rather than accumulating."""
+    _, race_obj = race
+    _enable_keep_replays(db, race_obj)
+    heat = _heat(db, race_obj, recorded_at="2026-09-16T12:00:00+00:00")
+
+    first = _upload(
+        client,
+        race_id=race_obj.id,
+        heat_id=heat.id,
+        recorded_at=heat.recorded_at,
+        camera_id="cam-1",
+    )
+    assert first.status_code == 200
+    first_name = first.json()["url"].removeprefix("/replay/")
+    assert (replays_service.store.directory / first_name).is_file()
+
+    second = _upload(
+        client,
+        race_id=race_obj.id,
+        heat_id=heat.id,
+        recorded_at=heat.recorded_at,
+        camera_id="cam-1",
+    )
+    assert second.status_code == 200
+    second_name = second.json()["url"].removeprefix("/replay/")
+    assert second_name != first_name
+    assert not (replays_service.store.directory / first_name).is_file()
+    assert not replays_service.store.known_filename(first_name)
+    assert (replays_service.store.directory / second_name).is_file()
+
+    key = ReplayKey(heat_id=heat.id, recorded_at=heat.recorded_at)
+    assert len(replays_service.store.clips_for(key)) == 1
+    assert db.query(models.HeatReplay).count() == 1
+
+
+def test_per_heat_camera_cap_is_enforced(client, db, race, monkeypatch):
+    """Distinct `camera_id`s for a single `(heat_id, recorded_at)` are capped
+    at `MAX_CLIPS_PER_KEY`, while re-uploading an existing camera still works."""
+    _, race_obj = race
+    heat = _heat(db, race_obj, recorded_at="2026-09-16T12:00:00+00:00")
+    monkeypatch.setattr(replays_service, "MAX_CLIPS_PER_KEY", 2)
+
+    assert (
+        _upload(
+            client,
+            race_id=race_obj.id,
+            heat_id=heat.id,
+            recorded_at=heat.recorded_at,
+            camera_id="cam-1",
+        ).status_code
+        == 200
+    )
+    assert (
+        _upload(
+            client,
+            race_id=race_obj.id,
+            heat_id=heat.id,
+            recorded_at=heat.recorded_at,
+            camera_id="cam-2",
+        ).status_code
+        == 200
+    )
+    overflow = _upload(
+        client,
+        race_id=race_obj.id,
+        heat_id=heat.id,
+        recorded_at=heat.recorded_at,
+        camera_id="cam-3",
+    )
+    assert overflow.status_code == 429
+    assert len(list(replays_service.store.directory.iterdir())) == 2
+
+    # Replacing an existing camera still succeeds under the cap.
+    replace = _upload(
+        client,
+        race_id=race_obj.id,
+        heat_id=heat.id,
+        recorded_at=heat.recorded_at,
+        camera_id="cam-1",
+    )
+    assert replace.status_code == 200
+    assert len(list(replays_service.store.directory.iterdir())) == 2
+
+
+def test_global_storage_cap_evicts_oldest_clips(client, db, race, monkeypatch):
+    """Even when `keep_replays` is on with `None/None` retention bounds,
+    `MAX_REPLAY_STORAGE_BYTES` caps total disk usage by evicting oldest clips."""
+    _, race_obj = race
+    _enable_keep_replays(db, race_obj, retention_heats=None, retention_mb=None)
+    monkeypatch.setattr(replays_service, "MAX_REPLAY_STORAGE_BYTES", 100)
+    body = b"\x00" * 45
+
+    h1 = _heat(db, race_obj, heat_number=1, recorded_at="2026-09-16T12:00:00+00:00")
+    h2 = _heat(db, race_obj, heat_number=2, recorded_at="2026-09-16T12:01:00+00:00")
+    h3 = _heat(db, race_obj, heat_number=3, recorded_at="2026-09-16T12:02:00+00:00")
+
+    r1 = _upload(
+        client,
+        race_id=race_obj.id,
+        heat_id=h1.id,
+        recorded_at=h1.recorded_at,
+        body=body,
+    )
+    r2 = _upload(
+        client,
+        race_id=race_obj.id,
+        heat_id=h2.id,
+        recorded_at=h2.recorded_at,
+        body=body,
+    )
+    r3 = _upload(
+        client,
+        race_id=race_obj.id,
+        heat_id=h3.id,
+        recorded_at=h3.recorded_at,
+        body=body,
+    )
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    assert r3.status_code == 200
+
+    p1 = r1.json()["url"].removeprefix("/replay/")
+    p2 = r2.json()["url"].removeprefix("/replay/")
+    p3 = r3.json()["url"].removeprefix("/replay/")
+
+    assert replays_service.store.total_bytes() <= 100
+    assert not (replays_service.store.directory / p1).is_file()
+    assert not replays_service.store.known_filename(p1)
+    assert (replays_service.store.directory / p2).is_file()
+    assert (replays_service.store.directory / p3).is_file()
+    assert {row.path for row in db.query(models.HeatReplay).all()} == {p2, p3}
+
+
+def test_upload_rate_limit_enforced(client, db, race, monkeypatch):
+    """`POST /replay/` remains unauthenticated but enforces per-IP rate limiting."""
+    _, race_obj = race
+    heat = _heat(db, race_obj, recorded_at="2026-09-16T12:00:00+00:00")
+    monkeypatch.setattr(replays_service.upload_rate_limiter, "max_requests", 2)
+
+    assert (
+        _upload(
+            client,
+            race_id=race_obj.id,
+            heat_id=heat.id,
+            recorded_at=heat.recorded_at,
+            camera_id="cam-1",
+        ).status_code
+        == 200
+    )
+    assert (
+        _upload(
+            client,
+            race_id=race_obj.id,
+            heat_id=heat.id,
+            recorded_at=heat.recorded_at,
+            camera_id="cam-2",
+        ).status_code
+        == 200
+    )
+    limited = _upload(
+        client,
+        race_id=race_obj.id,
+        heat_id=heat.id,
+        recorded_at=heat.recorded_at,
+        camera_id="cam-3",
+    )
+    assert limited.status_code == 429
+    assert "Retry-After" in limited.headers
+
+
+def test_empty_camera_id_is_refused(client, db, race):
+    _, race_obj = race
+    heat = _heat(db, race_obj, recorded_at="2026-09-16T12:00:00+00:00")
+    response = _upload(
+        client,
+        race_id=race_obj.id,
+        heat_id=heat.id,
+        recorded_at=heat.recorded_at,
+        camera_id="   ",
+    )
+    assert response.status_code == 400

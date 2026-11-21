@@ -39,7 +39,9 @@ sibling of `uploads/` under `DATA_DIR`, not a child of it.
 from __future__ import annotations
 
 import shutil
+import time
 import uuid
+from collections import deque
 from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -52,10 +54,16 @@ from backend.domain.replays import ReplayClip, ReplayKey
 
 __all__ = [
     "ALLOWED_CONTENT_TYPES",
+    "MAX_CLIPS_PER_KEY",
     "MAX_REPLAY_CLIP_BYTES",
+    "MAX_REPLAY_STORAGE_BYTES",
     "REPLAY_DIRNAME",
+    "REPLAY_RATE_LIMIT_MAX_REQUESTS",
+    "REPLAY_RATE_LIMIT_WINDOW_SECONDS",
     "ReplayStore",
+    "UploadRateLimiter",
     "store",
+    "upload_rate_limiter",
     "discard_or_retain",
     "record_stored_clip",
     "enforce_retention",
@@ -79,6 +87,19 @@ ALLOWED_CONTENT_TYPES: dict[str, str] = {
 #: trimming it, the same "generous, not tight" reasoning `MAX_UPLOAD_BYTES`
 #: uses for a photograph.
 MAX_REPLAY_CLIP_BYTES = 12 * 1024 * 1024
+
+#: Hard process-wide ceiling on total bytes stored under `DATA_DIR/replays/`
+#: across all races, regardless of whether `keep_replays` is enabled or its
+#: per-race retention bounds are `None` (#1357).
+MAX_REPLAY_STORAGE_BYTES = 512 * 1024 * 1024
+
+#: Maximum distinct cameras allowed per `(heat_id, recorded_at)` key (#1357).
+MAX_CLIPS_PER_KEY = 8
+
+#: Per-IP sliding-window rate limit for unauthenticated `POST /replay/` (#1357).
+REPLAY_RATE_LIMIT_MAX_REQUESTS = 20
+REPLAY_RATE_LIMIT_WINDOW_SECONDS = 60.0
+REPLAY_RATE_LIMIT_MAX_TRACKED_KEYS = 4096
 
 #: How much is read at a time while enforcing that cap — the same
 #: "measure while reading, not after" rule `_read_capped` in `api/main.py`
@@ -168,7 +189,7 @@ class ReplayStore:
                 duration_ms=row.duration_ms,
                 size_bytes=row.size_bytes,
             )
-            self.add(key, clip)
+            self.add(key, clip, replace_existing=False)
 
     def new_clip_path(self, extension: str) -> tuple[str, Path]:
         """A fresh, non-enumerable filename for an incoming upload, and where
@@ -182,11 +203,71 @@ class ReplayStore:
         name = f"{uuid.uuid4()}{extension}"
         return name, self._dir / name
 
-    def add(self, key: ReplayKey, clip: ReplayClip) -> None:
-        """Record a clip that has already been written to disk."""
-        self._clips.setdefault(key, []).append(clip)
+    def add(
+        self,
+        key: ReplayKey,
+        clip: ReplayClip,
+        *,
+        replace_existing: bool = True,
+    ) -> ReplayClip | None:
+        """Record a clip that has already been written to disk.
+
+        When *replace_existing* is True (default), any prior clip for the same
+        `(key, camera_id)` is replaced and its file deleted, returning the
+        replaced `ReplayClip` so callers can clean up any DB metadata.
+        """
+        clips = self._clips.setdefault(key, [])
+        replaced: ReplayClip | None = None
+        if replace_existing:
+            for idx, existing in enumerate(clips):
+                if existing.camera_id == clip.camera_id:
+                    replaced = clips.pop(idx)
+                    if replaced.path != clip.path:
+                        self._delete_file(replaced.path)
+                    break
+        clips.append(clip)
         self._latest_key[clip.race_id] = key
         self._filenames.add(clip.path)
+        return replaced
+
+    def total_bytes(self) -> int:
+        """Total byte size of all clips currently tracked by this store."""
+        return sum(
+            clip.size_bytes for clips in self._clips.values() for clip in clips
+        )
+
+    def evict_to_cap(
+        self, max_bytes: int, *, keep_path: str | None = None
+    ) -> list[ReplayClip]:
+        """Evict oldest clips until total stored bytes are at or below *max_bytes*.
+
+        Never evicts *keep_path* (the clip just uploaded). Returns the list of
+        evicted `ReplayClip`s so callers can delete matching DB rows.
+        """
+        total = self.total_bytes()
+        if total <= max_bytes:
+            return []
+        evicted: list[ReplayClip] = []
+        for key in list(self._clips):
+            if total <= max_bytes:
+                break
+            clips = self._clips[key]
+            remaining: list[ReplayClip] = []
+            for clip in clips:
+                if total > max_bytes and clip.path != keep_path:
+                    self._delete_file(clip.path)
+                    total -= clip.size_bytes
+                    evicted.append(clip)
+                else:
+                    remaining.append(clip)
+            if remaining:
+                self._clips[key] = remaining
+            else:
+                del self._clips[key]
+                for race_id, latest in list(self._latest_key.items()):
+                    if latest == key:
+                        del self._latest_key[race_id]
+        return evicted
 
     def clips_for(self, key: ReplayKey) -> list[ReplayClip]:
         return list(self._clips.get(key, ()))
@@ -258,8 +339,61 @@ class ReplayStore:
         self._filenames.discard(filename)
 
 
+class UploadRateLimiter:
+    """In-memory sliding-window rate limiter per client IP (#1357)."""
+
+    def __init__(
+        self,
+        max_requests: int = REPLAY_RATE_LIMIT_MAX_REQUESTS,
+        window_seconds: float = REPLAY_RATE_LIMIT_WINDOW_SECONDS,
+        max_tracked_keys: int = REPLAY_RATE_LIMIT_MAX_TRACKED_KEYS,
+    ) -> None:
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.max_tracked_keys = max_tracked_keys
+        self._hits: dict[str, deque[float]] = {}
+
+    def check(self, key: str, now: float | None = None) -> float | None:
+        """Record a request for *key*; return None if allowed, else retry-after."""
+        if self.max_requests <= 0:
+            return self.window_seconds
+        current = time.monotonic() if now is None else now
+        cutoff = current - self.window_seconds
+        timestamps = self._hits.get(key)
+        if timestamps is not None:
+            while timestamps and timestamps[0] <= cutoff:
+                timestamps.popleft()
+            if not timestamps:
+                del self._hits[key]
+                timestamps = None
+        if timestamps is not None and len(timestamps) >= self.max_requests:
+            return max(1.0, timestamps[0] + self.window_seconds - current)
+        if timestamps is None:
+            if len(self._hits) >= self.max_tracked_keys:
+                self._prune(cutoff)
+            if len(self._hits) >= self.max_tracked_keys:
+                oldest_key = next(iter(self._hits))
+                del self._hits[oldest_key]
+            timestamps = deque()
+            self._hits[key] = timestamps
+        timestamps.append(current)
+        return None
+
+    def _prune(self, cutoff: float) -> None:
+        for k in list(self._hits):
+            ts = self._hits[k]
+            while ts and ts[0] <= cutoff:
+                ts.popleft()
+            if not ts:
+                del self._hits[k]
+
+    def clear(self) -> None:
+        self._hits.clear()
+
+
 #: One per process, like `DisplayRegistry.registry` and the timer managers.
 store = ReplayStore(Path(DATA_DIR) / REPLAY_DIRNAME)
+upload_rate_limiter = UploadRateLimiter()
 
 
 def discard_or_retain(db: Session, race_id: int, keep_heat_id: int) -> int:

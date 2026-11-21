@@ -7,6 +7,7 @@ Mounts the GraphQL router and static file serving.
 import base64
 import io
 import logging
+import math
 import os
 import re
 import sys
@@ -1064,6 +1065,7 @@ def timer_test_report(
 
 @app.post("/replay/")
 async def upload_replay_clip(
+    request: Request,
     race_id: int = Form(...),
     heat_id: int = Form(...),
     recorded_at: str = Form(...),
@@ -1109,6 +1111,19 @@ async def upload_replay_clip(
     """
     _refuse_on_demo("Uploading a replay clip")
 
+    client_ip = request.client.host if request.client else "unknown"
+    retry_after = replays_service.upload_rate_limiter.check(client_ip)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many replay uploads. Please wait before trying again.",
+            headers={"Retry-After": str(math.ceil(retry_after))},
+        )
+
+    camera_id = camera_id.strip()
+    if not camera_id or len(camera_id) > 128:
+        raise HTTPException(status_code=400, detail="Invalid camera_id")
+
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
     if heat is None or heat.race_id != race_id:
         raise HTTPException(status_code=404, detail="No such heat on this race")
@@ -1120,6 +1135,16 @@ async def upload_replay_clip(
             "for a run that no longer exists.",
         )
 
+    key = domain_replays.ReplayKey(heat_id=heat_id, recorded_at=recorded_at)
+    existing_clips = replays_service.store.clips_for(key)
+    if len(existing_clips) >= replays_service.MAX_CLIPS_PER_KEY and not any(
+        c.camera_id == camera_id for c in existing_clips
+    ):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many replay clips for this heat.",
+        )
+
     extension = replays_service.ALLOWED_CONTENT_TYPES.get(file.content_type or "")
     if extension is None:
         raise HTTPException(
@@ -1127,9 +1152,14 @@ async def upload_replay_clip(
             detail=f"Unsupported clip type: {file.content_type or 'unknown'}",
         )
 
-    raw_bytes = await _read_capped(file, replays_service.MAX_REPLAY_CLIP_BYTES)
+    size_limit = min(
+        replays_service.MAX_REPLAY_CLIP_BYTES,
+        replays_service.MAX_REPLAY_STORAGE_BYTES,
+    )
+    raw_bytes = await _read_capped(file, size_limit)
 
     filename, target_path = replays_service.store.new_clip_path(extension)
+    replays_service.store.directory.mkdir(parents=True, exist_ok=True)
     with open(target_path, "wb") as buffer:
         buffer.write(raw_bytes)
 
@@ -1141,8 +1171,19 @@ async def upload_replay_clip(
         duration_ms=duration_ms,
         size_bytes=len(raw_bytes),
     )
-    key = domain_replays.ReplayKey(heat_id=heat_id, recorded_at=recorded_at)
-    replays_service.store.add(key, clip)
+    replaced = replays_service.store.add(key, clip)
+    evicted = replays_service.store.evict_to_cap(
+        replays_service.MAX_REPLAY_STORAGE_BYTES,
+        keep_path=clip.path,
+    )
+    removed_paths = [c.path for c in evicted]
+    if replaced is not None:
+        removed_paths.append(replaced.path)
+    if removed_paths:
+        db.query(models.HeatReplay).filter(
+            models.HeatReplay.path.in_(removed_paths)
+        ).delete(synchronize_session=False)
+        db.commit()
 
     # Stage 2 (#177): a clip only ever gets a `HeatReplay` row when the
     # setting was on at the moment it landed — see that model's own
