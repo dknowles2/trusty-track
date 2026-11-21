@@ -41,6 +41,7 @@ import json
 import os
 import shutil
 import sqlite3
+import uuid
 import zipfile
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -193,23 +194,24 @@ def write_archive(
     across devices.
     """
     staging_dir.mkdir(parents=True, exist_ok=True)
-    snapshot = staging_dir / DATABASE_NAME
-    _snapshot_database(engine, snapshot)
+    snapshot = staging_dir / f"{DATABASE_NAME}.{uuid.uuid4().hex}"
 
     try:
-        uploads = sorted(p for p in upload_dir.iterdir() if p.is_file())
-    except FileNotFoundError:
-        uploads = []
+        _snapshot_database(engine, snapshot)
 
-    manifest = Manifest(
-        format=ARCHIVE_FORMAT,
-        schema_revision=_revision_of(snapshot),
-        app_version=app_version,
-        created_at=_now(),
-        upload_count=len(uploads),
-    )
+        try:
+            uploads = sorted(p for p in upload_dir.iterdir() if p.is_file())
+        except FileNotFoundError:
+            uploads = []
 
-    try:
+        manifest = Manifest(
+            format=ARCHIVE_FORMAT,
+            schema_revision=_revision_of(snapshot),
+            app_version=app_version,
+            created_at=_now(),
+            upload_count=len(uploads),
+        )
+
         with zipfile.ZipFile(
             destination, "w", compression=zipfile.ZIP_DEFLATED
         ) as archive:
