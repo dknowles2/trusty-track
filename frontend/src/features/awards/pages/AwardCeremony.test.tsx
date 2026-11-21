@@ -687,5 +687,36 @@ describe('the way out (#955)', () => {
       expect(screen.getByText('Ada Lovelace (#42)')).toBeInTheDocument();
     });
   });
+
+  describe('query error state (#1383)', () => {
+    it('shows an error message with retry instead of the empty-awards message', async () => {
+      const user = userEvent.setup();
+      const reExecute = vi.fn();
+      (useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue([
+        {
+          data: undefined,
+          fetching: false,
+          error: { networkError: new Error('Failed to fetch') },
+        },
+        reExecute,
+      ]);
+
+      render(
+        <MemoryRouter initialEntries={['/race/1/awards/present']}>
+          <Routes>
+            <Route path="/race/:raceId/awards/present" element={<AwardCeremony />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      expect(screen.queryByText(/no awards have been set up/i)).not.toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Trusty Track could not be reached. Check the network connection and try again.',
+      );
+
+      await user.click(screen.getByRole('button', { name: /try again/i }));
+      expect(reExecute).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
+    });
+  });
 });
 

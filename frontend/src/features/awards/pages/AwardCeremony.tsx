@@ -39,6 +39,7 @@ import { resolveDisplayTheme } from '../../../theming/applyTheme';
 import type { SurfaceThemeSetting } from '../../../theming/themes';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { useChrome } from '../../../context/ChromeContext';
+import { errorText } from '../../../utils/errors';
 import {
   isSoundEffectEnabled,
   playAwardFanfareSound,
@@ -392,9 +393,28 @@ export default function AwardCeremony() {
         ← Back to awards
       </Link>
 
-      {!slide ? (
+      {result.fetching && !slide ? (
+        <p style={{ fontSize: '3vh', opacity: 0.8 }}>Loading…</p>
+      ) : result.error && !slide ? (
+        <div
+          role="alert"
+          onClick={(e) => e.stopPropagation()}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.25rem', maxWidth: '32rem' }}
+        >
+          <p style={{ fontSize: 'clamp(1.1rem, 3vh, 1.75rem)', opacity: 0.9, margin: 0 }}>
+            {errorText(result.error, 'The awards could not be loaded.')}
+          </p>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => reExecute({ requestPolicy: 'network-only' })}
+          >
+            Try again
+          </button>
+        </div>
+      ) : !slide ? (
         <p style={{ fontSize: '3vh', opacity: 0.8 }}>
-          {result.fetching ? 'Loading…' : 'No awards have been set up for this race yet.'}
+          No awards have been set up for this race yet.
         </p>
       ) : (
         <>
