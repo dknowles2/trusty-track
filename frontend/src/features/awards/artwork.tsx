@@ -118,12 +118,10 @@ function Frame({
       style={variant === 'dark' ? { filter: 'drop-shadow(0 0 10px rgba(252, 209, 22, 0.35))' } : undefined}
     >
       <defs>
-        <linearGradient id="ttGoldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor={fill} stopOpacity="0.85" />
-          <stop offset="35%" stopColor={fill} stopOpacity="1" />
-          <stop offset="50%" stopColor="rgba(255, 255, 255, 0.45)" />
-          <stop offset="70%" stopColor={fill} stopOpacity="1" />
-          <stop offset="100%" stopColor={fill} stopOpacity="0.8" />
+        {/* Opaque metallic gold base so dark projector backgrounds never bleed through */}
+        <linearGradient id="ttGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={fill} stopOpacity="1" />
+          <stop offset="100%" stopColor={fill} stopOpacity="0.92" />
         </linearGradient>
       </defs>
       {children}
@@ -132,51 +130,71 @@ function Frame({
 }
 
 function Trophy(props: ArtworkProps) {
-  const { line: LINE } = resolvePalette(props);
+  const { line: LINE, fill: FILL } = resolvePalette(props);
   return (
     <Frame {...props}>
+      {/* Left & right ear handles flowing cleanly into cup body */}
       <path
-        d="M28 27 C 15 27, 10 37, 14 47 C 18 55, 27 57, 35 56"
+        d="M28 27 C 14 26, 10 39, 17 48 C 22 54, 30 55, 38 53"
         fill="none"
         stroke={LINE}
-        strokeWidth={3}
+        strokeWidth={2.8}
         strokeLinecap="round"
       />
       <path
-        d="M72 27 C 85 27, 90 37, 86 47 C 82 55, 73 57, 65 56"
+        d="M72 27 C 86 26, 90 39, 83 48 C 78 54, 70 55, 62 53"
         fill="none"
         stroke={LINE}
-        strokeWidth={3}
+        strokeWidth={2.8}
         strokeLinecap="round"
       />
-      {/* Trophy Cup with Metallic Lacquer Gradient */}
+      {/* Knopped stem & stepped two-tier pedestal with engraving plaque */}
+      <path
+        d="M 45 62 L 55 62 L 57 73 L 43 73 Z"
+        fill={FILL}
+        stroke={LINE}
+        strokeWidth={2.4}
+        strokeLinejoin="round"
+      />
+      <rect x="43" y="65" width="14" height="4" rx="2" fill={FILL} stroke={LINE} strokeWidth={2} />
+      <path
+        d="M 33 73 L 67 73 L 71 79 L 29 79 Z"
+        fill={LINE}
+        stroke={LINE}
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+      />
+      <rect x="23" y="79" width="54" height="9" rx="2.5" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={2.6} />
+      <path d="M 27 81.5 L 73 81.5" stroke="rgba(255, 255, 255, 0.45)" strokeWidth={1.2} strokeLinecap="round" />
+      <rect x="35" y="81.5" width="30" height="4" rx="1" fill={LINE} />
+
+      {/* Trophy cup body with left specular highlight & right-side depth crescent */}
       <path
         d="M28 22 L72 22 C72 44, 62 60, 50 64 C38 60, 28 44, 28 22 Z"
         fill="url(#ttGoldGrad)"
         stroke={LINE}
-        strokeWidth={2.5}
+        strokeWidth={2.7}
         strokeLinejoin="round"
       />
-      <ellipse cx="50" cy="22" rx="22" ry="3.5" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={2} />
-      {/* Specular Glint Highlight on Cup */}
       <path
-        d="M44 26 C44 38, 42 52, 48 58"
+        d="M 67 24 C 66 43, 59 56, 50 61 C 57 55, 62 42, 62 24 Z"
+        fill="rgba(0, 0, 0, 0.16)"
+      />
+      <path
+        d="M 33 27 C 33 38, 36 49, 42 55"
         stroke="rgba(255, 255, 255, 0.65)"
-        strokeWidth={2}
+        strokeWidth={2.2}
         strokeLinecap="round"
         fill="none"
       />
-      {/* Center Star on Cup */}
+      {/* Hollow 3D bowl rim */}
+      <ellipse cx="50" cy="22" rx="22" ry="3.8" fill={FILL} stroke={LINE} strokeWidth={2.2} />
+      <ellipse cx="50" cy="22" rx="18.5" ry="2" fill="rgba(0, 0, 0, 0.28)" />
+      {/* Centered trigonometric 5-point star on cup */}
       <polygon
-        points="50,32 52,38 58,38 53,42 55,48 50,44 45,48 47,42 42,38 48,38"
+        points="50,32.5 52,38.2 58.1,38.4 53.2,42 55,47.9 50,44.4 45,47.9 46.8,42 41.9,38.4 48,38.2"
         fill={LINE}
       />
-      {/* Stem & Pedestal */}
-      <rect x="46" y="64" width="8" height="8" fill={LINE} />
-      <path d="M34 72 L66 72 L70 80 L30 80 Z" fill={LINE} />
-      <rect x="24" y="80" width="52" height="7" rx="2" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={2} />
-      {/* Base Specular Glint */}
-      <path d="M28 82 L72 82" stroke="rgba(255, 255, 255, 0.55)" strokeWidth={1.5} strokeLinecap="round" />
     </Frame>
   );
 }
@@ -185,25 +203,34 @@ function Medal(props: ArtworkProps) {
   const { line: LINE, fill: FILL } = resolvePalette(props);
   return (
     <Frame {...props}>
+      {/* Overlapping folded V-ribbon straps with centered gold stripes */}
+      <path d="M 70 10 L 55 10 L 47 45 L 57 45 Z" fill={LINE} stroke={LINE} strokeWidth={2.2} strokeLinejoin="round" />
+      <path d="M 64.5 11.5 L 59.5 11.5 L 51 43.5 L 54.5 43.5 Z" fill={FILL} />
+      {/* Cast overlap shadow on right strap */}
+      <path d="M 48 34 L 54 45 L 47 45 Z" fill="rgba(0, 0, 0, 0.25)" />
+      <path d="M 30 10 L 45 10 L 53 45 L 43 45 Z" fill={LINE} stroke={LINE} strokeWidth={2.2} strokeLinejoin="round" />
+      <path d="M 35.5 11.5 L 40.5 11.5 L 49 43.5 L 45.5 43.5 Z" fill={FILL} />
+      <path d="M 33 13 L 44 42" stroke="rgba(255, 255, 255, 0.3)" strokeWidth={1.5} strokeLinecap="round" />
+
+      {/* Solid metallic jump-ring bail */}
+      <rect x="44.5" y="42.5" width="11" height="6.5" rx="3" fill={FILL} stroke={LINE} strokeWidth={2.2} />
+
+      {/* Medallion disc with beveled shading and inner reeding */}
+      <circle cx="50" cy="68" r="22" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={2.7} />
       <path
-        d="M34 10L46 46L54 46L66 10L52 10L50 36L48 10Z"
-        fill={LINE}
-        stroke={LINE}
-        strokeWidth={1}
-        strokeLinejoin="round"
+        d="M 65 52 A 21 21 0 0 1 35 84 A 19 19 0 0 0 65 52 Z"
+        fill="rgba(0, 0, 0, 0.16)"
       />
-      <path d="M38 10L48 40L44 40L34 10Z" fill={FILL} opacity={0.9} />
-      <path d="M62 10L52 40L56 40L66 10Z" fill={FILL} opacity={0.9} />
-      {/* Ribbon Fold Highlight */}
-      <path d="M40 18 L46 42" stroke="rgba(255, 255, 255, 0.35)" strokeWidth={1.8} strokeLinecap="round" />
-      <rect x="46" y="44" width="8" height="5" rx="2" fill="none" stroke={LINE} strokeWidth={2} />
-      {/* Medallion Disc with Gradient */}
-      <circle cx="50" cy="68" r="22" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={2.5} />
-      <circle cx="50" cy="68" r="17" fill="none" stroke={LINE} strokeWidth={1} strokeDasharray="2 2" />
-      {/* Specular Medallion Glint */}
-      <circle cx="43" cy="54" r="4.5" fill="rgba(255, 255, 255, 0.4)" />
+      <path
+        d="M 34 59 A 18 18 0 0 1 46 50"
+        fill="none"
+        stroke="rgba(255, 255, 255, 0.65)"
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      <circle cx="50" cy="68" r="16.5" fill="none" stroke={LINE} strokeWidth={1.3} strokeDasharray="1.5 2.5" />
       <polygon
-        points="50,56 53,64 61,64 55,69 57,77 50,72 43,77 45,69 39,64 47,64"
+        points="50,57 52.6,64.4 60.5,64.6 54.2,69.4 56.5,76.9 50,72.4 43.5,76.9 45.8,69.4 39.5,64.6 47.4,64.4"
         fill={LINE}
       />
     </Frame>
@@ -214,37 +241,74 @@ function Tortoise(props: ArtworkProps) {
   const { line: LINE, fill: FILL } = resolvePalette(props);
   return (
     <Frame {...props}>
-      {/* Rear Back Foot */}
-      <path d="M 23 60 C 20 67, 22 72, 27 74 C 31 74, 33 69, 33 62" fill={LINE} />
-      {/* Front Far Foot */}
-      <path d="M 64 60 C 66 66, 68 71, 73 73 C 77 73, 78 68, 77 62" fill={LINE} />
-      {/* Perky Tail pointing up */}
-      <path d="M 18 56 C 11 50, 11 44, 15 44 C 18 48, 19 53, 21 57 Z" fill={FILL} stroke={LINE} strokeWidth={2.5} strokeLinejoin="round" />
-      {/* Main Shell Carapace Dome with Metallic Lacquer Gradient */}
-      <path d="M 17 62 C 16 33, 73 31, 75 62 C 60 64, 30 64, 17 62 Z" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={2.8} strokeLinejoin="round" />
-      {/* Shell Specular Highlight Arc */}
-      <path d="M 40 44 C 47 38, 57 38, 64 44" stroke="rgba(255, 255, 255, 0.6)" strokeWidth={1.8} strokeLinecap="round" fill="none" />
-      {/* Scute Plates Pattern (endpoints stay inside the carapace dome) */}
-      <path d="M 37 45 L 53 45 L 59 53 L 53 61 L 37 61 L 31 53 Z" fill="none" stroke={LINE} strokeWidth={2} strokeLinejoin="round" />
-      <path d="M 45 45 L 45 38 M 53 45 L 60 40 M 59 53 L 71 54 M 53 61 L 55 63 M 37 61 L 35 63 M 31 53 L 19 54 M 37 45 L 29 40" fill="none" stroke={LINE} strokeWidth={1.8} strokeLinecap="round" />
-      {/* Shell Rim trim */}
-      <path d="M 16 62 C 30 65, 62 65, 76 62" fill="none" stroke={LINE} strokeWidth={2.5} strokeLinecap="round" />
-      {/* Near Rear Foot */}
-      <path d="M 27 63 C 27 71, 29 76, 35 76 C 41 76, 42 70, 40 63 Z" fill={FILL} stroke={LINE} strokeWidth={2.5} strokeLinejoin="round" />
-      {/* Near Front Foot */}
-      <path d="M 57 63 C 58 71, 61 76, 68 76 C 73 76, 75 70, 72 63 Z" fill={FILL} stroke={LINE} strokeWidth={2.5} strokeLinejoin="round" />
-      {/* Cute toenail details */}
-      <circle cx="32" cy="74" r="1.2" fill={LINE} />
-      <circle cx="36" cy="74" r="1.2" fill={LINE} />
-      <circle cx="64" cy="74" r="1.2" fill={LINE} />
-      <circle cx="68" cy="74" r="1.2" fill={LINE} />
-      {/* Eager, Happy Raised Neck & Head */}
-      <path d="M 68 56 C 73 49, 76 43, 83 39 C 91 35, 95 40, 94 46 C 92 53, 86 58, 76 60 C 72 61, 70 61, 68 59" fill={FILL} stroke={LINE} strokeWidth={2.5} strokeLinejoin="round" />
-      {/* Big happy upturned smile */}
-      <path d="M 85 47 Q 89 51 93 45" fill="none" stroke={LINE} strokeWidth={2} strokeLinecap="round" />
-      {/* Happy open eye & eyebrow */}
-      <circle cx="85" cy="41" r="2.2" fill={LINE} />
-      <path d="M 82 37 Q 86 34 90 38" fill="none" stroke={LINE} strokeWidth={1.8} strokeLinecap="round" />
+      {/* Far back & front feet */}
+      <path d="M 21 62 C 18 70, 20 76, 26 78 C 31 78, 33 72, 33 64" fill={LINE} />
+      <path d="M 64 62 C 66 69, 68 75, 74 77 C 79 77, 80 71, 78 64" fill={LINE} />
+      {/* Raised eager neck & head tucked cleanly behind front shell rim */}
+      <path
+        d="M 67 60 C 72 52, 75 43, 83 37 C 92 32, 97 38, 95 45 C 93 53, 86 60, 75 62 C 71 63, 68 62, 67 60 Z"
+        fill={FILL}
+        stroke={LINE}
+        strokeWidth={2.7}
+        strokeLinejoin="round"
+      />
+      {/* Perky tail */}
+      <path
+        d="M 16 57 C 9 50, 9 43, 14 43 C 17 47, 18 53, 20 58 Z"
+        fill={FILL}
+        stroke={LINE}
+        strokeWidth={2.6}
+        strokeLinejoin="round"
+      />
+      {/* Main carapace dome */}
+      <path
+        d="M 14 61 C 13 28, 74 26, 76 61 C 59 63, 28 63, 14 61 Z"
+        fill="url(#ttGoldGrad)"
+        stroke={LINE}
+        strokeWidth={2.8}
+        strokeLinejoin="round"
+      />
+      {/* Lower-right shell shading & upper-left specular highlight */}
+      <path
+        d="M 62 34 C 71 40, 74 50, 74 60 C 62 62, 46 62, 34 61 C 52 59, 64 50, 62 34 Z"
+        fill="rgba(0, 0, 0, 0.16)"
+      />
+      <path
+        d="M 24 44 C 31 35, 45 32, 57 35"
+        stroke="rgba(255, 255, 255, 0.6)"
+        strokeWidth={2}
+        strokeLinecap="round"
+        fill="none"
+      />
+      {/* Scute plates terminating cleanly above the flared rim */}
+      <path d="M 36 43 L 53 43 L 60 51 L 53 59 L 36 59 L 29 51 Z" fill="none" stroke={LINE} strokeWidth={1.8} strokeLinejoin="round" />
+      <path
+        d="M 44.5 43 L 44.5 34 M 53 43 L 61 37 M 60 51 L 73 53 M 53 59 L 55 61 M 36 59 L 34 61 M 29 51 L 16 53 M 36 43 L 27 37"
+        fill="none"
+        stroke={LINE}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+      />
+      {/* Flared bottom carapace lip */}
+      <path
+        d="M 12 61 C 28 65, 62 65, 78 61 C 78 65, 74 66, 70 66 C 55 68, 33 68, 19 66 C 14 66, 12 64, 12 61 Z"
+        fill={FILL}
+        stroke={LINE}
+        strokeWidth={2.4}
+        strokeLinejoin="round"
+      />
+      {/* Near rear & front feet */}
+      <path d="M 25 65 C 25 74, 28 80, 35 80 C 41 80, 43 73, 40 65 Z" fill={FILL} stroke={LINE} strokeWidth={2.6} strokeLinejoin="round" />
+      <path d="M 56 65 C 57 74, 60 80, 68 80 C 74 80, 76 73, 73 65 Z" fill={FILL} stroke={LINE} strokeWidth={2.6} strokeLinejoin="round" />
+      <circle cx="31" cy="77.5" r="1.3" fill={LINE} />
+      <circle cx="36" cy="77.5" r="1.3" fill={LINE} />
+      <circle cx="64" cy="77.5" r="1.3" fill={LINE} />
+      <circle cx="69" cy="77.5" r="1.3" fill={LINE} />
+      {/* Happy smile, eye with specular glint, and brow */}
+      <path d="M 85 46 Q 90 50 94 44" fill="none" stroke={LINE} strokeWidth={2} strokeLinecap="round" />
+      <circle cx="85.5" cy="39.5" r="2.4" fill={LINE} />
+      <circle cx="86.2" cy="38.8" r="0.8" fill="rgba(255, 255, 255, 0.85)" />
+      <path d="M 82 35 Q 86 32 90 36" fill="none" stroke={LINE} strokeWidth={1.8} strokeLinecap="round" />
     </Frame>
   );
 }
@@ -253,43 +317,48 @@ function Paintbrush(props: ArtworkProps) {
   const { line: LINE, fill: FILL } = resolvePalette(props);
   return (
     <Frame {...props}>
-      <g transform="translate(50, 50) rotate(45) translate(-50, -50)">
-        {/* Wooden Handle with straight central axis and ergonomic profile */}
+      <g transform="translate(50, 50) rotate(42) translate(-50, -50)">
+        {/* Bolder ergonomic wooden handle */}
         <path
-          d="M 48 10 C 49 8, 51 8, 52 10 L 54 26 C 54.5 32, 53.5 42, 53.2 48 L 46.8 48 C 46.5 42, 45.5 32, 46 26 Z"
+          d="M 47.5 7 C 49 4.5, 51 4.5, 52.5 7 L 56 26 C 56.5 33, 55.5 41, 55 47 L 45 47 C 44.5 41, 43.5 33, 44 26 Z"
           fill="#8a5a2b"
           stroke={LINE}
-          strokeWidth={2}
+          strokeWidth={2.6}
           strokeLinejoin="round"
         />
-        {/* Cylindrical Handle highlight reflection */}
-        <line x1="50" y1="12" x2="50" y2="44" stroke="rgba(255, 255, 255, 0.45)" strokeWidth={1.5} strokeLinecap="round" />
-        {/* Metallic Ferrule */}
-        <rect x="46" y="48" width="8" height="14" rx="0.5" fill={LINE} />
-        {/* Ferrule Crimp Bands */}
-        <line x1="46" y1="52" x2="54" y2="52" stroke={FILL} strokeWidth={1} />
-        <line x1="46" y1="56" x2="54" y2="56" stroke={FILL} strokeWidth={1} />
-        {/* Bristle Head with Gold Gradient */}
+        <line x1="48" y1="10" x2="47.5" y2="43" stroke="rgba(255, 255, 255, 0.45)" strokeWidth={1.8} strokeLinecap="round" />
+        {/* Metallic ferrule with bold legible crimp ridges */}
+        <rect x="44.2" y="47" width="11.6" height="13" rx="1" fill={LINE} stroke={LINE} strokeWidth={1.6} />
+        <line x1="44.2" y1="51.2" x2="55.8" y2="51.2" stroke={FILL} strokeWidth={1.8} />
+        <line x1="44.2" y1="55.8" x2="55.8" y2="55.8" stroke={FILL} strokeWidth={1.8} />
+        {/* Graceful S-curved artist sable bristle head */}
         <path
-          d="M 46 62 C 43 66, 44 74, 50 84 C 56 74, 57 66, 54 62 Z"
+          d="M 44.5 60 C 40 65, 41 75, 50 86 C 56.5 78, 59.5 67, 55.5 60 Z"
           fill="url(#ttGoldGrad)"
           stroke={LINE}
-          strokeWidth={2.2}
+          strokeWidth={2.6}
           strokeLinejoin="round"
         />
-        {/* Bristle Hair Split Lines */}
-        <line x1="48" y1="64" x2="49" y2="76" stroke={LINE} strokeWidth={1.3} strokeLinecap="round" />
-        <line x1="52" y1="64" x2="51" y2="76" stroke={LINE} strokeWidth={1.3} strokeLinecap="round" />
-        {/* Specular Bristle Glint */}
-        <path d="M 48 66 C 47 70, 48 76, 50 82" stroke="rgba(255, 255, 255, 0.7)" strokeWidth={1.5} strokeLinecap="round" fill="none" />
-        {/* Wet Paint Dipped Tip */}
+        {/* High-contrast crimson dipped paint tip */}
         <path
-          d="M 46.5 74 C 47.5 77, 49 82, 50 84 C 51 82, 52.5 77, 53.5 74 C 51.5 75.5, 48.5 75.5, 46.5 74 Z"
-          fill={LINE}
+          d="M 44.2 74 C 46 78.5, 48.2 83, 50 86 C 52.5 82.5, 54.5 78, 55.8 73.5 C 52 75.5, 47.5 75.5, 44.2 74 Z"
+          fill="var(--error, #d32f2f)"
+          stroke={LINE}
+          strokeWidth={1.8}
+          strokeLinejoin="round"
         />
-        {/* Paint Droplet with Glint */}
-        <path d="M 49 89 C 48 91, 48 93, 50 94 C 52 93, 52 91, 51 89 Z" fill={LINE} />
-        <circle cx="49.5" cy="91.5" r="0.8" fill="rgba(255, 255, 255, 0.8)" />
+        <line x1="47.5" y1="62.5" x2="48.5" y2="73" stroke={LINE} strokeWidth={1.5} strokeLinecap="round" />
+        <line x1="52.5" y1="62.5" x2="51.5" y2="73" stroke={LINE} strokeWidth={1.5} strokeLinecap="round" />
+        <path d="M 45.5 64 C 44 69, 45 75, 48.5 81" stroke="rgba(255, 255, 255, 0.7)" strokeWidth={1.6} strokeLinecap="round" fill="none" />
+        {/* Bold falling paint droplet */}
+        <path
+          d="M 50 88.5 C 47.5 92, 47.5 95.5, 50 96.5 C 52.5 95.5, 52.5 92, 50 88.5 Z"
+          fill="var(--error, #d32f2f)"
+          stroke={LINE}
+          strokeWidth={1.8}
+          strokeLinejoin="round"
+        />
+        <circle cx="49.2" cy="93.2" r="0.9" fill="rgba(255, 255, 255, 0.85)" />
       </g>
     </Frame>
   );
@@ -302,28 +371,50 @@ function Palette(props: ArtworkProps) {
       <g transform="rotate(-12 50 50)">
         {/* Authentic French kidney palette contour with transparent cutout thumbhole */}
         <path
-          d="M 50 16 C 24 16, 12 28, 12 50 C 12 70, 24 84, 46 84 C 58 84, 66 78, 72 78 C 77 78, 83 83, 87 74 C 91 65, 90 42, 78 26 C 68 18, 58 16, 50 16 Z M 72 54 C 75 54, 77.5 57, 77.5 62 C 77.5 67, 75 70, 72 70 C 69 70, 66.5 67, 66.5 62 C 66.5 57, 69 54, 72 54 Z"
+          d="M 50 15 C 23 15, 11 28, 11 50 C 11 71, 24 85, 46 85 C 58 85, 66 79, 72 79 C 77 79, 83 84, 87 74 C 91 65, 90 42, 78 26 C 68 17, 58 15, 50 15 Z M 72 54 C 75.2 54, 77.8 57, 77.8 62 C 77.8 67, 75.2 70, 72 70 C 68.8 70, 66.2 67, 66.2 62 C 66.2 57, 68.8 54, 72 54 Z"
           fill="url(#ttGoldGrad)"
           stroke={LINE}
           strokeWidth={2.8}
           strokeLinejoin="round"
           fillRule="evenodd"
         />
-        {/* Edge Bevel Specular Highlight */}
-        <path d="M 32 22 C 48 22, 70 28, 78 40" stroke="rgba(255, 255, 255, 0.55)" strokeWidth={2} strokeLinecap="round" fill="none" />
-        {/* Viscous teardrop paint dollops with specular pinpoints */}
-        <path d="M 28 32 C 24 32, 22 36, 25 40 C 28 43, 33 42, 33 37 C 33 34, 31 32, 28 32 Z" fill={LINE} />
-        <circle cx="28" cy="35" r="1.2" fill="rgba(255, 255, 255, 0.85)" />
-        <path d="M 43 23 C 39 23, 37 27, 40 31 C 43 34, 48 33, 48 28 C 48 25, 46 23, 43 23 Z" fill="var(--error, #d32f2f)" />
-        <circle cx="43" cy="26" r="1.2" fill="rgba(255, 255, 255, 0.85)" />
-        <path d="M 61 24 C 57 24, 55 28, 58 32 C 61 35, 66 34, 66 29 C 66 26, 64 24, 61 24 Z" fill="var(--success-color, #2e7d32)" />
-        <circle cx="61" cy="27" r="1.2" fill="rgba(255, 255, 255, 0.85)" />
-        <path d="M 75 35 C 71 35, 69 39, 72 43 C 75 46, 80 45, 80 40 C 80 37, 78 35, 75 35 Z" fill="#8a5a2b" />
-        <circle cx="75" cy="38" r="1.2" fill="rgba(255, 255, 255, 0.85)" />
-        <path d="M 28 53 C 24 53, 22 57, 25 61 C 28 64, 33 63, 33 58 C 33 55, 31 53, 28 53 Z" fill={LINE} opacity={0.8} />
-        <circle cx="28" cy="56" r="1.2" fill="rgba(255, 255, 255, 0.85)" />
-        {/* Central paint mixing swirl */}
-        <path d="M 44 54 Q 52 61 58 53 Q 61 46 54 45" fill="none" stroke={LINE} strokeWidth={1.3} strokeDasharray="2 3" opacity={0.5} strokeLinecap="round" />
+        {/* Lower wood rim shadow & inner thumbhole bevel */}
+        <path
+          d="M 21 71 C 29 79, 41 82, 53 80 C 62 79, 70 75, 76 75"
+          fill="none"
+          stroke="rgba(0, 0, 0, 0.16)"
+          strokeWidth={3.5}
+          strokeLinecap="round"
+        />
+        <path
+          d="M 74 55 A 5.5 7.5 0 0 0 67.5 67"
+          fill="none"
+          stroke="rgba(0, 0, 0, 0.24)"
+          strokeWidth={2}
+          strokeLinecap="round"
+        />
+        {/* Upper rim specular highlight */}
+        <path d="M 32 21 C 48 21, 70 27, 78 39" stroke="rgba(255, 255, 255, 0.55)" strokeWidth={2} strokeLinecap="round" fill="none" />
+        {/* 5 bold distinct paint dollops with subtle drop shadow & specular pinpoints */}
+        <circle cx="27.5" cy="38" r="5.5" fill="rgba(0, 0, 0, 0.2)" />
+        <path d="M 27 31 C 22.5 31, 20.5 35.5, 23.5 40 C 27 43.5, 32.5 42.5, 32.5 37 C 32.5 33.5, 30.5 31, 27 31 Z" fill={LINE} />
+        <circle cx="26.5" cy="34.5" r="1.4" fill="rgba(255, 255, 255, 0.85)" />
+
+        <circle cx="43.5" cy="28" r="5.5" fill="rgba(0, 0, 0, 0.2)" />
+        <path d="M 43 21 C 38.5 21, 36.5 25.5, 39.5 30 C 43 33.5, 48.5 32.5, 48.5 27 C 48.5 23.5, 46.5 21, 43 21 Z" fill="var(--error, #d32f2f)" />
+        <circle cx="42.5" cy="24.5" r="1.4" fill="rgba(255, 255, 255, 0.85)" />
+
+        <circle cx="61.5" cy="29" r="5.5" fill="rgba(0, 0, 0, 0.2)" />
+        <path d="M 61 22 C 56.5 22, 54.5 26.5, 57.5 31 C 61 34.5, 66.5 33.5, 66.5 28 C 66.5 24.5, 64.5 22, 61 22 Z" fill="var(--success-color, #2e7d32)" />
+        <circle cx="60.5" cy="25.5" r="1.4" fill="rgba(255, 255, 255, 0.85)" />
+
+        <circle cx="75.5" cy="40" r="5.5" fill="rgba(0, 0, 0, 0.2)" />
+        <path d="M 75 33 C 70.5 33, 68.5 37.5, 71.5 42 C 75 45.5, 80.5 44.5, 80.5 39 C 80.5 35.5, 78.5 33, 75 33 Z" fill="#8a5a2b" />
+        <circle cx="74.5" cy="36.5" r="1.4" fill="rgba(255, 255, 255, 0.85)" />
+
+        <circle cx="27.5" cy="60" r="5.5" fill="rgba(0, 0, 0, 0.2)" />
+        <path d="M 27 53 C 22.5 53, 20.5 57.5, 23.5 62 C 27 65.5, 32.5 64.5, 32.5 59 C 32.5 55.5, 30.5 53, 27 53 Z" fill="#6fbcff" />
+        <circle cx="26.5" cy="56.5" r="1.4" fill="rgba(255, 255, 255, 0.85)" />
       </g>
     </Frame>
   );
@@ -333,37 +424,34 @@ function SparkleStar(props: ArtworkProps) {
   const { line: LINE } = resolvePalette(props);
   return (
     <Frame {...props}>
-      {/* Quad-Point Star (MDI StarFourPoints Geometry) with Gold Sheen */}
+      {/* Crisp concave astroid quad-point star */}
       <path
-        d="M 50 10 Q 50 34 26 50 Q 50 66 50 90 Q 50 66 74 50 Q 50 34 50 10 Z"
+        d="M 50 10 C 48 36, 36 48, 20 50 C 36 52, 48 64, 50 90 C 52 64, 64 52, 80 50 C 64 48, 52 36, 50 10 Z"
         fill="url(#ttGoldGrad)"
         stroke={LINE}
-        strokeWidth={2.6}
+        strokeWidth={2.7}
         strokeLinejoin="round"
       />
-      {/* Facet Spine Lines */}
-      <path d="M 50 14 L 50 86" stroke={LINE} strokeWidth={1.5} opacity={0.35} />
-      <path d="M 28 50 L 72 50" stroke={LINE} strokeWidth={1.5} opacity={0.35} />
-      {/* Luminous Specular Center Core */}
-      <circle cx="50" cy="50" r="4.5" fill="rgba(255, 255, 255, 0.9)" />
-      {/* Secondary Companion Sparkle (Top Right) */}
+      {/* 3D faceted jewel bevels (top-left lit, bottom-right shaded) */}
+      <path d="M 50 13 C 48 37, 37 48, 23 50 L 50 50 Z" fill="rgba(255, 255, 255, 0.45)" />
+      <path d="M 50 87 C 52 63, 63 52, 77 50 L 50 50 Z" fill="rgba(0, 0, 0, 0.16)" />
+      <path d="M 50 14 L 50 86 M 24 50 L 76 50" stroke={LINE} strokeWidth={1.3} opacity={0.35} />
+      {/* Secondary companion sparkle (top right) */}
       <path
-        d="M 80 18 Q 80 26 72 30 Q 80 34 80 42 Q 80 34 88 30 Q 80 26 80 18 Z"
+        d="M 79 14 C 78 24, 74 28, 66 29 C 74 30, 78 34, 79 44 C 80 34, 84 30, 92 29 C 84 28, 80 24, 79 14 Z"
         fill="url(#ttGoldGrad)"
         stroke={LINE}
-        strokeWidth={1.8}
+        strokeWidth={2}
         strokeLinejoin="round"
       />
-      <circle cx="80" cy="30" r="1.5" fill="rgba(255, 255, 255, 0.9)" />
-      {/* Tertiary Companion Sparkle (Bottom Left) */}
+      {/* Tertiary companion sparkle (bottom left) */}
       <path
-        d="M 20 68 Q 20 74 14 77 Q 20 80 20 86 Q 20 80 26 77 Q 20 74 20 68 Z"
+        d="M 21 67 C 20 74, 17 77, 11 78 C 17 79, 20 82, 21 89 C 22 82, 25 79, 31 78 C 25 77, 22 74, 21 67 Z"
         fill="url(#ttGoldGrad)"
         stroke={LINE}
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinejoin="round"
       />
-      <circle cx="20" cy="77" r="1.2" fill="rgba(255, 255, 255, 0.9)" />
     </Frame>
   );
 }
@@ -372,17 +460,25 @@ function Wing(props: ArtworkProps) {
   const { line: LINE } = resolvePalette(props);
   return (
     <Frame {...props}>
+      {/* Smooth 4-flight-feather aerodynamic wing silhouette */}
       <path
-        d="M14 66C22 52 38 32 64 24C78 20 86 21 88 23C86 27 78 32 72 36C80 34 86 36 86 38C82 43 74 47 68 50C74 49 78 51 78 53C74 58 66 61 58 64C44 69 28 72 14 66Z"
+        d="M 12 68 C 20 48, 38 28, 68 21 C 80 18, 88 19, 89 23 C 89 27, 81 32, 72 36 C 81 35, 86 37, 85 41 C 84 45, 76 48, 67 51 C 74 51, 78 53, 76 57 C 74 61, 66 63, 56 65 C 42 69, 25 72, 12 68 Z"
         fill="url(#ttGoldGrad)"
         stroke={LINE}
-        strokeWidth={2.8}
+        strokeWidth={2.7}
         strokeLinejoin="round"
       />
-      {/* Specular Wing Arc */}
-      <path d="M22 62 C34 48, 54 30, 80 23" stroke="rgba(255, 255, 255, 0.45)" strokeWidth={1.8} strokeLinecap="round" fill="none" />
+      {/* Subtle overlap shadow strips beneath flight feathers */}
+      <path d="M 33 50 C 48 41, 61 38, 72 36 L 67 39 C 56 41, 44 45, 33 50 Z" fill="rgba(0, 0, 0, 0.15)" />
+      <path d="M 28 58 C 43 51, 56 49, 67 51 L 62 54 C 51 53, 40 55, 28 58 Z" fill="rgba(0, 0, 0, 0.15)" />
+      {/* Layered upper shoulder covert highlight */}
       <path
-        d="M36 50C48 42 62 38 72 36M32 58C44 52 56 48 68 50M28 65C38 60 48 58 58 64"
+        d="M 15 66 C 22 47, 38 30, 64 24 C 55 34, 43 46, 26 59 Z"
+        fill="rgba(255, 255, 255, 0.42)"
+      />
+      {/* Interior feather & covert vane lines */}
+      <path
+        d="M 24 60 C 40 47, 54 37, 65 25 M 33 50 C 47 42, 61 38, 72 36 M 28 58 C 43 52, 56 49, 67 51 M 24 65 C 36 61, 47 60, 58 64"
         fill="none"
         stroke={LINE}
         strokeWidth={1.8}
@@ -393,16 +489,29 @@ function Wing(props: ArtworkProps) {
 }
 
 function FlagStar(props: ArtworkProps) {
-  const { line: LINE } = resolvePalette(props);
+  const { line: LINE, fill: FILL } = resolvePalette(props);
   return (
     <Frame {...props}>
-      <rect x="30" y="14" width="6" height="70" fill={LINE} />
-      <path d="M36 18h34l-8 12 8 12H36z" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={2.5} />
-      <line x1="38" y1="20" x2="64" y2="20" stroke="rgba(255, 255, 255, 0.55)" strokeWidth={1.5} strokeLinecap="round" />
+      {/* Gently waving S-curve swallowtail pennant */}
       <path
-        d="M53 24l2.4 5 5.4.6-4 3.7 1.1 5.4L53 36l-4.9 2.7L49.2 33l-4-3.7 5.4-.6z"
+        d="M 29 20 C 44 16, 58 24, 77 20 L 68 33 L 77 46 C 58 50, 44 42, 29 46 Z"
+        fill="url(#ttGoldGrad)"
+        stroke={LINE}
+        strokeWidth={2.7}
+        strokeLinejoin="round"
+      />
+      {/* Subtle crest highlight & wave trough fold shadow */}
+      <path d="M 32 22 C 39 20, 46 21, 51 22.5 L 51 43.5 C 46 42, 39 42, 32 44 Z" fill="rgba(255, 255, 255, 0.42)" />
+      <path d="M 52 22.5 C 58 23.5, 64 23, 69 22 L 66 33 L 69 44 C 64 45, 58 45, 52 43.5 Z" fill="rgba(0, 0, 0, 0.16)" />
+      {/* Optically centered 5-point star inside pennant body */}
+      <polygon
+        points="49,24.5 51.1,30.4 57.3,30.6 52.4,34.4 54.1,40.3 49,36.8 43.9,40.3 45.6,34.4 40.7,30.6 46.9,30.4"
         fill={LINE}
       />
+      {/* Sleek rounded flagpole topped with a gold finial */}
+      <rect x="25.5" y="18" width="5" height="68" rx="2.5" fill={LINE} />
+      <circle cx="28" cy="14.5" r="4.5" fill={FILL} stroke={LINE} strokeWidth={2.4} />
+      <circle cx="26.8" cy="13.2" r="1.1" fill="rgba(255, 255, 255, 0.75)" />
     </Frame>
   );
 }
@@ -411,79 +520,90 @@ function CompassStar(props: ArtworkProps) {
   const { line: LINE } = resolvePalette(props);
   return (
     <Frame {...props}>
-      {/* Calibrated Dial Rings (MDI CompassRose Structure) */}
-      <circle cx="50" cy="50" r="38" fill="none" stroke={LINE} strokeWidth={2.4} />
-      <circle cx="50" cy="50" r="34" fill="none" stroke={LINE} strokeWidth={1.2} strokeDasharray="2 4" />
-      {/* Secondary Ordinal Points (NE, SE, SW, NW) */}
-      <polygon points="50,50 68,32 50,44" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.2} />
-      <polygon points="50,50 68,32 56,50" fill={LINE} stroke={LINE} strokeWidth={1.2} />
-      <polygon points="50,50 68,68 56,50" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.2} />
-      <polygon points="50,50 68,68 50,56" fill={LINE} stroke={LINE} strokeWidth={1.2} />
-      <polygon points="50,50 32,68 50,56" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.2} />
-      <polygon points="50,50 32,68 44,50" fill={LINE} stroke={LINE} strokeWidth={1.2} />
-      <polygon points="50,50 32,32 44,50" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.2} />
-      <polygon points="50,50 32,32 50,44" fill={LINE} stroke={LINE} strokeWidth={1.2} />
-      {/* Primary Cardinal Points (N, E, S, W) - 3D Faceted */}
-      <polygon points="50,50 50,14 43,50" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.8} />
-      <polygon points="50,50 50,14 57,50" fill={LINE} stroke={LINE} strokeWidth={1.8} />
-      <polygon points="50,50 86,50 50,43" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.8} />
-      <polygon points="50,50 86,50 50,57" fill={LINE} stroke={LINE} strokeWidth={1.8} />
-      <polygon points="50,50 50,86 57,50" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.8} />
-      <polygon points="50,50 50,86 43,50" fill={LINE} stroke={LINE} strokeWidth={1.8} />
-      <polygon points="50,50 14,50 50,57" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.8} />
-      <polygon points="50,50 14,50 50,43" fill={LINE} stroke={LINE} strokeWidth={1.8} />
-      {/* Center Pivot Pin */}
-      <circle cx="50" cy="50" r="4.5" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.8} />
-      <circle cx="48.5" cy="48.5" r="1.2" fill="rgba(255, 255, 255, 0.9)" />
+      {/* Double-bezel dial ring with 8 crisp trigonometric degree ticks */}
+      <circle cx="50" cy="50" r="39" fill="none" stroke={LINE} strokeWidth={2.6} />
+      <circle cx="50" cy="50" r="35" fill="none" stroke={LINE} strokeWidth={1.2} />
+      <path
+        d="M 50 11 L 50 14.5 M 89 50 L 85.5 50 M 50 89 L 50 85.5 M 11 50 L 14.5 50 M 77.6 22.4 L 75 25 M 77.6 77.6 L 75 75 M 22.4 77.6 L 25 75 M 22.4 22.4 L 25 25"
+        stroke={LINE}
+        strokeWidth={1.6}
+        strokeLinecap="round"
+      />
+      {/* Secondary ordinal points (NE, SE, SW, NW) */}
+      <polygon points="50,50 67,33 50,45.5" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.5} strokeLinejoin="round" />
+      <polygon points="50,50 67,33 54.5,50" fill={LINE} stroke={LINE} strokeWidth={1.5} strokeLinejoin="round" />
+      <polygon points="50,50 67,67 54.5,50" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.5} strokeLinejoin="round" />
+      <polygon points="50,50 67,67 50,54.5" fill={LINE} stroke={LINE} strokeWidth={1.5} strokeLinejoin="round" />
+      <polygon points="50,50 33,67 50,54.5" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.5} strokeLinejoin="round" />
+      <polygon points="50,50 33,67 45.5,50" fill={LINE} stroke={LINE} strokeWidth={1.5} strokeLinejoin="round" />
+      <polygon points="50,50 33,33 45.5,50" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.5} strokeLinejoin="round" />
+      <polygon points="50,50 33,33 50,45.5" fill={LINE} stroke={LINE} strokeWidth={1.5} strokeLinejoin="round" />
+      {/* Primary cardinal points (N, E, S, W) - 3D faceted */}
+      <polygon points="50,50 50,15 43,50" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.7} strokeLinejoin="round" />
+      <polygon points="50,50 50,15 57,50" fill={LINE} stroke={LINE} strokeWidth={1.7} strokeLinejoin="round" />
+      <polygon points="50,50 85,50 50,43" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.7} strokeLinejoin="round" />
+      <polygon points="50,50 85,50 50,57" fill={LINE} stroke={LINE} strokeWidth={1.7} strokeLinejoin="round" />
+      <polygon points="50,50 50,85 57,50" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.7} strokeLinejoin="round" />
+      <polygon points="50,50 50,85 43,50" fill={LINE} stroke={LINE} strokeWidth={1.7} strokeLinejoin="round" />
+      <polygon points="50,50 15,50 50,57" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={1.7} strokeLinejoin="round" />
+      <polygon points="50,50 15,50 50,43" fill={LINE} stroke={LINE} strokeWidth={1.7} strokeLinejoin="round" />
+      {/* Beveled center pivot cap */}
+      <circle cx="50" cy="50" r="5" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={2} />
+      <circle cx="48.5" cy="48.5" r="1.3" fill="rgba(255, 255, 255, 0.85)" />
     </Frame>
   );
 }
 
 function Gavel(props: ArtworkProps) {
-  const { line: LINE } = resolvePalette(props);
+  const { line: LINE, fill: FILL } = resolvePalette(props);
   return (
     <Frame {...props}>
-      {/* Sound Block Plinth (MDI Gavel Base Structure with 3D Bevel) */}
+      {/* Two-tier stepped sound block plinth */}
       <path
-        d="M 24 82 C 24 76, 28 74, 34 74 L 66 74 C 72 74, 76 76, 76 82 L 80 88 L 20 88 Z"
+        d="M 27 81 C 27 76, 31 74, 36 74 L 64 74 C 69 74, 73 76, 73 81 Z"
         fill="url(#ttGoldGrad)"
         stroke={LINE}
-        strokeWidth={2.4}
+        strokeWidth={2.5}
         strokeLinejoin="round"
       />
-      <path d="M 28 82 L 72 82" stroke={LINE} strokeWidth={1.5} />
-      {/* Gavel Handle */}
+      <rect x="20" y="81" width="60" height="7" rx="2" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={2.5} />
+      <path d="M 24 85.5 L 76 85.5" stroke="rgba(0, 0, 0, 0.18)" strokeWidth={1.8} strokeLinecap="round" />
+
+      {/* Gavel handle lifted cleanly clear of sound block */}
       <path
-        d="M 22 75 L 53 44 L 59 50 L 28 81 C 25 84, 20 81, 19 78 C 18 75, 20 73, 22 75 Z"
+        d="M 18 63 L 51 34 L 57 40 L 24 69 C 21 71.5, 16.5 69.5, 15.5 66.5 C 14.8 64, 16.5 62, 18 63 Z"
         fill="#8a5a2b"
         stroke={LINE}
-        strokeWidth={2.2}
+        strokeWidth={2.5}
         strokeLinejoin="round"
       />
-      <line x1="26" y1="73" x2="52" y2="47" stroke="rgba(255, 255, 255, 0.5)" strokeWidth={1.2} strokeLinecap="round" />
-      {/* Gavel Head (MDI Gavel Head Structure) */}
-      <g transform="translate(62, 34) rotate(45)">
+      <line x1="21.5" y1="62.5" x2="49.5" y2="38" stroke="rgba(255, 255, 255, 0.5)" strokeWidth={1.4} strokeLinecap="round" />
+
+      {/* Sculpted gavel head with chamfered end caps and raised collar band */}
+      <g transform="translate(61, 30) rotate(42)">
         <rect
-          x="-24"
-          y="-12"
-          width="48"
-          height="24"
-          rx="4"
+          x="-23"
+          y="-11.5"
+          width="46"
+          height="23"
+          rx="4.5"
           fill="url(#ttGoldGrad)"
           stroke={LINE}
-          strokeWidth={2.4}
+          strokeWidth={2.6}
         />
-        <rect x="-10" y="-12" width="20" height="24" fill={LINE} />
-        <path
-          d="M -20 -7 L 20 -7"
-          stroke="rgba(255, 255, 255, 0.7)"
-          strokeWidth={1.8}
-          strokeLinecap="round"
-        />
+        {/* Bottom-cylinder depth shadow */}
+        <path d="M -20 5.5 L 20 5.5" stroke="rgba(0, 0, 0, 0.18)" strokeWidth={4} strokeLinecap="round" />
+        {/* Raised center metallic collar band */}
+        <rect x="-10" y="-12.5" width="20" height="25" rx="1.5" fill={LINE} />
+        <line x1="-7" y1="-11" x2="-7" y2="11" stroke={FILL} strokeWidth={1.2} />
+        <line x1="7" y1="-11" x2="7" y2="11" stroke={FILL} strokeWidth={1.2} />
+        {/* Top-cylinder specular highlights on gold caps */}
+        <path d="M -19 -6.5 L -12 -6.5 M 12 -6.5 L 19 -6.5" stroke="rgba(255, 255, 255, 0.7)" strokeWidth={1.8} strokeLinecap="round" />
       </g>
-      {/* Dynamic Impact Sparks */}
+
+      {/* Clean impact sparks in the striking gap */}
       <path
-        d="M 72 68 L 78 64 M 64 66 L 68 60 M 76 74 L 83 72"
+        d="M 65 65 L 68 58 M 72 67 L 78 62 M 75 72 L 82 70"
         stroke={LINE}
         strokeWidth={2}
         strokeLinecap="round"
