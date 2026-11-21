@@ -30,8 +30,8 @@ after — "what exactly counts toward the standings?", "which timers work?",
   and "Pack" to your own words.
 - **[Timers](timers.md)** — which models work and how well, how detection
   works, every timer state, the remote start gate, and test runs.
-- **[Audience display views](displays.md)** — the six things a screen can
-  show, and how assigning a view from Race Control works.
+- **[Audience display views](displays.md)** — the ten things a screen can
+  show, and how assigning a view from Displays works.
 - **[Instant Replay](../instant-replay.md#browser-requirements)** — which
   browsers can be a finish-line camera, and how to check
   [which cameras are registered](../instant-replay.md#which-cameras-are-registered)
