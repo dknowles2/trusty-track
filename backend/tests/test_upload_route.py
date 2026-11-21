@@ -169,10 +169,13 @@ def test_sniffed_extension_refuses_a_format_outside_the_allowlist():
     outside the browser-native set to PNG before this is ever consulted, so
     this path is not reachable through the route today — but a caller of the
     helper itself must not silently fall back to trusting anything."""
-    with pytest.raises(main.HTTPException) as excinfo:
-        main._sniffed_extension(_tiff_bytes())
+    from backend.services.image_processing import (
+        UnreadableImageError,
+        sniffed_extension,
+    )
 
-    assert excinfo.value.status_code == 400
+    with pytest.raises(UnreadableImageError):
+        sniffed_extension(_tiff_bytes())
 
 
 def test_a_corrupt_upload_is_a_400_not_a_500(client, group):  # noqa: ARG001

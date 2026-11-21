@@ -9,7 +9,6 @@ import logging
 import os
 import tempfile
 import typing
-import uuid
 from collections.abc import AsyncGenerator, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -51,7 +50,7 @@ from backend.services import displays as displays_service
 from backend.services import network, scoring
 from backend.services import records as records_service
 from backend.services import replays as replays_service
-from backend.services.image_processing import convert_to_browser_safe_png
+from backend.services.image_processing import store_uploaded_image
 from backend.services.importers.derbynet import parse_derbynet_database
 from backend.services.importers.gprm import parse_gprm_database
 from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE, NO_TIMER
@@ -7849,7 +7848,7 @@ class Mutation:
         # Parse data URL: data:<mime>;base64,<data>
         if "," not in data_url:
             raise ValueError("Invalid data URL format")
-        header, encoded = data_url.split(",", 1)
+        _, encoded = data_url.split(",", 1)
 
         if len(encoded) > max_b64_len:
             raise ValueError(f"Image is larger than {limit_desc}.")
@@ -7862,26 +7861,7 @@ class Mutation:
         if len(raw_data) > MAX_UPLOAD_BYTES:
             raise ValueError(f"Image is larger than {limit_desc}.")
 
-        image_data = convert_to_browser_safe_png(raw_data)
-
-        # If conversion happened (non-browser-safe format like HEIC), the
-        # result is PNG regardless of what the data-URL header claims.
-        if image_data is not raw_data or "image/png" in header:
-            ext = ".png"
-        elif "image/gif" in header:
-            ext = ".gif"
-        elif "image/webp" in header:
-            ext = ".webp"
-        else:
-            ext = ".jpg"
-
-        filename = f"{uuid.uuid4()}{ext}"
-        file_path = os.path.join(UPLOAD_DIR, filename)
-
-        with open(file_path, "wb") as f:
-            f.write(image_data)
-
-        return f"/static/{filename}"
+        return store_uploaded_image(raw_data, UPLOAD_DIR)
 
 
 @strawberry.enum

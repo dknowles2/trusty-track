@@ -5,7 +5,6 @@ Mounts the GraphQL router and static file serving.
 """
 
 import base64
-import io
 import logging
 import os
 import re
@@ -33,7 +32,6 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from PIL import Image
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 from strawberry.fastapi import GraphQLRouter
@@ -60,7 +58,7 @@ from backend.services import displays as displays_service
 from backend.services import replays as replays_service
 from backend.services.image_processing import (
     UnreadableImageError,
-    convert_to_browser_safe_png,
+    store_uploaded_image,
 )
 from backend.services.timer import devices
 from backend.services.timer.manager import TimerManager, initialize_timer_managers
@@ -1381,34 +1379,6 @@ MAX_UPLOAD_BYTES: int = MAX_UPLOAD_BYTES
 #: How much is read at a time while checking that limit.
 _UPLOAD_CHUNK = 1024 * 1024
 
-#: The extension stored for each format Pillow can report, mirroring the
-#: allowlist ``uploadImage`` (schema.py) already enforces for its GraphQL
-#: twin. `convert_to_browser_safe_png` re-encodes anything outside this set
-#: to PNG, so a format reaching `_sniffed_extension` unconverted is already
-#: guaranteed to be one of these four — the refusal below is defence in
-#: depth, not a path either caller expects to take.
-_EXTENSION_FOR_FORMAT = {
-    "JPEG": ".jpg",
-    "PNG": ".png",
-    "GIF": ".gif",
-    "WEBP": ".webp",
-}
-
-
-def _sniffed_extension(image_bytes: bytes) -> str:
-    """Return the extension for *image_bytes*, derived from the bytes
-    themselves rather than from a filename or a client-supplied content type.
-
-    A caller naming their upload ``x.html`` on a valid small GIF must not get
-    an ``.html`` back — that file is then served from `/static` as HTML on
-    the app's own origin (issue #322).
-    """
-    fmt = Image.open(io.BytesIO(image_bytes)).format
-    ext = _EXTENSION_FOR_FORMAT.get(fmt) if fmt else None
-    if ext is None:
-        raise HTTPException(status_code=400, detail=f"Unsupported image format: {fmt}")
-    return ext
-
 
 async def _read_capped(file: UploadFile, limit: int) -> bytes:
     """Read *file* up to *limit* bytes, refusing anything larger.
@@ -1457,22 +1427,11 @@ async def upload_file(
 
     raw_bytes = await _read_capped(file, MAX_UPLOAD_BYTES)
     try:
-        image_bytes = convert_to_browser_safe_png(raw_bytes)
+        url = store_uploaded_image(raw_bytes, UPLOAD_DIR)
     except UnreadableImageError as error:
         # A corrupt or truncated upload (flaky venue wifi, a half-written
         # camera capture) used to reach here as an uncaught
         # `PIL.UnidentifiedImageError` and surface as a raw 500 (#885).
         raise HTTPException(status_code=400, detail=str(error)) from error
 
-    # The stored extension comes from the sniffed image content, never from
-    # the caller-supplied filename (#322) — a filename claiming `.html` on a
-    # small, browser-native GIF/JPEG polyglot must not end up served as HTML
-    # from this app's own origin.
-    ext = ".png" if image_bytes is not raw_bytes else _sniffed_extension(image_bytes)
-
-    filename = f"{uuid.uuid4()}{ext}"
-    file_path = os.path.join(UPLOAD_DIR, filename)
-    with open(file_path, "wb") as buffer:
-        buffer.write(image_bytes)
-
-    return {"url": f"/static/{filename}"}
+    return {"url": url}

@@ -208,3 +208,22 @@ def test_upload_image_mutation_refuses_unreadable_bytes_via_graphql(
     payload = response.json()
     assert "errors" in payload
     assert "not a photo" in payload["errors"][0]["message"]
+
+
+def test_upload_image_sniffs_extension_from_bytes_not_data_url_header() -> None:
+    """When a data-URL header disagrees with the actual image bytes (e.g.
+    ``image/png`` wrapping a JPEG), the stored file extension must match the
+    sniffed bytes (#1381)."""
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (4, 4), color="red").save(buf, format="JPEG")
+    mismatched_data_url = "data:image/png;base64," + base64.b64encode(
+        buf.getvalue()
+    ).decode("ascii")
+
+    mutation = schema.Mutation()
+    url = mutation.upload_image(mismatched_data_url)
+    assert url.endswith(".jpg")
