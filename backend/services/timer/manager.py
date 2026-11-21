@@ -2060,9 +2060,7 @@ class TimerManager:
         await self.handle_disconnect()
 
 
-def device_for(
-    timer_type: models.TimerType, timer_profile: str | None
-) -> TimerProfile:
+def device_for(timer_type: models.TimerType, timer_profile: str | None) -> TimerProfile:
     """The profile a track should run on.
 
     ``FAKE`` and ``NONE`` are each their own device — neither is ever probed
