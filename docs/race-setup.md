@@ -6,7 +6,7 @@ This guide covers the essential steps to prepare your Pinewood Derby race roster
 
 Once you have created or selected a race from the Home page, you will be taken to the **Roster** page — the first tab in the race navigation. This is your central hub for roster management.
 
-On a phone, that same row of tabs — Roster, Control, Standings, Awards, Stats, Live — sits in a bar along the bottom of the screen instead of across the top, and the race's own name replaces the app logo in the header so you can always tell which race you are in.
+On a phone, that same row of tabs — Roster, Control, Standings, Awards, Stats, Displays — sits in a bar along the bottom of the screen instead of across the top, and the race's own name replaces the app logo in the header so you can always tell which race you are in.
 
 ### Sorting the roster
 
