@@ -232,9 +232,7 @@ class ReplayStore:
 
     def total_bytes(self) -> int:
         """Total byte size of all clips currently tracked by this store."""
-        return sum(
-            clip.size_bytes for clips in self._clips.values() for clip in clips
-        )
+        return sum(clip.size_bytes for clips in self._clips.values() for clip in clips)
 
     def evict_to_cap(
         self, max_bytes: int, *, keep_path: str | None = None
