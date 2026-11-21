@@ -27,7 +27,7 @@ from backend.domain import audit
 from backend.services import replays as replays_service
 
 from . import probe
-from .devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE, NO_TIMER
+from .devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE, NO_TIMER, by_key
 
 # Circular import handled by importing inside methods or using full module path
 # from backend.api.schema import _publish_race_state
@@ -2080,6 +2080,27 @@ class TimerManager:
         await self._handle_disconnect()
 
 
+def device_for(timer_type: models.TimerType, timer_profile: str | None) -> TimerProfile:
+    """The profile a track should run on.
+
+    ``FAKE`` and ``NONE`` are each their own device — neither is ever probed
+    or refined by anything a track's ``timer_profile`` names. Otherwise it is
+    the model the operator picked, and ``DEFAULT_PROFILE`` only when they
+    picked none — where it is an assumption a probe is expected to replace,
+    not an answer (#143).
+
+    A key that names nothing, or names the fake timer on a transport that needs
+    a real port, falls back rather than failing: a stale setting should leave
+    the track detecting, not leave it dead.
+    """
+    if timer_type == models.TimerType.FAKE:
+        return FAKE
+    if timer_type == models.TimerType.NONE:
+        return NO_TIMER
+    chosen = by_key(timer_profile) if timer_profile else None
+    return chosen if chosen in ALL_PROFILES else DEFAULT_PROFILE
+
+
 async def initialize_timer_managers(
     registry: dict[int, TimerManager],
     session_factory: SessionFactory | None = None,
@@ -2106,17 +2127,7 @@ async def initialize_timer_managers(
                 models.TimerType.FAKE if demo_mode.enabled() else track.timer_type
             )
 
-            # `DEFAULT_PROFILE` is the starting assumption for both auto-detect
-            # modes, replaced by whatever answers a probe: below for
-            # backend-direct, and when the browser connects for proxy mode. It
-            # survives only when nothing identifies itself (issue #89).
-            device = (
-                FAKE
-                if timer_type == models.TimerType.FAKE
-                else NO_TIMER
-                if timer_type == models.TimerType.NONE
-                else DEFAULT_PROFILE
-            )
+            device = device_for(timer_type, track.timer_profile)
 
             manager = TimerManager(
                 track.id,
@@ -2140,6 +2151,10 @@ async def initialize_timer_managers(
                 if track.serial_port:
                     asyncio.create_task(manager.connect_direct(track.serial_port))
                 else:
-                    asyncio.create_task(manager.autodetect())
+                    chosen = (
+                        by_key(track.timer_profile) if track.timer_profile else None
+                    )
+                    profiles = [chosen] if chosen in ALL_PROFILES else None
+                    asyncio.create_task(manager.autodetect(profiles))
     finally:
         db.close()
