@@ -777,9 +777,7 @@ def test_failed_pin_attempts_are_rate_limited_and_logged_on_initial_config(
 
 
 @pytest.mark.usefixtures("secured")
-def test_failed_pin_rate_limit_applies_to_rest_routes_with_429(
-    client, monkeypatch
-):
+def test_failed_pin_rate_limit_applies_to_rest_routes_with_429(client, monkeypatch):
     monkeypatch.setattr(auth.pin_rate_limiter, "max_failures", 2)
 
     for guess in ("9001", "9002"):
@@ -792,25 +790,28 @@ def test_failed_pin_rate_limit_applies_to_rest_routes_with_429(
 
 
 @pytest.mark.usefixtures("secured")
-def test_valid_pin_before_lockout_clears_failure_count(
-    client, monkeypatch
-):
+def test_valid_pin_before_lockout_clears_failure_count(client, monkeypatch):
     monkeypatch.setattr(auth.pin_rate_limiter, "max_failures", 3)
 
-    assert _post(client, ROLE_QUERY, pin="0001").json()["data"]["initialConfig"][
-        "role"
-    ] == "VIEWER"
-    assert _post(client, ROLE_QUERY, pin="0002").json()["data"]["initialConfig"][
-        "role"
-    ] == "VIEWER"
+    assert (
+        _post(client, ROLE_QUERY, pin="0001").json()["data"]["initialConfig"]["role"]
+        == "VIEWER"
+    )
+    assert (
+        _post(client, ROLE_QUERY, pin="0002").json()["data"]["initialConfig"]["role"]
+        == "VIEWER"
+    )
     # Valid PIN before reaching 3 failures succeeds and resets the counter.
-    assert _post(client, ROLE_QUERY, pin="1111").json()["data"]["initialConfig"][
-        "role"
-    ] == "OPERATOR"
+    assert (
+        _post(client, ROLE_QUERY, pin="1111").json()["data"]["initialConfig"]["role"]
+        == "OPERATOR"
+    )
 
-    assert _post(client, ROLE_QUERY, pin="0003").json()["data"]["initialConfig"][
-        "role"
-    ] == "VIEWER"
-    assert _post(client, ROLE_QUERY, pin="0004").json()["data"]["initialConfig"][
-        "role"
-    ] == "VIEWER"
+    assert (
+        _post(client, ROLE_QUERY, pin="0003").json()["data"]["initialConfig"]["role"]
+        == "VIEWER"
+    )
+    assert (
+        _post(client, ROLE_QUERY, pin="0004").json()["data"]["initialConfig"]["role"]
+        == "VIEWER"
+    )
