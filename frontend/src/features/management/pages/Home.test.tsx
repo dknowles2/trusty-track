@@ -665,6 +665,19 @@ describe('Home Page', () => {
         });
     });
 
+    it('closes the race row dropdown menu when Escape is pressed (#1387)', async () => {
+        renderHome({
+            races: [{ id: 7, name: 'Annual Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0 }],
+        });
+
+        await screen.findByText('Annual Derby');
+        fireEvent.click(screen.getByTestId('race-more-menu-7'));
+        expect(screen.getByTestId('race-menu-standings-7')).toBeInTheDocument();
+
+        fireEvent.keyDown(document, { key: 'Escape' });
+        expect(screen.queryByTestId('race-menu-standings-7')).not.toBeInTheDocument();
+    });
+
     describe('operator gating on Home creation/practice buttons (#1388)', () => {
         it('disables Create New Race and practice race buttons with NEEDS_OPERATOR_PIN_MESSAGE for non-operators', async () => {
             (useRole as any).mockReturnValue({ role: 'VIEWER', isOperator: false, canCheckIn: false });

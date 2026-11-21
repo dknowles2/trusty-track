@@ -528,7 +528,7 @@ test('screenshot instant replay', async ({ page, browser }) => {
         await screenshotLocator(replayDialog, {
             path: path.join(SCREENSHOT_DIR, '12-finish-frame.png'),
         });
-        await replayDialog.getByRole('button', { name: '×' }).click();
+        await replayDialog.getByRole('button', { name: 'Close', exact: true }).click();
 
         // Stage 3 (#177): a second stored clip in the same round, so the
         // highlight reel below has more than one heat to order.

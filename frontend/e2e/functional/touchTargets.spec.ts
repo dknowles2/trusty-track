@@ -131,7 +131,7 @@ test.describe('touch targets on a touchscreen (#1146)', () => {
 
         // Every modal shares one close button (`Modal.tsx`) — a 21×28 hit
         // area before this issue.
-        const closeBox = await roundedBox(dialog.getByRole('button', { name: '×' }));
+        const closeBox = await roundedBox(dialog.getByRole('button', { name: 'Close', exact: true }));
         expect(closeBox).not.toBeNull();
         expect(closeBox!.width).toBeGreaterThanOrEqual(44);
         expect(closeBox!.height).toBeGreaterThanOrEqual(44);

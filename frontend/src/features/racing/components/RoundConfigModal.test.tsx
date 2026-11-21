@@ -462,5 +462,25 @@ describe('RoundConfigModal', () => {
       });
     });
   });
+
+  describe('accessibility (#1387)', () => {
+    it('renders Qualifying and Championship tabs as native role="tab" buttons inside a tablist', () => {
+      render(<RoundConfigModal {...defaultProps} hasGeneralRound={true} />);
+      const tablist = screen.getByRole('tablist');
+      const qualifyingTab = screen.getByRole('tab', { name: 'Qualifying Round' });
+      const championshipTab = screen.getByRole('tab', { name: 'Championship Round' });
+
+      expect(tablist).toContainElement(qualifyingTab);
+      expect(tablist).toContainElement(championshipTab);
+      expect(qualifyingTab).toHaveAttribute('type', 'button');
+      expect(qualifyingTab).toHaveAttribute('aria-selected', 'true');
+      expect(championshipTab).toHaveAttribute('type', 'button');
+      expect(championshipTab).toHaveAttribute('aria-selected', 'false');
+
+      fireEvent.click(championshipTab);
+      expect(championshipTab).toHaveAttribute('aria-selected', 'true');
+      expect(qualifyingTab).toHaveAttribute('aria-selected', 'false');
+    });
+  });
 });
 

@@ -1396,7 +1396,7 @@ test.describe.serial('stored retention and intermission highlights, install-wide
                 page.getByRole('heading', { level: 2, name: `Heat ${spareNext.heatNumber}` }),
             ).toHaveCount(0);
 
-            await dialog.getByRole('button', { name: '×' }).click();
+            await dialog.getByRole('button', { name: 'Close', exact: true }).click();
 
             // Finish the spare heat so the track is not left with an
             // armed-and-never-finished heat for whatever runs after this.

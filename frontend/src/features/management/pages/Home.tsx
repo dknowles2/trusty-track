@@ -291,8 +291,15 @@ export default function Home() {
             if (target.closest('.dropdown')) return;
             setOpenMenuRaceId(null);
         };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setOpenMenuRaceId(null);
+        };
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
     }, [openMenuRaceId]);
 
     // Resume practice race's own split-button chevron (#1238) — the same

@@ -102,7 +102,8 @@ describe('Modal accessibility and focus management (#788)', () => {
         const secondInput = screen.getByTestId('second-input');
         const submitBtn = screen.getByTestId('submit-btn');
         const cancelBtn = screen.getByTestId('cancel-btn');
-        const closeBtn = screen.getByRole('button', { name: '×' });
+        const closeBtn = screen.getByRole('button', { name: 'Close' });
+        expect(closeBtn).toHaveAttribute('type', 'button');
 
         expect(document.activeElement).toBe(firstInput);
 

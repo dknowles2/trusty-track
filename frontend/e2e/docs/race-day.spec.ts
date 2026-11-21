@@ -188,7 +188,7 @@ test('take screenshots', async ({ page }) => {
     await page.getByText(/Import from CSV/i).click();
     await expect(page.getByRole('heading', { name: 'Import Racers from CSV' })).toBeVisible();
     await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/06-csv-import-dialog.png') });
-    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
     await expect(page.getByRole('heading', { name: 'Import Racers from CSV' })).toBeHidden();
 
     // Populate a believable roster.

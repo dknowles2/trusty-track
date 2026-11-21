@@ -409,7 +409,7 @@ test('importing the same CSV twice is refused, not duplicated (#1021)', async ({
     await expect(page.getByText('Match your columns')).toBeVisible();
     await page.getByRole('button', { name: /Import 1 Racers/ }).click();
     await expect(page.getByText('Imported 1 racers.')).toBeVisible();
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
     await expect(page.getByText('Gamma', { exact: true })).toBeVisible();
 
     // Second import of the byte-identical file: refused with the server's
@@ -419,7 +419,7 @@ test('importing the same CSV twice is refused, not duplicated (#1021)', async ({
     await expect(page.getByText('Match your columns')).toBeVisible();
     await page.getByRole('button', { name: /Import 1 Racers/ }).click();
     await expect(page.getByText('Gamma Rivera is already on the roster.')).toBeVisible();
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
 
     await expect(page.getByRole('row').filter({ hasText: 'Gamma' })).toHaveCount(1);
 });

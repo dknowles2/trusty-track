@@ -213,6 +213,24 @@ export default function Navigation() {
   // changes no URL at all, so the view itself has to say so (#175).
   const isProjectorMode = new URLSearchParams(location.search).get('projector') === 'true';
 
+  useEffect(() => {
+    if (!isRaceDropdownOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsRaceDropdownOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isRaceDropdownOpen]);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileMenuOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileMenuOpen]);
+
   // The bottom tab bar (#952): one row of race navigation, reused rather than
   // a second hand-written list of the six views — "One row of race
   // navigation" above is what that rule is for. It shares the whole-nav
@@ -303,7 +321,10 @@ export default function Navigation() {
           {!isMobile && (
             <div style={{ position: 'relative', flex: 1, display: 'flex', justifyContent: 'center' }}>
             <button
+              type="button"
               data-testid="race-selector-pill"
+              aria-expanded={isRaceDropdownOpen}
+              aria-haspopup="menu"
               onClick={() => setIsRaceDropdownOpen(!isRaceDropdownOpen)}
               style={{
                 background: PILL_BACKGROUND,
@@ -492,6 +513,9 @@ export default function Navigation() {
             {/* Drawer */}
             <div
               data-testid="mobile-drawer"
+              role="dialog"
+              aria-modal={isMobileMenuOpen ? 'true' : undefined}
+              aria-label="Navigation menu"
               style={{
               position: 'fixed',
               top: 0,

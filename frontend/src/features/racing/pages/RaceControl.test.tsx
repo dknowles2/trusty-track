@@ -298,7 +298,10 @@ describe('RaceControl Page', () => {
 
         await openRaceTab();
 
-        expect(screen.getByTestId('heat-replay-btn-1')).toBeInTheDocument();
+        const replayBtn = screen.getByTestId('heat-replay-btn-1');
+        expect(replayBtn).toBeInTheDocument();
+        expect(replayBtn).toHaveAttribute('type', 'button');
+        expect(replayBtn).toHaveAttribute('aria-label', 'Play replay');
         expect(screen.queryByTestId('heat-replay-btn-2')).toBeNull();
 
         fireEvent.click(screen.getByTestId('heat-replay-btn-1'));
@@ -326,6 +329,17 @@ describe('RaceControl Page', () => {
 
             // Tapping again collapses it back.
             fireEvent.click(within(summaryRow).getByText('Heat 1'));
+            expect(screen.queryByText('Lane 1')).not.toBeInTheDocument();
+
+            // Keyboard toggle (#1387)
+            const toggleHeader = within(summaryRow).getByRole('button', { name: /Heat 1/i });
+            expect(toggleHeader).toHaveAttribute('tabindex', '0');
+            expect(toggleHeader).toHaveAttribute('aria-expanded', 'false');
+            fireEvent.keyDown(toggleHeader, { key: 'Enter' });
+            expect(toggleHeader).toHaveAttribute('aria-expanded', 'true');
+            expect(within(summaryRow).getByText('Lane 1')).toBeInTheDocument();
+            fireEvent.keyDown(toggleHeader, { key: ' ' });
+            expect(toggleHeader).toHaveAttribute('aria-expanded', 'false');
             expect(screen.queryByText('Lane 1')).not.toBeInTheDocument();
         } finally {
             window.innerWidth = originalWidth;

@@ -1375,7 +1375,21 @@ export default function RaceControl() {
                       }}>
                         <div
                           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: collapsible && !isExpanded ? 0 : '10px', gap: '10px', cursor: collapsible ? 'pointer' : 'default' }}
-                          onClick={collapsible ? toggleExpanded : undefined}
+                          {...(collapsible
+                            ? {
+                                role: 'button' as const,
+                                tabIndex: 0,
+                                'aria-expanded': isExpanded,
+                                onClick: toggleExpanded,
+                                onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+                                  if ((e.target as HTMLElement).closest('button')) return;
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    toggleExpanded();
+                                  }
+                                },
+                              }
+                            : {})}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                             {collapsible && (
@@ -1401,6 +1415,8 @@ export default function RaceControl() {
                             )}
                             {heat.replays.length > 0 && (
                                 <button
+                                    type="button"
+                                    aria-label="Play replay"
                                     onClick={(e) => { e.stopPropagation(); setReplayModalHeatId(heat.id); }}
                                     style={{
                                         background: 'none',
