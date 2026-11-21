@@ -54,14 +54,13 @@ from backend.services import replays as replays_service
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.importers.derbynet import parse_derbynet_database
 from backend.services.importers.gprm import parse_gprm_database
-from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE, NO_TIMER
-from backend.services.timer.devices import by_key as _profile_by_key
+from backend.services.timer.devices import ALL_PROFILES
 from backend.services.timer.devices import fake as fake_timer
 from backend.services.timer.devices.base import (
     LaneResult as TimerLaneResult,
 )
 from backend.services.timer.devices.base import RaceStarted, TimerProfile
-from backend.services.timer.manager import TimerManager
+from backend.services.timer.manager import TimerManager, device_for
 from backend.services.timer.state_machine import TimerState
 
 logger = logging.getLogger(__name__)
@@ -4470,24 +4469,8 @@ def _race_id_for_racers(db: Session, racer_ids: list[int]) -> int | None:
 
 
 def _device_for(track: Any) -> TimerProfile:
-    """The profile a track should run on.
-
-    ``FAKE`` and ``NONE`` are each their own device — neither is ever probed
-    or refined by anything a track's ``timer_profile`` names. Otherwise it is
-    the model the operator picked, and ``DEFAULT_PROFILE`` only when they
-    picked none — where it is an assumption a probe is expected to replace,
-    not an answer (#143).
-
-    A key that names nothing, or names the fake timer on a transport that needs
-    a real port, falls back rather than failing: a stale setting should leave
-    the track detecting, not leave it dead.
-    """
-    if track.timer_type == models.TimerType.FAKE:
-        return FAKE
-    if track.timer_type == models.TimerType.NONE:
-        return NO_TIMER
-    chosen = _profile_by_key(track.timer_profile) if track.timer_profile else None
-    return chosen if chosen in ALL_PROFILES else DEFAULT_PROFILE
+    """The profile a track should run on."""
+    return device_for(track.timer_type, track.timer_profile)
 
 
 def _manager_for(track: Any, info: Info) -> TimerManager:

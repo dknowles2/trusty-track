@@ -23,6 +23,7 @@ from backend.services.timer.devices import (
     by_key,
 )
 from backend.services.timer.devices.derbynet import ADAPTED_FROM_DERBYNET
+from backend.services.timer.manager import TimerManager, initialize_timer_managers
 
 
 def _track(db, **fields):
@@ -222,3 +223,62 @@ def test_a_chosen_model_survives_the_api(client, db):
     stored = db.query(models.Track).filter(models.Track.id == track_id).one()
     assert stored.timer_profile == chosen.key
     assert _device_for(stored) is chosen
+
+
+@pytest.mark.anyio
+async def test_initialize_timer_managers_honours_timer_profile(
+    db, timer_session_factory, monkeypatch
+):
+    """Startup must restore each track's chosen ``timer_profile`` (#1374)."""
+    chosen_direct = _newbold()
+    chosen_autodetect = ALL_PROFILES[1]
+    chosen_proxy = ALL_PROFILES[2]
+
+    t_direct = _track(
+        db,
+        timer_type="AUTO_DETECT_BACKEND",
+        timer_profile=chosen_direct.key,
+        serial_port="/dev/ttyUSB0",
+    )
+    t_autodetect = _track(
+        db,
+        timer_type="AUTO_DETECT_BACKEND",
+        timer_profile=chosen_autodetect.key,
+    )
+    t_default = _track(
+        db,
+        timer_type="AUTO_DETECT_BACKEND",
+    )
+    t_proxy = _track(
+        db,
+        timer_type="AUTO_DETECT_PROXY",
+        timer_profile=chosen_proxy.key,
+    )
+
+    direct_calls: list[tuple[int, str]] = []
+    autodetect_calls: list[tuple[int, object]] = []
+
+    async def fake_connect_direct(self, port: str) -> None:
+        direct_calls.append((self.track_id, port))
+
+    async def fake_autodetect(self, profiles=None) -> str | None:
+        autodetect_calls.append((self.track_id, profiles))
+        return None
+
+    monkeypatch.setattr(TimerManager, "connect_direct", fake_connect_direct)
+    monkeypatch.setattr(TimerManager, "autodetect", fake_autodetect)
+
+    registry: dict[int, TimerManager] = {}
+    await initialize_timer_managers(registry, session_factory=timer_session_factory)
+    await asyncio.sleep(0)
+
+    assert registry[t_direct.id]._device is chosen_direct
+    assert registry[t_autodetect.id]._device is chosen_autodetect
+    assert registry[t_default.id]._device is DEFAULT_PROFILE
+    assert registry[t_proxy.id]._device is chosen_proxy
+
+    assert direct_calls == [(t_direct.id, "/dev/ttyUSB0")]
+    assert autodetect_calls == [
+        (t_autodetect.id, [chosen_autodetect]),
+        (t_default.id, None),
+    ]

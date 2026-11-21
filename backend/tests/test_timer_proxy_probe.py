@@ -282,6 +282,23 @@ async def test_the_fallback_opens_the_port_when_probing_never_did():
     await manager.stop()
 
 
+async def test_chosen_profile_is_adopted_even_if_manager_started_with_default():
+    """When ``chosen`` is set, the session must adopt it rather than calling
+    ``handle_connect()`` with the manager's prior device (#1374)."""
+    browser = FakeBrowser({})
+    session, manager = session_for(browser, [MICROWIZARD, OTHER], chosen=OTHER)
+
+    session.start()
+    await run_to_completion(session)
+
+    assert browser.configures == [framing_of(OTHER)]
+    assert manager._device is OTHER
+    assert manager._state == TimerState.IDLE
+    assert browser.written == [b"GO"]
+
+    await manager.stop()
+
+
 # ---------------------------------------------------------------------------
 # Teardown
 # ---------------------------------------------------------------------------
