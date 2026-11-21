@@ -76,7 +76,7 @@ def test_delete_racing_group_logic(client, db):
 
     # 5. Verify Racer is still there but racing_group_id is None
     db.expire_all()
-    racer = db.query(crud.models.Racer).get(racer_id)
+    racer = db.get(crud.models.Racer, racer_id)
     assert racer is not None
     assert racer.racing_group_id is None
 

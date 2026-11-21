@@ -4564,6 +4564,9 @@ def bulk_delete_racers(db: Session, race_id: int, racer_ids: list[int]):
     db.query(models.Racer).filter(
         models.Racer.id.in_(racer_ids), models.Racer.race_id == race_id
     ).delete(synchronize_session=False)
+    for r in racers:
+        if r in db:
+            db.expunge(r)
     db.commit()
 
     # A round that was raced keeps the holes the vacating left; only the rest
