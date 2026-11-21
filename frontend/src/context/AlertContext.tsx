@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useRef, ReactNode } from 'react';
 import Modal from '../components/ui/Modal';
 
 interface ToastAction {
@@ -37,11 +37,18 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [isConfirm, setIsConfirm] = useState(false);
   const [confirmLabel, setConfirmLabel] = useState('Confirm');
   const [confirmVariant, setConfirmVariant] = useState<'primary' | 'danger'>('primary');
-  const [resolvePromise, setResolvePromise] = useState<((value: boolean) => void) | null>(null);
+  const resolvePromiseRef = useRef<((value: boolean) => void) | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [nextToastId, setNextToastId] = useState(1);
+  const nextToastIdRef = useRef(1);
+
+  const resolvePendingConfirm = (value: boolean) => {
+    const resolve = resolvePromiseRef.current;
+    resolvePromiseRef.current = null;
+    resolve?.(value);
+  };
 
   const showAlert = (msg: string, t: string = 'Alert') => {
+    resolvePendingConfirm(false);
     setMessage(msg);
     setTitle(t);
     setIsConfirm(false);
@@ -49,6 +56,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const showConfirm = (msg: string, t: string = 'Confirm', label: string = 'Confirm', variant: 'primary' | 'danger' = 'primary'): Promise<boolean> => {
+    resolvePendingConfirm(false);
     setMessage(msg);
     setTitle(t);
     setConfirmLabel(label);
@@ -56,13 +64,12 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setIsConfirm(true);
     setIsOpen(true);
     return new Promise((resolve) => {
-        setResolvePromise(() => resolve);
+        resolvePromiseRef.current = resolve;
     });
   };
 
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'info', action?: ToastAction) => {
-    const id = nextToastId;
-    setNextToastId(id + 1);
+    const id = nextToastIdRef.current++;
     
     const toast: Toast = { id, message: msg, type, action };
     setToasts(prev => [...prev, toast]);
@@ -86,14 +93,11 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const handleAction = (result: boolean) => {
     setIsOpen(false);
-    if (resolvePromise) {
-        resolvePromise(result);
-        setResolvePromise(null);
-    }
+    resolvePendingConfirm(result);
   };
 
   const closeAlert = () => {
-      if (isConfirm && resolvePromise) {
+      if (isConfirm) {
           handleAction(false);
       } else {
           setIsOpen(false);
@@ -128,7 +132,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       </Modal>
 
       {/* Toast Container */}
-      <div style={{
+      <div aria-live="polite" style={{
         position: 'fixed',
         bottom: '20px',
         left: '50%',
@@ -143,6 +147,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         {toasts.map(toast => (
           <div
             key={toast.id}
+            role="status"
             style={{
               background: toast.type === 'success' ? 'var(--success-accent-color)' : toast.type === 'error' ? 'var(--danger-accent-color)' : 'var(--info-accent-color)',
               color: 'var(--on-primary-color)',
@@ -179,6 +184,8 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 </button>
               )}
               <button
+                type="button"
+                aria-label="Dismiss"
                 onClick={() => dismissToast(toast.id)}
                 style={{
                   background: 'transparent',
