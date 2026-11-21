@@ -38,5 +38,6 @@ openssl req -x509 -newkey rsa:4096 -keyout "$KEY_FILE" -out "$CERT_FILE" \
     -subj "/CN=TrustyTrack" \
     -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:$LOCAL_IP" \
     -addext "basicConstraints=CA:TRUE"
+chmod 600 "$KEY_FILE"
 
 echo "Certificates generated successfully."

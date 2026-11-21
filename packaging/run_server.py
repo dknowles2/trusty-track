@@ -632,12 +632,9 @@ if __name__ == "__main__":
 
         error_msg = f"Error during startup: {str(e)}\n" + traceback.format_exc()
 
-        # Log to /tmp/ for system visibility
-        with (
-            contextlib.suppress(Exception),
-            open("/tmp/trustytrack_startup_error.log", "w") as f,
-        ):
-            f.write(error_msg)
+        # Log to DATA_DIR for diagnostics
+        with contextlib.suppress(Exception):
+            (DATA_DIR / "startup_error.log").write_text(error_msg, encoding="utf-8")
 
         # Log to user home for easy access
         with contextlib.suppress(Exception):
