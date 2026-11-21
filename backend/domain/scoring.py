@@ -76,6 +76,7 @@ Carrying the DNF fact (#898)
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
@@ -435,6 +436,16 @@ def has_any_recorded_time(times: Iterable[float | None]) -> bool:
     return any(t is not None for t in times)
 
 
+def scores_equal(a: float, b: float) -> bool:
+    """Whether two scores are equal within IEEE-754 summation noise (#1378).
+
+    Identical 3-decimal times summed in different heat orders can differ by
+    ~1e-15; comparing with ``abs_tol=1e-9`` treats those as tied while keeping
+    any real millisecond/microsecond difference distinct.
+    """
+    return math.isclose(float(a), float(b), rel_tol=0.0, abs_tol=1e-9)
+
+
 def rank_key(score: float, heats_completed: int, racer_id: int) -> tuple:
     """Sort key for standings: score ascending, unraced racers last.
 
@@ -480,7 +491,7 @@ def standings_ranks(
             previous is not None
             and heats_completed > 0
             and previous[1] > 0
-            and float(score) == float(previous[0])
+            and scores_equal(score, previous[0])
             and not (separated[index] if separated is not None else False)
         )
         ranks.append(ranks[-1] if tied else index + 1)
