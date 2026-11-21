@@ -220,3 +220,51 @@ def test_convert_to_browser_safe_png_refuses_unreadable_bytes() -> None:
 
     with pytest.raises(UnreadableImageError):
         convert_to_browser_safe_png(b"this is not an image, just text bytes")
+
+
+def test_convert_to_browser_safe_png_strips_exif_from_small_jpeg() -> None:
+    """Unresized browser-native photos with EXIF/GPS metadata must be
+    transposed and re-encoded without EXIF (#1362)."""
+    import io
+
+    from backend.services.image_processing import convert_to_browser_safe_png
+
+    img = Image.new("RGB", (200, 100), color=(255, 0, 0))
+    exif = Image.Exif()
+    exif[0x0112] = 6  # Orientation
+    exif[0x010F] = "Apple"  # Make
+    exif[0x8825] = {1: "N", 2: (37.0, 0.0, 0.0)}  # GPSInfo
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", exif=exif.tobytes())
+    raw_bytes = buf.getvalue()
+
+    processed_bytes = convert_to_browser_safe_png(raw_bytes)
+    assert processed_bytes is not raw_bytes
+
+    processed = Image.open(io.BytesIO(processed_bytes))
+    assert processed.format == "PNG"
+    assert processed.width < processed.height
+    assert len(processed.getexif()) == 0
+    assert "exif" not in processed.info
+
+
+def test_convert_to_browser_safe_png_strips_exif_from_small_rgba_png() -> None:
+    """Small RGBA PNGs carrying EXIF metadata must also have it stripped (#1362)."""
+    import io
+
+    from backend.services.image_processing import convert_to_browser_safe_png
+
+    img = Image.new("RGBA", (100, 100), color=(0, 128, 255, 255))
+    exif = Image.Exif()
+    exif[0x010F] = "CameraCo"
+    buf = io.BytesIO()
+    img.save(buf, format="PNG", exif=exif.tobytes())
+    raw_bytes = buf.getvalue()
+
+    processed_bytes = convert_to_browser_safe_png(raw_bytes)
+    assert processed_bytes is not raw_bytes
+
+    processed = Image.open(io.BytesIO(processed_bytes))
+    assert processed.format == "PNG"
+    assert len(processed.getexif()) == 0
+    assert "exif" not in processed.info
