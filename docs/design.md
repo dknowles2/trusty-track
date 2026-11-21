@@ -79,7 +79,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `car_numbering_strategy` (Enum: `PER_GROUP`, `GLOBAL`, `MANUAL`)
     -   `global_start_number` (if GLOBAL, default 1)
     -   `championship_trophies` (int, number of top finishers for championship, default 3)
-    -   `scoring_strategy` (Enum: `TIMED`, `POINTS` - default `TIMED`)
+    -   `scoring_strategy` (Enum: `TIMED`, `POINTS`, `CUMULATIVE_TIME`, `FASTEST_TIME` - default `TIMED`)
     -   `tiebreaker` (Enum: `SHARED`, `BEST_TIME`, `TOTAL_TIME`, `COUNTBACK`, `HEAD_TO_HEAD` - default `SHARED`) — how a shared score is broken at a cut: advancement, an award's place (#540). `SHARED` means not resolved — a cut still reports the tie and takes a provisional pick, today's behavior made visible rather than a new default nobody chose. Resolved in `services.scoring.get_leaderboard` alone (`domain/tiebreak.py` holds the five rules), never stored — the same "computed on every read" shape the standings themselves follow (#17).
     -   `rules_configuration` (JSON string, optional — vestigial; nothing reads or writes it)
     -   `weight_limit_oz` (Float, optional — the pack's weight limit; null means the race does not check weights)
@@ -420,9 +420,9 @@ both directions and does not interpret them.
 This mode detects too. The backend walks the same profiles it would probe a
 local port with, sending a `configure` before each candidate whose framing
 differs from the one currently open and waiting for the browser's `ready` — so
-the browser closes and reopens the port as the walk goes. With the profiles
-shipped today the port opens once, because every device that can be probed for
-runs at 9600 8-N-1. If nothing identifies itself the assumed profile is kept,
+the browser closes and reopens the port as the walk goes. Almost every probeable
+profile runs at 9600 8-N-1, though `DERBY_MAGIC` (19200 baud) causes a reopen
+when the walk reaches it. If nothing identifies itself the assumed profile is kept,
 which is what this mode did before it could detect.
 
 Web Serial is a Chromium-only API, which is the same trade the check-in scanner
@@ -452,11 +452,12 @@ pattern with the event it means and the captured groups holding the lane, time
 and place. There is no per-device parsing code, which is what lets a prober
 walk the list in `ALL_PROFILES` and try each candidate in turn.
 
-Eight real devices are described today — the MicroWizard K1/K2/K3 and seven
-adapted from DerbyNet — alongside a fake timer that skips the serial layer
-entirely. None has been run against its hardware; each carries a `provenance`
-string saying what it was written from, shown on the timer check page. A
-profile with no `probe` command or
+Thirteen real devices are described today — the MicroWizard K1/K2/K3, eleven
+adapted from DerbyNet, and Bill V's Arduino timer — alongside a fake timer that
+skips the serial layer entirely. None has been run against live hardware, though
+three (`microwizard`, `derbytimer`, and `pdt`) are verified against real device
+recordings; each carries a `provenance` string saying what it was written from,
+shown on the timer check page. A profile with no `probe` command or
 no identification banner is skipped by the prober — it cannot be detected, only
 chosen.
 
@@ -464,10 +465,10 @@ Both auto-detect modes probe. They differ only in who opens the port:
 `backend/services/timer/probe.py` opens it directly, and
 `backend/services/timer/proxy.py` asks the browser to.
 
-One profile departs from the usual framing: the NewBold DT/TURBO/DerbyStick
-family runs at 1200 baud with 7 data bits and 2 stop bits, against everything
-else's 9600 8-N-1 — and answers no identifying question, so it can only be
-chosen, never detected.
+Two profiles depart from the usual 9600 8-N-1 framing: the NewBold
+DT/TURBO/DerbyStick family runs at 1200 baud with 7 data bits and 2 stop bits
+(and answers no identifying question, so it can only be chosen, never detected),
+and the 19200-baud Derby Magic variant (`DERBY_MAGIC`), which is probeable.
 
 ### 5.4. Reading the serial log
 
