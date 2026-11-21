@@ -1,6 +1,6 @@
 import { useQuery } from 'urql';
 import { INITIAL_CONFIG_QUERY } from '../graphql/queries';
-import type { GetInitialConfigStatusQuery } from '../../../gql/operations';
+import type { GetInitialConfigStatusQuery, GetInitialConfigStatusQueryVariables } from '../../../gql/operations';
 
 /**
  * The caller's own role, for deciding what a screen *shows* (#892).
@@ -63,7 +63,7 @@ export function roleInfoFor(role: RoleInfo['role'] | undefined | null): RoleInfo
 }
 
 export function useRole(): RoleInfo {
-  const [{ data }] = useQuery<GetInitialConfigStatusQuery>({
+  const [{ data }] = useQuery<GetInitialConfigStatusQuery, GetInitialConfigStatusQueryVariables>({
     query: INITIAL_CONFIG_QUERY,
   });
   return roleInfoFor(data?.initialConfig?.role);

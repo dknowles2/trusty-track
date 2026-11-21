@@ -20,6 +20,7 @@ import { mdiArrowLeft, mdiPrinter } from '@mdi/js';
 import { VehicleGlyph } from '../components/PrintDecor';
 import { formatEventDate } from '../documents';
 import { championshipResultsQuery, GET_RESULTS_SHEET } from '../graphql/queries';
+import type { GetResultsSheetQuery, GetResultsSheetQueryVariables } from '../../../gql/operations';
 import type { SheetRound } from '../heatSheet';
 import {
     awardLines,
@@ -42,12 +43,19 @@ import '../PrintSheet.css';
 // parseable `query`, even one that never runs.
 const NOOP_QUERY = 'query Noop { __typename }';
 
+interface ChampionshipResultsQueryData {
+    race?: {
+        id: number;
+        [roundAlias: `round${number}`]: ResultsEntry[];
+    } | null;
+}
+
 export default function ResultsSheet() {
     const { raceId } = useParams<{ raceId: string }>();
     const parsedRaceId = raceId ? parseInt(raceId) : 0;
     const { group, groupLower, vehicle, vehicleArtworkKey, vehicleLower, vehiclesLower } = useTerminology();
 
-    const [{ data, fetching, error }] = useQuery({
+    const [{ data, fetching, error }] = useQuery<GetResultsSheetQuery, GetResultsSheetQueryVariables>({
         query: GET_RESULTS_SHEET,
         variables: { raceId: parsedRaceId },
         pause: !parsedRaceId,
@@ -91,7 +99,7 @@ export default function ResultsSheet() {
         () => (championshipRoundIds.length > 0 ? championshipResultsQuery(championshipRoundIds) : NOOP_QUERY),
         [championshipRoundIds],
     );
-    const [{ data: championshipData }] = useQuery({
+    const [{ data: championshipData }] = useQuery<ChampionshipResultsQueryData, { raceId: number }>({
         query: championshipQuery,
         variables: { raceId: parsedRaceId },
         pause: !parsedRaceId || championshipRoundIds.length === 0,

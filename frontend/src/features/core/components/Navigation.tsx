@@ -2,7 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useSubscription } from 'urql';
 import { GET_RACES_NAV, INITIAL_CONFIG_QUERY, RACES_CHANGED } from '../graphql/queries';
-import type { GetInitialConfigStatusQuery } from '../../../gql/operations';
+import type {
+  CreateRaceMutation,
+  CreateRaceMutationVariables,
+  GetInitialConfigStatusQuery,
+  GetInitialConfigStatusQueryVariables,
+  GetRacesNavQuery,
+  GetRacesNavQueryVariables,
+  RacesChangedSubscription,
+  RacesChangedSubscriptionVariables,
+} from '../../../gql/operations';
 import { activeNavLink } from '../activeNavLink';
 import { CREATE_RACE } from '../../management/graphql/queries';
 import Modal from '../../../components/ui/Modal';
@@ -46,8 +55,11 @@ const PILL_BORDER = '1px solid color-mix(in srgb, #ffffff 20%, var(--scouting-bl
 export default function Navigation() {
   const { hidden: chromeHidden } = useChrome();
   const { showAlert } = useAlert();
-  const [{ data: navData, fetching: racesFetching }, reexecuteRacesNav] = useQuery({ query: GET_RACES_NAV });
-  const races: { id: number; name: string; isLocked: boolean }[] = navData?.races || [];
+  const [{ data: navData, fetching: racesFetching }, reexecuteRacesNav] = useQuery<
+    GetRacesNavQuery,
+    GetRacesNavQueryVariables
+  >({ query: GET_RACES_NAV });
+  const races = navData?.races || [];
 
   // #300: a race created, renamed or deleted in another tab (or another
   // device on the same network) left this list, and the browser tab's title
@@ -55,14 +67,21 @@ export default function Navigation() {
   // once on mount and nothing here ever asked again. `racesChanged` carries
   // no payload worth caching, so a signal on it means "go re-fetch" rather
   // than something to merge.
-  const [racesChangedResult] = useSubscription({ query: RACES_CHANGED });
+  const [racesChangedResult] = useSubscription<
+    RacesChangedSubscription,
+    RacesChangedSubscription,
+    RacesChangedSubscriptionVariables
+  >({ query: RACES_CHANGED });
   useEffect(() => {
     if (racesChangedResult.data !== undefined) {
       reexecuteRacesNav({ requestPolicy: 'network-only' });
     }
   }, [racesChangedResult.data, reexecuteRacesNav]);
 
-  const [{ data: configData }] = useQuery<GetInitialConfigStatusQuery>({ query: INITIAL_CONFIG_QUERY });
+  const [{ data: configData }] = useQuery<
+    GetInitialConfigStatusQuery,
+    GetInitialConfigStatusQueryVariables
+  >({ query: INITIAL_CONFIG_QUERY });
   const version = configData?.initialConfig?.version || '0.0.0';
   // Only shown when the install has a PIN. An event that never turned
   // enforcement on sees no lock at all, which is the point of it being off by
@@ -70,7 +89,7 @@ export default function Navigation() {
   const pinRequired = !!configData?.initialConfig?.pinRequired;
   const isOperator = configData?.initialConfig?.isOperator !== false;
 
-  const [, createRaceMutation] = useMutation(CREATE_RACE);
+  const [, createRaceMutation] = useMutation<CreateRaceMutation, CreateRaceMutationVariables>(CREATE_RACE);
 
   const [isRaceDropdownOpen, setIsRaceDropdownOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -215,10 +234,12 @@ export default function Navigation() {
   const handleCreateRace = async (data: RaceSetupData) => {
     try {
       const raceInput = buildCreateRaceInput(data);
-      const result = await createRaceMutation({ race: raceInput });
+      if (raceInput.trackId === undefined) throw new Error('Track is required');
+      const result = await createRaceMutation({ race: { ...raceInput, trackId: raceInput.trackId } });
       if (result.error) throw result.error;
 
-      const newRace = result.data.createRace;
+      const newRace = result.data?.createRace;
+      if (!newRace) throw new Error('Failed to create race');
       setShowCreateModal(false);
       navigate(`/race/${newRace.id}`);
     } catch (e) {

@@ -16,14 +16,15 @@ import { useLocation } from 'react-router-dom';
 import { useQuery } from 'urql';
 
 import { GET_RACES_NAV } from '../graphql/queries';
+import type { GetRacesNavQuery, GetRacesNavQueryVariables } from '../../../gql/operations';
 import { pageTitle, raceIdIn } from '../pageTitle';
 
 export default function PageTitle() {
     const location = useLocation();
-    const [{ data }] = useQuery({ query: GET_RACES_NAV });
+    const [{ data }] = useQuery<GetRacesNavQuery, GetRacesNavQueryVariables>({ query: GET_RACES_NAV });
 
     const raceId = raceIdIn(location.pathname);
-    const races: { id: number; name: string }[] = data?.races ?? [];
+    const races = data?.races ?? [];
     const raceName = raceId ? (races.find((race) => race.id === raceId)?.name ?? null) : null;
 
     useEffect(() => {

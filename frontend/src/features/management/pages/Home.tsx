@@ -2,6 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, type NavigateFunction } from 'react-router-dom';
 import { useQuery, useMutation, gql } from 'urql';
 import { CREATE_PRACTICE_RACE, CREATE_RACE, UPDATE_RACE } from '../graphql/queries';
+import type {
+    CreatePracticeRaceMutation,
+    CreatePracticeRaceMutationVariables,
+    CreateRaceMutation,
+    CreateRaceMutationVariables,
+    GetRacesQuery,
+    GetRacesQueryVariables,
+    UpdateRaceMutation,
+    UpdateRaceMutationVariables,
+} from '../../../gql/operations';
 import Modal from '../../../components/ui/Modal';
 import RaceSetupWizard from '../components/RaceSetupWizard';
 import { buildCreateRaceInput, type RaceSetupData } from '../raceInput';
@@ -70,8 +80,8 @@ const GET_RACES = gql`
 interface Race {
     id: number;
     name: string;
-    dateTime: string;
-    location: string;
+    dateTime: string | null;
+    location: string | null;
     registeredCount: number;
     checkedInCount: number;
     isLocked: boolean;
@@ -316,13 +326,16 @@ export default function Home() {
         };
     }, [isPracticeMenuOpen]);
 
-    const [{ data, fetching, error }, reexecuteRaces] = useQuery({
+    const [{ data, fetching, error }, reexecuteRaces] = useQuery<GetRacesQuery, GetRacesQueryVariables>({
         query: GET_RACES,
     });
 
-    const [, createRace] = useMutation(CREATE_RACE);
-    const [practiceResult, createPracticeRace] = useMutation(CREATE_PRACTICE_RACE);
-    const [, updateRaceLock] = useMutation(UPDATE_RACE);
+    const [, createRace] = useMutation<CreateRaceMutation, CreateRaceMutationVariables>(CREATE_RACE);
+    const [practiceResult, createPracticeRace] = useMutation<
+        CreatePracticeRaceMutation,
+        CreatePracticeRaceMutationVariables
+    >(CREATE_PRACTICE_RACE);
+    const [, updateRaceLock] = useMutation<UpdateRaceMutation, UpdateRaceMutationVariables>(UPDATE_RACE);
 
     // Lock/unlock from the row's own menu (#1239) — a one-tap toggle asks
     // for a confirm in both directions (a mis-tap on the wrong row is one
@@ -367,17 +380,20 @@ export default function Home() {
     const handleCreate = async (formData: RaceSetupData) => {
         try {
             const raceInput = buildCreateRaceInput(formData);
-            const result = await createRace({ race: raceInput });
+            if (raceInput.trackId === undefined) throw new Error('Track is required');
+            const result = await createRace({ race: { ...raceInput, trackId: raceInput.trackId } });
             if (result.error) {
                 throw result.error;
             }
+            const createdRace = result.data?.createRace;
+            if (!createdRace) throw new Error('Failed to create race');
             setShowCreate(false);
             // Open the race that was just created, as the nav bar's own
             // "New Race…" has always done. Two routes to the same mutation
             // behaved differently: this one dropped you back on a list to find
             // the race you had that moment named, and the next thing anyone
             // wants after creating a race is to set it up.
-            navigate(`/race/${result.data.createRace.id}`);
+            navigate(`/race/${createdRace.id}`);
         } catch (e) {
             console.error("Failed to create race", e);
             // A duplicate name is the one refusal the wizard can actually
@@ -410,7 +426,9 @@ export default function Home() {
         try {
             const result = await createPracticeRace({ startNew });
             if (result.error) throw result.error;
-            navigate(`/race/${result.data.createPracticeRace.id}/control/race`);
+            const practice = result.data?.createPracticeRace;
+            if (!practice) throw new Error('Could not create a practice race');
+            navigate(`/race/${practice.id}/control/race`);
         } catch (e) {
             console.error("Failed to create practice race", e);
             showAlert(errorText(e, "Could not create a practice race"), "Error");
@@ -419,7 +437,10 @@ export default function Home() {
         }
     };
 
-    const races: Race[] = data?.races || [];
+    const races: Race[] = (data?.races || []).map((r) => ({
+        ...r,
+        status: r.status as RaceStatus,
+    }));
     const practiceRace: PracticeRace | null = data?.practiceRace ?? null;
 
     // Below 900px the table can't hold its own columns (#1137) — see

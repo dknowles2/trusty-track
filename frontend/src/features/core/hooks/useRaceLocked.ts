@@ -1,5 +1,6 @@
 import { useQuery } from 'urql';
 import { GET_RACES_NAV } from '../graphql/queries';
+import type { GetRacesNavQuery, GetRacesNavQueryVariables } from '../../../gql/operations';
 
 /**
  * Whether a race is locked against further edits (#585), for a page that
@@ -14,7 +15,7 @@ import { GET_RACES_NAV } from '../graphql/queries';
  * current the same way the pill already is.
  */
 export function useRaceLocked(raceId: number): boolean {
-  const [{ data }] = useQuery({ query: GET_RACES_NAV });
-  const races: { id: number; isLocked: boolean }[] = data?.races || [];
+  const [{ data }] = useQuery<GetRacesNavQuery, GetRacesNavQueryVariables>({ query: GET_RACES_NAV });
+  const races = data?.races || [];
   return races.find((r) => r.id === raceId)?.isLocked ?? false;
 }

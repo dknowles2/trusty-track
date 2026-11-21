@@ -5,6 +5,14 @@ import { useMutation, useSubscription } from 'urql';
 import { FAKE_TIMER_START, FAKE_TIMER_FINISH, TIMER_STATUS_SUBSCRIPTION } from '../graphql/queries';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
+import type {
+    FakeTimerFinishMutation,
+    FakeTimerFinishMutationVariables,
+    FakeTimerStartMutation,
+    FakeTimerStartMutationVariables,
+    TimerStatusSubscription,
+    TimerStatusSubscriptionVariables,
+} from '../../../gql/operations';
 
 
 /**
@@ -62,10 +70,18 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
         });
     };
 
-    const [, fakeTimerStart] = useMutation(FAKE_TIMER_START);
-    const [, fakeTimerFinish] = useMutation(FAKE_TIMER_FINISH);
+    const [, fakeTimerStart] = useMutation<FakeTimerStartMutation, FakeTimerStartMutationVariables>(
+        FAKE_TIMER_START,
+    );
+    const [, fakeTimerFinish] = useMutation<FakeTimerFinishMutation, FakeTimerFinishMutationVariables>(
+        FAKE_TIMER_FINISH,
+    );
 
-    const [subResult] = useSubscription({
+    const [subResult] = useSubscription<
+        TimerStatusSubscription,
+        TimerStatusSubscription,
+        TimerStatusSubscriptionVariables
+    >({
         query: TIMER_STATUS_SUBSCRIPTION,
         variables: { trackId },
         pause: !isOpen || !trackId,

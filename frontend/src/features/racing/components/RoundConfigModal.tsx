@@ -10,6 +10,10 @@ import { PickFieldByHandCheckbox } from './PickFieldByHandCheckbox';
 import { FormatFields } from './FormatFields';
 import { HowHeatsAreBuiltFields } from './HowHeatsAreBuiltFields';
 import { SCHEDULING_ALGORITHMS } from '../graphql/queries';
+import type {
+  SchedulingAlgorithmsQuery,
+  SchedulingAlgorithmsQueryVariables,
+} from '../../../gql/operations';
 
 interface RoundConfigModalProps {
   isOpen: boolean;
@@ -92,7 +96,10 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
 
   // Every registered algorithm at this exact field/lane shape (#1090, part
   // D) — feeds the "How heats are built" disclosure below.
-  const [{ data: schedulingAlgorithmsData }] = useQuery({
+  const [{ data: schedulingAlgorithmsData }] = useQuery<
+    SchedulingAlgorithmsQuery,
+    SchedulingAlgorithmsQueryVariables
+  >({
     query: SCHEDULING_ALGORITHMS,
     variables: { racerCount, laneCount },
   });

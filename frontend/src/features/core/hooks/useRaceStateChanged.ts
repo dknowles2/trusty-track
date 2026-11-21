@@ -1,17 +1,16 @@
 import { useSubscription } from 'urql';
 import { RACE_STATE_CHANGED_SUBSCRIPTION } from '../graphql/queries';
+import type {
+  RaceStateChangedSubscription,
+  RaceStateChangedSubscriptionVariables,
+} from '../../../gql/operations';
 
 /**
  * What kind of change an event describes. Mirrors the backend's
  * `RaceChangeKind`; see `backend/api/schema.py`.
  */
-export type RaceChangeKind =
-  | 'HEAT_RESULT'
-  | 'RACER'
-  | 'ROSTER'
-  | 'SCHEDULE'
-  | 'RACE_SETTINGS'
-  | 'OTHER';
+import type { RaceChangeKind } from '../../../gql/schema';
+export type { RaceChangeKind };
 
 /**
  * Kinds whose payload the normalized cache can merge on its own.
@@ -72,8 +71,12 @@ export function useRaceStateChanged(
   const paused = options.pause ?? (!raceId || Number.isNaN(raceId));
   const alwaysRefetch = options.alwaysRefetch ?? false;
 
-  return useSubscription<RaceStateChangedData, RaceStateChangedData>(
-    { query: RACE_STATE_CHANGED_SUBSCRIPTION, variables: { raceId }, pause: paused },
+  return useSubscription<
+    RaceStateChangedSubscription,
+    RaceStateChangedSubscription,
+    RaceStateChangedSubscriptionVariables
+  >(
+    { query: RACE_STATE_CHANGED_SUBSCRIPTION, variables: { raceId: raceId as number }, pause: paused },
     (_previous, data) => {
       // `shouldRefetch` is about whether the *normalized cache* can merge an
       // event's payload on its own (#12) — right for a page reading `race {

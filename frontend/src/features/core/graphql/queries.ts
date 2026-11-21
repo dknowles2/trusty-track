@@ -103,7 +103,7 @@ export const RACE_TERMINOLOGY_QUERY = gql`
  * payload carrying a new result but stale lanes would render the result against
  * the wrong schedule.
  */
-export const RACE_STATE_CHANGED_SUBSCRIPTION = `
+export const RACE_STATE_CHANGED_SUBSCRIPTION = gql`
   subscription RaceStateChanged($raceId: Int!) {
     raceStateChanged(raceId: $raceId) {
       raceId

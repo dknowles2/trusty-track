@@ -21,6 +21,12 @@ import DocsLink from '../../../components/ui/DocsLink';
 import { GET_RACES_NAV } from '../../core/graphql/queries';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { ACTIVITY_LOG_LIVE_QUERY, ACTIVITY_LOG_QUERY } from '../graphql/queries';
+import type {
+    ActivityLogQuery,
+    ActivityLogQueryVariables,
+    GetRacesNavQuery,
+    GetRacesNavQueryVariables,
+} from '../../../gql/operations';
 import { applyPendingEntries, pendingSince, readLiveSetting, writeLiveSetting } from '../activityLive';
 import {
     AUDIT_CATEGORIES,
@@ -120,7 +126,7 @@ export default function ActivityLog() {
     const categoriesVariable =
         selectedCategories.size >= AUDIT_CATEGORIES.length ? undefined : [...selectedCategories];
 
-    const [{ data, fetching, error }, refetch] = useQuery({
+    const [{ data, fetching, error }, refetch] = useQuery<ActivityLogQuery, ActivityLogQueryVariables>({
         query: ACTIVITY_LOG_QUERY,
         variables: {
             raceId,
@@ -282,7 +288,7 @@ export default function ActivityLog() {
     // above), so the race list is fetched only to open one subscription per
     // race — see that component's own comment for why that is still cheap.
     const filteredToRace = raceId != null;
-    const [{ data: racesForLiveData }] = useQuery({
+    const [{ data: racesForLiveData }] = useQuery<GetRacesNavQuery, GetRacesNavQueryVariables>({
         query: GET_RACES_NAV,
         pause: !live || filteredToRace,
     });

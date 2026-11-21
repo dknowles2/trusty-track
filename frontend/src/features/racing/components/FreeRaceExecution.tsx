@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useMutation, useSubscription } from 'urql';
+import { useMutation, useSubscription, gql } from 'urql';
 import { FakeTimerMole } from './FakeTimerMole';
 import { SerialProxyConnector } from './SerialProxyConnector';
 import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT } from '../graphql/queries';
@@ -14,8 +14,22 @@ import { TimerStatusBadge } from './TimerStatusBadge';
 import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { errorText } from '../../../utils/errors';
+import type {
+  DeleteFreeRaceHeatMutation,
+  DeleteFreeRaceHeatMutationVariables,
+  FreeRaceHeatSubscription,
+  FreeRaceHeatSubscriptionVariables,
+  PrepareHeatMutation,
+  PrepareHeatMutationVariables,
+  RecordFreeRaceResultMutation,
+  RecordFreeRaceResultMutationVariables,
+  ResetTimerMutation,
+  ResetTimerMutationVariables,
+  TimerStatusSubscription,
+  TimerStatusSubscriptionVariables,
+} from '../../../gql/operations';
 
-const RESET_TIMER = `
+const RESET_TIMER = gql`
   mutation ResetTimer($trackId: Int!) {
     resetTimer(trackId: $trackId)
   }
@@ -39,7 +53,7 @@ interface FreeRaceExecutionProps {
   debugMode?: boolean;
 }
 
-const RECORD_FREE_RACE_RESULT = `
+const RECORD_FREE_RACE_RESULT = gql`
   mutation RecordFreeRaceResult($heatId: Int!, $lanes: [HeatLaneInput!]!) {
     recordFreeRaceResult(heatId: $heatId, lanes: $lanes) {
       id
@@ -56,9 +70,26 @@ const RECORD_FREE_RACE_RESULT = `
   }
 `;
 
-const DELETE_FREE_RACE_HEAT = `
+const DELETE_FREE_RACE_HEAT = gql`
   mutation DeleteFreeRaceHeat($heatId: Int!) {
     deleteFreeRaceHeat(heatId: $heatId)
+  }
+`;
+
+const FREE_RACE_HEAT_SUBSCRIPTION = gql`
+  subscription FreeRaceHeat($heatId: Int!) {
+    freeRaceHeat(heatId: $heatId) {
+      id
+      recorded
+      lanes {
+        lane
+        racerId
+        placeholderSlot
+        time
+        place
+        skipped
+      }
+    }
   }
 `;
 
@@ -78,29 +109,23 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingResults, setEditingResults] = useState<LaneInput[]>([]);
 
-  const [, recordResult] = useMutation(RECORD_FREE_RACE_RESULT);
-  const [, deleteFreeRaceHeat] = useMutation(DELETE_FREE_RACE_HEAT);
-  const [, resetTimer] = useMutation(RESET_TIMER);
-  const [, prepareHeat] = useMutation(PREPARE_HEAT);
+  const [, recordResult] = useMutation<RecordFreeRaceResultMutation, RecordFreeRaceResultMutationVariables>(
+    RECORD_FREE_RACE_RESULT,
+  );
+  const [, deleteFreeRaceHeat] = useMutation<
+    DeleteFreeRaceHeatMutation,
+    DeleteFreeRaceHeatMutationVariables
+  >(DELETE_FREE_RACE_HEAT);
+  const [, resetTimer] = useMutation<ResetTimerMutation, ResetTimerMutationVariables>(RESET_TIMER);
+  const [, prepareHeat] = useMutation<PrepareHeatMutation, PrepareHeatMutationVariables>(PREPARE_HEAT);
 
   // Subscribe to the specific free race heat to get results when they arrive
-  const [heatSubResult] = useSubscription({
-    query: `
-      subscription FreeRaceHeat($heatId: Int!) {
-        freeRaceHeat(heatId: $heatId) {
-          id
-          recorded
-          lanes {
-            lane
-            racerId
-            placeholderSlot
-            time
-            place
-            skipped
-          }
-        }
-      }
-    `,
+  const [heatSubResult] = useSubscription<
+    FreeRaceHeatSubscription,
+    FreeRaceHeatSubscription,
+    FreeRaceHeatSubscriptionVariables
+  >({
+    query: FREE_RACE_HEAT_SUBSCRIPTION,
     variables: { heatId },
   });
 
@@ -117,7 +142,11 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   }
 
   // Subscribe to timer status
-  const [subResult] = useSubscription({
+  const [subResult] = useSubscription<
+    TimerStatusSubscription,
+    TimerStatusSubscription,
+    TimerStatusSubscriptionVariables
+  >({
     query: TIMER_STATUS_SUBSCRIPTION,
     variables: { trackId: trackId ?? 0 },
     pause: !trackId,
@@ -210,7 +239,17 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
       return;
     }
 
-    setResults(res.data?.recordFreeRaceResult?.lanes ?? finalResults);
+    setResults(
+      res.data?.recordFreeRaceResult?.lanes ??
+        finalResults.map((l) => ({
+          lane: l.lane,
+          racerId: l.racerId ?? null,
+          placeholderSlot: l.placeholderSlot ?? null,
+          time: l.time ?? null,
+          place: l.place ?? null,
+          skipped: l.skipped ?? false,
+        })),
+    );
 
     setIsEditModalOpen(false);
   };

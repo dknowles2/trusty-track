@@ -3,6 +3,7 @@ import { Icon } from '@mdi/react';
 import { mdiStateMachine, mdiChevronUp, mdiChevronDown, mdiArrowRight } from '@mdi/js';
 import { useSubscription } from 'urql';
 import { TIMER_STATUS_SUBSCRIPTION } from '../graphql/queries';
+import type { TimerStatusSubscription, TimerStatusSubscriptionVariables } from '../../../gql/operations';
 
 interface TimerTransition {
     at: string;
@@ -28,7 +29,11 @@ interface TimerTransitionsPanelProps {
 export const TimerTransitionsPanel: React.FC<TimerTransitionsPanelProps> = ({ trackId, docked = false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
-    const [subResult] = useSubscription({
+    const [subResult] = useSubscription<
+        TimerStatusSubscription,
+        TimerStatusSubscription,
+        TimerStatusSubscriptionVariables
+    >({
         query: TIMER_STATUS_SUBSCRIPTION,
         variables: { trackId },
         pause: !trackId,

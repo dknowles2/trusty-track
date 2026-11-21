@@ -24,6 +24,7 @@ import { shareUrl, qrCodeSrc } from '../../core/shareAddress';
 import { qrTargetPath, resolveQrHeadline } from '../qrCode';
 import type { QRTarget } from '../displayView';
 import { NETWORK_ADDRESSES_QUERY } from '../graphql/queries';
+import type { NetworkAddressesQuery, NetworkAddressesQueryVariables } from '../../../gql/operations';
 
 interface Props {
     raceId: number;
@@ -37,7 +38,9 @@ interface Props {
 }
 
 export default function QRCodeDisplayView({ raceId, target, headline, wifiNote }: Props) {
-    const [result] = useQuery({ query: NETWORK_ADDRESSES_QUERY });
+    const [result] = useQuery<NetworkAddressesQuery, NetworkAddressesQueryVariables>({
+        query: NETWORK_ADDRESSES_QUERY,
+    });
     const [qrFailed, setQrFailed] = useState(false);
     const networkAddresses = result.data?.networkAddresses ?? [];
     const mdnsHostname = result.data?.mdnsHostname ?? null;

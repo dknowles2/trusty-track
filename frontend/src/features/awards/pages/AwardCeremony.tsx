@@ -25,6 +25,12 @@ import { useQuery, useSubscription } from 'urql';
 import AwardArtwork from '../artwork';
 import { CeremonyAward, deltaForKey, slideFor, stepIndex } from '../ceremony';
 import { RACE_AWARDS_QUERY } from '../graphql/queries';
+import type {
+  DisplayAssignmentSubscription as DisplayAssignmentSubData,
+  DisplayAssignmentSubscriptionVariables,
+  RaceAwardsQuery,
+  RaceAwardsQueryVariables,
+} from '../../../gql/operations';
 import { displayId, startDeviceClaimHeartbeat } from '../../observation/displayIdentity';
 import { usePhoneTier } from '../../observation/useDisplayDensity';
 import { DisplayAssignmentSubscription } from '../../observation/graphql/queries';
@@ -76,7 +82,11 @@ export default function AwardCeremony() {
   const displayIdParam = searchParams.get('displayId');
   const thisDisplayId = useMemo(() => displayId(displayIdParam), [displayIdParam]);
   useEffect(() => startDeviceClaimHeartbeat(thisDisplayId), [thisDisplayId]);
-  const [assignmentResult] = useSubscription({
+  const [assignmentResult] = useSubscription<
+    DisplayAssignmentSubData,
+    DisplayAssignmentSubData,
+    DisplayAssignmentSubscriptionVariables
+  >({
     query: DisplayAssignmentSubscription,
     variables: { displayId: thisDisplayId, raceId: id },
     pause: !id,
@@ -89,7 +99,7 @@ export default function AwardCeremony() {
   // return value's shape changes.
   const identify = useIdentifyOverlay(assignment);
 
-  const [result, reExecute] = useQuery({
+  const [result, reExecute] = useQuery<RaceAwardsQuery, RaceAwardsQueryVariables>({
     query: RACE_AWARDS_QUERY,
     variables: { raceId: id },
     pause: !id || isNaN(id),
@@ -198,7 +208,7 @@ export default function AwardCeremony() {
     // The value it arrives holding is a reconnection, not an instruction.
     // Obeying it would jump the ceremony a trophy every time the wifi
     // hiccupped — the `seen === null` rule from `roundCompletion.ts`.
-    if (obeyedSeq !== null) {
+    if (obeyedSeq !== null && assignment) {
       if (assignment.slideDelta > 0 && index < awards.length - 1 && isSoundEffectEnabled('awardFanfare', window.localStorage)) {
         playAwardFanfareSound();
       }

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { errorText } from '../../../utils/errors';
-import { useMutation } from 'urql';
+import { useMutation, gql } from 'urql';
 import { FreeRaceLaneSetup, LaneAssignment, Mode } from './FreeRaceLaneSetup';
 import { FreeRaceExecution } from './FreeRaceExecution';
+import type { StartFreeRaceHeatMutation, StartFreeRaceHeatMutationVariables } from '../../../gql/operations';
 
 interface RacerSummary {
   id: number;
@@ -27,7 +28,7 @@ type FreeRacePhase =
   | { kind: 'setup' }
   | { kind: 'running'; heatId: number; assignments: LaneAssignment[] };
 
-const START_FREE_RACE_HEAT = `
+const START_FREE_RACE_HEAT = gql`
   mutation StartFreeRaceHeat($raceId: Int!, $laneAssignments: [FreeRaceLaneAssignmentInput!]!) {
     startFreeRaceHeat(raceId: $raceId, laneAssignments: $laneAssignments) {
       id
@@ -57,7 +58,10 @@ export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
     );
   };
 
-  const [, startMutation] = useMutation(START_FREE_RACE_HEAT);
+  const [, startMutation] = useMutation<
+    StartFreeRaceHeatMutation,
+    StartFreeRaceHeatMutationVariables
+  >(START_FREE_RACE_HEAT);
 
   const handleStart = async (assignments: LaneAssignment[]) => {
     setError(null);

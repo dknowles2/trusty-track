@@ -1,6 +1,6 @@
 import { useQuery } from 'urql';
 import { INITIAL_CONFIG_QUERY } from '../graphql/queries';
-import type { GetInitialConfigStatusQuery } from '../../../gql/operations';
+import type { GetInitialConfigStatusQuery, GetInitialConfigStatusQueryVariables } from '../../../gql/operations';
 
 /**
  * Which mutations `DemoPolicyExtension` refuses on this instance (#1092,
@@ -15,7 +15,7 @@ import type { GetInitialConfigStatusQuery } from '../../../gql/operations';
  * already query, so a second call here costs no second round trip.
  */
 export function useDemoRefusedMutations(): readonly string[] {
-  const [{ data }] = useQuery<GetInitialConfigStatusQuery>({
+  const [{ data }] = useQuery<GetInitialConfigStatusQuery, GetInitialConfigStatusQueryVariables>({
     query: INITIAL_CONFIG_QUERY,
   });
   return data?.initialConfig?.demoRefusedMutations ?? [];

@@ -3,6 +3,12 @@ import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { useMutation, useQuery } from 'urql';
 import { CREATE_ROUND_WIZARD, SCHEDULING_ALGORITHMS } from '../graphql/queries';
+import type {
+  CreateRoundWizardMutation,
+  CreateRoundWizardMutationVariables,
+  SchedulingAlgorithmsQuery,
+  SchedulingAlgorithmsQueryVariables,
+} from '../../../gql/operations';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { minutesEstimate } from '../../../utils/duration';
 import { expectedHeatCount } from '../growingRounds';
@@ -181,14 +187,20 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   const { showAlert } = useAlert();
 
   // GraphQL Mutation
-  const [, createRoundWizardMutation] = useMutation(CREATE_ROUND_WIZARD);
+  const [, createRoundWizardMutation] = useMutation<
+    CreateRoundWizardMutation,
+    CreateRoundWizardMutationVariables
+  >(CREATE_ROUND_WIZARD);
 
   // Every registered algorithm at this exact field/lane shape (#1090, part
   // D) — feeds both `HowHeatsAreBuiltFields`' own choice and the step 3
   // preview's heat count (`generalHeatsPerRun` below), so there is one
   // fetch behind both rather than the disclosure and the preview
   // potentially disagreeing about what Perfect-N's own heat count is.
-  const [{ data: schedulingAlgorithmsData }] = useQuery({
+  const [{ data: schedulingAlgorithmsData }] = useQuery<
+    SchedulingAlgorithmsQuery,
+    SchedulingAlgorithmsQueryVariables
+  >({
     query: SCHEDULING_ALGORITHMS,
     variables: { racerCount, laneCount },
   });

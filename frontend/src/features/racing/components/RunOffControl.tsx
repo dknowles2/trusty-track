@@ -12,7 +12,20 @@ import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { runOffAnnouncement, tooManyForRunOff } from '../runOff';
 import { formatLaneTime } from '../lanes';
-import type { GetRunOffHeatsQuery } from '../../../gql/operations';
+import type {
+  CreateRunOffHeatMutation,
+  CreateRunOffHeatMutationVariables,
+  DeleteRunOffHeatMutation,
+  DeleteRunOffHeatMutationVariables,
+  GetRunOffHeatsQuery,
+  GetRunOffHeatsQueryVariables,
+  HeatSessionSubscription,
+  HeatSessionSubscriptionVariables,
+  PrepareHeatMutation,
+  PrepareHeatMutationVariables,
+  UpdateHeatResultMutation,
+  UpdateHeatResultMutationVariables,
+} from '../../../gql/operations';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
 type RunOffHeatRow = NonNullable<GetRunOffHeatsQuery['race']>['runOffHeats'][number];
@@ -71,7 +84,10 @@ export default function RunOffControl({
   // lanes, the same door the first recording went through.
   const [isReRunning, setIsReRunning] = useState(false);
 
-  const [existingResult, refetchExisting] = useQuery<GetRunOffHeatsQuery>({
+  const [existingResult, refetchExisting] = useQuery<
+    GetRunOffHeatsQuery,
+    GetRunOffHeatsQueryVariables
+  >({
     query: GET_RUN_OFF_HEATS,
     variables: { raceId },
     requestPolicy: 'cache-and-network',
@@ -111,12 +127,25 @@ export default function RunOffControl({
     );
   });
 
-  const [, createRunOffHeat] = useMutation(CREATE_RUN_OFF_HEAT_MUTATION);
-  const [, deleteRunOffHeat] = useMutation(DELETE_RUN_OFF_HEAT_MUTATION);
-  const [, prepareHeat] = useMutation(PREPARE_HEAT);
-  const [, updateHeatResult] = useMutation(UPDATE_HEAT_RESULT_MUTATION);
+  const [, createRunOffHeat] = useMutation<
+    CreateRunOffHeatMutation,
+    CreateRunOffHeatMutationVariables
+  >(CREATE_RUN_OFF_HEAT_MUTATION);
+  const [, deleteRunOffHeat] = useMutation<
+    DeleteRunOffHeatMutation,
+    DeleteRunOffHeatMutationVariables
+  >(DELETE_RUN_OFF_HEAT_MUTATION);
+  const [, prepareHeat] = useMutation<PrepareHeatMutation, PrepareHeatMutationVariables>(PREPARE_HEAT);
+  const [, updateHeatResult] = useMutation<
+    UpdateHeatResultMutation,
+    UpdateHeatResultMutationVariables
+  >(UPDATE_HEAT_RESULT_MUTATION);
 
-  const [sessionResult] = useSubscription({
+  const [sessionResult] = useSubscription<
+    HeatSessionSubscription,
+    HeatSessionSubscription,
+    HeatSessionSubscriptionVariables
+  >({
     query: HEAT_SESSION_SUBSCRIPTION,
     variables: { trackId: trackId ?? 0, heatId: existing?.id ?? null },
     // Un-paused during a re-run (#1017) too — arming the timer for a

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import Modal from '../../../components/ui/Modal';
 import { useMutation } from 'urql';
 import { IMPORT_RACERS } from '../graphql/queries';
+import type { ImportRacersMutation, ImportRacersMutationVariables } from '../../../gql/operations';
 import { errorText } from '../../../utils/errors';
 import {
     applyMapping,
@@ -58,7 +59,7 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
     // (#768) — the file picker's own `reset()` clears it, since choosing a
     // new file is the deliberate way past it.
     const [imported, setImported] = useState(false);
-    const [, importRacersMutation] = useMutation(IMPORT_RACERS);
+    const [, importRacersMutation] = useMutation<ImportRacersMutation, ImportRacersMutationVariables>(IMPORT_RACERS);
     // A synchronous re-entrancy guard alongside `uploading`'s own disabled
     // state, the same shape `Home.tsx`'s practice-race button uses (#588):
     // urql's fetching flag only lands once a render has caught up, and two
@@ -125,7 +126,7 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
             });
             if (result.error) throw result.error;
 
-            const importedCount = result.data.importRacers;
+            const importedCount = result.data?.importRacers ?? 0;
             setStatus({
                 type: 'success',
                 message:

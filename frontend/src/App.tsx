@@ -52,7 +52,12 @@ import { INITIAL_CONFIG_QUERY, RACE_TERMINOLOGY_QUERY } from './features/core/gr
 import { DemoSessionGate } from './features/core/components/DemoSessionGate';
 import NotFoundPage from './features/core/components/NotFoundPage';
 import QueryError from './features/core/components/QueryError';
-import type { GetInitialConfigStatusQuery, GetRaceTerminologyQuery } from './gql/operations';
+import type {
+  GetInitialConfigStatusQuery,
+  GetInitialConfigStatusQueryVariables,
+  GetRaceTerminologyQuery,
+  GetRaceTerminologyQueryVariables,
+} from './gql/operations';
 
 /** Seeds the organization's default terminology for the whole app —
  * `initialConfig.terminology` is the organization default resolved against
@@ -61,7 +66,9 @@ import type { GetInitialConfigStatusQuery, GetRaceTerminologyQuery } from './gql
  * nothing else. Shares the cache with `ProtectedRoute` and `DemoSession`,
  * which run the identical query. */
 function AppTerminologyProvider({ children }: { children: React.ReactNode }) {
-  const [{ data }] = useQuery<GetInitialConfigStatusQuery>({ query: INITIAL_CONFIG_QUERY });
+  const [{ data }] = useQuery<GetInitialConfigStatusQuery, GetInitialConfigStatusQueryVariables>({
+    query: INITIAL_CONFIG_QUERY,
+  });
   return (
     <TerminologyProvider value={data?.initialConfig?.terminology}>
       {children}
@@ -88,7 +95,7 @@ function AppTerminologyProvider({ children }: { children: React.ReactNode }) {
  * a *reachable* race whose query fails, and is not this one. */
 export function RaceTerminologyGate({ children }: { children: React.ReactNode }) {
   const { raceId } = useParams<{ raceId: string }>();
-  const [{ data }] = useQuery<GetRaceTerminologyQuery>({
+  const [{ data }] = useQuery<GetRaceTerminologyQuery, GetRaceTerminologyQueryVariables>({
     query: RACE_TERMINOLOGY_QUERY,
     variables: { raceId: Number(raceId) },
     pause: !raceId,
@@ -130,7 +137,9 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // mount refetches once per page load. What keeps the answer fresh is the
   // cache being told to forget it when a config mutation changes it; see
   // `forgetInitialConfig` in `api/graphqlClient.ts`.
-  const [result, reexecute] = useQuery<GetInitialConfigStatusQuery>({ query: INITIAL_CONFIG_QUERY });
+  const [result, reexecute] = useQuery<GetInitialConfigStatusQuery, GetInitialConfigStatusQueryVariables>({
+    query: INITIAL_CONFIG_QUERY,
+  });
 
   const { data, fetching, error } = result;
 
@@ -164,7 +173,9 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
  * twice.
  */
 function DemoSession() {
-  const [{ data }] = useQuery<GetInitialConfigStatusQuery>({ query: INITIAL_CONFIG_QUERY });
+  const [{ data }] = useQuery<GetInitialConfigStatusQuery, GetInitialConfigStatusQueryVariables>({
+    query: INITIAL_CONFIG_QUERY,
+  });
   return <DemoSessionGate enabled={data?.initialConfig?.demoMode ?? false} />;
 }
 

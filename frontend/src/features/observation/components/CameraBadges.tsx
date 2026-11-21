@@ -15,15 +15,12 @@ import { useQuery, useSubscription } from 'urql';
 import { Icon } from '@mdi/react';
 import { mdiVideo, mdiVideoOff } from '@mdi/js';
 import { DISPLAYS_QUERY, DisplaysSubscription } from '../graphql/queries';
-
-interface CameraRow {
-    displayId: string;
-    name: string;
-    role: 'DISPLAY' | 'CAMERA';
-    connected: boolean;
-    trackId: number | null;
-    lastClipAt: string | null;
-}
+import type {
+    DisplaysSubscription as DisplaysSubData,
+    DisplaysSubscriptionVariables,
+    GetDisplaysQuery,
+    GetDisplaysQueryVariables,
+} from '../../../gql/operations';
 
 /** "2s ago" / "3m ago" — the same rounded-elapsed-time shape
  * `Camera.tsx`'s own status line and `DisplaysPanel.tsx`'s `agoText` use.
@@ -42,9 +39,17 @@ function agoText(iso: string | null): string | null {
 }
 
 export default function CameraBadges({ raceId }: { raceId: number }) {
-    const [queryResult] = useQuery({ query: DISPLAYS_QUERY, variables: { raceId }, pause: !raceId });
-    const [liveResult] = useSubscription({ query: DisplaysSubscription, variables: { raceId }, pause: !raceId });
-    const displays: CameraRow[] = liveResult.data?.displays ?? queryResult.data?.displays ?? [];
+    const [queryResult] = useQuery<GetDisplaysQuery, GetDisplaysQueryVariables>({
+        query: DISPLAYS_QUERY,
+        variables: { raceId },
+        pause: !raceId,
+    });
+    const [liveResult] = useSubscription<
+        DisplaysSubData,
+        DisplaysSubData,
+        DisplaysSubscriptionVariables
+    >({ query: DisplaysSubscription, variables: { raceId }, pause: !raceId });
+    const displays = liveResult.data?.displays ?? queryResult.data?.displays ?? [];
     const cameras = displays.filter((d) => d.role === 'CAMERA');
 
     if (cameras.length === 0) return null;

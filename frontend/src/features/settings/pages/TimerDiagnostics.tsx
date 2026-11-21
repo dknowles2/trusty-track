@@ -27,6 +27,20 @@ import { useRole } from '../../core/hooks/useRole';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 import BackLink from '../../core/components/BackLink';
 import DocsLink from '../../../components/ui/DocsLink';
+import type {
+    DiagnosticForceResultsMutation,
+    DiagnosticForceResultsMutationVariables,
+    DiagnosticReconnectTimerMutation,
+    DiagnosticReconnectTimerMutationVariables,
+    DiagnosticResetTimerMutation,
+    DiagnosticResetTimerMutationVariables,
+    DiagnosticStartTimerTestMutation,
+    DiagnosticStartTimerTestMutationVariables,
+    DiagnosticTimerStatusSubscription,
+    DiagnosticTimerStatusSubscriptionVariables,
+    DiagnosticTracksQuery,
+    DiagnosticTracksQueryVariables,
+} from '../../../gql/operations';
 
 const DIAGNOSTIC_TRACKS = gql`
   query DiagnosticTracks {
@@ -225,8 +239,14 @@ const TimerTestPanel: React.FC<{
     isOperator?: boolean;
 }> = ({ trackId, state, testRun, deviceName, lastError, pendingResults, isOperator = true }) => {
     const { showAlert } = useAlert();
-    const [, startTest] = useMutation(DIAGNOSTIC_START_TEST);
-    const [, forceResults] = useMutation(DIAGNOSTIC_FORCE_RESULTS);
+    const [, startTest] = useMutation<
+        DiagnosticStartTimerTestMutation,
+        DiagnosticStartTimerTestMutationVariables
+    >(DIAGNOSTIC_START_TEST);
+    const [, forceResults] = useMutation<
+        DiagnosticForceResultsMutation,
+        DiagnosticForceResultsMutationVariables
+    >(DIAGNOSTIC_FORCE_RESULTS);
     const [downloading, setDownloading] = useState(false);
 
     const testActive = testRun && state !== 'IDLE';
@@ -396,10 +416,19 @@ const TrackTimer: React.FC<{
     const { showAlert } = useAlert();
     const { vehiclesLower } = useTerminology();
     const logEndRef = useRef<HTMLDivElement>(null);
-    const [, reconnect] = useMutation(DIAGNOSTIC_RECONNECT);
-    const [, reset] = useMutation(DIAGNOSTIC_RESET);
+    const [, reconnect] = useMutation<
+        DiagnosticReconnectTimerMutation,
+        DiagnosticReconnectTimerMutationVariables
+    >(DIAGNOSTIC_RECONNECT);
+    const [, reset] = useMutation<DiagnosticResetTimerMutation, DiagnosticResetTimerMutationVariables>(
+        DIAGNOSTIC_RESET,
+    );
 
-    const [result] = useSubscription({
+    const [result] = useSubscription<
+        DiagnosticTimerStatusSubscription,
+        DiagnosticTimerStatusSubscription,
+        DiagnosticTimerStatusSubscriptionVariables
+    >({
         query: DIAGNOSTIC_TIMER_STATUS,
         variables: { trackId: track.id },
     });
@@ -427,7 +456,10 @@ const TrackTimer: React.FC<{
         logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [serialLog.length]);
 
-    const run = async (fn: typeof reconnect, what: string) => {
+    const run = async (
+        fn: typeof reconnect | typeof reset,
+        what: string,
+    ) => {
         const outcome = await fn({ trackId: track.id });
         if (outcome.error) {
             showAlert(errorText(outcome.error, `Could not ${what}.`), 'Error');
@@ -669,7 +701,9 @@ const TrackTimer: React.FC<{
 };
 
 const TimerDiagnostics: React.FC = () => {
-    const [{ data, fetching, error }] = useQuery({ query: DIAGNOSTIC_TRACKS });
+    const [{ data, fetching, error }] = useQuery<DiagnosticTracksQuery, DiagnosticTracksQueryVariables>({
+        query: DIAGNOSTIC_TRACKS,
+    });
     const tracks: Track[] = data?.tracks ?? [];
     const { hash } = useLocation();
     // #892: startTimerTest, forceResults, reconnectTimer and resetTimer are

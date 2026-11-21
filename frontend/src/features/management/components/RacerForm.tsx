@@ -10,6 +10,12 @@ import {
 } from '../../../components/ui/imageEdit';
 import { useQuery, useMutation } from 'urql';
 import { GET_RACE_RACING_GROUPS, UPLOAD_IMAGE } from '../graphql/queries';
+import type {
+  GetRaceRacingGroupsQuery,
+  GetRaceRacingGroupsQueryVariables,
+  UploadImageMutation,
+  UploadImageMutationVariables,
+} from '../../../gql/operations';
 import { carryOver } from '../racerEntry';
 import { weightNotice, weightVerdict } from '../weightCheck';
 import { duplicateCarNumberNotice, type CarNumberHolder } from '../carNumberCheck';
@@ -132,13 +138,16 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   });
 
   // Use GraphQL to fetch racingGroups
-  const [racingGroupsResult] = useQuery({
+  const [racingGroupsResult] = useQuery<GetRaceRacingGroupsQuery, GetRaceRacingGroupsQueryVariables>({
       query: GET_RACE_RACING_GROUPS,
       variables: { raceId: raceId || 0 },
       pause: !raceId
   });
 
-  const racingGroups: RacingGroup[] = racingGroupsResult.data?.race?.racingGroups || [];
+  const racingGroups: RacingGroup[] = (racingGroupsResult.data?.race?.racingGroups || []).map((g) => ({
+    ...g,
+    division: g.division ?? undefined,
+  }));
   const { group, vehicle, vehicleLower } = useTerminology();
 
   const [loading, setLoading] = useState(false);
@@ -155,7 +164,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   // is the first field inside the Details disclosure.
   const firstNameRef = useRef<HTMLInputElement>(null);
   const lastNameRef = useRef<HTMLInputElement>(null);
-  const [, uploadImageMutation] = useMutation(UPLOAD_IMAGE);
+  const [, uploadImageMutation] = useMutation<UploadImageMutation, UploadImageMutationVariables>(UPLOAD_IMAGE);
   const { showAlert } = useAlert();
   // Refused before the upload, not after (#1095) — a 4 MB photo read into a
   // data URL, cropped and sent, only to be told no at the end, is the wrong

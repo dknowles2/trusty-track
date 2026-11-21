@@ -8,6 +8,16 @@ import { Icon } from '@mdi/react';
 import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js';
 import { useMutation, useQuery } from 'urql';
 import { CREATE_RACING_GROUP, UPDATE_RACING_GROUP, DELETE_RACING_GROUP, GET_RACE_DETAILS } from '../graphql/queries';
+import type {
+    CreateRacingGroupMutation,
+    CreateRacingGroupMutationVariables,
+    DeleteRacingGroupMutation,
+    DeleteRacingGroupMutationVariables,
+    GetRaceDetailsQuery,
+    GetRaceDetailsQueryVariables,
+    UpdateRacingGroupMutation,
+    UpdateRacingGroupMutationVariables,
+} from '../../../gql/operations';
 import { categoryPresetsFor } from '../../../context/organizationKinds';
 import { suggestedRange } from '../numberRanges';
 import { shouldShowDivision } from '../../stats/racingGroupLabel';
@@ -30,30 +40,32 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
     // actually holding the race. See `categoryPresetsFor`.
     const categoryPresets = categoryPresetsFor({ organizationSingular: org, racingGroupSingular: group });
 
-    const [{ data }, reexecuteQuery] = useQuery({
+    const [{ data }, reexecuteQuery] = useQuery<GetRaceDetailsQuery, GetRaceDetailsQueryVariables>({
         query: GET_RACE_DETAILS,
         variables: { raceId }
     });
 
-    const racingGroups: RacingGroup[] = (data?.race?.racingGroups || []).map((d: {
-        id: number;
-        name: string;
-        color: string;
-        division?: string;
-        carNumberRangeStart?: number;
-        carNumberRangeEnd?: number;
-    }) => ({
+    const racingGroups: RacingGroup[] = (data?.race?.racingGroups || []).map((d) => ({
         id: d.id,
         name: d.name,
         color: d.color,
-        division: d.division,
-        car_number_range_start: d.carNumberRangeStart,
-        car_number_range_end: d.carNumberRangeEnd
+        division: d.division ?? undefined,
+        car_number_range_start: d.carNumberRangeStart ?? undefined,
+        car_number_range_end: d.carNumberRangeEnd ?? undefined,
     }));
 
-    const [, createRacingGroupMutation] = useMutation(CREATE_RACING_GROUP);
-    const [, updateRacingGroupMutation] = useMutation(UPDATE_RACING_GROUP);
-    const [, deleteRacingGroupMutation] = useMutation(DELETE_RACING_GROUP);
+    const [, createRacingGroupMutation] = useMutation<
+        CreateRacingGroupMutation,
+        CreateRacingGroupMutationVariables
+    >(CREATE_RACING_GROUP);
+    const [, updateRacingGroupMutation] = useMutation<
+        UpdateRacingGroupMutation,
+        UpdateRacingGroupMutationVariables
+    >(UPDATE_RACING_GROUP);
+    const [, deleteRacingGroupMutation] = useMutation<
+        DeleteRacingGroupMutation,
+        DeleteRacingGroupMutationVariables
+    >(DELETE_RACING_GROUP);
 
     const [loading, setLoading] = useState(false);
 
@@ -156,6 +168,7 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
 
     const handleUpdateRacingGroup = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (editingRacingGroupId === null) return;
         setLoading(true);
         try {
             const result = await updateRacingGroupMutation({

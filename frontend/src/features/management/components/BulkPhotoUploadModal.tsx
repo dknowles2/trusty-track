@@ -2,6 +2,12 @@ import { useRef, useState } from 'react';
 import { useMutation } from 'urql';
 import Modal from '../../../components/ui/Modal';
 import { UPLOAD_IMAGE, BULK_ASSIGN_PHOTOS } from '../graphql/queries';
+import type {
+    BulkAssignPhotosMutation,
+    BulkAssignPhotosMutationVariables,
+    UploadImageMutation,
+    UploadImageMutationVariables,
+} from '../../../gql/operations';
 import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { errorText } from '../../../utils/errors';
@@ -165,8 +171,11 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
     // `RacerForm`'s own photo controls, from the same server-sourced list.
     const photosRefused = useIsRefusedOnDemo('uploadImage');
 
-    const [, uploadMutation] = useMutation(UPLOAD_IMAGE);
-    const [, bulkAssignMutation] = useMutation(BULK_ASSIGN_PHOTOS);
+    const [, uploadMutation] = useMutation<UploadImageMutation, UploadImageMutationVariables>(UPLOAD_IMAGE);
+    const [, bulkAssignMutation] = useMutation<
+        BulkAssignPhotosMutation,
+        BulkAssignPhotosMutationVariables
+    >(BULK_ASSIGN_PHOTOS);
 
     /** Upload one photo, sharing the request with any identical siblings.
      *
@@ -191,7 +200,8 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
             if (!pending) {
                 pending = uploadMutation({ dataUrl }).then(result => {
                     if (result.error) throw result.error;
-                    return result.data.uploadImage as string;
+                    if (!result.data?.uploadImage) throw new Error('Upload failed');
+                    return result.data.uploadImage;
                 });
                 inFlight.set(dataUrl, pending);
             }
@@ -277,7 +287,7 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
             showAlert(errorText(result.error, 'Failed to save photo assignments.'), 'Error');
             return;
         }
-        showAlert(`${result.data.bulkAssignPhotos} photo(s) assigned successfully.`, 'Success');
+        showAlert(`${result.data?.bulkAssignPhotos ?? 0} photo(s) assigned successfully.`, 'Success');
         onSuccess();
         handleClose();
     };
