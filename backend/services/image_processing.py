@@ -72,20 +72,24 @@ def convert_to_browser_safe_png(
         needs_conversion = img.format not in _BROWSER_NATIVE_FORMATS
 
         if not needs_resize and not needs_conversion:
+            has_metadata = _has_metadata(img)
             # Even if we don't need to resize or convert format, we still apply
-            # auto-cropping if there's transparency information.
+            # auto-cropping if there's transparency information, and strip any
+            # EXIF/XMP metadata (#1362) by falling through to PNG re-encoding.
             if img.mode == "RGBA":
                 # `crop_to_content` already forces a full pixel decode via
                 # `getbbox()`, so correcting orientation first is free here
                 # and keeps the crop bounds meaningful for a rotated image.
                 img = _exif_transposed(img)
                 img = crop_to_content(img)
-                # If cropping changed the image, we must continue to
-                # re-encoding. Otherwise we can still return original bytes.
-                if img.size[0] == width and img.size[1] == height:
+                # If cropping changed the image or metadata was present,
+                # continue to re-encoding. Otherwise return original bytes.
+                if not has_metadata and img.size[0] == width and img.size[1] == height:
                     return image_bytes
-            else:
+            elif not has_metadata:
                 return image_bytes
+            else:
+                img = _exif_transposed(img)
         else:
             # Resizing or converting format is about to happen, which means
             # re-encoding the pixels from scratch — so a phone photo stored
@@ -123,6 +127,16 @@ def convert_to_browser_safe_png(
         raise UnreadableImageError(
             "That file is not a photo Trusty Track can read."
         ) from error
+
+
+def _has_metadata(img: Image.Image) -> bool:
+    """Whether *img* carries EXIF or XMP/Adobe metadata to strip (#1362)."""
+    if len(img.getexif()) > 0:
+        return True
+    return any(
+        key in img.info
+        for key in ("exif", "xmp", "XML:com.adobe.xmp", "photoshop", "app13")
+    )
 
 
 def sniffed_extension(image_bytes: bytes) -> str:
