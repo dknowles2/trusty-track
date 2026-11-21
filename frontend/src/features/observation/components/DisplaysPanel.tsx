@@ -47,6 +47,32 @@ import {
     SUGGEST_DISPLAY_NAME,
 } from '../graphql/queries';
 import { GET_TRACKS } from '../../core/graphql/queries';
+import type {
+    AdvanceDisplayMutation,
+    AdvanceDisplayMutationVariables,
+    AssignDisplayMutation,
+    AssignDisplayMutationVariables,
+    DisplaysSubscription as DisplaysSubData,
+    DisplaysSubscriptionVariables,
+    ForgetDisplayMutation,
+    ForgetDisplayMutationVariables,
+    GetDisplaysQuery,
+    GetDisplaysQueryVariables,
+    GetTracksQuery,
+    GetTracksQueryVariables,
+    IdentifyDisplayMutation,
+    IdentifyDisplayMutationVariables,
+    RaceAwardCountQuery,
+    RaceAwardCountQueryVariables,
+    RaceTrackForCameraPresetQuery,
+    RaceTrackForCameraPresetQueryVariables,
+    RenameDisplayMutation,
+    RenameDisplayMutationVariables,
+    SetCameraOrderMutation,
+    SetCameraOrderMutationVariables,
+    SetCameraTrackMutation,
+    SetCameraTrackMutationVariables,
+} from '../../../gql/operations';
 import {
     groupedViewOptions,
     VIEW_OPTIONS,
@@ -132,14 +158,22 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     // Query and subscription both: the query answers on load, the
     // subscription keeps it current. A subscription alone shows an empty list
     // until something changes, which on a quiet minute is most of the event.
-    const [queryResult] = useQuery({ query: DISPLAYS_QUERY, variables: { raceId }, pause: !raceId });
-    const [liveResult] = useSubscription({ query: DisplaysSubscription, variables: { raceId }, pause: !raceId });
+    const [queryResult] = useQuery<GetDisplaysQuery, GetDisplaysQueryVariables>({
+        query: DISPLAYS_QUERY,
+        variables: { raceId },
+        pause: !raceId,
+    });
+    const [liveResult] = useSubscription<
+        DisplaysSubData,
+        DisplaysSubData,
+        DisplaysSubscriptionVariables
+    >({ query: DisplaysSubscription, variables: { raceId }, pause: !raceId });
 
     // Whether the ceremony is worth offering at all. Read fresh on every
     // visit to this tab, so an award set up a minute ago on the Awards page
     // is reflected here — the cached answer would be the one from before it
     // existed.
-    const [awardsResult] = useQuery({
+    const [awardsResult] = useQuery<RaceAwardCountQuery, RaceAwardCountQueryVariables>({
         query: RACE_AWARD_COUNT_QUERY,
         variables: { raceId },
         pause: !raceId,
@@ -169,18 +203,18 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     // supplies it.
     const words = useTerminology();
 
-    const [, assignDisplay] = useMutation(ASSIGN_DISPLAY);
-    const [, advanceDisplay] = useMutation(ADVANCE_DISPLAY);
-    const [, renameDisplay] = useMutation(RENAME_DISPLAY);
-    const [, forgetDisplay] = useMutation(FORGET_DISPLAY);
-    const [, identifyDisplay] = useMutation(IDENTIFY_DISPLAY);
-    const [, setCameraTrack] = useMutation(SET_CAMERA_TRACK);
-    const [, setCameraOrder] = useMutation(SET_CAMERA_ORDER);
+    const [, assignDisplay] = useMutation<AssignDisplayMutation, AssignDisplayMutationVariables>(ASSIGN_DISPLAY);
+    const [, advanceDisplay] = useMutation<AdvanceDisplayMutation, AdvanceDisplayMutationVariables>(ADVANCE_DISPLAY);
+    const [, renameDisplay] = useMutation<RenameDisplayMutation, RenameDisplayMutationVariables>(RENAME_DISPLAY);
+    const [, forgetDisplay] = useMutation<ForgetDisplayMutation, ForgetDisplayMutationVariables>(FORGET_DISPLAY);
+    const [, identifyDisplay] = useMutation<IdentifyDisplayMutation, IdentifyDisplayMutationVariables>(IDENTIFY_DISPLAY);
+    const [, setCameraTrack] = useMutation<SetCameraTrackMutation, SetCameraTrackMutationVariables>(SET_CAMERA_TRACK);
+    const [, setCameraOrder] = useMutation<SetCameraOrderMutation, SetCameraOrderMutationVariables>(SET_CAMERA_ORDER);
 
     // For looking up a track's own name by id — the race's own track for
     // the camera row's read-only line (#1293), and the same query the race
     // form already reads tracks from.
-    const [tracksResult] = useQuery({ query: GET_TRACKS });
+    const [tracksResult] = useQuery<GetTracksQuery, GetTracksQueryVariables>({ query: GET_TRACKS });
     const tracks: { id: number; name: string }[] = tracksResult.data?.tracks ?? [];
     // Imperative rather than `useQuery`: the reroll fires once per click
     // rather than tracking a variable the render loop would re-fetch on
@@ -192,7 +226,10 @@ export default function DisplaysPanel({ raceId, onDisplaysChange }: DisplaysPane
     // it — there is no picker over the install's other tracks to offer,
     // the way there was before this issue (an install-wide `GET_TRACKS`
     // list is no longer an input to the preset at all).
-    const [raceTrackResult] = useQuery({ query: RACE_TRACK_QUERY, variables: { raceId }, pause: !raceId });
+    const [raceTrackResult] = useQuery<
+        RaceTrackForCameraPresetQuery,
+        RaceTrackForCameraPresetQueryVariables
+    >({ query: RACE_TRACK_QUERY, variables: { raceId }, pause: !raceId });
     const raceTrackId: number | null = raceTrackResult.data?.race?.trackId ?? null;
     // `cameraPresetSettled` is "has this race's own track query answered" —
     // a default shown before it has is a *wrong* preset shown with the

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { useSubscription, useQuery } from 'urql';
+import { useSubscription, useQuery, gql } from 'urql';
 import { Icon } from '@mdi/react';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import LaneBadge from '../../../components/ui/LaneBadge';
@@ -26,7 +26,7 @@ import {
   DEFAULT_QR_TARGET,
   DEFAULT_SHOW_STANDINGS_TICKER,
 } from '../displayView';
-import { recordBreakDetail, type RecordBreak } from '../recordBreak';
+import { recordBreakDetail } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
 import {
   DEFAULT_REPLAY_SETTINGS,
@@ -70,6 +70,28 @@ import {
   DisplayAssignmentSubscription,
   HeatReplaySubscription,
 } from '../graphql/queries';
+import type {
+  ActiveFreeRaceHeatSubscriptionSubscription,
+  ActiveFreeRaceHeatSubscriptionSubscriptionVariables,
+  CurrentlyRacingSubscriptionSubscription,
+  CurrentlyRacingSubscriptionSubscriptionVariables,
+  DisplayAssignmentSubscription as DisplayAssignmentSubData,
+  DisplayAssignmentSubscriptionVariables,
+  GetChampionshipResultQuery,
+  GetChampionshipResultQueryVariables,
+  GetInitialDataQuery,
+  GetInitialDataQueryVariables,
+  HeatReplaySubscription as HeatReplaySubData,
+  HeatReplaySubscriptionVariables,
+  LeaderboardSubscriptionSubscription,
+  LeaderboardSubscriptionSubscriptionVariables,
+  OnDeckSubscriptionSubscription,
+  OnDeckSubscriptionSubscriptionVariables,
+  TimerStatusSubscription,
+  TimerStatusSubscriptionVariables,
+  TimingStatsSubscriptionSubscription,
+  TimingStatsSubscriptionSubscriptionVariables,
+} from '../../../gql/operations';
 
 /** A replay's lane data, captured alongside its clips (#177 stage 4) —
  * `timingStats`' own per-lane shape, kept only for the fields
@@ -89,7 +111,7 @@ interface HeatReplayClip {
   t0OffsetMs: number;
 }
 
-const GET_INITIAL_DATA = `
+const GET_INITIAL_DATA = gql`
   query GetInitialData($id: Int!) {
     race(raceId: $id) {
       id
@@ -183,33 +205,24 @@ const GET_INITIAL_DATA = `
 `;
 
 /**
- * One championship round's own placings (#869) — a plain string rather than
- * the `gql` tag, the same reason `Leaderboard.tsx`'s own round-scoped query
- * is: the round id is runtime data, not something codegen can type ahead of
- * time. There is no live channel for this the way there is for the prelim
- * standings (`Subscription.leaderboard` carries no `roundId`), so it is a
- * one-shot fetch, paused until the race is actually finished.
+ * One championship round's own placings (#869). There is no live channel for
+ * this the way there is for the prelim standings (`Subscription.leaderboard`
+ * carries no `roundId`), so it is a one-shot fetch, paused until the race is
+ * actually finished.
  */
-function championshipResultQuery(roundId: number): string {
-  return `
-    query GetChampionshipResult($id: Int!) {
-      race(raceId: $id) {
-        id
-        leaderboard(roundId: ${roundId}) {
-          racerId
-          rank
-          score
-          heatsCompleted
-        }
+const GET_CHAMPIONSHIP_RESULT = gql`
+  query GetChampionshipResult($id: Int!, $roundId: Int!) {
+    race(raceId: $id) {
+      id
+      leaderboard(roundId: $roundId) {
+        racerId
+        rank
+        score
+        heatsCompleted
       }
     }
-  `;
-}
-
-// A harmless, always-parseable document for the championship query while it
-// is paused (no championship round, or the race is not finished) — `useQuery`
-// still needs a valid `query` even when it never runs.
-const NOOP_CHAMPIONSHIP_QUERY = 'query Noop { __typename }';
+  }
+`;
 
 interface Standing {
   racerId: number;
@@ -264,7 +277,11 @@ export default function Observation() {
     if (spectator) return;
     return startDeviceClaimHeartbeat(thisDisplayId);
   }, [thisDisplayId, spectator]);
-  const [assignmentResult] = useSubscription({
+  const [assignmentResult] = useSubscription<
+    DisplayAssignmentSubData,
+    DisplayAssignmentSubData,
+    DisplayAssignmentSubscriptionVariables
+  >({
     query: DisplayAssignmentSubscription,
     variables: { displayId: thisDisplayId, raceId: id },
     // Not subscribing is what actually keeps a spectator's phone out of the
@@ -316,18 +333,7 @@ export default function Observation() {
   const [activeTab, setActiveTab] = useState<'standings' | 'timing'>(behavior.tab);
 
   const [showResultsOverlay, setShowResultsOverlay] = useState(false);
-  const [overlayData, setOverlayData] = useState<{
-    lanes: {
-      laneNumber: number;
-      place: number | null;
-      racerName: string;
-      racerImageUrl?: string;
-      carName?: string;
-      time: number | null;
-      scaleMph?: number | null;
-    }[];
-    recordBreak?: RecordBreak | null;
-  } | null>(null);
+  const [overlayData, setOverlayData] = useState<TimingStatsSubscriptionSubscription['timingStats'] | null>(null);
   const [seenHeatResult, setSeenHeatResult] = useState<SeenHeatResult>(null);
 
   // Replay playback state (#177 stage 1b) — `seenReplay` is the same
@@ -412,7 +418,10 @@ export default function Observation() {
   }, [isFullScreenView]);
 
   // Initial query for static-ish data (racers)
-  const [initialResult, reExecuteInitial] = useQuery({
+  const [initialResult, reExecuteInitial] = useQuery<
+    GetInitialDataQuery,
+    GetInitialDataQueryVariables
+  >({
     query: GET_INITIAL_DATA,
     variables: { id },
     pause: !id || isNaN(id),
@@ -448,12 +457,12 @@ export default function Observation() {
   // uses below — there is no `roundId`-scoped subscription channel to ride
   // on (see `Subscription.leaderboard`), so a new heat's result reaches
   // this only through the explicit re-fetch in `useRaceStateChanged` below.
-  const eliminationFallbackQuery = fallbackEliminationRound
-    ? championshipResultQuery(fallbackEliminationRound.id)
-    : NOOP_CHAMPIONSHIP_QUERY;
-  const [{ data: eliminationFallbackData }, reExecuteEliminationFallback] = useQuery({
-    query: eliminationFallbackQuery,
-    variables: { id },
+  const [{ data: eliminationFallbackData }, reExecuteEliminationFallback] = useQuery<
+    GetChampionshipResultQuery,
+    GetChampionshipResultQueryVariables
+  >({
+    query: GET_CHAMPIONSHIP_RESULT,
+    variables: { id, roundId: fallbackEliminationRound?.id ?? 0 },
     pause: !fallbackEliminationRound,
   });
 
@@ -507,31 +516,51 @@ export default function Observation() {
   const displayThemeStyle = displayTheme.tokens as React.CSSProperties;
 
   // Subscriptions for real-time data
-  const [{ data: leaderboardData }] = useSubscription({
+  const [{ data: leaderboardData }] = useSubscription<
+    LeaderboardSubscriptionSubscription,
+    LeaderboardSubscriptionSubscription,
+    LeaderboardSubscriptionSubscriptionVariables
+  >({
     query: LeaderboardSubscription,
     variables: { raceId: id },
     pause: !id || isNaN(id),
   });
 
-  const [{ data: onDeckData }] = useSubscription({
+  const [{ data: onDeckData }] = useSubscription<
+    OnDeckSubscriptionSubscription,
+    OnDeckSubscriptionSubscription,
+    OnDeckSubscriptionSubscriptionVariables
+  >({
     query: OnDeckSubscription,
     variables: { raceId: id },
     pause: !id || isNaN(id),
   });
 
-  const [{ data: currentlyRacingData }] = useSubscription({
+  const [{ data: currentlyRacingData }] = useSubscription<
+    CurrentlyRacingSubscriptionSubscription,
+    CurrentlyRacingSubscriptionSubscription,
+    CurrentlyRacingSubscriptionSubscriptionVariables
+  >({
     query: CurrentlyRacingSubscription,
     variables: { raceId: id },
     pause: !id || isNaN(id),
   });
 
-  const [{ data: timingStatsData }] = useSubscription({
+  const [{ data: timingStatsData }] = useSubscription<
+    TimingStatsSubscriptionSubscription,
+    TimingStatsSubscriptionSubscription,
+    TimingStatsSubscriptionSubscriptionVariables
+  >({
     query: TimingStatsSubscription,
     variables: { raceId: id },
     pause: !id || isNaN(id),
   });
 
-  const [{ data: activeFreeRaceData }] = useSubscription({
+  const [{ data: activeFreeRaceData }] = useSubscription<
+    ActiveFreeRaceHeatSubscriptionSubscription,
+    ActiveFreeRaceHeatSubscriptionSubscription,
+    ActiveFreeRaceHeatSubscriptionSubscriptionVariables
+  >({
     query: ActiveFreeRaceHeatSubscription,
     variables: { raceId: id },
     pause: !id || isNaN(id),
@@ -541,7 +570,11 @@ export default function Observation() {
   // physically on the track. The same subscription `TimerStatusBadge` already
   // opens, so this costs nothing extra.
   const trackId: number | undefined = initialResult.data?.race?.track?.id;
-  const [{ data: timerData }] = useSubscription({
+  const [{ data: timerData }] = useSubscription<
+    TimerStatusSubscription,
+    TimerStatusSubscription,
+    TimerStatusSubscriptionVariables
+  >({
     query: TIMER_STATUS_SUBSCRIPTION,
     variables: { trackId: trackId ?? 0 },
     pause: !trackId,
@@ -551,7 +584,11 @@ export default function Observation() {
   // (#177 stage 1b). A snapshot channel — see `.claude/rules/displays.md`'s
   // "A camera is a display with a role" for why the default bounded queue
   // is safe here.
-  const [{ data: heatReplayData }] = useSubscription({
+  const [{ data: heatReplayData }] = useSubscription<
+    HeatReplaySubData,
+    HeatReplaySubData,
+    HeatReplaySubscriptionVariables
+  >({
     query: HeatReplaySubscription,
     variables: { raceId: id },
     pause: !id,
@@ -654,19 +691,7 @@ export default function Observation() {
     setShowReplayPlayer(true);
   }
 
-  interface Racer {
-    id: number;
-    firstName: string;
-    lastName: string;
-    carNumber?: number;
-    racerImageUrl?: string;
-    carName?: string;
-    racingGroupId?: number | null;
-    carPassedInspection?: boolean;
-    /** A racer's own unit — "Pack 12" (#1076, stage 1). Absent on every
-     * racer at an ordinary single-pack race. */
-    homeUnit?: string | null;
-  }
+  type Racer = NonNullable<GetInitialDataQuery['race']>['racers'][number];
 
   const racersMap = useMemo(() => {
     const map: Record<number, Racer> = {};
@@ -765,13 +790,13 @@ export default function Observation() {
   // A one-shot query for that round's own placings — only run once the race
   // is actually finished, since it is a snapshot rather than a live
   // subscription (there is no `roundId`-scoped leaderboard channel to
-  // subscribe to; see `Subscription.leaderboard` on the backend). urql keys
-  // an operation on the query's own text, so a fresh string with identical
-  // content each render is not a fresh request.
-  const finalRoundQuery = finalRound ? championshipResultQuery(finalRound.id) : NOOP_CHAMPIONSHIP_QUERY;
-  const [{ data: finalRoundData }] = useQuery({
-    query: finalRoundQuery,
-    variables: { id },
+  // subscribe to; see `Subscription.leaderboard` on the backend).
+  const [{ data: finalRoundData }] = useQuery<
+    GetChampionshipResultQuery,
+    GetChampionshipResultQueryVariables
+  >({
+    query: GET_CHAMPIONSHIP_RESULT,
+    variables: { id, roundId: finalRound?.id ?? 0 },
     pause: !finished || !finalRound,
   });
   const finalRoundEntries = (finalRoundData?.race?.leaderboard ?? []) as Standing[];

@@ -61,6 +61,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { useQuery } from 'urql';
+import type { NetworkAddressesQuery, NetworkAddressesQueryVariables } from '../../../gql/operations';
 import { Icon } from '@mdi/react';
 import { mdiAlertOutline, mdiCheck, mdiContentCopy } from '@mdi/js';
 import { copyText } from '../../../utils/clipboard';
@@ -120,7 +121,10 @@ export default function ConnectDisplayAddress({
 }: ConnectDisplayAddressProps) {
     // A `notice` has no address to show, so there is nothing for this query
     // to feed — paused rather than fetched and discarded.
-    const [result] = useQuery({ query: NETWORK_ADDRESSES_QUERY, pause: !!notice });
+    const [result] = useQuery<NetworkAddressesQuery, NetworkAddressesQueryVariables>({
+        query: NETWORK_ADDRESSES_QUERY,
+        pause: !!notice,
+    });
     const [copied, setCopied] = useState(false);
     const [qrFailed, setQrFailed] = useState(false);
 

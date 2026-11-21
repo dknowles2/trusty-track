@@ -3,6 +3,7 @@ import { render, screen, within, fireEvent, waitFor } from '@testing-library/rea
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useQuery } from 'urql';
+import { print } from 'graphql';
 import { FreeRaceLaneSetup, Mode } from './FreeRaceLaneSetup';
 
 vi.mock('urql', async (importOriginal) => {
@@ -65,7 +66,7 @@ describe('FreeRaceLaneSetup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (useQuery as any).mockImplementation(({ query }: any) => {
-      if (query.includes('randomFreeRaceLanes')) {
+      if ((typeof query === 'string' ? query : print(query)).includes('randomFreeRaceLanes')) {
         return [mockResult, mockReExecute];
       }
       return [emptyResult, vi.fn()];
@@ -120,7 +121,7 @@ describe('FreeRaceLaneSetup', () => {
     // a query variable so a re-shuffle asks a different question.
     const seen: unknown[] = [];
     (useQuery as any).mockImplementation(({ query, variables }: any) => {
-      if (query.includes('randomFreeRaceLanes')) {
+      if ((typeof query === 'string' ? query : print(query)).includes('randomFreeRaceLanes')) {
         seen.push(variables);
         return [mockResult, mockReExecute];
       }
@@ -149,7 +150,7 @@ describe('FreeRaceLaneSetup', () => {
       fetching: false,
     };
     (useQuery as any).mockImplementation(({ query, variables }: any) => {
-      if (query.includes('randomFreeRaceLanes')) {
+      if ((typeof query === 'string' ? query : print(query)).includes('randomFreeRaceLanes')) {
         return [variables.shuffle === 0 ? first : second, mockReExecute];
       }
       return [emptyResult, vi.fn()];
@@ -317,7 +318,7 @@ describe('FreeRaceLaneSetup', () => {
     it('switching a lane off removes it from the random draw\'s query variables', () => {
       const seen: unknown[] = [];
       (useQuery as any).mockImplementation(({ query, variables }: any) => {
-        if (query.includes('randomFreeRaceLanes')) {
+        if ((typeof query === 'string' ? query : print(query)).includes('randomFreeRaceLanes')) {
           seen.push(variables);
           return [mockResult, mockReExecute];
         }

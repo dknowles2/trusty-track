@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { useQuery } from 'urql';
+import { useQuery, gql } from 'urql';
+import type {
+  GetRandomFreeRaceLanesQuery,
+  GetRandomFreeRaceLanesQueryVariables,
+} from '../../../gql/operations';
 import { Icon } from '@mdi/react';
 import { mdiDice5, mdiPencil, mdiShuffle, mdiFlagCheckered, mdiDragVertical, mdiCloseOctagon, mdiIncognito } from '@mdi/js';
 import {
@@ -253,6 +257,15 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
   );
 };
 
+const GET_RANDOM_FREE_RACE_LANES = gql`
+  query GetRandomFreeRaceLanes($raceId: Int!, $shuffle: Int!, $enabledLanes: [Int!]) {
+    randomFreeRaceLanes(raceId: $raceId, shuffle: $shuffle, enabledLanes: $enabledLanes) {
+      lane
+      racerId
+    }
+  }
+`;
+
 export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Record<number, Racer> }> = ({
   raceId,
   laneCount,
@@ -312,15 +325,11 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
   // the public demo does, so Re-shuffle there could not change anything.
   const [shuffle, setShuffle] = useState(0);
 
-  const [randomResult] = useQuery({
-    query: `
-      query GetRandomFreeRaceLanes($raceId: Int!, $shuffle: Int!, $enabledLanes: [Int!]) {
-        randomFreeRaceLanes(raceId: $raceId, shuffle: $shuffle, enabledLanes: $enabledLanes) {
-          lane
-          racerId
-        }
-      }
-    `,
+  const [randomResult] = useQuery<
+    GetRandomFreeRaceLanesQuery,
+    GetRandomFreeRaceLanesQueryVariables
+  >({
+    query: GET_RANDOM_FREE_RACE_LANES,
     // `enabledLanes` rides along as a query variable rather than a client
     // filter: the draw itself has to run over the right pool of racers for
     // the right number of lanes, which only the server can do.

@@ -54,6 +54,11 @@ export type DisplayView =
   | 'STANDINGS_ONLY'
   | 'TIMING';
 
+export type FreeRaceLaneAssignmentInput = {
+  lane: number;
+  racerId?: number | null | undefined;
+};
+
 export type HeatLaneInput = {
   lane: number;
   place?: number | null | undefined;
@@ -121,6 +126,15 @@ export type PopulateTestDataInput = {
 export type QrTarget =
   | 'STANDINGS'
   | 'VOTE';
+
+export type RaceChangeKind =
+  | 'HEAT_RESULT'
+  | 'INTERMISSION'
+  | 'OTHER'
+  | 'RACER'
+  | 'RACE_SETTINGS'
+  | 'ROSTER'
+  | 'SCHEDULE';
 
 export type RaceInput = {
   awards?: Array<AwardCopyInput>;
@@ -303,20 +317,20 @@ export type CacheTestCreatePracticeRaceMutationVariables = Exact<{ [key: string]
 
 export type CacheTestCreatePracticeRaceMutation = { createPracticeRace: { id: number } };
 
-export type GetInitialConfigQueryVariables = Exact<{ [key: string]: never; }>;
+export type TestGetInitialConfigQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetInitialConfigQuery = { initialConfig: { initialized: boolean, version: string } };
+export type TestGetInitialConfigQuery = { initialConfig: { initialized: boolean, version: string } };
 
-export type CreateInitialConfigMutationVariables = Exact<{ [key: string]: never; }>;
-
-
-export type CreateInitialConfigMutation = { createInitialConfig: { initialized: boolean } };
-
-export type UpdateInitialConfigMutationVariables = Exact<{ [key: string]: never; }>;
+export type TestCreateInitialConfigMutationVariables = Exact<{ [key: string]: never; }>;
 
 
-export type UpdateInitialConfigMutation = { updateInitialConfig: { initialized: boolean } };
+export type TestCreateInitialConfigMutation = { createInitialConfig: { initialized: boolean } };
+
+export type TestUpdateInitialConfigMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TestUpdateInitialConfigMutation = { updateInitialConfig: { initialized: boolean } };
 
 export type CacheTestRaceTerminologyQueryVariables = Exact<{
   raceId: number;
@@ -444,6 +458,13 @@ export type GetRaceTerminologyQueryVariables = Exact<{
 
 
 export type GetRaceTerminologyQuery = { race: { id: number, terminology: { racingGroupSingular: string, racingGroupPlural: string, organizationSingular: string, organizationPlural: string, vehicleSingular: string, vehiclePlural: string, vehicleArtworkKey: string } } | null };
+
+export type RaceStateChangedSubscriptionVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type RaceStateChangedSubscription = { raceStateChanged: { raceId: number, changedAt: string, kind: Types.RaceChangeKind, roundId: number | null, heat: { id: number, raceId: number, roundId: number, heatNumber: number, roundNumber: number, roundName: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null, time: number | null, place: number | null, skipped: boolean }> } | null, racer: { id: number, raceId: number, firstName: string, lastName: string, carNumber: number | null, carName: string | null, carWeight: number | null, carPassedInspection: boolean, racerImageUrl: string | null, carImageUrl: string | null, racingGroupId: number | null } | null } };
 
 export type GetInstallThemesForRaceFormQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -898,6 +919,21 @@ export type ApplyScenePresetMutationVariables = Exact<{
 
 export type ApplyScenePresetMutation = { applyScenePreset: { sceneId: number | null, appliedCount: number, skippedCount: number, outcomes: Array<{ displayId: string, displayName: string, applied: boolean }> } };
 
+export type GetInitialDataQueryVariables = Exact<{
+  id: number;
+}>;
+
+
+export type GetInitialDataQuery = { race: { id: number, scoringStrategy: string, resolvedNameDisplay: string, qrHeadline: string | null, qrWifiNote: string | null, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null, highlights: boolean }, track: { id: number, laneColors: Array<string>, laneCount: number } | null, heats: Array<{ id: number, recordedAt: string | null, heatNumber: number, roundId: number, lanes: Array<{ place: number | null, time: number | null, racerId: number | null }>, replays: Array<{ cameraId: string, url: string, durationMs: number, t0OffsetMs: number }> }>, rounds: Array<{ id: number, name: string | null, roundNumber: number, advancementSource: string | null, schedulingStrategy: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null, carImageUrl: string | null, carName: string | null, racingGroupId: number | null, carPassedInspection: boolean, homeUnit: string | null }>, racingGroups: Array<{ id: number, name: string, color: string, division: string | null }> } | null };
+
+export type GetChampionshipResultQueryVariables = Exact<{
+  id: number;
+  roundId: number;
+}>;
+
+
+export type GetChampionshipResultQuery = { race: { id: number, leaderboard: Array<{ racerId: number, rank: number, score: number, heatsCompleted: number }> } | null };
+
 export type GetPrintablesQueryVariables = Exact<{
   raceId: number;
 }>;
@@ -925,6 +961,52 @@ export type GetCertificatesQueryVariables = Exact<{
 
 
 export type GetCertificatesQuery = { race: { id: number, name: string, dateTime: string | null, location: string | null, resolvedNameDisplay: string, resolvedPrintablesTheme: string, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, place: number | null, fromBottom: boolean, artworkKey: string | null, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null } | null }> } | null };
+
+export type ResetTimerMutationVariables = Exact<{
+  trackId: number;
+}>;
+
+
+export type ResetTimerMutation = { resetTimer: boolean };
+
+export type RecordFreeRaceResultMutationVariables = Exact<{
+  heatId: number;
+  lanes: Array<Types.HeatLaneInput> | Types.HeatLaneInput;
+}>;
+
+
+export type RecordFreeRaceResultMutation = { recordFreeRaceResult: { id: number, recorded: boolean, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null, time: number | null, place: number | null, skipped: boolean }> } | null };
+
+export type DeleteFreeRaceHeatMutationVariables = Exact<{
+  heatId: number;
+}>;
+
+
+export type DeleteFreeRaceHeatMutation = { deleteFreeRaceHeat: boolean };
+
+export type FreeRaceHeatSubscriptionVariables = Exact<{
+  heatId: number;
+}>;
+
+
+export type FreeRaceHeatSubscription = { freeRaceHeat: { id: number, recorded: boolean, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null, time: number | null, place: number | null, skipped: boolean }> } | null };
+
+export type GetRandomFreeRaceLanesQueryVariables = Exact<{
+  raceId: number;
+  shuffle: number;
+  enabledLanes?: Array<number> | number | null | undefined;
+}>;
+
+
+export type GetRandomFreeRaceLanesQuery = { randomFreeRaceLanes: Array<{ lane: number, racerId: number | null }> };
+
+export type StartFreeRaceHeatMutationVariables = Exact<{
+  raceId: number;
+  laneAssignments: Array<Types.FreeRaceLaneAssignmentInput> | Types.FreeRaceLaneAssignmentInput;
+}>;
+
+
+export type StartFreeRaceHeatMutation = { startFreeRaceHeat: { id: number } };
 
 export type SchedulingAlgorithmsQueryVariables = Exact<{
   racerCount: number;
@@ -1221,6 +1303,45 @@ export type ActivityLogLiveQueryVariables = Exact<{
 
 export type ActivityLogLiveQuery = { auditLog: Array<{ id: number, at: string, action: string, role: string, outcome: string, summary: string, noteworthy: boolean, category: Types.AuditCategory | null, raceId: number | null, sourceIp: string | null, details: string | null }> };
 
+export type GetInitialConfigQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetInitialConfigQuery = { initialConfig: { initialized: boolean, version: string, organizationName: string | null, debugMode: boolean, pinRequired: boolean, checkinPinSet: boolean, isOperator: boolean, demoMode: boolean, displayTheme: string, printablesTheme: string, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, vehicleArtworkKey: string | null, nameDisplay: string | null, keepReplays: boolean, replayRetentionHeats: number | null, replayRetentionMb: number | null, tracks: Array<{ id: number, name: string, laneCount: number, lengthFeet: number | null, timerType: string, serialPort: string | null, timerProfile: string | null, remoteStartInstalled: boolean, reverseLanes: boolean, scaleRatio: number, showScaleSpeed: boolean, laneColors: Array<string>, laneOutages: Array<number>, historicalRecords: Array<{ id: number, timeSeconds: number, racerName: string, carNumber: number | null, raceName: string | null, raceDate: string | null }> }> } };
+
+export type GetTimerModelsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetTimerModelsQuery = { timerModels: Array<{ key: string, name: string, provenance: string, detectable: boolean, baudRate: number, dataBits: number, stopBits: number, parity: string }> };
+
+export type CreateInitialConfigMutationVariables = Exact<{
+  config: Types.InitialConfigInput;
+}>;
+
+
+export type CreateInitialConfigMutation = { createInitialConfig: { initialized: boolean, organizationName: string | null, debugMode: boolean, pinRequired: boolean, checkinPinSet: boolean, displayTheme: string, printablesTheme: string, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, vehicleArtworkKey: string | null, nameDisplay: string | null, tracks: Array<{ id: number, name: string }> } };
+
+export type UpdateInitialConfigMutationVariables = Exact<{
+  config: Types.InitialConfigInput;
+}>;
+
+
+export type UpdateInitialConfigMutation = { updateInitialConfig: { initialized: boolean, organizationName: string | null, debugMode: boolean, pinRequired: boolean, checkinPinSet: boolean, displayTheme: string, printablesTheme: string, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, vehicleArtworkKey: string | null, nameDisplay: string | null, keepReplays: boolean, replayRetentionHeats: number | null, replayRetentionMb: number | null } };
+
+export type SetDebugModeMutationVariables = Exact<{
+  enabled: boolean;
+}>;
+
+
+export type SetDebugModeMutation = { setDebugMode: { debugMode: boolean } };
+
+export type SetThemesMutationVariables = Exact<{
+  displayTheme: string;
+  printablesTheme: string;
+}>;
+
+
+export type SetThemesMutation = { setThemes: { displayTheme: string, printablesTheme: string } };
+
 export type DiagnosticTracksQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -1260,6 +1381,21 @@ export type DiagnosticForceResultsMutationVariables = Exact<{
 
 
 export type DiagnosticForceResultsMutation = { forceResults: boolean };
+
+export type GetLeaderboardMetadataQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type GetLeaderboardMetadataQuery = { race: { id: number, name: string, scoringStrategy: string, homeUnitLabel: string, dropWorstRuns: number, resolvedNameDisplay: string, track: { id: number, laneCount: number, laneOutages: Array<number> } | null, rounds: Array<{ id: number, name: string | null, roundNumber: number, advancementSource: string | null, advancementFromBottom: boolean, schedulingStrategy: string, eliminationLosses: number | null, disrupted: boolean }>, racers: Array<{ id: number, excludedFromStandings: boolean }> } | null };
+
+export type GetRoundStandingsQueryVariables = Exact<{
+  raceId: number;
+  roundId: number;
+}>;
+
+
+export type GetRoundStandingsQuery = { race: { id: number, leaderboard: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, racingGroupName: string, racingGroupDivision: string | null, homeUnit: string | null, score: number, heatsCompleted: number, dnfCount: number, rank: number, racerImageUrl: string | null, resolvedBy: string | null, dropWorstRunsApplied: boolean }> } | null };
 
 export type GetRaceStatsQueryVariables = Exact<{
   raceId: number;

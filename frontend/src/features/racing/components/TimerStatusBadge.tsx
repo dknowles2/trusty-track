@@ -1,5 +1,6 @@
 import { useSubscription } from 'urql';
 import { TIMER_STATUS_SUBSCRIPTION } from '../graphql/queries';
+import type { TimerStatusSubscription, TimerStatusSubscriptionVariables } from '../../../gql/operations';
 import './TimerStatusBadge.css';
 
 interface TimerStatusBadgeProps {
@@ -13,17 +14,6 @@ interface TimerStatusBadgeProps {
    * pills).
    */
   variant?: 'pill' | 'muted';
-}
-
-interface TimerStatusData {
-  timerStatus: {
-    status: {
-      state: string;
-      deviceName: string | null;
-      activeHeatId: number | null;
-      lastError: string | null;
-    };
-  };
 }
 
 function getStatusDisplay(state: string | undefined): { colorClass: string; label: string } {
@@ -62,7 +52,11 @@ function getStatusDisplay(state: string | undefined): { colorClass: string; labe
 }
 
 export function TimerStatusBadge({ trackId, variant = 'pill' }: TimerStatusBadgeProps) {
-  const [{ data }] = useSubscription<TimerStatusData>({
+  const [{ data }] = useSubscription<
+    TimerStatusSubscription,
+    TimerStatusSubscription,
+    TimerStatusSubscriptionVariables
+  >({
     query: TIMER_STATUS_SUBSCRIPTION,
     variables: { trackId },
   });

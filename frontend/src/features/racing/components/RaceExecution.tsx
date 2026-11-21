@@ -32,7 +32,19 @@ export type {
     LaneInput,
 } from '../types';
 import type { Heat, Racer, AdvancementStatus, LaneInput, Lane, LiveLane } from '../types';
-import type { HeatPhase } from '../../../gql/operations';
+import type {
+    AbortHeatMutation,
+    AbortHeatMutationVariables,
+    ForceResultsMutation,
+    ForceResultsMutationVariables,
+    HeatPhase,
+    HeatSessionSubscription,
+    HeatSessionSubscriptionVariables,
+    PrepareHeatMutation,
+    PrepareHeatMutationVariables,
+    StartIntermissionMutation,
+    StartIntermissionMutationVariables,
+} from '../../../gql/operations';
 import { formatLaneTime, hasRun, hasTimes, isLaneEmpty, isTimeBasedStrategy, toInput, placeIssue, timeIssue, parseTimeText, tiedTimeGroups } from '../lanes';
 import { chimeEnabled } from '../chime';
 import {
@@ -301,17 +313,24 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     // The live view, assembled by the server (#7). What used to be here was a
     // merge of the heat's stored lanes with `timerStatus.pendingResults`,
     // recomputed on every render.
-    const [subResult] = useSubscription({
+    const [subResult] = useSubscription<
+        HeatSessionSubscription,
+        HeatSessionSubscription,
+        HeatSessionSubscriptionVariables
+    >({
         query: HEAT_SESSION_SUBSCRIPTION,
         variables: { trackId: trackId ?? 0, heatId: activeExecutionHeat?.id ?? null },
         pause: !trackId,
     });
     const session = subResult.data?.heatSession;
 
-    const [, prepareHeat] = useMutation(PREPARE_HEAT);
-    const [, abortHeat] = useMutation(ABORT_HEAT);
-    const [, forceResults] = useMutation(FORCE_RESULTS);
-    const [, startIntermission] = useMutation(START_INTERMISSION_MUTATION);
+    const [, prepareHeat] = useMutation<PrepareHeatMutation, PrepareHeatMutationVariables>(PREPARE_HEAT);
+    const [, abortHeat] = useMutation<AbortHeatMutation, AbortHeatMutationVariables>(ABORT_HEAT);
+    const [, forceResults] = useMutation<ForceResultsMutation, ForceResultsMutationVariables>(FORCE_RESULTS);
+    const [, startIntermission] = useMutation<
+        StartIntermissionMutation,
+        StartIntermissionMutationVariables
+    >(START_INTERMISSION_MUTATION);
 
     const handleTakeABreak = async (seconds: number) => {
         const result = await startIntermission({ raceId, durationSeconds: seconds, label: null });

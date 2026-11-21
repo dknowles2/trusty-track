@@ -15,6 +15,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { GET_RACE_STATS } from '../graphql/queries';
+import type { GetRaceStatsQuery, GetRaceStatsQueryVariables } from '../../../gql/operations';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { formatScaleMph } from '../../observation/scaleSpeed';
 import { groupScoreDomain } from '../groupScoreDomain';
@@ -194,7 +195,7 @@ export default function RaceStats() {
   const locked = useRaceLocked(id);
   const { group, groups, vehicle, vehicleLower } = useTerminology();
 
-  const [result, reExecute] = useQuery({
+  const [result, reExecute] = useQuery<GetRaceStatsQuery, GetRaceStatsQueryVariables>({
     query: GET_RACE_STATS,
     variables: { raceId: id },
     requestPolicy: 'cache-and-network',

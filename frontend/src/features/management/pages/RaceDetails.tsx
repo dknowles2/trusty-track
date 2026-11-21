@@ -1,7 +1,32 @@
 import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
-import type { GetRaceDetailsQuery } from '../../../gql/operations';
+import type {
+  BulkAutoNumberMutation,
+  BulkAutoNumberMutationVariables,
+  BulkCheckInMutation,
+  BulkCheckInMutationVariables,
+  BulkClearNumbersMutation,
+  BulkClearNumbersMutationVariables,
+  BulkDeleteRacersMutation,
+  BulkDeleteRacersMutationVariables,
+  BulkMoveToRacingGroupMutation,
+  BulkMoveToRacingGroupMutationVariables,
+  BulkSetExcludedFromStandingsMutation,
+  BulkSetExcludedFromStandingsMutationVariables,
+  CreateRacerMutation,
+  CreateRacerMutationVariables,
+  DeleteRaceMutation,
+  DeleteRaceMutationVariables,
+  GetRaceDetailsQuery,
+  GetRaceDetailsQueryVariables,
+  PopulateRaceMutation,
+  PopulateRaceMutationVariables,
+  UpdateRaceMutation,
+  UpdateRaceMutationVariables,
+  UpdateRacerMutation,
+  UpdateRacerMutationVariables,
+} from '../../../gql/operations';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
 import { useRole } from '../../core/hooks/useRole';
@@ -49,6 +74,8 @@ import { groupRacersByRacingGroup } from '../groupRacersByRacingGroup';
 import { raceSummaryLine } from '../raceSummary';
 import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
+const DEFAULT_HOME_UNIT_LABEL = 'Home Pack';
+
 /**
  * The shapes the query actually returns, derived rather than restated.
  *
@@ -83,7 +110,10 @@ export default function RaceDetails() {
   // `any`, and reading a field the document does not select compiles happily
   // and is `undefined` at runtime — which is how `trackId` went missing from
   // this query and silently moved every edited race to the first track.
-  const [raceDetailsResult, reexecuteRaceDetails] = useQuery<GetRaceDetailsQuery>({
+  const [raceDetailsResult, reexecuteRaceDetails] = useQuery<
+    GetRaceDetailsQuery,
+    GetRaceDetailsQueryVariables
+  >({
     query: GQL.GET_RACE_DETAILS,
     variables: { raceId: parsedRaceId },
     pause: !parsedRaceId,
@@ -100,18 +130,33 @@ export default function RaceDetails() {
   // the *organization's* own word (never this race's own override of it —
   // see `Race.homeUnitLabel`'s docstring). Falls back to the built-in
   // wording before the query has answered.
-  const homeUnitLabel = data?.race?.homeUnitLabel ?? 'Home Pack';
+  const homeUnitLabel = data?.race?.homeUnitLabel ?? DEFAULT_HOME_UNIT_LABEL;
 
   // GraphQL Mutations
-  const [, updateRaceMutation] = useMutation(GQL.UPDATE_RACE);
-  const [, deleteRaceMutation] = useMutation(GQL.DELETE_RACE);
-  const [, bulkAutoNumberMutation] = useMutation(GQL.BULK_AUTO_NUMBER);
-  const [, bulkClearNumbersMutation] = useMutation(GQL.BULK_CLEAR_NUMBERS);
-  const [, bulkCheckInMutation] = useMutation(GQL.BULK_CHECK_IN);
-  const [, bulkSetExcludedFromStandingsMutation] = useMutation(GQL.BULK_SET_EXCLUDED_FROM_STANDINGS);
-  const [, bulkMoveToRacingGroupMutation] = useMutation(GQL.BULK_MOVE_TO_RACING_GROUP);
-  const [, bulkDeleteRacersMutation] = useMutation(GQL.BULK_DELETE_RACERS);
-  const [, populateRaceMutation] = useMutation(GQL.POPULATE_RACE);
+  const [, updateRaceMutation] = useMutation<UpdateRaceMutation, UpdateRaceMutationVariables>(GQL.UPDATE_RACE);
+  const [, deleteRaceMutation] = useMutation<DeleteRaceMutation, DeleteRaceMutationVariables>(GQL.DELETE_RACE);
+  const [, bulkAutoNumberMutation] = useMutation<
+    BulkAutoNumberMutation,
+    BulkAutoNumberMutationVariables
+  >(GQL.BULK_AUTO_NUMBER);
+  const [, bulkClearNumbersMutation] = useMutation<
+    BulkClearNumbersMutation,
+    BulkClearNumbersMutationVariables
+  >(GQL.BULK_CLEAR_NUMBERS);
+  const [, bulkCheckInMutation] = useMutation<BulkCheckInMutation, BulkCheckInMutationVariables>(GQL.BULK_CHECK_IN);
+  const [, bulkSetExcludedFromStandingsMutation] = useMutation<
+    BulkSetExcludedFromStandingsMutation,
+    BulkSetExcludedFromStandingsMutationVariables
+  >(GQL.BULK_SET_EXCLUDED_FROM_STANDINGS);
+  const [, bulkMoveToRacingGroupMutation] = useMutation<
+    BulkMoveToRacingGroupMutation,
+    BulkMoveToRacingGroupMutationVariables
+  >(GQL.BULK_MOVE_TO_RACING_GROUP);
+  const [, bulkDeleteRacersMutation] = useMutation<
+    BulkDeleteRacersMutation,
+    BulkDeleteRacersMutationVariables
+  >(GQL.BULK_DELETE_RACERS);
+  const [, populateRaceMutation] = useMutation<PopulateRaceMutation, PopulateRaceMutationVariables>(GQL.POPULATE_RACE);
 
   // Mapped Data from Query
   const race = useMemo(() => {
@@ -567,8 +612,8 @@ export default function RaceDetails() {
       handleCheckInClick(racer);
   };
 
-  const [, createRacerMutation] = useMutation(GQL.CREATE_RACER);
-  const [, updateRacerMutation] = useMutation(GQL.UPDATE_RACER);
+  const [, createRacerMutation] = useMutation<CreateRacerMutation, CreateRacerMutationVariables>(GQL.CREATE_RACER);
+  const [, updateRacerMutation] = useMutation<UpdateRacerMutation, UpdateRacerMutationVariables>(GQL.UPDATE_RACER);
 
   const saveRacer = async (formData: RacerData) => {
       // Map snake_case to camelCase for GQL input. `updateRacer` used to
@@ -699,7 +744,7 @@ export default function RaceDetails() {
       // other bulk action already avoids (#420's own reasoning) — Auto
       // number is additive and the operator's next click should not have
       // to dismiss anything first.
-      showToast(`Auto-numbered ${result.data.bulkAutoNumber} ${vehiclesLower}`, 'success');
+      showToast(`Auto-numbered ${result.data?.bulkAutoNumber ?? 0} ${vehiclesLower}`, 'success');
     } catch (e) {
       showToast(errorText(e, `Failed to auto-number ${vehiclesLower}`), 'error');
     }

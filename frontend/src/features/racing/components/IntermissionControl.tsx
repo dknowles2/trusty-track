@@ -25,7 +25,20 @@ import {
 } from '../intermission';
 
 const MAX_DURATION_MINUTES = MAX_DURATION_SECONDS / 60;
-import type { GetRaceIntermissionQuery } from '../../../gql/operations';
+import type {
+  EndIntermissionMutation,
+  EndIntermissionMutationVariables,
+  ExtendIntermissionMutation,
+  ExtendIntermissionMutationVariables,
+  GetRaceIntermissionQuery,
+  GetRaceIntermissionQueryVariables,
+  PauseIntermissionMutation,
+  PauseIntermissionMutationVariables,
+  ResumeIntermissionMutation,
+  ResumeIntermissionMutationVariables,
+  StartIntermissionMutation,
+  StartIntermissionMutationVariables,
+} from '../../../gql/operations';
 
 interface IntermissionControlProps {
   raceId: number;
@@ -65,7 +78,10 @@ export default function IntermissionControl({ raceId, compact = false }: Intermi
   // ticked rather than one more click every time.
   const [highlightsWanted, setHighlightsWanted] = useState(true);
 
-  const [{ data }, reExecute] = useQuery<GetRaceIntermissionQuery>({
+  const [{ data }, reExecute] = useQuery<
+    GetRaceIntermissionQuery,
+    GetRaceIntermissionQueryVariables
+  >({
     query: GET_RACE_INTERMISSION,
     variables: { raceId },
     pause: !raceId,
@@ -94,11 +110,26 @@ export default function IntermissionControl({ raceId, compact = false }: Intermi
     return () => window.clearInterval(id);
   }, [intermission.active, intermission.paused, intermission.endsAt]);
 
-  const [, startIntermission] = useMutation(START_INTERMISSION_MUTATION);
-  const [, extendIntermission] = useMutation(EXTEND_INTERMISSION_MUTATION);
-  const [, pauseIntermission] = useMutation(PAUSE_INTERMISSION_MUTATION);
-  const [, resumeIntermission] = useMutation(RESUME_INTERMISSION_MUTATION);
-  const [, endIntermission] = useMutation(END_INTERMISSION_MUTATION);
+  const [, startIntermission] = useMutation<
+    StartIntermissionMutation,
+    StartIntermissionMutationVariables
+  >(START_INTERMISSION_MUTATION);
+  const [, extendIntermission] = useMutation<
+    ExtendIntermissionMutation,
+    ExtendIntermissionMutationVariables
+  >(EXTEND_INTERMISSION_MUTATION);
+  const [, pauseIntermission] = useMutation<
+    PauseIntermissionMutation,
+    PauseIntermissionMutationVariables
+  >(PAUSE_INTERMISSION_MUTATION);
+  const [, resumeIntermission] = useMutation<
+    ResumeIntermissionMutation,
+    ResumeIntermissionMutationVariables
+  >(RESUME_INTERMISSION_MUTATION);
+  const [, endIntermission] = useMutation<
+    EndIntermissionMutation,
+    EndIntermissionMutationVariables
+  >(END_INTERMISSION_MUTATION);
 
   const run = async (
     action: () => Promise<{ error?: unknown }>,

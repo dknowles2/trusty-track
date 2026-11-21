@@ -18,6 +18,14 @@ import { useAlert } from '../../../context/AlertContext';
 import { useRunMutation } from '../../../context/runMutation';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
+import type {
+  CreateTrackRecordMutation,
+  CreateTrackRecordMutationVariables,
+  DeleteTrackRecordMutation,
+  DeleteTrackRecordMutationVariables,
+  UpdateTrackRecordMutation,
+  UpdateTrackRecordMutationVariables,
+} from '../../../gql/operations';
 
 const CREATE_TRACK_RECORD = gql`
   mutation CreateTrackRecord($trackId: Int!, $record: HistoricalTrackRecordInput!) {
@@ -83,9 +91,15 @@ export default function TrackRecords({ trackId, records, onChange, isOperator = 
   const { showToast } = useAlert();
   const runMutation = useRunMutation();
   const { vehicle } = useTerminology();
-  const [, createRecord] = useMutation(CREATE_TRACK_RECORD);
-  const [, updateRecord] = useMutation(UPDATE_TRACK_RECORD);
-  const [, deleteRecord] = useMutation(DELETE_TRACK_RECORD);
+  const [, createRecord] = useMutation<CreateTrackRecordMutation, CreateTrackRecordMutationVariables>(
+    CREATE_TRACK_RECORD,
+  );
+  const [, updateRecord] = useMutation<UpdateTrackRecordMutation, UpdateTrackRecordMutationVariables>(
+    UPDATE_TRACK_RECORD,
+  );
+  const [, deleteRecord] = useMutation<DeleteTrackRecordMutation, DeleteTrackRecordMutationVariables>(
+    DELETE_TRACK_RECORD,
+  );
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -127,14 +141,16 @@ export default function TrackRecords({ trackId, records, onChange, isOperator = 
       raceDate: form.raceDate || null,
     };
     setBusy(true);
-    const response = editingId
-      ? await runMutation(updateRecord, { recordId: editingId, record }, 'The record could not be saved.')
-      : await runMutation(createRecord, { trackId, record }, 'The record could not be saved.');
+    let saved: HistoricalRecord | undefined;
+    if (editingId) {
+      const response = await runMutation(updateRecord, { recordId: editingId, record }, 'The record could not be saved.');
+      saved = response?.data?.updateTrackRecord;
+    } else {
+      const response = await runMutation(createRecord, { trackId, record }, 'The record could not be saved.');
+      saved = response?.data?.createTrackRecord;
+    }
     setBusy(false);
-    if (!response) return;
-    const saved: HistoricalRecord = editingId
-      ? response.data.updateTrackRecord
-      : response.data.createTrackRecord;
+    if (!saved) return;
     const next = editingId
       ? records.map((r) => (r.id === editingId ? saved : r))
       : [...records, saved];

@@ -7,6 +7,14 @@ import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { buildDisplayLines } from '../serialLog';
 import type { SerialLogEntry } from '../serialLog';
+import type {
+    ReconnectTimerMutation,
+    ReconnectTimerMutationVariables,
+    ReleaseStartGateMutation,
+    ReleaseStartGateMutationVariables,
+    TimerStatusSubscription,
+    TimerStatusSubscriptionVariables,
+} from '../../../gql/operations';
 
 function renderData(data: string): React.ReactNode {
     return data.split(/(\\r\\n|\\r|\\n)/).map((part, i) => {
@@ -35,10 +43,19 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
     const [isExpanded, setIsExpanded] = useState(false);
     const logEndRef = useRef<HTMLDivElement>(null);
     const { showAlert } = useAlert();
-    const [, reconnectTimer] = useMutation(RECONNECT_TIMER);
-    const [, releaseStartGate] = useMutation(RELEASE_START_GATE);
+    const [, reconnectTimer] = useMutation<ReconnectTimerMutation, ReconnectTimerMutationVariables>(
+        RECONNECT_TIMER,
+    );
+    const [, releaseStartGate] = useMutation<
+        ReleaseStartGateMutation,
+        ReleaseStartGateMutationVariables
+    >(RELEASE_START_GATE);
 
-    const [subResult] = useSubscription({
+    const [subResult] = useSubscription<
+        TimerStatusSubscription,
+        TimerStatusSubscription,
+        TimerStatusSubscriptionVariables
+    >({
         query: TIMER_STATUS_SUBSCRIPTION,
         variables: { trackId },
         pause: !trackId,

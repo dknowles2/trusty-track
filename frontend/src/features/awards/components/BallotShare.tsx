@@ -16,6 +16,7 @@ import { mdiAlertOutline, mdiCheck, mdiContentCopy, mdiOpenInNew, mdiQrcode } fr
 import { copyText } from '../../../utils/clipboard';
 import ShareableUrl from '../../../components/ui/ShareableUrl';
 import { NETWORK_ADDRESSES_QUERY } from '../graphql/queries';
+import type { NetworkAddressesQuery, NetworkAddressesQueryVariables } from '../../../gql/operations';
 import { shareUrl, qrCodeSrc } from '../../core/shareAddress';
 import { qrCodeWindowUrl } from '../../observation/displayIdentity';
 
@@ -24,7 +25,9 @@ interface BallotShareProps {
 }
 
 export default function BallotShare({ raceId }: BallotShareProps) {
-  const [result] = useQuery({ query: NETWORK_ADDRESSES_QUERY });
+  const [result] = useQuery<NetworkAddressesQuery, NetworkAddressesQueryVariables>({
+    query: NETWORK_ADDRESSES_QUERY,
+  });
   const [copied, setCopied] = useState(false);
   const [qrFailed, setQrFailed] = useState(false);
 

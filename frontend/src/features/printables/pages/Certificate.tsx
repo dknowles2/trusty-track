@@ -20,6 +20,7 @@ import { DerbyCarIllustration, PinewoodDerbySeal } from '../components/PrintDeco
 import { certificatesFor, signerTitleForOrg, type CertificateAward } from '../certificate';
 import { formatEventDate } from '../documents';
 import { GET_CERTIFICATES } from '../graphql/queries';
+import type { GetCertificatesQuery, GetCertificatesQueryVariables } from '../../../gql/operations';
 import { printablesThemeRootProps } from '../printablesTheme';
 import { useSheetScale } from '../useSheetScale';
 import { useTerminology } from '../../../context/TerminologyContext';
@@ -35,7 +36,7 @@ export default function Certificate() {
     // same way a sheet of pit passes does.
     const { wrapRef, sheetRef, scale, naturalHeight } = useSheetScale();
 
-    const [{ data, fetching, error }] = useQuery({
+    const [{ data, fetching, error }] = useQuery<GetCertificatesQuery, GetCertificatesQueryVariables>({
         query: GET_CERTIFICATES,
         variables: { raceId: parsedRaceId },
         pause: !parsedRaceId,

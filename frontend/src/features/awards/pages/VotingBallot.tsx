@@ -37,6 +37,12 @@ import { getDeterministicColor } from '../../../utils/avatarUtils';
 import { getContrastColor } from '../../../utils/colors';
 import { forBallot } from '../awardText';
 import { CAST_VOTE_MUTATION, VOTING_BALLOT_QUERY } from '../graphql/queries';
+import type {
+  CastVoteMutation,
+  CastVoteMutationVariables,
+  VotingBallotQuery,
+  VotingBallotQueryVariables,
+} from '../../../gql/operations';
 
 type BallotCar = {
   id: number;
@@ -119,12 +125,12 @@ export default function VotingBallot() {
     return () => setChromeHidden(false);
   }, [setChromeHidden]);
 
-  const [result] = useQuery({
+  const [result] = useQuery<VotingBallotQuery, VotingBallotQueryVariables>({
     query: VOTING_BALLOT_QUERY,
     variables: { raceId: id },
     pause: !id || isNaN(id),
   });
-  const [, castVote] = useMutation(CAST_VOTE_MUTATION);
+  const [, castVote] = useMutation<CastVoteMutation, CastVoteMutationVariables>(CAST_VOTE_MUTATION);
   const runMutation = useRunMutation();
 
   // Which car each just-cast vote landed on, keyed by award, so the

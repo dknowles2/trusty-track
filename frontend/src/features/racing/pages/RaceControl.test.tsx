@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor, act, within } from '@testing-librar
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useQuery, useMutation, useSubscription } from 'urql';
+import { print } from 'graphql';
 
 // Mock child components to isolate RaceControl logic
 vi.mock('../components/ScheduleManagement', () => ({
@@ -747,7 +748,8 @@ describe('RaceControl Page', () => {
         // tree.
         (useSubscription as any).mockImplementation(
             (opts: any, handler: (prev: any, data: any) => any) => {
-                if (typeof opts.query === 'string' && opts.query.includes('RaceStateChanged')) {
+                const queryText = typeof opts.query === 'string' ? opts.query : opts.query ? print(opts.query) : '';
+                if (queryText.includes('RaceStateChanged')) {
                     capturedHandler = handler;
                 }
                 return [{ data: undefined }, vi.fn()];
@@ -799,7 +801,8 @@ describe('RaceControl Page', () => {
         // tree.
         (useSubscription as any).mockImplementation(
             (opts: any, handler: (prev: any, data: any) => any) => {
-                if (typeof opts.query === 'string' && opts.query.includes('RaceStateChanged')) {
+                const queryText = typeof opts.query === 'string' ? opts.query : opts.query ? print(opts.query) : '';
+                if (queryText.includes('RaceStateChanged')) {
                     capturedHandler = handler;
                 }
                 return [{ data: undefined }, vi.fn()];

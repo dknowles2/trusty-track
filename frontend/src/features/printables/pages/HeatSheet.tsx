@@ -27,6 +27,7 @@ import {
 import { VehicleGlyph } from '../components/PrintDecor';
 import { formatEventDate } from '../documents';
 import { GET_HEAT_SHEET } from '../graphql/queries';
+import type { GetHeatSheetQuery, GetHeatSheetQueryVariables } from '../../../gql/operations';
 import { printablesThemeRootProps } from '../printablesTheme';
 import { useTerminology } from '../../../context/TerminologyContext';
 import LaneBadge from '../../../components/ui/LaneBadge';
@@ -39,7 +40,7 @@ export default function HeatSheet() {
     const parsedRaceId = raceId ? parseInt(raceId) : 0;
     const { vehicleArtworkKey } = useTerminology();
 
-    const [{ data, fetching, error }] = useQuery({
+    const [{ data, fetching, error }] = useQuery<GetHeatSheetQuery, GetHeatSheetQueryVariables>({
         query: GET_HEAT_SHEET,
         variables: { raceId: parsedRaceId },
         pause: !parsedRaceId,

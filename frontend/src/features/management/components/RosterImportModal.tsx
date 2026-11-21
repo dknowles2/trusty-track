@@ -9,6 +9,12 @@ import {
     PREVIEW_DERBYNET_IMPORT,
     CONFIRM_DERBYNET_IMPORT,
 } from '../graphql/queries';
+import type {
+    ConfirmDerbynetImportMutation,
+    ConfirmGprmImportMutation,
+    PreviewDerbynetImportMutation,
+    PreviewGprmImportMutation,
+} from '../../../gql/operations';
 import { errorText } from '../../../utils/errors';
 import { useTerminology } from '../../../context/TerminologyContext';
 
@@ -56,6 +62,10 @@ interface RosterImportPreview {
     problems: Array<{ message: string; blocking: boolean; sourceId: string | null }>;
 }
 
+type PreviewImportResult = PreviewGprmImportMutation | PreviewDerbynetImportMutation;
+type ConfirmImportResult = ConfirmGprmImportMutation | ConfirmDerbynetImportMutation;
+type ImportVars = { raceId: number; fileData: string };
+
 interface SourceConfig {
     title: string;
     // The chooser step's own one-liner for this program — where its file
@@ -67,12 +77,10 @@ interface SourceConfig {
     help: ReactNode;
     fileInputId: string;
     fileButtonLabel: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- urql's mutation doc type varies per operation; the field this modal reads is picked below by name, not by the doc's own generated shape.
-    previewDoc: TypedDocumentNode<any, { raceId: number; fileData: string }>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    confirmDoc: TypedDocumentNode<any, { raceId: number; fileData: string }>;
-    previewField: string;
-    confirmField: string;
+    previewDoc: TypedDocumentNode<PreviewImportResult, ImportVars>;
+    confirmDoc: TypedDocumentNode<ConfirmImportResult, ImportVars>;
+    extractPreview: (data: PreviewImportResult) => RosterImportPreview | null;
+    extractConfirmed: (data: ConfirmImportResult) => number;
 }
 
 /**
@@ -115,8 +123,8 @@ const SOURCE_CONFIG: Record<RosterImportSource, SourceConfig> = {
         fileButtonLabel: 'Select GPRM Database',
         previewDoc: PREVIEW_GPRM_IMPORT,
         confirmDoc: CONFIRM_GPRM_IMPORT,
-        previewField: 'previewGprmImport',
-        confirmField: 'confirmGprmImport',
+        extractPreview: (data) => ('previewGprmImport' in data ? data.previewGprmImport : null),
+        extractConfirmed: (data) => ('confirmGprmImport' in data ? data.confirmGprmImport : 0),
     },
     derbynet: {
         title: 'Import from DerbyNet',
@@ -141,8 +149,8 @@ const SOURCE_CONFIG: Record<RosterImportSource, SourceConfig> = {
         fileButtonLabel: 'Select DerbyNet Database',
         previewDoc: PREVIEW_DERBYNET_IMPORT,
         confirmDoc: CONFIRM_DERBYNET_IMPORT,
-        previewField: 'previewDerbynetImport',
-        confirmField: 'confirmDerbynetImport',
+        extractPreview: (data) => ('previewDerbynetImport' in data ? data.previewDerbynetImport : null),
+        extractConfirmed: (data) => ('confirmDerbynetImport' in data ? data.confirmDerbynetImport : 0),
     },
 };
 
@@ -174,8 +182,8 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
     // sent a second time (#768) — `reset()`, which choosing a new file
     // already calls, clears it.
     const [imported, setImported] = useState(false);
-    const [previewResult, previewMutation] = useMutation(config.previewDoc);
-    const [, confirmMutation] = useMutation(config.confirmDoc);
+    const [previewResult, previewMutation] = useMutation<PreviewImportResult, ImportVars>(config.previewDoc);
+    const [, confirmMutation] = useMutation<ConfirmImportResult, ImportVars>(config.confirmDoc);
     // A synchronous re-entrancy guard alongside `confirming`'s own disabled
     // state, the same shape `Home.tsx`'s practice-race button uses (#588):
     // urql's fetching flag only lands once a render has caught up, and two
@@ -211,8 +219,7 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
             const result = await previewMutation({ raceId, fileData: dataUrl });
             if (generationRef.current !== generation) return;
             if (result.error) throw result.error;
-            const data = result.data as Record<string, RosterImportPreview> | null | undefined;
-            setPreview(data?.[config.previewField] ?? null);
+            setPreview(result.data ? config.extractPreview(result.data) : null);
         } catch (error: unknown) {
             if (generationRef.current !== generation) return;
             setStatus({
@@ -250,8 +257,7 @@ export default function RosterImportModal({ isOpen, onClose, raceId, onImportSuc
             const result = await confirmMutation({ raceId, fileData });
             if (result.error) throw result.error;
 
-            const data = result.data as Record<string, number> | null | undefined;
-            const importedCount = data?.[config.confirmField] ?? 0;
+            const importedCount = result.data ? config.extractConfirmed(result.data) : 0;
             setStatus({
                 type: 'success',
                 message: `Imported ${importedCount} racer${importedCount === 1 ? '' : 's'}.`,

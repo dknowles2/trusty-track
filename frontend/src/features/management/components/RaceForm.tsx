@@ -8,6 +8,12 @@ import { SHARED, TIEBREAKER_OPTIONS, tiebreakerWontFire } from '../../stats/tieb
 import { SCORING_STRATEGY_OPTIONS } from '../../stats/scoringStrategyText';
 import { NAME_DISPLAY_OPTIONS } from '../../core/displayName';
 import { GET_TRACKS } from '../../core/graphql/queries';
+import type {
+    GetInstallThemesForRaceFormQuery,
+    GetInstallThemesForRaceFormQueryVariables,
+    GetTracksQuery,
+    GetTracksQueryVariables,
+} from '../../../gql/operations';
 import SettingsNav from '../../settings/components/SettingsNav';
 import ThemePicker from '../../settings/components/ThemePicker';
 import VehiclePicker from '../../settings/components/VehiclePicker';
@@ -271,7 +277,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         formData.weight_limit_oz != null ? formatOunces(formData.weight_limit_oz) : formatOunces(DEFAULT_LIMIT_OZ),
     );
     const [loading, setLoading] = useState(false);
-    const [tracksResult] = useQuery({ query: GET_TRACKS });
+    const [tracksResult] = useQuery<GetTracksQuery, GetTracksQueryVariables>({ query: GET_TRACKS });
     const tracks = useMemo(() => tracksResult.data?.tracks || [], [tracksResult.data?.tracks]);
     const fetchingTracks = tracksResult.fetching;
 
@@ -281,7 +287,10 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
     // already carries. `pause`d outside `isEditing`: the create form never
     // renders this section at all, so there is nothing for the answer to
     // preview.
-    const [installThemesResult] = useQuery({
+    const [installThemesResult] = useQuery<
+        GetInstallThemesForRaceFormQuery,
+        GetInstallThemesForRaceFormQueryVariables
+    >({
         query: GET_INSTALL_THEMES_FOR_RACE_FORM,
         pause: !isEditing,
     });

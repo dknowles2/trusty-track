@@ -30,6 +30,7 @@ import { gql, useMutation } from 'urql';
 import { useRunMutation } from '../../../context/runMutation';
 import { lanesOf, outageSummary, toggleLane } from '../laneOutages';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
+import type { SetLaneOutagesMutation, SetLaneOutagesMutationVariables } from '../../../gql/operations';
 
 const SET_LANE_OUTAGES_MUTATION = gql`
   mutation SetLaneOutages($trackId: Int!, $lanes: [Int!]!) {
@@ -53,7 +54,9 @@ interface Props {
 }
 
 export default function TrackLanes({ trackId, laneCount, outages, onChange, isOperator = true }: Props) {
-  const [, setLaneOutages] = useMutation(SET_LANE_OUTAGES_MUTATION);
+  const [, setLaneOutages] = useMutation<SetLaneOutagesMutation, SetLaneOutagesMutationVariables>(
+    SET_LANE_OUTAGES_MUTATION,
+  );
   const runMutation = useRunMutation();
   const [busy, setBusy] = useState(false);
 

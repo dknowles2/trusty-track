@@ -26,6 +26,23 @@ import {
     SCENES_QUERY,
     SCENE_PRESETS_QUERY,
 } from '../graphql/queries';
+import type { ScenePreset } from '../../../gql/schema';
+import type {
+    ApplySceneMutation,
+    ApplySceneMutationVariables,
+    ApplyScenePresetMutation,
+    ApplyScenePresetMutationVariables,
+    CreateSceneMutation,
+    CreateSceneMutationVariables,
+    DeleteSceneMutation,
+    DeleteSceneMutationVariables,
+    GetScenePresetsQuery,
+    GetScenePresetsQueryVariables,
+    GetScenesQuery,
+    GetScenesQueryVariables,
+    RenameSceneMutation,
+    RenameSceneMutationVariables,
+} from '../../../gql/operations';
 import { summarizeApplyResult, type ApplySceneSummary } from '../scenes';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
@@ -33,7 +50,7 @@ import { useRole } from '../../core/hooks/useRole';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
 interface ScenePresetRow {
-    key: string;
+    key: ScenePreset;
     label: string;
 }
 
@@ -73,19 +90,24 @@ export default function ScenesPanel({ raceId, disabled = false }: ScenesPanelPro
     const roleDisabled = disabled || !isOperator;
     const roleTitle = disabled ? CONNECT_A_SCREEN_FIRST : !isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined;
 
-    const [presetsResult] = useQuery({ query: SCENE_PRESETS_QUERY, pause: !raceId });
-    const [scenesResult, reexecuteScenes] = useQuery({
+    const [presetsResult] = useQuery<GetScenePresetsQuery, GetScenePresetsQueryVariables>({
+        query: SCENE_PRESETS_QUERY,
+        pause: !raceId,
+    });
+    const [scenesResult, reexecuteScenes] = useQuery<GetScenesQuery, GetScenesQueryVariables>({
         query: SCENES_QUERY,
         variables: { raceId },
         pause: !raceId,
         requestPolicy: 'cache-and-network',
     });
 
-    const [, applyScenePreset] = useMutation(APPLY_SCENE_PRESET);
-    const [, applyScene] = useMutation(APPLY_SCENE);
-    const [, createScene] = useMutation(CREATE_SCENE);
-    const [, renameScene] = useMutation(RENAME_SCENE);
-    const [, deleteScene] = useMutation(DELETE_SCENE);
+    const [, applyScenePreset] = useMutation<ApplyScenePresetMutation, ApplyScenePresetMutationVariables>(
+        APPLY_SCENE_PRESET,
+    );
+    const [, applyScene] = useMutation<ApplySceneMutation, ApplySceneMutationVariables>(APPLY_SCENE);
+    const [, createScene] = useMutation<CreateSceneMutation, CreateSceneMutationVariables>(CREATE_SCENE);
+    const [, renameScene] = useMutation<RenameSceneMutation, RenameSceneMutationVariables>(RENAME_SCENE);
+    const [, deleteScene] = useMutation<DeleteSceneMutation, DeleteSceneMutationVariables>(DELETE_SCENE);
 
     const [savingAs, setSavingAs] = useState(false);
     const [draftName, setDraftName] = useState('');
@@ -106,7 +128,7 @@ export default function ScenesPanel({ raceId, disabled = false }: ScenesPanelPro
         showToast(summarizeApplyResult(result), result.skippedCount > 0 ? 'info' : 'success');
     };
 
-    const handleApplyPreset = async (preset: string) => {
+    const handleApplyPreset = async (preset: ScenePreset) => {
         const { data, error } = await applyScenePreset({ raceId, preset });
         if (error) {
             showToast(errorText(error, 'Could not apply that scene.'), 'error');

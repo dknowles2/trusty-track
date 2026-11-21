@@ -33,6 +33,32 @@ import {
   PIN_ROUND_FIELD_MUTATION,
   UNPIN_ROUND_FIELD_MUTATION,
 } from '../graphql/queries';
+import type {
+  ApplyMasterRunningOrderMutation,
+  ApplyMasterRunningOrderMutationVariables,
+  CreateRoundMutation,
+  CreateRoundMutationVariables,
+  DeleteHeatMutation,
+  DeleteHeatMutationVariables,
+  DeleteRoundMutation,
+  DeleteRoundMutationVariables,
+  GetRaceControlDataQuery,
+  GetRaceControlDataQueryVariables,
+  HeatSessionSubscription,
+  HeatSessionSubscriptionVariables,
+  PinRoundFieldMutation,
+  PinRoundFieldMutationVariables,
+  RegenerateRoundMutation,
+  RegenerateRoundMutationVariables,
+  ReorderHeatsMutation,
+  ReorderHeatsMutationVariables,
+  UnpinRoundFieldMutation,
+  UnpinRoundFieldMutationVariables,
+  UpdateHeatResultMutation,
+  UpdateHeatResultMutationVariables,
+  UpdateRaceAutoAdvanceMutation,
+  UpdateRaceAutoAdvanceMutationVariables,
+} from '../../../gql/operations';
 import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiChevronDown, mdiChevronRight, mdiDotsHorizontal, mdiPencil, mdiPlayCircleOutline } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane, EliminationChart } from '../types';
@@ -143,22 +169,48 @@ export default function RaceControl() {
   // round in the new race read as history rather than as news. A remount gets
   // that right for state nobody has thought about yet.
 
-  const [result, reExecute] = useQuery({
+  const [result, reExecute] = useQuery<GetRaceControlDataQuery, GetRaceControlDataQueryVariables>({
     query: GET_RACE_CONTROL_DATA,
     variables: { id },
     pause: !id || isNaN(id),
   });
 
-  const [, createRoundMutation] = useMutation(CREATE_ROUND_MUTATION);
-  const [, regenerateRoundMutation] = useMutation(REGENERATE_ROUND_MUTATION);
-  const [, deleteRoundMutation] = useMutation(DELETE_ROUND_MUTATION);
-  const [, deleteHeatMutation] = useMutation(DELETE_HEAT_MUTATION);
-  const [, reorderHeatsMutation] = useMutation(REORDER_HEATS_MUTATION);
-  const [, updateHeatResultMutation] = useMutation(UPDATE_HEAT_RESULT_MUTATION);
-  const [, updateRaceMutation] = useMutation(UPDATE_RACE_AUTO_ADVANCE_MUTATION);
-  const [, applyMasterRunningOrderMutation] = useMutation(APPLY_MASTER_RUNNING_ORDER_MUTATION);
-  const [, pinRoundFieldMutation] = useMutation(PIN_ROUND_FIELD_MUTATION);
-  const [, unpinRoundFieldMutation] = useMutation(UNPIN_ROUND_FIELD_MUTATION);
+  const [, createRoundMutation] = useMutation<CreateRoundMutation, CreateRoundMutationVariables>(
+    CREATE_ROUND_MUTATION,
+  );
+  const [, regenerateRoundMutation] = useMutation<
+    RegenerateRoundMutation,
+    RegenerateRoundMutationVariables
+  >(REGENERATE_ROUND_MUTATION);
+  const [, deleteRoundMutation] = useMutation<DeleteRoundMutation, DeleteRoundMutationVariables>(
+    DELETE_ROUND_MUTATION,
+  );
+  const [, deleteHeatMutation] = useMutation<DeleteHeatMutation, DeleteHeatMutationVariables>(
+    DELETE_HEAT_MUTATION,
+  );
+  const [, reorderHeatsMutation] = useMutation<ReorderHeatsMutation, ReorderHeatsMutationVariables>(
+    REORDER_HEATS_MUTATION,
+  );
+  const [, updateHeatResultMutation] = useMutation<
+    UpdateHeatResultMutation,
+    UpdateHeatResultMutationVariables
+  >(UPDATE_HEAT_RESULT_MUTATION);
+  const [, updateRaceMutation] = useMutation<
+    UpdateRaceAutoAdvanceMutation,
+    UpdateRaceAutoAdvanceMutationVariables
+  >(UPDATE_RACE_AUTO_ADVANCE_MUTATION);
+  const [, applyMasterRunningOrderMutation] = useMutation<
+    ApplyMasterRunningOrderMutation,
+    ApplyMasterRunningOrderMutationVariables
+  >(APPLY_MASTER_RUNNING_ORDER_MUTATION);
+  const [, pinRoundFieldMutation] = useMutation<
+    PinRoundFieldMutation,
+    PinRoundFieldMutationVariables
+  >(PIN_ROUND_FIELD_MUTATION);
+  const [, unpinRoundFieldMutation] = useMutation<
+    UnpinRoundFieldMutation,
+    UnpinRoundFieldMutationVariables
+  >(UNPIN_ROUND_FIELD_MUTATION);
 
   // Keep every open tab in sync. Heat results and check-ins arrive with the
   // updated entity and merge into the normalized cache; only structural
@@ -289,7 +341,11 @@ export default function RaceControl() {
    * operator; a local `useState` here could only ever be set to null.
    */
   const trackId = race?.track?.id ?? null;
-  const [heatSessionResult] = useSubscription({
+  const [heatSessionResult] = useSubscription<
+    HeatSessionSubscription,
+    HeatSessionSubscription,
+    HeatSessionSubscriptionVariables
+  >({
     query: HEAT_SESSION_SUBSCRIPTION,
     variables: { trackId: trackId ?? 0, heatId: null },
     pause: trackId === null,

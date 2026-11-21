@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation } from 'urql';
+import { useQuery, useMutation, gql } from 'urql';
 import BackupPanel from '../components/BackupPanel';
 import PinFieldRow from '../components/PinFieldRow';
 import SettingsNav from '../components/SettingsNav';
@@ -24,7 +24,6 @@ import { clearPin, writePin } from '../../../api/pin';
 import { errorText } from '../../../utils/errors';
 import { applyStoredAppTheme, readAppTheme, writeAppTheme } from '../../../theming/appTheme';
 import type { SurfaceThemeSetting, ThemeKey } from '../../../theming/themes';
-import type { HistoricalRecord } from '../components/TrackRecords';
 import { DEFAULT_TERMINOLOGY } from '../terminologyDefaults';
 import {
   DEFAULT_ANSWERS,
@@ -57,8 +56,22 @@ import BackLink from '../../core/components/BackLink';
 import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 import { useAlert } from '../../../context/AlertContext';
 import FieldHelp from '../../../components/ui/FieldHelp';
+import type {
+  CreateInitialConfigMutation,
+  CreateInitialConfigMutationVariables,
+  GetInitialConfigQuery,
+  GetInitialConfigQueryVariables,
+  GetTimerModelsQuery,
+  GetTimerModelsQueryVariables,
+  SetDebugModeMutation,
+  SetDebugModeMutationVariables,
+  SetThemesMutation,
+  SetThemesMutationVariables,
+  UpdateInitialConfigMutation,
+  UpdateInitialConfigMutationVariables,
+} from '../../../gql/operations';
 
-const GET_INITIAL_CONFIG = `
+const GET_INITIAL_CONFIG = gql`
   query GetInitialConfig {
     initialConfig {
       initialized
@@ -105,7 +118,7 @@ const GET_INITIAL_CONFIG = `
 // The models a track can be set to. The frontend holds no copy of the
 // profiles — the backend owns every piece of protocol state — so this is the
 // list to show and the key to send back, nothing more.
-const GET_TIMER_MODELS = `
+const GET_TIMER_MODELS = gql`
   query GetTimerModels {
     timerModels {
       key
@@ -120,7 +133,7 @@ const GET_TIMER_MODELS = `
   }
 `;
 
-const CREATE_INITIAL_CONFIG = `
+const CREATE_INITIAL_CONFIG = gql`
   mutation CreateInitialConfig($config: InitialConfigInput!) {
     createInitialConfig(config: $config) {
       initialized
@@ -146,7 +159,7 @@ const CREATE_INITIAL_CONFIG = `
   }
 `;
 
-const UPDATE_INITIAL_CONFIG = `
+const UPDATE_INITIAL_CONFIG = gql`
   mutation UpdateInitialConfig($config: InitialConfigInput!) {
     updateInitialConfig(config: $config) {
       initialized
@@ -178,7 +191,7 @@ const UPDATE_INITIAL_CONFIG = `
 // demo. `config` above no longer carries `debugMode`/`displayTheme`/
 // `printablesTheme` at all — see the removed fields in the variables built
 // below.
-const SET_DEBUG_MODE = `
+const SET_DEBUG_MODE = gql`
   mutation SetDebugMode($enabled: Boolean!) {
     setDebugMode(enabled: $enabled) {
       debugMode
@@ -186,7 +199,7 @@ const SET_DEBUG_MODE = `
   }
 `;
 
-const SET_THEMES = `
+const SET_THEMES = gql`
   mutation SetThemes($displayTheme: String!, $printablesTheme: String!) {
     setThemes(displayTheme: $displayTheme, printablesTheme: $printablesTheme) {
       displayTheme
@@ -370,8 +383,13 @@ export default function SystemConfig() {
     }, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const [configResult] = useQuery({ query: GET_INITIAL_CONFIG, requestPolicy: 'network-only' });
-  const [modelsResult] = useQuery({ query: GET_TIMER_MODELS });
+  const [configResult] = useQuery<GetInitialConfigQuery, GetInitialConfigQueryVariables>({
+    query: GET_INITIAL_CONFIG,
+    requestPolicy: 'network-only',
+  });
+  const [modelsResult] = useQuery<GetTimerModelsQuery, GetTimerModelsQueryVariables>({
+    query: GET_TIMER_MODELS,
+  });
   const timerModels: TimerModel[] = modelsResult.data?.timerModels || [];
   const { data, fetching, error: queryError } = configResult;
   // #892: `createInitialConfig`/`updateInitialConfig` are operator-only
@@ -385,10 +403,18 @@ export default function SystemConfig() {
   // resolves to for every caller.
   const isOperator = data?.initialConfig?.isOperator !== false;
 
-  const [, createInitialConfig] = useMutation(CREATE_INITIAL_CONFIG);
-  const [, updateInitialConfig] = useMutation(UPDATE_INITIAL_CONFIG);
-  const [, setDebugModeMutation] = useMutation(SET_DEBUG_MODE);
-  const [, setThemesMutation] = useMutation(SET_THEMES);
+  const [, createInitialConfig] = useMutation<
+    CreateInitialConfigMutation,
+    CreateInitialConfigMutationVariables
+  >(CREATE_INITIAL_CONFIG);
+  const [, updateInitialConfig] = useMutation<
+    UpdateInitialConfigMutation,
+    UpdateInitialConfigMutationVariables
+  >(UPDATE_INITIAL_CONFIG);
+  const [, setDebugModeMutation] = useMutation<SetDebugModeMutation, SetDebugModeMutationVariables>(
+    SET_DEBUG_MODE,
+  );
+  const [, setThemesMutation] = useMutation<SetThemesMutation, SetThemesMutationVariables>(SET_THEMES);
 
   // Seeded from the saved configuration during render rather than in an
   // effect, so the form never paints empty and then fills in. `seededFrom`
@@ -446,22 +472,7 @@ export default function SystemConfig() {
         setOrganizationName(savedOrganizationName || '');
         setDebugMode(!!savedDebugMode);
         if (savedTracks && savedTracks.length > 0) {
-          setTracks(savedTracks.map((t: {
-            id: number;
-            name: string;
-            laneCount: number;
-            lengthFeet: number | null;
-            timerType: string;
-            serialPort?: string;
-            timerProfile?: string | null;
-            remoteStartInstalled?: boolean;
-            reverseLanes?: boolean;
-            scaleRatio?: number;
-            showScaleSpeed?: boolean;
-            laneColors?: string[];
-            laneOutages?: number[];
-            historicalRecords?: HistoricalRecord[];
-          }) => ({
+          setTracks(savedTracks.map((t) => ({
             id: t.id,
             name: t.name,
             laneCount: t.laneCount,

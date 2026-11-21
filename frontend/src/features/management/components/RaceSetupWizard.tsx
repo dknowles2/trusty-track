@@ -5,6 +5,12 @@ import { mdiClose, mdiPlus } from '@mdi/js';
 
 import { DEFAULT_TERMINOLOGY, type Terminology } from '../../../context/TerminologyContext';
 import { GET_RACE_SETUP_CONTEXT, GET_RACE_SETUP_SOURCE } from '../graphql/queries';
+import type {
+    GetRaceSetupContextQuery,
+    GetRaceSetupContextQueryVariables,
+    GetRaceSetupSourceQuery,
+    GetRaceSetupSourceQueryVariables,
+} from '../../../gql/operations';
 import { CATEGORY_PRESETS } from '../../../context/categoryPresets';
 import {
     DEFAULT_ANSWERS,
@@ -87,7 +93,9 @@ const optionDescriptionStyle = { color: 'var(--text-muted-color)', display: 'blo
 const cellInputStyle = { width: '100%', padding: '6px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', font: 'inherit' } as const;
 
 export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardProps) {
-    const [context] = useQuery({ query: GET_RACE_SETUP_CONTEXT });
+    const [context] = useQuery<GetRaceSetupContextQuery, GetRaceSetupContextQueryVariables>({
+        query: GET_RACE_SETUP_CONTEXT,
+    });
     // `Query.races` is newest-first from the server (#1129) — that order is
     // the source of truth for this dropdown, so it is used as returned
     // rather than re-sorted (or reversed) here.
@@ -111,7 +119,7 @@ export default function RaceSetupWizard({ onSubmit, onCancel }: RaceSetupWizardP
     // wanted and did not get is the round wizard from memory.
     const [copyRounds, setCopyRounds] = useState(true);
 
-    const [source] = useQuery({
+    const [source] = useQuery<GetRaceSetupSourceQuery, GetRaceSetupSourceQueryVariables>({
         query: GET_RACE_SETUP_SOURCE,
         variables: { raceId: sourceRaceId ?? 0 },
         pause: mode !== 'copy' || sourceRaceId === null,

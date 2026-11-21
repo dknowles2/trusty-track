@@ -1,6 +1,14 @@
 import { Fragment, useState } from 'react';
-import { useQuery, useSubscription } from 'urql';
+import { useQuery, useSubscription, gql } from 'urql';
 import { LeaderboardSubscription } from '../../observation/graphql/queries';
+import type {
+  GetLeaderboardMetadataQuery,
+  GetLeaderboardMetadataQueryVariables,
+  GetRoundStandingsQuery,
+  GetRoundStandingsQueryVariables,
+  LeaderboardSubscriptionSubscription,
+  LeaderboardSubscriptionSubscriptionVariables,
+} from '../../../gql/operations';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { RoundSummary, exclusionNotice, roundLabel } from '../disruptedRounds';
 import { excludedCount, excludedNotice } from '../excludedFromStandings';
@@ -44,7 +52,7 @@ export interface LeaderboardEntry {
   dropWorstRunsApplied?: boolean;
 }
 
-const GET_LEADERBOARD_METADATA = `
+const GET_LEADERBOARD_METADATA = gql`
   query GetLeaderboardMetadata($raceId: Int!) {
     race(raceId: $raceId) {
       id
@@ -91,7 +99,7 @@ const GET_LEADERBOARD_METADATA = `
 
 // Standings for one round. The live subscription only carries the default
 // prelim standings, so a championship round is fetched on demand instead.
-const GET_ROUND_STANDINGS = `
+const GET_ROUND_STANDINGS = gql`
   query GetRoundStandings($raceId: Int!, $roundId: Int!) {
     race(raceId: $raceId) {
       id
@@ -162,21 +170,25 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
     );
   };
 
-  const [queryResult] = useQuery({
+  const [queryResult] = useQuery<GetLeaderboardMetadataQuery, GetLeaderboardMetadataQueryVariables>({
     query: GET_LEADERBOARD_METADATA,
     variables: { raceId },
     requestPolicy: 'cache-and-network',
   });
 
-  const [subscriptionResult] = useSubscription({
+  const [subscriptionResult] = useSubscription<
+    LeaderboardSubscriptionSubscription,
+    LeaderboardSubscriptionSubscription,
+    LeaderboardSubscriptionSubscriptionVariables
+  >({
     query: LeaderboardSubscription,
     variables: { raceId },
     pause: !raceId || isNaN(raceId)
   });
 
-  const [roundResult] = useQuery({
+  const [roundResult] = useQuery<GetRoundStandingsQuery, GetRoundStandingsQueryVariables>({
     query: GET_ROUND_STANDINGS,
-    variables: { raceId, roundId: selectedRoundId },
+    variables: { raceId, roundId: selectedRoundId ?? 0 },
     pause: selectedRoundId === null,
     requestPolicy: 'cache-and-network',
   });

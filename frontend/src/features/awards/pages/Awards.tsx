@@ -41,6 +41,22 @@ import {
   UPDATE_AWARD_MUTATION,
   UPDATE_RACE_VOTING_MUTATION,
 } from '../graphql/queries';
+import type {
+  CreateAwardMutation,
+  CreateAwardMutationVariables,
+  DeleteAwardMutation,
+  DeleteAwardMutationVariables,
+  RaceAwardsQuery,
+  RaceAwardsQueryVariables,
+  ReorderAwardsMutation,
+  ReorderAwardsMutationVariables,
+  SeedChampionshipAwardsMutation,
+  SeedChampionshipAwardsMutationVariables,
+  UpdateAwardMutation,
+  UpdateAwardMutationVariables,
+  UpdateRaceVotingMutation,
+  UpdateRaceVotingMutationVariables,
+} from '../../../gql/operations';
 import { readAppTheme } from '../../../theming/appTheme';
 import { themeByKey } from '../../../theming/themes';
 import DocsLink from '../../../components/ui/DocsLink';
@@ -103,17 +119,22 @@ export default function Awards() {
   // a hardcoded assumption about which theme was active).
   const appIsDark = themeByKey(readAppTheme()).app.isDark;
 
-  const [result, refetch] = useQuery({
+  const [result, refetch] = useQuery<RaceAwardsQuery, RaceAwardsQueryVariables>({
     query: RACE_AWARDS_QUERY,
     variables: { raceId: id },
     pause: !id || isNaN(id),
   });
-  const [, createAward] = useMutation(CREATE_AWARD_MUTATION);
-  const [, updateAward] = useMutation(UPDATE_AWARD_MUTATION);
-  const [, deleteAward] = useMutation(DELETE_AWARD_MUTATION);
-  const [, reorderAwards] = useMutation(REORDER_AWARDS_MUTATION);
-  const [, updateRaceVoting] = useMutation(UPDATE_RACE_VOTING_MUTATION);
-  const [, seedChampionshipAwards] = useMutation(SEED_CHAMPIONSHIP_AWARDS_MUTATION);
+  const [, createAward] = useMutation<CreateAwardMutation, CreateAwardMutationVariables>(CREATE_AWARD_MUTATION);
+  const [, updateAward] = useMutation<UpdateAwardMutation, UpdateAwardMutationVariables>(UPDATE_AWARD_MUTATION);
+  const [, deleteAward] = useMutation<DeleteAwardMutation, DeleteAwardMutationVariables>(DELETE_AWARD_MUTATION);
+  const [, reorderAwards] = useMutation<ReorderAwardsMutation, ReorderAwardsMutationVariables>(REORDER_AWARDS_MUTATION);
+  const [, updateRaceVoting] = useMutation<UpdateRaceVotingMutation, UpdateRaceVotingMutationVariables>(
+    UPDATE_RACE_VOTING_MUTATION,
+  );
+  const [, seedChampionshipAwards] = useMutation<
+    SeedChampionshipAwardsMutation,
+    SeedChampionshipAwardsMutationVariables
+  >(SEED_CHAMPIONSHIP_AWARDS_MUTATION);
 
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<AwardRow | null>(null);

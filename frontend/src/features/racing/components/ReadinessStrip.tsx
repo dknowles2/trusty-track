@@ -18,6 +18,12 @@ import { mdiAlertCircle, mdiAlertOutline, mdiCheckCircle, mdiInformationOutline 
 
 import { DISPLAYS_QUERY } from '../../observation/graphql/queries';
 import { TIMER_READINESS_SUBSCRIPTION } from '../graphql/queries';
+import type {
+    GetDisplaysQuery,
+    GetDisplaysQueryVariables,
+    TimerReadinessSubscription,
+    TimerReadinessSubscriptionVariables,
+} from '../../../gql/operations';
 import {
     isCompact,
     overallLevel,
@@ -88,12 +94,16 @@ export default function ReadinessStrip({
     hideWhenReady = false,
 }: Props) {
     const location = useLocation();
-    const [timerResult] = useSubscription({
+    const [timerResult] = useSubscription<
+        TimerReadinessSubscription,
+        TimerReadinessSubscription,
+        TimerReadinessSubscriptionVariables
+    >({
         query: TIMER_READINESS_SUBSCRIPTION,
         variables: { trackId: trackId ?? 0 },
         pause: !trackId,
     });
-    const [displaysResult] = useQuery({
+    const [displaysResult] = useQuery<GetDisplaysQuery, GetDisplaysQueryVariables>({
         query: DISPLAYS_QUERY,
         variables: { raceId },
         pause: !raceId,

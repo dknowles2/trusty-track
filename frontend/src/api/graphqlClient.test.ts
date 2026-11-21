@@ -178,7 +178,7 @@ describe('the cached race list and the mutations that change it', () => {
 
 describe('config mutations and the cached answer to initialConfig', () => {
   const CONFIG_QUERY = gql`
-    query GetInitialConfig {
+    query TestGetInitialConfig {
       initialConfig {
         initialized
         version
@@ -187,7 +187,7 @@ describe('config mutations and the cached answer to initialConfig', () => {
   `;
 
   const CREATE = gql`
-    mutation CreateInitialConfig {
+    mutation TestCreateInitialConfig {
       createInitialConfig(config: { organizationName: "Pack 123", tracks: [] }) {
         initialized
       }
@@ -195,7 +195,7 @@ describe('config mutations and the cached answer to initialConfig', () => {
   `;
 
   const UPDATE = gql`
-    mutation UpdateInitialConfig {
+    mutation TestUpdateInitialConfig {
       updateInitialConfig(config: { organizationName: "Pack 123", tracks: [] }) {
         initialized
       }

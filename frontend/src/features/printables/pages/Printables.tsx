@@ -21,6 +21,7 @@ import CheckInCode from '../components/CheckInCode';
 import DriversLicense from '../components/DriversLicense';
 import PitPass from '../components/PitPass';
 import { GET_PRINTABLES } from '../graphql/queries';
+import type { GetPrintablesQuery, GetPrintablesQueryVariables } from '../../../gql/operations';
 import { printablesThemeRootProps } from '../printablesTheme';
 import { useSheetScale } from '../useSheetScale';
 import { useTerminology } from '../../../context/TerminologyContext';
@@ -31,10 +32,10 @@ interface GQLRacer {
     id: number;
     firstName: string;
     lastName: string;
-    carNumber?: number | string;
-    carName?: string;
-    racingGroupId?: number;
-    racerImageUrl?: string;
+    carNumber?: number | string | null;
+    carName?: string | null;
+    racingGroupId?: number | null;
+    racerImageUrl?: string | null;
     carWeight?: number | null;
     homeUnit?: string | null;
 }
@@ -102,7 +103,7 @@ export default function Printables() {
     const [searchParams, setSearchParams] = useSearchParams();
     const { vehicle } = useTerminology();
 
-    const [{ data, fetching, error }] = useQuery({
+    const [{ data, fetching, error }] = useQuery<GetPrintablesQuery, GetPrintablesQueryVariables>({
         query: GET_PRINTABLES,
         variables: { raceId: parsedRaceId },
         pause: !parsedRaceId,
@@ -153,10 +154,10 @@ export default function Printables() {
             id: r.id,
             first_name: r.firstName,
             last_name: r.lastName,
-            car_number: r.carNumber,
-            car_name: r.carName,
-            racing_group_id: r.racingGroupId,
-            racer_image_url: r.racerImageUrl,
+            car_number: r.carNumber ?? undefined,
+            car_name: r.carName ?? undefined,
+            racing_group_id: r.racingGroupId ?? undefined,
+            racer_image_url: r.racerImageUrl ?? undefined,
             car_weight: r.carWeight,
             home_unit: r.homeUnit,
         }));

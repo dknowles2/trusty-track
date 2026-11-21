@@ -38,6 +38,24 @@ import { useClient, useMutation, useQuery, useSubscription } from 'urql';
 
 import { GET_TRACKS } from '../../core/graphql/queries';
 import { INITIAL_CONFIG_QUERY } from '../../core/graphql/queries';
+import type {
+  CameraPingQuery,
+  CameraPingQueryVariables,
+  DisplayAssignmentSubscription as DisplayAssignmentSubData,
+  DisplayAssignmentSubscriptionVariables,
+  GetInitialConfigStatusQuery,
+  GetInitialConfigStatusQueryVariables,
+  GetTracksQuery,
+  GetTracksQueryVariables,
+  RaceTrackForCameraPresetQuery,
+  RaceTrackForCameraPresetQueryVariables,
+  SetCameraTrackMutation,
+  SetCameraTrackMutationVariables,
+  TimerStatusSubscription,
+  TimerStatusSubscriptionVariables,
+  TimingStatsSubscriptionSubscription,
+  TimingStatsSubscriptionSubscriptionVariables,
+} from '../../../gql/operations';
 import { displayId, startDeviceClaimHeartbeat } from '../../observation/displayIdentity';
 import {
   DisplayAssignmentSubscription,
@@ -116,7 +134,11 @@ export default function Camera() {
   const thisDisplayId = useMemo(() => displayId(displayIdParam), [displayIdParam]);
   useEffect(() => startDeviceClaimHeartbeat(thisDisplayId), [thisDisplayId]);
 
-  const [assignmentResult] = useSubscription({
+  const [assignmentResult] = useSubscription<
+    DisplayAssignmentSubData,
+    DisplayAssignmentSubData,
+    DisplayAssignmentSubscriptionVariables
+  >({
     query: DisplayAssignmentSubscription,
     variables: { displayId: thisDisplayId, raceId, role: 'CAMERA' },
     pause: !raceId,
@@ -124,17 +146,20 @@ export default function Camera() {
   const assignment = assignmentResult.data?.displayAssignment ?? null;
   const identify = useIdentifyOverlay(assignment);
 
-  const [{ data: configData }] = useQuery({ query: INITIAL_CONFIG_QUERY });
+  const [{ data: configData }] = useQuery<
+    GetInitialConfigStatusQuery,
+    GetInitialConfigStatusQueryVariables
+  >({ query: INITIAL_CONFIG_QUERY });
   const demoMode = configData?.initialConfig?.demoMode ?? false;
 
-  const [{ data: tracksData }] = useQuery({ query: GET_TRACKS });
-  const tracks: { id: number; name: string; timerType: string }[] = useMemo(
+  const [{ data: tracksData }] = useQuery<GetTracksQuery, GetTracksQueryVariables>({ query: GET_TRACKS });
+  const tracks = useMemo(
     () => tracksData?.tracks ?? [],
     [tracksData],
   );
   const trackId: number | null = assignment?.trackId ?? null;
   const selectedTrack = tracks.find((t) => t.id === trackId) ?? null;
-  const [, setCameraTrack] = useMutation(SET_CAMERA_TRACK);
+  const [, setCameraTrack] = useMutation<SetCameraTrackMutation, SetCameraTrackMutationVariables>(SET_CAMERA_TRACK);
 
   // A race runs on exactly one track (`Race.trackId`) (#1293) — this page
   // registers against it automatically on connect, with no dropdown of its
@@ -152,7 +177,10 @@ export default function Camera() {
   // neither a later re-render nor a reconnect (the subscription's own
   // opening payload on a dropped-wifi reconnect is not a fresh "connect"
   // for this purpose) ever applies it a second time.
-  const [{ data: raceTrackData }] = useQuery({ query: RACE_TRACK_QUERY, variables: { raceId }, pause: !raceId });
+  const [{ data: raceTrackData }] = useQuery<
+    RaceTrackForCameraPresetQuery,
+    RaceTrackForCameraPresetQueryVariables
+  >({ query: RACE_TRACK_QUERY, variables: { raceId }, pause: !raceId });
   const raceTrackId: number | null = raceTrackData?.race?.trackId ?? null;
   const presetTrackIdParam = searchParams.get('trackId');
   const presetTrackId = presetTrackIdParam ? Number(presetTrackIdParam) || null : null;
@@ -175,7 +203,11 @@ export default function Camera() {
     setCameraTrack({ displayId: thisDisplayId, trackId: targetTrackId });
   }, [presetTrackId, assignment, raceTrackData, raceTrackId, thisDisplayId, setCameraTrack]);
 
-  const [{ data: timerData }] = useSubscription({
+  const [{ data: timerData }] = useSubscription<
+    TimerStatusSubscription,
+    TimerStatusSubscription,
+    TimerStatusSubscriptionVariables
+  >({
     query: TIMER_STATUS_SUBSCRIPTION,
     variables: { trackId: trackId ?? 0 },
     pause: !trackId,
@@ -191,7 +223,11 @@ export default function Camera() {
     transitionsRef.current = transitions;
   }, [transitions]);
 
-  const [{ data: timingData }] = useSubscription({
+  const [{ data: timingData }] = useSubscription<
+    TimingStatsSubscriptionSubscription,
+    TimingStatsSubscriptionSubscription,
+    TimingStatsSubscriptionSubscriptionVariables
+  >({
     query: TimingStatsSubscription,
     variables: { raceId },
     pause: !raceId,
@@ -245,7 +281,7 @@ export default function Camera() {
     const ping = async () => {
       const start = performance.now();
       try {
-        await client.query(CAMERA_PING_QUERY, {}, { requestPolicy: 'network-only' }).toPromise();
+        await client.query<CameraPingQuery, CameraPingQueryVariables>(CAMERA_PING_QUERY, {}, { requestPolicy: 'network-only' }).toPromise();
       } catch {
         return;
       }
@@ -487,7 +523,7 @@ export default function Camera() {
       };
       await uploadClip({
         heatId: result.heatId,
-        recordedAt: result.recordedAt,
+        recordedAt: result.recordedAt ?? '',
         bounds: adjustedBounds,
         blob,
       });
