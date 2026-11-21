@@ -23,24 +23,25 @@ def test_only_the_helper_indexes_racer_ids():
     else in the module — a second occurrence is a resolver that stopped
     calling it.
     """
-    schema_py = Path(__file__).resolve().parents[1] / "api" / "schema.py"
-    tree = ast.parse(schema_py.read_text())
+    schema_dir = Path(__file__).resolve().parents[1] / "api" / "schema"
 
     offenders = []
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        if node.name == "_race_id_for_racers":
-            continue
-        for inner in ast.walk(node):
-            if (
-                isinstance(inner, ast.Subscript)
-                and isinstance(inner.value, ast.Name)
-                and inner.value.id == "racer_ids"
-            ):
-                index = inner.slice
-                if isinstance(index, ast.Constant) and index.value == 0:
-                    offenders.append(f"{node.name}:{inner.lineno}")
+    for py_file in sorted(schema_dir.rglob("*.py")):
+        tree = ast.parse(py_file.read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if node.name == "_race_id_for_racers":
+                continue
+            for inner in ast.walk(node):
+                if (
+                    isinstance(inner, ast.Subscript)
+                    and isinstance(inner.value, ast.Name)
+                    and inner.value.id == "racer_ids"
+                ):
+                    index = inner.slice
+                    if isinstance(index, ast.Constant) and index.value == 0:
+                        offenders.append(f"{py_file.name}:{node.name}:{inner.lineno}")
 
     assert offenders == [], (
         f"racer_ids[0] indexed outside _race_id_for_racers: {offenders}"
