@@ -189,10 +189,11 @@ build_app() {
     success "Python dependencies installed"
 
     info "Building frontend (this may take a few minutes)..."
-    cd "$INSTALL_DIR/frontend"
-    npm ci --silent
-    npm run build --silent
-    cd -
+    (
+        cd "$INSTALL_DIR/frontend"
+        npm ci --silent
+        npm run build --silent
+    )
     success "Frontend built"
 }
 
@@ -345,14 +346,39 @@ setup_hotspot() {
 
     info "Configuring hotspot (SSID: TrustyTrack)..."
 
-    # Configure static IP on wlan0
-    cat >> /etc/dhcpcd.conf <<'EOF'
+    # Configure static IP on wlan0.
+    # Raspberry Pi OS Bookworm uses NetworkManager by default (no dhcpcd); older
+    # releases use dhcpcd. Support both idempotently so wlan0 is released from
+    # wpa_supplicant and assigned 192.168.73.1/24 across reboots.
+    if [[ -d /etc/NetworkManager/conf.d ]] || systemctl is-active --quiet NetworkManager 2>/dev/null; then
+        mkdir -p /etc/NetworkManager/conf.d
+        cat > /etc/NetworkManager/conf.d/99-trustytrack-hotspot.conf <<'EOF'
+[keyfile]
+unmanaged-devices=interface-name:wlan0
+EOF
+        if command -v nmcli &>/dev/null; then
+            nmcli device set wlan0 managed no 2>/dev/null || true
+        fi
+        systemctl reload NetworkManager 2>/dev/null || true
+    fi
+
+    if [[ -f /etc/dhcpcd.conf ]] && ! grep -q "^# Trusty Track hotspot$" /etc/dhcpcd.conf; then
+        cat >> /etc/dhcpcd.conf <<'EOF'
 
 # Trusty Track hotspot
 interface wlan0
     static ip_address=192.168.73.1/24
     nohook wpa_supplicant
 EOF
+    fi
+
+    mkdir -p /etc/systemd/system/hostapd.service.d
+    cat > /etc/systemd/system/hostapd.service.d/trustytrack-ip.conf <<'EOF'
+[Service]
+ExecStartPre=/sbin/ip link set wlan0 up
+ExecStartPre=/sbin/ip addr replace 192.168.73.1/24 dev wlan0
+EOF
+    systemctl daemon-reload
 
     # Configure dnsmasq
     cat > /etc/dnsmasq.d/trustytrack.conf <<'EOF'

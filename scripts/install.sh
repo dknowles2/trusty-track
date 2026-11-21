@@ -15,7 +15,7 @@ elif ! command -v python3 &> /dev/null; then
     exit 1
 else
     PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-    if (( $(echo "$PYTHON_VERSION < 3.10" | bc -l) )); then
+    if ! python3 -c 'import sys; exit(0 if sys.version_info >= (3, 10) else 1)'; then
         echo "Error: Trusty Track requires Python 3.10 or higher. Found $PYTHON_VERSION"
         exit 1
     fi
@@ -45,7 +45,9 @@ else
     echo "uv not found, using standard venv..."
     python3 -m venv .venv
     source .venv/bin/activate
-    pip install -e ".[dev,docs]"
+    # pip >= 25.1 is required for PEP 735 `--group` support.
+    pip install --upgrade "pip>=25.1"
+    pip install --group dev --group docs -e .
 fi
 
 echo "### Setting up Frontend..."

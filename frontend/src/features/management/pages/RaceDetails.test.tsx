@@ -915,4 +915,36 @@ describe('editing a race that is not on the first track', () => {
             expect(await screen.findByTestId('location-search')).toHaveTextContent('?kind=pit-pass');
         });
     });
+
+    describe('query error state (#1383)', () => {
+        it('shows an error message with retry instead of an empty roster on query failure', async () => {
+            const user = userEvent.setup();
+            const reexecute = vi.fn();
+            mockMutations();
+            (useQuery as any).mockReturnValue([
+                {
+                    data: undefined,
+                    fetching: false,
+                    error: { networkError: new Error('Failed to fetch') },
+                },
+                reexecute,
+            ]);
+
+            render(
+                <MemoryRouter initialEntries={['/races/1']}>
+                    <Routes>
+                        <Route path="/races/:raceId" element={<RaceDetails />} />
+                    </Routes>
+                </MemoryRouter>,
+            );
+
+            expect(screen.queryByText(/0 Racers/i)).not.toBeInTheDocument();
+            expect(screen.getByRole('alert')).toHaveTextContent(
+                'Trusty Track could not be reached. Check the network connection and try again.',
+            );
+
+            await user.click(screen.getByRole('button', { name: /try again/i }));
+            expect(reexecute).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
+        });
+    });
 });

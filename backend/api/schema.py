@@ -9,7 +9,6 @@ import logging
 import os
 import tempfile
 import typing
-import uuid
 from collections.abc import AsyncGenerator, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -20,6 +19,11 @@ import pillow_heif
 import strawberry
 from pydantic import ValidationError
 from sqlalchemy.orm import Session, joinedload, object_session
+from strawberry.extensions import (
+    MaxAliasesLimiter,
+    MaxTokensLimiter,
+    QueryDepthLimiter,
+)
 from strawberry.types import Info
 
 from backend import demo_mode
@@ -51,17 +55,16 @@ from backend.services import displays as displays_service
 from backend.services import network, scoring
 from backend.services import records as records_service
 from backend.services import replays as replays_service
-from backend.services.image_processing import convert_to_browser_safe_png
+from backend.services.image_processing import store_uploaded_image
 from backend.services.importers.derbynet import parse_derbynet_database
 from backend.services.importers.gprm import parse_gprm_database
-from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE, NO_TIMER
-from backend.services.timer.devices import by_key as _profile_by_key
+from backend.services.timer.devices import ALL_PROFILES
 from backend.services.timer.devices import fake as fake_timer
 from backend.services.timer.devices.base import (
     LaneResult as TimerLaneResult,
 )
 from backend.services.timer.devices.base import RaceStarted, TimerProfile
-from backend.services.timer.manager import TimerManager
+from backend.services.timer.manager import TimerManager, device_for
 from backend.services.timer.state_machine import TimerState
 
 logger = logging.getLogger(__name__)
@@ -4470,24 +4473,8 @@ def _race_id_for_racers(db: Session, racer_ids: list[int]) -> int | None:
 
 
 def _device_for(track: Any) -> TimerProfile:
-    """The profile a track should run on.
-
-    ``FAKE`` and ``NONE`` are each their own device — neither is ever probed
-    or refined by anything a track's ``timer_profile`` names. Otherwise it is
-    the model the operator picked, and ``DEFAULT_PROFILE`` only when they
-    picked none — where it is an assumption a probe is expected to replace,
-    not an answer (#143).
-
-    A key that names nothing, or names the fake timer on a transport that needs
-    a real port, falls back rather than failing: a stale setting should leave
-    the track detecting, not leave it dead.
-    """
-    if track.timer_type == models.TimerType.FAKE:
-        return FAKE
-    if track.timer_type == models.TimerType.NONE:
-        return NO_TIMER
-    chosen = _profile_by_key(track.timer_profile) if track.timer_profile else None
-    return chosen if chosen in ALL_PROFILES else DEFAULT_PROFILE
+    """The profile a track should run on."""
+    return device_for(track.timer_type, track.timer_profile)
 
 
 def _manager_for(track: Any, info: Info) -> TimerManager:
@@ -7849,7 +7836,7 @@ class Mutation:
         # Parse data URL: data:<mime>;base64,<data>
         if "," not in data_url:
             raise ValueError("Invalid data URL format")
-        header, encoded = data_url.split(",", 1)
+        _, encoded = data_url.split(",", 1)
 
         if len(encoded) > max_b64_len:
             raise ValueError(f"Image is larger than {limit_desc}.")
@@ -7862,26 +7849,7 @@ class Mutation:
         if len(raw_data) > MAX_UPLOAD_BYTES:
             raise ValueError(f"Image is larger than {limit_desc}.")
 
-        image_data = convert_to_browser_safe_png(raw_data)
-
-        # If conversion happened (non-browser-safe format like HEIC), the
-        # result is PNG regardless of what the data-URL header claims.
-        if image_data is not raw_data or "image/png" in header:
-            ext = ".png"
-        elif "image/gif" in header:
-            ext = ".gif"
-        elif "image/webp" in header:
-            ext = ".webp"
-        else:
-            ext = ".jpg"
-
-        filename = f"{uuid.uuid4()}{ext}"
-        file_path = os.path.join(UPLOAD_DIR, filename)
-
-        with open(file_path, "wb") as f:
-            f.write(image_data)
-
-        return f"/static/{filename}"
+        return store_uploaded_image(raw_data, UPLOAD_DIR)
 
 
 @strawberry.enum
@@ -8756,6 +8724,11 @@ class Subscription:
                 yield _get_active_free()
 
 
+#: Query complexity bounds enforced before any resolver runs (#1359).
+MAX_GRAPHQL_DEPTH = 15
+MAX_GRAPHQL_TOKENS = 1000
+MAX_GRAPHQL_ALIASES = 25
+
 schema = strawberry.Schema(
     query=Query,
     mutation=Mutation,
@@ -8785,6 +8758,9 @@ schema = strawberry.Schema(
     # `AuditExtension`'s wrap, so a lock refusal is recorded exactly like any
     # other. See `api/race_lock.py` for the allowed-while-locked list.
     extensions=[
+        lambda: MaxTokensLimiter(max_token_count=MAX_GRAPHQL_TOKENS),
+        lambda: MaxAliasesLimiter(max_alias_count=MAX_GRAPHQL_ALIASES),
+        lambda: QueryDepthLimiter(max_depth=MAX_GRAPHQL_DEPTH),
         RaceLockExtension,
         RolePolicyExtension,
         DemoPolicyExtension,

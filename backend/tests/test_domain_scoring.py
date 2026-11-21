@@ -683,3 +683,53 @@ class TestHasAnyRecordedTime:
         # streaming lane times through a generator (the loader does) must
         # not need to materialise a list first.
         assert has_any_recorded_time(t for t in [None, None, 5.0]) is True
+
+
+class TestSummationOrderTiePrecision:
+    """Identical times summed in different heat orders must still tie (#1378)."""
+
+    def test_standings_ranks_treats_summation_order_noise_as_tied(self):
+        score_a = 3.001 + 3.101 + 3.201
+        score_b = 3.101 + 3.201 + 3.001
+        assert score_a != score_b  # precondition: IEEE-754 summation drift
+
+        score_c = 3.001 + 3.101 + 3.202
+        assert standings_ranks([(score_a, 3), (score_b, 3), (score_c, 3)]) == [1, 1, 3]
+
+    def test_resolve_ties_clusters_summation_order_noise(self):
+        from backend.domain import tiebreak as domain_tiebreak
+        from backend.services.scoring import _resolve_ties
+
+        score_a = 3.001 + 3.101 + 3.201
+        score_b = 3.101 + 3.201 + 3.001
+        assert score_a != score_b
+
+        leaderboard = [
+            {
+                "racer_id": 1,
+                "score": score_a,
+                "heats_completed": 3,
+                "resolved_by": None,
+            },
+            {
+                "racer_id": 2,
+                "score": score_b,
+                "heats_completed": 3,
+                "resolved_by": None,
+            },
+        ]
+        # Racer 2 has the faster single heat (3.050 vs 3.101), so BEST_TIME
+        # separates them if and only if _resolve_ties sees them as tied.
+        heats = [
+            [
+                Lane(lane=1, racer_id=1, time=3.101, place=1),
+                Lane(lane=2, racer_id=2, time=3.050, place=1),
+            ]
+        ]
+        separated = _resolve_ties(leaderboard, heats, domain_tiebreak.BEST_TIME)
+        assert separated == [False, True]
+        assert [entry["racer_id"] for entry in leaderboard] == [2, 1]
+        assert [entry["resolved_by"] for entry in leaderboard] == [
+            "BEST_TIME",
+            "BEST_TIME",
+        ]

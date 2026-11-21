@@ -7,7 +7,7 @@
 #
 # Prerequisites:
 #   - Python 3.10+
-#   - Node.js 18+
+#   - Node.js 22+
 #   - create-dmg (brew install create-dmg)  -- not needed with --app-only
 #
 # Optional (code signing):

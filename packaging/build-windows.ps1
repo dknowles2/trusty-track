@@ -6,7 +6,7 @@
 #
 # Prerequisites:
 #   - Python 3.10+
-#   - Node.js 18+
+#   - Node.js 22+
 #   - Inno Setup 6  (https://jrsoftware.org/isinfo.php)  -- not needed with -ExeOnly
 #
 # ASCII only, deliberately. Windows PowerShell 5.1 decodes a UTF-8 file with no
@@ -23,6 +23,14 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+function Assert-LastExitCode {
+    param([string]$Step)
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "$Step failed with exit code $LASTEXITCODE."
+        exit 1
+    }
+}
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root      = Split-Path -Parent $ScriptDir
@@ -58,18 +66,19 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
     # reuses it -- so a second build on a developer's machine would fail where
     # the first succeeded.
     uv venv --clear --python python $Venv
-    if ($LASTEXITCODE -ne 0) { Write-Error "uv venv failed."; exit 1 }
+    Assert-LastExitCode "uv venv"
     uv pip install --python "$Venv\Scripts\python.exe" `
         "$Root" pyinstaller pyinstaller-hooks-contrib pystray
-    # Checked, unlike the pip path below, because the next step reads the
-    # version out of this venv and falls back to "0.0.0" when it cannot --
-    # so a half-built venv would produce an installer named after nothing.
-    if ($LASTEXITCODE -ne 0) { Write-Error "uv pip install failed."; exit 1 }
+    Assert-LastExitCode "uv pip install"
 } else {
     python -m venv $Venv
+    Assert-LastExitCode "python -m venv"
     & "$Venv\Scripts\pip.exe" install --quiet --upgrade pip
+    Assert-LastExitCode "pip upgrade"
     & "$Venv\Scripts\pip.exe" install --quiet "$Root"
+    Assert-LastExitCode "pip install package"
     & "$Venv\Scripts\pip.exe" install --quiet pyinstaller pyinstaller-hooks-contrib pystray
+    Assert-LastExitCode "pip install pyinstaller"
 }
 
 # Deliberately not a here-string. A here-string terminator has to be the first
@@ -85,7 +94,9 @@ Write-Host "Building Trusty Track v$Version for Windows..."
 Write-Host "Building frontend..."
 Set-Location "$Root\frontend"
 npm ci --silent
+Assert-LastExitCode "npm ci"
 npm run build --silent
+Assert-LastExitCode "npm run build"
 Set-Location $Root
 
 # -- 3. App icon (.ico) --------------------------------------------------------
@@ -96,6 +107,7 @@ $IcoPath = "$ScriptDir\TrustyTrack.ico"
 if (Test-Path $LogoPng) {
     Write-Host "Generating app icon..."
     & "$Venv\Scripts\python.exe" "$ScriptDir\make_ico.py" $LogoPng $IcoPath
+    Assert-LastExitCode "make_ico.py"
     $env:APP_ICON = $IcoPath
     Write-Host "Icon: $IcoPath"
 } else {
@@ -108,6 +120,7 @@ if (Test-Path $LogoPng) {
 Write-Host "Building PyInstaller bundle..."
 Set-Location "$Root\packaging"
 & "$Venv\Scripts\pyinstaller.exe" trustytrack.spec --distpath dist --workpath build --noconfirm
+Assert-LastExitCode "pyinstaller"
 Set-Location $Root
 
 $ExeDir = "$Root\packaging\dist\TrustyTrack"
@@ -124,6 +137,7 @@ if ($env:SIGN_CERT_PATH -and (Test-Path $env:SIGN_CERT_PATH)) {
     & $signtool sign /f $env:SIGN_CERT_PATH /p $env:SIGN_CERT_PASSWORD `
         /tr http://timestamp.digicert.com /td sha256 /fd sha256 `
         "$ExeDir\trustytrack-server.exe"
+    Assert-LastExitCode "signtool"
 }
 
 if ($ExeOnly) {
@@ -155,6 +169,7 @@ Write-Host "Creating installer with Inno Setup..."
 $env:APP_VERSION = $Version
 $env:ROOT_DIR    = $Root
 & $Iscc "$Root\packaging\TrustyTrack.iss" /DMyAppVersion=$Version
+Assert-LastExitCode "Inno Setup (iscc)"
 
 # -- 7. Move output ------------------------------------------------------------
 

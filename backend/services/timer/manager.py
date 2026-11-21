@@ -27,7 +27,7 @@ from backend.domain import audit
 from backend.services import replays as replays_service
 
 from . import probe
-from .devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE, NO_TIMER
+from .devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE, NO_TIMER, by_key
 
 # Circular import handled by importing inside methods or using full module path
 # from backend.api.schema import _publish_race_state
@@ -303,7 +303,7 @@ class TimerManager:
     async def set_device(self, device: TimerProfile) -> None:
         """Update the device and reset state. Stops any active connections."""
         async with self._event_lock:
-            await self.stop()
+            await self._stop()
             self._device = device
             self._buf = b""
             self._pending_results = {}
@@ -883,6 +883,11 @@ class TimerManager:
 
     async def handle_connect(self) -> None:
         """Called when a serial connection (direct or proxy) is established."""
+        async with self._event_lock:
+            await self._handle_connect()
+
+    async def _handle_connect(self) -> None:
+        """Unlocked connect handler; caller must hold ``self._event_lock``."""
         # Always transition to CONNECTED when initialization starts.
         # This breaks re-initialization loops (unsolicited ident -> handle_connect)
         # because _process_line only calls handle_connect if state != CONNECTED.
@@ -931,6 +936,11 @@ class TimerManager:
 
     async def handle_disconnect(self) -> None:
         """Called when a serial connection is lost."""
+        async with self._event_lock:
+            await self._handle_disconnect()
+
+    async def _handle_disconnect(self) -> None:
+        """Unlocked disconnect handler; caller must hold ``self._event_lock``."""
         self._buf = b""
         # Nothing more is coming, so a partial line is not a line — it is the
         # front of a message the device was cut off mid-way through.
@@ -1133,7 +1143,7 @@ class TimerManager:
                 self._track_id,
                 self._state.value,
             )
-            await self.handle_connect()
+            await self._handle_connect()
             return
 
         if self._state == TimerState.CONNECTED and identified:
@@ -1441,21 +1451,22 @@ class TimerManager:
 
         Returns the reason it disarmed, or ``None`` if nothing was wrong.
         """
-        heat_id = self._active_heat_id
-        if heat_id is None:
-            return None
-
-        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        if heat is None:
-            reason = f"Heat {heat_id} no longer exists"
-        else:
-            stale = self._armed_heat_is_stale(db, heat)
-            if stale is None:
+        async with self._event_lock:
+            heat_id = self._active_heat_id
+            if heat_id is None:
                 return None
-            reason = stale
 
-        await self._abandon_run(f"{reason} — the heat has been disarmed")
-        return reason
+            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+            if heat is None:
+                reason = f"Heat {heat_id} no longer exists"
+            else:
+                stale = self._armed_heat_is_stale(db, heat)
+                if stale is None:
+                    return None
+                reason = stale
+
+            await self._abandon_run(f"{reason} — the heat has been disarmed")
+            return reason
 
     async def _abandon_run(self, reason: str) -> None:
         """Give up on the armed heat without writing anything to it.
@@ -1674,7 +1685,7 @@ class TimerManager:
         for something that already happened.
         """
         async with self._event_lock:
-            await self.stop()
+            await self._stop()
 
             self._device = detection.profile
             self._direct_port = detection.port
@@ -1754,6 +1765,8 @@ class TimerManager:
                 self._serial = None  # Ensure it's None before trying to re-open
             if self._read_task:
                 self._read_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._read_task
                 self._read_task = None
 
             try:
@@ -1778,7 +1791,7 @@ class TimerManager:
                 return
 
             self.set_write_fn(self._make_serial_writer())
-            await self.handle_connect()
+            await self._handle_connect()
 
             # Start background read task
             self._read_task = asyncio.create_task(self._read_loop())
@@ -1824,17 +1837,18 @@ class TimerManager:
             while True:
                 await asyncio.sleep(GATE_POLL_SECONDS)
 
-                if self._state not in (TimerState.ARMED, TimerState.READY):
-                    continue
-                if self._gate_watcher_off:
-                    return
+                async with self._event_lock:
+                    if self._state not in (TimerState.ARMED, TimerState.READY):
+                        continue
+                    if self._gate_watcher_off:
+                        return
 
-                now = asyncio.get_event_loop().time()
-                if now - self._last_rx < GATE_QUIET_SECONDS:
-                    continue
+                    now = asyncio.get_event_loop().time()
+                    if now - self._last_rx < GATE_QUIET_SECONDS:
+                        continue
 
-                self._gate_window_until = now + QUERY_WINDOW_SECONDS
-                await self._write_fn(self._device.wire(watcher.command))
+                    self._gate_window_until = now + QUERY_WINDOW_SECONDS
+                    await self._write_fn(self._device.wire(watcher.command))
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -1922,24 +1936,25 @@ class TimerManager:
 
         Returns whether it sent anything.
         """
-        if self._state is not TimerState.CONNECTED:
-            return False
-        if self._active_heat_id is not None:
-            return False
-        if not self._device.probe:
-            return False
+        async with self._event_lock:
+            if self._state is not TimerState.CONNECTED:
+                return False
+            if self._active_heat_id is not None:
+                return False
+            if not self._device.probe:
+                return False
 
-        now = asyncio.get_event_loop().time()
-        if self._last_nudge is not None and now - self._last_nudge < NUDGE_SECONDS:
-            return False
-        self._last_nudge = now
+            now = asyncio.get_event_loop().time()
+            if self._last_nudge is not None and now - self._last_nudge < NUDGE_SECONDS:
+                return False
+            self._last_nudge = now
 
-        logger.info(
-            "Timer %d: connected but unidentified, asking what is there",
-            self._track_id,
-        )
-        await self._send_commands(list(self._device.probe))
-        return True
+            logger.info(
+                "Timer %d: connected but unidentified, asking what is there",
+                self._track_id,
+            )
+            await self._send_commands(list(self._device.probe))
+            return True
 
     async def _watchdog_loop(self) -> None:
         """Monitor connection health and attempt reconnects."""
@@ -2022,7 +2037,7 @@ class TimerManager:
             self._last_error = f"Serial error: {e}"
             logger.error("Timer %d serial error: %s", self._track_id, e)
             async with self._event_lock:
-                await self.handle_disconnect()
+                await self._handle_disconnect()
                 await self._transition(TimerState.FAULT)
         except Exception as e:
             logger.error("Timer %d read loop error: %s", self._track_id, e)
@@ -2034,6 +2049,11 @@ class TimerManager:
 
     async def stop(self) -> None:
         """Stop the timer manager and close any active connections."""
+        async with self._event_lock:
+            await self._stop()
+
+    async def _stop(self) -> None:
+        """Unlocked stop helper; caller must hold ``self._event_lock``."""
         if self._watchdog_task:
             self._watchdog_task.cancel()
             self._watchdog_task = None
@@ -2057,7 +2077,28 @@ class TimerManager:
             self._serial.close()
             self._serial = None
 
-        await self.handle_disconnect()
+        await self._handle_disconnect()
+
+
+def device_for(timer_type: models.TimerType, timer_profile: str | None) -> TimerProfile:
+    """The profile a track should run on.
+
+    ``FAKE`` and ``NONE`` are each their own device — neither is ever probed
+    or refined by anything a track's ``timer_profile`` names. Otherwise it is
+    the model the operator picked, and ``DEFAULT_PROFILE`` only when they
+    picked none — where it is an assumption a probe is expected to replace,
+    not an answer (#143).
+
+    A key that names nothing, or names the fake timer on a transport that needs
+    a real port, falls back rather than failing: a stale setting should leave
+    the track detecting, not leave it dead.
+    """
+    if timer_type == models.TimerType.FAKE:
+        return FAKE
+    if timer_type == models.TimerType.NONE:
+        return NO_TIMER
+    chosen = by_key(timer_profile) if timer_profile else None
+    return chosen if chosen in ALL_PROFILES else DEFAULT_PROFILE
 
 
 async def initialize_timer_managers(
@@ -2086,17 +2127,7 @@ async def initialize_timer_managers(
                 models.TimerType.FAKE if demo_mode.enabled() else track.timer_type
             )
 
-            # `DEFAULT_PROFILE` is the starting assumption for both auto-detect
-            # modes, replaced by whatever answers a probe: below for
-            # backend-direct, and when the browser connects for proxy mode. It
-            # survives only when nothing identifies itself (issue #89).
-            device = (
-                FAKE
-                if timer_type == models.TimerType.FAKE
-                else NO_TIMER
-                if timer_type == models.TimerType.NONE
-                else DEFAULT_PROFILE
-            )
+            device = device_for(timer_type, track.timer_profile)
 
             manager = TimerManager(
                 track.id,
@@ -2120,6 +2151,10 @@ async def initialize_timer_managers(
                 if track.serial_port:
                     asyncio.create_task(manager.connect_direct(track.serial_port))
                 else:
-                    asyncio.create_task(manager.autodetect())
+                    chosen = (
+                        by_key(track.timer_profile) if track.timer_profile else None
+                    )
+                    profiles = [chosen] if chosen in ALL_PROFILES else None
+                    asyncio.create_task(manager.autodetect(profiles))
     finally:
         db.close()

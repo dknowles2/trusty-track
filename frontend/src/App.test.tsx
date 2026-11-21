@@ -12,6 +12,7 @@
  */
 
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -19,6 +20,7 @@ import * as Urql from 'urql';
 
 import { ProtectedRoute, RaceTerminologyGate } from './App';
 import NotFoundPage from './features/core/components/NotFoundPage';
+import { NETWORK_ERROR_TEXT } from './utils/errors';
 
 vi.mock('urql', async () => {
   const actual = await vi.importActual<typeof import('urql')>('urql');
@@ -115,5 +117,47 @@ describe('RaceTerminologyGate (#787)', () => {
     expect(screen.queryByText('the roster page')).not.toBeInTheDocument();
     expect(screen.getByText(/no longer exists/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /go to home/i })).toHaveAttribute('href', '/');
+  });
+});
+
+describe('ProtectedRoute query error (#1383)', () => {
+  const mockUseQuery = Urql.useQuery as unknown as ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows a connection error with retry instead of redirecting to system-settings', async () => {
+    const user = userEvent.setup();
+    const reexecute = vi.fn();
+    mockUseQuery.mockImplementation((opts: { query: unknown }) => {
+      if (operationName(opts.query) === 'GetInitialConfigStatus') {
+        return [
+          {
+            data: undefined,
+            fetching: false,
+            error: { networkError: new Error('Failed to fetch') },
+          },
+          reexecute,
+        ];
+      }
+      return [{ data: undefined, fetching: false, error: undefined }, vi.fn()];
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<ProtectedRoute><div>home</div></ProtectedRoute>} />
+          <Route path="/system-settings" element={<div>system settings</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByText('system settings')).not.toBeInTheDocument();
+    expect(screen.queryByText('home')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(NETWORK_ERROR_TEXT);
+
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    expect(reexecute).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
   });
 });

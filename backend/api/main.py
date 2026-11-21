@@ -5,8 +5,8 @@ Mounts the GraphQL router and static file serving.
 """
 
 import base64
-import io
 import logging
+import math
 import os
 import re
 import sys
@@ -15,6 +15,7 @@ import uuid
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 import pillow_heif
 from dotenv import load_dotenv
@@ -33,9 +34,9 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from PIL import Image
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
+from starlette.datastructures import MutableHeaders
 from strawberry.fastapi import GraphQLRouter
 
 from backend import demo_content, demo_mode
@@ -60,7 +61,7 @@ from backend.services import displays as displays_service
 from backend.services import replays as replays_service
 from backend.services.image_processing import (
     UnreadableImageError,
-    convert_to_browser_safe_png,
+    store_uploaded_image,
 )
 from backend.services.timer import devices
 from backend.services.timer.manager import TimerManager, initialize_timer_managers
@@ -484,6 +485,37 @@ class MaxGraphQLBodySizeMiddleware:
 app.add_middleware(MaxGraphQLBodySizeMiddleware)
 
 
+_SECURITY_HEADERS = (
+    ("x-content-type-options", "nosniff"),
+    ("referrer-policy", "strict-origin-when-cross-origin"),
+    ("x-frame-options", "SAMEORIGIN"),
+)
+
+
+class SecurityHeadersMiddleware:
+    """Attach baseline security headers to every HTTP response (#1360)."""
+
+    def __init__(self, app):  # type: ignore[no-untyped-def]
+        self.app = app
+
+    async def __call__(self, scope, receive, send):  # type: ignore[no-untyped-def]
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def _send_with_headers(message):  # type: ignore[no-untyped-def]
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                for name, value in _SECURITY_HEADERS:
+                    headers.setdefault(name, value)
+            await send(message)
+
+        await self.app(scope, receive, _send_with_headers)
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+
 # Dependency
 def get_db():
     """Yield a database session and ensure it's closed after use."""
@@ -573,7 +605,16 @@ async def get_graphql_context(
     }
 
 
-graphql_app = GraphQLRouter(schema, context_getter=get_graphql_context)
+_GRAPHQL_IDE: Literal["graphiql"] | None = (
+    "graphiql"
+    if os.getenv("TRUSTYTRACK_GRAPHQL_IDE", "").strip().lower() in ("1", "true", "yes")
+    else None
+)
+graphql_app = GraphQLRouter(
+    schema,
+    context_getter=get_graphql_context,
+    graphql_ide=_GRAPHQL_IDE,
+)
 app.include_router(graphql_app, prefix="/graphql")
 # In production the built frontend sends requests to /api/graphql (the Vite dev
 # proxy rewrites /api/* → /* so /graphql above handles dev; this covers production).
@@ -1064,6 +1105,7 @@ def timer_test_report(
 
 @app.post("/replay/")
 async def upload_replay_clip(
+    request: Request,
     race_id: int = Form(...),
     heat_id: int = Form(...),
     recorded_at: str = Form(...),
@@ -1109,6 +1151,19 @@ async def upload_replay_clip(
     """
     _refuse_on_demo("Uploading a replay clip")
 
+    client_ip = request.client.host if request.client else "unknown"
+    retry_after = replays_service.upload_rate_limiter.check(client_ip)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many replay uploads. Please wait before trying again.",
+            headers={"Retry-After": str(math.ceil(retry_after))},
+        )
+
+    camera_id = camera_id.strip()
+    if not camera_id or len(camera_id) > 128:
+        raise HTTPException(status_code=400, detail="Invalid camera_id")
+
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
     if heat is None or heat.race_id != race_id:
         raise HTTPException(status_code=404, detail="No such heat on this race")
@@ -1120,6 +1175,16 @@ async def upload_replay_clip(
             "for a run that no longer exists.",
         )
 
+    key = domain_replays.ReplayKey(heat_id=heat_id, recorded_at=recorded_at)
+    existing_clips = replays_service.store.clips_for(key)
+    if len(existing_clips) >= replays_service.MAX_CLIPS_PER_KEY and not any(
+        c.camera_id == camera_id for c in existing_clips
+    ):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many replay clips for this heat.",
+        )
+
     extension = replays_service.ALLOWED_CONTENT_TYPES.get(file.content_type or "")
     if extension is None:
         raise HTTPException(
@@ -1127,9 +1192,14 @@ async def upload_replay_clip(
             detail=f"Unsupported clip type: {file.content_type or 'unknown'}",
         )
 
-    raw_bytes = await _read_capped(file, replays_service.MAX_REPLAY_CLIP_BYTES)
+    size_limit = min(
+        replays_service.MAX_REPLAY_CLIP_BYTES,
+        replays_service.MAX_REPLAY_STORAGE_BYTES,
+    )
+    raw_bytes = await _read_capped(file, size_limit)
 
     filename, target_path = replays_service.store.new_clip_path(extension)
+    replays_service.store.directory.mkdir(parents=True, exist_ok=True)
     with open(target_path, "wb") as buffer:
         buffer.write(raw_bytes)
 
@@ -1141,8 +1211,19 @@ async def upload_replay_clip(
         duration_ms=duration_ms,
         size_bytes=len(raw_bytes),
     )
-    key = domain_replays.ReplayKey(heat_id=heat_id, recorded_at=recorded_at)
-    replays_service.store.add(key, clip)
+    replaced = replays_service.store.add(key, clip)
+    evicted = replays_service.store.evict_to_cap(
+        replays_service.MAX_REPLAY_STORAGE_BYTES,
+        keep_path=clip.path,
+    )
+    removed_paths = [c.path for c in evicted]
+    if replaced is not None:
+        removed_paths.append(replaced.path)
+    if removed_paths:
+        db.query(models.HeatReplay).filter(
+            models.HeatReplay.path.in_(removed_paths)
+        ).delete(synchronize_session=False)
+        db.commit()
 
     # Stage 2 (#177): a clip only ever gets a `HeatReplay` row when the
     # setting was on at the moment it landed — see that model's own
@@ -1381,34 +1462,6 @@ MAX_UPLOAD_BYTES: int = MAX_UPLOAD_BYTES
 #: How much is read at a time while checking that limit.
 _UPLOAD_CHUNK = 1024 * 1024
 
-#: The extension stored for each format Pillow can report, mirroring the
-#: allowlist ``uploadImage`` (schema.py) already enforces for its GraphQL
-#: twin. `convert_to_browser_safe_png` re-encodes anything outside this set
-#: to PNG, so a format reaching `_sniffed_extension` unconverted is already
-#: guaranteed to be one of these four — the refusal below is defence in
-#: depth, not a path either caller expects to take.
-_EXTENSION_FOR_FORMAT = {
-    "JPEG": ".jpg",
-    "PNG": ".png",
-    "GIF": ".gif",
-    "WEBP": ".webp",
-}
-
-
-def _sniffed_extension(image_bytes: bytes) -> str:
-    """Return the extension for *image_bytes*, derived from the bytes
-    themselves rather than from a filename or a client-supplied content type.
-
-    A caller naming their upload ``x.html`` on a valid small GIF must not get
-    an ``.html`` back — that file is then served from `/static` as HTML on
-    the app's own origin (issue #322).
-    """
-    fmt = Image.open(io.BytesIO(image_bytes)).format
-    ext = _EXTENSION_FOR_FORMAT.get(fmt) if fmt else None
-    if ext is None:
-        raise HTTPException(status_code=400, detail=f"Unsupported image format: {fmt}")
-    return ext
-
 
 async def _read_capped(file: UploadFile, limit: int) -> bytes:
     """Read *file* up to *limit* bytes, refusing anything larger.
@@ -1457,22 +1510,11 @@ async def upload_file(
 
     raw_bytes = await _read_capped(file, MAX_UPLOAD_BYTES)
     try:
-        image_bytes = convert_to_browser_safe_png(raw_bytes)
+        url = store_uploaded_image(raw_bytes, UPLOAD_DIR)
     except UnreadableImageError as error:
         # A corrupt or truncated upload (flaky venue wifi, a half-written
         # camera capture) used to reach here as an uncaught
         # `PIL.UnidentifiedImageError` and surface as a raw 500 (#885).
         raise HTTPException(status_code=400, detail=str(error)) from error
 
-    # The stored extension comes from the sniffed image content, never from
-    # the caller-supplied filename (#322) — a filename claiming `.html` on a
-    # small, browser-native GIF/JPEG polyglot must not end up served as HTML
-    # from this app's own origin.
-    ext = ".png" if image_bytes is not raw_bytes else _sniffed_extension(image_bytes)
-
-    filename = f"{uuid.uuid4()}{ext}"
-    file_path = os.path.join(UPLOAD_DIR, filename)
-    with open(file_path, "wb") as buffer:
-        buffer.write(image_bytes)
-
-    return {"url": f"/static/{filename}"}
+    return {"url": url}

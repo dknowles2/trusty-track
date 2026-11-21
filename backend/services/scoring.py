@@ -475,8 +475,9 @@ def _resolve_ties(
             index + 1 < n
             and leaderboard[start]["heats_completed"] > 0
             and leaderboard[index + 1]["heats_completed"] > 0
-            and float(leaderboard[index + 1]["score"])
-            == float(leaderboard[start]["score"])
+            and domain_scoring.scores_equal(
+                leaderboard[index + 1]["score"], leaderboard[start]["score"]
+            )
         ):
             index += 1
         end = index  # inclusive

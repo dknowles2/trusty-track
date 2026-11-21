@@ -15,6 +15,7 @@ import RaceStatusBadge, { type RaceStatus } from '../components/RaceStatusBadge'
 import { raceListSummary } from '../homeRaceList';
 import { useNarrowViewport } from '../../core/hooks/useNarrowViewport';
 import { useRole } from '../../core/hooks/useRole';
+import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
 // Below this width the table (950px-plus at full column count, per #1137's
 // own measurement) no longer fits — a phone at 390px and a portrait tablet
@@ -261,6 +262,7 @@ export default function Home() {
     const { showAlert, showConfirm } = useAlert();
     const navigate = useNavigate();
     const { isOperator } = useRole();
+    const operatorTitle = !isOperator ? NEEDS_OPERATOR_PIN_MESSAGE : undefined;
     const [showCreate, setShowCreate] = useState(false);
     // Location state check removed as per user request
 
@@ -459,7 +461,8 @@ export default function Home() {
                                     onClick={() => handlePractice(false)}
                                     className="secondary-btn split-btn-main"
                                     data-testid="practice-race"
-                                    disabled={practiceResult.fetching}
+                                    disabled={!isOperator || practiceResult.fetching}
+                                    title={operatorTitle}
                                     style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                                 >
                                     <Icon path={mdiSchool} size={0.8} />
@@ -471,7 +474,8 @@ export default function Home() {
                                         e.stopPropagation();
                                         setIsPracticeMenuOpen(!isPracticeMenuOpen);
                                     }}
-                                    disabled={practiceResult.fetching}
+                                    disabled={!isOperator || practiceResult.fetching}
+                                    title={operatorTitle}
                                     aria-haspopup="menu"
                                     aria-expanded={isPracticeMenuOpen}
                                     aria-label="More practice race options"
@@ -484,7 +488,8 @@ export default function Home() {
                                 onClick={() => handlePractice(false)}
                                 className="secondary-btn"
                                 data-testid="practice-race"
-                                disabled={practiceResult.fetching}
+                                disabled={!isOperator || practiceResult.fetching}
+                                title={operatorTitle}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 <Icon path={mdiSchool} size={0.8} />
@@ -503,8 +508,8 @@ export default function Home() {
                                         setIsPracticeMenuOpen(false);
                                     }}
                                     data-testid="practice-race-start-new"
-                                    disabled={practiceResult.fetching}
-                                    title="Start a new rehearsal instead of resuming this one"
+                                    disabled={!isOperator || practiceResult.fetching}
+                                    title={operatorTitle ?? 'Start a new rehearsal instead of resuming this one'}
                                     style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                                 >
                                     Start a new practice race
@@ -512,7 +517,13 @@ export default function Home() {
                             </div>
                         )}
                     </div>
-                    <button onClick={() => setShowCreate(true)} className="primary-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                        onClick={() => setShowCreate(true)}
+                        className="primary-btn"
+                        disabled={!isOperator}
+                        title={operatorTitle}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
                         <Icon path={mdiPlus} size={0.8} /> Create New Race
                     </button>
                 </div>
@@ -560,7 +571,8 @@ export default function Home() {
                                 <button
                                     onClick={() => handlePractice(false)}
                                     data-testid="practice-race-empty"
-                                    disabled={practiceResult.fetching}
+                                    disabled={!isOperator || practiceResult.fetching}
+                                    title={operatorTitle}
                                     style={{
                                         background: 'none',
                                         border: 'none',
@@ -568,7 +580,8 @@ export default function Home() {
                                         font: 'inherit',
                                         color: 'var(--scouting-blue)',
                                         textDecoration: 'underline',
-                                        cursor: 'pointer',
+                                        cursor: !isOperator || practiceResult.fetching ? 'not-allowed' : 'pointer',
+                                        opacity: !isOperator ? 0.6 : undefined,
                                     }}
                                 >
                                     try a practice race

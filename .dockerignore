@@ -20,9 +20,7 @@ frontend/dist/
 frontend/.vite/
 
 # Development and test files
-backend/test_*.py
-backend/conftest.py
-backend/populate.py
+backend/tests/
 frontend/src/**/*.test.*
 frontend/src/**/*.spec.*
 frontend/playwright-report/

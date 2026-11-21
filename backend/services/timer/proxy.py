@@ -204,12 +204,15 @@ class ProxySession:
                 self._manager.track_id,
                 self._chosen.name,
             )
-        else:
-            logger.info(
-                "Timer %d: nothing identified over the proxy; assuming %s",
-                self._manager.track_id,
-                self._fallback.name,
-            )
+            if await self._reopen(self._chosen):
+                await self._manager.adopt_profile(self._chosen)
+            return
+
+        logger.info(
+            "Timer %d: nothing identified over the proxy; assuming %s",
+            self._manager.track_id,
+            self._fallback.name,
+        )
         if await self._reopen(self._fallback):
             await self._manager.handle_connect()
 

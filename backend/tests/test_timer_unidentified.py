@@ -109,9 +109,12 @@ async def test_nudging_backs_off():
     await manager.stop()
 
 
-async def test_a_reconnect_may_nudge_straight_away():
+async def test_a_reconnect_may_nudge_straight_away(monkeypatch):
     """A fresh connection must not inherit the previous one's backoff and sit
     unidentified for longer than it needs to."""
+    # Prevent the 1s watchdog loop from racing with the 1s reboot settle sleep
+    # in `handle_connect()` and consuming the nudge before the test calls it.
+    monkeypatch.setattr(manager_module, "WATCHDOG_SECONDS", 60.0)
     manager, _ = await connected_and_acknowledged()
     assert await manager.nudge_if_unidentified() is True
 
