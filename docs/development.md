@@ -340,9 +340,15 @@ in `frontend/e2e/docs/`, each walking the real UI against a real backend:
 | `screenshot-awards.spec.ts` | Awards and the ceremony |
 | `screenshot-balanced.spec.ts` | Balanced racing |
 | `screenshot-bulk-upload.spec.ts` | Bulk photo upload |
+| `screenshot-checkin.spec.ts` | The Check-in progress audience display view |
+| `screenshot-district-derby.spec.ts` | District and council derby setup, roster, rounds, and awards |
 | `screenshot-elimination.spec.ts` | Ladderless elimination |
 | `screenshot-free-race.spec.ts` | Free race setup and results |
+| `screenshot-instant-replay.spec.ts` | Instant Replay camera registration, recording, and playback |
+| `screenshot-manual-entry.spec.ts` | Manual result entry modal for a track with no timer |
 | `screenshot-printables.spec.ts` | Print sheets and the check-in scanner |
+| `screenshot-qrcode.spec.ts` | The QR code audience display view |
+| `screenshot-race-settings.spec.ts` | The sectioned race edit form |
 | `screenshot-settings.spec.ts` | System Settings and the activity log |
 | `screenshot-slowest-race.spec.ts` | The slowest race bracket |
 | `screenshot-timers.spec.ts` | Timer settings and the timer check page |
