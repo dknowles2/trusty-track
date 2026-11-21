@@ -1,9 +1,31 @@
 #!/bin/bash
+set -euo pipefail
 
 # Function to kill all child processes on exit
 cleanup() {
     echo "Stopping services..."
-    kill $(jobs -p) 2>/dev/null
+    local pids pid
+    pids="$(jobs -p)"
+    if [ -n "$pids" ]; then
+        while IFS= read -r pid; do
+            [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
+        done <<< "$pids"
+    fi
+}
+
+# Wait until any child process exits (bash 3.2 lacks `wait -n`), then propagate
+# its exit status so `trap cleanup EXIT` tears down the remaining processes.
+wait_for_any() {
+    local pid
+    while true; do
+        for pid in "$@"; do
+            if ! kill -0 "$pid" 2>/dev/null; then
+                wait "$pid"
+                return $?
+            fi
+        done
+        sleep 1
+    done
 }
 
 trap cleanup EXIT
@@ -50,7 +72,7 @@ if [[ "$HTTP_ONLY" == "true" ]]; then
     npm run dev &
     FRONTEND_HTTP_PID=$!
 
-    wait $BACKEND_PID $FRONTEND_HTTP_PID
+    wait_for_any "$BACKEND_PID" "$FRONTEND_HTTP_PID"
     exit 0
 fi
 
@@ -82,5 +104,5 @@ echo "Starting Frontend (HTTPS :5174)..."
 HTTPS_SERVER=true npm run dev &
 FRONTEND_HTTPS_PID=$!
 
-# Wait for all processes
-wait $BACKEND_PID $FRONTEND_HTTP_PID $FRONTEND_HTTPS_PID
+# Wait for all processes (exit if any child terminates)
+wait_for_any "$BACKEND_PID" "$FRONTEND_HTTP_PID" "$FRONTEND_HTTPS_PID"
