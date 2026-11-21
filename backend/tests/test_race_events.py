@@ -88,7 +88,7 @@ async def test_a_heat_result_carries_the_heat(db):
         await schema_module._publish_race_state(
             race.id,
             kind=RaceChangeKind.HEAT_RESULT,
-            heat=db.query(models.Heat).get(heat.id),
+            heat=db.get(models.Heat, heat.id),
             round_id=round_obj.id,
         )
 
@@ -146,7 +146,7 @@ async def test_the_payload_survives_the_session_closing(db):
         await schema_module._publish_race_state(
             race.id,
             kind=RaceChangeKind.HEAT_RESULT,
-            heat=db.query(models.Heat).get(heat.id),
+            heat=db.get(models.Heat, heat.id),
             racer=racer,
         )
 
@@ -203,7 +203,7 @@ async def test_a_heat_payload_carries_its_lanes(db):
         await schema_module._publish_race_state(
             race.id,
             kind=RaceChangeKind.HEAT_RESULT,
-            heat=db.query(models.Heat).get(heat.id),
+            heat=db.get(models.Heat, heat.id),
         )
 
     events = await _capture(race.id, act)
