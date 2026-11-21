@@ -230,7 +230,7 @@ showing the current round's stored replay clips; see that file's
 | `HeatKind`             | `OFFICIAL`, `FREE`, `RUN_OFF` (#550 — settles a tie, never joins the aggregate score) |
 | `SchedulingStrategy`   | `GENERAL`, `ELIMINATION`, `BALANCED` — a round's *format*, not the algorithm that builds a `GENERAL` round's schedule |
 | `SchedulingAlgorithm`  | `PPC`, `ROTATION`, `PERFECT_N` — the algorithm behind a `GENERAL` round's schedule (`Round.algorithm`, nullable, null means `PPC`); registry in `domain/schedulers/__init__.py`, `.claude/rules/scheduling.md`'s "Heat scheduling (PPC)" ([#1090](https://github.com/dknowles2/trusty-track/issues/1090)) |
-| `ScoringStrategy`      | `TIMED` (avg time), `POINTS` (sum of placements) — lower is better for both  |
+| `ScoringStrategy`      | `TIMED` (avg time), `POINTS` (sum of placements), `CUMULATIVE_TIME` (sum of times), `FASTEST_TIME` (single best time) — lower is better for all |
 | `TiebreakMethod`       | `SHARED` (not resolved — the default), `BEST_TIME`, `TOTAL_TIME`, `COUNTBACK`, `HEAD_TO_HEAD` — see `domain/tiebreak.py` (#540) |
 | `TimerType`            | `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`, `NONE`                   |
 
@@ -382,7 +382,7 @@ The architecture review of 2026-07-24 is **closed** ([#18](https://github.com/dk
 | #13 | The race-day flow is one machine in `features/racing/raceFlow.ts`, not effects |
 | #17 | Standings cover preliminary rounds only |
 | #26 | The PPC scheduler fills every lane; `test_domain_scheduling.py` holds the properties |
-| #45 | `ruff check` and `ruff format --check` gate CI over the whole tree (`uv run ruff check .` / `uv run ruff format --check .`, which also covers Python code blocks inside Markdown files, not just `backend scripts packaging`). Keep the tree at zero findings — the point was that a lint nobody enforces accumulates debt in files nobody touches |
+| #45 | `ruff check` and `ruff format --check` gate CI over the whole tree (`uv run ruff check .` / `uv run ruff format --check .`, excluding `docs/` via `extend-exclude = ["docs"]` in `pyproject.toml`, while still covering Python code blocks inside other Markdown files). Keep the tree at zero findings — the point was that a lint nobody enforces accumulates debt in files nobody touches |
 | #125 | Foreign keys are enforced on every connection, and `heat_lanes` carries `ON DELETE` actions. Deletion ordering is the schema's rule, not Python's |
 | #14 | **Keep GraphQL.** 48 mutations against 17 queries — the cost sits where GraphQL adds nothing, and does not shrink in REST |
 | #72 | `heats.lane_results` is dropped. `heat_lanes` is the only copy; migration `0013` proved that per database rather than waiting on a release |
