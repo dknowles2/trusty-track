@@ -51,6 +51,7 @@ import ActivityLog from './features/settings/pages/ActivityLog';
 import { INITIAL_CONFIG_QUERY, RACE_TERMINOLOGY_QUERY } from './features/core/graphql/queries';
 import { DemoSessionGate } from './features/core/components/DemoSessionGate';
 import NotFoundPage from './features/core/components/NotFoundPage';
+import QueryError from './features/core/components/QueryError';
 import type { GetInitialConfigStatusQuery, GetRaceTerminologyQuery } from './gql/operations';
 
 /** Seeds the organization's default terminology for the whole app —
@@ -129,14 +130,20 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // mount refetches once per page load. What keeps the answer fresh is the
   // cache being told to forget it when a config mutation changes it; see
   // `forgetInitialConfig` in `api/graphqlClient.ts`.
-  const [result] = useQuery<GetInitialConfigStatusQuery>({ query: INITIAL_CONFIG_QUERY });
+  const [result, reexecute] = useQuery<GetInitialConfigStatusQuery>({ query: INITIAL_CONFIG_QUERY });
 
   const { data, fetching, error } = result;
 
   if (fetching) return <div>Loading...</div>;
 
   if (error) {
-    console.error("Failed to check init status", error);
+    return (
+      <QueryError
+        error={error}
+        fallback="Trusty Track could not be reached."
+        onRetry={() => reexecute({ requestPolicy: 'network-only' })}
+      />
+    );
   }
 
   const initialized = data?.initialConfig?.initialized ?? false;

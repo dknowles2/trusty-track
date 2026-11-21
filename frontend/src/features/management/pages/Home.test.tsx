@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import '../../../setupTests';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import Home from './Home';
 import { MemoryRouter } from 'react-router-dom';
 import { AlertProvider } from '../../../context/AlertContext';
 import { useQuery, useMutation } from 'urql';
 import { useRole } from '../../core/hooks/useRole';
+import { NEEDS_OPERATOR_PIN_MESSAGE } from '../../core/roleMessage';
 
 /**
  * `useMutation` in Home.tsx backs two different mutations
@@ -122,9 +123,11 @@ describe('Home Page', () => {
     // Helper to mock mutation (defaults to success)
     const mockMutation = vi.fn().mockResolvedValue({ data: {} });
     (useMutation as any).mockReturnValue([{}, mockMutation]);
-    // Every test defaults to OPERATOR; the one test that cares about a
-    // lesser role overrides this itself.
-    (useRole as any).mockReturnValue({ role: 'OPERATOR', isOperator: true, canCheckIn: true });
+    // Every test defaults to OPERATOR; tests that care about a lesser role
+    // override this themselves.
+    beforeEach(() => {
+        (useRole as any).mockReturnValue({ role: 'OPERATOR', isOperator: true, canCheckIn: true });
+    });
 
     it('displays race registered and checked-in counts', async () => {
         const mockRaces = [
@@ -673,5 +676,39 @@ describe('Home Page', () => {
 
         fireEvent.keyDown(document, { key: 'Escape' });
         expect(screen.queryByTestId('race-menu-standings-7')).not.toBeInTheDocument();
+    });
+
+    describe('operator gating on Home creation/practice buttons (#1388)', () => {
+        it('disables Create New Race and practice race buttons with NEEDS_OPERATOR_PIN_MESSAGE for non-operators', async () => {
+            (useRole as any).mockReturnValue({ role: 'VIEWER', isOperator: false, canCheckIn: false });
+            renderHome();
+
+            const createBtn = await screen.findByRole('button', { name: /Create New Race/i });
+            const practiceBtn = screen.getByTestId('practice-race');
+            const emptyPracticeBtn = screen.getByTestId('practice-race-empty');
+
+            expect(createBtn).toBeDisabled();
+            expect(createBtn).toHaveAttribute('title', NEEDS_OPERATOR_PIN_MESSAGE);
+            expect(practiceBtn).toBeDisabled();
+            expect(practiceBtn).toHaveAttribute('title', NEEDS_OPERATOR_PIN_MESSAGE);
+            expect(emptyPracticeBtn).toBeDisabled();
+            expect(emptyPracticeBtn).toHaveAttribute('title', NEEDS_OPERATOR_PIN_MESSAGE);
+        });
+
+        it('disables Resume practice race split button and chevron for non-operators', async () => {
+            (useRole as any).mockReturnValue({ role: 'CHECKIN', isOperator: false, canCheckIn: true });
+            renderHome({
+                races: [{ id: 5, name: 'Practice Race', dateTime: null, location: null, registeredCount: 12, checkedInCount: 12 }],
+                practiceRace: { id: 5, name: 'Practice Race' },
+            });
+
+            const practiceBtn = await screen.findByTestId('practice-race');
+            const chevronBtn = screen.getByRole('button', { name: /More practice race options/i });
+
+            expect(practiceBtn).toBeDisabled();
+            expect(practiceBtn).toHaveAttribute('title', NEEDS_OPERATOR_PIN_MESSAGE);
+            expect(chevronBtn).toBeDisabled();
+            expect(chevronBtn).toHaveAttribute('title', NEEDS_OPERATOR_PIN_MESSAGE);
+        });
     });
 });

@@ -1275,8 +1275,14 @@ export default function RaceControl() {
               raceLocked={race?.isLocked ?? false}
               replayModalOpen={replayModalHeatId !== null}
               onToggleAutoAdvance={async (value) => {
-                await updateRaceMutation({ id, race: { autoAdvanceHeat: value } });
-                reExecute({ requestPolicy: 'network-only' });
+                try {
+                  const result = await updateRaceMutation({ id, race: { autoAdvanceHeat: value } });
+                  if (result.error) throw result.error;
+                  reExecute({ requestPolicy: 'network-only' });
+                } catch (e: unknown) {
+                  console.error('Failed to update auto-advance setting', e);
+                  showAlert(errorText(e, 'Failed to update auto-advance setting.'), 'Error');
+                }
               }}
             />
             {completedPreviousHeats.length > 0 && (

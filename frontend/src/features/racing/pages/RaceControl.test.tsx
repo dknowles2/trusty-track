@@ -45,7 +45,7 @@ vi.mock('../components/ScheduleManagement', () => ({
 }));
 
 vi.mock('../components/RaceExecution', () => ({
-    RaceExecution: ({ onRunHeat, activeExecutionHeat, timerType, onUpdateResult, roundSummary }: any) => (
+    RaceExecution: ({ onRunHeat, activeExecutionHeat, timerType, onUpdateResult, roundSummary, autoAdvanceHeat, onToggleAutoAdvance }: any) => (
         <div data-testid="race-execution">
             Race Execution
             {activeExecutionHeat && <div data-testid="active-heat-id">{activeExecutionHeat.id}</div>}
@@ -74,6 +74,7 @@ vi.mock('../components/RaceExecution', () => ({
                 ]);
             }}>Save Edit With DNF</button>
             <div data-testid="timer-type">{timerType}</div>
+            <button onClick={() => onToggleAutoAdvance?.(!autoAdvanceHeat)}>Toggle Auto-Advance</button>
         </div>
     )
 }));
@@ -1168,6 +1169,95 @@ describe('RaceControl Page', () => {
         );
         const heading = await screen.findByTestId('race-control-header');
         expect(within(heading).queryByText('Locked')).not.toBeInTheDocument();
+    });
+
+    // -----------------------------------------------------------------
+    // Auto-advance toggle mutation (#1385)
+    // -----------------------------------------------------------------
+
+    it('updates auto-advance and refetches when toggling succeeds (#1385)', async () => {
+        const mockReExecute = vi.fn();
+        (useQuery as any).mockReturnValue([
+            { data: mockRaceData, fetching: false, error: null },
+            mockReExecute,
+        ]);
+        const mockUpdateRace = vi.fn().mockResolvedValue({ data: { updateRace: { id: 1, autoAdvanceHeat: true } } });
+        (useMutation as any).mockReturnValue([{ fetching: false }, mockUpdateRace]);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control/race`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        const toggleButton = await screen.findByText('Toggle Auto-Advance');
+        mockReExecute.mockClear();
+        fireEvent.click(toggleButton);
+
+        await waitFor(() => {
+            expect(mockUpdateRace).toHaveBeenCalledWith({ id: 1, race: { autoAdvanceHeat: true } });
+            expect(mockReExecute).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
+        });
+    });
+
+    it('shows an alert and skips refetch when auto-advance mutation returns an error (#1385)', async () => {
+        const mockReExecute = vi.fn();
+        (useQuery as any).mockReturnValue([
+            { data: mockRaceData, fetching: false, error: null },
+            mockReExecute,
+        ]);
+        const mockUpdateRace = vi.fn().mockResolvedValue({
+            error: { message: 'Race is locked', graphQLErrors: [{ message: 'Race is locked' }] },
+        });
+        (useMutation as any).mockReturnValue([{ fetching: false }, mockUpdateRace]);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control/race`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        const toggleButton = await screen.findByText('Toggle Auto-Advance');
+        mockReExecute.mockClear();
+        fireEvent.click(toggleButton);
+
+        expect(await screen.findByText('Race is locked')).toBeInTheDocument();
+        expect(mockReExecute).not.toHaveBeenCalled();
+    });
+
+    it('shows an alert and skips refetch when auto-advance mutation rejects (#1385)', async () => {
+        const mockReExecute = vi.fn();
+        (useQuery as any).mockReturnValue([
+            { data: mockRaceData, fetching: false, error: null },
+            mockReExecute,
+        ]);
+        const mockUpdateRace = vi.fn().mockRejectedValue(new Error('Network down'));
+        (useMutation as any).mockReturnValue([{ fetching: false }, mockUpdateRace]);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control/race`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        const toggleButton = await screen.findByText('Toggle Auto-Advance');
+        mockReExecute.mockClear();
+        fireEvent.click(toggleButton);
+
+        expect(await screen.findByText('Network down')).toBeInTheDocument();
+        expect(mockReExecute).not.toHaveBeenCalled();
     });
 });
 

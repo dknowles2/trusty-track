@@ -120,6 +120,33 @@ class TestWritingAnArchive:
         finally:
             connection.close()
 
+    def test_concurrent_write_archive_calls_do_not_collide(
+        self, data_dir: Path, source_engine
+    ) -> None:
+        """Overlapping backups sharing ``staging_dir`` must use distinct
+        snapshot files so they never overwrite or unlink each other (#1377)."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        def write_one(idx: int) -> Path:
+            dest = data_dir / f"backup-{idx}.zip"
+            backup.write_archive(
+                dest,
+                engine=source_engine,
+                upload_dir=data_dir / "uploads",
+                app_version="1.2.3",
+                staging_dir=data_dir / "staging",
+            )
+            return dest
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            archives = list(pool.map(write_one, range(4)))
+
+        for archive in archives:
+            with zipfile.ZipFile(archive) as zf:
+                assert set(zf.namelist()) == {"manifest.json", "trusty-track.db"}
+
+        assert list((data_dir / "staging").iterdir()) == []
+
     def test_it_survives_an_install_that_has_taken_no_photographs(
         self, data_dir: Path, source_engine
     ) -> None:

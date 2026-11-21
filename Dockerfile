@@ -29,10 +29,12 @@ RUN useradd --system --create-home --home-dir /home/trustytrack --shell /usr/sbi
 
 WORKDIR /app
 
-# Install Python dependencies using uv
-COPY pyproject.toml ./
+# Install Python dependencies using uv from uv.lock
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project --no-cache
 COPY backend/ ./backend/
-RUN uv pip install --system --no-cache .
+RUN uv sync --frozen --no-dev --no-editable --no-cache
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy the built frontend from Stage 1
 COPY --from=frontend-build /app/frontend/dist /app/frontend/dist

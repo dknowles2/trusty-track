@@ -244,7 +244,7 @@ serve back later.
 
 **Turning this on is not available on the public demo** — it means writing
 a file to disk on every upload, the same reason the demo has no cameras at
-all (see [Troubleshooting](#troubleshooting) above).
+all (see [Troubleshooting](#troubleshooting) below).
 
 ### Replaying an Earlier Heat
 
