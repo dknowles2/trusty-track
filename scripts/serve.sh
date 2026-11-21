@@ -11,7 +11,7 @@ if [ ! -d ".venv" ]; then
 fi
 
 source .venv/bin/activate
-export PYTHONPATH=${PYTHONPATH:-}:$(pwd)
+export PYTHONPATH="${PYTHONPATH:+$PYTHONPATH:}$(pwd)"
 
 # TRUSTYTRACK_HTTP_ONLY (see
 # docs/reference/roles-and-permissions.md#https-certificates-and-plain-http)
