@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import RacerAvatar from './RacerAvatar';
 
 export interface RacerOption {
@@ -23,6 +23,7 @@ function racerLabel(r: RacerOption) {
 }
 
 export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange, placeholder, style, className }) => {
+  const listboxId = useId();
   const assigned = racers.find((r) => r.id === value);
   const [inputValue, setInputValue] = useState(assigned ? racerLabel(assigned) : '');
   const [isOpen, setIsOpen] = useState(false);
@@ -117,6 +118,9 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
         ref={inputRef}
         type="text"
         role="combobox"
+        aria-expanded={isOpen}
+        aria-controls={listboxId}
+        aria-autocomplete="list"
         value={inputValue}
         placeholder={placeholder || '— Select racer —'}
         onFocus={handleFocus}
@@ -131,12 +135,13 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
           padding: '10px',
           borderRadius: '4px',
           border: `1px solid ${isOpen ? 'var(--scouting-blue)' : 'var(--input-border-color)'}`,
-          outline: 'none',
         }}
       />
       {isOpen && (
         <ul
           ref={listRef}
+          id={listboxId}
+          role="listbox"
           style={{
             position: 'absolute',
             top: '100%',
@@ -159,6 +164,8 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
           ) : (
             <>
               <li
+                role="option"
+                aria-selected={false}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   commit(undefined);
@@ -176,6 +183,8 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
               {filtered.map((r, i) => (
                 <li
                   key={r.id}
+                  role="option"
+                  aria-selected={i === activeIndex}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     commit(r);

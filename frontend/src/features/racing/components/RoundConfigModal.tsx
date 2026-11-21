@@ -213,8 +213,10 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
     padding: '10px',
     textAlign: 'center',
     cursor: 'pointer',
+    border: 'none',
     borderBottom: active ? '3px solid var(--scouting-blue)' : '3px solid transparent',
     fontWeight: active ? 'bold' : 'normal',
+    fontSize: 'inherit',
     color: active ? 'var(--scouting-blue)' : 'var(--text-muted-color)',
     transition: 'all 0.2s',
     background: active ? 'var(--surface-hover-color)' : 'none'
@@ -224,11 +226,21 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Add Round" maxWidth="500px">
       <form onSubmit={handleSubmit}>
         {/* Type Tabs */}
-        <div style={{ display: 'flex', marginBottom: '20px', borderBottom: '1px solid var(--divider-color)' }}>
-          <div style={tabStyle(effectiveType === 'GENERAL')} onClick={() => chooseType('GENERAL')}>
+        <div role="tablist" style={{ display: 'flex', marginBottom: '20px', borderBottom: '1px solid var(--divider-color)' }}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={effectiveType === 'GENERAL'}
+            style={tabStyle(effectiveType === 'GENERAL')}
+            onClick={() => chooseType('GENERAL')}
+          >
             Qualifying Round
-          </div>
-          <div
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={effectiveType === 'CHAMPIONSHIP'}
+            aria-disabled={!hasGeneralRound}
             style={{
               ...tabStyle(effectiveType === 'CHAMPIONSHIP'),
               opacity: hasGeneralRound ? 1 : 0.5,
@@ -242,7 +254,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
             title={!hasGeneralRound ? "Schedule at least one qualifying round first" : ""}
           >
             Championship Round
-          </div>
+          </button>
         </div>
 
         {/* This reads the raw `type`, not `effectiveType` — the point of the

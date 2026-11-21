@@ -268,6 +268,8 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
                         box, unchanged. Every modal shares this one button,
                         so the fix reaches all of them at once. */}
                     <button
+                        type="button"
+                        aria-label="Close"
                         onClick={onClose}
                         className="modal-close-btn"
                         style={{

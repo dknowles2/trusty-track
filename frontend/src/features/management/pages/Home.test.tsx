@@ -661,4 +661,17 @@ describe('Home Page', () => {
             resolveMutation({ data: { createPracticeRace: { id: 1, name: 'Practice Race' } } });
         });
     });
+
+    it('closes the race row dropdown menu when Escape is pressed (#1387)', async () => {
+        renderHome({
+            races: [{ id: 7, name: 'Annual Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0 }],
+        });
+
+        await screen.findByText('Annual Derby');
+        fireEvent.click(screen.getByTestId('race-more-menu-7'));
+        expect(screen.getByTestId('race-menu-standings-7')).toBeInTheDocument();
+
+        fireEvent.keyDown(document, { key: 'Escape' });
+        expect(screen.queryByTestId('race-menu-standings-7')).not.toBeInTheDocument();
+    });
 });

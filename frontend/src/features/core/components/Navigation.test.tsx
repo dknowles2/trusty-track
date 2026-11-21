@@ -388,4 +388,65 @@ describe('Navigation Component', () => {
             expect(screen.getByText('Select a Race')).toBeInTheDocument();
         });
     });
+
+    describe('accessibility (#1387)', () => {
+        it('exposes aria-expanded/aria-haspopup on the race switcher pill and closes it on Escape', () => {
+            mockUseQuery.mockReturnValue([{
+                data: { races: [{ id: 1, name: 'Race 1', isLocked: false }] },
+                fetching: false,
+                error: undefined,
+            }]);
+
+            render(
+                <AlertProvider>
+                    <MemoryRouter initialEntries={['/race/1']}>
+                        <Navigation />
+                    </MemoryRouter>
+                </AlertProvider>
+            );
+
+            const pill = screen.getByTestId('race-selector-pill');
+            expect(pill).toHaveAttribute('type', 'button');
+            expect(pill).toHaveAttribute('aria-haspopup', 'menu');
+            expect(pill).toHaveAttribute('aria-expanded', 'false');
+
+            fireEvent.click(pill);
+            expect(pill).toHaveAttribute('aria-expanded', 'true');
+
+            fireEvent.keyDown(document, { key: 'Escape' });
+            expect(pill).toHaveAttribute('aria-expanded', 'false');
+        });
+
+        it('marks the mobile drawer as a modal dialog and closes it on Escape', () => {
+            const origInnerWidth = window.innerWidth;
+            Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 390 });
+            try {
+                mockUseQuery.mockReturnValue([{
+                    data: { races: [{ id: 1, name: 'Race 1', isLocked: false }] },
+                    fetching: false,
+                    error: undefined,
+                }]);
+
+                render(
+                    <AlertProvider>
+                        <MemoryRouter initialEntries={['/race/1']}>
+                            <Navigation />
+                        </MemoryRouter>
+                    </AlertProvider>
+                );
+
+                const drawer = screen.getByTestId('mobile-drawer');
+                expect(drawer).toHaveAttribute('role', 'dialog');
+                expect(drawer).not.toHaveAttribute('aria-modal', 'true');
+
+                fireEvent.click(screen.getByLabelText('Open Menu'));
+                expect(drawer).toHaveAttribute('aria-modal', 'true');
+
+                fireEvent.keyDown(document, { key: 'Escape' });
+                expect(drawer).not.toHaveAttribute('aria-modal', 'true');
+            } finally {
+                Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: origInnerWidth });
+            }
+        });
+    });
 });
