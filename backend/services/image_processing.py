@@ -140,9 +140,7 @@ def sniffed_extension(image_bytes: bytes) -> str:
     return ext
 
 
-def store_uploaded_image(
-    raw_bytes: bytes, upload_dir: str | os.PathLike[str]
-) -> str:
+def store_uploaded_image(raw_bytes: bytes, upload_dir: str | os.PathLike[str]) -> str:
     """Convert, sniff extension, and write *raw_bytes* to *upload_dir*.
 
     Returns the static URL for the stored image. Shared by ``POST /upload/``
