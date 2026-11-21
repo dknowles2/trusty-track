@@ -1,10 +1,19 @@
 import io
+import os
+import uuid
 
 import numpy as np
 from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 
 # Formats natively supported by all major browsers.
 _BROWSER_NATIVE_FORMATS = {"JPEG", "PNG", "GIF", "WEBP"}
+
+_EXTENSION_FOR_FORMAT = {
+    "JPEG": ".jpg",
+    "PNG": ".png",
+    "GIF": ".gif",
+    "WEBP": ".webp",
+}
 
 # Maximum dimension for uploaded images (racer photos, etc.)
 MAX_IMAGE_SIZE = 1024
@@ -114,6 +123,38 @@ def convert_to_browser_safe_png(
         raise UnreadableImageError(
             "That file is not a photo Trusty Track can read."
         ) from error
+
+
+def sniffed_extension(image_bytes: bytes) -> str:
+    """Return the extension for *image_bytes*, derived from the bytes
+    themselves rather than from a filename or a client-supplied content type.
+
+    A caller naming their upload ``x.html`` on a valid small GIF must not get
+    an ``.html`` back — that file is then served from `/static` as HTML on
+    the app's own origin (issue #322).
+    """
+    fmt = Image.open(io.BytesIO(image_bytes)).format
+    ext = _EXTENSION_FOR_FORMAT.get(fmt) if fmt else None
+    if ext is None:
+        raise UnreadableImageError(f"Unsupported image format: {fmt}")
+    return ext
+
+
+def store_uploaded_image(raw_bytes: bytes, upload_dir: str | os.PathLike[str]) -> str:
+    """Convert, sniff extension, and write *raw_bytes* to *upload_dir*.
+
+    Returns the static URL for the stored image. Shared by ``POST /upload/``
+    and ``Mutation.upload_image`` (#1381). Raises ``UnreadableImageError``
+    (a ``ValueError`` subclass) if *raw_bytes* cannot be decoded or has an
+    unsupported format.
+    """
+    image_bytes = convert_to_browser_safe_png(raw_bytes)
+    ext = ".png" if image_bytes is not raw_bytes else sniffed_extension(image_bytes)
+    filename = f"{uuid.uuid4()}{ext}"
+    file_path = os.path.join(upload_dir, filename)
+    with open(file_path, "wb") as buffer:
+        buffer.write(image_bytes)
+    return f"/static/{filename}"
 
 
 def _exif_transposed(img: Image.Image) -> Image.Image:
