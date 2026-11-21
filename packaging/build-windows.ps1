@@ -6,7 +6,7 @@
 #
 # Prerequisites:
 #   - Python 3.10+
-#   - Node.js 18+
+#   - Node.js 22+
 #   - Inno Setup 6  (https://jrsoftware.org/isinfo.php)  -- not needed with -ExeOnly
 #
 # ASCII only, deliberately. Windows PowerShell 5.1 decodes a UTF-8 file with no
