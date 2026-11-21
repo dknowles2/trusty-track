@@ -114,6 +114,6 @@ test('imports a roster from DerbyNet through the merged menu entry', async ({ pa
     await expect(page.getByText('Alex Rivera')).toBeVisible();
     await page.getByRole('button', { name: /Import 1 Racer/ }).click();
     await expect(page.getByText('Imported 1 racer.')).toBeVisible();
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
     await expect(page.getByText('Alex', { exact: true })).toBeVisible();
 });

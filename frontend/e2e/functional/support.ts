@@ -370,7 +370,7 @@ export async function recordRound(
 export async function dismissRoundSummary(page: Page): Promise<void> {
     const summary = page.getByRole('dialog', { name: 'Round Complete!' });
     if (await summary.isVisible()) {
-        await summary.getByRole('button', { name: '×' }).click();
+        await summary.getByRole('button', { name: 'Close', exact: true }).click();
         await expect(summary).toBeHidden();
     }
 }

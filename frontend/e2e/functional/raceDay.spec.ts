@@ -306,7 +306,7 @@ test('the last heat of the race raises a summary pointing at standings, awards a
         `/race/${raceId}/print/results`,
     );
 
-    await summary.getByRole('button', { name: '×' }).click();
+    await summary.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(summary).toBeHidden();
 
     // A race that finished before the screen opened is history, not news.
@@ -372,7 +372,7 @@ test('finishing a round built via Add Round, with no championship yet, offers to
         'href',
         `/race/${raceId}/standings`,
     );
-    await notDone.getByRole('button', { name: '×' }).click();
+    await notDone.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(notDone).toBeHidden();
 
     // The operator now adds the championship round the modal offered.
@@ -498,7 +498,7 @@ test('a round summary can be raised again once its round is decided a second tim
     // Dismissed the ordinary way — an operator moving on to the next heat.
     // The modal's own "×" is `flow.dismissSummary`, not `handleNextHeat`, so
     // this does not touch `roundSummary` either way; it only hides the modal.
-    await summary.getByRole('button', { name: '×' }).click();
+    await summary.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(summary).toBeHidden();
 
     // Clear this heat's result through Edit — blanking every time field
