@@ -47,15 +47,16 @@ def _mutation_call_names(func: ast.AsyncFunctionDef | ast.FunctionDef) -> set[st
 
 
 def test_every_heat_stranding_delete_mutation_revalidates_timers():
-    schema_path = Path(__file__).resolve().parents[1] / "api" / "schema.py"
-    tree = ast.parse(schema_path.read_text())
+    schema_dir = Path(__file__).resolve().parents[1] / "api" / "schema"
 
     found: dict[str, set[str]] = {}
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
-            node.name in MUST_REVALIDATE
-        ):
-            found[node.name] = _mutation_call_names(node)
+    for py_file in sorted(schema_dir.rglob("*.py")):
+        tree = ast.parse(py_file.read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
+                node.name in MUST_REVALIDATE
+            ):
+                found[node.name] = _mutation_call_names(node)
 
     missing_functions = MUST_REVALIDATE - found.keys()
     assert not missing_functions, (
