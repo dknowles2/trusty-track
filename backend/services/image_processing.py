@@ -75,11 +75,7 @@ def convert_to_browser_safe_png(
                 img = crop_to_content(img)
                 # If cropping changed the image or metadata was present,
                 # continue to re-encoding. Otherwise return original bytes.
-                if (
-                    not has_metadata
-                    and img.size[0] == width
-                    and img.size[1] == height
-                ):
+                if not has_metadata and img.size[0] == width and img.size[1] == height:
                     return image_bytes
             elif not has_metadata:
                 return image_bytes
