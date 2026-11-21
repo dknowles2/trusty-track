@@ -136,14 +136,14 @@ function Trophy(props: ArtworkProps) {
   return (
     <Frame {...props}>
       <path
-        d="M22 28 C 14 28, 10 38, 14 48 C 18 56, 26 58, 32 58"
+        d="M28 27 C 15 27, 10 37, 14 47 C 18 55, 27 57, 35 56"
         fill="none"
         stroke={LINE}
         strokeWidth={3}
         strokeLinecap="round"
       />
       <path
-        d="M78 28 C 86 28, 90 38, 86 48 C 82 56, 74 58, 68 58"
+        d="M72 27 C 85 27, 90 37, 86 47 C 82 55, 73 57, 65 56"
         fill="none"
         stroke={LINE}
         strokeWidth={3}
@@ -224,11 +224,11 @@ function Tortoise(props: ArtworkProps) {
       <path d="M 17 62 C 16 33, 73 31, 75 62 C 60 64, 30 64, 17 62 Z" fill="url(#ttGoldGrad)" stroke={LINE} strokeWidth={2.8} strokeLinejoin="round" />
       {/* Shell Specular Highlight Arc */}
       <path d="M 40 44 C 47 38, 57 38, 64 44" stroke="rgba(255, 255, 255, 0.6)" strokeWidth={1.8} strokeLinecap="round" fill="none" />
+      {/* Scute Plates Pattern (endpoints stay inside the carapace dome) */}
+      <path d="M 37 45 L 53 45 L 59 53 L 53 61 L 37 61 L 31 53 Z" fill="none" stroke={LINE} strokeWidth={2} strokeLinejoin="round" />
+      <path d="M 45 45 L 45 38 M 53 45 L 60 40 M 59 53 L 71 54 M 53 61 L 55 63 M 37 61 L 35 63 M 31 53 L 19 54 M 37 45 L 29 40" fill="none" stroke={LINE} strokeWidth={1.8} strokeLinecap="round" />
       {/* Shell Rim trim */}
       <path d="M 16 62 C 30 65, 62 65, 76 62" fill="none" stroke={LINE} strokeWidth={2.5} strokeLinecap="round" />
-      {/* Scute Plates Pattern */}
-      <path d="M 37 44 L 53 44 L 59 52 L 53 61 L 37 61 L 31 52 Z" fill="none" stroke={LINE} strokeWidth={2} strokeLinejoin="round" />
-      <path d="M 45 44 L 45 35 M 53 44 L 63 38 M 59 52 L 72 54 M 53 61 L 56 63 M 37 61 L 34 63 M 31 52 L 19 53 M 37 44 L 27 38" fill="none" stroke={LINE} strokeWidth={1.8} strokeLinecap="round" />
       {/* Near Rear Foot */}
       <path d="M 27 63 C 27 71, 29 76, 35 76 C 41 76, 42 70, 40 63 Z" fill={FILL} stroke={LINE} strokeWidth={2.5} strokeLinejoin="round" />
       {/* Near Front Foot */}
