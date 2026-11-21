@@ -58,6 +58,8 @@ import hmac
 import inspect
 import logging
 import secrets
+import time
+from collections import deque
 from enum import Enum
 from typing import Any
 
@@ -253,6 +255,89 @@ POLICY: dict[Role, frozenset[str]] = {
 
 class PermissionDeniedError(Exception):
     """A caller ran a mutation their role does not carry."""
+
+
+class PinRateLimitError(PermissionDeniedError):
+    """Raised when a client IP exceeds the failed-PIN attempt limit (#1358)."""
+
+    def __init__(self, retry_after: float) -> None:
+        self.retry_after = retry_after
+        super().__init__(
+            "Too many failed PIN attempts. Please wait before trying again."
+        )
+
+
+PIN_RATE_LIMIT_MAX_FAILURES = 10
+PIN_RATE_LIMIT_WINDOW_SECONDS = 60.0
+PIN_RATE_LIMIT_MAX_TRACKED_KEYS = 4096
+
+
+class PinRateLimiter:
+    """In-memory sliding-window rate limiter for failed PIN attempts (#1358)."""
+
+    def __init__(
+        self,
+        max_failures: int = PIN_RATE_LIMIT_MAX_FAILURES,
+        window_seconds: float = PIN_RATE_LIMIT_WINDOW_SECONDS,
+        max_tracked_keys: int = PIN_RATE_LIMIT_MAX_TRACKED_KEYS,
+    ) -> None:
+        self.max_failures = max_failures
+        self.window_seconds = window_seconds
+        self.max_tracked_keys = max_tracked_keys
+        self._failures: dict[str, deque[float]] = {}
+
+    def is_limited(self, key: str, now: float | None = None) -> float | None:
+        """Return retry-after seconds if *key* is currently locked out, else None."""
+        if self.max_failures <= 0:
+            return self.window_seconds
+        current = time.monotonic() if now is None else now
+        cutoff = current - self.window_seconds
+        timestamps = self._failures.get(key)
+        if timestamps is None:
+            return None
+        while timestamps and timestamps[0] <= cutoff:
+            timestamps.popleft()
+        if not timestamps:
+            del self._failures[key]
+            return None
+        if len(timestamps) >= self.max_failures:
+            return max(1.0, timestamps[0] + self.window_seconds - current)
+        return None
+
+    def record_failure(self, key: str, now: float | None = None) -> None:
+        """Record a failed PIN attempt for *key*."""
+        current = time.monotonic() if now is None else now
+        cutoff = current - self.window_seconds
+        timestamps = self._failures.get(key)
+        if timestamps is not None:
+            while timestamps and timestamps[0] <= cutoff:
+                timestamps.popleft()
+        else:
+            if len(self._failures) >= self.max_tracked_keys:
+                self._prune(cutoff)
+            if len(self._failures) >= self.max_tracked_keys:
+                oldest_key = next(iter(self._failures))
+                del self._failures[oldest_key]
+            timestamps = deque()
+            self._failures[key] = timestamps
+        timestamps.append(current)
+
+    def clear_key(self, key: str) -> None:
+        self._failures.pop(key, None)
+
+    def _prune(self, cutoff: float) -> None:
+        for k in list(self._failures):
+            ts = self._failures[k]
+            while ts and ts[0] <= cutoff:
+                ts.popleft()
+            if not ts:
+                del self._failures[k]
+
+    def clear(self) -> None:
+        self._failures.clear()
+
+
+pin_rate_limiter = PinRateLimiter()
 
 
 def _pin_needed_for(field_name: str) -> str:
