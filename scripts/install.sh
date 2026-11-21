@@ -45,7 +45,9 @@ else
     echo "uv not found, using standard venv..."
     python3 -m venv .venv
     source .venv/bin/activate
-    pip install -e ".[dev,docs]"
+    # pip >= 25.1 is required for PEP 735 `--group` support.
+    pip install --upgrade "pip>=25.1"
+    pip install --group dev --group docs -e .
 fi
 
 echo "### Setting up Frontend..."
