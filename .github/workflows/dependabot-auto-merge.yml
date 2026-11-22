@@ -1,0 +1,39 @@
+# Enable GitHub auto-merge (squash) on Dependabot PRs that carry low-risk
+# minor/patch updates in the `backend`, `frontend`, or `actions` groups.
+# Major updates and high-impact packages (`react`, `vite`) are left for
+# human review; `pull_request_target` is safe here because the workflow never
+# checks out or executes code from the PR branch.
+name: Dependabot Auto-Merge
+
+on:
+  pull_request_target:
+
+permissions:
+  contents: read
+
+jobs:
+  auto-merge:
+    name: Auto-merge safe Dependabot updates
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for safe minor/patch groups
+        if: |
+          (steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+           steps.metadata.outputs.update-type == 'version-update:semver-patch') &&
+          (steps.metadata.outputs.dependency-group == 'backend' ||
+           steps.metadata.outputs.dependency-group == 'frontend' ||
+           steps.metadata.outputs.dependency-group == 'actions')
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
