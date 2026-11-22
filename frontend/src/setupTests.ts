@@ -1,7 +1,4 @@
-import { expect } from 'vitest';
-import * as matchers from '@testing-library/jest-dom/matchers';
-
-expect.extend(matchers);
+import '@testing-library/jest-dom/vitest';
 
 // jsdom implements no layout, so it has no scrollIntoView. Any component that
 // keeps a log or a list pinned to the bottom calls it from an effect and would
